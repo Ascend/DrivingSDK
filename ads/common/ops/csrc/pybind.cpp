@@ -66,4 +66,9 @@ void init_common(pybind11::module &m)
 
     // npu_broadcast
     m.def("npu_broadcast", &npu_broadcast);
+    
+    // npu_moe_tutel
+    m.def("npu_moe_tutel", &npu_moe_tutel, "npu_moe_tutel NPU version");
+    m.def("npu_moe_tutel_data_backward", &npu_moe_tutel_data_backward, "npu_moe_tutel_data_backward NPU version");
+    m.def("npu_moe_tutel_gate_backward", &npu_moe_tutel_gate_backward, "npu_moe_tutel_gate_backward NPU version");
 }

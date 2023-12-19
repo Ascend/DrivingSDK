@@ -21,3 +21,4 @@ from .ops.npu_bounding_box_encode import npu_bounding_box_encode
 from .ops.npu_batch_nms import npu_batch_nms
 from .ops.npu_confusion_transpose import npu_confusion_transpose
 from .ops.npu_broadcast import npu_broadcast
+from .ops.npu_moe_tutel import npu_moe_tutel

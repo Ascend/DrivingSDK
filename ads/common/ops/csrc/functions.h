@@ -116,5 +116,21 @@ at::Tensor npu_conv_transpose2d(
     int64_t groups);
 at::Tensor npu_broadcast(const at::Tensor& self, at::IntArrayRef size);
 at::Tensor& npu_broadcast_out(const at::Tensor& self, at::IntArrayRef size, at::Tensor& result);
+at::Tensor npu_moe_tutel(
+    const at::Tensor &self,
+    const at::Tensor &gates,
+    const at::Tensor &indices,
+    const at::Tensor &locations,
+    int64_t capacity);
+at::Tensor npu_moe_tutel_data_backward(
+    const at::Tensor &y_grad,
+    const at::Tensor &gates,
+    const at::Tensor &indices,
+    const at::Tensor &locations);
+at::Tensor npu_moe_tutel_gate_backward(
+    const at::Tensor &self,
+    const at::Tensor &y_grad,
+    const at::Tensor &indices,
+    const at::Tensor &locations);
 
 #endif // __FUNCTIONS_H__
