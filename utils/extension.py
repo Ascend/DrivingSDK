@@ -16,6 +16,7 @@
 
 import os
 import site
+from pkg_resources import parse_version
 
 import setuptools
 import torch
@@ -75,4 +76,10 @@ def NpuExtension(name, sources, *args, **kwargs):
     kwargs['libraries'] = libraries
 
     kwargs['language'] = 'c++'
+
+    define_macros = []
+    if parse_version(torch.__version__) < parse_version('2.1.0'):
+        define_macros += [('COMPILE_WITH_XLA', None)]
+    kwargs['define_macros'] = define_macros
+
     return setuptools.Extension(name, sources, *args, **kwargs)
