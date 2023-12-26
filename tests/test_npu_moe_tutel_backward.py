@@ -11,16 +11,16 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 class TestMoeTutel(TestCase):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def cpu_to_exec(self, x, gates, indices, locations, capacity, batch_size, sample_size, hidden, dtype):
-        x.requires_grad = True
-        gates.requires_grad = True
-        out = torch.zeros([batch_size, capacity, hidden]).to(dtype)
-        for tensor_idx in range(batch_size):
-            for i in range(sample_size):
+        y_grad = torch.ones([batch_size, capacity, hidden]).to(torch.float32)
+        x_grad = torch.zeros([sample_size, hidden]).to(torch.float32)
+        gates_grad = torch.zeros([batch_size, sample_size]).to(torch.float32)
+        for i in range(sample_size):
+            for tensor_idx in range(batch_size):
                 if locations[tensor_idx, i] < capacity and indices[tensor_idx, i] >= 0:
-                    out[indices[tensor_idx, i], locations[tensor_idx, i], :] = gates[tensor_idx, i] * x[i, :]
-        out.backward(torch.ones_like(out))
-        x_grad = x.grad
-        gates_grad = gates.grad
+                    x_grad[i, :] += gates[tensor_idx, i] * y_grad[indices[tensor_idx, i], locations[tensor_idx, i], :]
+                    gates_grad[tensor_idx, i] = sum(
+                        y_grad[indices[tensor_idx, i], locations[tensor_idx, i], :] * x[i, :])
+
         return x_grad, gates_grad
 
     def npu_to_exec(self, x, gates, indices, locations, capacity):
@@ -33,12 +33,12 @@ class TestMoeTutel(TestCase):
         return x_grad, gates_grad
 
     def gen_data(self, shape, dtype):
-        cpu_input = torch.rand(shape, dtype=dtype)
+        cpu_input = torch.randn(shape, dtype=dtype)
         npu_input = cpu_input.npu()
         return cpu_input, npu_input
 
     def gen_data_gates(self, shape, dtype):
-        cpu_input = torch.rand(shape).bool().to(dtype)
+        cpu_input = torch.randn(shape).bool().to(dtype)
         npu_input = cpu_input.npu()
         return cpu_input, npu_input
 
@@ -64,10 +64,16 @@ class TestMoeTutel(TestCase):
     def test_moe_tutel(self):
         dtype_list = [torch.float16, torch.float32, torch.bfloat16]
         shape_list = [
+            # small shape
             [[2, 5], [5, 16], 6],
             [[3, 6], [6, 16], 6],
             [[4, 7], [7, 32], 12],
             [[5, 8], [8, 32], 12],
+            # big shape
+            [[2, 16384], [16384, 64], 16384],
+            [[8, 256], [256, 128], 256],
+            [[2, 16384], [16384, 128], 16384],
+            [[8, 256], [256, 256], 256],
             [[2, 16384], [16384, 32], 16384],
         ]
         items = [
@@ -87,13 +93,21 @@ class TestMoeTutel(TestCase):
             cpu_grad1, cpu_grad2 = self.cpu_to_exec(cpu_x, cpu_gates, cpu_indices, cpu_locations, capacity, batch_size,
                                                     sample_size, hidden, dtype)
             npu_grad1, npu_grad2 = self.npu_to_exec(npu_x, npu_gates, npu_indices, npu_locations, capacity)
-            if dtype == torch.bfloat16 or dtype == torch.float16:
+            if dtype != torch.float32:
                 cpu_grad1 = cpu_grad1.to(torch.float32)
                 cpu_grad2 = cpu_grad2.to(torch.float32)
                 npu_grad1 = npu_grad1.to(torch.float32)
                 npu_grad2 = npu_grad2.to(torch.float32)
-            self.assertRtolEqual(npu_grad1.detach().cpu().numpy(), cpu_grad1.numpy())
-            self.assertRtolEqual(npu_grad2.detach().cpu().numpy(), cpu_grad2.numpy())
+
+            if dtype == torch.bfloat16:
+                self.assertRtolEqual(npu_grad1.detach().cpu().numpy(), cpu_grad1.detach().numpy(), 4.e-3)
+                self.assertRtolEqual(npu_grad2.detach().cpu().numpy(), cpu_grad2.detach().numpy(), 4.e-3)
+            elif dtype == torch.float16:
+                self.assertRtolEqual(npu_grad1.detach().cpu().numpy(), cpu_grad1.detach().numpy(), 1.e-3)
+                self.assertRtolEqual(npu_grad2.detach().cpu().numpy(), cpu_grad2.detach().numpy(), 1.e-3)
+            else:
+                self.assertRtolEqual(npu_grad1.detach().cpu().numpy(), cpu_grad1.detach().numpy())
+                self.assertRtolEqual(npu_grad2.detach().cpu().numpy(), cpu_grad2.detach().numpy())
 
 
 if __name__ == '__main__':

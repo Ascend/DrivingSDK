@@ -11,12 +11,18 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 class TestMoeTutel(TestCase):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def cpu_to_exec(self, x, gates, indices, locations, capacity, batch_size, sample_size, hidden, dtype):
-        result = torch.zeros([batch_size, capacity, hidden]).to(dtype)
+        if dtype != torch.float32:
+            x = x.to(torch.float32)
+            gates = gates.to(torch.float32)
+
+        result = torch.zeros([batch_size, capacity, hidden]).to(torch.float32)
         for tensor_idx in range(batch_size):
             for i in range(sample_size):
                 if locations[tensor_idx, i] < capacity and indices[tensor_idx, i] >= 0:
                     result[int(indices[tensor_idx, i]), int(locations[tensor_idx, i]), :] = gates[tensor_idx, i] * x[i,
                                                                                                                    :]
+        if dtype != torch.float32:
+            result = result.to(dtype)
         return result
 
     def npu_to_exec(self, x, gates, indices, locations, capacity):
@@ -24,12 +30,12 @@ class TestMoeTutel(TestCase):
         return out.cpu()
 
     def gen_data(self, shape, dtype):
-        cpu_input = torch.rand(shape, dtype=dtype)
+        cpu_input = torch.randn(shape, dtype=dtype)
         npu_input = cpu_input.npu()
         return cpu_input, npu_input
     
     def gen_data_gates(self, shape, dtype):
-        cpu_input = torch.rand(shape).bool().to(dtype)
+        cpu_input = torch.randn(shape).bool().to(dtype)
         npu_input = cpu_input.npu()
         return cpu_input, npu_input
 
@@ -55,10 +61,16 @@ class TestMoeTutel(TestCase):
     def test_moe_tutel(self):
         dtype_list = [torch.float16, torch.float32, torch.bfloat16]
         shape_list = [
+            # small shape
             [[2, 5], [5, 16], 6],
             [[3, 6], [6, 16], 6],
             [[4, 7], [7, 32], 12],
             [[5, 8], [8, 32], 12],
+            # big shape
+            [[2, 16384], [16384, 64], 16384],
+            [[8, 256], [256, 128], 256],
+            [[2, 16384], [16384, 128], 16384],
+            [[8, 256], [256, 256], 256],
             [[2, 16384], [16384, 32], 16384],
         ]
         items = [
@@ -78,9 +90,9 @@ class TestMoeTutel(TestCase):
             cpu_out = self.cpu_to_exec(cpu_x, cpu_gates, cpu_indices, cpu_locations, capacity, batch_size, sample_size,
                                        hidden, dtype)
             npu_out = self.npu_to_exec(npu_x, npu_gates, npu_indices, npu_locations, capacity)
-            if dtype == torch.bfloat16 or dtype == torch.float16:
-                npu_out = npu_out.to(torch.float32)
-                cpu_out = cpu_out.to(torch.float32)
+            if dtype == torch.bfloat16:
+                npu_out = npu_out.to(torch.float16)
+                cpu_out = cpu_out.to(torch.float16)
             self.assertRtolEqual(npu_out.numpy(), cpu_out.numpy())
 
 
