@@ -1,0 +1,5 @@
+// REG_OP(Add)
+//     .INPUT(x1, TensorType({DT_FLOAT}))
+//     .INPUT(x2, TensorType({DT_FLOAT}))
+//     .OUTPUT(y, TensorType({DT_FLOAT}))
+//     .OP_END_FACTORY_REG(Add)

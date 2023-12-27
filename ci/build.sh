@@ -1,3 +1,4 @@
+# Copyright 2023 Huawei Technologies Co., Ltd
 CUR_DIR=$(dirname $(readlink -f $0))
 SUPPORTED_PY_VERSION=(3.7 3.8 3.9 3.10)
 PY_VERSION='3.7'
@@ -76,6 +77,43 @@ function parse_script_args() {
 
 function main()
 {
+    if [ -z "$ASCEND_OPP_PATH" ]; then
+        echo "ImportError: libhccl.so: cannot open shared object file: No such file or directory. Please check that the cann package is installed. Please run 'source set_env.sh' in the CANN installation path."
+        exit 1
+    else
+        echo "ASCEND_OPP_PATH = $ASCEND_OPP_PATH"
+    fi
+    chmod -R 777 ${CUR_DIR}/..
+    cd ${CUR_DIR}/../ads/common/ops/kernels/ads_op
+    bash build.sh
+    cd ${CUR_DIR}/../ads/common/ops/kernels/ads_op/build_out
+    cp custom_opp_*.run ${CUR_DIR}/../ads/common/ops/kernels
+    cd ..
+    rm -rf build_out
+    cd ..
+    
+    
+    ./custom_opp_*.run --extract=./ads_op_kernel
+    rm -rf custom_opp_*.run
+    if [ -d "ads_op_kernel/" ]; then
+        echo "kernel compile success"
+    else
+        echo "kernel did not compile success"
+        exit 1
+    fi
+    cd ${CUR_DIR}/../ads/common/ops/kernels/ads_op_kernel
+    rm -rf install.sh
+    rm -rf upgrade.sh
+    
+    cd ${CUR_DIR}/..
+    rm -rf build
+    if [ -d "ads.egg-info" ]; then
+        echo "ads.egg-info exist"
+        rm -rf ads.egg-info
+    else
+        echo "ads.egg-info not exist"
+    fi
+
     if ! parse_script_args "$@"; then
         echo "Failed to parse script args. Please check your inputs."
         exit 1

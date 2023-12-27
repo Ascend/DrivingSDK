@@ -133,4 +133,5 @@ at::Tensor npu_moe_tutel_gate_backward(
     const at::Tensor &indices,
     const at::Tensor &locations);
 
+at::Tensor npu_ads_add(const at::Tensor &tensor1, const at::Tensor &tensor2);
 #endif // __FUNCTIONS_H__
