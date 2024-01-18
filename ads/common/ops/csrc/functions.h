@@ -132,6 +132,7 @@ at::Tensor npu_moe_tutel_gate_backward(
     const at::Tensor &y_grad,
     const at::Tensor &indices,
     const at::Tensor &locations);
-
+at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value, const at::Tensor& shape, const at::Tensor& offset,
+                                                    const at::Tensor& location, const at::Tensor& weight);
 at::Tensor npu_ads_add(const at::Tensor &tensor1, const at::Tensor &tensor2);
 #endif // __FUNCTIONS_H__
