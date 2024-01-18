@@ -7,7 +7,7 @@ import imp
 from torch_npu.utils import cpp_extension
 from torch.utils.cpp_extension import BuildExtension
 torch_npu_dir = extension.PYTORCH_NPU_INSTALL_PATH
-                
+
 source_file = []
 source_file += glob.glob(os.path.join("./ads/common/ops/csrc/", "*.cpp"))
 source_file += glob.glob(os.path.join("./bind/", "*.cpp"))
@@ -22,7 +22,10 @@ ext1 = extension.NpuExtension(
     sources=source_file,
     extra_compile_args=[
       '-D__FILENAME__=\"$$(notdir $$(abspath $$<))\"',
-      '-I' + imp.find_module('torch_npu')[1] + "/include/third_party/acl/inc",],
+      '-I' + imp.find_module('torch_npu')[1] + "/include/third_party/acl/inc",
+      '-fprofile-arcs',
+      '-ftest-coverage'],
+    libraries=['gcov'],
 )
 exts.append(ext1)
 setup(
