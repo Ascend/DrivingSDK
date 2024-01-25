@@ -54,6 +54,9 @@ void init_common(pybind11::module &m)
     // npu_bounding_box_decode
     m.def("npu_bounding_box_decode", &npu_bounding_box_decode);
 
+    // furthest_points_sampling_with_dist
+    m.def("furthest_point_sampling_with_dist", &furthest_point_sampling_with_dist);
+    
     // npu_bounding_box_encode
     m.def("npu_bounding_box_encode", &npu_bounding_box_encode);
 

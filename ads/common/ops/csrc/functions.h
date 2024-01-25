@@ -114,6 +114,9 @@ at::Tensor npu_conv_transpose2d(
     at::IntArrayRef stride,
     at::IntArrayRef dilation,
     int64_t groups);
+
+at::Tensor furthest_point_sampling_with_dist(const at::Tensor &points_dist, const at::Tensor &nearest_temp, const int32_t num_points);
+
 at::Tensor npu_broadcast(const at::Tensor& self, at::IntArrayRef size);
 at::Tensor& npu_broadcast_out(const at::Tensor& self, at::IntArrayRef size, at::Tensor& result);
 at::Tensor npu_moe_tutel(

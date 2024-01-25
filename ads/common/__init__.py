@@ -10,6 +10,7 @@ from .ops.stride_add import npu_stride_add
 from .ops.transpose import npu_transpose
 from .ops.yolo_boxes_encode import npu_yolo_boxes_encode
 from .ops.scatter import npu_scatter
+from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_dist
 from .ops.silu import npu_silu
 from .ops.silu import npu_silu_
 from .ops.rotary_mul import npu_rotary_mul
