@@ -1,10 +1,14 @@
 import os
 import glob
+import subprocess
+from pathlib import Path
+from typing import Union
+import torch
 from setuptools import setup, find_packages
 from torch.utils.cpp_extension import BuildExtension
 from utils import extension
 import imp
-from torch_npu.utils import cpp_extension
+
 from torch.utils.cpp_extension import BuildExtension
 torch_npu_dir = extension.PYTORCH_NPU_INSTALL_PATH
 
@@ -12,7 +16,6 @@ source_file = []
 source_file += glob.glob(os.path.join("./ads/common/ops/csrc/", "*.cpp"))
 source_file += glob.glob(os.path.join("./bind/", "*.cpp"))
 
-torch_npu_dir = extension.PYTORCH_NPU_INSTALL_PATH
 include_dirs = []
 include_dirs.append(torch_npu_dir + "/include/third_party/acl/inc/")
 
@@ -28,9 +31,28 @@ ext1 = extension.NpuExtension(
     libraries=['gcov'],
 )
 exts.append(ext1)
+
+
+def get_sha(pytorch_root: Union[str, Path]) -> str:
+    try:
+        return (
+            subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=pytorch_root)  # Compliant
+            .decode("ascii")
+            .strip()
+        )
+    except Exception:
+        return "Unknown"
+
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+VERSION = torch.__version__
+torch_npu_root = Path(__file__).parent
+sha = get_sha(torch_npu_root)
+if os.getenv("BUILD_WITHOUT_SHA") is None:
+    VERSION += "_" + sha[:7]
+
 setup(
-    name="ads",
-    version="1.0",
+    name="ads-accelerator",
+    version=VERSION,
     description='Cpp Extension Include ascend_ads',
     keywords='ads',
     ext_modules=exts,
