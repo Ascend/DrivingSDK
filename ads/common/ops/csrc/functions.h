@@ -119,6 +119,10 @@ at::Tensor furthest_point_sampling_with_dist(const at::Tensor &points_dist, cons
 
 at::Tensor npu_broadcast(const at::Tensor& self, at::IntArrayRef size);
 at::Tensor& npu_broadcast_out(const at::Tensor& self, at::IntArrayRef size, at::Tensor& result);
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_dynamic_scatter(
+    const at::Tensor &feats,
+    const at::Tensor &coors,
+    int64_t reduce_type);
 at::Tensor npu_moe_tutel(
     const at::Tensor &self,
     const at::Tensor &gates,

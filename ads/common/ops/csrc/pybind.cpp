@@ -77,6 +77,10 @@ void init_common(pybind11::module &m)
     m.def("npu_moe_tutel", &npu_moe_tutel, "npu_moe_tutel NPU version");
     m.def("npu_moe_tutel_data_backward", &npu_moe_tutel_data_backward, "npu_moe_tutel_data_backward NPU version");
     m.def("npu_moe_tutel_gate_backward", &npu_moe_tutel_gate_backward, "npu_moe_tutel_gate_backward NPU version");
+
+    // npu_dynamic_scatter
+    m.def("npu_dynamic_scatter", &npu_dynamic_scatter, "npu_dynamic_scatter NPU version");
+
     // ads_add
     m.def("npu_ads_add", &npu_ads_add);
 }
