@@ -72,6 +72,7 @@ void init_common(pybind11::module &m)
 
     // npu_multi_scale_deformable_attn_function
     m.def("npu_multi_scale_deformable_attn_function", &npu_multi_scale_deformable_attn_function);
+    m.def("multi_scale_deformable_attn_grad", &multi_scale_deformable_attn_grad);
 
     // npu_moe_tutel
     m.def("npu_moe_tutel", &npu_moe_tutel, "npu_moe_tutel NPU version");

@@ -144,5 +144,7 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,
                                                     const at::Tensor& value_level_start_index,
                                                     const at::Tensor& sampling_locations,
                                                     const at::Tensor& attention_weights);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(const at::Tensor& value, const at::Tensor& shape,
+    const at::Tensor& level_start_index, const at::Tensor& location, const at::Tensor& attn_weight, const at::Tensor& grad_output);
 at::Tensor npu_ads_add(const at::Tensor &tensor1, const at::Tensor &tensor2);
 #endif // __FUNCTIONS_H__

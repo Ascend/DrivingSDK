@@ -59,3 +59,56 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,
 
     return result.to(ori_dtype);
 }
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(const at::Tensor& value, const at::Tensor& shape,
+                                                                                const at::Tensor& level_start_index,
+                                                                                const at::Tensor& location, const at::Tensor& attn_weight,
+                                                                                const at::Tensor& grad_output)
+{
+    TORCH_CHECK(
+        value.scalar_type() == at::kHalf || value.scalar_type() == at::kFloat,
+        "value: float16 or float32 tensor expected but got a tensor with dtype: ",
+        value.scalar_type());
+    TORCH_CHECK(
+        shape.scalar_type() == at::kInt || shape.scalar_type() == at::kLong,
+        "spatial_shapes: int32 or int64 tensor expected but got a tensor with dtype: ",
+        shape.scalar_type());
+    TORCH_CHECK(
+        level_start_index.scalar_type() == at::kInt || level_start_index.scalar_type() == at::kLong,
+        "level_start_index: int32 or int64 tensor expected but got a tensor with dtype: ",
+        level_start_index.scalar_type());
+    TORCH_CHECK(
+        location.scalar_type() == at::kHalf || location.scalar_type() == at::kFloat,
+        "sampling_locations: float16 or float32 tensor expected but got a tensor with dtype: ",
+        location.scalar_type());
+    TORCH_CHECK(
+        attn_weight.scalar_type() == at::kHalf || attn_weight.scalar_type() == at::kFloat,
+        "attn_weight: float16 or float32 tensor expected but got a tensor with dtype: ",
+        attn_weight.scalar_type());
+    TORCH_CHECK(
+        grad_output.scalar_type() == at::kHalf || grad_output.scalar_type() == at::kFloat,
+        "grad_output: float16 or float32 tensor expected but got a tensor with dtype: ",
+        grad_output.scalar_type());
+
+    auto ori_dtype = value.scalar_type();
+    auto value_size = value.sizes();
+    auto location_size = location.sizes();
+    auto grad_value_size = {value_size[0], value_size[1], value_size[2], value_size[3]};
+    auto grad_atten_weight_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[4]};
+    auto grad_sample_loc_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[5], location_size[4]};
+    at::Tensor location1 = location.transpose(4, 5).contiguous();
+    at::Tensor result1 = at::zeros(grad_value_size, value.options().dtype(at::kFloat));
+    at::Tensor result2 = at::zeros(grad_sample_loc_size, location.options().dtype(at::kFloat));
+    at::Tensor result3 = at::zeros(grad_atten_weight_size, attn_weight.options().dtype(at::kFloat));
+
+    at::Tensor value_fp = value.to(at::kFloat);
+    at::Tensor shape_fp = shape.to(at::kInt);
+    at::Tensor level_start_index_fp = level_start_index.to(at::kInt);
+    at::Tensor sampling_locations_fp = location1.to(at::kFloat);
+    at::Tensor attn_weight_fp = attn_weight.to(at::kFloat);
+    at::Tensor grad_output_fp = grad_output.to(at::kFloat);
+    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttentionGrad, value_fp, shape_fp, level_start_index_fp, sampling_locations_fp,
+                 attn_weight_fp, grad_output_fp, result1, result2, result3);
+    result2 = result2.transpose(4, 5);
+    return std::make_tuple(result1.to(ori_dtype), result2.to(ori_dtype), result3.to(ori_dtype));
+}
