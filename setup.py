@@ -51,7 +51,7 @@ if os.getenv("BUILD_WITHOUT_SHA") is None:
     VERSION += "_" + sha[:7]
 
 setup(
-    name="ads",
+    name="ads_accelerator",
     version=VERSION,
     description='Cpp Extension Include ascend_ads',
     keywords='ads',
