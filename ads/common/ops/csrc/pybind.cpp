@@ -84,4 +84,7 @@ void init_common(pybind11::module &m)
 
     // ads_add
     m.def("npu_ads_add", &npu_ads_add);
+
+    // dyn_voxelization
+    m.def("dynamic_voxelization", &DynamicVoxelization);
 }

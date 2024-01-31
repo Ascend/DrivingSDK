@@ -147,4 +147,17 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,
 std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(const at::Tensor& value, const at::Tensor& shape,
     const at::Tensor& level_start_index, const at::Tensor& location, const at::Tensor& attn_weight, const at::Tensor& grad_output);
 at::Tensor npu_ads_add(const at::Tensor &tensor1, const at::Tensor &tensor2);
+
+at::Tensor DynamicVoxelization(
+    const at::Tensor &points,
+    at::Tensor &coors,
+    const int gridX,
+    const int gridY,
+    const int gridZ,
+    const double voxelX,
+    const double voxelY,
+    const double voxelZ,
+    const double coorsMinX,
+    const double coorsMinY,
+    const double coorsMinZ);
 #endif // __FUNCTIONS_H__
