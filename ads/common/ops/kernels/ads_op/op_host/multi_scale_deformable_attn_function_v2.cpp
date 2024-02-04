@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  */
-#include "multi_scale_deformable_attn_function.h"
+#include "multi_scale_deformable_attn_function_v2.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -15,9 +15,9 @@ namespace optiling
     const uint32_t BLOCK_DIM = 8;
     const uint32_t TILE_NUM = 8;
 
-    static ge::graphStatus TilingFuncForMultiScaleDeformableAttnFunction(gert::TilingContext *context)
+    static ge::graphStatus TilingFuncForMultiScaleDeformableAttnFunctionV2(gert::TilingContext *context)
     {
-        MultiScaleDeformableAttnFunctionTilingData tiling;
+        MultiScaleDeformableAttnFunctionV2TilingData tiling;
 
         auto valueShape = context->GetInputTensor(0)->GetStorageShape();
         auto samplingLocationsShape = context->GetInputTensor(3)->GetStorageShape();
@@ -46,7 +46,7 @@ namespace optiling
 
 namespace ge
 {
-    static ge::graphStatus InferShapeForMultiScaleDeformableAttnFunction(gert::InferShapeContext *context)
+    static ge::graphStatus InferShapeForMultiScaleDeformableAttnFunctionV2(gert::InferShapeContext *context)
     {
         const gert::Shape *valueShape = context->GetInputShape(0);
         const gert::Shape *samplingLocationsShape = context->GetInputShape(3);
@@ -64,10 +64,10 @@ namespace ge
 
 namespace ops
 {
-    class MultiScaleDeformableAttnFunction : public OpDef
+    class MultiScaleDeformableAttnFunctionV2 : public OpDef
     {
     public:
-        explicit MultiScaleDeformableAttnFunction(const char *name) : OpDef(name)
+        explicit MultiScaleDeformableAttnFunctionV2(const char *name) : OpDef(name)
         {
             this->Input("value")
                 .ParamType(REQUIRED)
@@ -100,14 +100,14 @@ namespace ops
                 .Format({ge::FORMAT_ND})
                 .UnknownShapeFormat({ge::FORMAT_ND});
 
-            this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnFunction);
+            this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnFunctionV2);
 
             this->AICore()
-                .SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnFunction);
+                .SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnFunctionV2);
 
             this->AICore().AddConfig("ascend910b");
         }
     };
 
-    OP_ADD(MultiScaleDeformableAttnFunction);
+    OP_ADD(MultiScaleDeformableAttnFunctionV2);
 }

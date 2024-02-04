@@ -8,16 +8,16 @@
 using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 2;
 
-class KernelMultiScaleDeformableAttnFunction
+class KernelMultiScaleDeformableAttnFunctionV2
 {
 public:
-    __aicore__ inline KernelMultiScaleDeformableAttnFunction() {}
+    __aicore__ inline KernelMultiScaleDeformableAttnFunctionV2() {}
     __aicore__ inline void Init(GM_ADDR value,
                                 GM_ADDR value_spatial_shapes,
                                 GM_ADDR value_level_start_index,
                                 GM_ADDR sampling_locations,
                                 GM_ADDR attention_weights,
-                                GM_ADDR output, MultiScaleDeformableAttnFunctionTilingData *tiling_data)
+                                GM_ADDR output, MultiScaleDeformableAttnFunctionV2TilingData *tiling_data)
     {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
         dataAlign = blockNum / sizeof(DTYPE_VALUE);
@@ -167,7 +167,7 @@ private:
         {
             DataCopyPad(outputGm[moveOffset + head * embedDims], resLocal, copyParams);
         }
-        pipe_barrier(PIPE_ALL); 
+        pipe_barrier(PIPE_ALL);
 
         for (uint32_t head = 0; head < numHeads; head++)
         {
@@ -344,15 +344,15 @@ private:
     DTYPE_VALUE_SPATIAL_SHAPES h, w, x0, y0, x1, y1, valueOffset, weightOffset, locationOffset, moveOffset;
 };
 
-extern "C" __global__ __aicore__ void multi_scale_deformable_attn_function(GM_ADDR value,
-                                                                           GM_ADDR value_spatial_shapes,
-                                                                           GM_ADDR value_level_start_index,
-                                                                           GM_ADDR sampling_locations,
-                                                                           GM_ADDR attention_weights,
-                                                                           GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling)
+extern "C" __global__ __aicore__ void multi_scale_deformable_attn_function_v2(GM_ADDR value,
+                                                                              GM_ADDR value_spatial_shapes,
+                                                                              GM_ADDR value_level_start_index,
+                                                                              GM_ADDR sampling_locations,
+                                                                              GM_ADDR attention_weights,
+                                                                              GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling)
 {
     GET_TILING_DATA(tiling_data, tiling);
-    KernelMultiScaleDeformableAttnFunction op;
+    KernelMultiScaleDeformableAttnFunctionV2 op;
     op.Init(value, value_spatial_shapes, value_level_start_index,
             sampling_locations, attention_weights, output, &tiling_data);
     op.Process();

@@ -53,7 +53,7 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,
     at::Tensor sampling_locations_cp = sampling_locations.to(at::kFloat);
     at::Tensor attention_weights_cp = attention_weights.to(at::kFloat);
 
-    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttnFunction, value_cp, value_spatial_shapes_cp,
+    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttnFunctionV2, value_cp, value_spatial_shapes_cp,
                  value_level_start_index_cp, sampling_locations_cp,
                  attention_weights_cp, result);
 
