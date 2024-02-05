@@ -19,7 +19,7 @@ class MultiScaleDeformableAttnFunction(Function):
         value, shape, offset, locations, weight = ctx.saved_tensors
         grad_value, grad_sample_loc, grad_atten_weight = ads_c.multi_scale_deformable_attn_grad(value, shape, offset,
                                                                                                 locations, weight,
-                                                                                                grad_output)
+                                                                                                grad_output.contiguous())
         return grad_value, None, None, grad_sample_loc, grad_atten_weight
 
 
