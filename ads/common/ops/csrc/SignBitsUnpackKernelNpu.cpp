@@ -16,7 +16,7 @@
 
 #include "torch_npu/csrc/framework/OpCommand.h"
 #include "functions.h"
-#include "common.h"
+#include "csrc/common.h"
 
 
 at::Tensor npu_sign_bits_unpack_compute(

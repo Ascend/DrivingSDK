@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include "torch_npu/csrc/framework/OpCommand.h"
-#include "common.h"
+#include "csrc/common.h"
 
 namespace {
 c10::SmallVector<int64_t, SIZE> infersize_npu_anchor_response_flags(

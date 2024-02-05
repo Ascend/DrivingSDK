@@ -11,17 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef __FUNCTIONS_H__
-#define __FUNCTIONS_H__
+#ifndef COMMON_OPS_CSRC_FUNCTIONS_H_
+#define COMMON_OPS_CSRC_FUNCTIONS_H_
 
 #include <ATen/Tensor.h>
 #include <ATen/ATen.h>
 #include <ATen/core/Scalar.h>
 #include <torch/extension.h>
 #include <torch/library.h>
-#include <pybind11/numpy.h>
-
-void init_common(pybind11::module &m);
 
 std::tuple<at::Tensor, at::Tensor> npu_scatter_max(const at::Tensor& updates, const at::Tensor& indices, c10::optional<at::Tensor> out);
 at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments);
@@ -160,4 +157,4 @@ at::Tensor DynamicVoxelization(
     const double coorsMinX,
     const double coorsMinY,
     const double coorsMinZ);
-#endif // __FUNCTIONS_H__
+#endif // COMMON_OPS_CSRC_FUNCTIONS_H_

@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "torch_npu/csrc/framework/OpCommand.h"
-#include "common.h"
+#include "csrc/common.h"
 
 at::Tensor npu_bounding_box_encode(
     const at::Tensor& anchor_box,

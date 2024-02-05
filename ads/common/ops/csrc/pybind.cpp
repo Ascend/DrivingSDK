@@ -1,5 +1,6 @@
 #include <torch/extension.h>
 #include "functions.h"
+#include "csrc/pybind.h"
 
 void init_common(pybind11::module &m)
 {

@@ -16,7 +16,7 @@
 
 #include "torch_npu/csrc/framework/OpCommand.h"
 #include "functions.h"
-#include "common.h"
+#include "csrc/common.h"
 
 namespace {
 std::tuple<at::Tensor &, at::Tensor &> softmax_cross_entropy_with_logits_out_nocheck(

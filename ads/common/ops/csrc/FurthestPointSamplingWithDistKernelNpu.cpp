@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include <ATen/ATen.h>
-#include "OpApiCommon.h"
+#include "csrc/OpApiCommon.h"
 #include "functions.h"
 
 at::Tensor furthest_point_sampling_with_dist(const at::Tensor &points_dist, const at::Tensor &nearest_temp, const int32_t num_points)
