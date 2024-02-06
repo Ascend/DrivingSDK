@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "torch_npu/csrc/framework/OpCommand.h"
-#include "csrc/common.h"
+#include "common.h"
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_batch_nms(
     const at::Tensor& self,

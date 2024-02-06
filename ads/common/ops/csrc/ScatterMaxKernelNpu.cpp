@@ -1,12 +1,14 @@
 #include "torch_npu/csrc/framework/OpCommand.h"
-#include "csrc/common.h"
+#include "common.h"
 
 using namespace std;
 
-std::tuple<at::Tensor, at::Tensor> npu_scatter_max(const at::Tensor& updates, const at::Tensor& indices,
-                                                   c10::optional<at::Tensor> out)
+std::tuple<at::Tensor, at::Tensor> npu_scatter_max(
+    const at::Tensor& updates,
+    const at::Tensor& indices,
+    c10::optional<at::Tensor> out)
 {
-    auto sizes = updates.sizes().vec();
+    auto sizes =  updates.sizes().vec();
 
     sizes[0] = indices.max().item().toLong() + 1;
 
@@ -14,13 +16,18 @@ std::tuple<at::Tensor, at::Tensor> npu_scatter_max(const at::Tensor& updates, co
     at::Tensor argmax = at::empty(result.sizes(), result.options().dtype(at::kInt));
 
     at_npu::native::OpCommand cmd;
-    cmd.Name("ScatterMaxWithArgmax").Input(result).Input(indices).Input(updates).Output(result).Output(argmax).Run();
+    cmd.Name("ScatterMaxWithArgmax")
+        .Input(result)
+        .Input(indices)
+        .Input(updates)
+        .Output(result)
+        .Output(argmax)
+        .Run();
 
     return std::tie(result, argmax);
 }
 
-at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids,
-                                    const at::Tensor& num_segments)
+at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments)
 {
     c10::SmallVector<int64_t, N> output_size;
 
@@ -34,6 +41,11 @@ at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segme
 
     at::Tensor out = at::empty(output_size, x.options());
     at_npu::native::OpCommand cmd;
-    cmd.Name("UnsortedSegmentSum").Input(x).Input(segment_ids).Input(num_segments).Output(out).Run();
+    cmd.Name("UnsortedSegmentSum")
+        .Input(x)
+        .Input(segment_ids)
+        .Input(num_segments)
+        .Output(out)
+        .Run();
     return out;
 }

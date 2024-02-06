@@ -16,11 +16,17 @@
 
 #include "torch_npu/csrc/framework/OpCommand.h"
 #include "functions.h"
-#include "csrc/common.h"
+#include "common.h"
+
 
 namespace {
-at::Tensor& stride_add_out_npu_nocheck(at::Tensor& result, const at::Tensor& self, const at::Tensor& other,
-                                       c10::Scalar offset1, c10::Scalar offset2, c10::Scalar c1_len)
+at::Tensor &stride_add_out_npu_nocheck(
+    at::Tensor &result,
+    const at::Tensor &self,
+    const at::Tensor &other,
+    c10::Scalar offset1,
+    c10::Scalar offset2,
+    c10::Scalar c1_len)
 {
     at_npu::native::OpCommand cmd;
     cmd.Name("StrideAdd")
@@ -33,10 +39,14 @@ at::Tensor& stride_add_out_npu_nocheck(at::Tensor& result, const at::Tensor& sel
         .Run();
     return result;
 }
-}  // namespace
+} // namespace
 
-at::Tensor npu_stride_add_compute(const at::Tensor& self, const at::Tensor& other, const c10::Scalar& offset1,
-                                  const c10::Scalar& offset2, const c10::Scalar& c1_len)
+at::Tensor npu_stride_add_compute(
+    const at::Tensor &self,
+    const at::Tensor &other,
+    const c10::Scalar &offset1,
+    const c10::Scalar &offset2,
+    const c10::Scalar &c1_len)
 {
     auto output_size = infersize_stride_add(self.sizes(), other.sizes());
     output_size[1] = c1_len.toInt() * 16;
