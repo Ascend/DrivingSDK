@@ -1,6 +1,6 @@
 #include "torch_npu/csrc/framework/OpCommand.h"
 #include "functions.h"
-#include "csrc/common.h"
+#include "common.h"
 
 at::Tensor &silu_out_npu_nocheck(at::Tensor &result, const at::Tensor &self)
 {

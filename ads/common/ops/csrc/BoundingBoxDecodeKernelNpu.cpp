@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include "torch_npu/csrc/framework/OpCommand.h"
-#include "csrc/common.h"
+#include "common.h"
 
 at::Tensor npu_bounding_box_decode(
     const at::Tensor& rois,

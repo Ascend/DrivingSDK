@@ -1,5 +1,5 @@
 #include <ATen/ATen.h>
-#include "csrc/OpApiCommon.h"
+#include "OpApiCommon.h"
 #include "functions.h"
 
 at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,

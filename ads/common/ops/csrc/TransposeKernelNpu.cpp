@@ -16,7 +16,7 @@
 
 #include "torch_npu/csrc/framework/OpCommand.h"
 #include "functions.h"
-#include "csrc/common.h"
+#include "common.h"
 
 namespace {
 at::Tensor &npu_transpose_out_nocheck(

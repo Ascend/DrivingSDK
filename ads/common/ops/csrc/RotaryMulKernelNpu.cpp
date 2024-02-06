@@ -16,7 +16,7 @@
 
 #include "torch_npu/csrc/framework/OpCommand.h"
 #include "functions.h"
-#include "csrc/common.h"
+#include "common.h"
 
 using tensor_tuple = std::tuple<at::Tensor, at::Tensor, at::Tensor>;
 

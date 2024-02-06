@@ -6,8 +6,8 @@
 #include "torch_npu/csrc/aten/NPUNativeFunctions.h"
 #include "torch_npu/csrc/aten/CustomFunctions.h"
 #include "functions.h"
-#include "csrc/common.h"
-#include "csrc/OpApiCommon.h"
+#include "common.h"
+#include "OpApiCommon.h"
 
 using npu_preparation = at_npu::native::OpPreparation;
 using torch::autograd::Function;

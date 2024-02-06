@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include <ATen/ATen.h>
-#include "csrc/OpApiCommon.h"
+#include "OpApiCommon.h"
 #include "functions.h"
 
 at::Tensor DynamicVoxelization(
