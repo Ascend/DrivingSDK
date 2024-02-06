@@ -44,7 +44,7 @@ def get_sha(pytorch_root: Union[str, Path]) -> str:
         return "Unknown"
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-VERSION = "1.0-" + torch.__version__[0:6]
+VERSION = torch.__version__[0:6]
 torch_npu_root = Path(__file__).parent
 sha = get_sha(torch_npu_root)
 if not os.getenv("BUILD_WITHOUT_SHA"):
