@@ -139,6 +139,7 @@ at::Tensor npu_moe_tutel_gate_backward(
     const at::Tensor &y_grad,
     const at::Tensor &indices,
     const at::Tensor &locations);
+at::Tensor npu_points_in_box(const at::Tensor &boxes, const at::Tensor &pts);
 at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,
                                                     const at::Tensor& value_spatial_shapes,
                                                     const at::Tensor& value_level_start_index,

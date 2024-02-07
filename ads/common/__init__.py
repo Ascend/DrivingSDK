@@ -24,6 +24,7 @@ from .ops.npu_confusion_transpose import npu_confusion_transpose
 from .ops.npu_broadcast import npu_broadcast
 from .ops.npu_moe_tutel import npu_moe_tutel
 from .ops.npu_dynamic_scatter import npu_dynamic_scatter
+from .ops.npu_points_in_box import npu_points_in_box
 from .ops.ads_add import npu_ads_add
 from .ops.npu_multi_scale_deformable_attn_function import npu_multi_scale_deformable_attn_function
 from .ops.dynamic_voxelization import voxelization

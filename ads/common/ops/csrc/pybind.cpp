@@ -69,6 +69,9 @@ void init_common(pybind11::module &m)
 
     // npu_broadcast
     m.def("npu_broadcast", &npu_broadcast);
+    
+    // npu_points_in_box
+    m.def("npu_points_in_box", &npu_points_in_box);
 
     // npu_multi_scale_deformable_attn_function
     m.def("npu_multi_scale_deformable_attn_function", &npu_multi_scale_deformable_attn_function);
