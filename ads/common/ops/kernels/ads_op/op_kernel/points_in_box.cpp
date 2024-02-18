@@ -15,7 +15,7 @@ public:
     __aicore__ inline void Init(GM_ADDR boxes, GM_ADDR pts, GM_ADDR boxes_idx_of_points,
                                 PointsInBoxTilingData *tiling_data)
     {
-        ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
+        ASSERT(GetBlockNum() != 0 && "block dim can not be zeronumber!");
         this->core_used = tiling_data->core_used;
         this->core_data = tiling_data->core_data;
         this->copy_loop = tiling_data->copy_loop;
@@ -95,7 +95,7 @@ private:
         DataCopyParams copyParams_in{1, (uint16_t)(tensor_size * 3 * sizeof(DTYPE_BOXES)), 0, 0};
         DataCopyPadParams padParams{true, 0, 0, 0};
         DataCopyPad(pointLocal, ptsGm[address * 3], copyParams_in, padParams);
-        Duplicate<DTYPE_BOXES_IDX_OF_POINTS>(zLocal, onemins, tensor_size);
+        Duplicate<DTYPE_BOXES_IDX_OF_POINTS>(zLocal, oneminsnumber, tensor_size);
         for (int32_t i = 0; i < tensor_size; i++) {
             if (zLocal.GetValue(i) == -1) {
                 uint32_t batch_id = i / this->npoints;
@@ -108,7 +108,7 @@ private:
                 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
                 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
                 // shift_x = x - boxes_ub[ :, 0]
-                Muls(shiftx, boxesLocal, onemins, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
+                Muls(shiftx, boxesLocal, oneminsnumber, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 Adds(shiftx, shiftx, x, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
                 wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
@@ -119,7 +119,7 @@ private:
                 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
                 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 
-                Muls(shifty, boxesLocal, onemins, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
+                Muls(shifty, boxesLocal, oneminsnumber, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 Adds(shifty, shifty, y, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
                 wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
@@ -129,18 +129,18 @@ private:
                             copyParams_in, padParams);
                 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
                 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-                Muls(temp, boxesLocal, onemins, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
+                Muls(temp, boxesLocal, oneminsnumber, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 Cos<DTYPE_BOXES, false>(cosa, temp, uint8temp, tensor_size);
 
                 // sina = Sin(-boxes_ub[ :, 6])
-                Muls(temp, boxesLocal, onemins, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
+                Muls(temp, boxesLocal, oneminsnumber, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 Sin<DTYPE_BOXES, false>(sina, temp, uint8temp, (tensor_size + mask - 1));
 
                 // local_x = shift_x * cosa + shift_y * (-sina)
                 Mul(temp, shiftx, cosa, mask, (tensor_size + mask - 1)/mask, {1, 1, 1, 8, 8, 8 });
-                Duplicate<DTYPE_BOXES>(xlocal, zero, tensor_size);
+                Duplicate<DTYPE_BOXES>(xlocal, zeronumber, tensor_size);
                 Add(xlocal, xlocal, temp, mask, (tensor_size + mask - 1)/mask, {1, 1, 1, 8, 8, 8 });
-                Muls(temp, sina, onemins, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
+                Muls(temp, sina, oneminsnumber, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 Mul(temp, shifty, temp, mask, (tensor_size + mask - 1)/mask, {1, 1, 1, 8, 8, 8 });
                 Add(xlocal, xlocal, temp, mask, (tensor_size + mask - 1)/mask, {1, 1, 1, 8, 8, 8 });
 
@@ -160,7 +160,7 @@ private:
                             copyParams_in, padParams);
                 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
                 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-                Muls(sina, boxesLocal, onemins, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
+                Muls(sina, boxesLocal, oneminsnumber, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 Adds(sina, sina, z, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
                 Abs(sina, sina, mask, (tensor_size + mask - 1)/mask, { 1, 1, 8, 8 });
 
@@ -199,26 +199,26 @@ private:
 
                 set_flag(PIPE_S, PIPE_V, EVENT_ID0);
                 wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
-                // dup full zero tensor
-                Duplicate<DTYPE_BOXES>(boxesLocal, zero, tensor_size);
-                // dup full one tensor
-                Duplicate<DTYPE_BOXES>(temp, one, tensor_size);
+                // dup full zeronumber tensor
+                Duplicate<DTYPE_BOXES>(boxesLocal, zeronumber, tensor_size);
+                // dup full onenumber tensor
+                Duplicate<DTYPE_BOXES>(temp, onenumber, tensor_size);
 
                 // cmp_1 = Abs(local_x) < x_size + 1e-5
                 uint8temp = xlocal <= shiftx;
-                Duplicate<DTYPE_BOXES>(xlocal, zero, tensor_size);
+                Duplicate<DTYPE_BOXES>(xlocal, zeronumber, tensor_size);
                 Select(xlocal, uint8temp, temp, boxesLocal,
                        SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
 
                 // cmp_2 = Abs(local_y) < y_size+ 1e-5
                 uint8temp = ylocal <= shifty;
-                Duplicate<DTYPE_BOXES>(ylocal, zero, tensor_size);
+                Duplicate<DTYPE_BOXES>(ylocal, zeronumber, tensor_size);
                 Select(ylocal, uint8temp, temp, boxesLocal,
                        SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
 
                 // cmp_3 = Abs(zlocal) < z_size + 1e-5
                 uint8temp = sina <= cosa;
-                Duplicate<DTYPE_BOXES>(sina, zero, tensor_size);
+                Duplicate<DTYPE_BOXES>(sina, zeronumber, tensor_size);
                 Select(sina, uint8temp, temp, boxesLocal,
                        SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
                 pipe_barrier(PIPE_V);
