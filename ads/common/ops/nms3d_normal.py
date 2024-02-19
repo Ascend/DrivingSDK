@@ -1,0 +1,19 @@
+import torch
+import torch_npu
+from torch.autograd import Function
+from torch.nn import Module
+import ads_c
+
+
+class AdsNms3dNormalFunction(Function):
+    @staticmethod
+    def forward(ctx, boxes, scores, iou_threshold: float):
+        if boxes.shape[1] != 7:
+            raise 'Input boxes shape should be (N, 7)'
+        order = scores.sort(0, descending=True)[1]
+        boxes = boxes[order].contiguous()
+
+        keep, num_out = ads_c.nms3d_normal(boxes, iou_threshold)
+        return order[keep[:num_out].long()].contiguous()
+
+npu_nms3d_normal = AdsNms3dNormalFunction.apply

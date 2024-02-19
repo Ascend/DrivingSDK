@@ -9,3 +9,8 @@
 //     .OUTPUT(index, TensorType({DT_INT32}))
 //     .REQUIRED_ATTR(num_points, Int)
 //     .OP_END_FACTORY_REG(FurthestPointSamplingWithDist)
+// REG_OP(Nms3dNormal)
+//     .INPUT(boxes, TensorType({DT_FLOAT, DT_FLOAT16}))
+//     .OUTPUT(keep, TensorType({DT_INT16}))
+//     .REQUIRED_ATTR(nms_overlap_thresh, Float)
+//     .OP_END_FACTORY_REG(Nms3dNormal)

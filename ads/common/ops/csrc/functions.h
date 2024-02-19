@@ -161,4 +161,6 @@ at::Tensor DynamicVoxelization(
     const double coorsMinX,
     const double coorsMinY,
     const double coorsMinZ);
+
+std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor &boxes, double nms_overlap_thresh);
 #endif // __FUNCTIONS_H__

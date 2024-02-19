@@ -90,4 +90,7 @@ void init_common(pybind11::module &m)
 
     // dyn_voxelization
     m.def("dynamic_voxelization", &DynamicVoxelization);
+    
+    // nms3d_normal
+    m.def("nms3d_normal", &nms3d_normal);
 }
