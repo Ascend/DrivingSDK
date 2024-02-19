@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include <ATen/ATen.h>
-#include "OpApiCommon.h"
+#include "csrc/OpApiCommon.h"
 #include "functions.h"
 
 at::Tensor npu_points_in_box(const at::Tensor &boxes, const at::Tensor &pts)

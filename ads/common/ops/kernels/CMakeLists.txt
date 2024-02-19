@@ -1,0 +1,10 @@
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/op_host)
+    add_subdirectory(op_host)
+endif()
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel)
+    add_subdirectory(op_kernel)
+endif()
+if(ENABLE_TEST AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/testcases)
+    add_subdirectory(testcases)
+endif()
+

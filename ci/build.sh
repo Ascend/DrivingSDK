@@ -1,5 +1,7 @@
 # Copyright 2023 Huawei Technologies Co., Ltd
 CUR_DIR=$(dirname $(readlink -f $0))
+SCRIPTS_DIR=${CUR_DIR}/../scripts
+BUILD_PACKAGES_DIR=${CUR_DIR}/../build_out/packages
 SUPPORTED_PY_VERSION=(3.7 3.8 3.9 3.10)
 PY_VERSION='3.7'
 DEFAULT_SCRIPT_ARGS_NUM=1
@@ -83,35 +85,16 @@ function main()
     else
         echo "ASCEND_OPP_PATH = $ASCEND_OPP_PATH"
     fi
-    chmod -R 777 ${CUR_DIR}/..
-    cd ${CUR_DIR}/../ads/common/ops/kernels/ads_op
-    bash build.sh
-    cd ${CUR_DIR}/../ads/common/ops/kernels/ads_op/build_out
-    cp custom_opp_*.run ${CUR_DIR}/../ads/common/ops/kernels
-    cd ..
-    rm -rf build_out
-    cd ..
-    
-    
-    ./custom_opp_*.run --extract=./ads_op_kernel
-    rm -rf custom_opp_*.run
-    if [ -d "ads_op_kernel/" ]; then
-        echo "kernel compile success"
-    else
-        echo "kernel did not compile success"
-        exit 1
-    fi
-    cd ${CUR_DIR}/../ads/common/ops/kernels/ads_op_kernel
-    rm -rf install.sh
-    rm -rf upgrade.sh
-    
+    chmod -R 777 ${SCRIPTS_DIR}
+    bash ${SCRIPTS_DIR}/build_kernel.sh
+
     cd ${CUR_DIR}/..
     rm -rf build
-    if [ -d "ads.egg-info" ]; then
-        echo "ads.egg-info exist"
-        rm -rf ads.egg-info
+    if [ -d "ads_accelerator.egg-info" ]; then
+        echo "ads_accelerator.egg-info exist"
+        rm -rf ads_accelerator.egg-info
     else
-        echo "ads.egg-info not exist"
+        echo "ads_accelerator.egg-info not exist"
     fi
 
     if ! parse_script_args "$@"; then
@@ -121,7 +104,6 @@ function main()
 
     check_python_version
 
-    cd ${CUR_DIR}/..
     python"${PY_VERSION}" setup.py build bdist_wheel
     if [ $? != 0 ]; then
         echo "Failed to compile the wheel file. Please check the source code by yourself."

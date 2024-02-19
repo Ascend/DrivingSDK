@@ -15,7 +15,7 @@
 // limitations under the License.
 
 #include <ATen/ATen.h>
-#include "OpApiCommon.h"
+#include "csrc/OpApiCommon.h"
 #include "functions.h"
 
 std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor &boxes, double nms_overlap_thresh)

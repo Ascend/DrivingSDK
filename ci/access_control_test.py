@@ -24,8 +24,8 @@ from abc import ABCMeta, abstractmethod
 from pathlib import Path
 import warnings
 
-BASE_DIR = Path(__file__).absolute().parent.parent
-TEST_DIR = BASE_DIR / 'tests'
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+TEST_DIR = os.path.join(BASE_DIR, "tests", "torch")
 
 
 def check_path_owner_consistent(path: str):
@@ -117,21 +117,7 @@ class DirectoryStrategy(AccurateTest):
     def identify(self, modify_file):
         is_test_file = str(Path(modify_file).parts[0]) == "tests" \
             and re.match("test_(.+).py", Path(modify_file).name)
-        return [(str(BASE_DIR / modify_file))] if is_test_file else []
-
-
-class CoreTestStrategy(AccurateTest):
-    """
-    Determine whether the core tests should be runned
-    """
-    block_list = ['test', 'docs']
-    core_test_cases = [str(i) for i in (BASE_DIR / 'test/test_npu').rglob('test_*.py')]
-
-    def identify(self, modify_file):
-        modified_module = str(Path(modify_file).parts[0])
-        if modified_module not in self.block_list:
-            return self.core_test_cases
-        return []
+        return [str(os.path.join(BASE_DIR, modify_file))] if is_test_file else []
 
 
 class CopyOptStrategy(AccurateTest):
@@ -144,44 +130,6 @@ class CopyOptStrategy(AccurateTest):
             regex = '*contiguous*'
             return AccurateTest.find_ut_by_regex(regex)
         return []
-
-
-class DirectoryMappingStrategy(AccurateTest):
-    """
-    Map the modified files to the corresponding test cases
-    """
-    mapping_list = {
-        'contrib': 'test/test_contrib',
-        'cpp_extension': 'test/test_cpp_extension',
-        'distributed': 'test/test_distributed',
-        'fx': 'test/test_fx',
-        'hooks': 'test/test_hooks',
-        'optim': 'test/test_optim',
-        'profiler': 'test/test_profiler',
-        'onnx': 'test/test_onnx',
-        'utils': 'test/test_utils',
-        'testing': 'test/test_testing.py',
-    }
-
-    def identify(self, modify_file):
-        current_all_ut_path = []
-        if str(Path(modify_file).parts[0]) == 'torch_npu':
-            mapped_ut_path = []
-            module_name = str(Path(modify_file).parts[1])
-            if module_name == 'csrc':
-                module_name = str(Path(modify_file).parts[2])
-            if module_name in self.mapping_list:
-                mapped_ut_path.append(self.mapping_list[module_name])
-            file_name = str(Path(modify_file).stem)
-            if file_name in self.mapping_list:
-                mapped_ut_path.append(self.mapping_list[file_name])
-
-            for mapped_path in mapped_ut_path:
-                if Path.is_file(BASE_DIR / mapped_path):
-                    current_all_ut_path.append(str(BASE_DIR / mapped_path))
-                else:
-                    current_all_ut_path += [str(i) for i in (BASE_DIR / mapped_path).rglob('test_*.py')]
-        return current_all_ut_path
 
 
 class TestMgr():
@@ -210,9 +158,6 @@ class TestMgr():
             self.test_files['ut_files'] += DirectoryStrategy().identify(modify_file)
             self.test_files['ut_files'] += CopyOptStrategy().identify(modify_file)
             self.test_files['ut_files'] += OpStrategy().identify(modify_file)
-            # self.test_files['op_ut_files'] += OpStrategy().identify(modify_file)
-            # self.test_files['ut_files'] += DirectoryMappingStrategy().identify(modify_file)
-            self.test_files['ut_files'] += CoreTestStrategy().identify(modify_file)
         unique_files = sorted(set(self.test_files['ut_files']))
 
         exist_ut_file = [
@@ -326,7 +271,7 @@ def exec_ut(files):
 
 
 if __name__ == "__main__":
-    cur_modify_files = str(BASE_DIR / 'modify_files.txt')
+    cur_modify_files = str(os.path.join(BASE_DIR, 'modify_files.txt'))
     test_mgr = TestMgr()
     test_mgr.load(cur_modify_files)
     test_mgr.analyze()

@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "torch_npu/csrc/framework/OpCommand.h"
-#include "common.h"
+#include "csrc/common.h"
 
 at::Tensor npu_confusion_transpose(
     const at::Tensor& self,

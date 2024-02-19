@@ -1,5 +1,5 @@
 #include <ATen/ATen.h>
-#include "OpApiCommon.h"
+#include "csrc/OpApiCommon.h"
 #include "functions.h"
 
 at::Tensor npu_abs(const at::Tensor& self)
