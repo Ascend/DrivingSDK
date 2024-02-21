@@ -30,3 +30,4 @@ from .ops.npu_multi_scale_deformable_attn_function import npu_multi_scale_deform
 from .ops.dynamic_voxelization import voxelization
 from .ops.dynamic_voxelization import Voxelization
 from .ops.nms3d_normal import npu_nms3d_normal
+from .ops.furthest_point_sampling import npu_furthest_point_sampling

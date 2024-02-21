@@ -1,0 +1,126 @@
+# Copyright (c) 2020, Huawei Technologies.All rights reserved.
+#
+# Licensed under the BSD 3-Clause License  (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# https://opensource.org/licenses/BSD-3-Clause
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import unittest
+from abc import ABC, abstractmethod
+import numpy as np
+import torch
+
+import torch_npu
+from torch_npu.testing.testcase import TestCase, run_tests
+from torch_npu.testing.common_utils import create_common_tensor
+import ads.common
+
+DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
+
+
+class CreateBenchMarkTest(ABC):
+    def __init__(self):
+        self.batch = None
+        self.N = None
+        self.numPoints = None
+
+        self.point = None
+        self.nearestDist = None
+
+    @abstractmethod
+    def createData(self):
+        pass
+
+    def compare_min(self, a):
+        if a[0] > a[1]:
+            return a[1]
+        else :
+            return a[0]
+
+    def getCpuRes(self):
+        cpuRes = np.zeros([self.batch, self.numPoints], dtype=np.int32)
+        nearestDistCopy = self.nearestDist.copy()
+
+        for i in range(self.batch):
+            sampled = 1
+            index = 0
+            while sampled < self.numPoints:
+                deltaX = self.point[i][0] - self.point[i][0][index]
+                deltaY = self.point[i][1] - self.point[i][1][index]
+                deltaZ = self.point[i][2] - self.point[i][2][index]
+                deltaX2 = deltaX * deltaX
+                deltaY2 = deltaY * deltaY
+                deltaZ2 = deltaZ * deltaZ
+                currentDist = deltaX2 + deltaY2 + deltaZ2
+
+                nearestDistCopy[i] = np.apply_along_axis(self.compare_min, 0, np.stack((currentDist, nearestDistCopy[i]), axis=0))
+                index = np.argmax(nearestDistCopy[i])
+                cpuRes[i][sampled] = index
+                sampled = sampled + 1
+        return cpuRes
+
+
+class Test1(CreateBenchMarkTest):
+    def createData(self):
+        self.batch = 47
+        self.N = 717
+        self.numPoints = 580
+
+        self.point = np.zeros([self.batch, 3, self.N], dtype=np.float32)
+        for i in range(self.batch):
+            for j in range(self.N):
+                self.point[i, 0, j] = j
+
+        self.nearestDist = np.ones([self.batch, self.N], dtype=np.float32) * 1e10
+        self.point = torch.from_numpy(self.point)
+
+
+class Test2(CreateBenchMarkTest):
+    def createData(self):
+        self.batch = 193
+        self.N = 579
+        self.numPoints = 123
+
+        self.point = np.zeros([self.batch, 3, self.N], dtype=np.float32)
+        for i in range(self.batch):
+            for j in range(self.N):
+                self.point[i, 0, j] = j
+                self.point[i, 1, j] = j + 1
+                self.point[i, 2, j] = j + 3
+
+        self.nearestDist = np.ones([self.batch, self.N], dtype=np.float32) * 1e10
+        self.point = torch.from_numpy(self.point)
+
+
+test1 = Test1()
+test2 = Test2()
+
+
+class TestFurthestPointSample(TestCase):
+    def cpu_op_exec(self, myTest):
+        return myTest.getCpuRes()
+
+    def npu_op_exec(self, myTest):
+        return ads.common.npu_furthest_point_sampling(myTest.point.npu(), myTest.numPoints)
+
+    def compare_res(self, myTest):
+        myTest.createData()
+        cpuOutput = self.cpu_op_exec(myTest)
+        npuOutput = self.npu_op_exec(myTest)
+        self.assertRtolEqual(cpuOutput, npuOutput)
+
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampling` is only for 910B, skip it.")
+    def test_FurthestPointSample(self):
+        self.compare_res(test1)
+        self.compare_res(test2)
+
+
+if __name__ == "__main__":
+    run_tests()

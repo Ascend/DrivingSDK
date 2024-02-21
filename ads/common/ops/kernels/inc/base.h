@@ -3,14 +3,23 @@
 //     .INPUT(x2, TensorType({DT_FLOAT}))
 //     .OUTPUT(y, TensorType({DT_FLOAT}))
 //     .OP_END_FACTORY_REG(Add)
+
 // REG_OP(FurthestPointSamplingWithDist)
 //     .INPUT(points_dist, TensorType({DT_FLOAT}))
 //     .INPUT(nearest_temp, TensorType({DT_FLOAT}))
 //     .OUTPUT(index, TensorType({DT_INT32}))
 //     .REQUIRED_ATTR(num_points, Int)
 //     .OP_END_FACTORY_REG(FurthestPointSamplingWithDist)
+
 // REG_OP(Nms3dNormal)
 //     .INPUT(boxes, TensorType({DT_FLOAT, DT_FLOAT16}))
 //     .OUTPUT(keep, TensorType({DT_INT16}))
 //     .REQUIRED_ATTR(nms_overlap_thresh, Float)
 //     .OP_END_FACTORY_REG(Nms3dNormal)
+
+// REG_OP(FurthestPointSampling)
+//     .INPUT(point_xyz, TensorType({DT_FLOAT}))
+//     .INPUT(nearest_temp, TensorType({DT_FLOAT}))
+//     .OUTPUT(index, TensorType({DT_INT32}))
+//     .REQUIRED_ATTR(num_points, Int)
+//     .OP_END_FACTORY_REG(FurthestPointSampling)

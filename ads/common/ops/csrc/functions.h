@@ -144,6 +144,7 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,
                                                     const at::Tensor& attention_weights);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(const at::Tensor& value, const at::Tensor& shape,
     const at::Tensor& level_start_index, const at::Tensor& location, const at::Tensor& attn_weight, const at::Tensor& grad_output);
+at::Tensor npu_furthest_point_sampling(const at::Tensor &point_xyz, const at::Tensor &nearset_temp, const int32_t num_points);
 at::Tensor npu_ads_add(const at::Tensor &tensor1, const at::Tensor &tensor2);
 
 at::Tensor DynamicVoxelization(
