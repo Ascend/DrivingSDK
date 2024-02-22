@@ -108,11 +108,11 @@ class TestFurthestPointSample(TestCase):
         return myTest.getCpuRes()
 
     def npu_op_exec(self, myTest):
-        return ads.common.npu_furthest_point_sampling(myTest.point.npu(), myTest.numPoints)
+        return ads.common.npu_furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
 
     def compare_res(self, myTest):
         myTest.createData()
-        cpuOutput = self.cpu_op_exec(myTest)
+        cpuOutput = torch.from_numpy(self.cpu_op_exec(myTest))
         npuOutput = self.npu_op_exec(myTest)
         self.assertRtolEqual(cpuOutput, npuOutput)
 

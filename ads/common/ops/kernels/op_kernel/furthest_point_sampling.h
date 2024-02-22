@@ -11,6 +11,8 @@
 
 namespace AscendC {
 constexpr uint32_t BUFFER_NUM = 1u;
+constexpr uint32_t MAX_REPEAT_NUM = 255u;
+constexpr uint32_t ALLIGNED_BYTES = 256u;
 
 enum PointAxis {
     pointAxis_x,

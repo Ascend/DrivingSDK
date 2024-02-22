@@ -64,7 +64,7 @@ __aicore__ inline furthestPointSamplingKernel<dataType, idxType>::furthestPointS
     this->pipe.InitBuffer(this->distUb, BUFFER_NUM, this->sizeofFormer);
     this->pipe.InitBuffer(this->workUb, BUFFER_NUM, this->TA->workSize);
 
-    this->pipe.InitBuffer(this->idxQue, BUFFER_NUM, 1024); // copy out 256 fp32s once
+    this->pipe.InitBuffer(this->idxQue, BUFFER_NUM, 1024); // 1024: copy out 256 fp32s once
 
     this->pipe.InitBuffer(this->idxTempUb, BUFFER_NUM, this->TA->idxTempSize);
     this->pipe.InitBuffer(this->pointSampled, BUFFER_NUM, 32 * 3);
@@ -201,11 +201,11 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process_s
 
                 CopyInPointAxis(pointAxis_z, loopSplit);
 
-                pipe_barrier(PIPE_V);
+                pipe_barrier(PIPE_ALL);
 
                 ComputeDist();
 
-                pipe_barrier(PIPE_V);
+                pipe_barrier(PIPE_ALL);
 
                 ComputeSamplePoints(loopSplit, comBlock);
 
@@ -366,8 +366,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputePo
     // while cal，every data block is aligned with 256 bytes.
     for (offset = 0, total_num = this->TA->formerNum; total_num > 0;
         comp_num = dupTime * this->dataNumIn256Bytes, offset = offset + comp_num, total_num = total_num - comp_num) {
-        dupTime = (total_num * sizeof(dataType)) / 256;
-        dupTime = (dupTime > 255) ? 255 : dupTime;
+        dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
+        dupTime = (dupTime > MAX_REPEAT_NUM) ? MAX_REPEAT_NUM : dupTime;
 
         set_flag(PIPE_S, PIPE_V, EVENT_ID3);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID3);
@@ -399,8 +399,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputePo
     // while cal，every data block is aligned with 256 bytes.
     for (offset = 0, total_num = this->TA->formerNum; total_num > 0;
         comp_num = dupTime * this->dataNumIn256Bytes, offset = offset + comp_num, total_num = total_num - comp_num) {
-        dupTime = (total_num * sizeof(dataType)) / 256;
-        dupTime = (dupTime > 255) ? 255 : dupTime;
+        dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
+        dupTime = (dupTime > MAX_REPEAT_NUM) ? MAX_REPEAT_NUM : dupTime;
 
         set_flag(PIPE_S, PIPE_V, EVENT_ID3);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID3);
@@ -423,8 +423,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeDi
     // while cal，every data block is aligned with 256 bytes.
     for (offset = 0, total_num = this->TA->formerNum; total_num > 0;
         comp_num = dupTime * this->dataNumIn256Bytes, offset = offset + comp_num, total_num = total_num - comp_num) {
-        dupTime = (total_num * sizeof(dataType)) / 256;
-        dupTime = (dupTime > 255) ? 255 : dupTime;
+        dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
+        dupTime = (dupTime > MAX_REPEAT_NUM) ? MAX_REPEAT_NUM : dupTime;
 
         set_flag(PIPE_S, PIPE_V, EVENT_ID0);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
@@ -451,8 +451,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeSa
 
     for (offset = 0, total_num = this->TA->formerNum; total_num > 0;
         comp_num = dupTime * this->dataNumIn256Bytes, offset = offset + comp_num, total_num = total_num - comp_num) {
-        dupTime = (total_num * sizeof(dataType)) / 256;
-        dupTime = (dupTime > 255) ? 255 : dupTime;
+        dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
+        dupTime = (dupTime > MAX_REPEAT_NUM) ? MAX_REPEAT_NUM : dupTime;
 
         set_flag(PIPE_S, PIPE_V, EVENT_ID1);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID1);
@@ -468,7 +468,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeSa
         CopyOutNearestDistTemp(comBlock);
     }
 
-    pipe_barrier(PIPE_V);
+    pipe_barrier(PIPE_ALL);
 
     // ReduceMax
     ReduceMax<dataType>(this->ubBlocks.idxTempLocal[reduceOffset], this->ubBlocks.nearestDistLocal,
