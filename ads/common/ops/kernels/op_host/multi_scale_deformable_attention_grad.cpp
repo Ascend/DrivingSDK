@@ -31,7 +31,7 @@ namespace optiling
         auto channels = value_shape.GetDim(3);
         auto num_query = sampling_loc_shape.GetDim(1);
         auto num_levels = sampling_loc_shape.GetDim(3);
-        auto num_point = sampling_loc_shape.GetDim(4);
+        auto num_point = sampling_loc_shape.GetDim(5);
         auto task_per_core = (batch_size * num_query - 1) / core_num + 1;
         auto core_used = (batch_size * num_query - 1) / task_per_core + 1;
         auto task_tail_core = batch_size * num_query - (core_used - 1) * task_per_core;
