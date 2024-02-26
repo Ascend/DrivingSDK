@@ -161,4 +161,6 @@ at::Tensor DynamicVoxelization(
     const double coorsMinZ);
 
 std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor &boxes, double nms_overlap_thresh);
+
+std::tuple<at::Tensor, at::Tensor> nms3d(const at::Tensor &boxes, double threshold);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_

@@ -97,4 +97,7 @@ void init_common(pybind11::module &m)
 
     // npu_furthest_point_sampling
     m.def("npu_furthest_point_sampling", &npu_furthest_point_sampling);
+
+    // ads_nms3d
+    m.def("nms3d", &nms3d);
 }

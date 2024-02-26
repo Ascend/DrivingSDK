@@ -31,3 +31,4 @@ from .ops.dynamic_voxelization import voxelization
 from .ops.dynamic_voxelization import Voxelization
 from .ops.nms3d_normal import npu_nms3d_normal
 from .ops.furthest_point_sampling import npu_furthest_point_sampling
+from .ops.npu_nms3d import npu_nms3d
