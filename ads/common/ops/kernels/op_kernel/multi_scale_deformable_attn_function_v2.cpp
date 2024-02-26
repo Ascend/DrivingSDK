@@ -69,8 +69,6 @@ public:
 
         pipe->InitBuffer(emptyUb, BUFFER_NUM, embedDimsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(tmpFloatUb, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
-
         pipe->InitBuffer(intOneUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
         pipe->InitBuffer(floatOneUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
 
@@ -80,8 +78,8 @@ public:
         pipe->InitBuffer(tmpParam1Ub, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(tmpIntUb, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
-
-        pipe->InitBuffer(leftTopWieightQueue, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpFloatUb, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(weightQueue, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(valueUb, BUFFER_NUM, batchOffset * 4 * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(tmpResUb, BUFFER_NUM, batchOffset * sizeof(DTYPE_VALUE));
@@ -127,7 +125,7 @@ private:
         {
             LocalTensor<DTYPE_VALUE> emptyUbLocal = emptyUb.Get<DTYPE_VALUE>();
 
-            LocalTensor<DTYPE_VALUE> weightLocal = leftTopWieightQueue.Get<DTYPE_VALUE>();
+            LocalTensor<DTYPE_VALUE> weightLocal = weightQueue.Get<DTYPE_VALUE>();
 
             LocalTensor<DTYPE_VALUE> xLocal = tmpXUb.Get<DTYPE_VALUE>();
             LocalTensor<DTYPE_VALUE> yLocal = tmpYUb.Get<DTYPE_VALUE>();
@@ -163,13 +161,17 @@ private:
 
             for (uint32_t head = 0; head < numHeads; head++)
             {
-                for (uint32_t level = 0; level < numLevels; level++)
+                for (uint32_t level = 0; level < numLevels; level++) // 往上再提
                 {
                     h = shapesLocal.GetValue(level * 2);
                     w = shapesLocal.GetValue(level * 2 + 1);
 
                     weightOffset = (head * numLevels + level) * numPoints;
                     locationOffset = weightOffset * 2;
+                    valueOffset = (batch * numKeys * numHeads + offsetLocal.GetValue(level) * numHeads + head) * embedDims;
+
+                    Duplicate<DTYPE_VALUE>(valueLocal, DTYPE_VALUE(0), 4 * batchOffset);
+
                     for (uint32_t point = 0; point < numPoints; point++)
                     {
                         tmp1 = locationLocal.GetValue(locationOffset + point * 2) * (DTYPE_VALUE)w;
@@ -178,8 +180,8 @@ private:
                         tmpFloatLocal.SetValue(point, tmp1 + (DTYPE_VALUE)0.5);
                         tmpFloatLocal.SetValue(point + numPointsAlign, tmp2 + (DTYPE_VALUE)0.5);
 
-                        tmpFloatLocal.SetValue(point + numPointsAlign * 2, tmp1 - (DTYPE_VALUE)0.5);
-                        tmpFloatLocal.SetValue(point + numPointsAlign * 3, tmp2 - (DTYPE_VALUE)0.5);
+                        tmpFloatLocal.SetValue(point + numPointsAlign * 2, tmp1 - (DTYPE_VALUE)0.5 + (DTYPE_VALUE)1e-5);
+                        tmpFloatLocal.SetValue(point + numPointsAlign * 3, tmp2 - (DTYPE_VALUE)0.5 + (DTYPE_VALUE)1e-5);
                     }
 
                     Cast(tmpIntLocal, tmpFloatLocal, RoundMode::CAST_FLOOR, 4 * numPointsAlign);
@@ -193,21 +195,12 @@ private:
                     Abs(param1Local, tmpFloatLocal[numPointsAlign], numPointsAlign);
 
                     Sub(xLocal, floatOneLocal, param0Local, numPointsAlign);
-                    Sub(yLocal, floatOneLocal, param1Local, numPointsAlign);
 
-                    Mul(weightLocal, xLocal, yLocal, numPointsAlign);
-                    Mul(weightLocal[numPointsAlign], xLocal, param1Local, numPointsAlign);
-                    Mul(weightLocal[numPointsAlign * 2], param0Local, yLocal, numPointsAlign);
                     Mul(weightLocal[numPointsAlign * 3], param0Local, param1Local, numPointsAlign);
+                    Sub(weightLocal[numPointsAlign * 2], param0Local, weightLocal[numPointsAlign * 3], numPointsAlign);
+                    Sub(weightLocal[numPointsAlign], param1Local, weightLocal[numPointsAlign * 3], numPointsAlign);
+                    Sub(weightLocal, xLocal, weightLocal[numPointsAlign], numPointsAlign);
 
-                    Mul(weightLocal, weightLocal, attentionWeightLocal[weightOffset], numPointsAlign);
-                    Mul(weightLocal[numPointsAlign], weightLocal[numPointsAlign], attentionWeightLocal[weightOffset], numPointsAlign);
-                    Mul(weightLocal[numPointsAlign * 2], weightLocal[numPointsAlign * 2], attentionWeightLocal[weightOffset], numPointsAlign);
-                    Mul(weightLocal[numPointsAlign * 3], weightLocal[numPointsAlign * 3], attentionWeightLocal[weightOffset], numPointsAlign);
-
-                    valueOffset = (batch * numKeys * numHeads + offsetLocal.GetValue(level) * numHeads + head) * embedDims;
-
-                    Duplicate<DTYPE_VALUE>(valueLocal, DTYPE_VALUE(0), 4 * batchOffset);
                     for (uint32_t point = 0; point < numPoints; point++)
                     {
                         x0 = tmpIntLocal.GetValue(point);
@@ -248,10 +241,12 @@ private:
                         rightTopWeiight = weightLocal.GetValue(numPointsAlign * 2 + point);
                         rightBottomWeight = weightLocal.GetValue(numPointsAlign * 3 + point);
 
-                        Muls(valueLocal[point * embedDimsAlign], valueLocal[point * embedDimsAlign], leftTopWeight, embedDimsAlign);
-                        Muls(valueLocal[batchOffset + point * embedDimsAlign], valueLocal[batchOffset + point * embedDimsAlign], leftBottomWeight, embedDimsAlign);
-                        Muls(valueLocal[batchOffset * 2 + point * embedDimsAlign], valueLocal[batchOffset * 2 + point * embedDimsAlign], rightTopWeiight, embedDimsAlign);
-                        Muls(valueLocal[batchOffset * 3 + point * embedDimsAlign], valueLocal[batchOffset * 3 + point * embedDimsAlign], rightBottomWeight, embedDimsAlign);
+                        attnWeight = attentionWeightLocal.GetValue(weightOffset + point);
+
+                        Muls(valueLocal[point * embedDimsAlign], valueLocal[point * embedDimsAlign], leftTopWeight * attnWeight, embedDimsAlign);
+                        Muls(valueLocal[batchOffset + point * embedDimsAlign], valueLocal[batchOffset + point * embedDimsAlign], leftBottomWeight * attnWeight, embedDimsAlign);
+                        Muls(valueLocal[batchOffset * 2 + point * embedDimsAlign], valueLocal[batchOffset * 2 + point * embedDimsAlign], rightTopWeiight * attnWeight, embedDimsAlign);
+                        Muls(valueLocal[batchOffset * 3 + point * embedDimsAlign], valueLocal[batchOffset * 3 + point * embedDimsAlign], rightBottomWeight * attnWeight, embedDimsAlign);
                     }
 
                     Add(tmpResLocal, valueLocal, valueLocal[batchOffset], batchOffset);
@@ -286,7 +281,7 @@ private:
     TQue<QuePosition::VECOUT, BUFFER_NUM> outputQueue;
 
     TBuf<TPosition::VECCALC> tmpResUb, tmpResUb2, tmpResUb3, tmpXUb, tmpYUb, tmpParam0Ub, tmpParam1Ub, tmpIntUb, tmpFloatUb;
-    TBuf<TPosition::VECCALC> intOneUb, floatOneUb, leftTopWieightQueue, emptyUb;
+    TBuf<TPosition::VECCALC> intOneUb, floatOneUb, weightQueue, emptyUb;
     TBuf<TPosition::VECCALC> valueUb;
 
     uint32_t batchSize;
@@ -327,7 +322,7 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn_function_v2(GM
                                                                               GM_ADDR attention_weights,
                                                                               GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling)
 {
-    TPipe pipe; //
+    TPipe pipe;
     GET_TILING_DATA(tiling_data, tiling);
     KernelMultiScaleDeformableAttnFunctionV2 op;
     op.Init(value, value_spatial_shapes, value_level_start_index,
