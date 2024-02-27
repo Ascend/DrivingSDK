@@ -20,6 +20,10 @@
 
 at::Tensor npu_points_in_box(const at::Tensor &boxes, const at::Tensor &pts)
 {
+    TORCH_CHECK(pts.size(0) == 1 && boxes.size(0) == 1,
+        "points_in_box npu only support batch size = 1");
+    TORCH_CHECK(boxes.size(1) <= 200,
+        "boxes is larger than 200");
     c10::SmallVector<int64_t, 8> output_size = {pts.size(0), pts.size(1)};
     at::Tensor out = at::empty(output_size, pts.options().dtype(at::kInt));
     auto boxes_trans = boxes.transpose(1, 2).contiguous();
