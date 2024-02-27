@@ -64,10 +64,11 @@ static ge::graphStatus TilingForDynamicVox(gert::TilingContext* context)
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
+static ge::graphStatus InferShapeForDynamicVoxel(gert::InferShapeContext* context)
 {
     const gert::Shape* ptsShape = context->GetInputShape(0);
     gert::Shape* coorsShape = context->GetOutputShape(0);
+    coorsShape->SetDimNum(0);
     coorsShape->AppendDim(ptsShape->GetDim(0));
     coorsShape->AppendDim(3);
     return GRAPH_SUCCESS;
@@ -100,6 +101,7 @@ public:
         this->Attr("grid_y").Int();
         this->Attr("grid_z").Int();
 
+        this->SetInferShape(ge::InferShapeForDynamicVoxel);
         this->AICore().SetTiling(optiling::TilingForDynamicVox);
         this->AICore().AddConfig("ascend910b");
     }
