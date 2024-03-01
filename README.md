@@ -27,7 +27,9 @@ git clone https://gitee.com/ascend/ads.git
 
 ```shell
 # 编译
-bash ads/ci/build.sh --python=3.7
+# NOTE: 请在仓库根目录下执行编译命令
+cd ads
+bash ci/build.sh --python=3.7
 ```
 
 | 架构    | pytorch版本  | 出包版本                                                 |
@@ -54,8 +56,6 @@ pip3 install ads-1.0-cp37-cp37m-linux_aarch64.whl
 
 当前ADS包还未商发，需到https://cmc-szv.clouddragon.huawei.com/cmcversion/index/search 搜索 FrameworkPTAdapter V100R001C01B001 取最新的包即可，注意需要根据环境的torch版本和python版本选择下载，如 ADS_v1.11.0_py37.tar.gz，其中v1.11.0表示torch版本，py37表示python版本。
 
-![img](file:///C:/Users/c30030097/AppData/Roaming/eSpace_Desktop/UserData/c30030097/imagefiles/originalImgfiles/8A534D96-078D-44F1-852C-E0B8CD4F3074.png)
-
 后续计划发包版本
 
 | 架构    | pytorch版本  | 出包版本                                                 |
@@ -74,8 +74,10 @@ pip3 install ads-1.0-cp37-cp37m-linux_aarch64.whl
 注意：其中xxx表示当前环境上的python安装路径
 
 ```bash
-export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/ads/common/ops/kernels/ads_op_kernel/packages/vendors/customize/
-export LD_LIBRARY_PATH=xxx/site-packages/ads/common/ops/kernels/ads_op_kernel/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
+# 查看ads安装路径
+pip3 show ads-accelerator
+export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/ads/packages/vendors/customize/
+export LD_LIBRARY_PATH=xxx/site-packages/ads/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
 ```
 
 算子调用

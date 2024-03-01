@@ -41,9 +41,10 @@ def get_sha(pytorch_root: Union[str, Path]) -> str:
     except Exception:
         return "Unknown"
 
-VERSION = "1.0." + torch.__version__[0:6]
-torch_npu_root = Path(__file__).parent
-sha = get_sha(torch_npu_root)
+
+VERSION = "1.0.0"
+ads_root = Path(__file__).parent
+sha = get_sha(ads_root)
 if not os.getenv("BUILD_WITHOUT_SHA"):
     VERSION += "+git" + sha[:7]
 
