@@ -12,45 +12,34 @@ using namespace AscendC;
 
 namespace optiling
 {
-    uint64_t static RESERVE_SAPCE = 1024;
+    const uint32_t BLOCK_DIM = 8;
+    const uint32_t TILE_NUM = 8;
 
     static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionGrad(gert::TilingContext *context)
     {
         MultiScaleDeformableAttentionGradTilingData tiling;
-        auto platform_info = context->GetPlatformInfo();
-        auto ascendc_platform = platform_ascendc::PlatformAscendC(platform_info);
-        static uint32_t core_num = ascendc_platform.GetCoreNumAiv();
-        uint64_t total_ub_size;
-        ascendc_platform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, total_ub_size);
-        auto value_shape = context->GetInputShape(0)->GetStorageShape();
-        auto sampling_loc_shape = context->GetInputShape(3)->GetStorageShape();
-        auto ub_size = total_ub_size - RESERVE_SAPCE;
-        auto batch_size = value_shape.GetDim(0);
-        auto spatial_size = value_shape.GetDim(1);
-        auto num_heads = value_shape.GetDim(2);
-        auto channels = value_shape.GetDim(3);
-        auto num_query = sampling_loc_shape.GetDim(1);
-        auto num_levels = sampling_loc_shape.GetDim(3);
-        auto num_point = sampling_loc_shape.GetDim(5);
-        auto task_per_core = (batch_size * num_query - 1) / core_num + 1;
-        auto core_used = (batch_size * num_query - 1) / task_per_core + 1;
-        auto task_tail_core = batch_size * num_query - (core_used - 1) * task_per_core;
-        tiling.set_batch_size(batch_size);
-        tiling.set_spatial_size(spatial_size);
-        tiling.set_num_heads(num_heads);
-        tiling.set_channels(channels);
-        tiling.set_num_levels(num_levels);
-        tiling.set_num_query(num_query);
-        tiling.set_num_point(num_point);
-        tiling.set_task_per_core(task_per_core);
-        tiling.set_task_tail_core(task_tail_core);
-        tiling.set_core_used(core_used);
-        tiling.set_ub_size(ub_size);
+
+        auto valueShape = context->GetInputTensor(0)->GetStorageShape();
+        auto samplingLocationsShape = context->GetInputTensor(3)->GetStorageShape();
+
+        auto platformInfoptr = context->GetPlatformInfo();
+        auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
+        uint32_t coreNum = ascendplatformInfo.GetCoreNumAiv();
+        context->SetBlockDim(coreNum);
+
+        tiling.set_batchSize(valueShape.GetDim(0));
+        tiling.set_numKeys(valueShape.GetDim(1));
+        tiling.set_numHeads(valueShape.GetDim(2));
+        tiling.set_embedDims(valueShape.GetDim(3));
+        tiling.set_numLevels(samplingLocationsShape.GetDim(3));
+        tiling.set_numQueries(samplingLocationsShape.GetDim(1));
+        tiling.set_numPoints(samplingLocationsShape.GetDim(5));
+        tiling.set_coreNum(coreNum);
         tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-        context->SetBlockDim(core_used);
-        size_t *current_workspace = context->GetWorkspaceSizes(1);
-        current_workspace[0] = 0;
+
+        size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+        currentWorkspace[0] = 0;
         return ge::GRAPH_SUCCESS;
     }
 }

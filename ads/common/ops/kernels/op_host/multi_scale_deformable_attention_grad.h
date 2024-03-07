@@ -28,17 +28,14 @@
 
 namespace optiling {
 BEGIN_TILING_DATA_DEF(MultiScaleDeformableAttentionGradTilingData)
-    TILING_DATA_FIELD_DEF(uint32_t, batch_size)
-    TILING_DATA_FIELD_DEF(uint32_t, spatial_size)
-    TILING_DATA_FIELD_DEF(uint32_t, num_heads)
-    TILING_DATA_FIELD_DEF(uint32_t, channels)
-    TILING_DATA_FIELD_DEF(uint32_t, num_levels)
-    TILING_DATA_FIELD_DEF(uint32_t, num_query)
-    TILING_DATA_FIELD_DEF(uint32_t, num_point)
-    TILING_DATA_FIELD_DEF(uint32_t, task_per_core)
-    TILING_DATA_FIELD_DEF(uint32_t, task_tail_core)
-    TILING_DATA_FIELD_DEF(uint32_t, core_used)
-    TILING_DATA_FIELD_DEF(uint64_t, ub_size)
+    TILING_DATA_FIELD_DEF(uint32_t, batchSize)
+    TILING_DATA_FIELD_DEF(uint32_t, numKeys)
+    TILING_DATA_FIELD_DEF(uint32_t, numHeads)
+    TILING_DATA_FIELD_DEF(uint32_t, embedDims)
+    TILING_DATA_FIELD_DEF(uint32_t, numLevels)
+    TILING_DATA_FIELD_DEF(uint32_t, numQueries)
+    TILING_DATA_FIELD_DEF(uint32_t, numPoints)
+    TILING_DATA_FIELD_DEF(uint32_t, coreNum)
     END_TILING_DATA_DEF;
 
     REGISTER_TILING_DATA_CLASS(MultiScaleDeformableAttentionGrad, MultiScaleDeformableAttentionGradTilingData)
