@@ -30,6 +30,7 @@ using namespace AscendC;
 namespace optiling {
 /****************constexpr definition*****************/
 constexpr int64_t FP32_MODE = 0;
+constexpr int64_t POINTSDIMSNUM = 3;
 
 /****************struct definition*****************/
 struct ub_memory_tag {
@@ -101,7 +102,10 @@ ge::graphStatus FurthestPointSamplingTiling::Init()
     uint64_t                  max_data_num;
 
     auto platformInfoPtr = TilingContext->GetPlatformInfo();
-    if (platformInfoPtr == nullptr) {
+    if ((platformInfoPtr == nullptr) || (point_xyz_shape == nullptr) || (attrs == nullptr)) {
+        return ge::GRAPH_FAILED;
+    }
+    if (attrs->GetAttrPointer<uint32_t>(0) == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -120,6 +124,9 @@ ge::graphStatus FurthestPointSamplingTiling::Init()
     platformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, this->ub_memory.ub_size);
 
     // Get input args
+    if (point_xyz_shape->GetStorageShape().GetDimNum() != POINTSDIMSNUM) {
+        return ge::GRAPH_FAILED;
+    }
     this->batch     = point_xyz_shape->GetStorageShape().GetDim(0);
     this->N         = point_xyz_shape->GetStorageShape().GetDim(2);
     this->numPoints = *(attrs->GetAttrPointer<uint32_t>(0));
@@ -154,6 +161,9 @@ ge::graphStatus FurthestPointSamplingTiling::RunKernelTiling()
     size_t sysWorkspaceSize = 16 * 1024 * 1024; // Alloc 16M workspace
     size_t userWorkSpaceSize = this->batch * this->N * this->point_dtype_size; // NearestDist needs a space to be moved out
     size_t *currentWorkSpace = TilingContext->GetWorkspaceSizes(1);
+    if (currentWorkSpace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkSpace[0] = userWorkSpaceSize + sysWorkspaceSize;
 
     TilingData.set_batch(this->batch);
@@ -267,6 +277,9 @@ inline uint64_t FurthestPointSamplingTiling::UbBlocksSpace(uint64_t data_num)
 static ge::graphStatus TilingFurthestPointSampling(gert::TilingContext* context)
 {
     FurthestPointSamplingTiling tilingObject(context);
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
     tilingObject.Init();
     return tilingObject.RunKernelTiling();
@@ -282,7 +295,13 @@ static ge::graphStatus InfershapeForFurthestPointSampling(gert::InferShapeContex
     if ((point_xyz_shape == nullptr) || (attrs == nullptr) || (index_shape == nullptr)) {
         return ge::GRAPH_FAILED;
     }
+    if (attrs->GetAttrPointer<int32_t>(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
+    if (point_xyz_shape->GetDimNum() != POINTSDIMSNUM) {
+        return ge::GRAPH_FAILED;
+    }
     uint32_t batch      = point_xyz_shape->GetDim(0);
     uint32_t N          = point_xyz_shape->GetDim(2);
     uint32_t num_points = *(attrs->GetAttrPointer<int32_t>(0));
