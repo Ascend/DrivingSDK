@@ -9,7 +9,7 @@ function(install_target)
 endfunction()
 
 function(install_file)
-  cmake_parse_arguments(INSTALL_TARGET "" "DST;SRC;TRG" "" ${ARGN})
+  cmake_parse_arguments(INSTALL_TARGET "" "DST;TRG" "SRC" ${ARGN})
   file(MAKE_DIRECTORY ${ADS_PATH}/${INSTALL_TARGET_DST})
   foreach(SOURCE_FILE ${INSTALL_TARGET_SRC})
     add_custom_command(

@@ -30,6 +30,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     *y_shape = *x1_shape;
     return GRAPH_SUCCESS;
 }
+static ge::graphStatus InferDataType(gert::InferDataTypeContext* context)
+{
+    const ge::DataType x1_dtype = context->GetInputDataType(0);
+    context->SetOutputDataType(0, x1_dtype);
+    return GRAPH_SUCCESS;
+}
 }
 
 
@@ -54,7 +60,7 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShape);
+        this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDataType);
 
         this->AICore()
             .SetTiling(optiling::TilingFunc);

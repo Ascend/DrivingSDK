@@ -131,6 +131,8 @@ foreach(compute_unit ${ASCEND_COMPUTE_UNIT})
       OUT_DIR
       ${ADS_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl
     )
+    install_file(TRG ascendc_impl_gen SRC ${ASCEND_KERNEL_SRC} DST
+             packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl/dynamic)
   endif()
 
   # dynamic shape binary compile
