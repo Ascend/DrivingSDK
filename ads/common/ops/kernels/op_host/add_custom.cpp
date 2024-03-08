@@ -26,7 +26,13 @@ namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* x1_shape = context->GetInputShape(0);
+    if (x1_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* y_shape = context->GetOutputShape(0);
+    if (y_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     *y_shape = *x1_shape;
     return GRAPH_SUCCESS;
 }

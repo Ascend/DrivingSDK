@@ -13,6 +13,9 @@ static ge::graphStatus TilingForDynamicVox(gert::TilingContext* context)
     DynamicVoxTilingData tiling;
     // get core num
     auto platformInfoPtr = context->GetPlatformInfo();
+    if (platformInfoPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendPlatformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
     uint32_t coreNum = ascendPlatformInfo.GetCoreNumAic();
     if (coreNum == 0) {
@@ -22,6 +25,9 @@ static ge::graphStatus TilingForDynamicVox(gert::TilingContext* context)
     // get tiling param
     auto ptsShape = context->GetInputShape(0)->GetStorageShape();
     auto attrsPtr = context->GetAttrs();
+    if (attrsPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     float coorsMinX = *(attrsPtr->GetAttrPointer<float>(0));
     float coorsMinY = *(attrsPtr->GetAttrPointer<float>(1));
     float coorsMinZ = *(attrsPtr->GetAttrPointer<float>(2));
@@ -67,7 +73,13 @@ namespace ge {
 static ge::graphStatus InferShapeForDynamicVoxel(gert::InferShapeContext* context)
 {
     const gert::Shape* ptsShape = context->GetInputShape(0);
+    if (ptsShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* coorsShape = context->GetOutputShape(0);
+    if (coorsShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     coorsShape->SetDimNum(0);
     coorsShape->AppendDim(ptsShape->GetDim(0));
     coorsShape->AppendDim(3);
