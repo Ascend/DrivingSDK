@@ -124,7 +124,7 @@ ge::graphStatus FurthestPointSamplingTiling::Init()
     platformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, this->ub_memory.ub_size);
 
     // Get input args
-    if (point_xyz_shape->GetStorageShape().GetDimNum() != POINTSDIMSNUM) {
+    if (point_xyz_shape->GetStorageShape().GetDimNum() != optiling::POINTSDIMSNUM) {
         return ge::GRAPH_FAILED;
     }
     this->batch     = point_xyz_shape->GetStorageShape().GetDim(0);
@@ -299,7 +299,7 @@ static ge::graphStatus InfershapeForFurthestPointSampling(gert::InferShapeContex
         return ge::GRAPH_FAILED;
     }
 
-    if (point_xyz_shape->GetDimNum() != POINTSDIMSNUM) {
+    if (point_xyz_shape->GetDimNum() != optiling::POINTSDIMSNUM) {
         return ge::GRAPH_FAILED;
     }
     uint32_t batch      = point_xyz_shape->GetDim(0);

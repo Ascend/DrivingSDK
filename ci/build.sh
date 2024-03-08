@@ -87,7 +87,10 @@ function main()
     fi
     chmod -R 777 ${SCRIPTS_DIR}
     bash ${SCRIPTS_DIR}/build_kernel.sh
-
+    if [$? != 0]; then
+        echo "Failed to compile the wheel file. Please check the source code by yourself."
+        exit 1
+    fi
     cd ${CUR_DIR}/..
     rm -rf build
     if [ -d "ads_accelerator.egg-info" ]; then
