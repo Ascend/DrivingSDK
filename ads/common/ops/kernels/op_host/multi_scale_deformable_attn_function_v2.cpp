@@ -23,6 +23,9 @@ namespace optiling
         auto samplingLocationsShape = context->GetInputTensor(3)->GetStorageShape();
 
         auto platformInfoptr = context->GetPlatformInfo();
+        if (platformInfoptr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
         uint32_t coreNum = ascendplatformInfo.GetCoreNumAiv();
         context->SetBlockDim(coreNum);
@@ -49,10 +52,17 @@ namespace ge
     static ge::graphStatus InferShapeForMultiScaleDeformableAttnFunctionV2(gert::InferShapeContext *context)
     {
         const gert::Shape *valueShape = context->GetInputShape(0);
+        if (valueShape == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         const gert::Shape *samplingLocationsShape = context->GetInputShape(3);
-
+        if (samplingLocationsShape == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         gert::Shape *y_shape = context->GetOutputShape(0);
-
+        if (y_shape == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         y_shape->SetDimNum(0);
         y_shape->AppendDim(valueShape->GetDim(0));
         y_shape->AppendDim(samplingLocationsShape->GetDim(1));

@@ -7,6 +7,9 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
 {
     FurthestPointSamplingWithDistTilingData tiling;
     auto platformInfo = context->GetPlatformInfo();
+    if (platformInfo == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     static uint32_t core_num = ascendcPlatform.GetCoreNumAiv();
     uint64_t UB_size;
@@ -14,7 +17,9 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
     
     auto dist_shape = context->GetInputShape(0)->GetStorageShape();
     auto attrs = context->GetAttrs();
-    
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     if (core_num == 0) {
         return ge::GRAPH_FAILED;
     }
@@ -81,11 +86,19 @@ namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* points_dist_shape = context->GetInputShape(0);
-
+    if (points_dist_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     const int32_t* points_num = attrs->GetAttrPointer<int32_t>(0);
 
     gert::Shape* idx_shape = context->GetOutputShape(0);
+    if (idx_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     idx_shape->AppendDim(points_dist_shape->GetDim(0));
     idx_shape->AppendDim(*points_num);
     return GRAPH_SUCCESS;

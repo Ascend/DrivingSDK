@@ -23,6 +23,9 @@ namespace optiling
         auto samplingLocationsShape = context->GetInputTensor(3)->GetStorageShape();
 
         auto platformInfoptr = context->GetPlatformInfo();
+        if (platformInfoptr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
         uint32_t coreNum = ascendplatformInfo.GetCoreNumAiv();
         context->SetBlockDim(coreNum);
@@ -49,12 +52,19 @@ namespace ge
     static ge::graphStatus InferShapeForMultiScaleDeformableAttentionGrad(gert::InferShapeContext *context)
     {
         const gert::Shape *value_shape = context->GetInputShape(0);
+        if (value_shape == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         const gert::Shape *sampling_locations_shape = context->GetInputShape(3);
-
+        if (sampling_locations_shape == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         gert::Shape *grad_value_shape = context->GetOutputShape(0);
         gert::Shape *grad_sample_loc_shape = context->GetOutputShape(1);
         gert::Shape *grad_attn_weight_shape = context->GetOutputShape(2);
-
+        if ((grad_value_shape == nullptr) || (grad_sample_loc_shape == nullptr) || (grad_attn_weight_shape == nullptr)) {
+            return ge::GRAPH_FAILED;
+        }
         grad_value_shape->AppendDim(value_shape->GetDim(0));
         grad_value_shape->AppendDim(value_shape->GetDim(1));
         grad_value_shape->AppendDim(value_shape->GetDim(2));

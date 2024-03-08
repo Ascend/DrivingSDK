@@ -171,8 +171,13 @@ namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* featShape = context->GetInputShape(0);
-
+    if (featShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* outShape = context->GetOutputShape(0);
+    if (outShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     outShape->SetDim(0, -1);
     outShape->SetDim(1, featShape->GetDim(1));
     return GRAPH_SUCCESS;

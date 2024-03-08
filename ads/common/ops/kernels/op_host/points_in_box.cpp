@@ -20,6 +20,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     PointsInBoxTilingData tiling;
     auto platformInfoptr = context->GetPlatformInfo();
+    if (platformInfoptr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
     auto core_number = ascendplatformInfo.GetCoreNumAiv();
     uint32_t totalresult = context->GetInputTensor(1)->GetShapeSize() / 3;
@@ -63,7 +66,13 @@ namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* pts_shape = context->GetInputShape(1);
+    if (pts_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* y_shape = context->GetOutputShape(0);
+    if (y_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     y_shape->SetDimNum(0);
     y_shape->AppendDim(pts_shape->GetDim(0));
     y_shape->AppendDim(pts_shape->GetDim(1));
