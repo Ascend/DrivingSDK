@@ -44,7 +44,7 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,
         data_total < 512,
         "data_total is over 512: embed_dims ", embed_dims, " num_points is ", num_points, " num_level is ", num_levels, "." );
 
-    at::Tensor result = at::empty(output_size, value.options().dtype(at::kFloat));
+    at::Tensor result = at::zeros(output_size, value.options().dtype(at::kFloat));
 
     // reset inputs
     at::Tensor value_cp = value.to(at::kFloat);
@@ -104,9 +104,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     auto grad_atten_weight_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[4]};
     auto grad_sample_loc_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[5], location_size[4]};
     at::Tensor location1 = location.transpose(4, 5).contiguous();
-    at::Tensor result1 = at::empty(grad_value_size, value.options().dtype(at::kFloat));
-    at::Tensor result2 = at::empty(grad_sample_loc_size, location.options().dtype(at::kFloat));
-    at::Tensor result3 = at::empty(grad_atten_weight_size, attn_weight.options().dtype(at::kFloat));
+    at::Tensor result1 = at::zeros(grad_value_size, value.options().dtype(at::kFloat));
+    at::Tensor result2 = at::zeros(grad_sample_loc_size, location.options().dtype(at::kFloat));
+    at::Tensor result3 = at::zeros(grad_atten_weight_size, attn_weight.options().dtype(at::kFloat));
 
     at::Tensor value_fp = value.to(at::kFloat);
     at::Tensor shape_fp = shape.to(at::kInt);
