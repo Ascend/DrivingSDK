@@ -367,7 +367,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputePo
     for (offset = 0, total_num = this->TA->formerNum; total_num > 0;
         comp_num = dupTime * this->dataNumIn256Bytes, offset = offset + comp_num, total_num = total_num - comp_num) {
         dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
-        dupTime = (dupTime > MAX_REPEAT_NUM) ? MAX_REPEAT_NUM : dupTime;
+        dupTime = (dupTime > OP_MAX_REPEAT_NUM) ? OP_MAX_REPEAT_NUM : dupTime;
 
         set_flag(PIPE_S, PIPE_V, EVENT_ID3);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID3);
@@ -400,7 +400,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputePo
     for (offset = 0, total_num = this->TA->formerNum; total_num > 0;
         comp_num = dupTime * this->dataNumIn256Bytes, offset = offset + comp_num, total_num = total_num - comp_num) {
         dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
-        dupTime = (dupTime > MAX_REPEAT_NUM) ? MAX_REPEAT_NUM : dupTime;
+        dupTime = (dupTime > OP_MAX_REPEAT_NUM) ? OP_MAX_REPEAT_NUM : dupTime;
 
         set_flag(PIPE_S, PIPE_V, EVENT_ID3);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID3);
@@ -424,7 +424,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeDi
     for (offset = 0, total_num = this->TA->formerNum; total_num > 0;
         comp_num = dupTime * this->dataNumIn256Bytes, offset = offset + comp_num, total_num = total_num - comp_num) {
         dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
-        dupTime = (dupTime > MAX_REPEAT_NUM) ? MAX_REPEAT_NUM : dupTime;
+        dupTime = (dupTime > OP_MAX_REPEAT_NUM) ? OP_MAX_REPEAT_NUM : dupTime;
 
         set_flag(PIPE_S, PIPE_V, EVENT_ID0);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
@@ -452,7 +452,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeSa
     for (offset = 0, total_num = this->TA->formerNum; total_num > 0;
         comp_num = dupTime * this->dataNumIn256Bytes, offset = offset + comp_num, total_num = total_num - comp_num) {
         dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
-        dupTime = (dupTime > MAX_REPEAT_NUM) ? MAX_REPEAT_NUM : dupTime;
+        dupTime = (dupTime > OP_MAX_REPEAT_NUM) ? OP_MAX_REPEAT_NUM : dupTime;
 
         set_flag(PIPE_S, PIPE_V, EVENT_ID1);
         wait_flag(PIPE_S, PIPE_V, EVENT_ID1);
