@@ -19,7 +19,7 @@ using namespace ge;
 namespace domi {
 using NodeProto = ge::onnx::NodeProto;
 
-Status ParseOnnxParamsAddCustom(const Message *op_src, ge::Operator &op_dest)
+Status ParseOnnxParamsMultiScaleDeformableAttnFunctionV2(const Message *op_src, ge::Operator &op_dest)
 {
     // trans op_src to op_dest
     // if op_src get required attr failed, need to return Failed
@@ -33,17 +33,17 @@ Status ParseOnnxParamsAddCustom(const Message *op_src, ge::Operator &op_dest)
     return SUCCESS;
 }
 
-REGISTER_CUSTOM_OP("AddCustom")
+REGISTER_CUSTOM_OP("MultiScaleDeformableAttnFunctionV2")
     .FrameworkType(ONNX)
     .OriginOpType({
-                    ge::AscendString("npu::1::AddCustom"),
-                    ge::AscendString("ai.onnx::8::AddCustom"),
-                    ge::AscendString("ai.onnx::9::AddCustom"),
-                    ge::AscendString("ai.onnx::10::AddCustom"),
-                    ge::AscendString("ai.onnx::11::AddCustom"),
-                    ge::AscendString("ai.onnx::12::AddCustom"),
-                    ge::AscendString("ai.onnx::13::AddCustom")})
-    .ParseParamsFn(ParseOnnxParamsAddCustom)
+                    ge::AscendString("npu::1::MultiScaleDeformableAttnFunctionV2"),
+                    ge::AscendString("ai.onnx::8::MultiScaleDeformableAttnFunctionV2"),
+                    ge::AscendString("ai.onnx::9::MultiScaleDeformableAttnFunctionV2"),
+                    ge::AscendString("ai.onnx::10::MultiScaleDeformableAttnFunctionV2"),
+                    ge::AscendString("ai.onnx::11::MultiScaleDeformableAttnFunctionV2"),
+                    ge::AscendString("ai.onnx::12::MultiScaleDeformableAttnFunctionV2"),
+                    ge::AscendString("ai.onnx::13::MultiScaleDeformableAttnFunctionV2")})
+    .ParseParamsFn(ParseOnnxParamsMultiScaleDeformableAttnFunctionV2)
     .ImplyType(ImplyType::TVM);
 } // domi
 

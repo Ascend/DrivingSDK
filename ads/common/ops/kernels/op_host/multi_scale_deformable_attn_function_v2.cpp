@@ -70,6 +70,13 @@ namespace ge
 
         return GRAPH_SUCCESS;
     }
+
+    static ge::graphStatus InferDataTypeForMultiScaleDeformableAttnFunctionV2(gert::InferDataTypeContext* context)
+    {
+        const ge::DataType value_dtype = context->GetInputDataType(0);
+        context->SetOutputDataType(0, value_dtype);
+        return GRAPH_SUCCESS;
+    }
 }
 
 namespace ops
@@ -110,7 +117,8 @@ namespace ops
                 .Format({ge::FORMAT_ND})
                 .UnknownShapeFormat({ge::FORMAT_ND});
 
-            this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnFunctionV2);
+            this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnFunctionV2)
+                .SetInferDataType(ge::InferDataTypeForMultiScaleDeformableAttnFunctionV2);
 
             this->AICore()
                 .SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnFunctionV2);

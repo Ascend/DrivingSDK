@@ -17,7 +17,7 @@ public:
                                 GM_ADDR sampling_locations,
                                 GM_ADDR attention_weights,
                                 GM_ADDR output,
-                                MultiScaleDeformableAttnFunctionV2TilingData *tiling_data,
+                                const MultiScaleDeformableAttnFunctionV2TilingData *tiling_data,
                                 TPipe *tmpPipe)
     {
         pipe = tmpPipe;
