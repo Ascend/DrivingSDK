@@ -86,8 +86,9 @@ function main()
         echo "ASCEND_OPP_PATH = $ASCEND_OPP_PATH"
     fi
     chmod -R 777 ${SCRIPTS_DIR}
+    export BUILD_PYTHON_VERSION=${PY_VERSION}
     bash ${SCRIPTS_DIR}/build_kernel.sh
-    if [$? != 0]; then
+    if [ $? != 0 ]; then
         echo "Failed to compile the wheel file. Please check the source code by yourself."
         exit 1
     fi

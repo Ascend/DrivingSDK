@@ -24,6 +24,16 @@ target_compile_definitions(
                      $<$<CONFIG:Release>:_FORTIFY_SOURCE=2>)
 target_include_directories(intf_pub
                            INTERFACE ${ASCEND_CANN_PACKAGE_PATH}/include)
+## if the CANN_PATHS not empty
+if(CANN_PATHS)
+    ## if the arch is aarch64, add the include path
+    if(${ARCH} STREQUAL "aarch64")
+        target_include_directories(intf_pub INTERFACE ${CANN_PATHS}/aarch64-linux/include)
+    else ()
+        target_include_directories(intf_pub INTERFACE ${CANN_PATHS}/x86_64-linux/include)
+    endif()
+endif()
+
 target_link_options(
   intf_pub
   INTERFACE

@@ -39,10 +39,27 @@ function(opbuild)
   message(STATUS "Opbuild generating sources")
   cmake_parse_arguments(OPBUILD "" "OUT_DIR;PROJECT_NAME;ACCESS_PREFIX"
                         "OPS_SRC" ${ARGN})
+  ## get the ${ASCEND_CANN_PACKAGE_PATH}'s parent path
+  get_filename_component(ASCEND_PATH ${ASCEND_CANN_PACKAGE_PATH}
+          DIRECTORY)
+  ## find the PATH starts with `CANN` under the parent
+  file(GLOB CANN_PATHS ${ASCEND_PATH}/CANN-*)
+  ## find the arch of the machine
+  execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCH)
+  set(CANN_INCLUDE_PATH "")
+  ## if the CANN_PATHS not empty
+  if(CANN_PATHS)
+    ## if the arch is aarch64, add the include path
+    if(${ARCH} STREQUAL "aarch64")
+      set(CANN_INCLUDE_PATH ${CANN_PATHS}/aarch64-linux/include)
+    else ()
+      set(CANN_INCLUDE_PATH ${CANN_PATHS}/x86_64-linux/include)
+    endif()
+  endif()
   execute_process(
     COMMAND
       ${CMAKE_COMPILE} -g -fPIC -shared -std=c++11 ${OPBUILD_OPS_SRC}
-      -D_GLIBCXX_USE_CXX11_ABI=0 -I ${ASCEND_CANN_PACKAGE_PATH}/include -L
+      -D_GLIBCXX_USE_CXX11_ABI=0 -I ${ASCEND_CANN_PACKAGE_PATH}/include -I ${CANN_INCLUDE_PATH} -L
       ${ASCEND_CANN_PACKAGE_PATH}/lib64 -lexe_graph -lregister -ltiling_api -o
       ${OPBUILD_OUT_DIR}/libascend_all_ops.so
     RESULT_VARIABLE EXEC_RESULT

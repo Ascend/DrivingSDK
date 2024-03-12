@@ -68,8 +68,20 @@ install(
   DESTINATION packages/vendors/${vendor_name}/op_impl/ai_core/tbe/op_tiling)
 
 if(${ENABLE_ONNX})
-  protobuf_generate(PROTO_FILE ${ASCEND_CANN_PACKAGE_PATH}/include/proto/ge_onnx.proto
-                    OUT_DIR ${ASCEND_AUTOGEN_PATH})
+  if(CANN_PATHS)
+    if(${ARCH} STREQUAL "aarch64")
+      protobuf_generate(PROTO_FILE ${CANN_PATHS}/aarch64-linux/include/proto/ge_onnx.proto
+              OUT_DIR ${ASCEND_AUTOGEN_PATH})
+    else ()
+      protobuf_generate(PROTO_FILE ${CANN_PATHS}/x86_64-linux/include/proto/ge_onnx.proto
+              OUT_DIR ${ASCEND_AUTOGEN_PATH})
+    endif()
+  else ()
+    protobuf_generate(PROTO_FILE ${ASCEND_CANN_PACKAGE_PATH}/include/proto/ge_onnx.proto
+            OUT_DIR ${ASCEND_AUTOGEN_PATH})
+  endif()
+
+
   add_library(cust_onnx_parsers SHARED ${ASCEND_ONNX_SRC})
   target_compile_options(
     cust_onnx_parsers

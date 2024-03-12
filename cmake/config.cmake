@@ -6,20 +6,37 @@ if(NOT DEFINED vendor_name)
       customize
       CACHE STRING "")
 endif()
+# read ASCEND_HOME_PATH from environment variable, change ASCEND_CANN_PACKAGE_PATH to ASCEND_HOME_PATH
+if (DEFINED ENV{ASCEND_AICPU_PATH})
+  set(ASCEND_CANN_PACKAGE_PATH $ENV{ASCEND_HOME_PATH})
+endif()
 if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
   set(ASCEND_CANN_PACKAGE_PATH
       /usr/local/Ascend/latest
       CACHE PATH "")
 endif()
+## get the ${ASCEND_CANN_PACKAGE_PATH}'s parent path
+get_filename_component(ASCEND_PATH ${ASCEND_CANN_PACKAGE_PATH}
+        DIRECTORY)
+## find the PATH starts with `CANN` under the parent
+file(GLOB CANN_PATHS ${ASCEND_PATH}/CANN-*)
+
 if(NOT DEFINED ASCEND_PYTHON_EXECUTABLE)
   set(ASCEND_PYTHON_EXECUTABLE
       python3
+      CACHE STRING "")
+endif()
+if(DEFINED ENV{BUILD_PYTHON_VERSION})
+  set(ASCEND_PYTHON_EXECUTABLE
+      python$ENV{BUILD_PYTHON_VERSION}
       CACHE STRING "")
 endif()
 if(NOT DEFINED ASCEND_COMPUTE_UNIT)
   message(FATAL_ERROR "ASCEND_COMPUTE_UNIT not set in CMakePreset.json !
 ")
 endif()
+## find the arch of the machine
+execute_process(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCH)
 set(ASCEND_TENSOR_COMPILER_PATH ${ASCEND_CANN_PACKAGE_PATH}/compiler)
 set(ASCEND_CCEC_COMPILER_PATH ${ASCEND_TENSOR_COMPILER_PATH}/ccec_compiler/bin)
 set(ASCEND_AUTOGEN_PATH ${CMAKE_BINARY_DIR}/autogen)
