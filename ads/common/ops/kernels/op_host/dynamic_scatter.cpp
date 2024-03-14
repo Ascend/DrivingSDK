@@ -123,8 +123,12 @@ ge::graphStatus DynamicScatterTiling::Init()
     }
     coreNum = GetNeedCoreNum(coreNum);
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
-
-    const char* reduceTypePtr = tilingContext->GetAttrs()->GetAttrPointer<char>(DIM_INDEX0);
+    
+    auto attrs = tilingContext->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    const char* reduceTypePtr = attrs->GetAttrPointer<char>(DIM_INDEX0);
     std::string reduceType(reduceTypePtr);
     if (reduceType != "max" && reduceType != "sum") {
         return ge::GRAPH_PARAM_INVALID;
