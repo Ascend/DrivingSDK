@@ -189,5 +189,7 @@ print(c)
 
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，Ads提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
-## 通信安全加固和通讯矩阵
-ADS在运行时依赖于`PyTorch_npu`框架，PyTorch_npu框架的通信安全加固和通讯矩阵请参考[PyTorch框架通信安全加固和通讯矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
+## 通信安全加固
+ADS在运行时依赖于`pytorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
+## 通信矩阵
+ADS在运行时依赖于`pytorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
