@@ -93,13 +93,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     auto ori_dtype = value.scalar_type();
     auto value_size = value.sizes();
     auto location_size = location.sizes();
+    auto num_heads = value_size[2];
     auto channels = value_size[3];
     auto num_points = location_size[4];
     auto num_levels = location_size[3];
     auto data_total = channels + num_points + num_levels;
     TORCH_CHECK(data_total < 512, "data_total is over 512: channels ", channels, " num_points is ",
                 num_points, " num_level is ", num_levels, ".");
-    TORCH_CHECK(channels % 8 == 0, "channels must be a multiple of eight, but channels is", channels, ".");
+    TORCH_CHECK(channels % 32 == 0, "channels must be a multiple of eight, but channels is", channels, ".");
+    TORCH_CHECK(num_points % 4 == 0, "num_points must be a multiple of four, but num_points is", num_points, ".");
+    TORCH_CHECK(num_heads % 4 == 0, "num_heads must be a multiple of four, but num_heads is", num_heads, ".");
     auto grad_value_size = {value_size[0], value_size[1], value_size[2], value_size[3]};
     auto grad_atten_weight_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[4]};
     auto grad_sample_loc_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[5], location_size[4]};
@@ -114,7 +117,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     at::Tensor sampling_locations_fp = location1.to(at::kFloat);
     at::Tensor attn_weight_fp = attn_weight.to(at::kFloat);
     at::Tensor grad_output_fp = grad_output.to(at::kFloat);
-    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttentionGrad, value_fp, shape_fp, level_start_index_fp, sampling_locations_fp,
+    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttentionGradV2, value_fp, shape_fp, level_start_index_fp, sampling_locations_fp,
                  attn_weight_fp, grad_output_fp, result1, result2, result3);
     result2 = result2.transpose(4, 5);
     return std::make_tuple(result1.to(ori_dtype), result2.to(ori_dtype), result3.to(ori_dtype));

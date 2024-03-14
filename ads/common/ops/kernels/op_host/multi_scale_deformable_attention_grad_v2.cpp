@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  */
-#include "multi_scale_deformable_attention_grad.h"
+#include "multi_scale_deformable_attention_grad_v2.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -10,14 +10,10 @@ using namespace ge;
 using namespace std;
 using namespace AscendC;
 
-namespace optiling
-{
-    const uint32_t BLOCK_DIM = 8;
-    const uint32_t TILE_NUM = 8;
-
-    static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionGrad(gert::TilingContext *context)
+namespace optiling {
+    static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionGradV2(gert::TilingContext *context)
     {
-        MultiScaleDeformableAttentionGradTilingData tiling;
+        MultiScaleDeformableAttentionGradV2TilingData tiling;
 
         auto valueShape = context->GetInputTensor(0)->GetStorageShape();
         auto samplingLocationsShape = context->GetInputTensor(3)->GetStorageShape();
@@ -47,9 +43,8 @@ namespace optiling
     }
 }
 
-namespace ge
-{
-    static ge::graphStatus InferShapeForMultiScaleDeformableAttentionGrad(gert::InferShapeContext *context)
+namespace ge {
+    static ge::graphStatus InferShapeForMultiScaleDeformableAttentionGradV2(gert::InferShapeContext *context)
     {
         const gert::Shape *value_shape = context->GetInputShape(0);
         if (value_shape == nullptr) {
@@ -84,12 +79,10 @@ namespace ge
     }
 }
 
-namespace ops
-{
-    class MultiScaleDeformableAttentionGrad : public OpDef
-    {
+namespace ops {
+    class MultiScaleDeformableAttentionGradV2 : public OpDef {
     public:
-        explicit MultiScaleDeformableAttentionGrad(const char *name) : OpDef(name)
+        explicit MultiScaleDeformableAttentionGradV2(const char *name) : OpDef(name)
         {
             this->Input("value")
                 .ParamType(REQUIRED)
@@ -137,14 +130,14 @@ namespace ops
                 .Format({ge::FORMAT_ND})
                 .UnknownShapeFormat({ge::FORMAT_ND});
 
-            this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttentionGrad);
+            this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttentionGradV2);
 
             this->AICore()
-                .SetTiling(optiling::TilingFuncForMultiScaleDeformableAttentionGrad);
+                .SetTiling(optiling::TilingFuncForMultiScaleDeformableAttentionGradV2);
 
             this->AICore().AddConfig("ascend910b");
         }
     };
 
-    OP_ADD(MultiScaleDeformableAttentionGrad);
+    OP_ADD(MultiScaleDeformableAttentionGradV2);
 }
