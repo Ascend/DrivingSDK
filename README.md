@@ -15,14 +15,14 @@ ADS-Accelerator是基于昇腾NPU平台开发的适用于自动驾驶场景的�
 ## 从源码安装
 1. 克隆原始仓
 ```shell
-git clone https://gitee.com/ascend/ADS.git
+git clone https://gitee.com/ascend/ads.git
 ```
 2. 编译ADS
 > 注意：请在仓库根目录下执行编译命令
 ```shell
 bash ci/build.sh --python=3.7
 ```
-生成的whl包在`ADS/dist`目录下, 命名规则为`ads_accelerator-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
+生成的whl包在`ads/dist`目录下, 命名规则为`ads_accelerator-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
 参数`--python`指定编译过程中使用的python版本，支持3.7及以上：
 
 | 参数   | 取值范围                                                     | 说明                           | 缺省值 | 备注                                           |
@@ -41,7 +41,7 @@ bash ci/build.sh --python=3.7
 | aarch64 | pytorch2.1.0 | Python3.8， Python3.9， Python3.10                       |
 3. 安装ADS
 ```shell
-cd ADS/dist
+cd ads/dist
 pip3 install ads_accelerator-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
 ```
 如需要保存安装日志，可在`pip3 install`命令后添加`--log <PATH>`参数，并对您指定的目录<PATH>做好权限控制。
@@ -49,27 +49,27 @@ pip3 install ads_accelerator-1.0.0+git{commit_id}-cp{python_version}-linux_{arch
 Pytorch 框架训练环境的卸载请参考昇腾官方文档[Pytorch框架训练环境卸载](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00032.html)。
 ADS-Accelerator的卸载只需执行以下命令：
 ```shell
-pip3 uninstall ADS-accelerator
+pip3 uninstall ads-accelerator
 ```
 
 # 快速上手
 1. source 环境变量
 ```shell
 # 查看ads安装路径
-pip3 show ADS-accelerator
-export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/ADS/packages/vendors/customize/
-export LD_LIBRARY_PATH=xxx/site-packages/ADS/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
+pip3 show ads-accelerator
+export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/ads/packages/vendors/customize/
+export LD_LIBRARY_PATH=xxx/site-packages/ads/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
 ```
 2. 算子调用
 ```python
 import torch
 import torch_npu
 import numpy as np
-import ADS.common
+import ads.common
 device = torch.device("npu:5")
 a=torch.rand([8, 2048]).half().npu()
 b=torch.rand([8, 2048]).half().npu()
-c = ADS.common.npu_ads_add(a,b)
+c = ads.common.npu_ads_add(a,b)
 print(c)
 ```
 
@@ -77,7 +77,7 @@ print(c)
 ## 目录结构及说明
 ```
 .
-├── ADS
+├── ads
 │  ├── __init__.py
 │  ├── common                   # 通用模块
 │  │  ├── __init__.py
@@ -132,9 +132,9 @@ print(c)
     strip -s <so_file>
     ```
    具体so文件如下：
-    - ADS/packages/vendors/customize/op_api/lib/libcust_opapi.so
-    - ADS/packages/vendors/customize/op_proto/lib/linux/aarch64/libcust_opsproto_rt2.0.so
-    - ADS/packages/vendors/customize/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64/libcust_opsproto_rt2.0.so
+    - ads/packages/vendors/customize/op_api/lib/libcust_opapi.so
+    - ads/packages/vendors/customize/op_proto/lib/linux/aarch64/libcust_opsproto_rt2.0.so
+    - ads/packages/vendors/customize/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64/libcust_opsproto_rt2.0.so
 ## 运行用户建议
 出于安全性及权限最小化角度考虑，不建议使用`root`等管理员类型账户使用ads。
 
