@@ -5,10 +5,15 @@
 using namespace std;
 
 namespace optiling {
+constexpr uint32_t DATA_ALIGN = 16;
+constexpr uint32_t BOX_DIM = 2;
+constexpr uint32_t MASK_DIM = 2;
 static ge::graphStatus Nms3dNormalTilingFunc(gert::TilingContext* context)
 {
     Nms3dNormalTilingData tiling;
-
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
         return ge::GRAPH_FAILED;
@@ -16,16 +21,21 @@ static ge::graphStatus Nms3dNormalTilingFunc(gert::TilingContext* context)
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     static uint32_t coreNum = ascendcPlatform.GetCoreNumAiv();
 
+    auto attrs = context->GetAttrs();
+    if (attrs == nullptr || context->GetInputShape(0) == nullptr || context->GetOutputShape(0) == nullptr
+        || context->GetInputDesc(0) == nullptr || context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     auto boxShape = context->GetInputShape(0)->GetStorageShape();
     auto maskShape = context->GetOutputShape(0)->GetStorageShape();
     auto dtype = context->GetInputDesc(0)->GetDataType();
-    auto attrs = context->GetAttrs();
-    if (attrs == nullptr) {
+    
+    if (boxShape.GetDimNum() != BOX_DIM || maskShape.GetDimNum() != MASK_DIM) {
         return ge::GRAPH_FAILED;
     }
     uint32_t boxNum = boxShape.GetDim(0);
     uint32_t maskNum = maskShape.GetDim(1);
-    uint32_t dataAlign = 16;
     if (ge::DT_FLOAT == dtype) {
         context->SetTilingKey(1);
     } else if (ge::DT_FLOAT16 == dtype) {
@@ -34,17 +44,17 @@ static ge::graphStatus Nms3dNormalTilingFunc(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
-    uint32_t usedCoreNum = std::min((boxNum - 1) / dataAlign + 1, coreNum);
-    uint32_t loopTime = (boxNum - 1) / (usedCoreNum * dataAlign) + 1;
-    uint32_t tailSum = boxNum - usedCoreNum * (loopTime - 1) * dataAlign;
-    uint32_t tailNum = (tailSum - 1) % dataAlign + 1;
+    uint32_t usedCoreNum = std::min((boxNum - 1) / DATA_ALIGN + 1, coreNum);
+    uint32_t loopTime = (boxNum - 1) / (usedCoreNum * DATA_ALIGN) + 1;
+    uint32_t tailSum = boxNum - usedCoreNum * (loopTime - 1) * DATA_ALIGN;
+    uint32_t tailNum = (tailSum - 1) % DATA_ALIGN + 1;
     float nms_overlap_thresh = *(attrs->GetAttrPointer<float>(0));
 
     context->SetBlockDim(usedCoreNum);
     tiling.set_usedCoreNum(usedCoreNum);
     tiling.set_boxNum(boxNum);
     tiling.set_loopTime(loopTime);
-    tiling.set_eachSum(loopTime * dataAlign);
+    tiling.set_eachSum(loopTime * DATA_ALIGN);
     tiling.set_tailSum(tailSum);
     tiling.set_tailNum(tailNum);
     tiling.set_maskNum(maskNum);
@@ -53,6 +63,9 @@ static ge::graphStatus Nms3dNormalTilingFunc(gert::TilingContext* context)
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = 0;
     return ge::GRAPH_SUCCESS;
 }
