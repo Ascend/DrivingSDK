@@ -100,9 +100,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     auto data_total = channels + num_points + num_levels;
     TORCH_CHECK(data_total < 512, "data_total is over 512: channels ", channels, " num_points is ",
                 num_points, " num_level is ", num_levels, ".");
-    TORCH_CHECK(channels % 32 == 0, "channels must be a multiple of eight, but channels is", channels, ".");
-    TORCH_CHECK(num_points % 4 == 0, "num_points must be a multiple of four, but num_points is", num_points, ".");
-    TORCH_CHECK(num_heads % 4 == 0, "num_heads must be a multiple of four, but num_heads is", num_heads, ".");
+    TORCH_CHECK(channels % 32 == 0, "channels must be a multiple of 32, but channels is ", channels, ".");
+    TORCH_CHECK(num_points % 4 == 0, "num_points must be a multiple of 4, but num_points is ", num_points, ".");
+    TORCH_CHECK(num_heads % 4 == 0, "num_heads must be a multiple of 4, but num_heads is ", num_heads, ".");
     auto grad_value_size = {value_size[0], value_size[1], value_size[2], value_size[3]};
     auto grad_atten_weight_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[4]};
     auto grad_sample_loc_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[5], location_size[4]};
