@@ -82,9 +82,9 @@ public:
         pipe->InitBuffer(weightQueue, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(valueUb, BUFFER_NUM, batchOffset * 4 * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpResUb, BUFFER_NUM, numLevels * batchOffset * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpResUb2, BUFFER_NUM, numLevels * batchOffset * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpResUb3, BUFFER_NUM, numLevels * batchOffset * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpResUb, BUFFER_NUM, batchOffset * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpResUb2, BUFFER_NUM, batchOffset * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpResUb3, BUFFER_NUM, batchOffset * sizeof(DTYPE_VALUE));
     }
 
     __aicore__ inline void Process()
@@ -240,18 +240,18 @@ private:
                         Muls(valueLocal[batchOffset * 2 + point * embedDimsAlign], valueLocal[batchOffset * 2 + point * embedDimsAlign], rightTopWeiight, embedDimsAlign);
                         Muls(valueLocal[batchOffset * 3 + point * embedDimsAlign], valueLocal[batchOffset * 3 + point * embedDimsAlign], rightBottomWeight, embedDimsAlign);
                     }
-                    if (embedDims != 32) {
-                        pipe_barrier(PIPE_ALL);
-                    }
-                    Add(tmpResLocal[srcOffset], valueLocal, valueLocal[batchOffset], batchOffset);
-                    Add(tmpResLocal2[srcOffset], valueLocal[batchOffset * 2], valueLocal[batchOffset * 3], batchOffset);
-                    Add(tmpResLocal3[srcOffset], tmpResLocal[srcOffset], tmpResLocal2[srcOffset], batchOffset);
+
+                    pipe_barrier(PIPE_ALL);
+
+                    Add(tmpResLocal, valueLocal, valueLocal[batchOffset], batchOffset);
+                    Add(tmpResLocal2, valueLocal[batchOffset * 2], valueLocal[batchOffset * 3], batchOffset);
+                    Add(tmpResLocal3, tmpResLocal, tmpResLocal2, batchOffset);
 
                     SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
                     WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
                     for (uint32_t point = 0; point < numPoints; point++)
                     {
-                        DataCopyPad(outputGm[dstOffset], tmpResLocal3[srcOffset + point * embedDimsAlign], copyParams);
+                        DataCopyPad(outputGm[dstOffset], tmpResLocal3[point * embedDimsAlign], copyParams);
                     }
                 }
             }
