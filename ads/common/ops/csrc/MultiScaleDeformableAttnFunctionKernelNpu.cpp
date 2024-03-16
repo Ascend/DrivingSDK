@@ -117,7 +117,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     at::Tensor sampling_locations_fp = location1.to(at::kFloat);
     at::Tensor attn_weight_fp = attn_weight.to(at::kFloat);
     at::Tensor grad_output_fp = grad_output.to(at::kFloat);
-    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttentionGradV2, value_fp, shape_fp, level_start_index_fp, sampling_locations_fp,
+    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttentionV2Grad, value_fp, shape_fp, level_start_index_fp, sampling_locations_fp,
                  attn_weight_fp, grad_output_fp, result1, result2, result3);
     result2 = result2.transpose(4, 5);
     return std::make_tuple(result1.to(ori_dtype), result2.to(ori_dtype), result3.to(ori_dtype));

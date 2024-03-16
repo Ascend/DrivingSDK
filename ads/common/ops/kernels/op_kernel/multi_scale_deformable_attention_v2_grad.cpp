@@ -15,7 +15,7 @@
  */
 
 /*!
- * \file multi_scale_deformable_attention_grad.h
+ * \file multi_scale_deformable_attention_v2_grad.h
  * \brief
  */
 #include "kernel_operator.h"
@@ -26,13 +26,13 @@ namespace {
 constexpr static int32_t BUFFER_NUM = 1;
 };
 
-class MultiScaleDeformableAttentionGradV2 {
+class MultiScaleDeformableAttentionV2Grad {
 public:
-    __aicore__ inline MultiScaleDeformableAttentionGradV2(){};
+    __aicore__ inline MultiScaleDeformableAttentionV2Grad(){};
     __aicore__ inline void Init(GM_ADDR value_gm, GM_ADDR spatial_shapes_gm, GM_ADDR level_start_index_gm,
                             GM_ADDR sampling_loc_gm, GM_ADDR attn_weight_gm, GM_ADDR grad_output_gm,
                             GM_ADDR grad_value_gm, GM_ADDR grad_sampling_loc_gm, GM_ADDR grad_attn_weight_gm,
-                            const MultiScaleDeformableAttentionGradV2TilingData *tiling_data, TPipe *tmpPipe)
+                            const MultiScaleDeformableAttentionV2GradTilingData *tiling_data, TPipe *tmpPipe)
     {
         pipe = tmpPipe;
         curBlockIdx = GetBlockIdx();
@@ -455,7 +455,7 @@ private:
 };
 
 // core func
-extern "C" __global__ __aicore__ void multi_scale_deformable_attention_grad_v2(
+extern "C" __global__ __aicore__ void multi_scale_deformable_attention_v2_grad(
     GM_ADDR value_gm, GM_ADDR spatial_shapes_gm, GM_ADDR level_start_index_gm, GM_ADDR sampling_loc_gm,
     GM_ADDR attn_weight_gm, GM_ADDR grad_output_gm, GM_ADDR grad_value_gm, GM_ADDR grad_sampling_loc_gm,
     GM_ADDR grad_attn_weight_gm, GM_ADDR workspace, GM_ADDR tiling_data)
@@ -463,7 +463,7 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attention_grad_v2(
     TPipe pipe;
     GET_TILING_DATA(tiling_datas, tiling_data);
 
-    MultiScaleDeformableAttentionGradV2 op;
+    MultiScaleDeformableAttentionV2Grad op;
     op.Init(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm, attn_weight_gm, grad_output_gm,
             grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas, &pipe);
     op.InitBuffer();

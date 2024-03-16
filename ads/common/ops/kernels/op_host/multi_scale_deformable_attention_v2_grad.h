@@ -1,12 +1,12 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  */
-#ifndef OPS_BUILD_IN_OP_TILING_RUNTIME_MUTISCALEDEFORMABLEATTENTIONGRADV2_H
-#define OPS_BUILD_IN_OP_TILING_RUNTIME_MUTISCALEDEFORMABLEATTENTIONGRADV2_H
+#ifndef OPS_BUILD_IN_OP_TILING_RUNTIME_MUTISCALEDEFORMABLEATTENTIONV2GRAD_H
+#define OPS_BUILD_IN_OP_TILING_RUNTIME_MUTISCALEDEFORMABLEATTENTIONV2GRAD_H
 #include "register/tilingdata_base.h"
 
 namespace optiling {
-BEGIN_TILING_DATA_DEF(MultiScaleDeformableAttentionGradV2TilingData)
+BEGIN_TILING_DATA_DEF(MultiScaleDeformableAttentionV2GradTilingData)
     TILING_DATA_FIELD_DEF(uint32_t, batchSize)
     TILING_DATA_FIELD_DEF(uint32_t, numKeys)
     TILING_DATA_FIELD_DEF(uint32_t, numHeads)
@@ -17,6 +17,6 @@ BEGIN_TILING_DATA_DEF(MultiScaleDeformableAttentionGradV2TilingData)
     TILING_DATA_FIELD_DEF(uint32_t, coreNum)
     END_TILING_DATA_DEF;
 
-    REGISTER_TILING_DATA_CLASS(MultiScaleDeformableAttentionGradV2, MultiScaleDeformableAttentionGradV2TilingData)
+    REGISTER_TILING_DATA_CLASS(MultiScaleDeformableAttentionV2Grad, MultiScaleDeformableAttentionV2GradTilingData)
 }
-#endif  // OPS_BUILD_IN_OP_TILING_RUNTIME_MUTISCALEDEFORMABLEATTENTIONGRADV2_H
+#endif  // OPS_BUILD_IN_OP_TILING_RUNTIME_MUTISCALEDEFORMABLEATTENTIONV2GRAD_H
