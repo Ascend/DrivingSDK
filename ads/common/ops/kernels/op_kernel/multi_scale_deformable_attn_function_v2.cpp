@@ -1,8 +1,8 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
- *
- * This sample is a very basic sample that implements vector add on Ascend plaform.
- */
+* Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+*
+* This sample is a very basic sample that implements vector add on Ascend plaform.
+*/
 #include "kernel_operator.h"
 using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 1;
@@ -38,11 +38,10 @@ public:
         taskNum = numQueries;
         taskNumPerCore = DivCeil(taskNum, coreNum);
 
-        embedDimsAlign = AlignUp(embedDims, dataAlign);
         numPointsAlign = AlignUp(numPoints, dataAlign);
         numLevelsAlign = AlignUp(numLevels, dataAlign);
 
-        batchOffset = numPoints * embedDimsAlign;
+        batchOffset = numPoints * embedDims;
 
         curBlockIdx = GetBlockIdx();
         startOffset = curBlockIdx * taskNumPerCore;
@@ -65,9 +64,9 @@ public:
 
         pipe->InitBuffer(locationQueue, BUFFER_NUM, AlignUp(numHeads * numLevels * numPoints * 2, dataAlign) * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(attentionWeightsUb, BUFFER_NUM, AlignUp(numHeads * numLevels * numPoints, dataAlign) * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(outputQueue, BUFFER_NUM, embedDimsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(outputQueue, BUFFER_NUM, embedDims * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(emptyUb, BUFFER_NUM, embedDimsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(emptyUb, BUFFER_NUM, embedDims * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(intOneUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
         pipe->InitBuffer(floatOneUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
@@ -114,8 +113,6 @@ private:
         DataCopy(shapesLocal, valueSpatialShapesGm, AlignUp(numLevels * 2, dataAlign));
         DataCopy(offsetLocal, valueLevelStartIndexGm, numLevelsAlign);
 
-        DataCopyParams copyParams{1, (uint16_t)(embedDims * sizeof(DTYPE_VALUE)), 0, 0};
-
         LocalTensor<DTYPE_VALUE> valueLocal = valueUb.Get<DTYPE_VALUE>();
 
         event_t eventIdVToMte3 = static_cast<event_t>(GetTPipePtr()->AllocEventID<HardEvent::V_MTE3>());
@@ -147,8 +144,8 @@ private:
             Duplicate<DTYPE_VALUE_SPATIAL_SHAPES>(intOneLocal, (DTYPE_VALUE_SPATIAL_SHAPES)1, numPointsAlign);
             Duplicate<DTYPE_VALUE>(floatOneLocal, (DTYPE_VALUE)1, numPointsAlign);
 
-            Duplicate<DTYPE_VALUE>(emptyUbLocal, DTYPE_VALUE(0), embedDimsAlign);
-            moveOffset = batch * numQueries * numHeads * embedDims + query * numHeads * embedDims;
+            Duplicate<DTYPE_VALUE>(emptyUbLocal, DTYPE_VALUE(0), embedDims);
+            moveOffset = (batch * numQueries + query) * numHeads * embedDims;
             dataOffset = (batch * numQueries + query) * numHeads * numLevels * numPoints;
             DataCopy(locationLocal, locationGm[dataOffset * 2], AlignUp(numHeads * numLevels * numPoints * 2, dataAlign));
 
@@ -171,17 +168,17 @@ private:
                         tmp2 = locationLocal.GetValue(locationOffset + point * 2 + 1) * (DTYPE_VALUE)h;
 
                         tmpFloatLocal.SetValue(point, tmp1 + (DTYPE_VALUE)0.5);
-                        tmpFloatLocal.SetValue(point + numPointsAlign, tmp2 + (DTYPE_VALUE)0.5);
+                        tmpFloatLocal.SetValue(point + numPointsAlign, tmp1 - (DTYPE_VALUE)0.5 + (DTYPE_VALUE)1e-5);
 
-                        tmpFloatLocal.SetValue(point + numPointsAlign * 2, tmp1 - (DTYPE_VALUE)0.5 + (DTYPE_VALUE)1e-5);
+                        tmpFloatLocal.SetValue(point + numPointsAlign * 2, tmp2 + (DTYPE_VALUE)0.5);
                         tmpFloatLocal.SetValue(point + numPointsAlign * 3, tmp2 - (DTYPE_VALUE)0.5 + (DTYPE_VALUE)1e-5);
                     }
 
                     Cast(tmpIntLocal, tmpFloatLocal, RoundMode::CAST_FLOOR, 4 * numPointsAlign);
                     Cast(xLocal, tmpIntLocal, RoundMode::CAST_NONE, numPointsAlign);
-                    Cast(yLocal, tmpIntLocal[numPointsAlign], RoundMode::CAST_NONE, numPointsAlign);
+                    Cast(yLocal, tmpIntLocal[numPointsAlign * 2], RoundMode::CAST_NONE, numPointsAlign);
 
-                    Sub(param0Local, xLocal, tmpFloatLocal[numPointsAlign * 2], numPointsAlign);
+                    Sub(param0Local, xLocal, tmpFloatLocal[numPointsAlign], numPointsAlign);
                     Sub(param1Local, yLocal, tmpFloatLocal[numPointsAlign * 3], numPointsAlign);
                     Mul(weightLocal[numPointsAlign * 3], param0Local, param1Local, numPointsAlign);
 
@@ -198,30 +195,30 @@ private:
                     for (uint32_t point = 0; point < numPoints; point++)
                     {
                         x0 = tmpIntLocal.GetValue(point);
-                        y0 = tmpIntLocal.GetValue(point + numPointsAlign);
-                        x1 = tmpIntLocal.GetValue(point + numPointsAlign * 2);
+                        x1 = tmpIntLocal.GetValue(point + numPointsAlign);
+                        y0 = tmpIntLocal.GetValue(point + numPointsAlign * 2);
                         y1 = tmpIntLocal.GetValue(point + numPointsAlign * 3);
 
                         if (isInRange(x0, w))
                         {
                             if (isInRange(y0, h))
                             {
-                                DataCopy(valueLocal[point * embedDimsAlign], valueGm[valueOffset + (y0 * w + x0) * tailNum], embedDimsAlign);
+                                DataCopy(valueLocal[point * embedDims], valueGm[valueOffset + (y0 * w + x0) * tailNum], embedDims);
                             }
                             if (isInRange(y1, h))
                             {
-                                DataCopy(valueLocal[batchOffset + point * embedDimsAlign], valueGm[valueOffset + (y1 * w + x0) * tailNum], embedDimsAlign);
+                                DataCopy(valueLocal[batchOffset + point * embedDims], valueGm[valueOffset + (y1 * w + x0) * tailNum], embedDims);
                             }
                         }
                         if (isInRange(x1, w))
                         {
                             if (isInRange(y0, h))
                             {
-                                DataCopy(valueLocal[batchOffset * 2 + point * embedDimsAlign], valueGm[valueOffset + (y0 * w + x1) * tailNum], embedDimsAlign);
+                                DataCopy(valueLocal[batchOffset * 2 + point * embedDims], valueGm[valueOffset + (y0 * w + x1) * tailNum], embedDims);
                             }
                             if (isInRange(y1, h))
                             {
-                                DataCopy(valueLocal[batchOffset * 3 + point * embedDimsAlign], valueGm[valueOffset + (y1 * w + x1) * tailNum], embedDimsAlign);
+                                DataCopy(valueLocal[batchOffset * 3 + point * embedDims], valueGm[valueOffset + (y1 * w + x1) * tailNum], embedDims);
                             }
                         }
                     }
@@ -235,14 +232,14 @@ private:
                         rightTopWeiight = weightLocal.GetValue(numPointsAlign * 2 + point);
                         rightBottomWeight = weightLocal.GetValue(numPointsAlign * 3 + point);
 
-                        Muls(valueLocal[point * embedDimsAlign], valueLocal[point * embedDimsAlign], leftTopWeight, embedDimsAlign);
-                        Muls(valueLocal[batchOffset + point * embedDimsAlign], valueLocal[batchOffset + point * embedDimsAlign], leftBottomWeight, embedDimsAlign);
-                        Muls(valueLocal[batchOffset * 2 + point * embedDimsAlign], valueLocal[batchOffset * 2 + point * embedDimsAlign], rightTopWeiight, embedDimsAlign);
-                        Muls(valueLocal[batchOffset * 3 + point * embedDimsAlign], valueLocal[batchOffset * 3 + point * embedDimsAlign], rightBottomWeight, embedDimsAlign);
+                        Muls(valueLocal[point * embedDims], valueLocal[point * embedDims], leftTopWeight, embedDims);
+                        Muls(valueLocal[batchOffset + point * embedDims], valueLocal[batchOffset + point * embedDims], leftBottomWeight, embedDims);
+                        Muls(valueLocal[batchOffset * 2 + point * embedDims], valueLocal[batchOffset * 2 + point * embedDims], rightTopWeiight, embedDims);
+                        Muls(valueLocal[batchOffset * 3 + point * embedDims], valueLocal[batchOffset * 3 + point * embedDims], rightBottomWeight, embedDims);
                     }
-
-                    pipe_barrier(PIPE_ALL);
-
+                    if (embedDims != 32) {
+                        pipe_barrier(PIPE_ALL);
+                    }
                     Add(tmpResLocal, valueLocal, valueLocal[batchOffset], batchOffset);
                     Add(tmpResLocal2, valueLocal[batchOffset * 2], valueLocal[batchOffset * 3], batchOffset);
                     Add(tmpResLocal3, tmpResLocal, tmpResLocal2, batchOffset);
@@ -251,7 +248,7 @@ private:
                     WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
                     for (uint32_t point = 0; point < numPoints; point++)
                     {
-                        DataCopyPad(outputGm[dstOffset], tmpResLocal3[point * embedDimsAlign], copyParams);
+                        DataCopy(outputGm[dstOffset], tmpResLocal3[point * embedDims], embedDims);
                     }
                 }
             }
@@ -284,7 +281,6 @@ private:
     uint32_t numPoints;
     uint32_t coreNum;
 
-    uint32_t embedDimsAlign;
     uint32_t numPointsAlign;
     uint32_t numLevelsAlign;
 
@@ -315,6 +311,6 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn_function_v2(GM
     GET_TILING_DATA(tiling_data, tiling);
     KernelMultiScaleDeformableAttnFunctionV2 op;
     op.Init(value, value_spatial_shapes, value_level_start_index,
-            sampling_locations, attention_weights, output, &tiling_data, &pipe);
+    sampling_locations, attention_weights, output, &tiling_data, &pipe);
     op.Process();
 }
