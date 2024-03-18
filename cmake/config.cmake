@@ -18,8 +18,15 @@ endif()
 ## get the ${ASCEND_CANN_PACKAGE_PATH}'s parent path
 get_filename_component(ASCEND_PATH ${ASCEND_CANN_PACKAGE_PATH}
         DIRECTORY)
-## find the PATH starts with `CANN` under the parent
-file(GLOB CANN_PATHS ${ASCEND_PATH}/CANN-*)
+## find the target pointed by the soft link
+if(EXISTS ${ASCEND_PATH}/latest/compiler)
+  file(READ_SYMLINK ${ASCEND_PATH}/latest/compiler ASCEND_COMPILER_PATH)
+  if(NOT IS_ABSOLUTE ${ASCEND_COMPILER_PATH})
+    set(ASCEND_COMPILER_PATH ${ASCEND_PATH}/latest/${ASCEND_COMPILER_PATH})
+  endif ()
+  get_filename_component(CANN_PATHS ${ASCEND_COMPILER_PATH}
+          DIRECTORY)
+endif()
 
 if(NOT DEFINED ASCEND_PYTHON_EXECUTABLE)
   set(ASCEND_PYTHON_EXECUTABLE
