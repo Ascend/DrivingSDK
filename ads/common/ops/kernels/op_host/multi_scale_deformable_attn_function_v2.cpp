@@ -31,8 +31,8 @@ namespace optiling
         context->SetBlockDim(coreNum);
 
         tiling.set_batchSize(valueShape.GetDim(0));
-        tiling.set_numKeys(valueShape.GetDim(1));
-        tiling.set_numHeads(valueShape.GetDim(2));
+        tiling.set_numKeys(valueShape.GetDim(2));
+        tiling.set_numHeads(samplingLocationsShape.GetDim(2));
         tiling.set_embedDims(valueShape.GetDim(3));
         tiling.set_numLevels(samplingLocationsShape.GetDim(3));
         tiling.set_numQueries(samplingLocationsShape.GetDim(1));
@@ -66,7 +66,7 @@ namespace ge
         y_shape->SetDimNum(0);
         y_shape->AppendDim(valueShape->GetDim(0));
         y_shape->AppendDim(samplingLocationsShape->GetDim(1));
-        y_shape->AppendDim(valueShape->GetDim(2) * valueShape->GetDim(3));
+        y_shape->AppendDim(samplingLocationsShape->GetDim(2) * valueShape->GetDim(3));
 
         return GRAPH_SUCCESS;
     }
@@ -123,10 +123,6 @@ namespace ops
             this->AICore()
                 .SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnFunctionV2);
 
-            OpAICoreConfig aiConfig;
-            aiConfig.ExtendCfgInfo("enableVectorCore.flag", "false");
-            aiConfig.DynamicCompileStaticFlag(true);
-            this->AICore().AddConfig("ascend310p", aiConfig);
             this->AICore().AddConfig("ascend910b");
         }
     };

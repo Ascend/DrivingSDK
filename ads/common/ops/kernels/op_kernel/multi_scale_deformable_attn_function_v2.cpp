@@ -142,10 +142,12 @@ private:
             Duplicate<DTYPE_VALUE>(floatOneLocal, (DTYPE_VALUE)1, numPointsAlign);
 
             Duplicate<DTYPE_VALUE>(emptyUbLocal, DTYPE_VALUE(0), embedDims);
+            SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
             moveOffset = (batch * numQueries + query) * numHeads * embedDims;
             dataOffset = (batch * numQueries + query) * numHeads * numLevels * numPoints;
             DataCopy(locationLocal, locationGm[dataOffset * 2], AlignUp(numHeads * numLevels * numPoints * 2, dataAlign));
 
+            WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
             for (uint32_t head = 0; head < numHeads; head++)
             {
                 DataCopy(outputGm[moveOffset + head * embedDims], emptyUbLocal, embedDims);
@@ -156,6 +158,7 @@ private:
             {
                 h = shapesLocal.GetValue(level * 2);
                 w = shapesLocal.GetValue(level * 2 + 1);
+                oriOffset = (batch * numHeads * numKeys + offsetLocal.GetValue(level)) * embedDims;
 
                 SetAtomicAdd<DTYPE_VALUE>();
                 for (uint32_t head = 0; head < numHeads; head++)
@@ -167,7 +170,7 @@ private:
                     DataCopy(attentionWeightLocal, attentionWeightsGm[dataOffset + weightOffset], AlignUp(numPoints, dataAlign));
                     SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
                     locationOffset = weightOffset * 2;
-                    valueOffset = (batch * numKeys * numHeads + offsetLocal.GetValue(level) * numHeads + head) * embedDims;
+                    valueOffset = oriOffset + (head * numKeys) * embedDims;
                     for (uint32_t point = 0; point < numPoints; point++)
                     {
                         tmp1 = locationLocal.GetValue(locationOffset + point * 2) * (DTYPE_VALUE)w;
@@ -209,17 +212,16 @@ private:
                         {
                             if (isInRange(y0, h))
                             {
-                                DataCopy(valueLocal[point * embedDims], valueGm[valueOffset + (y0 * w + x0) * tailNum], embedDims);
+                                DataCopy(valueLocal[point * embedDims], valueGm[valueOffset + (y0 * w + x0) * embedDims], embedDims);
                             }
                             if (isInRange(y1, h))
                             {
-                                DataCopy(valueLocal[batchOffset + point * embedDims], valueGm[valueOffset + (y1 * w + x0) * tailNum], embedDims);
+                                DataCopy(valueLocal[batchOffset + point * embedDims], valueGm[valueOffset + (y1 * w + x0) * embedDims], embedDims);
                             }
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
-                            WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
                             leftTopWeight = weightLocal.GetValue(point);
                             leftBottomWeight = weightLocal.GetValue(numPointsAlign + point);
-
+                            WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
                             Muls(valueLocal[point * embedDims], valueLocal[point * embedDims], leftTopWeight, embedDims);
                             Muls(valueLocal[batchOffset + point * embedDims], valueLocal[batchOffset + point * embedDims], leftBottomWeight, embedDims);
                         }
@@ -227,18 +229,16 @@ private:
                         {
                             if (isInRange(y0, h))
                             {
-                                DataCopy(valueLocal[batchOffset * 2 + point * embedDims], valueGm[valueOffset + (y0 * w + x1) * tailNum], embedDims);
+                                DataCopy(valueLocal[batchOffset * 2 + point * embedDims], valueGm[valueOffset + (y0 * w + x1) * embedDims], embedDims);
                             }
                             if (isInRange(y1, h))
                             {
-                                DataCopy(valueLocal[batchOffset * 3 + point * embedDims], valueGm[valueOffset + (y1 * w + x1) * tailNum], embedDims);
+                                DataCopy(valueLocal[batchOffset * 3 + point * embedDims], valueGm[valueOffset + (y1 * w + x1) * embedDims], embedDims);
                             }
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
-                            WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
-                            
                             rightTopWeiight = weightLocal.GetValue(numPointsAlign * 2 + point);
                             rightBottomWeight = weightLocal.GetValue(numPointsAlign * 3 + point);
-
+                            WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
                             Muls(valueLocal[batchOffset * 2 + point * embedDims], valueLocal[batchOffset * 2 + point * embedDims], rightTopWeiight, embedDims);
                             Muls(valueLocal[batchOffset * 3 + point * embedDims], valueLocal[batchOffset * 3 + point * embedDims], rightBottomWeight, embedDims);
                         }
@@ -307,7 +307,7 @@ private:
 
     DTYPE_VALUE tmp1, tmp2, leftTopWeight, rightTopWeiight, leftBottomWeight, rightBottomWeight, attnWeight;
     DTYPE_VALUE_SPATIAL_SHAPES h, w, x0, y0, x1, y1;
-    DTYPE_VALUE_SPATIAL_SHAPES valueOffset, weightOffset, dataOffset, locationOffset, moveOffset, batchOffset, dstOffset, srcOffset, headOffset;
+    DTYPE_VALUE_SPATIAL_SHAPES valueOffset, weightOffset, oriOffset, dataOffset, locationOffset, moveOffset, batchOffset, dstOffset, srcOffset, headOffset;
 };
 
 extern "C" __global__ __aicore__ void multi_scale_deformable_attn_function_v2(GM_ADDR value,

@@ -38,7 +38,7 @@ namespace optiling {
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
         size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-        currentWorkspace[0] = 0;
+        currentWorkspace[0] = 16 * 1024 * 1024;
         return ge::GRAPH_SUCCESS;
     }
 }
