@@ -104,15 +104,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     TORCH_CHECK(channels % 32 == 0, "channels must be a multiple of 32, but channels is ", channels, ".");
     TORCH_CHECK(num_points % 4 == 0, "num_points must be a multiple of 4, but num_points is ", num_points, ".");
     TORCH_CHECK(num_heads % 4 == 0, "num_heads must be a multiple of 4, but num_heads is ", num_heads, ".");
-    auto grad_value_size = {value_size[0], value_size[1], value_size[2], value_size[3]};
+    auto grad_value_size = {value_size[0], value_size[2], value_size[1], value_size[3]};
     auto grad_atten_weight_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[4]};
     auto grad_sample_loc_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[5], location_size[4]};
+    at::Tensor value1 = value.transpose(1, 2).contiguous();
     at::Tensor location1 = location.transpose(4, 5).contiguous();
     at::Tensor result1 = at::empty(grad_value_size, value.options().dtype(at::kFloat));
     at::Tensor result2 = at::empty(grad_sample_loc_size, location.options().dtype(at::kFloat));
     at::Tensor result3 = at::empty(grad_atten_weight_size, attn_weight.options().dtype(at::kFloat));
 
-    at::Tensor value_fp = value.to(at::kFloat);
+    at::Tensor value_fp = value1.to(at::kFloat);
     at::Tensor shape_fp = shape.to(at::kInt);
     at::Tensor level_start_index_fp = level_start_index.to(at::kInt);
     at::Tensor sampling_locations_fp = location1.to(at::kFloat);
@@ -120,6 +121,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     at::Tensor grad_output_fp = grad_output.to(at::kFloat);
     EXEC_NPU_CMD(aclnnMultiScaleDeformableAttentionV2Grad, value_fp, shape_fp, level_start_index_fp, sampling_locations_fp,
                  attn_weight_fp, grad_output_fp, result1, result2, result3);
+    result1 = result1.transpose(1, 2);
     result2 = result2.transpose(4, 5);
     return std::make_tuple(result1.to(ori_dtype), result2.to(ori_dtype), result3.to(ori_dtype));
 }

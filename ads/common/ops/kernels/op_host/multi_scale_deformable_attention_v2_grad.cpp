@@ -27,8 +27,8 @@ namespace optiling {
         context->SetBlockDim(coreNum);
 
         tiling.set_batchSize(valueShape.GetDim(0));
-        tiling.set_numKeys(valueShape.GetDim(1));
-        tiling.set_numHeads(valueShape.GetDim(2));
+        tiling.set_numKeys(valueShape.GetDim(2));
+        tiling.set_numHeads(valueShape.GetDim(1));
         tiling.set_embedDims(valueShape.GetDim(3));
         tiling.set_numLevels(samplingLocationsShape.GetDim(3));
         tiling.set_numQueries(samplingLocationsShape.GetDim(1));

@@ -68,8 +68,8 @@ public:
         weightStride1 = numHeads * weightStride0;
         weightStride2 = numQueries * weightStride1;
         valueStride0 = embedDims;
-        valueStride1 = numHeads * valueStride0;
-        valueStride2 = numKeys * valueStride1;
+        valueStride1 = numKeys * valueStride0;
+        valueStride2 = numHeads * valueStride1;
 
         hOffsetUb = numPointsAlign;
         baseOffsetUb = numPoints * embedDims;
@@ -77,6 +77,7 @@ public:
         eventIdVToMte3 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
         eventIdMte2ToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
         eventIdMte3ToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_V>());
+        eventIdMte3ToV2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_V>());
 
         copyParamsA = {1, (uint16_t)(numPoints * sizeof(DTYPE_VALUE)), 0, 0};
         sumParams = {numPoints, embedDims, embedDims};
@@ -207,6 +208,7 @@ public:
         pipe->ReleaseEventID<HardEvent::V_MTE3>(eventIdVToMte3);
         pipe->ReleaseEventID<HardEvent::MTE2_V>(eventIdMte2ToV);
         pipe->ReleaseEventID<HardEvent::MTE3_V>(eventIdMte3ToV);
+        pipe->ReleaseEventID<HardEvent::MTE3_V>(eventIdMte3ToV2);
     }
 
 private:
@@ -232,7 +234,7 @@ private:
         uint32_t offsetV = vId * baseOffsetUb;
         uint32_t offsetGradHWeight = pointOffset + gradHWeightId * baseOffsetUb;
         uint32_t offsetGradWWeight = pointOffset + gradWWeightId * baseOffsetUb;
-        uint32_t ptr = hPtrOffset + wPtrOffset + basePtr;
+        uint32_t ptr = hPtrOffset + wPtrOffset;
         DataCopy(zerosLocal[pointOffset + offsetV], valueGm[offsetValue + ptr], embedDims);
         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
@@ -269,7 +271,6 @@ private:
             for (head = 0; head < numHeads; head++) {
                 offsetWeight = batch * weightStride2 + query * weightStride1 + head * weightStride0;
                 offsetLocation = 2 * offsetWeight;
-                basePtr = head * embedDims;
                 DataCopy(topGradLocal,
                          gradOutputGm[batch * gradOutStride2 + query * gradOutStride1 + head * gradOutStride0],
                          embedDims);
@@ -278,8 +279,8 @@ private:
                     levelStartId = offsetLocal.GetValue(level);
                     h = shapesLocal.GetValue(level * 2);
                     w = shapesLocal.GetValue(level * 2 + 1);
-                    offsetValue = batch * valueStride2 + levelStartId * valueStride1;
-                    wStride = numHeads * embedDims;
+                    offsetValue = batch * valueStride2 + head * valueStride1 + levelStartId * valueStride0;
+                    wStride = embedDims;
                     hStride = w * wStride;
                     DataCopy(locWLocal, locationGm[offsetLocation + level * numPoints * 2], numPointsAlign);
                     DataCopy(locHLocal, locationGm[offsetLocation + level * numPoints * 2 + numPoints], numPointsAlign);
@@ -355,6 +356,7 @@ private:
                                 w1v1Local[pointOffset], embedDims);
                         }
                     }
+                    SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV2);
                     Mul(tmpLocal, zerosLocal[topGradValueId * baseOffsetUb], zerosLocal[gradWWeightId * baseOffsetUb],
                         numPoints * embedDims);
                     Muls(gradSampleXLocLocal, tmpLocal, (DTYPE_VALUE)w, numPoints * embedDims);
@@ -369,8 +371,7 @@ private:
                     DataCopyPad(gradWeightGm[offsetWeight + level * numPoints], weightSumLocal, copyParamsA);
                     DataCopyPad(gradLocationGm[offsetLocation + level * 2 * numPoints], xLocal, copyParamsA);
                     DataCopyPad(gradLocationGm[offsetLocation + level * 2 * numPoints + numPoints], yLocal, copyParamsA);
-                    SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
-                    WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
+                    WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV2);
                 }
                 SetAtomicNone();
             }
@@ -436,7 +437,7 @@ private:
     LocalTensor<DTYPE_VALUE> gradSampleXLocLocal, gradSampleYLocLocal;
     LocalTensor<DTYPE_VALUE> topGradLocal, locationLocal, attentionWeightLocal;
 
-    event_t eventIdVToMte3, eventIdMte2ToV, eventIdMte3ToV;
+    event_t eventIdVToMte3, eventIdMte2ToV, eventIdMte3ToV, eventIdMte3ToV2;
     DataCopyParams copyParamsA;
     SumParams sumParams;
 };
