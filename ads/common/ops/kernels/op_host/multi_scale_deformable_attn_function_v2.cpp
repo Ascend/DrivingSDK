@@ -122,7 +122,11 @@ namespace ops
 
             this->AICore()
                 .SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnFunctionV2);
-
+            
+            OpAICoreConfig aiConfig;
+            aiConfig.ExtendCfgInfo("enableVectorCore.flag", "false");
+            aiConfig.DynamicCompileStaticFlag(true);
+            this->AICore().AddConfig("ascend310p", aiConfig);
             this->AICore().AddConfig("ascend910b");
         }
     };
