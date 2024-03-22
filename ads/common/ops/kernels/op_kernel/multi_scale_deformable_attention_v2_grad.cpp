@@ -78,6 +78,9 @@ public:
         eventIdMte2ToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
         eventIdMte3ToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_V>());
         eventIdMte3ToV2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_V>());
+        eventIdVToMte3_0 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
+        eventIdVToMte3_1 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
+        eventIdVToMte3_2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
 
         copyParamsA = {1, (uint16_t)(numPoints * sizeof(DTYPE_VALUE)), 0, 0};
         sumParams = {numPoints, embedDims, embedDims};
@@ -125,7 +128,6 @@ public:
         pipe->InitBuffer(locHUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(imUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(lowUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_SPATIAL_SHAPES));
-        pipe->InitBuffer(highUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_SPATIAL_SHAPES));
         pipe->InitBuffer(lowFloatUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(distLowUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
@@ -164,7 +166,6 @@ public:
 
         imLocal = imUb.Get<DTYPE_VALUE>();
         lowLocal = lowUb.Get<DTYPE_SPATIAL_SHAPES>();
-        highLocal = highUb.Get<DTYPE_SPATIAL_SHAPES>();
         lowFloatLocal = lowFloatUb.Get<DTYPE_VALUE>();
         zerosLocal = zerosUb.Get<DTYPE_VALUE>();
         emptyLocal = emptyUb.Get<DTYPE_VALUE>();
@@ -209,23 +210,13 @@ public:
         pipe->ReleaseEventID<HardEvent::MTE2_V>(eventIdMte2ToV);
         pipe->ReleaseEventID<HardEvent::MTE3_V>(eventIdMte3ToV);
         pipe->ReleaseEventID<HardEvent::MTE3_V>(eventIdMte3ToV2);
+
+        pipe->ReleaseEventID<HardEvent::V_MTE3>(eventIdVToMte3_0);
+        pipe->ReleaseEventID<HardEvent::V_MTE3>(eventIdVToMte3_1);
+        pipe->ReleaseEventID<HardEvent::V_MTE3>(eventIdVToMte3_2);
     }
 
 private:
-    __aicore__ inline void PrepareScalar()
-    {
-        hIm = imLocal.GetValue(hOffsetUb + point);
-        wIm = imLocal.GetValue(point);
-        hLow = lowLocal.GetValue(hOffsetUb + point);
-        wLow = lowLocal.GetValue(point);
-        hHigh = highLocal.GetValue(hOffsetUb + point);
-        wHigh = highLocal.GetValue(point);
-        hLowPtrOffset = hLow * hStride;
-        wLowPtrOffset = wLow * wStride;
-        hHighPtrOffset = hHigh * hStride;
-        wHighPtrOffset = wHigh * wStride;
-    }
-
     template <bool AddH, bool AddW>
     __aicore__ inline void ComputeGrad(uint32_t midId, uint32_t vId, DTYPE_VALUE distH, DTYPE_VALUE distW,
                                        uint32_t hPtrOffset, uint32_t wPtrOffset, DTYPE_VALUE w)
@@ -292,7 +283,6 @@ private:
                     Muls(imLocal, locWLocal, (DTYPE_VALUE)w, numPointsAlign);
                     Adds(imLocal, imLocal, DTYPE_VALUE(-0.5), 2 * numPointsAlign);
                     Cast(lowLocal, imLocal, RoundMode::CAST_FLOOR, 2 * numPointsAlign);
-                    Adds(highLocal, lowLocal, (DTYPE_SPATIAL_SHAPES)1, 2 * numPointsAlign);
                     Cast(lowFloatLocal, lowLocal, RoundMode::CAST_NONE, 2 * numPointsAlign);
 
                     Sub(distLowLocal, imLocal, lowFloatLocal, 2 * numPointsAlign);
@@ -305,8 +295,13 @@ private:
 
                     for (point = 0; point < numPoints; point++) {
                         pointOffset = point * embedDims;
-                        PrepareScalar();
+                        hIm = imLocal.GetValue(hOffsetUb + point);
+                        wIm = imLocal.GetValue(point);
                         if (hIm > -1 && wIm > -1 && hIm < h && wIm < w) {
+                            hLow = lowLocal.GetValue(hOffsetUb + point);
+                            wLow = lowLocal.GetValue(point);
+                            hLowPtrOffset = hLow * hStride;
+                            wLowPtrOffset = wLow * wStride;
                             Muls(zerosLocal[pointOffset + topGradValueId * baseOffsetUb], topGradLocal,
                                  attentionWeightLocal.GetValue(point), embedDims);
                             if (hLow >= 0) {
@@ -314,30 +309,30 @@ private:
                                     DTYPE_VALUE distH = distHighLocal.GetValue(hOffsetUb + point);
                                     DTYPE_VALUE distW = distHighLocal.GetValue(point);
                                     w1 = distH * distW;
-                                    ComputeGrad<false, false>(0, v1Id, distH, distW, hLowPtrOffset, wLowPtrOffset,
+                                    ComputeGrad<false, false>(mid1Id, v1Id, distH, distW, hLowPtrOffset, wLowPtrOffset,
                                                               w1);
                                 }
-                                if (wHigh < w) {
+                                if (wLow < w - 1) {
                                     DTYPE_VALUE distH = distHighLocal.GetValue(hOffsetUb + point);
                                     DTYPE_VALUE distW = distLowLocal.GetValue(point);
                                     w2 = distH * distW;
-                                    ComputeGrad<false, true>(1, v2Id, distH, distW, hLowPtrOffset, wHighPtrOffset,
+                                    ComputeGrad<false, true>(mid2Id, v2Id, distH, distW, hLowPtrOffset, wLowPtrOffset + wStride,
                                                              w2);
                                 }
                             }
-                            if (hHigh < h) {
+                            if (hLow < h - 1) {
                                 if (wLow >= 0) {
                                     DTYPE_VALUE distH = distLowLocal.GetValue(hOffsetUb + point);
                                     DTYPE_VALUE distW = distHighLocal.GetValue(point);
                                     w3 = distH * distW;
-                                    ComputeGrad<true, false>(2, v3Id, distH, distW, hHighPtrOffset, wLowPtrOffset,
+                                    ComputeGrad<true, false>(mid3Id, v3Id, distH, distW, hLowPtrOffset + hStride, wLowPtrOffset,
                                                              w3);
                                 }
-                                if (wHigh < w) {
+                                if (wLow < w - 1) {
                                     DTYPE_VALUE distH = distLowLocal.GetValue(hOffsetUb + point);
                                     DTYPE_VALUE distW = distLowLocal.GetValue(point);
                                     w4 = distH * distW;
-                                    ComputeGrad<true, true>(3, v4Id, distH, distW, hHighPtrOffset, wHighPtrOffset,
+                                    ComputeGrad<true, true>(mid4Id, v4Id, distH, distW, hLowPtrOffset + hStride, wLowPtrOffset + wStride,
                                                             w4);
                                 }
                             }
@@ -363,14 +358,24 @@ private:
                     Mul(tmpLocal, zerosLocal[topGradValueId * baseOffsetUb], zerosLocal[gradHWeightId * baseOffsetUb],
                         numPoints * embedDims);
                     Muls(gradSampleYLocLocal, tmpLocal, (DTYPE_VALUE)h, numPoints * embedDims);
-                    Sum(xLocal, gradSampleXLocLocal, sumParams);
-                    Sum(yLocal, gradSampleYLocLocal, sumParams);
                     Sum(weightSumLocal, zerosLocal[gradWeightId * baseOffsetUb], sumParams);
-                    SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
-                    WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+                    SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
+                    
+                    Sum(xLocal, gradSampleXLocLocal, sumParams);
+                    SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+
+                    Sum(yLocal, gradSampleYLocLocal, sumParams);
+                    SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_2);
+
+                    WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
                     DataCopyPad(gradWeightGm[offsetWeight + level * numPoints], weightSumLocal, copyParamsA);
+                   
+                    WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
                     DataCopyPad(gradLocationGm[offsetLocation + level * 2 * numPoints], xLocal, copyParamsA);
+
+                    WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_2);
                     DataCopyPad(gradLocationGm[offsetLocation + level * 2 * numPoints + numPoints], yLocal, copyParamsA);
+
                     WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV2);
                 }
                 SetAtomicNone();
@@ -388,8 +393,7 @@ private:
 
     TBuf<TPosition::VECCALC> tmpXUb, tmpYUb, weightSumUb;
     TBuf<TPosition::VECCALC> floatOneUb, topGradUb;
-    TBuf<TPosition::VECCALC> locWUb, locHUb, imUb, lowUb, highUb, lowFloatUb, hHighPtrOffsetUb, hLowPtrOffsetUb,
-        wHighPtrOffsetUb, wLowPtrOffsetUb;
+    TBuf<TPosition::VECCALC> locWUb, locHUb, imUb, lowUb, lowFloatUb;
 
     TBuf<TPosition::VECCALC> distLowUb, distHighUb, w1Ub, w2Ub, w3Ub, w4Ub, zerosUb, emptyUb;
 
@@ -412,6 +416,7 @@ private:
     uint32_t weightStride0, weightStride1, weightStride2;
     uint32_t valueStride0, valueStride1, valueStride2;
     uint32_t hOffsetUb, baseOffsetUb, pointOffset;
+    uint32_t mid1Id = 0, mid2Id = 1, mid3Id = 2, mid4Id = 3;
     uint32_t gradHWeightId = 0, gradWWeightId = 1, topGradValueId = 2, gradWeightId = 3;
     uint32_t v1Id = 4, v2Id = 5, v3Id = 6, v4Id = 7;
 
@@ -420,11 +425,11 @@ private:
 
     DTYPE_VALUE hIm, wIm;
     DTYPE_VALUE w1 = 0, w2 = 0, w3 = 0, w4 = 0;
-    DTYPE_SPATIAL_SHAPES hLowPtrOffset, wLowPtrOffset, hHighPtrOffset, wHighPtrOffset;
-    DTYPE_SPATIAL_SHAPES hLow, wLow, hHigh, wHigh;
+    DTYPE_SPATIAL_SHAPES hLowPtrOffset, wLowPtrOffset;
+    DTYPE_SPATIAL_SHAPES hLow, wLow;
 
     LocalTensor<DTYPE_SPATIAL_SHAPES> shapesLocal, offsetLocal;
-    LocalTensor<DTYPE_SPATIAL_SHAPES> lowLocal, highLocal;
+    LocalTensor<DTYPE_SPATIAL_SHAPES> lowLocal;
     LocalTensor<DTYPE_VALUE> lowFloatLocal;
     LocalTensor<DTYPE_VALUE> floatOneLocal;
     LocalTensor<DTYPE_VALUE> xLocal, yLocal;
@@ -437,7 +442,7 @@ private:
     LocalTensor<DTYPE_VALUE> gradSampleXLocLocal, gradSampleYLocLocal;
     LocalTensor<DTYPE_VALUE> topGradLocal, locationLocal, attentionWeightLocal;
 
-    event_t eventIdVToMte3, eventIdMte2ToV, eventIdMte3ToV, eventIdMte3ToV2;
+    event_t eventIdVToMte3, eventIdMte2ToV, eventIdMte3ToV, eventIdMte3ToV2, eventIdVToMte3_0, eventIdVToMte3_1, eventIdVToMte3_2;
     DataCopyParams copyParamsA;
     SumParams sumParams;
 };
