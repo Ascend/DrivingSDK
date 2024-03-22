@@ -20,8 +20,8 @@ def gen_tiling(tiling_header_file: str, tiling_file_out: str):
         return
     print("generate tiling def header file: ", tiling_file_out)
     tmp_name = os.path.splitext(os.path.basename(tiling_header_file))[0].upper()
-    tiling_source = '#ifndef __{}_H__\n'.format(tmp_name)
-    tiling_source += '#define __{}_H__\n\n'.format(tmp_name)
+    tiling_source = f'#ifndef __{tmp_name}_H__\n'
+    tiling_source += f'#define __{tmp_name}_H__\n\n'
     tiling_source += '#include <cstdint>\n'
     tiling_source += '#include <cstring>\n\n'
     tiling_source += '#include "kernel_tiling/kernel_tiling.h"\n\n'
