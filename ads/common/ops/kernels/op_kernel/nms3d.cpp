@@ -328,17 +328,16 @@ private:
         Point center_a(boxATensor.GetValue(0), boxATensor.GetValue(1));
         Point center_b(boxBTensor.GetValue(0), boxBTensor.GetValue(1));
 
-        Point box_a_corners[5];
-        box_a_corners[0].set(a_x1, a_y1);
-        box_a_corners[1].set(a_x2, a_y1);
-        box_a_corners[2].set(a_x2, a_y2);
-        box_a_corners[3].set(a_x1, a_y2);
-
-        Point box_b_corners[5];
-        box_b_corners[0].set(b_x1, b_y1);
-        box_b_corners[1].set(b_x2, b_y1);
-        box_b_corners[2].set(b_x2, b_y2);
-        box_b_corners[3].set(b_x1, b_y2);
+        Point box_a_corners[5] = {{a_x1, a_y1},
+                                  {a_x2, a_y1},
+                                  {a_x2, a_y2},
+                                  {a_x1, a_y2},
+                                  {a_x1, a_y1}};
+        Point box_b_corners[5] = {{b_x1, b_y1},
+                                  {b_x2, b_y1},
+                                  {b_x2, b_y2},
+                                  {b_x1, b_y2},
+                                  {b_x1, b_y1}};
 
         // get oriented corners
         LocalTensor<float> angleLocal = angleBuf.Get<float>();

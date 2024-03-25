@@ -53,11 +53,13 @@ function(opbuild)
     endif()
   endif()
   if(NOT EXISTS ${CANN_INCLUDE_PATH})
-      message(FATAL_ERROR "CANN include path not found: ${CANN_INCLUDE_PATH}")
+      message(FATAL_ERROR "CANN include path not found: ${CANN_PATHS}")
   endif()
     if(NOT EXISTS ${CANN_LIB_PATH})
-        message(FATAL_ERROR "CANN lib path not found: ${CANN_LIB_PATH}")
+        message(FATAL_ERROR "CANN lib path not found: ${CANN_PATHS}")
   endif ()
+  message(STATUS "CANN include path: ${CANN_INCLUDE_PATH}")
+    message(STATUS "CANN lib path: ${CANN_LIB_PATH}")
   execute_process(
     COMMAND
       ${CMAKE_COMPILE} -g -fPIC -shared -std=c++11 ${OPBUILD_OPS_SRC}
