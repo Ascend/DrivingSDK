@@ -27,6 +27,13 @@ ext1 = extension.NpuExtension(
         '-D__FILENAME__="$$(notdir $$(abspath $$<))"',
         "-fprofile-arcs",
         "-ftest-coverage",
+        "-fPIC",
+        "-fstack-protector-all",
+    ],
+    extra_link_args=[
+        "-Wl,-z,relro",
+        "-Wl,-z,now",
+        "-s"
     ],
     libraries=["gcov"],
 )
