@@ -365,7 +365,7 @@ private:
         // get intersection of lines
         Point cross_points[16];
         Point poly_center;
-        int cnt = 0;
+        int count = 0;
         int flag = 0;
 
         poly_center.set(0, 0);
@@ -373,10 +373,10 @@ private:
             for (int j = 0; j < 4; j++) {
                 flag = intersection(box_a_corners[i + 1], box_a_corners[i],
                                     box_b_corners[j + 1], box_b_corners[j],
-                                    cross_points[cnt]);
+                                    cross_points[count]);
                 if (flag) {
-                    poly_center = poly_center + cross_points[cnt];
-                    cnt++;
+                    poly_center = poly_center + cross_points[count];
+                    count++;
                 }
             }
         }
@@ -385,40 +385,37 @@ private:
         for (int k = 0; k < 4; k++) {
             if (check_in_box2d(boxATensor, box_b_corners[k])) {
                 poly_center = poly_center + box_b_corners[k];
-                cross_points[cnt] = box_b_corners[k];
-                cnt++;
+                cross_points[count] = box_b_corners[k];
+                count++;
             }
             if (check_in_box2d(boxBTensor, box_a_corners[k])) {
                 poly_center = poly_center + box_a_corners[k];
-                cross_points[cnt] = box_a_corners[k];
-                cnt++;
+                cross_points[count] = box_a_corners[k];
+                count++;
             }
         }
-        if (cnt != 0) {
-            poly_center.x /= cnt;
-            poly_center.y /= cnt;
+        if (count != 0) {
+            poly_center.x /= count;
+            poly_center.y /= count;
         }
 
-        // sort the points of polygon
-        Point temp;
-        for (int j = 0; j < cnt - 1; j++) {
-            for (int i = 0; i < cnt - j - 1; i++) {
-                if (point_cmp(cross_points[i], cross_points[i + 1], poly_center)) {
-                    temp = cross_points[i];
-                    cross_points[i] = cross_points[i + 1];
-                    cross_points[i + 1] = temp;
-                }
+        for (size_t i = 1; i < count; ++i) {
+            Point key = cross_points[i];
+            int j = i - 1;
+            while (j >= 0 && point_cmp(cross_points[j], key, poly_center)) {
+                cross_points[j + 1] = cross_points[j];
+                --j;
             }
+            cross_points[j + 1] = key;
         }
 
-        // get the overlap areas
-        float area = 0;
-        for (int k = 0; k < cnt - 1; k++) {
-            area += cross(cross_points[k] - cross_points[0],
-                          cross_points[k + 1] - cross_points[0]);
+        float cross_area = 0;
+        for (int k = 0; k < count - 1; k++) {
+            cross_area += cross(cross_points[k] - cross_points[0],
+                cross_points[k + 1] - cross_points[0]);
         }
 
-        return abs(area) / static_cast<float>(2.0);
+        return abs(cross_area) / static_cast<float>(2.0);
     }
 
     __aicore__ inline float iou_bev(const LocalTensor<float> &boxATensor,
