@@ -1,76 +1,40 @@
-#include <torch/extension.h>
-#include "functions.h"
+// Copyright (c) 2024 Huawei Technologies Co., Ltd
+// Copyright (c) 2019, Facebook CORPORATION.
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License  (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://opensource.org/licenses/BSD-3-Clause
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "csrc/pybind.h"
 
-void init_common(pybind11::module &m)
+#include <torch/extension.h>
+
+#include "functions.h"
+
+void init_common(pybind11::module& m)
 {
+    // scatter_max
     m.def("npu_scatter_max", &npu_scatter_max);
     m.def("npu_scatter_max_backward", &npu_scatter_max_backward);
-
-    // rotatedBox kernel
-    m.def("npu_rotated_box_decode", &npu_rotated_box_decode, "npu_rot_box_decode NPU version");
-    m.def("npu_rotated_box_encode", &npu_rotated_box_encode, "npu_rot_box_encode NPU version");
-
-    // rotated iou
-    m.def("npu_rotated_iou", &npu_rotated_iou, "npu_rotated_iou NPU version");
 
     // roated overlap
     m.def("npu_rotated_overlaps", &npu_rotated_overlaps, "npu_rotated_overlap NPU version");
 
-    // sign bits
-    m.def("npu_sign_bits_pack", &npu_sign_bits_pack, "npu_sign_bits_pack NPU version");
-    m.def("npu_sign_bits_unpack", &npu_sign_bits_unpack, "npu_sign_bits_unpack NPU version");
-
-    // softmax
-    m.def("npu_softmax_cross_entropy_with_logits", &npu_softmax_cross_entropy_with_logits, "npu_softmax_cross_entropy_with_logits NPU version");
-
-    // stride add
-    m.def("npu_stride_add", &npu_stride_add, "npu_stride_add NPU version");
-
-    // transpose
-    m.def("npu_transpose", &npu_transpose, "npu_transpose NPU version");
-
-    // yolo encode
-    m.def("npu_yolo_boxes_encode", &npu_yolo_boxes_encode, "npu_yolo_boxes_encode NPU version");
-
-    // scatter
-    m.def("npu_scatter", &npu_scatter, "npu_scatter NPU version");
-
-    // silu
-    m.def("npu_silu_", &npu_silu_);
-    m.def("npu_silu", &npu_silu);
-
-    // rotary mul
-    m.def("npu_rotary_mul", &npu_rotary_mul);
-
-    m.def("npu_abs", &npu_abs);
-
-    // npu_fast_gelu
-    m.def("npu_fast_gelu", &npu_fast_gelu);
-    m.def("npu_fast_gelu_backward", &npu_fast_gelu_backward);
-
-    // npu_anchor_response_flags
-    m.def("npu_anchor_response_flags", &npu_anchor_response_flags);
-
-    // npu_bounding_box_decode
-    m.def("npu_bounding_box_decode", &npu_bounding_box_decode);
+    // rotated iou
+    m.def("npu_rotated_iou", &npu_rotated_iou);
 
     // furthest_points_sampling_with_dist
     m.def("furthest_point_sampling_with_dist", &furthest_point_sampling_with_dist);
-    
-    // npu_bounding_box_encode
-    m.def("npu_bounding_box_encode", &npu_bounding_box_encode);
 
-    // npu_batch_nms
-    m.def("npu_batch_nms", &npu_batch_nms);
-
-    // npu_confusion_transpose
-    m.def("npu_confusion_transpose", &npu_confusion_transpose);
-    m.def("npu_confusion_transpose_backward", &npu_confusion_transpose_backward);
-
-    // npu_broadcast
-    m.def("npu_broadcast", &npu_broadcast);
-    
     // npu_points_in_box
     m.def("npu_points_in_box", &npu_points_in_box);
 
@@ -78,26 +42,18 @@ void init_common(pybind11::module &m)
     m.def("npu_multi_scale_deformable_attn_function", &npu_multi_scale_deformable_attn_function);
     m.def("multi_scale_deformable_attn_grad", &multi_scale_deformable_attn_grad);
 
-    // npu_moe_tutel
-    m.def("npu_moe_tutel", &npu_moe_tutel, "npu_moe_tutel NPU version");
-    m.def("npu_moe_tutel_data_backward", &npu_moe_tutel_data_backward, "npu_moe_tutel_data_backward NPU version");
-    m.def("npu_moe_tutel_gate_backward", &npu_moe_tutel_gate_backward, "npu_moe_tutel_gate_backward NPU version");
-
     // npu_dynamic_scatter
-    m.def("npu_dynamic_scatter", &npu_dynamic_scatter, "npu_dynamic_scatter NPU version");
-
-    // ads_add
-    m.def("npu_ads_add", &npu_ads_add);
+    m.def("npu_dynamic_scatter", &npu_dynamic_scatter);
 
     // dyn_voxelization
-    m.def("dynamic_voxelization", &DynamicVoxelization);
+    m.def("dynamic_voxelization", &dynamic_voxelization);
 
     // nms3d_normal
     m.def("nms3d_normal", &nms3d_normal);
 
+    // nms3d
+    m.def("nms3d", &nms3d);
+
     // npu_furthest_point_sampling
     m.def("npu_furthest_point_sampling", &npu_furthest_point_sampling);
-
-    // ads_nms3d
-    m.def("nms3d", &nms3d);
 }

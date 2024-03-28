@@ -1,21 +1,34 @@
+// Copyright (c) 2024 Huawei Technologies Co., Ltd
+// Copyright (c) 2019, Facebook CORPORATION.
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License  (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://opensource.org/licenses/BSD-3-Clause
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "csrc/OpApiCommon.h"
+#include "functions.h"
 
 namespace {
-inline void npu_dynamic_scatter_check(
-    const at::Tensor &coors,
-    int64_t reduce_type)
+inline void npu_dynamic_scatter_check(const at::Tensor& coors, int64_t reduce_type)
 {
-    TORCH_CHECK(reduce_type == 0 || reduce_type == 1 || reduce_type == 2,
-                "reduce_type must be 0(sum) or 1(mean) or 2(max).");
-    TORCH_CHECK(coors.size(1) == 3,
-                "npu_dynamic_scatter only support coors.size(1) == 3.");
+    TORCH_CHECK(
+        reduce_type == 0 || reduce_type == 1 || reduce_type == 2, "reduce_type must be 0(sum) or 1(mean) or 2(max).");
+    TORCH_CHECK(coors.size(1) == 3, "npu_dynamic_scatter only support coors.size(1) == 3.");
 }
 } // namespace
 
 static std::map<int64_t, std::string> REDUCE_TYPE_MAP = {{0, "sum"}, {1, "mean"}, {2, "max"}};
 
-std::tuple<at::Tensor, at::Tensor> get_hash_key_and_coefficient(
-    const at::Tensor &coors)
+std::tuple<at::Tensor, at::Tensor> get_hash_key_and_coefficient(const at::Tensor& coors)
 {
     auto coors_dtype = coors.dtype();
     auto coors_dim = coors.size(1);
@@ -36,8 +49,7 @@ std::tuple<at::Tensor, at::Tensor> get_hash_key_and_coefficient(
     return {hash_key, cof_tensor};
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_simulation(
-    const at::Tensor &coors)
+std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_simulation(const at::Tensor& coors)
 {
     at::Tensor out_coors_unique2;
     at::Tensor coors_map;
@@ -62,16 +74,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_simulation(
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_dynamic_scatter(
-    const at::Tensor &feats,
-    const at::Tensor &coors,
-    int64_t reduce_type)
+    const at::Tensor& feats, const at::Tensor& coors, int64_t reduce_type)
 {
     npu_dynamic_scatter_check(coors, reduce_type);
     auto num_input = feats.size(0);
     auto num_feats = feats.size(1);
     if (num_input == 0) {
-        return {feats.clone().detach(), coors.clone().detach(),
-                coors.new_empty({0}, at::kInt), coors.new_empty({0}, at::kInt)};
+        return {feats.clone().detach(), coors.clone().detach(), coors.new_empty({0}, at::kInt),
+            coors.new_empty({0}, at::kInt)};
     }
 
     at::Tensor out_coors;
@@ -87,9 +97,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_dynamic_scatter(
         reduce_count = reduce_count.slice(0, 1);
         coors_map = coors_map - 1;
     }
-    
+
     auto reduced_feats = at::empty({out_coors.size(0), num_feats}, feats.options());
-    const char *reduce_type_string = const_cast<char *>(REDUCE_TYPE_MAP[reduce_type] == "max" ? "max" : "sum");
+    const char* reduce_type_string = const_cast<char*>(REDUCE_TYPE_MAP[reduce_type] == "max" ? "max" : "sum");
     EXEC_NPU_CMD(aclnnDynamicScatter, feats, coors_map, reduce_type_string, reduced_feats);
 
     if (reduce_type == 1) {

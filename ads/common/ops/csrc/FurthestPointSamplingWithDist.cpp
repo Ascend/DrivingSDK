@@ -14,19 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_npu/csrc/framework/OpCommand.h"
+#include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-
-at::Tensor npu_rotated_box_decode(const at::Tensor &self, const at::Tensor &deltas, const at::Tensor &weight)
+at::Tensor furthest_point_sampling_with_dist(
+    const at::Tensor& points_dist, const at::Tensor& nearest_temp, int32_t num_points)
 {
-    at::Tensor result = at::empty(self.sizes(), self.options());
-    at::Tensor weight_cpu = weight.to(at::Device(at::kCPU), at::kFloat);
-    auto weight_ptr = weight_cpu.data_ptr<float>();
-    TORCH_CHECK(weight_ptr != nullptr, "weight_ptr is nullptr.");
-    at::ArrayRef<float> weight_list(weight_ptr, weight_cpu.numel());
-
-    at_npu::native::OpCommand cmd;
-    cmd.Name("RotatedBoxDecode").Input(self).Input(deltas).Output(result).Attr("weight", weight_list).Run();
+    auto points_dist_size = points_dist.sizes();
+    int64_t b = points_dist_size[0];
+    int64_t num_points_real = num_points;
+    auto output_size = {b, num_points_real};
+    at::Tensor result = at::empty(output_size, points_dist.options().dtype(at::kInt));
+    EXEC_NPU_CMD(aclnnFurthestPointSamplingWithDist, points_dist, nearest_temp, num_points, result);
     return result;
 }

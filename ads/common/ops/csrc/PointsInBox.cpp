@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Huawei Technologies Co., Ltd
+// Copyright (c) 2024 Huawei Technologies Co., Ltd
 // Copyright (c) 2019, Facebook CORPORATION.
 // All rights reserved.
 //
@@ -14,13 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <ATen/ATen.h>
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-at::Tensor npu_ads_add(const at::Tensor &tensor1, const at::Tensor &tensor2)
+at::Tensor npu_points_in_box(const at::Tensor& boxes, const at::Tensor& pts)
 {
-    at::Tensor out = at::empty(tensor1.sizes(), tensor1.options());
-    EXEC_NPU_CMD(aclnnAddCustom, tensor1, tensor2, out);
+    TORCH_CHECK(pts.size(0) == 1 && boxes.size(0) == 1, "points_in_box npu only support batch size = 1");
+    TORCH_CHECK(boxes.size(1) <= 200, "boxes is larger than 200");
+    c10::SmallVector<int64_t, 8> output_size = {pts.size(0), pts.size(1)};
+    at::Tensor out = at::empty(output_size, pts.options().dtype(at::kInt));
+    auto boxes_trans = boxes.transpose(1, 2).contiguous();
+    EXEC_NPU_CMD(aclnnPointsInBox, boxes_trans, pts, out);
     return out;
 }

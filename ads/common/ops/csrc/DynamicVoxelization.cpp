@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Huawei Technologies Co., Ltd
+// Copyright (c) 2024 Huawei Technologies Co., Ltd
 // Copyright (c) 2019, Facebook CORPORATION.
 // All rights reserved.
 //
@@ -15,16 +15,19 @@
 // limitations under the License.
 
 #include <ATen/ATen.h>
+
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-at::Tensor furthest_point_sampling_with_dist(const at::Tensor &points_dist, const at::Tensor &nearest_temp, const int32_t num_points)
+at::Tensor dynamic_voxelization(const at::Tensor& points, at::Tensor& coors, int grid_x, int grid_y, int grid_z,
+    double voxel_x, double voxel_y, double voxel_z, double coors_min_x, double coors_min_y, double coorsMinZ)
 {
-    auto points_dist_size = points_dist.sizes();
-    int64_t b = points_dist_size[0];
-    int64_t num_points_real = num_points;
-    auto output_size = {b, num_points_real};
-    at::Tensor result = at::empty(output_size, points_dist.options().dtype(at::kInt));
-    EXEC_NPU_CMD(aclnnFurthestPointSamplingWithDist, points_dist, nearest_temp, num_points, result);
-    return result;
+    uint32_t ptsNum = points.size(0);
+    uint32_t ptsFeature = points.size(1);
+    at::Tensor pts = at::transpose(points, 0, 1);
+    at::Tensor ptsTrans = at::reshape(pts, {ptsNum, ptsFeature});
+    EXEC_NPU_CMD(aclnnDynamicVoxelization, ptsTrans, coors_min_x, coors_min_y, coorsMinZ, voxel_x, voxel_y, voxel_z,
+        grid_x, grid_y, grid_z, coors);
+    coors.transpose_(0, 1);
+    return coors;
 }

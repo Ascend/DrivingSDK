@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Huawei Technologies Co., Ltd
+// Copyright (c) 2024 Huawei Technologies Co., Ltd
 // Copyright (c) 2019, Facebook CORPORATION.
 // All rights reserved.
 //
@@ -14,19 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_npu/csrc/framework/OpCommand.h"
 #include "functions.h"
+#include "torch_npu/csrc/framework/OpCommand.h"
 
 namespace {
-at::Tensor &rotated_iou_npu_nocheck(
-    at::Tensor &iou,
-    const at::Tensor &boxes,
-    const at::Tensor &query_boxes,
-    bool trans,
-    int64_t mode,
-    bool is_cross,
-    double v_threshold,
-    double e_threshold)
+at::Tensor& rotated_iou_npu_nocheck(at::Tensor& iou, const at::Tensor& boxes, const at::Tensor& query_boxes, bool trans,
+    int64_t mode, bool is_cross, double v_threshold, double e_threshold)
 {
     string mode_str = (mode == 0) ? "iou" : "iof";
 
@@ -45,14 +38,8 @@ at::Tensor &rotated_iou_npu_nocheck(
 }
 } // namespace
 
-at::Tensor npu_rotated_iou(
-    const at::Tensor &boxes,
-    const at::Tensor &query_boxes,
-    bool trans,
-    int64_t mode,
-    bool is_cross,
-    double v_threshold,
-    double e_threshold)
+at::Tensor npu_rotated_iou(const at::Tensor& boxes, const at::Tensor& query_boxes, bool trans, int64_t mode,
+    bool is_cross, double v_threshold, double e_threshold)
 {
     TORCH_CHECK(boxes.ndimension() == 3 && query_boxes.ndimension() == 3);
 

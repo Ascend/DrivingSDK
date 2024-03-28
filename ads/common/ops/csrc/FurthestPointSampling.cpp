@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Huawei Technologies Co., Ltd
+// Copyright (c) 2024 Huawei Technologies Co., Ltd
 // Copyright (c) 2019, Facebook CORPORATION.
 // All rights reserved.
 //
@@ -14,11 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <ATen/ATen.h>
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-at::Tensor npu_furthest_point_sampling(const at::Tensor &point_xyz, const at::Tensor &nearset_temp, const int32_t num_points)
+at::Tensor npu_furthest_point_sampling(const at::Tensor& point_xyz, const at::Tensor& nearset_temp, int32_t num_points)
 {
     at::Tensor output = at::empty({static_cast<int64_t>(point_xyz.sizes()[0]), static_cast<int64_t>(num_points)},
         nearset_temp.options().dtype(at::kInt));

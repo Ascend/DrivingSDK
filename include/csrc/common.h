@@ -1,16 +1,30 @@
+// Copyright (c) 2024 Huawei Technologies Co., Ltd
+// Copyright (c) 2019, Facebook CORPORATION.
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License  (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// https://opensource.org/licenses/BSD-3-Clause
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef CSRC_COMMON_H_
 #define CSRC_COMMON_H_
-#include <unordered_map>
-#include <string>
-#include <tuple>
-#include <vector>
 #include <ATen/ATen.h>
 #include <ATen/core/dispatch/Dispatcher.h>
+
+#include <string>
+#include <tuple>
+#include <unordered_map>
+
 #include "third_party/acl/inc/acl/acl_base.h"
-#include "torch_npu/csrc/core/npu/NPUMacros.h"
-#include "torch_npu/csrc/framework/utils/NPUDefinition.h"
 #include "torch_npu/csrc/framework/utils/CalcuOpUtil.h"
-#include "torch_npu/csrc/aten/mirror/NPUMemoryOverlap.h"
 
 const int N = 32;
 const int SIZE = 8;
@@ -40,20 +54,19 @@ using CalcuOpUtil = at_npu::native::CalcuOpUtil;
     _(at::ScalarType::Undefined, ACL_DT_UNDEFINED)   \
     _(at::ScalarType::NumOptions, ACL_DT_UNDEFINED)
 
-static std::unordered_map<std::string, at::ScalarType> dTypeTransMap{ { "torch.float16", at::ScalarType::Half },
-    { "torch.half", at::ScalarType::Half }, { "torch.float32", at::ScalarType::Float },
-    { "torch.float", at::ScalarType::Float }, { "torch.float64", at::ScalarType::Double },
-    { "torch.float", at::ScalarType::Double }, { "torch.int8", at::ScalarType::Char },
-    { "torch.char", at::ScalarType::Char }, { "torch.int16", at::ScalarType::Short },
-    { "torch.short", at::ScalarType::Short }, { "torch.int32", at::ScalarType::Int },
-    { "torch.int32", at::ScalarType::Int }, { "torch.int64", at::ScalarType::Long },
-    { "torch.long", at::ScalarType::Long } };
+static std::unordered_map<std::string, at::ScalarType> dTypeTransMap {{"torch.float16", at::ScalarType::Half},
+    {"torch.half", at::ScalarType::Half}, {"torch.float32", at::ScalarType::Float},
+    {"torch.float", at::ScalarType::Float}, {"torch.float64", at::ScalarType::Double},
+    {"torch.float", at::ScalarType::Double}, {"torch.int8", at::ScalarType::Char}, {"torch.char", at::ScalarType::Char},
+    {"torch.int16", at::ScalarType::Short}, {"torch.short", at::ScalarType::Short},
+    {"torch.int32", at::ScalarType::Int}, {"torch.int32", at::ScalarType::Int}, {"torch.int64", at::ScalarType::Long},
+    {"torch.long", at::ScalarType::Long}};
 
-inline static bool check_inplace_tensor(const std::initializer_list<at::Tensor> &src_list, const at::Tensor &dst)
+inline static bool check_inplace_tensor(const std::initializer_list<at::Tensor>& src_list, const at::Tensor& dst)
 {
     bool is_inplace_tensor = false;
     // check whether dst is contained in src_list
-    for (const auto &src : src_list) {
+    for (const auto& src : src_list) {
         if (dst.is_same(src)) {
             is_inplace_tensor = true;
             break;
@@ -62,8 +75,8 @@ inline static bool check_inplace_tensor(const std::initializer_list<at::Tensor> 
     return is_inplace_tensor;
 }
 
-inline static void check_tensor_size(const std::initializer_list<at::Tensor> &src_list, at::Tensor &dst,
-    c10::IntArrayRef expect_size)
+inline static void check_tensor_size(
+    const std::initializer_list<at::Tensor>& src_list, at::Tensor& dst, c10::IntArrayRef expect_size)
 {
     bool is_inplace = check_inplace_tensor(src_list, dst);
     // Preserve legacy resizing behavior of out=... arguments
@@ -80,7 +93,7 @@ constexpr aclDataType kATenScalarTypeToAclDataTypeTable[static_cast<int64_t>(at:
 #undef DEFINE_ENUM
 };
 
-inline aclDataType ConvertToAclDataType(const at::ScalarType &data_type)
+inline aclDataType ConvertToAclDataType(const at::ScalarType& data_type)
 {
     auto acl_dtype = kATenScalarTypeToAclDataTypeTable[static_cast<int64_t>(data_type)];
     TORCH_CHECK(acl_dtype != ACL_DT_UNDEFINED, std::string(c10::toString(data_type)) + " has not been supported")
@@ -96,8 +109,8 @@ inline c10::SmallVector<int64_t, SIZE> array_to_small_vector(c10::IntArrayRef sh
     return shape_small_vec;
 }
 
-inline c10::SmallVector<int64_t, SIZE> conv_transpose2d_npu_output_size(const at::Tensor &input,
-    const at::Tensor &weight, const at::Tensor &bias, c10::IntArrayRef padding, c10::IntArrayRef output_padding,
+inline c10::SmallVector<int64_t, SIZE> conv_transpose2d_npu_output_size(const at::Tensor& input,
+    const at::Tensor& weight, const at::Tensor& bias, c10::IntArrayRef padding, c10::IntArrayRef output_padding,
     c10::IntArrayRef stride, c10::IntArrayRef dilation, int64_t groups)
 {
     int64_t N = input.size(0);
@@ -109,20 +122,20 @@ inline c10::SmallVector<int64_t, SIZE> conv_transpose2d_npu_output_size(const at
     int64_t Ho = (H - 1) * stride[0] - 2 * padding[0] + dilation[0] * (kernel_size[0] - 1) + output_padding[0] + 1;
     int64_t Wo = (W - 1) * stride[1] - 2 * padding[1] + dilation[1] * (kernel_size[1] - 1) + output_padding[1] + 1;
 
-    c10::SmallVector<int64_t, SIZE> outputSize = { N, Co, Ho, Wo };
+    c10::SmallVector<int64_t, SIZE> outputSize = {N, Co, Ho, Wo};
 
     return outputSize;
 }
 
-inline std::pair<bool, at::ScalarType> trans_torch_type_to_scalar(const std::string &type)
+inline std::pair<bool, at::ScalarType> trans_torch_type_to_scalar(const std::string& type)
 {
     if (dTypeTransMap.find(type) != dTypeTransMap.end()) {
-        return { true, dTypeTransMap[type] };
+        return {true, dTypeTransMap[type]};
     }
-    return { false, at::ScalarType::Byte };
+    return {false, at::ScalarType::Byte};
 }
 
-inline tuple_vector softmax_cross_entropy_with_logits_impl_npu_output_size(const at::Tensor &self)
+inline tuple_vector softmax_cross_entropy_with_logits_impl_npu_output_size(const at::Tensor& self)
 {
     c10::SmallVector<int64_t, SIZE> resultSize = array_to_small_vector(self.size(0));
     c10::SmallVector<int64_t, SIZE> backpropSize = array_to_small_vector(self.sizes());
@@ -142,7 +155,7 @@ inline c10::SmallVector<int64_t, N> convert_array_to_vector(c10::IntArrayRef int
 inline int64_t make_warp_dim(int64_t dim, int64_t dim_post_expr)
 {
     if (dim_post_expr <= 0) {
-        dim_post_expr = 1;  // this will make range [-1, 0]
+        dim_post_expr = 1; // this will make range [-1, 0]
     }
     if (dim < 0) {
         dim += dim_post_expr;
@@ -179,7 +192,7 @@ inline c10::SmallVector<int64_t, SIZE> infersize_stride_add(c10::IntArrayRef sha
     return output_shape;
 }
 
-inline c10::SmallVector<int64_t, SIZE> transpose_npu_output_size(const at::Tensor &self, c10::IntArrayRef perm)
+inline c10::SmallVector<int64_t, SIZE> transpose_npu_output_size(const at::Tensor& self, c10::IntArrayRef perm)
 {
     auto sizes = self.sizes();
     c10::SmallVector<int64_t, SIZE> shape;
@@ -190,15 +203,15 @@ inline c10::SmallVector<int64_t, SIZE> transpose_npu_output_size(const at::Tenso
     return shape;
 }
 
-inline bool check_match(const at::Tensor &self)
+inline bool check_match(const at::Tensor& self)
 {
     static auto op =
-        c10::Dispatcher::singleton().findSchemaOrThrow("aten::check_match", "").typed<bool(const at::Tensor &)>();
+        c10::Dispatcher::singleton().findSchemaOrThrow("aten::check_match", "").typed<bool(const at::Tensor&)>();
     return op.call(self);
 }
 
-inline void format_fresh_view(at::Tensor &x, const at::Tensor &y)
+inline void format_fresh_view(at::Tensor& x, const at::Tensor& y)
 {
     x.copy_(y);
 }
-#endif  // CSRC_COMMON_H_
+#endif // CSRC_COMMON_H_

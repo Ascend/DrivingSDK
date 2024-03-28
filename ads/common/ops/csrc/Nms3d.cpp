@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Huawei Technologies Co., Ltd
+// Copyright (c) 2024 Huawei Technologies Co., Ltd
 // Copyright (c) 2019, Facebook CORPORATION.
 // All rights reserved.
 //
@@ -14,19 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <ATen/ATen.h>
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-at::Tensor npu_points_in_box(const at::Tensor &boxes, const at::Tensor &pts)
+std::tuple<at::Tensor, at::Tensor> nms3d(const at::Tensor& boxes, double threshold)
 {
-    TORCH_CHECK(pts.size(0) == 1 && boxes.size(0) == 1,
-        "points_in_box npu only support batch size = 1");
-    TORCH_CHECK(boxes.size(1) <= 200,
-        "boxes is larger than 200");
-    c10::SmallVector<int64_t, 8> output_size = {pts.size(0), pts.size(1)};
-    at::Tensor out = at::empty(output_size, pts.options().dtype(at::kInt));
-    auto boxes_trans = boxes.transpose(1, 2).contiguous();
-    EXEC_NPU_CMD(aclnnPointsInBox, boxes_trans, pts, out);
-    return out;
+    int32_t box_num = boxes.size(0);
+    int32_t data_align = 16;
+    int32_t mask_num = ((box_num - 1) / data_align + 1) * data_align;
+    at::Tensor mask = at::empty({box_num, mask_num}, boxes.options().dtype(at::kShort));
+    EXEC_NPU_CMD(aclnnNms3d, boxes, threshold, mask);
+
+    at::Tensor keep = at::zeros({box_num}, mask.options());
+    at::Tensor num_out = at::zeros(1, mask.options());
+    EXEC_NPU_CMD(aclnnGatherNms3dMask, mask, keep, num_out);
+    return std::tie(keep, num_out);
 }

@@ -14,19 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <ATen/ATen.h>
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor &boxes, double nms_overlap_thresh)
+std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor& boxes, double nms_overlap_thresh)
 {
     int32_t box_num = boxes.size(0);
     int32_t data_align = 16;
     int32_t mask_num = ((box_num - 1) / data_align + 1) * data_align;
-    at::Tensor mask = at::empty({ box_num, mask_num }, boxes.options().dtype(at::kShort));
+    at::Tensor mask = at::empty({box_num, mask_num}, boxes.options().dtype(at::kShort));
     EXEC_NPU_CMD(aclnnNms3dNormal, boxes, nms_overlap_thresh, mask);
 
-    at::Tensor keep = at::zeros({ box_num }, mask.options());
+    at::Tensor keep = at::zeros({box_num}, mask.options());
     at::Tensor num_out = at::zeros(1, mask.options());
     EXEC_NPU_CMD(aclnnGatherNms3dMask, mask, keep, num_out);
     return std::tie(keep, num_out);
