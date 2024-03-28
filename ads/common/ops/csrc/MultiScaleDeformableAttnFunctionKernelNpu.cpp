@@ -43,6 +43,7 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value,
     TORCH_CHECK(
         data_total < 512,
         "data_total is over 512: embed_dims ", embed_dims, ", num_points is ", num_points, ", num_level is ", num_levels, ".");
+    TORCH_CHECK(embed_dims % 8 == 0, "embed_dims must be a multiple of 8, but embed_dims is ", embed_dims, ".");
 
     at::Tensor result = at::empty(output_size, value.options().dtype(at::kFloat));
 
@@ -95,15 +96,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     auto value_size = value.sizes();
     auto location_size = location.sizes();
     auto num_heads = value_size[2];
-    auto channels = value_size[3];
+    auto embed_dims = value_size[3];
     auto num_points = location_size[4];
     auto num_levels = location_size[3];
-    auto data_total = channels + num_points + num_levels;
-    TORCH_CHECK(data_total < 512, "data_total is over 512: channels ", channels, " num_points is ",
+    auto data_total = embed_dims + num_points + num_levels;
+    TORCH_CHECK(data_total < 512, "data_total is over 512: embed_dims ", embed_dims, " num_points is ",
                 num_points, " num_level is ", num_levels, ".");
-    TORCH_CHECK(channels % 16 == 0, "channels must be a multiple of 16, but channels is ", channels, ".");
-    TORCH_CHECK(num_points % 4 == 0, "num_points must be a multiple of 4, but num_points is ", num_points, ".");
-    TORCH_CHECK(num_heads % 4 == 0, "num_heads must be a multiple of 4, but num_heads is ", num_heads, ".");
+    TORCH_CHECK(embed_dims % 8 == 0, "embed_dims must be a multiple of 8, but embed_dims is ", embed_dims, ".");
     auto grad_value_size = {value_size[0], value_size[2], value_size[1], value_size[3]};
     auto grad_atten_weight_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[4]};
     auto grad_sample_loc_size = {location_size[0], location_size[1], location_size[2], location_size[3], location_size[5], location_size[4]};
