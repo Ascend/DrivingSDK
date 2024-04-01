@@ -22,10 +22,6 @@
 #include "kernel_tiling/kernel_tiling.h"
 using namespace AscendC;
 
-namespace {
-constexpr static int32_t BUFFER_NUM = 1;
-};
-
 class MultiScaleDeformableAttentionV2Grad {
 public:
     __aicore__ inline MultiScaleDeformableAttentionV2Grad(){};
@@ -108,38 +104,38 @@ public:
 
     __aicore__ inline void InitBuffer()
     {
-        pipe->InitBuffer(shapeUb, BUFFER_NUM, 2 * numLevelsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(offsetUb, BUFFER_NUM, numLevelsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(locationUb, BUFFER_NUM, numHeads * numLevels * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(attentionWeightsUb, BUFFER_NUM, numHeads * numLevels * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(topGradUb, BUFFER_NUM, embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(shapeUb, 2 * numLevelsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(offsetUb, numLevelsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(locationUb, numHeads * numLevels * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(attentionWeightsUb, numHeads * numLevels * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(topGradUb, embedDims * sizeof(DTYPE_VALUE));
         
-        pipe->InitBuffer(floatOneUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpXUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpYUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(weightSumUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(floatOneUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpXUb, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpYUb, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(weightSumUb, numPointsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(locWUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(locHUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(imUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(lowUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_SPATIAL_SHAPES));
-        pipe->InitBuffer(lowFloatUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(distLowUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(distHighUb, BUFFER_NUM, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(locWUb, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(locHUb, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(imUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(lowUb, 2 * numPointsAlign * sizeof(DTYPE_SPATIAL_SHAPES));
+        pipe->InitBuffer(lowFloatUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(distLowUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(distHighUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(zerosUb, BUFFER_NUM, 8 * numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(w1v1Ub, BUFFER_NUM, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(w2v2Ub, BUFFER_NUM, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(w3v3Ub, BUFFER_NUM, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(w4v4Ub, BUFFER_NUM, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpUb, BUFFER_NUM, numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(zerosUb, 8 * numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(w1v1Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(w2v2Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(w3v3Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(w4v4Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpUb, numPoints * embedDims * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(tmpAUb, BUFFER_NUM, embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpBUb, BUFFER_NUM, embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(midUb, BUFFER_NUM, 4 * numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpAUb, embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpBUb, embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(midUb, 4 * numPoints * embedDims * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(gradSampleXLocUb, BUFFER_NUM, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(gradSampleYLocUb, BUFFER_NUM, numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(gradSampleXLocUb, numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(gradSampleYLocUb, numPoints * embedDims * sizeof(DTYPE_VALUE));
     }
 
     __aicore__ inline void GetLocalTensor()

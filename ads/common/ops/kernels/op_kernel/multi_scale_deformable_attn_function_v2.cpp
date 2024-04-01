@@ -5,7 +5,6 @@
  */
 #include "kernel_operator.h"
 using namespace AscendC;
-constexpr int32_t BUFFER_NUM = 1;
 
 class KernelMultiScaleDeformableAttnFunctionV2
 {
@@ -59,33 +58,33 @@ public:
         valueSpatialShapesGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE_SPATIAL_SHAPES *>(value_spatial_shapes), numLevels * 2);
         valueLevelStartIndexGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE_SPATIAL_SHAPES *>(value_level_start_index), numLevels);
 
-        pipe->InitBuffer(shapeQueue, BUFFER_NUM, AlignUp(numLevels * 2, dataAlign) * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(offsetQueue, BUFFER_NUM, numLevelsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(shapeQueue, AlignUp(numLevels * 2, dataAlign) * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(offsetQueue, numLevelsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(locationQueue, BUFFER_NUM, AlignUp(numHeads * numLevels * numPoints * 2, dataAlign) * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(attentionWeightsUb, BUFFER_NUM, AlignUp(numHeads * numLevels * numPoints, dataAlign) * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(outputQueue, BUFFER_NUM, embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(locationQueue, AlignUp(numHeads * numLevels * numPoints * 2, dataAlign) * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(attentionWeightsUb, AlignUp(numHeads * numLevels * numPoints, dataAlign) * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(outputQueue, embedDims * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(emptyUb, BUFFER_NUM, embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(emptyUb, embedDims * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(intOneUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
-        pipe->InitBuffer(floatOneUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(intOneUb, numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
+        pipe->InitBuffer(floatOneUb, numPointsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(tmpXUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpYUb, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpParam0Ub, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpParam1Ub, BUFFER_NUM, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpXUb, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpYUb, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpParam0Ub, numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpParam1Ub, numPointsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(tmpIntUb, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
-        pipe->InitBuffer(tmpFloatUb, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(weightQueue, BUFFER_NUM, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpIntUb, 4 * numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
+        pipe->InitBuffer(tmpFloatUb, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(weightQueue, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(valueUb, BUFFER_NUM, batchOffset * 8 * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(cornerWeightUb, BUFFER_NUM, batchOffset * 8 * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(valueUb, batchOffset * 8 * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(cornerWeightUb, batchOffset * 8 * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(tmpResUb, BUFFER_NUM, batchOffset * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpResUb2, BUFFER_NUM, batchOffset * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpResUb3, BUFFER_NUM, numHeads * batchOffset * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpResUb, batchOffset * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpResUb2, batchOffset * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpResUb3, numHeads * batchOffset * sizeof(DTYPE_VALUE));
     }
 
     __aicore__ inline void Process()

@@ -37,7 +37,7 @@ public:
         pipe.InitBuffer(outQueueMask, BUFFER_NUM, dataAlign * sizeof(int16_t));
         pipe.InitBuffer(oneMask, BUFFER_NUM, dataAlign * sizeof(int16_t));
         if constexpr (sizeof(T) == sizeof(half)) {
-            pipe.InitBuffer(calcBuf, BUFFER_NUM, dataAlign * 2 * 7 * sizeof(float));
+            pipe.InitBuffer(calcBuf, dataAlign * 2 * 7 * sizeof(float));
             curTemp = calcBuf.Get<float>(dataAlign * 2 * 7);
             boxTemp = curTemp[8];
         }
