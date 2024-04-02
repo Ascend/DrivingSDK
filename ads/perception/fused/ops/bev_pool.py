@@ -1,0 +1,64 @@
+import ads_c
+import torch
+
+
+class BEVPool(torch.autograd.Function):
+    @staticmethod
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    def forward(ctx, feat, geom_feat, ranks, B, D, H, W):
+        kept = torch.ones(feat.shape[0], device=feat.device, dtype=torch.bool)
+        kept[1:] = ranks[1:] != ranks[:-1]
+        interval_starts = torch.where(kept)[0].int()
+        interval_lengths = torch.zeros_like(interval_starts, dtype=torch.int32)
+        interval_lengths[:-1] = interval_starts[1:] - interval_starts[:-1]
+        interval_lengths[-1] = feat.shape[0] - interval_starts[-1]
+        geom_feat = geom_feat.int()
+
+        out = ads_c.npu_bev_pool(
+            feat,
+            geom_feat,
+            interval_lengths,
+            interval_starts,
+            B,
+            D,
+            H,
+            W,
+        )
+
+        ctx.save_for_backward(interval_starts, interval_lengths, geom_feat)
+        ctx.saved_shapes = B, D, H, W
+        return out
+
+    @staticmethod
+    # pylint: disable=too-many-return-values
+    def backward(ctx, grad_out):
+        interval_starts, interval_lengths, geom_feat = ctx.saved_tensors
+        B, D, H, W = ctx.saved_shapes
+
+        grad_out = grad_out.contiguous()
+        grad_feat = ads_c.npu_bev_pool_backward(
+            grad_out,
+            geom_feat,
+            interval_lengths,
+            interval_starts,
+            B,
+            D,
+            H,
+            W,
+        )
+
+        return grad_feat, None, None, None, None, None, None
+
+
+# pylint: disable=too-many-arguments,huawei-too-many-arguments
+def bev_pool(feat, geom_feat, B, D, H, W):
+    if feat.shape[0] != geom_feat.shape[0]:
+        raise ValueError("The number of features and geometry features should be the same.")
+
+    ranks = geom_feat[:, 0] * (W * D * B) + geom_feat[:, 1] * (D * B) + geom_feat[:, 2] * B + geom_feat[:, 3]
+    indices = ranks.argsort()
+    feat, geom_feat, ranks = feat[indices], geom_feat[indices], ranks[indices]
+
+    out = BEVPool.apply(feat, geom_feat, ranks, B, D, H, W)
+    out = out.permute(0, 4, 1, 2, 3).contiguous()
+    return out
