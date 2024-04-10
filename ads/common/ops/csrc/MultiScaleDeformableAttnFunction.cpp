@@ -59,10 +59,11 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value, con
     at::Tensor value_spatial_shapes_cp = value_spatial_shapes.to(at::kInt);
     at::Tensor value_level_start_index_cp = value_level_start_index.to(at::kInt);
     at::Tensor sampling_locations_cp = sampling_locations.to(at::kFloat);
+    at::Tensor sampling_locations_trans = at::transpose(sampling_locations_cp, 4, 5).contiguous();
     at::Tensor attention_weights_cp = attention_weights.to(at::kFloat);
 
     EXEC_NPU_CMD(aclnnMultiScaleDeformableAttnFunctionV2, value_trans, value_spatial_shapes_cp,
-        value_level_start_index_cp, sampling_locations_cp, attention_weights_cp, result);
+        value_level_start_index_cp, sampling_locations_trans, attention_weights_cp, result);
 
     return result.to(ori_dtype);
 }
