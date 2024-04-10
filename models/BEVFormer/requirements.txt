@@ -1,0 +1,7 @@
+torchvision==0.16.0
+mmsegmentation==0.30.0
+opencv-python-headless
+ipython
+seaborn
+attrs
+psutil

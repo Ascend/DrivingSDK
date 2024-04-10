@@ -1,0 +1,10 @@
+lyft_dataset_sdk
+networkx==2.8
+numba==0.58.1
+numpy
+nuscenes-devkit
+plyfile
+scikit-image==0.21.0
+# by default we also use tensorboard to log results
+tensorboard
+trimesh>=2.35.39,<2.35.40
