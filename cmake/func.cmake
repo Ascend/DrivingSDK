@@ -57,9 +57,13 @@ function(opbuild)
   endif()
     if(NOT EXISTS ${CANN_LIB_PATH})
         message(FATAL_ERROR "CANN lib path not found: ${CANN_PATHS}")
-  endif ()
+  endif()
   message(STATUS "CANN include path: ${CANN_INCLUDE_PATH}")
-    message(STATUS "CANN lib path: ${CANN_LIB_PATH}")
+  message(STATUS "CANN lib path: ${CANN_LIB_PATH}")
+  # filter single op
+  if (NOT "${SINGLE_OP}x" STREQUAL "x")
+    list(FILTER OPBUILD_OPS_SRC INCLUDE REGEX ${SINGLE_OP})
+  endif()
   execute_process(
     COMMAND
       ${CMAKE_COMPILE} -g -fPIC -shared -std=c++11 ${OPBUILD_OPS_SRC}

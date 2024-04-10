@@ -6,10 +6,15 @@ ADS-Accelerator是基于昇腾NPU平台开发的适用于自动驾驶场景的�
 
 
 # 安装
-本项目依赖昇腾提供的pytorch_npu包和CANN包，需要先安装对应版本的pytorch_npu和CANN软件包，具体配套关系见pytorch仓[README](https://gitee.com/ascend/pytorch)。
-> 基于安全考虑，建议您以非root用户身份执行以下操作。
-## 准备环境
-请参考昇腾官方文档[Pytorch框架训练环境准备](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html)。建议您在准备好环境后，将umask调整为`0027`，以保证文件权限正确。
+## 前提条件
+1. 本项目依赖昇腾提供的pytorch_npu包和CANN包，需要先安装对应版本的pytorch_npu和CANN软件包，具体配套关系见pytorch仓[README](https://gitee.com/ascend/pytorch)。
+请参考昇腾官方文档[Pytorch框架训练环境准备](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html)。
+2. 使用`pip3 install -r requirements.txt` 安装python依赖。
+3. 如果您需要编译`ONNX`插件，请安装`protobuf-devel-3.14.0`, 在`centos` 系统上可以执行`yum install protobuf-devel-3-14.0`，否则请将`CMakePresets.json`中的`ENABLE_ONNX`选项改为`FALSE`。
+
+4. 建议您在准备好环境后，将umask调整为`0027`，以保证文件权限正确。
+5. 建议您以非root用户身份执行以下操作。
+
 ## 从发布包安装
 当前并未正式发布whl包 ，请参考源码安装方式。
 ## 从源码安装
@@ -139,8 +144,8 @@ print(c)
 出于安全性及权限最小化角度考虑，不建议使用`root`等管理员类型账户使用ads。
 
 ## 文件权限控制
-在使用`ADS`时，您可能会进行profiling、调试等操作，建议您对相关目录及文件做好权限控制，以保证文件安全。
-1. 建议您在使用`ADS`时，将umask调整为`0027`及以上，保障新增文件夹默认最高权限为`750`，文件默认最高权限为`640`。
+在使用ADS-Accelerator时，您可能会进行profiling、调试等操作，建议您对相关目录及文件做好权限控制，以保证文件安全。
+1. 建议您在使用ADS-Accelerator时，将umask调整为`0027`及以上，保障新增文件夹默认最高权限为`750`，文件默认最高权限为`640`。
 2. 建议您对个人数据、商业资产、源文件、训练过程中保存的各类文件等敏感内容做好权限管控，可参考下表设置安全权限。
 ### 文件权限参考
 
@@ -168,7 +173,7 @@ print(c)
 在源码编译安装ADS-Accelerator时，需要您自行编译，编译过程中会生成一些中间文件，建议您在编译完成后，对中间文件做好权限控制，以保证文件安全。
 ## 运行安全声明
 1. 建议您结合运行环境资源状况编写对应训练脚本。若训练脚本与资源状况不匹配，如数据集加载内存大小超出内存容量限制、训练脚本在本地生成数据超过磁盘空间大小等情况，可能引发错误并导致进程意外退出。
-2. ADS在运行异常时(如输入校验异常（请参考api文档说明），环境变量配置错误，算子执行报错等)会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括通过设定算子同步执行、查看CANN日志、解析生成的Core Dump文件等方式。
+2. ADS-Accelerator在运行异常时(如输入校验异常（请参考api文档说明），环境变量配置错误，算子执行报错等)会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括通过设定算子同步执行、查看CANN日志、解析生成的Core Dump文件等方式。
 ## 公网地址声明
 
 在ads的配置文件和脚本中存在[公网地址](#公网地址)
@@ -190,6 +195,35 @@ print(c)
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，Ads提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
 ## 通信安全加固
-ADS在运行时依赖于`pytorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
+ADS-Accelerator在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
 ## 通信矩阵
-ADS在运行时依赖于`pytorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
+ADS-Accelerator在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
+
+# 支持Python,PyTorch和torch_npu版本说明
+
+| Gitee分支 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
+|-----------|-------------------|-------------------|---------------------|
+| master    |Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0|
+|           |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0|
+|           |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0|
+| v1.0.0    |Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0-6.0.rc1|
+|           |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0-6.0.rc1|
+|           |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0-6.0.rc1|
+
+# 软件生命周期说明 
+## 分支维护策略
+
+ADS-Accelerator版本分支的维护阶段如下：
+
+| **状态**            | **时间** | **说明**                                         |
+| ------------------- | -------- | ------------------------------------------------ |
+| 计划                | 1—3 个月 | 计划特性                                         |
+| 开发                | 3 个月   | 开发特性                                         |
+| 维护                | 6-12 个月| 合入所有已解决的问题并发布版本，针对不同的ADS-Accelerator版本采取不同的维护策略，常规版本和长期支持版本维护周期分别为6个月和12个月 |
+| 无维护              | 0—3 个月 | 合入所有已解决的问题，无专职维护人员，无版本发布 |
+| 生命周期终止（EOL） | N/A      | 分支不再接受任何修改                             |
+
+## ADS-Accelerator版本维护策略
+
+| **ADS-Accelerator版本** | **维护策略** | **当前状态** | **发布时间** | **后续状态** | **EOL日期** |
+|-----------|-----------|--------|------------|-----------------------|-----------|

@@ -1,3 +1,10 @@
-torch
-torch_npu
-numpy
+numpy==1.21.3
+protobuf==3.19.6
+decorator
+sympy 
+scipy 
+attrs 
+cloudpickle
+psutil
+synr==0.5.0
+tornado

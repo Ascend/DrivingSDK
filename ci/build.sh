@@ -1,10 +1,10 @@
 # Copyright 2023 Huawei Technologies Co., Ltd
 CUR_DIR=$(dirname $(readlink -f $0))
 SCRIPTS_DIR=${CUR_DIR}/../scripts
-BUILD_PACKAGES_DIR=${CUR_DIR}/../build_out/packages
+BUILD_PACKAGES_DIR=${CUR_DIR}/../ads/packages
 SUPPORTED_PY_VERSION=(3.7 3.8 3.9 3.10)
 PY_VERSION='3.7'
-DEFAULT_SCRIPT_ARGS_NUM=1
+SINGLE_OP=''
 
 function check_python_version() {
     matched_py_version='false'
@@ -19,62 +19,27 @@ function check_python_version() {
         exit 1
     fi
 }
-
+function usage() {
+    echo "Usage: $0 --python=3.7 [--single_op=xxx]" 1>&2
+}
 function parse_script_args() {
-    local args_num=0
-    if [[ "x${1}" = "x" ]]; then
-        # default: bash build.sh (python3.7)
-        return 0
-    fi
-
-    while true; do
-        if [[ "x${1}" = "x" ]]; then
-            break
-        fi
-        if [[ "$(echo "${1}"|cut -b1-|cut -b-2)" == "--" ]]; then
-            args_num=$((args_num+1))
-        fi
-        if [[ ${args_num} -eq ${DEFAULT_SCRIPT_ARGS_NUM} ]]; then
-            break
-        fi
-        shift
-    done
-
-    # if num of args are not fully parsed, throw an error.
-    if [[ ${args_num} -lt ${DEFAULT_SCRIPT_ARGS_NUM} ]]; then
-        return 1
-    fi
-
-    while true; do
-        case "${1}" in
-        --python=*)
-            PY_VERSION=$(echo "${1}"|cut -d"=" -f2)
-            args_num=$((args_num-1))
-            shift
-            ;;
-        --tocpu=*)
-            export 'NPU_TOCPU'=${1:8}
-            args_num=$((args_num-1))
-            shift
-            ;;
-        -*)
-            echo "ERROR Unsupported parameters: ${1}"
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --python=*)
+                PY_VERSION="${1#*=}"
+                shift 1
+                ;;
+            --single_op=*)
+                SINGLE_OP="${1#*=}"
+                shift 1
+                ;;
+            *)
+            usage
             return 1
-            ;;
-        *)
-            if [ "x${1}" != "x" ]; then
-                echo "ERROR Unsupported parameters: ${1}"
-                return 1
-            fi
-            break
             ;;
         esac
     done
-
-    # if some "--param=value" are not parsed correctly, throw an error.
-    if [[ ${args_num} -ne 0 ]]; then
-        return 1
-    fi
+    return 0
 }
 
 function main()
@@ -85,9 +50,38 @@ function main()
     else
         echo "ASCEND_OPP_PATH = $ASCEND_OPP_PATH"
     fi
+
+    if ! parse_script_args "$@"; then
+        echo "Failed to parse script args. Please check your inputs."
+        exit 1
+    fi
+
+    check_python_version
+
     chmod -R 777 ${SCRIPTS_DIR}
     export BUILD_PYTHON_VERSION=${PY_VERSION}
-    bash ${SCRIPTS_DIR}/build_kernel.sh
+    rm -rf ${BUILD_PACKAGES_DIR}
+
+    if [ "x${SINGLE_OP}" != "x" ]; then
+      if [ -z "$ASCEND_CUSTOM_OPP_PATH" ]; then
+        echo "ASCEND_CUSTOM_OPP_PATH is not set. Please set the path of the custom op kernel code."
+        exit 1
+      fi
+      bash ${SCRIPTS_DIR}/build_kernel.sh --single_op=${SINGLE_OP}
+
+      if [ $? != 0 ]; then
+          echo "Failed to compile the wheel file. Please check the source code by yourself."
+          exit 1
+      fi
+
+      echo "Successfully compiled the single op: ${SINGLE_OP}"
+      echo "copying the custom op kernel code to the custom opp path: ${ASCEND_CUSTOM_OPP_PATH}"
+      cp -ruf ${BUILD_PACKAGES_DIR}/vendors/customize/* ${ASCEND_CUSTOM_OPP_PATH}/
+      exit 0
+    else
+      bash ${SCRIPTS_DIR}/build_kernel.sh
+    fi
+
     if [ $? != 0 ]; then
         echo "Failed to compile the wheel file. Please check the source code by yourself."
         exit 1
@@ -100,13 +94,6 @@ function main()
     else
         echo "ads_accelerator.egg-info not exist"
     fi
-
-    if ! parse_script_args "$@"; then
-        echo "Failed to parse script args. Please check your inputs."
-        exit 1
-    fi
-
-    check_python_version
 
     python"${PY_VERSION}" setup.py build bdist_wheel
     if [ $? != 0 ]; then
