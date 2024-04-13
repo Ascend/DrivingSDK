@@ -8,7 +8,6 @@
 
 using namespace ge;
 using namespace std;
-using namespace AscendC;
 
 namespace optiling {
     static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionV2Grad(gert::TilingContext *context)
