@@ -208,7 +208,11 @@ public:
         Duplicate<DTYPE_VALUE>(floatOneLocal, (DTYPE_VALUE)1, 2 * numPointsAlign);
 
         SetAtomicAdd<DTYPE_VALUE>();
-        if (embedDims == 32 && numPoints == 8) {
+        if (embedDims == 32 && numPoints == 2) {
+            ComputeOpt<2>();
+        } else if (embedDims == 32 && numPoints == 4) {
+            ComputeOpt<4>();
+        } else if (embedDims == 32 && numPoints == 8) {
             ComputeOpt<8>();
         } else {
             Compute();

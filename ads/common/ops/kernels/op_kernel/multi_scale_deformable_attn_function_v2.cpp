@@ -66,7 +66,6 @@ public:
         pipe->InitBuffer(outputQueue, embedDims * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(emptyUb, numHeads * embedDims * sizeof(DTYPE_VALUE));
-
         pipe->InitBuffer(intOneUb, numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
         pipe->InitBuffer(floatOneUb, numPointsAlign * 2 * sizeof(DTYPE_VALUE));
 
@@ -85,14 +84,18 @@ public:
         pipe->InitBuffer(valueUb, batchOffset * 8 * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(cornerWeightUb, batchOffset * 8 * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(tmpResUb, batchOffset * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpResUb, 2 * batchOffset * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(tmpResUb2, batchOffset * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(tmpResUb3, numHeads * batchOffset * sizeof(DTYPE_VALUE));
     }
 
     __aicore__ inline void Process()
     {
-        if (embedDims == 32 && numPoints == 8) {
+        if (embedDims == 32 && numPoints == 2) {
+            ComputeOpt<2>();
+        } else if (embedDims == 32 && numPoints == 4) {
+            ComputeOpt<4>();
+        } else if (embedDims == 32 && numPoints == 8) {
             ComputeOpt<8>();
         } else {
             Compute();
@@ -153,9 +156,12 @@ private:
         LocalTensor<DTYPE_VALUE_SPATIAL_SHAPES> tmpIntLocal = tmpIntUb.Get<DTYPE_VALUE_SPATIAL_SHAPES>();
         LocalTensor<DTYPE_VALUE> tmpFloatLocal = tmpFloatUb.Get<DTYPE_VALUE>();
 
-        uint32_t srcShape_[2] = {4 * NUM_POINTS, 1};
-        uint32_t dstShape_[2] = {4 * NUM_POINTS, embedDimsOpt};
+        uint32_t srcShape_[2] = {4 * numPointsAlignOpt, 1};
+        uint32_t dstShape_[2] = {4 * numPointsAlignOpt, embedDimsOpt};
 
+        DataCopyExtParams copyParams {2, uint32_t(embedDimsOpt * sizeof(DTYPE_VALUE)), 0,
+            uint32_t((NUM_POINTS * embedDimsOptTwice - embedDimsOpt) * sizeof(DTYPE_VALUE) / 32), 0};
+        DataCopyPadExtParams<DTYPE_VALUE> padParams {false, 0, 0, 0};
         for (uint32_t query = startOffset; query < endOffset; query++) {
             for (uint32_t batch = 0; batch < batchSize; batch++) {
                 baseOffset = batch * numHeads * numKeys;
@@ -176,8 +182,14 @@ private:
                     Duplicate<DTYPE_VALUE>(locLocal[numPointsAlignOpt], (DTYPE_VALUE)h, numPointsAlignOpt);
 
                     weightOffset = dataOffset + level * NUM_POINTS;
-                    DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
-                    DataCopy(tmpLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + numPoints], numPointsAlignOpt);
+
+                    if (numPointsAlignOpt == NUM_POINTS) {
+                        DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOptTwice);
+                    } else {
+                        DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
+                        DataCopy(
+                            tmpLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + NUM_POINTS], numPointsAlignOpt);
+                    }
                     SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
 
                     DataCopy(attentionWeightLocal, attentionWeightsGm[weightOffset], numPointsAlignOpt);
@@ -201,26 +213,53 @@ private:
                             x0 = x1 - 1;
                             y0 = y1 - 1;
 
-                            if (isInRange(y0, h)) {
-                                if (isInRange(x0, w)) {
-                                    DataCopy(valueLocal[point * embedDimsOpt],
-                                        valueGm[valueOffset + (y0 * w + x0) * embedDimsOpt], embedDimsOpt);
+                            #if __CCE_AICORE__ == 220
+                                if (isInRange(y0, h)) {
+                                    if (0 < x1 && x1 < w) {
+                                        DataCopyPad(valueLocal[point * embedDimsOpt],
+                                            valueGm[valueOffset + (y0 * w + x0) * embedDimsOpt], copyParams, padParams);
+                                    } else if (isInRange(x0, w)) {
+                                        DataCopy(valueLocal[point * embedDimsOpt],
+                                            valueGm[valueOffset + (y0 * w + x0) * embedDimsOpt], embedDimsOpt);
+                                    } else if (isInRange(x1, w)) {
+                                        DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOptTwice],
+                                            valueGm[valueOffset + (y0 * w + x1) * embedDimsOpt], embedDimsOpt);
+                                    }
                                 }
-                                if (isInRange(x1, w)) {
-                                    DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOpt],
-                                        valueGm[valueOffset + (y0 * w + x1) * embedDimsOpt], embedDimsOpt);
+                                if (isInRange(y1, h)) {
+                                    if (0 < x1 && x1 < w) {
+                                        DataCopyPad(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOpt],
+                                            valueGm[valueOffset + (y1 * w + x0) * embedDimsOpt], copyParams, padParams);
+                                    } else if (isInRange(x0, w)) {
+                                        DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOpt],
+                                            valueGm[valueOffset + (y1 * w + x0) * embedDimsOpt], embedDimsOpt);
+                                    } else if (isInRange(x1, w)) {
+                                        DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOptTriple],
+                                            valueGm[valueOffset + (y1 * w + x1) * embedDimsOpt], embedDimsOpt);
+                                    }
                                 }
-                            }
-                            if (isInRange(y1, h)) {
-                                if (isInRange(x0, w)) {
-                                    DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOptTwice],
-                                        valueGm[valueOffset + (y1 * w + x0) * embedDimsOpt], embedDimsOpt);
+                            #else
+                                if (isInRange(y0, h)) {
+                                    if (isInRange(x0, w)) {
+                                        DataCopy(valueLocal[point * embedDimsOpt],
+                                            valueGm[valueOffset + (y0 * w + x0) * embedDimsOpt], embedDimsOpt);
+                                    }
+                                    if (isInRange(x1, w)) {
+                                        DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOptTwice],
+                                            valueGm[valueOffset + (y0 * w + x1) * embedDimsOpt], embedDimsOpt);
+                                    }
                                 }
-                                if (isInRange(x1, w)) {
-                                    DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOptTriple],
-                                        valueGm[valueOffset + (y1 * w + x1) * embedDimsOpt], embedDimsOpt);
+                                if (isInRange(y1, h)) {
+                                    if (isInRange(x0, w)) {
+                                        DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOpt],
+                                            valueGm[valueOffset + (y1 * w + x0) * embedDimsOpt], embedDimsOpt);
+                                    }
+                                    if (isInRange(x1, w)) {
+                                        DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOptTriple],
+                                            valueGm[valueOffset + (y1 * w + x1) * embedDimsOpt], embedDimsOpt);
+                                    }
                                 }
-                            }
+                            #endif
                         }
                         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
 
@@ -228,51 +267,60 @@ private:
                             numPointsAlignOptTwice);
                         Cast(tmpFloatLocal, tmpIntLocal, RoundMode::CAST_NONE, numPointsAlignOptTwice);
 
-                        weightOffset = dataOffset + ((head + 1) * numLevels + level) * NUM_POINTS;
-                        if (head < numHeads - 1) {
-                            locationOffset = weightOffset * 2;
-                            DataCopy(tmpLocal, locationGm[locationOffset], numPointsAlignOpt);
-                            DataCopy(
-                                tmpLocal[numPointsAlignOpt], locationGm[locationOffset + numPoints], numPointsAlignOpt);
-                            SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
-                        }
-
                         Sub(paramLocal, tmpFloatLocal, tmpFloatLocal[numPointsAlignOptTwice], numPointsAlignOptTwice);
-                        Mul(weightLocal, paramLocal, paramLocal[numPointsAlignOpt],
-                            numPointsAlignOpt);
+                        Mul(weightLocal, paramLocal, paramLocal[numPointsAlignOpt], numPointsAlignOpt);
 
                         Sub(xLocal, floatOneLocal, paramLocal, numPointsAlignOpt);
-                        Sub(weightLocal[numPointsAlignOptTwice], paramLocal, weightLocal,
+                        Sub(weightLocal[numPointsAlignOpt], paramLocal, weightLocal, numPointsAlignOpt, 2,
+                            {1, 1, 1, 1, 1, 0});
+                        Sub(weightLocal[numPointsAlignOptTriple], xLocal, weightLocal[numPointsAlignOptTwice],
                             numPointsAlignOpt);
-                        Sub(weightLocal[numPointsAlignOpt], paramLocal[numPointsAlignOpt], 
-                            weightLocal, numPointsAlignOpt);
-                        Sub(weightLocal[numPointsAlignOptTriple], xLocal, weightLocal[numPointsAlignOpt], numPointsAlignOpt);
 
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
                         Mul(weightLocal, weightLocal, attentionWeightLocal, numPointsAlignOpt, 4, {1, 1, 1, 1, 1, 0});
+                        BroadCast<DTYPE_VALUE, 2, 1>(cornerWeightLocal, weightLocal, dstShape_, srcShape_);
                         if (head < numHeads - 1) {
+                            weightOffset = weightOffset + numLevels * NUM_POINTS;
+
+                            if (numPointsAlignOpt == NUM_POINTS) {
+                                DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOptTwice);
+                            } else {
+                                DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
+                                DataCopy(tmpLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + NUM_POINTS],
+                                    numPointsAlignOpt);
+                            }
+                            SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
+
                             DataCopy(attentionWeightLocal, attentionWeightsGm[weightOffset], numPointsAlignOpt);
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
                         }
 
-                        BroadCast<DTYPE_VALUE, 2, 1>(cornerWeightLocal, weightLocal, dstShape_, srcShape_);
-
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-                        Mul(valueLocal[NUM_POINTS * embedDimsOpt * 4], valueLocal, cornerWeightLocal,
-                            4 * NUM_POINTS * embedDimsOpt);
+                        if (numPointsAlignOpt == NUM_POINTS) {
+                            Mul(valueLocal[NUM_POINTS * embedDimsOpt * 4], valueLocal, cornerWeightLocal,
+                                4 * NUM_POINTS * embedDimsOpt);
+                        } else {
+                            Mul(valueLocal[NUM_POINTS * embedDimsOpt * 4], valueLocal, cornerWeightLocal,
+                                NUM_POINTS * embedDimsOpt);
+                            Mul(valueLocal[NUM_POINTS * embedDimsOpt * 5], valueLocal[NUM_POINTS * embedDimsOpt],
+                                cornerWeightLocal[numPointsAlignOpt * embedDimsOpt], NUM_POINTS * embedDimsOpt);
+                            Mul(valueLocal[NUM_POINTS * embedDimsOpt * 6], valueLocal[NUM_POINTS * embedDimsOptTwice],
+                                cornerWeightLocal[numPointsAlignOpt * embedDimsOptTwice], NUM_POINTS * embedDimsOpt);
+                            Mul(valueLocal[NUM_POINTS * embedDimsOpt * 7], valueLocal[NUM_POINTS * embedDimsOptTriple],
+                                cornerWeightLocal[numPointsAlignOpt * embedDimsOptTriple], NUM_POINTS * embedDimsOpt);
+                        }
 
                         Add(tmpResLocal, valueLocal[NUM_POINTS * embedDimsOpt * 4],
-                            valueLocal[NUM_POINTS * embedDimsOpt * 5], NUM_POINTS * embedDimsOpt);
-                        Add(tmpResLocal2, valueLocal[NUM_POINTS * embedDimsOpt * 6],
-                            valueLocal[NUM_POINTS * embedDimsOpt * 7], NUM_POINTS * embedDimsOpt);
-                        Add(tmpResLocal3[srcOffset], tmpResLocal, tmpResLocal2, NUM_POINTS * embedDimsOpt);
-
-                        Add(tmpResLocal3[srcOffset], tmpResLocal3[srcOffset], tmpResLocal3[srcOffset + NUM_POINTS * embedDimsOpt / 2], NUM_POINTS * embedDimsOpt / 2);
+                            valueLocal[NUM_POINTS * embedDimsOpt * 6], NUM_POINTS * embedDimsOptTwice);
+                        Add(tmpResLocal2, tmpResLocal, tmpResLocal[NUM_POINTS * embedDimsOpt],
+                            NUM_POINTS * embedDimsOpt);
+                        Add(tmpResLocal3[srcOffset], tmpResLocal2, tmpResLocal2[NUM_POINTS * embedDimsOptHalf],
+                            NUM_POINTS * embedDimsOptHalf);
 
                         SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
                         WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
 
-                        for (uint32_t point = 0; point < NUM_POINTS/2; point++) {
+                        for (uint32_t point = 0; point < NUM_POINTS / 2; point++) {
                             DataCopy(outputGm[dstOffset], tmpResLocal3[srcOffset + point * embedDimsOpt], embedDimsOpt);
                         }
                     }
@@ -423,7 +471,8 @@ private:
                         Mul(weightLocal[numPointsAlign * 3], paramLocal, paramLocal[numPointsAlign], numPointsAlign);
 
                         Sub(xLocal, floatOneLocal, paramLocal, numPointsAlign);
-                        Sub(weightLocal[numPointsAlign * 2], paramLocal, weightLocal[numPointsAlign * 3], numPointsAlign);
+                        Sub(weightLocal[numPointsAlign * 2], paramLocal, weightLocal[numPointsAlign * 3],
+                            numPointsAlign);
                         Sub(weightLocal[numPointsAlign], paramLocal[numPointsAlign], weightLocal[numPointsAlign * 3],
                             numPointsAlign);
                         Sub(weightLocal, xLocal, weightLocal[numPointsAlign], numPointsAlign);
@@ -446,9 +495,11 @@ private:
                             rightBottomWeight = weightLocal.GetValue(point);
 
                             Duplicate<DTYPE_VALUE>(cornerWeightLocal[tmpOffset1], leftTopWeight, embedDims);
-                            Duplicate<DTYPE_VALUE>(cornerWeightLocal[tmpOffset1 + embedDims], rightTopWeight, embedDims);
+                            Duplicate<DTYPE_VALUE>(
+                                cornerWeightLocal[tmpOffset1 + embedDims], rightTopWeight, embedDims);
                             Duplicate<DTYPE_VALUE>(cornerWeightLocal[tmpOffset2], leftBottomWeight, embedDims);
-                            Duplicate<DTYPE_VALUE>(cornerWeightLocal[tmpOffset2 + embedDims], rightBottomWeight, embedDims);
+                            Duplicate<DTYPE_VALUE>(
+                                cornerWeightLocal[tmpOffset2 + embedDims], rightBottomWeight, embedDims);
                         }
 
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
@@ -505,6 +556,7 @@ private:
     uint32_t numPointsAlign;
     uint32_t numLevelsAlign;
     uint32_t embedDimsOpt = 32;
+    uint32_t embedDimsOptHalf = 16;
     uint32_t embedDimsOptTwice = 64;
     uint32_t embedDimsOptTriple = 96;
     uint32_t numPointsAlignOpt = 8;

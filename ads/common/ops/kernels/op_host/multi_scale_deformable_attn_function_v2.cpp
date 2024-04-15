@@ -11,9 +11,7 @@ using namespace ge;
 using namespace std;
 using namespace AscendC;
 
-namespace optiling {
-const uint32_t BLOCK_DIM = 8;
-const uint32_t TILE_NUM = 8;
+namespace {
 const uint32_t INPUT_VALUE = 0;
 const uint32_t INPUT_SPATIAL_SHAPE = 1;
 const uint32_t INPUT_ATTN_WEIGHT = 4;
@@ -24,11 +22,14 @@ const uint32_t EMBED_DIMS_DIM = 3;
 const uint32_t NUM_LEVEL_DIM = 0;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
+} // namespace
+
+namespace optiling {
 static ge::graphStatus TilingFuncForMultiScaleDeformableAttnFunctionV2(gert::TilingContext* context)
 {
     MultiScaleDeformableAttnFunctionV2TilingData tiling;
 
-    auto valueTensorPtr = context->GetInputTensor(0);
+    auto valueTensorPtr = context->GetInputTensor(INPUT_VALUE);
     auto spatialTensorPtr = context->GetInputTensor(INPUT_SPATIAL_SHAPE);
     auto attnWeightTensorPtr = context->GetInputTensor(INPUT_ATTN_WEIGHT);
     if (valueTensorPtr == nullptr || spatialTensorPtr == nullptr || attnWeightTensorPtr == nullptr) {
