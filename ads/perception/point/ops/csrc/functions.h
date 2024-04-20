@@ -18,4 +18,10 @@
 #include <torch/library.h>
 
 at::Tensor group_points(const at::Tensor& points, const at::Tensor& idx, int b, int c, int n, int npoints, int nsample);
+
+at::Tensor vec_pool_backward(const at::Tensor& grad_new_features,
+                             const at::Tensor& point_cnt_of_grid,
+                             const at::Tensor& grouped_idxs,
+                             const int64_t n,
+                             const int64_t num_c_in);
 #endif // PERCEPTION_POINT_OPS_CSRC_FUNCTIONS_H_
