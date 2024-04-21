@@ -66,17 +66,7 @@ export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/ads/packages/vendors/customize/
 export LD_LIBRARY_PATH=xxx/site-packages/ads/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
 ```
 2. 算子调用
-```python
-import torch
-import torch_npu
-import numpy as np
-import ads.common
-device = torch.device("npu:5")
-a=torch.rand([8, 2048]).half().npu()
-b=torch.rand([8, 2048]).half().npu()
-c = ads.common.npu_ads_add(a,b)
-print(c)
-```
+请参见下文算子清单。
 
 # 特性介绍
 ## 目录结构及说明
