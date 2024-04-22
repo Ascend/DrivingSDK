@@ -5,6 +5,7 @@ BUILD_PACKAGES_DIR=${CUR_DIR}/../ads/packages
 SUPPORTED_PY_VERSION=(3.7 3.8 3.9 3.10)
 PY_VERSION='3.7'
 SINGLE_OP=''
+BUILD_TYPE='Release'
 
 function check_python_version() {
     matched_py_version='false'
@@ -20,7 +21,7 @@ function check_python_version() {
     fi
 }
 function usage() {
-    echo "Usage: $0 --python=3.7 [--single_op=xxx]" 1>&2
+    echo "Usage: $0 --python=3.7 [--single_op=xxx] [--debug]" 1>&2
 }
 function parse_script_args() {
     while [ "$#" -gt 0 ]; do
@@ -31,6 +32,10 @@ function parse_script_args() {
                 ;;
             --single_op=*)
                 SINGLE_OP="${1#*=}"
+                shift 1
+                ;;
+            --debug)
+                BUILD_TYPE='Debug'
                 shift 1
                 ;;
             *)
@@ -67,7 +72,7 @@ function main()
         echo "ASCEND_CUSTOM_OPP_PATH is not set. Please set the path of the custom op kernel code."
         exit 1
       fi
-      bash ${SCRIPTS_DIR}/build_kernel.sh --single_op=${SINGLE_OP}
+      bash ${SCRIPTS_DIR}/build_kernel.sh --single_op=${SINGLE_OP} --build_type=${BUILD_TYPE}
 
       if [ $? != 0 ]; then
           echo "Failed to compile the wheel file. Please check the source code by yourself."
@@ -79,7 +84,7 @@ function main()
       cp -ruf ${BUILD_PACKAGES_DIR}/vendors/customize/* ${ASCEND_CUSTOM_OPP_PATH}/
       exit 0
     else
-      bash ${SCRIPTS_DIR}/build_kernel.sh
+      bash ${SCRIPTS_DIR}/build_kernel.sh --build_type=${BUILD_TYPE}
     fi
 
     if [ $? != 0 ]; then
