@@ -32,15 +32,15 @@ std::tuple<at::Tensor, at::Tensor> get_hash_key_and_coefficient(const at::Tensor
 {
     auto coors_dtype = coors.dtype();
     auto coors_dim = coors.size(1);
-    auto coors_max = std::get<0>(at::max(coors.to(at::kLong), 0, false)).to(coors_dtype);
-    coors_max = at::add(coors_max, at::ones(coors_dim, coors_max.options().dtype(coors_dtype)), 1);
 
-    auto cof_tensor = at::ones({1}, coors_max.options().dtype(coors_dtype));
-    auto tmp = cof_tensor;
-    for (auto i = coors_dim - 1; i > 0; i--) {
-        tmp = at::mul(coors_max[i], tmp);
-        cof_tensor = at::cat({tmp, cof_tensor}, 0);
-    }
+    at::Tensor coors_trans = at::transpose(coors, 0, 1).contiguous();
+    auto coors_max = std::get<0>(at::max(coors_trans.to(at::kLong), 1, false)).to(coors_dtype);
+
+    coors_max = at::add(coors_max, at::ones(coors_dim, coors_max.options().dtype(coors_dtype)), 1);
+    auto cof_tensor = at::ones({coors_dim}, coors_max.options().dtype(coors_dtype));
+    cof_tensor[1] = coors_max[coors_dim - 1];
+    cof_tensor[0] = at::mul(coors_max[1], coors_max[coors_dim - 1]);
+
     cof_tensor = cof_tensor.reshape({1, coors_dim});
 
     auto coors_clean = coors.masked_fill(coors.lt(0).any(-1, true), -1);
