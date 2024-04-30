@@ -59,7 +59,7 @@ public:
         pipe->InitBuffer(shapeQueue, AlignUp(numLevels * 2, dataAlign) * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(offsetQueue, numLevelsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(locationQueue, AlignUp(numHeads * numLevels * numPoints * 2, dataAlign) * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(locationQueue, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(
             attentionWeightsUb, AlignUp(numHeads * numLevels * numPoints, dataAlign) * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(outputQueue, embedDims * sizeof(DTYPE_VALUE));
@@ -69,12 +69,11 @@ public:
         pipe->InitBuffer(floatOneUb, numPointsAlign * 2 * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(tmpXUb, numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpYUb, numPointsAlign * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(tmpParamUb, numPointsAlign * 2 * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(tmpIntUb, 4 * numPointsAlign * sizeof(DTYPE_VALUE_SPATIAL_SHAPES));
         pipe->InitBuffer(tmpFloatUb, 4 * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
+
         pipe->InitBuffer(halfUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(locUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
 
@@ -133,7 +132,6 @@ private:
 
         LocalTensor<DTYPE_VALUE> emptyUbLocal = emptyUb.Get<DTYPE_VALUE>();
 
-        LocalTensor<DTYPE_VALUE> tmpLocal = tmpUb.Get<DTYPE_VALUE>();
         LocalTensor<DTYPE_VALUE_SPATIAL_SHAPES> intOneLocal = intOneUb.Get<DTYPE_VALUE_SPATIAL_SHAPES>();
         LocalTensor<DTYPE_VALUE> floatOneLocal = floatOneUb.Get<DTYPE_VALUE>();
         LocalTensor<DTYPE_VALUE> halfLocal = halfUb.Get<DTYPE_VALUE>();
@@ -150,7 +148,6 @@ private:
 
         LocalTensor<DTYPE_VALUE> weightLocal = weightQueue.Get<DTYPE_VALUE>();
         LocalTensor<DTYPE_VALUE> xLocal = tmpXUb.Get<DTYPE_VALUE>();
-        LocalTensor<DTYPE_VALUE> yLocal = tmpYUb.Get<DTYPE_VALUE>();
 
         LocalTensor<DTYPE_VALUE> tmpResLocal = tmpResUb.Get<DTYPE_VALUE>();
         LocalTensor<DTYPE_VALUE> tmpResLocal2 = tmpResUb2.Get<DTYPE_VALUE>();
@@ -180,25 +177,23 @@ private:
                 for (uint32_t level = 0; level < numLevels; level++) {
                     h = shapesLocal.GetValue(level * 2);
                     w = shapesLocal.GetValue(level * 2 + 1);
-                    oriOffset = baseOffset + offsetLocal.GetValue(level);
 
                     Duplicate<DTYPE_VALUE>(locLocal, (DTYPE_VALUE)w, numPointsAlignOpt);
                     Duplicate<DTYPE_VALUE>(locLocal[numPointsAlignOpt], (DTYPE_VALUE)h, numPointsAlignOpt);
-
+                    Duplicate<DTYPE_VALUE>(valueLocal, DTYPE_VALUE(0), 4 * NUM_POINTS * embedDimsOpt);
+                    oriOffset = baseOffset + offsetLocal.GetValue(level);
                     weightOffset = dataOffset + level * NUM_POINTS;
-
                     if (numPointsAlignOpt == NUM_POINTS) {
-                        DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOptTwice);
+                        DataCopy(locationLocal, locationGm[weightOffset * 2], numPointsAlignOptTwice);
                     } else {
-                        DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
-                        DataCopy(
-                            tmpLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + NUM_POINTS], numPointsAlignOpt);
+                        DataCopy(locationLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
+                        DataCopy(locationLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + NUM_POINTS],
+                            numPointsAlignOpt);
                     }
                     SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
 
                     DataCopy(attentionWeightLocal, attentionWeightsGm[weightOffset], numPointsAlignOpt);
                     SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-                    Duplicate<DTYPE_VALUE>(valueLocal, DTYPE_VALUE(0), 4 * NUM_POINTS * embedDimsOpt);
 
                     for (uint32_t head = 0; head < numHeads; head++) {
                         srcOffset = head * NUM_POINTS * embedDimsOpt;
@@ -206,8 +201,8 @@ private:
                         valueOffset = (oriOffset + head * numKeys) * embedDimsOpt;
 
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
-                        Mul(tmpLocal, tmpLocal, locLocal, numPointsAlignOptTwice);
-                        Add(tmpFloatLocal, tmpLocal, halfLocal, numPointsAlignOptTwice);
+                        Mul(locationLocal, locationLocal, locLocal, numPointsAlignOptTwice);
+                        Add(tmpFloatLocal, locationLocal, halfLocal, numPointsAlignOptTwice);
                         Cast(tmpIntLocal, tmpFloatLocal, RoundMode::CAST_FLOOR, numPointsAlignOptTwice);
 
                         for (uint32_t point = 0; point < NUM_POINTS; point++) {
@@ -268,9 +263,10 @@ private:
                             Mul(valueLocal, valueLocal, cornerWeightLocal, NUM_POINTS * embedDimsOpt);
                             Mul(valueLocal[NUM_POINTS * embedDimsOpt], valueLocal[NUM_POINTS * embedDimsOpt],
                                 cornerWeightLocal[numPointsAlignOpt * embedDimsOpt], NUM_POINTS * embedDimsOpt);
-                            Mul(valueLocal[NUM_POINTS * embedDimsOpt * 2], valueLocal[NUM_POINTS * embedDimsOptTwice],
+                            Mul(valueLocal[NUM_POINTS * embedDimsOptTwice], valueLocal[NUM_POINTS * embedDimsOptTwice],
                                 cornerWeightLocal[numPointsAlignOpt * embedDimsOptTwice], NUM_POINTS * embedDimsOpt);
-                            Mul(valueLocal[NUM_POINTS * embedDimsOpt * 3], valueLocal[NUM_POINTS * embedDimsOptTriple],
+                            Mul(valueLocal[NUM_POINTS * embedDimsOptTriple],
+                                valueLocal[NUM_POINTS * embedDimsOptTriple],
                                 cornerWeightLocal[numPointsAlignOpt * embedDimsOptTriple], NUM_POINTS * embedDimsOpt);
                         }
 
@@ -282,20 +278,20 @@ private:
                             NUM_POINTS * embedDimsOptHalf);
 
                         if (head < numHeads - 1) {
-                            Duplicate<DTYPE_VALUE>(valueLocal, DTYPE_VALUE(0), 4 * NUM_POINTS * embedDimsOpt);
                             weightOffset = weightOffset + numLevels * NUM_POINTS;
-
                             if (numPointsAlignOpt == NUM_POINTS) {
-                                DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOptTwice);
+                                DataCopy(locationLocal, locationGm[weightOffset * 2], numPointsAlignOptTwice);
                             } else {
-                                DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
-                                DataCopy(tmpLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + NUM_POINTS],
+                                DataCopy(locationLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
+                                DataCopy(locationLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + NUM_POINTS],
                                     numPointsAlignOpt);
                             }
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
 
                             DataCopy(attentionWeightLocal, attentionWeightsGm[weightOffset], numPointsAlignOpt);
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
+
+                            Duplicate<DTYPE_VALUE>(valueLocal, DTYPE_VALUE(0), 4 * NUM_POINTS * embedDimsOpt);
                         }
 
                         SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
@@ -336,7 +332,6 @@ private:
 
         LocalTensor<DTYPE_VALUE> emptyUbLocal = emptyUb.Get<DTYPE_VALUE>();
 
-        LocalTensor<DTYPE_VALUE> tmpLocal = tmpUb.Get<DTYPE_VALUE>();
         LocalTensor<DTYPE_VALUE_SPATIAL_SHAPES> intOneLocal = intOneUb.Get<DTYPE_VALUE_SPATIAL_SHAPES>();
         LocalTensor<DTYPE_VALUE> floatOneLocal = floatOneUb.Get<DTYPE_VALUE>();
         LocalTensor<DTYPE_VALUE> halfLocal = halfUb.Get<DTYPE_VALUE>();
@@ -355,7 +350,6 @@ private:
             for (uint32_t batch = 0; batch < batchSize; batch++) {
                 LocalTensor<DTYPE_VALUE> weightLocal = weightQueue.Get<DTYPE_VALUE>();
                 LocalTensor<DTYPE_VALUE> xLocal = tmpXUb.Get<DTYPE_VALUE>();
-                LocalTensor<DTYPE_VALUE> yLocal = tmpYUb.Get<DTYPE_VALUE>();
 
                 LocalTensor<DTYPE_VALUE> tmpResLocal = tmpResUb.Get<DTYPE_VALUE>();
                 LocalTensor<DTYPE_VALUE> tmpResLocal2 = tmpResUb2.Get<DTYPE_VALUE>();
@@ -386,8 +380,8 @@ private:
 
                     weightOffset = dataOffset + level * numPoints;
 
-                    DataCopy(tmpLocal, locationGm[weightOffset * 2], numPointsAlign);
-                    DataCopy(tmpLocal[numPointsAlign], locationGm[weightOffset * 2 + numPoints], numPointsAlign);
+                    DataCopy(locationLocal, locationGm[weightOffset * 2], numPointsAlign);
+                    DataCopy(locationLocal[numPointsAlign], locationGm[weightOffset * 2 + numPoints], numPointsAlign);
                     SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
 
                     DataCopy(attentionWeightLocal, attentionWeightsGm[weightOffset], numPointsAlign);
@@ -400,8 +394,8 @@ private:
                         valueOffset = (oriOffset + head * numKeys) * embedDims;
 
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
-                        Mul(tmpLocal, tmpLocal, locLocal, 2 * numPointsAlign);
-                        Add(tmpFloatLocal, tmpLocal, halfLocal, 2 * numPointsAlign);
+                        Mul(locationLocal, locationLocal, locLocal, 2 * numPointsAlign);
+                        Add(tmpFloatLocal, locationLocal, halfLocal, 2 * numPointsAlign);
                         Cast(tmpIntLocal, tmpFloatLocal, RoundMode::CAST_FLOOR, 2 * numPointsAlign);
 
                         for (uint32_t point = 0; point < numPoints; point++) {
@@ -444,8 +438,9 @@ private:
                         weightOffset = dataOffset + ((head + 1) * numLevels + level) * numPoints;
                         if (head < numHeads - 1) {
                             locationOffset = weightOffset * 2;
-                            DataCopy(tmpLocal, locationGm[locationOffset], numPointsAlign);
-                            DataCopy(tmpLocal[numPointsAlign], locationGm[locationOffset + numPoints], numPointsAlign);
+                            DataCopy(locationLocal, locationGm[locationOffset], numPointsAlign);
+                            DataCopy(
+                                locationLocal[numPointsAlign], locationGm[locationOffset + numPoints], numPointsAlign);
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
                         }
 
@@ -520,8 +515,8 @@ private:
     TBuf<TPosition::VECCALC> locationQueue, attentionWeightsUb, shapeQueue, offsetQueue;
     TBuf<TPosition::VECCALC> outputQueue;
 
-    TBuf<TPosition::VECCALC> tmpResUb, tmpResUb2, tmpResUb3, tmpXUb, tmpYUb, tmpParamUb, tmpIntUb, tmpFloatUb;
-    TBuf<TPosition::VECCALC> intOneUb, floatOneUb, weightQueue, emptyUb, tmpUb;
+    TBuf<TPosition::VECCALC> tmpResUb, tmpResUb2, tmpResUb3, tmpXUb, tmpParamUb, tmpIntUb, tmpFloatUb;
+    TBuf<TPosition::VECCALC> intOneUb, floatOneUb, weightQueue, emptyUb;
     TBuf<TPosition::VECCALC> valueUb, tmpValueUb, cornerWeightUb, halfUb, locUb;
 
     uint32_t batchSize;
