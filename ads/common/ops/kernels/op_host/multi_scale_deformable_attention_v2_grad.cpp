@@ -23,6 +23,8 @@ const uint32_t EMBED_DIMS_DIM = 3;
 const uint32_t NUM_LEVEL_DIM = 0;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
+const uint32_t TILING_KEY_BEVFORMER = 0;
+const uint32_t TILING_KEY_GENERIC = 1;
 } // namespace
 
 namespace optiling {
@@ -48,13 +50,27 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionV2Grad(gert::Ti
     uint32_t coreNum = ascendplatformInfo.GetCoreNumAiv();
     context->SetBlockDim(coreNum);
 
-    tiling.set_batchSize(valueShape.GetDim(BATCh_SIZE_DIM));
-    tiling.set_numKeys(valueShape.GetDim(NUM_KEYS_DIM));
-    tiling.set_numHeads(attnWeightShape.GetDim(NUM_HEADS_DIM));
-    tiling.set_embedDims(valueShape.GetDim(EMBED_DIMS_DIM));
-    tiling.set_numLevels(spatialShape.GetDim(NUM_LEVEL_DIM));
-    tiling.set_numQueries(attnWeightShape.GetDim(NUM_QUERIES_DIM));
-    tiling.set_numPoints(attnWeightShape.GetDim(NUM_POINTS_DIM));
+    uint32_t batchSize = valueShape.GetDim(BATCh_SIZE_DIM);
+    uint32_t numKeys = valueShape.GetDim(NUM_KEYS_DIM);
+    uint32_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
+    uint32_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
+    uint32_t numLevels = spatialShape.GetDim(NUM_LEVEL_DIM);
+    uint32_t numQueries = attnWeightShape.GetDim(NUM_QUERIES_DIM);
+    uint32_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
+
+    tiling.set_batchSize(batchSize);
+    tiling.set_numKeys(numKeys);
+    tiling.set_numHeads(numHeads);
+    tiling.set_embedDims(embedDims);
+    tiling.set_numLevels(numLevels);
+    tiling.set_numQueries(numQueries);
+    tiling.set_numPoints(numPoints);
+    
+    if (numPoints == 8 && embedDims == 32) {
+        context->SetTilingKey(TILING_KEY_BEVFORMER);
+    } else {
+        context->SetTilingKey(TILING_KEY_GENERIC);
+    }
 
     tiling.set_coreNum(coreNum);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
