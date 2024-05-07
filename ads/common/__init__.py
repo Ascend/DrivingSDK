@@ -1,3 +1,4 @@
+from .ops.three_interpolate import three_interpolate
 from .ops.scatter_max import scatter_max
 from .ops.rotated_iou import npu_rotated_iou
 from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_dist

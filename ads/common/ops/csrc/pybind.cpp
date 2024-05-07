@@ -22,6 +22,10 @@
 
 void init_common(pybind11::module& m)
 {
+    // three_interpolate
+    m.def("npu_three_interpolate", &npu_three_interpolate);
+    m.def("npu_three_interpolate_backward", &npu_three_interpolate_backward);
+    
     // scatter_max
     m.def("npu_scatter_max", &npu_scatter_max);
     m.def("npu_scatter_max_backward", &npu_scatter_max_backward);
