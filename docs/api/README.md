@@ -29,7 +29,7 @@ from ads.common import scatter_max
 updates = torch.tensor([[2, 0, 1, 4, 4], [0, 2, 1, 3, 4]], dtype=torch.float32).npu()
 indices = torch.tensor([4, 1, 2, 3], dtype=torch.int32).npu()
 out = updates.new_zeros((2, 6))
-out, argmax = npu_scatter_max(updates, indices, out)
+out, argmax = scatter_max(updates, indices, out)
 print(out)
 print(argmax)
 ```
@@ -117,11 +117,11 @@ ads.common.npu_dynamic_scatter(Tensor feats, Tensor coors_map, string reduce_typ
 ### 功能描述
 将特征点在对应体素中进行特征压缩。
 ### 参数说明
-- `feats(Tensor)`：特征张量，数据类型为`float32, float16`。
-- `coors_map(Tensor)`：体素坐标映射张量，数据类型为`int32`。
-- `reduce_type(string)`：压缩类型。可选值为`0, 1, 2`。当值为`0`时，表示`sum`；当值为`1`时，表示`mean`；当值为`2`时，表示`max
+- `feats(Tensor)`：特征张量，数据类型为`float32`。
+- `coors_map(Tensor)`：体素坐标映射张量，数据类型为`int32`，且仅支持三维坐标。
+- `reduce_type(int)`：压缩类型。可选值为`0, 1, 2`。当值为`0`时，表示`sum`；当值为`1`时，表示`mean`；当值为`2`时，表示`max
 ### 返回值
-- `Tensor`：压缩后的特征张量，数据类型为`float32, float16`。
+- `Tensor`：压缩后的特征张量，数据类型为`float32`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
@@ -131,7 +131,7 @@ from ads.common import npu_dynamic_scatter
 feats = torch.tensor([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=torch.float32).npu()
 coors_map = torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=torch.int32).npu()
 output_feats, output_coors = ads.common.npu_dynamic_scatter(feats, coors, 1)
-print(out)
+print(output_feats)
 ```
 ## npu_points_in_box
 ### 接口原型
@@ -169,7 +169,7 @@ ads.common.npu_multi_scale_deformable_attn_function(Tensor value, Tensor shape, 
 ### 功能描述
 多尺度可变形注意力机制, 将多个视角的特征图进行融合。
 ### 参数说明
-- `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dim]`。其中`bs`为batch size，`num_keys`为特征图的数量，`num_heads`为头的数量，`embed_dim`为特征图的维度。
+- `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dim]`。其中`bs`为batch size，`num_keys`为特征图的数量，`num_heads`为头的数量，`embed_dim`为特征图的维度，需要为8的倍数。
 - `shape(Tensor)`：特征图的形状，数据类型为`int32`。shape为`[num_levels, 2]`。其中`num_levels`为特征图的数量，`2`分别代表`H, W`。
 - `offset(Tensor)`：偏移量张量，数据类型为`int32`。shape为`[num_levels]`。
 - `locations(Tensor)`：位置张量，数据类型为`int32`。shape为`[bs, num_queries, num_heads, num_levels, num_points, 2]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量，`2`分别代表`y, x`。
@@ -184,12 +184,17 @@ ads.common.npu_multi_scale_deformable_attn_function(Tensor value, Tensor shape, 
 ```python
 import torch, torch_npu
 from ads.common import npu_multi_scale_deformable_attn_function
-value = torch.tensor([[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]], dtype=torch.float32).npu()
-shape = torch.tensor([[1, 1]], dtype=torch.int32).npu()
-offset = torch.tensor([1], dtype=torch.int32).npu()
-locations = torch.tensor([[[[[0.1, 0.2], [0.3, 0.4]]]]], dtype=torch.float32).npu()
-weight = torch.tensor([[[[[1, 2], [3,4]]]]], dtype=torch.float32).npu()
-out = npu_multi_scale_deformable_attn_function(value, shape, offset, locations, weight)
+bs, num_levels, num_keys, num_heads, num_points, num_queries, embed_dim = 1, 1, 4, 8, 16, 32
+
+shapes = torch.as_tensor([(100, 100)], dtype=torch.long)
+num_keys = sum((H * W).item() for H, W in shapes)
+
+value = torch.rand(bs, num_keys, num_heads, embed_dims) * 0.01
+sampling_locations = torch.ones(bs, num_queries, num_heads, num_levels, num_points, 2) * 0.005
+attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) + 1e-5
+level_start_index = torch.cat((shapes.new_zeros((1, )), shapes.prod(1).cumsum(0)[:-1]))
+
+out = npu_multi_scale_deformable_attn_function(value.npu(), shapes.npu(), level_start_index.npu(), sampling_locations.npu(), attention_weights.npu())
 print(out)
 ```
 ```text
