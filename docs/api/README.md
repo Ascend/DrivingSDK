@@ -112,26 +112,28 @@ tensor([[[3.3325e-01, 1.0162e-01],
 ## npu_dynamic_scatter
 ### 接口原型
 ```python
-ads.common.npu_dynamic_scatter(Tensor feats, Tensor coors_map, string reduce_type) -> Tensor
+ads.common.npu_dynamic_scatter(Tensor feats, Tensor coors, string reduce_type) -> Tensor
 ```
 ### 功能描述
 将特征点在对应体素中进行特征压缩。
 ### 参数说明
-- `feats(Tensor)`：特征张量，数据类型为`float32`。
-- `coors_map(Tensor)`：体素坐标映射张量，数据类型为`int32`，且仅支持三维坐标。
-- `reduce_type(int)`：压缩类型。可选值为`0, 1, 2`。当值为`0`时，表示`sum`；当值为`1`时，表示`mean`；当值为`2`时，表示`max
+- `feats(Tensor)`：特征张量，仅支持两维，数据类型为`float32`，特征向量长度上限为2048。
+- `coors(Tensor)`：体素坐标映射张量，仅支持两维，数据类型为`int32`，且坐标仅支持三维，坐标取值为0~1024。
+- `reduce_type(int)`：压缩类型。可选值为`0, 1, 2`。当值为`0`时，表示`sum`；当值为`1`时，表示`mean`；当值为`2`时，表示`max。
 ### 返回值
-- `Tensor`：压缩后的特征张量，数据类型为`float32`。
+- `voxel_feats(Tensor)`：压缩后的特征张量，仅支持两维，数据类型为`float32`。
+- `voxel_coors(Tensor)`：压缩后的体素坐标，仅支持两维，数据类型为`int32`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
 ```python
 import torch, torch_npu
 from ads.common import npu_dynamic_scatter
-feats = torch.tensor([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]], dtype=torch.float32).npu()
-coors_map = torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], dtype=torch.int32).npu()
-output_feats, output_coors = ads.common.npu_dynamic_scatter(feats, coors, 1)
-print(output_feats)
+feats = torch.tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]], dtype=torch.float32).npu()
+coors = torch.tensor([[1, 2, 3], [3, 4, 5], [5, 6, 7], [7, 8, 9]], dtype=torch.int32).npu()
+voxel_feats, voxel_coors = npu_dynamic_scatter(feats, coors, 1)
+print(voxel_feats)
+print(voxel_coors)
 ```
 ## npu_points_in_box
 ### 接口原型
