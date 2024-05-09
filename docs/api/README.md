@@ -112,14 +112,14 @@ tensor([[[3.3325e-01, 1.0162e-01],
 ## npu_dynamic_scatter
 ### 接口原型
 ```python
-ads.common.npu_dynamic_scatter(Tensor feats, Tensor coors, string reduce_type) -> Tensor
+ads.common.npu_dynamic_scatter(Tensor feats, Tensor coors, int64_t reduce_type) -> Tensor
 ```
 ### 功能描述
 将特征点在对应体素中进行特征压缩。
 ### 参数说明
-- `feats(Tensor)`：特征张量，仅支持两维，数据类型为`float32`，特征向量长度上限为2048。
-- `coors(Tensor)`：体素坐标映射张量，仅支持两维，数据类型为`int32`，且坐标仅支持三维，坐标取值为0~1024。
-- `reduce_type(int)`：压缩类型。可选值为`0, 1, 2`。当值为`0`时，表示`sum`；当值为`1`时，表示`mean`；当值为`2`时，表示`max。
+- `feats(Tensor)`：特征张量[M, C]，仅支持两维，数据类型为`float32`，特征向量`C`长度上限为2048。
+- `coors(Tensor)`：体素坐标映射张量[M, 3]，仅支持两维，数据类型为`int32`，且坐标仅支持三维，坐标取值为0~1024。
+- `reduce_type(int64_t)`：压缩类型。可选值为0, 1, 2。当值为0时，表示"sum"；当值为1时，表示"mean"；当值为2时，表示"max"。
 ### 返回值
 - `voxel_feats(Tensor)`：压缩后的特征张量，仅支持两维，数据类型为`float32`。
 - `voxel_coors(Tensor)`：压缩后的体素坐标，仅支持两维，数据类型为`int32`。

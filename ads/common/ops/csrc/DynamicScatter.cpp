@@ -18,11 +18,15 @@
 #include "functions.h"
 
 namespace {
-inline void npu_dynamic_scatter_check(const at::Tensor& coors, int64_t reduce_type)
+inline void npu_dynamic_scatter_check(const at::Tensor& feats, const at::Tensor& coors, int64_t reduce_type)
 {
+    TORCH_CHECK_NPU(feats);
+    TORCH_CHECK_NPU(coors);
     TORCH_CHECK(
         reduce_type == 0 || reduce_type == 1 || reduce_type == 2, "reduce_type must be 0(sum) or 1(mean) or 2(max).");
     TORCH_CHECK(coors.size(1) == 3, "npu_dynamic_scatter only support coors.size(1) == 3.");
+    TORCH_CHECK(feats.size(0) == coors.size(0), "npu_dynamic_scatter: feats.size(0) should equal coors.size(0).");
+    TORCH_CHECK(feats.size(1) <= 2048, "npu_dynamic_scatter: feats.size(1) should less than or equal to 2048.");
 }
 } // namespace
 
@@ -76,7 +80,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_simulation(const at::T
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_dynamic_scatter(
     const at::Tensor& feats, const at::Tensor& coors, int64_t reduce_type)
 {
-    npu_dynamic_scatter_check(coors, reduce_type);
+    npu_dynamic_scatter_check(feats, coors, reduce_type);
     auto num_input = feats.size(0);
     auto num_feats = feats.size(1);
     if (num_input == 0) {
