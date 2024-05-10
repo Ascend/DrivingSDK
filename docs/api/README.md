@@ -171,13 +171,13 @@ ads.common.npu_multi_scale_deformable_attn_function(Tensor value, Tensor shape, 
 ### 功能描述
 多尺度可变形注意力机制, 将多个视角的特征图进行融合。
 ### 参数说明
-- `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dim]`。其中`bs`为batch size，`num_keys`为特征图的数量，`num_heads`为头的数量，`embed_dim`为特征图的维度，需要为8的倍数。
+- `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dims]`。其中`bs`为batch size，`num_keys`为特征图的数量，`num_heads`为头的数量，`embed_dims`为特征图的维度，需要为8的倍数。
 - `shape(Tensor)`：特征图的形状，数据类型为`int32`。shape为`[num_levels, 2]`。其中`num_levels`为特征图的数量，`2`分别代表`H, W`。
 - `offset(Tensor)`：偏移量张量，数据类型为`int32`。shape为`[num_levels]`。
 - `locations(Tensor)`：位置张量，数据类型为`int32`。shape为`[bs, num_queries, num_heads, num_levels, num_points, 2]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量，`2`分别代表`y, x`。
 - `weight(Tensor)`：权重张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads, num_levels, num_points]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量。
 ### 返回值
-- `Tensor`：融合后的特征张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads*embed_dim]`。
+- `output(Tensor)`：融合后的特征张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads*embed_dims]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 约束说明
@@ -186,7 +186,7 @@ ads.common.npu_multi_scale_deformable_attn_function(Tensor value, Tensor shape, 
 ```python
 import torch, torch_npu
 from ads.common import npu_multi_scale_deformable_attn_function
-bs, num_levels, num_keys, num_heads, num_points, num_queries, embed_dim = 1, 1, 4, 8, 16, 32
+bs, num_levels, num_heads, num_points, num_queries, embed_dims = 1, 1, 4, 8, 16, 32
 
 shapes = torch.as_tensor([(100, 100)], dtype=torch.long)
 num_keys = sum((H * W).item() for H, W in shapes)
@@ -205,27 +205,31 @@ tensor([[[9.3002, 11.1603, 0.0000, 0.0000]]], dtype=torch.float32)
 ## voxelization
 ### 接口原型
 ```python
-ads.common.voxelization(Tensor points, List[int] voxel_size, List[int] coors_range, int max_points=-1, int max_voxels=-1, bool deterministic=True) -> Tensor
+ads.common.voxelization(Tensor points, List[float] voxel_size, List[float] coors_range, int max_points=-1, int max_voxels=-1, bool deterministic=True) -> Tensor
 ```
 ### 功能描述
 将点云数据进行体素化。
 ### 参数说明
-- `points(Tensor)`：点云数据，数据类型为`float32, float16`。shape为`[3, N]`。其中`N`为点的数量，`3`分别代表`x, y, z`。
-- `voxel_size(List[int])`：体素大小，数据类型为`float32, float16`。shape为`[3]`。其中`3`分别代表`x, y, z`。
-- `coors_range(List[int])`：体素范围，数据类型为`float32, float16`。shape为`[6]`。其中`6`分别代表`x_min, y_min, z_min, x_max, y_max, z_max`。
+- `points(Tensor)`：点云数据，数据类型为`float32`。shape为`[N, F]`。其中`N`为点的数量，`F`分别代表每个点的特征维度，其中`N > 0, F >= 3`。
+- `voxel_size(List[float])`：体素大小，数据类型为`float32`。shape为`[3]`。其中`3`分别代表`x, y, z`。
+- `coors_range(List[float])`：体素范围，数据类型为`float32`。shape为`[6]`。其中`6`分别代表`x_min, y_min, z_min, x_max, y_max, z_max`。
 - `max_points(int)`：每个体素的最大点数。默认值为`-1`。
 - `max_voxels(int)`：最大体素数。默认值为`-1`。
 - `deterministic(bool)`：是否确定性。默认值为`True`。
 ### 返回值
-- `Tensor`：体素化后的张量，数据类型为`int32`。shape为`[max_voxels, max_points]`。
+- `coors(Tensor)`：每个点所属的体素坐标，数据类型为`int32`。shape为`[N, 3]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import voxelization
-points = torch.tensor([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=torch.float32).npu()
-out = voxelization(points, [1, 1, 1], [1, 2, 3, 4, 5, 6])
+from ads.common import Voxelization
+points = torch.randint(-20, 100, [16, 3], dtype=torch.float32).npu()
+coors_range = [0, -40, -3, 70.4, 40, 1]
+max_points = -1
+voxel_size = [0.5, 0.5, 0.5]
+dynamic_voxelization = Voxelization(voxel_size, coors_range, max_points)
+out = dynamic_voxelization.forward(points)
 print(out)
 ```
 ## npu_nms3d_normal
