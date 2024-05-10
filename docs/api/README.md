@@ -26,18 +26,20 @@ $$argmax_i = argmax_j(updates_j)$$
 ```python
 import torch, torch_npu
 from ads.common import scatter_max
-updates = torch.tensor([[2, 0, 1, 4, 4], [0, 2, 1, 3, 4]], dtype=torch.float32).npu()
-indices = torch.tensor([4, 1, 2, 3], dtype=torch.int32).npu()
-out = updates.new_zeros((2, 6))
+updates = torch.tensor([[2, 0, 1, 3, 1, 0, 0, 4], [0, 2, 1, 3, 0, 3, 4, 2], [1, 2, 3, 4, 4, 3, 2, 1]], dtype=torch.float32).npu()
+indices = torch.tensor([0, 2, 0], dtype=torch.int32).npu()
+out = updates.new_zeros((3, 8))
 out, argmax = scatter_max(updates, indices, out)
 print(out)
 print(argmax)
 ```
 ```text
-tensor([[0., 0., 0., 0., 0., 0.],
-        [0., 0., 3., 4., 0., 0.]])
-tensor([[2, 2,  2,  2,  2,  2],
-        [ 1,  1,  1, 1, 0, 0]])
+tensor([[2., 2., 3., 4., 4., 3., 2., 4.],
+        [0., 0., 0., 0., 0., 0., 0., 0.],
+        [0., 2., 1., 3., 0., 3., 4., 2.]])
+tensor([[0, 2, 2, 2, 2, 2, 2, 0],
+        [3, 3, 3, 3, 3, 3, 3, 3],
+        [1, 1, 1, 1, 1, 1, 1, 1]])
 ```
 ## \[prototype\] npu_rotated_overlaps
 ### 接口原型
