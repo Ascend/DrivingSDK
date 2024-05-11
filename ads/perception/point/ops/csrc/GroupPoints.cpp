@@ -1,5 +1,5 @@
+// Copyright (c) OpenMMLab. All rights reserved.
 // Copyright (c) 2024 Huawei Technologies Co., Ltd
-// Copyright (c) 2019, Facebook CORPORATION.
 // All rights reserved.
 //
 // Licensed under the BSD 3-Clause License  (the "License");
@@ -17,16 +17,21 @@
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-
-at::Tensor group_points(const at::Tensor& points, const at::Tensor& idx, int b, int c, int n, int npoints, int nsample)
+at::Tensor group_points(
+    const at::Tensor& points, const at::Tensor& idx, int64_t b, int64_t c, int64_t n, int64_t npoints, int64_t nsample)
 {
     // b, c, n, and npoints do not need to be passed into gatherv2,
     // b, c, n, and npoints are calculated inside the operator
     // gatherv2 operator in ascend needs to set axis to 0, dims is 0
+    TORCH_CHECK_NPU(points);
+    TORCH_CHECK_NPU(idx);
+    TORCH_CHECK(points.dim() == 3, "points.dim() must be 3, but got: ", points.dim());
+    TORCH_CHECK(idx.dim() == 3, "idx.dim() must be 3, but got: ", idx.dim());
     c10::SmallVector<int64_t, N> axis = {0};
     int64_t dim = 0;
 
     auto index = at::arange(0, b);
+    index = index.to(points.device());
     index = index.view({-1, 1, 1});
     index = at::mul(index, n);
     at::Tensor indices = at::add(index, idx);
@@ -42,7 +47,30 @@ at::Tensor group_points(const at::Tensor& points, const at::Tensor& idx, int b, 
 
     EXEC_NPU_CMD(aclnnGatherV2, features, dim, indices, out);
 
-    at::Tensor output = out.view({b, npoints, nsample, c}).transpose(1, 3).transpose(2, 3);
+    at::Tensor output = out.view({b, npoints, nsample, c}).permute({0, 3, 1, 2});
 
     return output;
+}
+
+// grad_out = [b, c, npoints, nsample]
+// idx = [b, npoints, nsample]
+// grad_points = [b, c, n]
+at::Tensor group_points_backward(const at::Tensor& grad_out, const at::Tensor& idx, int64_t b,
+                                 int64_t c, int64_t n, int64_t npoints, int64_t nsample)
+{
+    TORCH_CHECK_NPU(grad_out);
+    TORCH_CHECK_NPU(idx);
+    TORCH_CHECK(grad_out.dim() == 4, "grad_out.dim() must be 4, but got: ", grad_out.dim());
+    TORCH_CHECK(idx.dim() == 3, "idx.dim() must be 3, but got: ", idx.dim());
+
+    at::Tensor trans_idx = idx.view({b * npoints * nsample});
+    at::Tensor trans_grad_out = grad_out.permute({0, 2, 3, 1});
+    at::Tensor grad_out_tensor = trans_grad_out.contiguous();
+    grad_out_tensor = grad_out_tensor.view({b * npoints * nsample, c});
+    at::Tensor out = at::zeros({b, n, c}, grad_out.options());
+
+    EXEC_NPU_CMD(aclnnGroupPointsGrad, grad_out_tensor, trans_idx, b, c, n, npoints, nsample, out);
+
+    at::Tensor grad_points = out.transpose(1, 2);
+    return grad_points;
 }

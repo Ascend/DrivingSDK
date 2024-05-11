@@ -17,7 +17,12 @@
 #include <ATen/Tensor.h>
 #include <torch/library.h>
 
-at::Tensor group_points(const at::Tensor& points, const at::Tensor& idx, int b, int c, int n, int npoints, int nsample);
+at::Tensor group_points(const at::Tensor& points,
+                        const at::Tensor& idx,
+                        int64_t b, int64_t c, int64_t n, int64_t npoints, int64_t nsample);
+
+at::Tensor group_points_backward(const at::Tensor& grad_out, const at::Tensor& idx,
+                                 int64_t b, int64_t c, int64_t n, int64_t npoints, int64_t nsample);
 
 at::Tensor vec_pool_backward(const at::Tensor& grad_new_features,
                              const at::Tensor& point_cnt_of_grid,
