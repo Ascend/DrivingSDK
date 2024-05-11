@@ -52,6 +52,30 @@ class BEVPool(torch.autograd.Function):
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 def bev_pool(feat, geom_feat, B, D, H, W):
+    """
+    bev_pool is a function that pools the features in the BEV (Bird's Eye View) format.
+    Please refer to the paper "BEVFusion: Multi-Task Multi-Sensor Fusion with Unified Bird's-Eye View Representation"
+    for more details.
+    Args:
+        feat (Tensor): The input feature tensor with shape (N, C).
+        geom_feat (Tensor): The geometry feature tensor with shape (N, 4). The 4 elements are (h, w, d, b).
+        B (int): The number of batch in the BEV.
+        D (int): The number of depth in the BEV.
+        H (int): The height of the BEV.
+        W (int): The width of the BEV.
+    Returns:
+        bev_pooled_feat (Tensor): The pooled feature tensor with shape (B, C, D, H, W).
+    Constraints:
+        - The number of features and geometry features should be the same.
+        - B * D * H * W * C <= 2^31, B, D <= 8, H, W <= 256, C <= 1024, for best practice.
+        - C <= 1024
+    Usage:
+        >>> import torch, torch_npu
+        >>> from ads.perception.fused import bev_pool
+        >>> feat = torch.rand(4, 256).npu()
+        >>> geom_feat = torch.tensor([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 2], [0, 0, 0, 3]], dtype=torch.int32).npu()
+        >>> bev_pooled_feat = bev_pool(feat, geom_feat, 4, 1, 256, 256)
+    """
     if feat.shape[0] != geom_feat.shape[0]:
         raise ValueError("The number of features and geometry features should be the same.")
 

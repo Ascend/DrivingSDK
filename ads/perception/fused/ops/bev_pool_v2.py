@@ -96,6 +96,38 @@ class BEVPoolV2(torch.autograd.Function):
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
                 bev_feat_shape, interval_starts, interval_lengths):
+    """
+    bev_pool_v2 is a function that performs a pooling operation on the BEV.
+    Please refer to the paper `BEVDet: High-performance Multi-camera 3D Object Detection in Bird-Eye-View`
+    for more details.
+    Args:
+        depth: The depth tensor, with shape [B, N, D, H, W].
+        feat: The feature tensor, with shape [B, N, H, W, C].
+        ranks_depth: The ranks of the depth tensor, with shape [N_RANKS].
+        ranks_feat: The ranks of the feature tensor, with shape [N_RANKS].
+        ranks_bev: The ranks of the BEV tensor, with shape [N_RANKS].
+        bev_feat_shape: The shape of the BEV feature tensor, list of [B, D, H, W, C].
+        interval_starts: The interval starts tensor, with shape [N_INTERVALS].
+        interval_lengths: The interval lengths tensor, with shape [N_INTERVALS].
+    Returns:
+        The pooled tensor, with shape [B, C, D, H, W].
+    Constraints:
+        - B * D * H * W * C <= 2^31, B, D <= 8, H, W <= 256, C <= 1024, for best practice.
+        - C <= 1024
+        - N_RANKS <= 2^21
+    Usage:
+        >>> import torch, torch_npu
+        >>> from torch_npu.ops import bev_pool_v2
+        >>> depth = torch.rand(2, 1, 8, 256, 256).npu()
+        >>> feat = torch.rand(2, 1, 256, 256, 64).npu()
+        >>> ranks_depth = torch.tensor([0, 1], dtype=torch.int32).npu()
+        >>> ranks_feat = torch.tensor([0, 1], dtype=torch.int32).npu()
+        >>> ranks_bev = torch.tensor([0, 1], dtype=torch.int32).npu()
+        >>> bev_feat_shape = [2, 8, 256, 256, 64]
+        >>> interval_starts = torch.tensor([0], dtype=torch.int32).npu()
+        >>> interval_lengths = torch.tensor([2], dtype=torch.int32).npu()
+        >>> out = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths)
+    """
     x = BEVPoolV2.apply(
         depth, feat, ranks_depth, ranks_feat, ranks_bev,
         bev_feat_shape, interval_starts, interval_lengths
