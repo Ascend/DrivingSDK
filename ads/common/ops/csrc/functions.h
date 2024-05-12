@@ -31,7 +31,8 @@ at::Tensor furthest_point_sampling_with_dist(
     const at::Tensor& points_dist, const at::Tensor& nearest_temp, int32_t num_points);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_dynamic_scatter(
-    const at::Tensor& feats, const at::Tensor& coors, int64_t reduce_type);
+    at::Tensor& cof_tensor, at::Tensor& out_coors_unique2, at::Tensor& coors_map,
+    at::Tensor& reduce_count, const at::Tensor& feats, const at::Tensor& coors, int64_t reduce_type);
 
 at::Tensor npu_points_in_box(const at::Tensor& boxes, const at::Tensor& pts);
 at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value, const at::Tensor& value_spatial_shapes,

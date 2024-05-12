@@ -32,53 +32,10 @@ inline void npu_dynamic_scatter_check(const at::Tensor& feats, const at::Tensor&
 
 static std::map<int64_t, std::string> REDUCE_TYPE_MAP = {{0, "sum"}, {1, "mean"}, {2, "max"}};
 
-std::tuple<at::Tensor, at::Tensor> get_hash_key_and_coefficient(const at::Tensor& coors)
-{
-    auto coors_dtype = coors.dtype();
-    auto coors_dim = coors.size(1);
-
-    at::Tensor coors_trans = at::transpose(coors, 0, 1).contiguous();
-    auto coors_max = std::get<0>(at::max(coors_trans.to(at::kLong), 1, false)).to(coors_dtype);
-
-    coors_max = at::add(coors_max, at::ones(coors_dim, coors_max.options().dtype(coors_dtype)), 1);
-    auto cof_tensor = at::ones({coors_dim}, coors_max.options().dtype(coors_dtype));
-    cof_tensor[1] = coors_max[coors_dim - 1];
-    cof_tensor[0] = at::mul(coors_max[1], coors_max[coors_dim - 1]);
-
-    cof_tensor = cof_tensor.reshape({1, coors_dim});
-
-    auto coors_clean = coors.masked_fill(coors.lt(0).any(-1, true), -1);
-    auto cof_mul = at::mul(coors_clean, cof_tensor);
-    auto hash_key = at::sum(cof_mul, 1);
-    return {hash_key, cof_tensor};
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_simulation(const at::Tensor& coors)
-{
-    at::Tensor out_coors_unique2;
-    at::Tensor coors_map;
-    at::Tensor reduce_count;
-    at::Tensor hash_key;
-    at::Tensor cof_tensor;
-    at::Tensor out_coors;
-    std::tie(hash_key, cof_tensor) = get_hash_key_and_coefficient(coors);
-    std::tie(out_coors_unique2, coors_map, reduce_count) = at::_unique2(hash_key, true, true, true);
-
-    c10::optional<c10::string_view> rounding_mode = "trunc";
-    std::vector<at::Tensor> out_coors_tensors;
-    for (auto i = 0; i < cof_tensor.numel() - 1; i++) {
-        auto out_coors_0 = at::div(out_coors_unique2, cof_tensor[0][i], rounding_mode);
-        out_coors_unique2 = at::sub(out_coors_unique2, at::mul(out_coors_0, cof_tensor[0][i]));
-        out_coors_tensors.push_back(out_coors_0);
-    }
-    out_coors_tensors.push_back(out_coors_unique2);
-    out_coors = at::stack(at::TensorList(out_coors_tensors), 1);
-    out_coors = out_coors.to(coors.dtype());
-    return {out_coors, coors_map, reduce_count};
-}
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_dynamic_scatter(
-    const at::Tensor& feats, const at::Tensor& coors, int64_t reduce_type)
+    at::Tensor& cof_tensor, at::Tensor& out_coors_unique2, at::Tensor& coors_map,
+    at::Tensor& reduce_count, const at::Tensor& feats, const at::Tensor& coors, int64_t reduce_type)
 {
     npu_dynamic_scatter_check(feats, coors, reduce_type);
     auto num_input = feats.size(0);
@@ -88,27 +45,33 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_dynamic_scatter(
             coors.new_empty({0}, at::kInt)};
     }
 
-    at::Tensor out_coors;
-    at::Tensor coors_map;
-    at::Tensor reduce_count;
-    std::tie(out_coors, coors_map, reduce_count) = unique_dim_simulation(coors);
+    c10::optional<c10::string_view> rounding_mode = "floor";
+    std::vector<at::Tensor> out_coors_tensors;
+    auto out_coors_0 = at::div(out_coors_unique2, cof_tensor[0], rounding_mode);
+    out_coors_tensors.push_back(out_coors_0);
+    out_coors_unique2 = at::sub(out_coors_unique2, at::mul(out_coors_0, cof_tensor[0]));
+    auto out_coors_1 = at::div(out_coors_unique2, cof_tensor[1], rounding_mode);
+    out_coors_tensors.push_back(out_coors_1);
+    out_coors_unique2 = at::sub(out_coors_unique2, at::mul(out_coors_1, cof_tensor[1]));
+    out_coors_tensors.push_back(out_coors_unique2);
+
+    at::Tensor out_coors = at::stack(at::TensorList(out_coors_tensors), 1);
+    out_coors = out_coors.to(coors.dtype());
 
     coors_map = coors_map.to(at::kInt);
     reduce_count = reduce_count.to(at::kInt);
-
     if (out_coors[0][0].lt(0).item<bool>()) {
         out_coors = out_coors.slice(0, 1);
         reduce_count = reduce_count.slice(0, 1);
         coors_map = coors_map - 1;
     }
 
-    auto reduced_feats = at::empty({out_coors.size(0), num_feats}, feats.options());
+    auto reduced_feats = at::zeros({out_coors.size(0), num_feats}, feats.options());
     const char* reduce_type_string = const_cast<char*>(REDUCE_TYPE_MAP[reduce_type] == "max" ? "max" : "sum");
     EXEC_NPU_CMD(aclnnDynamicScatter, feats, coors_map, reduce_type_string, reduced_feats);
 
     if (reduce_type == 1) {
         reduced_feats /= reduce_count.unsqueeze(-1).to(reduced_feats.dtype());
     }
-
     return {reduced_feats, out_coors, coors_map, reduce_count};
 }
