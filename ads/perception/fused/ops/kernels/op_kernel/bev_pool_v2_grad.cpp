@@ -9,26 +9,28 @@ __aicore__ inline void BEVPoolV2GradKernel<T, Align32B>::DoProcess()
     Duplicate(gradFeatT, T(0.f), this->alignUpCCount_);       // pipe_v
     for (int32_t i = 0; i < this->length_; ++i) {
         this->depthOffset_ = this->rDGm_.GetValue(this->start_ + i);
-        this->featOffset_ = this->rFGm_.GetValue(this->start_ + i) * this->stride0_;
         this->outOffset_ = this->rBGm_.GetValue(this->start_ + i) * this->stride0_;
-        LocalTensor<T> featT = this->featQue_.template AllocTensor<T>();        // wait_flag(v, mte2)
         LocalTensor<T> gradOutT = gradOutQue_.AllocTensor<T>();                 // wait_flag(v, mte2)
-        LocalTensor<T> gradDepthT = gradDepthQue_.AllocTensor<T>();             // wait_flag(met3, v)
-        DataCopy(featT, this->fGm_[this->featOffset_], this->cpFeatParams_);    // met2
         DataCopy(gradOutT, this->gOGm_[this->outOffset_], this->cpFeatParams_); // met2
-        this->featQue_.EnQue(featT);                                            // set_flag(mte2, v)
         gradOutQue_.EnQue(gradOutT);                                            // set_flag(mte2, v)
-        featT = this->featQue_.template DeQue<T>();                             // wait_flag(mte2, v)
         gradOutT = gradOutQue_.DeQue<T>();                                      // wait_flag(mte2, v)
-
-        // calculate gradDepth, sum of feat * gradOut
-        Mul(featT, gradOutT, featT, this->alignUpCCount_);                        // pipe_v
-        ReduceSum(gradDepthT, featT, workT_, this->stride0_);                     // pipe_v
-        this->featQue_.FreeTensor(featT);                                         // set_flag(v, mte2)
-        gradDepthQue_.EnQue(gradDepthT);                                          // set_flag(v, mte3)
-        gradDepthT = gradDepthQue_.DeQue<T>();                                    // wait_flag(v, mte3)
-        DataCopyPad(gDGm_[this->depthOffset_], gradDepthT, this->cpDepthParams_); // mte3
-        gradDepthQue_.FreeTensor(gradDepthT);                                     // set_flag(mte3, v)
+        // actually, we just need to calculate gradDepth for the last time
+        if (i == this->length_ - 1) {
+            this->featOffset_ = this->rFGm_.GetValue(this->start_ + i) * this->stride0_;
+            LocalTensor<T> featT = this->featQue_.template AllocTensor<T>();     // wait_flag(v, mte2)
+            DataCopy(featT, this->fGm_[this->featOffset_], this->cpFeatParams_); // met2
+            this->featQue_.EnQue(featT);                                         // set_flag(mte2, v)
+            featT = this->featQue_.template DeQue<T>();                          // wait_flag(mte2, v)
+            // calculate gradDepth, sum of feat * gradOut
+            Mul(featT, gradOutT, featT, this->alignUpCCount_);                        // pipe_v
+            LocalTensor<T> gradDepthT = gradDepthQue_.AllocTensor<T>();               // wait_flag(met3, v)
+            ReduceSum(gradDepthT, featT, workT_, this->stride0_);                     // pipe_v
+            this->featQue_.FreeTensor(featT);                                         // set_flag(v, mte2)
+            gradDepthQue_.EnQue(gradDepthT);                                          // set_flag(v, mte3)
+            gradDepthT = gradDepthQue_.DeQue<T>();                                    // wait_flag(v, mte3)
+            DataCopyPad(gDGm_[this->depthOffset_], gradDepthT, this->cpDepthParams_); // mte3
+            gradDepthQue_.FreeTensor(gradDepthT);                                     // set_flag(mte3, v)
+        }
 
         // calculate gradFeat, sum of depth * gradOut
         T depth = this->dGm_.GetValue(this->depthOffset_);
