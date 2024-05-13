@@ -53,14 +53,19 @@ public:
 
     __aicore__ inline void Process()
     {
-        // alloc tensor from queue memory
         coorsLocal = coorsQueue.Get<int32_t>();
-
-        // loop count need to be doubled, due to double buffer
         DataCopy(coorsLocal, coorsMapGm[startOffset], taskPerCoreAlign);
+
+        if (reduceMode == 0) {
+            SetAtomicMax<T>();
+        } else {
+            SetAtomicAdd<T>();
+        }
         for (int32_t taskNum = startOffset; taskNum < endOffset; taskNum++) {
             Compute(taskNum);
+            pipe_barrier(PIPE_ALL);
         }
+        SetAtomicNone();
     }
 
 private:
@@ -68,16 +73,9 @@ private:
     {
         featsLocal = featsQueue.Get<T>();
         DataCopy(featsLocal, featsGm[taskNum * featsNum], featsNumAlign);
-
         outOffset = coorsLocal.GetValue(taskNum - startOffset) * featsNum;
-        if (reduceMode == 0) {
-            SetAtomicMax<T>();
-        } else {
-            SetAtomicAdd<T>();
-        }
         pipe_barrier(PIPE_ALL);
         DataCopyPad(reducedFeatsGm[outOffset], featsLocal, copyParamsOut);
-        SetAtomicNone();
     }
 
 private:
@@ -92,7 +90,7 @@ private:
     uint32_t featsNum, pointNum, outNum, coreNum, reduceMode, taskPerCore, currentTaskNum;
     DataCopyExtParams copyParamsOut;
     uint32_t featsNumAlign, pointNumAlign, taskPerCoreAlign, alignNum = 8;
-    uint32_t startOffset, endOffset, curBlockIdx, outOffset;
+    uint32_t startOffset, endOffset, curBlockIdx, outOffset, inOffset;
 };
 
 
