@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
  */
 #include <cmath>
 #include "kernel_tiling/kernel_tiling.h"
@@ -23,6 +23,7 @@ public:
         taskPerCore = DivCeil(pointNum, coreNum);
         featsNumAlign = (featsNum + alignNum - 1) / alignNum * alignNum;
         pointNumAlign = (pointNum + alignNum - 1) / alignNum * alignNum;
+        taskPerCoreAlign = (taskPerCore + alignNum - 1) / alignNum * alignNum;
 
         copyParamsOut.blockCount = 1;
         copyParamsOut.blockLen = static_cast<uint32_t>(featsNum * sizeof(T));
@@ -35,7 +36,7 @@ public:
         reducedFeatsGm.SetGlobalBuffer((__gm__ T *)reducedFeats, outNum * featsNum);
 
         pipe.InitBuffer(featsQueue, featsNumAlign * sizeof(T));
-        pipe.InitBuffer(coorsQueue, pointNumAlign * sizeof(int32_t));
+        pipe.InitBuffer(coorsQueue, taskPerCoreAlign * sizeof(int32_t));
  
         curBlockIdx = GetBlockIdx();
         startOffset = curBlockIdx * taskPerCore;
@@ -56,7 +57,7 @@ public:
         coorsLocal = coorsQueue.Get<int32_t>();
 
         // loop count need to be doubled, due to double buffer
-        DataCopy(coorsLocal, coorsMapGm, pointNumAlign);
+        DataCopy(coorsLocal, coorsMapGm[startOffset], taskPerCoreAlign);
         for (int32_t taskNum = startOffset; taskNum < endOffset; taskNum++) {
             Compute(taskNum);
         }
@@ -68,7 +69,7 @@ private:
         featsLocal = featsQueue.Get<T>();
         DataCopy(featsLocal, featsGm[taskNum * featsNum], featsNumAlign);
 
-        outOffset = coorsLocal.GetValue(taskNum) * featsNum;
+        outOffset = coorsLocal.GetValue(taskNum - startOffset) * featsNum;
         if (reduceMode == 0) {
             SetAtomicMax<T>();
         } else {
@@ -90,7 +91,7 @@ private:
 
     uint32_t featsNum, pointNum, outNum, coreNum, reduceMode, taskPerCore, currentTaskNum;
     DataCopyExtParams copyParamsOut;
-    uint32_t featsNumAlign, pointNumAlign, alignNum = 8;
+    uint32_t featsNumAlign, pointNumAlign, taskPerCoreAlign, alignNum = 8;
     uint32_t startOffset, endOffset, curBlockIdx, outOffset;
 };
 
