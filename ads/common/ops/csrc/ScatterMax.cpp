@@ -50,6 +50,6 @@ at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segme
 
     at::Tensor out = at::empty(output_size, x.options());
     at_npu::native::OpCommand cmd;
-    cmd.Name("UnsortedSegmentSum").Input(x).Input(segment_ids).Input(num_segments).Output(out).Run();
+    cmd.Name("UnsortedSegmentSum").Input(x).Input(segment_ids).Input(num_segments).Output(out).Attr("check_ids", true).Run();
     return out;
 }
