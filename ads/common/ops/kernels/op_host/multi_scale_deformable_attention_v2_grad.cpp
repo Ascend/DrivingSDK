@@ -119,32 +119,38 @@ public:
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("spatial_shapes")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("level_start_index")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("sampling_loc")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("attn_weight")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("grad_output")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Output("grad_value")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})

@@ -104,7 +104,7 @@ file(GLOB ACLNN_INC_GEN ${ASCEND_AUTOGEN_PATH}/aclnn_*.h)
 set(ACLNN_SRC ${ACLNN_SRC_GEN} ${ACLNN_SRC_CUSTOM})
 set(ACLNN_INC ${ACLNN_INC_GEN} ${ACLNN_INC_CUSTOM})
 add_library(cust_opapi SHARED ${ACLNN_SRC})
-target_link_libraries(cust_opapi PRIVATE intf_pub ascendcl nnopbase)
+target_link_libraries(cust_opapi PRIVATE intf_pub ascendcl nnopbase opapi)
 install_target(TRG cust_opapi DST packages/vendors/${vendor_name}/op_api/lib)
 install_file(TRG cust_opapi SRC ${ACLNN_INC} DST
              packages/vendors/${vendor_name}/op_api/include)

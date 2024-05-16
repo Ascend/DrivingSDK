@@ -75,7 +75,7 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
     def test_multi_scale_deformable_attn_function(self):
         dtype_list = [torch.float32]
         shape_list = [
-            [[6, 8, 32, 4, 8, 9680], [3, 4, 5, 6, 3, 7], [1, 8, 32, 4, 8, 30832]]
+            [6, 8, 32, 4, 8, 9680], [3, 4, 5, 6, 3, 7], [1, 8, 32, 4, 8, 30832]
         ]
         items = [
             [shape, dtype]

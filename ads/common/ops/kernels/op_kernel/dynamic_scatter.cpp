@@ -73,9 +73,11 @@ private:
     {
         featsLocal = featsQueue.Get<T>();
         DataCopy(featsLocal, featsGm[taskNum * featsNum], featsNumAlign);
-        outOffset = coorsLocal.GetValue(taskNum - startOffset) * featsNum;
-        pipe_barrier(PIPE_ALL);
-        DataCopyPad(reducedFeatsGm[outOffset], featsLocal, copyParamsOut);
+        outOffset = coorsLocal.GetValue(taskNum - startOffset);
+        if (outOffset < outNum) {
+            pipe_barrier(PIPE_ALL);
+            DataCopyPad(reducedFeatsGm[outOffset * featsNum], featsLocal, copyParamsOut);
+        }
     }
 
 private:
