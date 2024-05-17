@@ -46,8 +46,8 @@ def multi_scale_deformable_attn_pytorch(
 class TestMultiScaleDeformableAttnFunction(TestCase):
     def gen_data(self, shape, dtype):
         bs, num_heads, embed_dims, num_levels, num_points, num_queries = shape
-        cpu_shapes = torch.tensor([6, 4] * num_levels).reshape(num_levels, 2).int()
-        num_keys = sum((H * W).item() for H, W in cpu_shapes).int()
+        cpu_shapes = torch.tensor([6, 4] * num_levels).reshape(num_levels, 2)
+        num_keys = sum((H * W).item() for H, W in cpu_shapes)
 
         cpu_value = torch.rand(bs, num_keys, num_heads, embed_dims) * 0.01
         cpu_sampling_locations = torch.rand(bs, num_queries, num_heads, num_levels, num_points, 2)
@@ -65,7 +65,7 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
 
     def cpu_to_exec(self, cpu_data):
         output = multi_scale_deformable_attn_pytorch(cpu_data[0].double(), cpu_data[1].long(), cpu_data[3].double(), cpu_data[4].double())
-        return output.numpy()
+        return output.float().numpy()
 
     def npu_to_exec(self, npu_data):
         output = ads.common.npu_multi_scale_deformable_attn_function(npu_data[0], npu_data[1], npu_data[2], npu_data[3], npu_data[4])
@@ -75,7 +75,7 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
     def test_multi_scale_deformable_attn_function(self):
         dtype_list = [torch.float32]
         shape_list = [
-            [6, 8, 32, 4, 8, 9680], [3, 4, 5, 6, 3, 7], [1, 8, 32, 4, 8, 30832]
+            [6, 8, 32, 4, 8, 9680], [3, 4, 16, 6, 3, 7], [1, 8, 32, 4, 8, 30832]
         ]
         items = [
             [shape, dtype]
