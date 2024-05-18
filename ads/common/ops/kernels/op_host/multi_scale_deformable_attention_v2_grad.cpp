@@ -23,8 +23,10 @@ const uint32_t EMBED_DIMS_DIM = 3;
 const uint32_t NUM_LEVEL_DIM = 0;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
-const uint32_t TILING_KEY_BEVFORMER = 0;
-const uint32_t TILING_KEY_GENERIC = 1;
+const uint32_t TILING_KEY_NP_TWO = 0;
+const uint32_t TILING_KEY_NP_FOUR = 1;
+const uint32_t TILING_KEY_NP_EIGHT = 2;
+const uint32_t TILING_KEY_GENERIC = 3;
 } // namespace
 
 namespace optiling {
@@ -66,8 +68,12 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionV2Grad(gert::Ti
     tiling.set_numQueries(numQueries);
     tiling.set_numPoints(numPoints);
     
-    if (numPoints == 8 && embedDims == 32) {
-        context->SetTilingKey(TILING_KEY_BEVFORMER);
+    if (numPoints == 2 && embedDims == 32) {
+        context->SetTilingKey(TILING_KEY_NP_TWO);
+    } else if (numPoints == 4 && embedDims == 32) {
+        context->SetTilingKey(TILING_KEY_NP_FOUR);
+    } else if (numPoints == 8 && embedDims == 32) {
+        context->SetTilingKey(TILING_KEY_NP_EIGHT);
     } else {
         context->SetTilingKey(TILING_KEY_GENERIC);
     }

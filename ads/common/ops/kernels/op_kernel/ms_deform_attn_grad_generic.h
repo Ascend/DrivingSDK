@@ -162,26 +162,6 @@ public:
         whLocLocal = whUb.Get<DTYPE_VALUE>();
     }
 
-    __aicore__ inline void ClearOutput()
-    {
-        switch (curBlockIdx) {
-            case 0:
-                InitOutput<DTYPE_VALUE>(gradValueGm, batchSize * numKeys * numHeads * embedDims, 0);
-                break;
-            case 1:
-                InitOutput<DTYPE_VALUE>(gradLocationGm, 2 * batchSize * numQueries * numHeads * numLevels * numPoints);
-                break;
-            case 2:
-                InitOutput<DTYPE_VALUE>(gradWeightGm, batchSize * numQueries * numHeads * numLevels * numPoints);
-                break;
-            default:
-                break;
-        }
-        if ASCEND_IS_AIV {
-            SyncAll();
-        }
-    }
-
     __aicore__ inline void Process()
     {
         DataCopy(shapesLocal, valueSpatialShapesGm, 2 * numLevelsAlign);

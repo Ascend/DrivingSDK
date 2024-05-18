@@ -1,17 +1,18 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
  */
-#ifndef _MS_DEFORM_ATTN_GRAD_BEV_H_
-#define _MS_DEFORM_ATTN_GRAD_BEV_H_
+#ifndef _MS_DEFORM_ATTN_GRAD_HIGH_PERF_H_
+#define _MS_DEFORM_ATTN_GRAD_HIGH_PERF_H_
 
 #include "kernel_operator.h"
 #include "kernel_tiling/kernel_tiling.h"
 
 using namespace AscendC;
 
-class MultiScaleDeformableAttentionV2GradBEV {
+template <uint32_t NUM_POINTS>
+class MultiScaleDeformableAttentionV2GradHighPerf {
 public:
-    __aicore__ inline MultiScaleDeformableAttentionV2GradBEV(){};
+    __aicore__ inline MultiScaleDeformableAttentionV2GradHighPerf(){};
     __aicore__ inline void Init(GM_ADDR value_gm, GM_ADDR spatial_shapes_gm, GM_ADDR level_start_index_gm,
                                 GM_ADDR sampling_loc_gm, GM_ADDR attn_weight_gm, GM_ADDR grad_output_gm,
                                 GM_ADDR grad_value_gm, GM_ADDR grad_sampling_loc_gm, GM_ADDR grad_attn_weight_gm,
@@ -20,9 +21,10 @@ public:
         pipe = tmpPipe;
         curBlockIdx = GetBlockIdx();
         blockBytes = 32;
+
+        numPointsAlign = 8;
         dataAlign = blockBytes / sizeof(DTYPE_VALUE);
 
-        numPoints = 8;
         embedDims = 32;
         numKeys = tiling_data->numKeys;
         numHeads = tiling_data->numHeads;
@@ -46,14 +48,14 @@ public:
         gradOutStride0 = embedDims;
         gradOutStride1 = numHeads * gradOutStride0;
         gradOutStride2 = numQueries * gradOutStride1;
-        weightStride0 = numLevels * numPoints;
+        weightStride0 = numLevels * NUM_POINTS;
         weightStride1 = numHeads * weightStride0;
         weightStride2 = numQueries * weightStride1;
         valueStride0 = embedDims;
         valueStride1 = numKeys * valueStride0;
         valueStride2 = numHeads * valueStride1;
 
-        baseOffsetUb = numPoints * embedDims;
+        baseOffsetUb = NUM_POINTS * embedDims;
 
         eventIdMte2ToV_1 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
         eventIdMte2ToV_2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
@@ -63,10 +65,12 @@ public:
         eventIdVToMte3 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
         eventIdVToMteWeight = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
 
-        copyParams = {1, (uint16_t)(numPoints * sizeof(DTYPE_VALUE)), 0, 0};
-        sumParams = {numPoints, embedDims, embedDims};
-        sumParamsV2 = {2 * numPoints, embedDims, embedDims};
-        mulParams = {1, 1, 1, 4, 4, 0};
+        copyParams = {1, (uint16_t)(NUM_POINTS * sizeof(DTYPE_VALUE)), 0, 0};
+        sumParams = {NUM_POINTS, embedDims, embedDims};
+
+        copyParamsV2 = {1, (uint16_t)(2 * NUM_POINTS * sizeof(DTYPE_VALUE)), 0, 0};
+        sumParamsV2 = {2 * NUM_POINTS, embedDims, embedDims};
+        mulParams = {1, 1, 1, dstRepStride, src0RepStride, src1RepStride};
 
         valueGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(value_gm),
                                 batchSize * numKeys * numHeads * embedDims);
@@ -75,52 +79,52 @@ public:
         valueLevelStartIndexGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_SPATIAL_SHAPES *>(level_start_index_gm),
                                                numLevels);
         locationGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(sampling_loc_gm),
-                                   batchSize * numQueries * numHeads * numLevels * numPoints * 2);
+                                   batchSize * numQueries * numHeads * numLevels * NUM_POINTS * 2);
         attentionWeightsGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(attn_weight_gm),
-                                           batchSize * numQueries * numHeads * numLevels * numPoints);
+                                           batchSize * numQueries * numHeads * numLevels * NUM_POINTS);
         gradOutputGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(grad_output_gm),
                                      batchSize * numQueries * numHeads * embedDims);
 
         gradValueGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(grad_value_gm),
                                     batchSize * numKeys * numHeads * embedDims);
         gradLocationGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(grad_sampling_loc_gm),
-                                       batchSize * numQueries * numHeads * numLevels * 2 * numPoints);
+                                       batchSize * numQueries * numHeads * numLevels * 2 * NUM_POINTS);
         gradWeightGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(grad_attn_weight_gm),
-                                     batchSize * numQueries * numHeads * numLevels * numPoints);
+                                     batchSize * numQueries * numHeads * numLevels * NUM_POINTS);
     }
 
     __aicore__ inline void InitBuffer()
     {
         pipe->InitBuffer(shapeUb, 2 * numLevelsAlign * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(offsetUb, numLevelsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(locationUb, numHeads * numLevels * numPoints * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(attentionWeightsUb, numHeads * numLevels * numPoints * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(locationUb, numHeads * numLevels * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(attentionWeightsUb, numHeads * numLevels * numPointsAlign * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(topGradUb, embedDims * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(locSumUb, 2 * numLevels * numPoints * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(weightSumUb, 2 * numLevels * numPoints * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(locSumUb, 2 * numLevels * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(weightSumUb, 2 * numLevels * numPointsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(locUb, 2 * numPoints * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(imUb, 2 * numPoints * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(locUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(imUb, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(zerosUb, 4 * numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(v1Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(v2Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(v3Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(v4Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(zerosUb, 4 * NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(v1Ub, NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(v2Ub, NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(v3Ub, NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(v4Ub, NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(w1v1Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(w2v2Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(w3v3Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(w4v4Ub, numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmpUb, 2 * numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(w1v1Ub, NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(w2v2Ub, NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(w3v3Ub, NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(w4v4Ub, NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmpUb, 2 * NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(tmpAUb, embedDims * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(tmpBUb, embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(midUb, 4 * numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(midUb, 4 * NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
 
-        pipe->InitBuffer(gradSampleLocUb, 2 * numPoints * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(whUb, 2 * numPoints * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(gradSampleLocUb, 2 * NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(whUb, 2 * NUM_POINTS * embedDims * sizeof(DTYPE_VALUE));
     }
 
     __aicore__ inline void GetLocalTensor()
@@ -154,8 +158,31 @@ public:
         whLocLocal = whUb.Get<DTYPE_VALUE>();
     }
 
+    __aicore__ inline void ClearOutput()
+    {
+        switch (curBlockIdx) {
+            case 0:
+                InitOutput<DTYPE_VALUE>(gradValueGm, batchSize * numKeys * numHeads * embedDims, 0);
+                break;
+            case 1:
+                InitOutput<DTYPE_VALUE>(gradLocationGm, 2 * batchSize * numQueries * numHeads * numLevels * NUM_POINTS);
+                break;
+            case 2:
+                InitOutput<DTYPE_VALUE>(gradWeightGm, batchSize * numQueries * numHeads * numLevels * NUM_POINTS);
+                break;
+            default:
+                break;
+        }
+        if ASCEND_IS_AIV {
+            SyncAll();
+        }
+    }
+
     __aicore__ inline void Process()
     {
+        if (innerClean == 1) {
+            ClearOutput();
+        }
         DataCopy(shapesLocal, valueSpatialShapesGm, 2 * numLevelsAlign);
         DataCopy(offsetLocal, valueLevelStartIndexGm, numLevelsAlign);
         SetAtomicAdd<DTYPE_VALUE>();
@@ -187,15 +214,15 @@ private:
 
     __aicore__ inline void clearUB()
     {
-        Duplicate(zerosLocal, (DTYPE_VALUE)0, 4 * numPoints * embedDims);
-        Duplicate(v1Local, (DTYPE_VALUE)0, numPoints * embedDims);
-        Duplicate(v2Local, (DTYPE_VALUE)0, numPoints * embedDims);
-        Duplicate(v3Local, (DTYPE_VALUE)0, numPoints * embedDims);
-        Duplicate(v4Local, (DTYPE_VALUE)0, numPoints * embedDims);
-        Duplicate(w1v1Local, (DTYPE_VALUE)0, numPoints * embedDims);
-        Duplicate(w2v2Local, (DTYPE_VALUE)0, numPoints * embedDims);
-        Duplicate(w3v3Local, (DTYPE_VALUE)0, numPoints * embedDims);
-        Duplicate(w4v4Local, (DTYPE_VALUE)0, numPoints * embedDims);
+        Duplicate(zerosLocal, (DTYPE_VALUE)0, 4 * NUM_POINTS * embedDims);
+        Duplicate(v1Local, (DTYPE_VALUE)0, NUM_POINTS * embedDims);
+        Duplicate(v2Local, (DTYPE_VALUE)0, NUM_POINTS * embedDims);
+        Duplicate(v3Local, (DTYPE_VALUE)0, NUM_POINTS * embedDims);
+        Duplicate(v4Local, (DTYPE_VALUE)0, NUM_POINTS * embedDims);
+        Duplicate(w1v1Local, (DTYPE_VALUE)0, NUM_POINTS * embedDims);
+        Duplicate(w2v2Local, (DTYPE_VALUE)0, NUM_POINTS * embedDims);
+        Duplicate(w3v3Local, (DTYPE_VALUE)0, NUM_POINTS * embedDims);
+        Duplicate(w4v4Local, (DTYPE_VALUE)0, NUM_POINTS * embedDims);
     }
 
     __aicore__ inline void Compute()
@@ -213,27 +240,29 @@ private:
                         h = shapesLocal.GetValue(level * 2);
                         w = shapesLocal.GetValue(level * 2 + 1);
 
-                        Duplicate(whLocLocal, (DTYPE_VALUE)w, numPoints * embedDims);
-                        Duplicate(whLocLocal[baseOffsetUb], (DTYPE_VALUE)h, numPoints * embedDims);
+                        Duplicate(whLocLocal, (DTYPE_VALUE)w, NUM_POINTS * embedDims);
+                        Duplicate(whLocLocal[baseOffsetUb], (DTYPE_VALUE)h, NUM_POINTS * embedDims);
 
                         offsetValue = batch * valueStride2 + head * valueStride1 + levelStartId * valueStride0;
                         wStride = embedDims;
                         hStride = w * wStride;
-                        tmpOffset = offsetWeight + level * numPoints;
+                        tmpOffset = offsetWeight + level * NUM_POINTS;
 
-                        DataCopy(locLocal, locationGm[tmpOffset * 2], 2 * numPoints);
+                        DataCopy(locLocal, locationGm[tmpOffset * 2], numPointsAlign);
+                        DataCopy(locLocal[numPointsAlign], locationGm[tmpOffset * 2 + NUM_POINTS], numPointsAlign);
+
                         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
-                        DataCopy(attentionWeightLocal, attentionWeightsGm[tmpOffset], numPoints);
-                        Muls(imLocal[numPoints], locLocal[numPoints], (DTYPE_VALUE)h, numPoints);
-                        Muls(imLocal, locLocal, (DTYPE_VALUE)w, numPoints);
-                        Adds(imLocal, imLocal, DTYPE_VALUE(-0.5), 2 * numPoints);
+                        DataCopy(attentionWeightLocal, attentionWeightsGm[tmpOffset], numPointsAlign);
+                        Muls(imLocal[numPointsAlign], locLocal[numPointsAlign], (DTYPE_VALUE)h, numPointsAlign);
+                        Muls(imLocal, locLocal, (DTYPE_VALUE)w, numPointsAlign);
+                        Adds(imLocal, imLocal, DTYPE_VALUE(-0.5), 2 * numPointsAlign);
                         clearUB();
                         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
-                        for (point = 0; point < numPoints; point++) {
-                            hIm = imLocal.GetValue(numPoints + point);
+                        for (point = 0; point < NUM_POINTS; point++) {
+                            hIm = imLocal.GetValue(numPointsAlign + point);
                             wIm = imLocal.GetValue(point);
                             if (hIm > -1 && wIm > -1 && hIm < h && wIm < w) {
                                 pointOffset = point * embedDims;
@@ -430,28 +459,51 @@ private:
                                 Muls(w4v4Local[pointOffset], v4Local[pointOffset], w4, embedDims);
                             }
                         }
-                        Add(w1v1Local, w1v1Local, w2v2Local, numPoints * embedDims);
-                        Add(w1v1Local, w1v1Local, w3v3Local, numPoints * embedDims);
-                        Add(w1v1Local, w1v1Local, w4v4Local, numPoints * embedDims);
-                        Mul(zerosLocal[gradWeightId * baseOffsetUb], w1v1Local, topGradLocal, embedDims, numPoints,
+                        Add(w1v1Local, w1v1Local, w2v2Local, NUM_POINTS * embedDims);
+                        Add(w1v1Local, w1v1Local, w3v3Local, NUM_POINTS * embedDims);
+                        Add(w1v1Local, w1v1Local, w4v4Local, NUM_POINTS * embedDims);
+                        Mul(zerosLocal[gradWeightId * baseOffsetUb], w1v1Local, topGradLocal, embedDims, NUM_POINTS,
                             mulParams);
                         SetFlag<HardEvent::V_MTE2>(eventIdVToMte2);
                         SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
-                        Mul(tmpLocal, zerosLocal[topGradValueId * baseOffsetUb],
-                            zerosLocal[gradWWeightId * baseOffsetUb], numPoints * embedDims);
-                        Mul(tmpLocal[baseOffsetUb], zerosLocal[topGradValueId * baseOffsetUb],
-                            zerosLocal[gradHWeightId * baseOffsetUb], numPoints * embedDims);
-                        Mul(gradSampleLocLocal, tmpLocal, whLocLocal, 2 * numPoints * embedDims);
+                        if (NUM_POINTS < 8) {
+                            Mul(tmpLocal, zerosLocal[topGradValueId * baseOffsetUb],
+                                zerosLocal[gradWWeightId * baseOffsetUb], NUM_POINTS * embedDims);
+                            Mul(tmpLocal[baseOffsetUb], zerosLocal[topGradValueId * baseOffsetUb],
+                                zerosLocal[gradHWeightId * baseOffsetUb], NUM_POINTS * embedDims);
 
-                        Sum(weightSumLocal[numPoints * level], zerosLocal[gradWeightId * baseOffsetUb], sumParams);
-                        Sum(locSumLocal[numPoints * 2 * level], gradSampleLocLocal, sumParamsV2);
+                            Mul(gradSampleLocLocal, tmpLocal, whLocLocal, 2 * NUM_POINTS * embedDims);
+
+                            Sum(weightSumLocal, zerosLocal[gradWeightId * baseOffsetUb], sumParams);
+                            SetFlag<HardEvent::V_MTE3>(eventIdVToMteWeight);
+                            Sum(locSumLocal, gradSampleLocLocal, sumParamsV2);
+                            SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+
+                            WaitFlag<HardEvent::V_MTE3>(eventIdVToMteWeight);
+                            DataCopyPad(gradWeightGm[offsetWeight + level * NUM_POINTS], weightSumLocal, copyParams);
+
+                            WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+                            DataCopyPad(gradLocationGm[offsetLocation + level * 2 * NUM_POINTS], locSumLocal,
+                                        copyParamsV2);
+                        } else {
+                            Mul(tmpLocal, zerosLocal[topGradValueId * baseOffsetUb],
+                                zerosLocal[gradWWeightId * baseOffsetUb], NUM_POINTS * embedDims);
+                            Mul(tmpLocal[baseOffsetUb], zerosLocal[topGradValueId * baseOffsetUb],
+                                zerosLocal[gradHWeightId * baseOffsetUb], NUM_POINTS * embedDims);
+                            Mul(gradSampleLocLocal, tmpLocal, whLocLocal, 2 * NUM_POINTS * embedDims);
+
+                            Sum(weightSumLocal[NUM_POINTS * level], zerosLocal[gradWeightId * baseOffsetUb], sumParams);
+                            Sum(locSumLocal[NUM_POINTS * 2 * level], gradSampleLocLocal, sumParamsV2);
+                        }
                         WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
                         WaitFlag<HardEvent::V_MTE2>(eventIdVToMte2);
                     }
-                    SetFlag<HardEvent::V_MTE3>(eventIdVToMteWeight);
-                    WaitFlag<HardEvent::V_MTE3>(eventIdVToMteWeight);
-                    DataCopy(gradWeightGm[offsetWeight], weightSumLocal, numPoints * numLevels);
-                    DataCopy(gradLocationGm[offsetLocation], locSumLocal, numPoints * numLevels * 2);
+                    if (NUM_POINTS == 8) {
+                        SetFlag<HardEvent::V_MTE3>(eventIdVToMteWeight);
+                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMteWeight);
+                        DataCopy(gradWeightGm[offsetWeight], weightSumLocal, NUM_POINTS * numLevels);
+                        DataCopy(gradLocationGm[offsetLocation], locSumLocal, NUM_POINTS * numLevels * 2);
+                    }
                 }
             }
         }
@@ -472,8 +524,8 @@ private:
     TBuf<TPosition::VECCALC> gradSampleLocUb, whUb;
 
     uint32_t coreNum;
-    uint32_t batchSize, numKeys, numHeads, embedDims, numLevels, numQueries, numPoints;
-    uint32_t numLevelsAlign;
+    uint32_t batchSize, numKeys, numHeads, embedDims, numLevels, numQueries;
+    uint32_t numLevelsAlign, numPointsAlign;
     uint32_t batch, query, head, level, point;
     uint32_t curBlockIdx;
     uint32_t taskNum, taskNumPerCore;
@@ -485,6 +537,8 @@ private:
     uint32_t baseOffsetUb, pointOffset, tmpOffset;
     uint32_t mid1Id = 0, mid2Id = 1, mid3Id = 2, mid4Id = 3;
     uint32_t gradWWeightId = 0, gradHWeightId = 1, topGradValueId = 2, gradWeightId = 3;
+    uint32_t dstRepStride = 4, src0RepStride = 4, src1RepStride = 0;
+    uint32_t innerClean = 0;
 
     DTYPE_VALUE hIm, wIm;
     DTYPE_VALUE w1 = 0, w2 = 0, w3 = 0, w4 = 0;
@@ -511,4 +565,4 @@ private:
     event_t eventIdVToMte2, eventIdVToMte3, eventIdMte2ToV, eventIdMte3ToV, eventIdVToMteWeight, eventIdMte2ToV_1,
         eventIdMte2ToV_2;
 };
-#endif // _MS_DEFORM_ATTN_GRAD_BEV_H_
+#endif // _MS_DEFORM_ATTN_GRAD_HIGH_PERF_H_
