@@ -349,9 +349,11 @@ ads.common.three_interpolate(features: torch.Tensor, indices: torch.Tensor,
 对三维数据进行加权最近邻线性插值处理
 ### 参数说明
 - `features`：需要被插值的特征，数据类型为`float32|float16`，维度为（B, C, M）。
-- `indices`：获取目标特征计算的索引，数据类型为`int64|int32`，维度为（B, N, 3），
-  - `indices`的元素值需小于`features`的第二维度，即值在[0, C)。
+- `indices`：获取目标特征计算的索引，数据类型为`int32`，维度为（B, N, 3），
+  - `indices`的元素值需小于`features`的第二维度，即值在[0, M)。
 - `weight`：获取目标特征计算的权重，数据类型为`float32|float16`，维度为（B, N, 3）。
+  - `weight`数据类型与`features`须一致。
+- `features`，`indices`，`weights`三个参数每个维度的大小不要超过10000。
 ### 返回值
 - `output`：目标特征张量，数据类型为`float32|float16`，维度为（B, C, N）。
 ### 支持的型号
