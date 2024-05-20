@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
  */
-#include "multi_scale_deformable_attn_function_v2.h"
+#include "multi_scale_deformable_attn_tiling.h"
 
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -25,9 +25,9 @@ const uint32_t NUM_POINTS_DIM = 4;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingFuncForMultiScaleDeformableAttnFunctionV2(gert::TilingContext* context)
+static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext *context)
 {
-    MultiScaleDeformableAttnFunctionV2TilingData tiling;
+    MultiScaleDeformableAttnTilingData tiling;
 
     auto valueTensorPtr = context->GetInputTensor(INPUT_VALUE);
     auto spatialTensorPtr = context->GetInputTensor(INPUT_SPATIAL_SHAPE);
@@ -57,24 +57,24 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttnFunctionV2(gert::Til
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     currentWorkspace[0] = 0;
     return ge::GRAPH_SUCCESS;
 }
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus InferShapeForMultiScaleDeformableAttnFunctionV2(gert::InferShapeContext* context)
+static ge::graphStatus InferShapeForMultiScaleDeformableAttn(gert::InferShapeContext *context)
 {
-    const gert::Shape* valueShape = context->GetInputShape(0);
+    const gert::Shape *valueShape = context->GetInputShape(0);
     if (valueShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const gert::Shape* samplingLocationsShape = context->GetInputShape(3);
+    const gert::Shape *samplingLocationsShape = context->GetInputShape(3);
     if (samplingLocationsShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* y_shape = context->GetOutputShape(0);
+    gert::Shape *y_shape = context->GetOutputShape(0);
     if (y_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -86,7 +86,7 @@ static ge::graphStatus InferShapeForMultiScaleDeformableAttnFunctionV2(gert::Inf
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForMultiScaleDeformableAttnFunctionV2(gert::InferDataTypeContext* context)
+static ge::graphStatus InferDataTypeForMultiScaleDeformableAttn(gert::InferDataTypeContext *context)
 {
     const ge::DataType value_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, value_dtype);
@@ -95,9 +95,9 @@ static ge::graphStatus InferDataTypeForMultiScaleDeformableAttnFunctionV2(gert::
 } // namespace ge
 
 namespace ops {
-class MultiScaleDeformableAttnFunctionV2 : public OpDef {
+class MultiScaleDeformableAttn : public OpDef {
 public:
-    explicit MultiScaleDeformableAttnFunctionV2(const char* name) : OpDef(name)
+    explicit MultiScaleDeformableAttn(const char *name) : OpDef(name)
     {
         this->Input("value")
             .ParamType(REQUIRED)
@@ -135,10 +135,10 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnFunctionV2)
-            .SetInferDataType(ge::InferDataTypeForMultiScaleDeformableAttnFunctionV2);
+        this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttn)
+            .SetInferDataType(ge::InferDataTypeForMultiScaleDeformableAttn);
 
-        this->AICore().SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnFunctionV2);
+        this->AICore().SetTiling(optiling::TilingFuncForMultiScaleDeformableAttn);
 
         OpAICoreConfig aiConfig;
         aiConfig.ExtendCfgInfo("enableVectorCore.flag", "false");
@@ -148,5 +148,5 @@ public:
     }
 };
 
-OP_ADD(MultiScaleDeformableAttnFunctionV2);
+OP_ADD(MultiScaleDeformableAttn);
 } // namespace ops

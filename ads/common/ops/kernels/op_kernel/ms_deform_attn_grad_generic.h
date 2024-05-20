@@ -1,21 +1,21 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
  */
-#ifndef _MS_DEFORM_ATTN_GRAD_GENERIC_H_
-#define _MS_DEFORM_ATTN_GRAD_GENERIC_H_
+#ifndef MS_DEFORM_ATTN_GRAD_GENERIC_H_
+#define MS_DEFORM_ATTN_GRAD_GENERIC_H_
 
 #include "kernel_operator.h"
 #include "kernel_tiling/kernel_tiling.h"
 
 using namespace AscendC;
 
-class MultiScaleDeformableAttentionV2Grad {
+class MultiScaleDeformableAttnGrad {
 public:
-    __aicore__ inline MultiScaleDeformableAttentionV2Grad(){};
+    __aicore__ inline MultiScaleDeformableAttnGrad(){};
     __aicore__ inline void Init(GM_ADDR value_gm, GM_ADDR spatial_shapes_gm, GM_ADDR level_start_index_gm,
                                 GM_ADDR sampling_loc_gm, GM_ADDR attn_weight_gm, GM_ADDR grad_output_gm,
                                 GM_ADDR grad_value_gm, GM_ADDR grad_sampling_loc_gm, GM_ADDR grad_attn_weight_gm,
-                                const MultiScaleDeformableAttentionV2GradTilingData *tiling_data, TPipe *tmpPipe)
+                                const MultiScaleDeformableAttnGradTilingData *tiling_data, TPipe *tmpPipe)
     {
         pipe = tmpPipe;
         curBlockIdx = GetBlockIdx();

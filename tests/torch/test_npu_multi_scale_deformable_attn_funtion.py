@@ -1,6 +1,6 @@
 import unittest
+from collections import namedtuple
 import torch
-
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 import ads.common
@@ -42,52 +42,111 @@ def multi_scale_deformable_attn_pytorch(
                                               num_queries)
     return output.transpose(1, 2).contiguous()
 
+ExecResults = namedtuple('ExecResults', ['output', 'grad_value', 'grad_sampling_locations', 'grad_attention_weights'])
+Inputs = namedtuple('Inputs', ['value', 'shapes', 'offset', 'sampling_locations', 'attention_weights', 'grad_output'])
+
 
 class TestMultiScaleDeformableAttnFunction(TestCase):
-    def gen_data(self, shape, dtype):
-        bs, num_heads, embed_dims, num_levels, num_points, num_queries = shape
-        cpu_shapes = torch.tensor([6, 4] * num_levels).reshape(num_levels, 2)
-        num_keys = sum((H * W).item() for H, W in cpu_shapes)
-
-        cpu_value = torch.rand(bs, num_keys, num_heads, embed_dims) * 0.01
-        cpu_sampling_locations = torch.rand(bs, num_queries, num_heads, num_levels, num_points, 2)
-        cpu_attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) + 1e-5
-
-        cpu_offset = torch.cat((cpu_shapes.new_zeros((1, )), cpu_shapes.prod(1).cumsum(0)[:-1]))
- 
-        npu_value = cpu_value.npu()
-        npu_shapes = cpu_shapes.npu()
-        npu_offset = cpu_offset.npu()
-        npu_sampling_locations = cpu_sampling_locations.npu()
-        npu_attention_weights = cpu_attention_weights.npu()
-        
-        return [cpu_value, cpu_shapes, cpu_offset, cpu_sampling_locations, cpu_attention_weights], [npu_value, npu_shapes, npu_offset, npu_sampling_locations, npu_attention_weights]
-
-    def cpu_to_exec(self, cpu_data):
-        output = multi_scale_deformable_attn_pytorch(cpu_data[0].double(), cpu_data[1].long(), cpu_data[3].double(), cpu_data[4].double())
-        return output.float().numpy()
-
-    def npu_to_exec(self, npu_data):
-        output = ads.common.npu_multi_scale_deformable_attn_function(npu_data[0], npu_data[1], npu_data[2], npu_data[3], npu_data[4])
-        return output.cpu().numpy()
-
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `MultiScaleDeformableAttnFunction` is only supported on 910B, skip this ut!")
-    def test_multi_scale_deformable_attn_function(self):
-        dtype_list = [torch.float32]
-        shape_list = [
-            [6, 8, 32, 4, 8, 9680], [3, 4, 16, 6, 3, 7], [1, 8, 32, 4, 8, 30832]
+    def setUp(self):
+        self.dtype_list = [torch.float32]
+        self.shape_list = [
+            [6, 8, 32, 4, 8, 9680], 
+            [3, 4, 16, 6, 3, 7], 
+            [1, 8, 32, 4, 8, 30832]
         ]
-        items = [
+        self.items = [
             [shape, dtype]
-            for shape in shape_list
-            for dtype in dtype_list
+            for shape in self.shape_list
+            for dtype in self.dtype_list
         ]
-        for shape, dtype in items:
-            cpu_x, npu_x = self.gen_data(shape, dtype)
-            cpu_out = self.cpu_to_exec(cpu_x)
-            npu_out = self.npu_to_exec(npu_x)
-            self.assertRtolEqual(cpu_out, npu_out)
+        self.test_results = self.gen_results()
+    
+    def gen_results(self):
+        if DEVICE_NAME != 'Ascend910B':
+            self.skipTest("OP `MultiScaleDeformableAttnFunction` is only supported on 910B, skipping test data generation!")
+        test_results = []
+        for shape, dtype in self.items:
+            cpu_inputs, npu_inputs = self.gen_inputs(shape, dtype)
+            cpu_results = self.cpu_to_exec(cpu_inputs)
+            npu_results = self.npu_to_exec(npu_inputs)
+            test_results.append((cpu_results, npu_results))
+        return test_results
+    
+    def gen_inputs(self, shape, dtype):
+        bs, num_heads, embed_dims, num_levels, num_points, num_queries = shape
+        shapes = torch.tensor([6, 4] * num_levels).reshape(num_levels, 2)
+        num_keys = sum((H * W).item() for H, W in shapes)
 
+        value = torch.rand(bs, num_keys, num_heads, embed_dims) * 0.01
+        sampling_locations = torch.rand(bs, num_queries, num_heads, num_levels, num_points, 2)
+        attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) + 1e-5
+        offset = torch.cat((shapes.new_zeros((1, )), shapes.prod(1).cumsum(0)[:-1]))
+        grad_output = torch.rand(bs, num_queries, num_heads * embed_dims)
+        
+        cpu_value = value.double()
+        cpu_shapes = shapes.long()
+        cpu_sampling_locations = sampling_locations.double()
+        cpu_attention_weights = attention_weights.double()
+        cpu_grad_output = grad_output.double()
+        
+        cpu_value.requires_grad_()
+        cpu_sampling_locations.requires_grad_()
+        cpu_attention_weights.requires_grad_()
+ 
+        npu_value = value.npu()
+        npu_shapes = shapes.npu()
+        npu_offset = offset.npu()
+        npu_sampling_locations = sampling_locations.npu()
+        npu_attention_weights = attention_weights.npu()
+        npu_grad_output = grad_output.npu()
+        
+        npu_value.requires_grad_()
+        npu_sampling_locations.requires_grad_()
+        npu_attention_weights.requires_grad_()
+        
+        return Inputs(cpu_value, cpu_shapes, None, cpu_sampling_locations, cpu_attention_weights, cpu_grad_output), \
+               Inputs(npu_value, npu_shapes, npu_offset, npu_sampling_locations, npu_attention_weights, npu_grad_output)
 
+    def cpu_to_exec(self, cpu_inputs):
+        cpu_value = cpu_inputs.value
+        cpu_shapes = cpu_inputs.shapes
+        cpu_sampling_locations = cpu_inputs.sampling_locations
+        cpu_attention_weights = cpu_inputs.attention_weights
+        cpu_grad_output = cpu_inputs.grad_output
+        cpu_output = multi_scale_deformable_attn_pytorch(cpu_value, cpu_shapes, cpu_sampling_locations, cpu_attention_weights)
+        cpu_output.backward(cpu_grad_output)
+        return ExecResults(
+            output=cpu_output.detach().float().numpy(),
+            grad_value=cpu_value.grad.float().numpy(),
+            grad_sampling_locations=cpu_sampling_locations.grad.float().numpy(),
+            grad_attention_weights=cpu_attention_weights.grad.float().numpy()
+        )
+
+    def npu_to_exec(self, npu_inputs):
+        npu_value = npu_inputs.value
+        npu_shapes = npu_inputs.shapes
+        npu_offset = npu_inputs.offset
+        npu_sampling_locations = npu_inputs.sampling_locations
+        npu_attention_weights = npu_inputs.attention_weights
+        npu_grad_output = npu_inputs.grad_output
+        npu_output = ads.common.npu_multi_scale_deformable_attn_function(npu_value, npu_shapes, npu_offset, npu_sampling_locations, npu_attention_weights)
+        npu_output.backward(npu_grad_output)
+        return ExecResults(
+            output=npu_output.detach().cpu().numpy(),
+            grad_value=npu_value.grad.cpu().numpy(),
+            grad_sampling_locations=npu_sampling_locations.grad.cpu().numpy(),
+            grad_attention_weights=npu_attention_weights.grad.cpu().numpy()
+        )
+
+    def test_multi_scale_deformable_attn_function_forward(self):
+        for cpu_results, npu_results in self.test_results:
+            self.assertRtolEqual(cpu_results.output, npu_results.output)
+      
+    def test_multi_scale_deformable_attn_function_backward(self):
+        for cpu_results, npu_results in self.test_results:
+            self.assertRtolEqual(cpu_results.grad_value, npu_results.grad_value)
+            self.assertRtolEqual(cpu_results.grad_sampling_locations, npu_results.grad_sampling_locations)
+            self.assertRtolEqual(cpu_results.grad_attention_weights, npu_results.grad_attention_weights)
+ 
 if __name__ == '__main__':
     run_tests()

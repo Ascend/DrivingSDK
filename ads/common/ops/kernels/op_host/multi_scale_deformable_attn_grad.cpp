@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
  */
-#include "multi_scale_deformable_attention_v2_grad.h"
+#include "multi_scale_deformable_attn_grad_tiling.h"
 
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -30,9 +30,9 @@ const uint32_t TILING_KEY_GENERIC = 3;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionV2Grad(gert::TilingContext* context)
+static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingContext *context)
 {
-    MultiScaleDeformableAttentionV2GradTilingData tiling;
+    MultiScaleDeformableAttnGradTilingData tiling;
 
     auto valueTensorPtr = context->GetInputTensor(INPUT_VALUE);
     auto spatialTensorPtr = context->GetInputTensor(INPUT_SPATIAL_SHAPE);
@@ -67,7 +67,7 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionV2Grad(gert::Ti
     tiling.set_numLevels(numLevels);
     tiling.set_numQueries(numQueries);
     tiling.set_numPoints(numPoints);
-    
+
     if (numPoints == 2 && embedDims == 32) {
         context->SetTilingKey(TILING_KEY_NP_TWO);
     } else if (numPoints == 4 && embedDims == 32) {
@@ -82,30 +82,30 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttentionV2Grad(gert::Ti
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     currentWorkspace[0] = 16 * 1024 * 1024;
     return ge::GRAPH_SUCCESS;
 }
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus InferShapeForMultiScaleDeformableAttentionV2Grad(gert::InferShapeContext* context)
+static ge::graphStatus InferShapeForMultiScaleDeformableAttnGrad(gert::InferShapeContext *context)
 {
-    const gert::Shape* value_shape = context->GetInputShape(0);
+    const gert::Shape *value_shape = context->GetInputShape(0);
     if (value_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const gert::Shape* sampling_locations_shape = context->GetInputShape(INPUT_LOCATION);
+    const gert::Shape *sampling_locations_shape = context->GetInputShape(INPUT_LOCATION);
     if (sampling_locations_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const gert::Shape* attn_weight_shape = context->GetInputShape(INPUT_ATTN_WEIGHT);
+    const gert::Shape *attn_weight_shape = context->GetInputShape(INPUT_ATTN_WEIGHT);
     if (attn_weight_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* grad_value_shape = context->GetOutputShape(0);
-    gert::Shape* grad_sample_loc_shape = context->GetOutputShape(1);
-    gert::Shape* grad_attn_weight_shape = context->GetOutputShape(OUTPUT_ATTN_WEIGHT);
+    gert::Shape *grad_value_shape = context->GetOutputShape(0);
+    gert::Shape *grad_sample_loc_shape = context->GetOutputShape(1);
+    gert::Shape *grad_attn_weight_shape = context->GetOutputShape(OUTPUT_ATTN_WEIGHT);
     if ((grad_value_shape == nullptr) || (grad_sample_loc_shape == nullptr) || (grad_attn_weight_shape == nullptr)) {
         return ge::GRAPH_FAILED;
     }
@@ -117,9 +117,9 @@ static ge::graphStatus InferShapeForMultiScaleDeformableAttentionV2Grad(gert::In
 } // namespace ge
 
 namespace ops {
-class MultiScaleDeformableAttentionV2Grad : public OpDef {
+class MultiScaleDeformableAttnGrad : public OpDef {
 public:
-    explicit MultiScaleDeformableAttentionV2Grad(const char* name) : OpDef(name)
+    explicit MultiScaleDeformableAttnGrad(const char *name) : OpDef(name)
     {
         this->Input("value")
             .ParamType(REQUIRED)
@@ -173,13 +173,11 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttentionV2Grad);
-
-        this->AICore().SetTiling(optiling::TilingFuncForMultiScaleDeformableAttentionV2Grad);
-
+        this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnGrad);
+        this->AICore().SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnGrad);
         this->AICore().AddConfig("ascend910b");
     }
 };
 
-OP_ADD(MultiScaleDeformableAttentionV2Grad);
+OP_ADD(MultiScaleDeformableAttnGrad);
 } // namespace ops

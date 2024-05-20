@@ -6,12 +6,12 @@
 #include "kernel_operator.h"
 using namespace AscendC;
 
-class KernelMultiScaleDeformableAttnFunctionV2 {
+class KernelMultiScaleDeformableAttn {
 public:
-    __aicore__ inline KernelMultiScaleDeformableAttnFunctionV2() {}
+    __aicore__ inline KernelMultiScaleDeformableAttn() {}
     __aicore__ inline void Init(GM_ADDR value, GM_ADDR valueSpatialShapes, GM_ADDR valuLevelStartIndex,
-        GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR output,
-        const MultiScaleDeformableAttnFunctionV2TilingData* tiling_data, TPipe* tmpPipe)
+                                GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR output,
+                                const MultiScaleDeformableAttnTilingData *tiling_data, TPipe *tmpPipe)
     {
         pipe = tmpPipe;
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
@@ -42,26 +42,26 @@ public:
             endOffset = taskNum;
         }
 
-        valueGm.SetGlobalBuffer(
-            reinterpret_cast<__gm__ DTYPE_VALUE*>(value), batchSize * numKeys * numHeads * embedDims);
-        locationGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE*>(samplingLocations),
-            batchSize * numQueries * numHeads * numLevels * numPoints * 2);
-        attentionWeightsGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE*>(attentionWeights),
-            batchSize * numQueries * numHeads * numLevels * numPoints);
-        outputGm.SetGlobalBuffer(
-            reinterpret_cast<__gm__ DTYPE_VALUE*>(output), batchSize * numQueries * numHeads * embedDims);
+        valueGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(value),
+                                batchSize * numKeys * numHeads * embedDims);
+        locationGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(samplingLocations),
+                                   batchSize * numQueries * numHeads * numLevels * numPoints * 2);
+        attentionWeightsGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(attentionWeights),
+                                           batchSize * numQueries * numHeads * numLevels * numPoints);
+        outputGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE *>(output),
+                                 batchSize * numQueries * numHeads * embedDims);
 
-        valueSpatialShapesGm.SetGlobalBuffer(
-            reinterpret_cast<__gm__ DTYPE_VALUE_SPATIAL_SHAPES*>(valueSpatialShapes), numLevels * 2);
+        valueSpatialShapesGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_VALUE_SPATIAL_SHAPES *>(valueSpatialShapes),
+                                             numLevels * 2);
         valueLevelStartIndexGm.SetGlobalBuffer(
-            reinterpret_cast<__gm__ DTYPE_VALUE_SPATIAL_SHAPES*>(valuLevelStartIndex), numLevels);
+            reinterpret_cast<__gm__ DTYPE_VALUE_SPATIAL_SHAPES *>(valuLevelStartIndex), numLevels);
 
         pipe->InitBuffer(shapeQueue, AlignUp(numLevels * 2, dataAlign) * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(offsetQueue, numLevelsAlign * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(locationQueue, 2 * numPointsAlign * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(
-            attentionWeightsUb, AlignUp(numHeads * numLevels * numPoints, dataAlign) * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(attentionWeightsUb,
+                         AlignUp(numHeads * numLevels * numPoints, dataAlign) * sizeof(DTYPE_VALUE));
         pipe->InitBuffer(outputQueue, embedDims * sizeof(DTYPE_VALUE));
 
         pipe->InitBuffer(emptyUb, numHeads * embedDims * sizeof(DTYPE_VALUE));
@@ -110,8 +110,7 @@ private:
         return -1 < x && x < upper;
     }
 
-    template<uint32_t NUM_POINTS>
-    __aicore__ inline void ComputeOpt()
+    template <uint32_t NUM_POINTS> __aicore__ inline void ComputeOpt()
     {
         LocalTensor<DTYPE_VALUE> locationLocal = locationQueue.Get<DTYPE_VALUE>();
         LocalTensor<DTYPE_VALUE> attentionWeightLocal = attentionWeightsUb.Get<DTYPE_VALUE>();
@@ -159,9 +158,10 @@ private:
         uint32_t srcShape_[2] = {4 * numPointsAlignOpt, 1};
         uint32_t dstShape_[2] = {4 * numPointsAlignOpt, embedDimsOpt};
 
-        DataCopyExtParams copyParams {2, uint32_t(embedDimsOpt * sizeof(DTYPE_VALUE)), 0,
+        DataCopyExtParams copyParams{
+            2, uint32_t(embedDimsOpt * sizeof(DTYPE_VALUE)), 0,
             uint32_t((NUM_POINTS * embedDimsOptTwice - embedDimsOpt) * sizeof(DTYPE_VALUE) / 32), 0};
-        DataCopyPadExtParams<DTYPE_VALUE> padParams {false, 0, 0, 0};
+        DataCopyPadExtParams<DTYPE_VALUE> padParams{false, 0, 0, 0};
         for (uint32_t query = startOffset; query < endOffset; query++) {
             for (uint32_t batch = 0; batch < batchSize; batch++) {
                 baseOffset = batch * numHeads * numKeys;
@@ -180,7 +180,7 @@ private:
                     } else {
                         DataCopy(locationLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
                         DataCopy(locationLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + NUM_POINTS],
-                            numPointsAlignOpt);
+                                 numPointsAlignOpt);
                     }
                     DataCopy(attentionWeightLocal, attentionWeightsGm[weightOffset], numPointsAlignOpt);
                     SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
@@ -215,25 +215,27 @@ private:
                             if (isInRange(y0, h)) {
                                 if (0 < x1 && x1 < w) {
                                     DataCopyPad(valueLocal[point * embedDimsOpt],
-                                        valueGm[valueOffset + (y0 * w + x0) * embedDimsOpt], copyParams, padParams);
+                                                valueGm[valueOffset + (y0 * w + x0) * embedDimsOpt], copyParams,
+                                                padParams);
                                 } else if (isInRange(x0, w)) {
                                     DataCopy(valueLocal[point * embedDimsOpt],
-                                        valueGm[valueOffset + (y0 * w + x0) * embedDimsOpt], embedDimsOpt);
+                                             valueGm[valueOffset + (y0 * w + x0) * embedDimsOpt], embedDimsOpt);
                                 } else if (isInRange(x1, w)) {
                                     DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOptTwice],
-                                        valueGm[valueOffset + (y0 * w + x1) * embedDimsOpt], embedDimsOpt);
+                                             valueGm[valueOffset + (y0 * w + x1) * embedDimsOpt], embedDimsOpt);
                                 }
                             }
                             if (isInRange(y1, h)) {
                                 if (0 < x1 && x1 < w) {
                                     DataCopyPad(valueLocal[(point + NUM_POINTS) * embedDimsOpt],
-                                        valueGm[valueOffset + (y1 * w + x0) * embedDimsOpt], copyParams, padParams);
+                                                valueGm[valueOffset + (y1 * w + x0) * embedDimsOpt], copyParams,
+                                                padParams);
                                 } else if (isInRange(x0, w)) {
                                     DataCopy(valueLocal[(point + NUM_POINTS) * embedDimsOpt],
-                                        valueGm[valueOffset + (y1 * w + x0) * embedDimsOpt], embedDimsOpt);
+                                             valueGm[valueOffset + (y1 * w + x0) * embedDimsOpt], embedDimsOpt);
                                 } else if (isInRange(x1, w)) {
                                     DataCopy(valueLocal[point * embedDimsOpt + NUM_POINTS * embedDimsOptTriple],
-                                        valueGm[valueOffset + (y1 * w + x1) * embedDimsOpt], embedDimsOpt);
+                                             valueGm[valueOffset + (y1 * w + x1) * embedDimsOpt], embedDimsOpt);
                                 }
                             }
                         }
@@ -283,7 +285,7 @@ private:
                             } else {
                                 DataCopy(locationLocal, locationGm[weightOffset * 2], numPointsAlignOpt);
                                 DataCopy(locationLocal[numPointsAlignOpt], locationGm[weightOffset * 2 + NUM_POINTS],
-                                    numPointsAlignOpt);
+                                         numPointsAlignOpt);
                             }
                             DataCopy(attentionWeightLocal, attentionWeightsGm[weightOffset], numPointsAlignOpt);
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
@@ -406,25 +408,25 @@ private:
                             if (isInRange(y0, h)) {
                                 if (0 < x1 && x1 < w) {
                                     DataCopy(valueLocal[point * embedDims * 2],
-                                        valueGm[valueOffset + (y0 * w + x0) * embedDims], 2 * embedDims);
+                                             valueGm[valueOffset + (y0 * w + x0) * embedDims], 2 * embedDims);
                                 } else if (isInRange(x0, w)) {
                                     DataCopy(valueLocal[point * embedDims * 2],
-                                        valueGm[valueOffset + (y0 * w + x0) * embedDims], embedDims);
+                                             valueGm[valueOffset + (y0 * w + x0) * embedDims], embedDims);
                                 } else if (isInRange(x1, w)) {
                                     DataCopy(valueLocal[point * embedDims * 2 + embedDims],
-                                        valueGm[valueOffset + (y0 * w + x1) * embedDims], embedDims);
+                                             valueGm[valueOffset + (y0 * w + x1) * embedDims], embedDims);
                                 }
                             }
                             if (isInRange(y1, h)) {
                                 if (0 < x1 && x1 < w) {
                                     DataCopy(valueLocal[batchOffset * 2 + point * embedDims * 2],
-                                        valueGm[valueOffset + (y1 * w + x0) * embedDims], 2 * embedDims);
+                                             valueGm[valueOffset + (y1 * w + x0) * embedDims], 2 * embedDims);
                                 } else if (isInRange(x0, w)) {
                                     DataCopy(valueLocal[batchOffset * 2 + point * embedDims * 2],
-                                        valueGm[valueOffset + (y1 * w + x0) * embedDims], embedDims);
+                                             valueGm[valueOffset + (y1 * w + x0) * embedDims], embedDims);
                                 } else if (isInRange(x1, w)) {
                                     DataCopy(valueLocal[batchOffset * 2 + point * embedDims * 2 + embedDims],
-                                        valueGm[valueOffset + (y1 * w + x1) * embedDims], embedDims);
+                                             valueGm[valueOffset + (y1 * w + x1) * embedDims], embedDims);
                                 }
                             }
                         }
@@ -449,8 +451,8 @@ private:
                             weightOffset = dataOffset + ((head + 1) * numLevels + level) * numPoints;
                             locationOffset = weightOffset * 2;
                             DataCopy(locationLocal, locationGm[locationOffset], numPointsAlign);
-                            DataCopy(
-                                locationLocal[numPointsAlign], locationGm[locationOffset + numPoints], numPointsAlign);
+                            DataCopy(locationLocal[numPointsAlign], locationGm[locationOffset + numPoints],
+                                     numPointsAlign);
                             DataCopy(attentionWeightLocal, attentionWeightsGm[weightOffset], numPointsAlign);
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
                         }
@@ -465,11 +467,11 @@ private:
                             rightBottomWeight = weightLocal.GetValue(point);
 
                             Duplicate<DTYPE_VALUE>(cornerWeightLocal[tmpOffset1], leftTopWeight, embedDims);
-                            Duplicate<DTYPE_VALUE>(
-                                cornerWeightLocal[tmpOffset1 + embedDims], rightTopWeight, embedDims);
+                            Duplicate<DTYPE_VALUE>(cornerWeightLocal[tmpOffset1 + embedDims], rightTopWeight,
+                                                   embedDims);
                             Duplicate<DTYPE_VALUE>(cornerWeightLocal[tmpOffset2], leftBottomWeight, embedDims);
-                            Duplicate<DTYPE_VALUE>(
-                                cornerWeightLocal[tmpOffset2 + embedDims], rightBottomWeight, embedDims);
+                            Duplicate<DTYPE_VALUE>(cornerWeightLocal[tmpOffset2 + embedDims], rightBottomWeight,
+                                                   embedDims);
                         }
 
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
@@ -501,7 +503,7 @@ private:
     }
 
 private:
-    TPipe* pipe;
+    TPipe *pipe;
     GlobalTensor<DTYPE_VALUE> valueGm, locationGm, attentionWeightsGm, outputGm;
     GlobalTensor<DTYPE_VALUE_SPATIAL_SHAPES> valueSpatialShapesGm, valueLevelStartIndexGm;
 
@@ -551,14 +553,15 @@ private:
     DTYPE_VALUE_SPATIAL_SHAPES h, w, x0, y0, x1, y1;
 };
 
-extern "C" __global__ __aicore__ void multi_scale_deformable_attn_function_v2(GM_ADDR value,
-    GM_ADDR value_spatial_shapes, GM_ADDR value_level_start_index, GM_ADDR sampling_locations,
-    GM_ADDR attention_weights, GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling)
+extern "C" __global__ __aicore__ void multi_scale_deformable_attn(GM_ADDR value, GM_ADDR value_spatial_shapes,
+                                                                  GM_ADDR value_level_start_index,
+                                                                  GM_ADDR sampling_locations, GM_ADDR attention_weights,
+                                                                  GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling)
 {
     TPipe pipe;
     GET_TILING_DATA(tiling_data, tiling);
-    KernelMultiScaleDeformableAttnFunctionV2 op;
+    KernelMultiScaleDeformableAttn op;
     op.Init(value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, output,
-        &tiling_data, &pipe);
+            &tiling_data, &pipe);
     op.Process();
 }

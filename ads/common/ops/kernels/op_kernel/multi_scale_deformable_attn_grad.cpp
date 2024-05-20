@@ -15,14 +15,14 @@
  */
 
 /*!
- * \file multi_scale_deformable_attention_v2_grad.cpp
+ * \file multi_scale_deformable_attn_grad.cpp
  * \brief
  */
 #include "ms_deform_attn_grad_high_perf.h"
 #include "ms_deform_attn_grad_generic.h"
 
 // core func
-extern "C" __global__ __aicore__ void multi_scale_deformable_attention_v2_grad(
+extern "C" __global__ __aicore__ void multi_scale_deformable_attn_grad(
     GM_ADDR value_gm, GM_ADDR spatial_shapes_gm, GM_ADDR level_start_index_gm, GM_ADDR sampling_loc_gm,
     GM_ADDR attn_weight_gm, GM_ADDR grad_output_gm, GM_ADDR grad_value_gm, GM_ADDR grad_sampling_loc_gm,
     GM_ADDR grad_attn_weight_gm, GM_ADDR workspace, GM_ADDR tiling_data)
@@ -31,7 +31,7 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attention_v2_grad(
     GET_TILING_DATA(tiling_datas, tiling_data);
     uint32_t numPoints = tiling_datas.numPoints;
     if (TILING_KEY_IS(0)) {
-        MultiScaleDeformableAttentionV2GradHighPerf<2> op;
+        MultiScaleDeformableAttnGradHighPerf<2> op;
         op.Init(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm, attn_weight_gm, grad_output_gm,
                 grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas, &pipe);
         op.InitBuffer();
@@ -39,7 +39,7 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attention_v2_grad(
         op.Process();
         op.ReleaseEventID();
     } else if (TILING_KEY_IS(1)) {
-        MultiScaleDeformableAttentionV2GradHighPerf<4> op;
+        MultiScaleDeformableAttnGradHighPerf<4> op;
         op.Init(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm, attn_weight_gm, grad_output_gm,
                 grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas, &pipe);
         op.InitBuffer();
@@ -47,16 +47,15 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attention_v2_grad(
         op.Process();
         op.ReleaseEventID();
     } else if (TILING_KEY_IS(2)) {
-        MultiScaleDeformableAttentionV2GradHighPerf<8> op;
+        MultiScaleDeformableAttnGradHighPerf<8> op;
         op.Init(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm, attn_weight_gm, grad_output_gm,
                 grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas, &pipe);
         op.InitBuffer();
         op.GetLocalTensor();
         op.Process();
         op.ReleaseEventID();
-    }
-    else if (TILING_KEY_IS(3)) {
-        MultiScaleDeformableAttentionV2Grad op;
+    } else if (TILING_KEY_IS(3)) {
+        MultiScaleDeformableAttnGrad op;
         op.Init(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm, attn_weight_gm, grad_output_gm,
                 grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas, &pipe);
         op.InitBuffer();
