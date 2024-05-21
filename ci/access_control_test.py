@@ -15,16 +15,16 @@
 # -*- coding: UTF-8 -*-
 
 import os
-import re
-import sys
-import subprocess
-import threading
 import queue
+import re
+import subprocess
+import sys
+import threading
+import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-import warnings
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))  # project root
 TEST_DIR = os.path.join(BASE_DIR, "tests", "torch")
 
 
@@ -37,7 +37,6 @@ def check_path_owner_consistent(path: str):
     Exception Description:
         when invalid path, prompt the user
     """
-
     if not os.path.exists(path):
         msg = f"The path does not exist: {path}"
         raise RuntimeError(msg)
@@ -46,14 +45,6 @@ def check_path_owner_consistent(path: str):
 
 
 def check_directory_path_readable(path):
-    """
-    Function Description:
-        check whether the path is writable
-    Parameter:
-        path: the path to check
-    Exception Description:
-        when invalid data throw exception
-    """
     check_path_owner_consistent(path)
     if os.path.islink(path):
         msg = f"Invalid path is a soft chain: {path}"
@@ -66,9 +57,6 @@ def check_directory_path_readable(path):
 class AccurateTest(metaclass=ABCMeta):
     @abstractmethod
     def identify(self, modify_file):
-        """
-        该接口提供代码对应的UT的路径信息
-        """
         raise Exception("abstract method. Subclasses should implement it.")
 
     @staticmethod
@@ -79,66 +67,61 @@ class AccurateTest(metaclass=ABCMeta):
         if status or not output:
             pass  # 对于找不到的暂时不作处理
         else:
-            files = output.split('\n')
+            files = output.split("\n")
             for ut_file in files:
+                if ut_file.endswith("run_test.py"):
+                    continue
                 if ut_file.endswith(".py"):
                     ut_files.append(ut_file)
         return ut_files
 
 
 class OpStrategy(AccurateTest):
-    """
-    通过对适配层的代码的识别
-    """
+    def split_string(self, filename):
+        words = []
+        word = ""
+
+        for char in filename:
+            if char.isupper():
+                if word:
+                    words.append(word.lower())
+                word = char
+            elif char == "_":
+                if word:
+                    words.append(word.lower())
+                word = ""
+            else:
+                word += char
+
+        if word:
+            words.append(word.lower())
+        return words
 
     def identify(self, modify_file):
-        """
-        通过对于算子实现文件的文件名解析获取其单元测试的名字，比如：
-        BinaryCrossEntropyWithLogitsBackwardKernelNpu.cpp
-        针对这个文件，先识别关键字BinaryCrossEntropyWithLogitsBackward
-        然后，获取其正则表达式*binary*cross*entropy*with*logits*backward*识别到符合要求的测试用例
-        具体方法：通过大写字母切分关键字，再识别包含所有这些关键字的测试文件名。
-        """
-
         filename = Path(modify_file).name
-        if filename.find('KernelNpu') >= 0:
-            feature_line = filename.split('KernelNpu')[0]
-            features = re.findall('[A-Z][^A-Z]*', feature_line)
-            regex = '*' + '*'.join([f"{feature.lower()}" for feature in features]) + '*'
-            return AccurateTest.find_ut_by_regex(regex)
-        return []
+        features = self.split_string(filename)
+        # the last word could be v2, tiling, backward etc.
+        if len(features) > 1:
+            features = features[:-1]
+        regex = "*" + "*".join([f"{feature.lower()}" for feature in features]) + "*"
+        return AccurateTest.find_ut_by_regex(regex)
 
 
 class DirectoryStrategy(AccurateTest):
-    """
-    Determine whether the modified files are test cases
-    """
-
     def identify(self, modify_file):
-        is_test_file = str(Path(modify_file).parts[0]) == "tests" \
+        path_modify_file = Path(modify_file)
+        is_test_file = (
+            str(path_modify_file.parts[0]) == "tests"
+            and str(path_modify_file.parts[1]) == "torch"
             and re.match("test_(.+).py", Path(modify_file).name)
+        )
         return [str(os.path.join(BASE_DIR, modify_file))] if is_test_file else []
 
 
-class CopyOptStrategy(AccurateTest):
-    """
-    通过识别非连续转连续的测试用例
-    """
-
-    def identify(self, modify_file):
-        if modify_file.find('contiguous') > 0:
-            regex = '*contiguous*'
-            return AccurateTest.find_ut_by_regex(regex)
-        return []
-
-
-class TestMgr():
+class TestMgr:
     def __init__(self):
         self.modify_files = []
-        self.test_files = {
-            'ut_files': [],
-            'op_ut_files': []
-        }
+        self.test_files = {"ut_files": [], "op_ut_files": []}
 
     def load(self, modify_files):
         check_directory_path_readable(modify_files)
@@ -148,24 +131,13 @@ class TestMgr():
                 self.modify_files.append(line)
 
     def analyze(self):
-        # determine whether the modification is about hostapi
-        def is_hostapi_enabled(modify_file):
-            if str(Path(modify_file).parent.name) == 'op_api':
-                os.environ['HOSTAPI_ENABLED'] = 'ON'
-
         for modify_file in self.modify_files:
-            is_hostapi_enabled(modify_file)
-            self.test_files['ut_files'] += DirectoryStrategy().identify(modify_file)
-            self.test_files['ut_files'] += CopyOptStrategy().identify(modify_file)
-            self.test_files['ut_files'] += OpStrategy().identify(modify_file)
-        unique_files = sorted(set(self.test_files['ut_files']))
+            self.test_files["ut_files"] += DirectoryStrategy().identify(modify_file)
+            self.test_files["ut_files"] += OpStrategy().identify(modify_file)
+        unique_files = sorted(set(self.test_files["ut_files"]))
 
-        exist_ut_file = [
-            changed_file
-            for changed_file in unique_files
-            if Path(changed_file).exists()
-        ]
-        self.test_files['ut_files'] = exist_ut_file
+        exist_ut_file = [changed_file for changed_file in unique_files if Path(changed_file).exists()]
+        self.test_files["ut_files"] = exist_ut_file
 
     def get_test_files(self):
         return self.test_files
@@ -177,22 +149,18 @@ class TestMgr():
 
     def print_ut_files(self):
         print("ut files:")
-        for ut_file in self.test_files['ut_files']:
+        for ut_file in self.test_files["ut_files"]:
             print(ut_file)
 
     def print_op_ut_files(self):
         print("op ut files:")
-        for op_ut_file in self.test_files['op_ut_files']:
+        for op_ut_file in self.test_files["op_ut_files"]:
             print(op_ut_file)
 
 
 def exec_ut(files):
-    """
-    执行单元测试文件，其中存在失败，则标识异常并打印相关信息
-    """
-
     def get_op_name(ut_file):
-        return ut_file.split('/')[-1].split('.')[0].lstrip('test_')
+        return ut_file.split("/")[-1].split(".")[0].lstrip("test_")
 
     def get_ut_name(ut_file):
         return str(Path(ut_file).relative_to(TEST_DIR))[:-3]
@@ -208,8 +176,8 @@ def exec_ut(files):
         event_timer.set()
 
     def enqueue_output(out, log_queue):
-        for line in iter(out.readline, b''):
-            log_queue.put(line.decode('utf-8'))
+        for line in iter(out.readline, b""):
+            log_queue.put(line.decode("utf-8"))
         out.close()
         return
 
@@ -219,7 +187,7 @@ def exec_ut(files):
         stdout_t.start()
 
     def print_subprocess_log(log_queue):
-        while (not log_queue.empty()):
+        while not log_queue.empty():
             print((log_queue.get()).strip())
 
     def run_cmd_with_timeout(cmd):
@@ -271,7 +239,7 @@ def exec_ut(files):
 
 
 if __name__ == "__main__":
-    cur_modify_files = str(os.path.join(BASE_DIR, 'modify_files.txt'))
+    cur_modify_files = str(os.path.join(BASE_DIR, "modify_files.txt"))
     test_mgr = TestMgr()
     test_mgr.load(cur_modify_files)
     test_mgr.analyze()
