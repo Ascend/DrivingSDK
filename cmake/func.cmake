@@ -217,8 +217,8 @@ function(add_bin_compile_target)
       COMMAND
         export HI_PYTHON=${ASCEND_PYTHON_EXECUTABLE} && export
         ASCEND_CUSTOM_OPP_PATH=${ADS_PATH}/packages/vendors/${vendor_name}
-        && bash ${bin_script} ${BINCMP_OUT_DIR}/src/${op_type}.py
-        ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/${op_file}
+        && bash ${CMAKE_SOURCE_DIR}/scripts/retry.sh \"bash ${bin_script} ${BINCMP_OUT_DIR}/src/${op_type}.py
+${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/${op_file}\"
       WORKING_DIRECTORY ${BINCMP_OUT_DIR})
     add_dependencies(${BINCMP_TARGET}_${op_file}_${op_index} ${BINCMP_TARGET}
                      ${BINCMP_TARGET}_${op_file}_copy)
