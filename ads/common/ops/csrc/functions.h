@@ -49,4 +49,7 @@ std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor& boxes, double 
 
 std::tuple<at::Tensor, at::Tensor> nms3d(const at::Tensor& boxes, double threshold);
 at::Tensor npu_scatter_mean_grad(const at::Tensor &grad_out, const at::Tensor &index, int32_t dim);
+std::tuple<at::Tensor &, at::Tensor &> voxel_pooling_train(const at::Tensor& inputFeatures, const at::Tensor& geom,
+    at::Tensor& outputFeatures, at::Tensor& posMemo, int batchSize, int numPoints, int numChannels,
+    int numVoxelX, int numVoxelY, int numVoxelZ);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_

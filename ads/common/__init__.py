@@ -12,3 +12,4 @@ from .ops.furthest_point_sampling import npu_furthest_point_sampling
 from .ops.npu_nms3d import npu_nms3d
 from .ops.rotated_overlaps import npu_rotated_overlaps
 from .ops.npu_scatter_mean_grad import npu_scatter_mean_grad
+from .ops.voxel_pooling_train import npu_voxel_pooling_train
