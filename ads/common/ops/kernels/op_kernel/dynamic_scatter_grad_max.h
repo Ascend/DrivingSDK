@@ -72,9 +72,7 @@ private:
                 SetFlag<HardEvent::S_MTE2>(this->eventIdSToMTE2);
                 WaitFlag<HardEvent::S_MTE2>(this->eventIdSToMTE2);
                 DataCopy(compareMaskLocal, compareMaskGm[this->point_idx * maskDim], copyMaskParams);
-
-                SetFlag<HardEvent::MTE2_V>(this->eventIdMTE2ToV);
-                WaitFlag<HardEvent::MTE2_V>(this->eventIdMTE2ToV);
+                PipeBarrier<PIPE_ALL>();
                 Select<T, uint8_t>(pointGradLocal, compareMaskLocal, voxelGradLocal, zeroLocal,
                     SELMODE::VSEL_TENSOR_TENSOR_MODE, this->featDim);
                 PipeBarrier<PIPE_ALL>();

@@ -108,20 +108,16 @@ class TestDynamicScatter(TestCase):
         reduce_type = "sum"
         feats_shape = (point_num, feats_dim)
         voxel_shape = (voxel_num, feats_dim)
+        mask_dim = (feats_dim + 8 - 1) // 8
+        mask_shape = (point_num, mask_dim)
 
         golden_result = torch.zeros(feats_shape, dtype=torch.float)
         grad_point_feats = torch.zeros(feats_shape, dtype=torch.float).npu()
         grad_voxel_feats = torch.rand(voxel_shape, dtype=torch.float).npu()
         prefix_sum_point_per_voxel = torch.tensor([i * 2 for i in range(1, voxel_num)], dtype=torch.int32).npu()
         argsort_coor = torch.tensor(list(range(0, point_num)), dtype=torch.int32).npu()
-        mask = []
-        for i in range((feats_dim + 8 - 1) // 8):
-            if i % 2 == 0:
-                binary = '10101010'
-            else:
-                binary = '01010101'
-            mask.append(int(binary, 2))
-        compare_mask = torch.tensor([mask for _ in range(point_num)], dtype=torch.uint8).npu()
+        compare_mask = torch.randint(0, 255, mask_shape).to(torch.uint8).npu()
+
         self.grad_cpu_op_exec([golden_result, grad_voxel_feats.contiguous().cpu(), prefix_sum_point_per_voxel.cpu(),
                               argsort_coor.cpu(), compare_mask.cpu()], reduce_type)
         ads_c.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),
@@ -134,20 +130,16 @@ class TestDynamicScatter(TestCase):
         reduce_type = "mean"
         feats_shape = (point_num, feats_dim)
         voxel_shape = (voxel_num, feats_dim)
+        mask_dim = (feats_dim + 8 - 1) // 8
+        mask_shape = (point_num, mask_dim)
 
         golden_result = torch.zeros(feats_shape, dtype=torch.float)
         grad_point_feats = torch.zeros(feats_shape, dtype=torch.float).npu()
         grad_voxel_feats = torch.rand(voxel_shape, dtype=torch.float).npu()
         prefix_sum_point_per_voxel = torch.tensor([i * 2 for i in range(1, voxel_num)], dtype=torch.int32).npu()
         argsort_coor = torch.tensor(list(range(0, point_num)), dtype=torch.int32).npu()
-        mask = []
-        for i in range((feats_dim + 8 - 1) // 8):
-            if i % 2 == 0:
-                binary = '10101010'
-            else:
-                binary = '01010101'
-            mask.append(int(binary, 2))
-        compare_mask = torch.tensor([mask for _ in range(point_num)], dtype=torch.uint8).npu()
+        compare_mask = torch.randint(0, 255, mask_shape).to(torch.uint8).npu()
+
         self.grad_cpu_op_exec([golden_result, grad_voxel_feats.contiguous().cpu(), prefix_sum_point_per_voxel.cpu(),
                               argsort_coor.cpu(), compare_mask.cpu()], reduce_type)
         ads_c.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),
@@ -160,20 +152,16 @@ class TestDynamicScatter(TestCase):
         reduce_type = "max"
         feats_shape = (point_num, feats_dim)
         voxel_shape = (voxel_num, feats_dim)
+        mask_dim = (feats_dim + 8 - 1) // 8
+        mask_shape = (point_num, mask_dim)
 
         golden_result = torch.zeros(feats_shape, dtype=torch.float)
         grad_point_feats = torch.zeros(feats_shape, dtype=torch.float).npu()
         grad_voxel_feats = torch.rand(voxel_shape, dtype=torch.float).npu()
         prefix_sum_point_per_voxel = torch.tensor([i * 2 for i in range(1, voxel_num)], dtype=torch.int32).npu()
         argsort_coor = torch.tensor(list(range(0, point_num)), dtype=torch.int32).npu()
-        mask = []
-        for i in range((feats_dim + 8 - 1) // 8):
-            if i % 2 == 0:
-                binary = '10101010'
-            else:
-                binary = '01010101'
-            mask.append(int(binary, 2))
-        compare_mask = torch.tensor([mask for _ in range(point_num)], dtype=torch.uint8).npu()
+        compare_mask = torch.randint(0, 255, mask_shape).to(torch.uint8).npu()
+
         self.grad_cpu_op_exec([golden_result, grad_voxel_feats.contiguous().cpu(), prefix_sum_point_per_voxel.cpu(),
                               argsort_coor.cpu(), compare_mask.cpu()], reduce_type)
         ads_c.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),

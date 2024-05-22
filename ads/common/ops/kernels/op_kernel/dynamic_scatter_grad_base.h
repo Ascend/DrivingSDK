@@ -33,7 +33,6 @@ public:
         eventIdSToMTE2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::S_MTE2>());
         eventIdSToMTE3 = static_cast<event_t>(pipe->AllocEventID<HardEvent::S_MTE3>());
         eventIdSToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::S_V>());
-        eventIdMTE2ToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
         eventIdMTE3ToMTE2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_MTE2>());
     }
 
@@ -146,7 +145,6 @@ public:
         GetTPipePtr()->ReleaseEventID<HardEvent::S_MTE2>(eventIdSToMTE2);
         GetTPipePtr()->ReleaseEventID<HardEvent::S_MTE3>(eventIdSToMTE3);
         GetTPipePtr()->ReleaseEventID<HardEvent::S_V>(eventIdSToV);
-        GetTPipePtr()->ReleaseEventID<HardEvent::MTE2_V>(eventIdMTE2ToV);
         GetTPipePtr()->ReleaseEventID<HardEvent::MTE3_MTE2>(eventIdMTE3ToMTE2);
     }
 
@@ -167,7 +165,7 @@ protected:
     DataCopyParams copyFeatParams, copyprefixSumParams, copyArgsortCoorParams;
     DataCopyExtParams copyOutPadParams;
 
-    event_t eventIdMte2ToS, eventIdSToMTE2, eventIdSToV, eventIdMTE2ToV, eventIdMTE3ToMTE2, eventIdSToMTE3;
+    event_t eventIdMte2ToS, eventIdSToMTE2, eventIdSToV, eventIdMTE3ToMTE2, eventIdSToMTE3;
 };
 } // namespace DynamicScatterGrad
 #endif // _DYNAMIC_SCATTER_GRAD_BASE_H_
