@@ -6,16 +6,18 @@
 ads.common.scatter_max(Tensor updates, Tensor indices, Tensor out=None) -> (Tensor out, Tensor argmax)
 ```
 ### 功能描述
-在`第0`维上，将输入张量`updates`中的元素按照`indices`中的索引进行分散，然后在第0维上取最大值，返回最大值和对应的索引。对于1维张量，公式如下：
+在第0维上，将输入张量`updates`中的元素按照`indices`中的索引进行分散，然后在第0维上取最大值，返回最大值和对应的索引。对于1维张量，公式如下：
 $$out_i = max(out_i, max_j(updates_j))$$
 $$argmax_i = argmax_j(updates_j)$$
 这里，$i = indices_j$。
 ### 参数说明
-- `updates`：更新源张量，数据类型为`float32`。
+- `updates`：更新源张量，数据类型为`float32`，且
+  - `updates`的第0维外其余轴合轴后必须32字节对齐。
 - `indices`：索引张量，数据类型为`int32`，且
   - `indices`的维度必须为`1`，
   - `indices`第0维的长度必须与`updates`第0维的长度相同。
   - `indices`的最大值必须小于`491520`。
+  - `indices`的取值必须为非负的有效索引值。
 - `out`：被更新张量，数据类型为`float32`，默认为`None`。
 ### 返回值
 - `out`：更新后的张量，数据类型为`float32`。
