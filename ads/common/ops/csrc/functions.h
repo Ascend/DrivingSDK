@@ -19,7 +19,7 @@
 at::Tensor npu_three_interpolate(int b, int c, int m, int n, const at::Tensor& points, const at::Tensor& idx, const at::Tensor& weight);
 at::Tensor npu_three_interpolate_backward(int b, int c, int n, int m, const at::Tensor& grad_out, const at::Tensor& idx, const at::Tensor& weight);
 
-std::tuple<at::Tensor, at::Tensor> npu_scatter_max(
+std::tuple<at::Tensor, at::Tensor> scatter_max_with_argmax_v2(
     const at::Tensor& updates, const at::Tensor& indices, c10::optional<at::Tensor> out);
 at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments);
 at::Tensor npu_rotated_overlaps(const at::Tensor& self, const at::Tensor& query_boxes, bool trans);

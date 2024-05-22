@@ -9,7 +9,7 @@ import ads_c
 class ScatterMaxFunction(Function):
     @staticmethod
     def forward(ctx, updates, indices, out=None):
-        func = ads_c.npu_scatter_max
+        func = ads_c.scatter_max_with_argmax_v2
         out, argmax = func(updates, indices, out)
         ctx.save_for_backward(argmax, updates)
         return out, argmax

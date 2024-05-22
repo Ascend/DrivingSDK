@@ -27,7 +27,7 @@ void init_common(pybind11::module& m)
     m.def("npu_three_interpolate_backward", &npu_three_interpolate_backward);
     
     // scatter_max
-    m.def("npu_scatter_max", &npu_scatter_max);
+    m.def("scatter_max_with_argmax_v2", &scatter_max_with_argmax_v2);
     m.def("npu_scatter_max_backward", &npu_scatter_max_backward);
 
     // roated overlap

@@ -70,6 +70,16 @@ class TestScatterMaxWithArgmax(TestCase):
         self.assertRtolEqual(cpu_output[1], npu_output[1])
         self.assertRtolEqual(cpu_output[2], npu_output[2])
 
+    def test_scatter_max_with_argmax_unaligned(self):
+        shape_updates = (1024, 128)
+        shape_indices = (1024, 1)
+        cpu_updates_input, npu_updates_input = create_common_tensor(["float32", 2, shape_updates], 0, 100)
+        cpu_indices_input, npu_indices_input = create_common_tensor(["int32", 2, shape_indices], 0, 100)
+        cpu_output = self.cpu_op_exec(cpu_updates_input, cpu_indices_input)
+        npu_output = self.npu_op_exec(npu_updates_input, npu_indices_input)
+        self.assertRtolEqual(cpu_output[0], npu_output[0])
+        self.assertRtolEqual(cpu_output[1], npu_output[1])
+        self.assertRtolEqual(cpu_output[2], npu_output[2])
 
 if __name__ == "__main__":
     run_tests()
