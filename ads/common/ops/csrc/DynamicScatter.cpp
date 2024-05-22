@@ -75,3 +75,11 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_dynamic_scatter(
     }
     return {reduced_feats, out_coors, coors_map, reduce_count};
 }
+
+void npu_dynamic_scatter_grad(at::Tensor& grad_point_feats, const at::Tensor& grad_voxel_feats,
+    const at::Tensor& prefix_sum_point_per_voxel, const at::Tensor& argsort_coor, const at::Tensor& compare_mask,
+    const char* reduce_type)
+{
+    EXEC_NPU_CMD(aclnnDynamicScatterGrad, grad_voxel_feats, prefix_sum_point_per_voxel, argsort_coor, compare_mask,
+        reduce_type, grad_point_feats);
+}

@@ -23,3 +23,12 @@
 //     .OUTPUT(index, TensorType({DT_INT32}))
 //     .REQUIRED_ATTR(num_points, Int)
 //     .OP_END_FACTORY_REG(FurthestPointSampling)
+
+// REG_OP(DynamicScatterGrad)
+//     .INPUT(grad_voxel_feats, TensorType({DT_FLOAT}))
+//     .INPUT(prefix_sum_point_per_voxel, TensorType({DT_INT32}))
+//     .INPUT(argsort_coor, TensorType({DT_INT32}))
+//     .INPUT(compare_mask, TensorType({DT_UINT16}))
+//     .OUTPUT(grad_point_feats, TensorType({DT_FLOAT}))
+//     .ATTR(reduce_type, String, "max")
+//     .OP_END_FACTORY_REG(DynamicScatterGrad)

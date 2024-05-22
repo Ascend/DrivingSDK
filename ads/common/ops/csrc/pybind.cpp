@@ -48,6 +48,7 @@ void init_common(pybind11::module& m)
 
     // npu_dynamic_scatter
     m.def("npu_dynamic_scatter", &npu_dynamic_scatter);
+    m.def("npu_dynamic_scatter_grad", &npu_dynamic_scatter_grad);
 
     // dyn_voxelization
     m.def("dynamic_voxelization", &dynamic_voxelization);
