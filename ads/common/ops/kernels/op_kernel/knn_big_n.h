@@ -1,0 +1,143 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+ */
+#ifndef _KNN_BIG_N_H_
+#define _KNN_BIG_N_H_
+#include "kernel_tiling/kernel_tiling.h"
+#include "kernel_operator.h"
+#include "knn.h"
+
+namespace AscendC {
+// T is the dtype of input and output dist2(float32 or float16) while U is for the output idx(only int32_t)
+template<typename T, typename U>
+class KnnCase2 : public KnnKernel<T, U> {
+public:
+    __aicore__ inline KnnCase2() : KnnKernel<T, U>() {}
+    __aicore__ inline ~KnnCase2() = default;
+public:
+    __aicore__ inline void Init(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR idx, GM_ADDR dist2, knnTilingArgs* tmpTiling,
+        TPipe *tmpPipe)
+    {
+        this->InitGm(xyz, center_xyz, idx, dist2, tmpTiling, tmpPipe);
+
+        this->pipe->InitBuffer(this->tmpBuf,   1, this->tilingKernel->topkmax);
+        this->pipe->InitBuffer(this->targetUb, 1, this->aligned_actual_size);
+        if (this->tilingKernel->is_from_knn) {
+            this->pipe->InitBuffer(this->compareUb, 1, this->tilingKernel->nsample_aligned);
+            this->compareLocal = this->compareUb.template AllocTensor<uint8_t>();
+        }
+        this->pipe->InitBuffer(this->tmpBuf2,  1, this->tilingKernel->topkmax2);
+        this->pipe->InitBuffer(this->sourceUb, 1, this->tilingKernel->nsource_aligned_size2 * 3);
+        this->pipe->InitBuffer(this->distUb,   1, this->tilingKernel->inner * sizeof(T));
+        this->pipe->InitBuffer(this->idxUb,    1, this->tilingKernel->nsample_aligned * sizeof(U) * 2);
+        this->pipe->InitBuffer(this->dist2Ub,  1, this->tilingKernel->inner2 * sizeof(T));
+        this->idxLocal   = this->idxUb.template AllocTensor<U>();
+        this->dist2Local = this->dist2Ub.template AllocTensor<T>();
+        this->targetLocal = this->targetUb.template AllocTensor<T>();
+    }
+    __aicore__ inline void Process()
+    {
+        this->copyInTarget();
+        for (this->current_b = this->task_b; this->current_b < (this->last_task_b + 1); this->current_b++) {
+            uint32_t start = 0;
+            uint32_t end   = 0;
+            this->calcNpStartAndEnd(start, end);
+            for (this->current_m = start; this->current_m < end; this->current_m++) {
+                Compute();
+                this->current_point++;
+            }
+        }
+    }
+private:
+    __aicore__ inline void Compute()
+    {
+        LocalTensor<int32_t> sourceLocalIndex;
+        LocalTensor<bool> sourceLocalFinish;
+        uint32_t dst_offset;
+        uint32_t actual_dist;
+        uint32_t source_offset;
+        uint32_t start;
+        uint32_t end;
+        T target_x = (-1) * static_cast<float>(this->targetLocal.GetValue(this->current_point * 3));
+        T target_y = (-1) * static_cast<float>(this->targetLocal.GetValue(this->current_point * 3 + 1));
+        T target_z = (-1) * static_cast<float>(this->targetLocal.GetValue(this->current_point * 3 + 2));
+
+        for (uint32_t i = 0; i < this->tilingKernel->loop_times; i++) {
+            this->sourceLocal   = this->sourceUb.template AllocTensor<T>();
+            this->distLocal     = this->distUb.template AllocTensor<T>();
+            source_offset = i * this->tilingKernel->nsource_aligned2;
+
+            Duplicate<T>(this->distLocal, INFINITY, this->tilingKernel->inner);
+            if (i == this->tilingKernel->loop_times - 1) {
+                actual_dist = this->tilingKernel->nsource_aligned2 -
+                    (this->tilingKernel->loop_times * this->tilingKernel->nsource_aligned2 - this->tilingKernel->nsource);
+            } else {
+                actual_dist = this->tilingKernel->nsource_aligned2;
+            }
+            this->tilingKernel->topkInfo.n = actual_dist;
+
+            set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+            wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+
+            DataCopy(this->sourceLocal, this->sourceGm[this->source_offset_x + source_offset],
+                this->tilingKernel->nsource_aligned2);
+            DataCopy(this->sourceLocal[this->tilingKernel->nsource_aligned2],
+                this->sourceGm[this->source_offset_y + source_offset], this->tilingKernel->nsource_aligned2);
+            DataCopy(this->sourceLocal[this->tilingKernel->nsource_aligned2 * 2],
+                this->sourceGm[this->source_offset_z + source_offset], this->tilingKernel->nsource_aligned2);
+
+            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+
+            Adds<T>(this->sourceLocal, this->sourceLocal, (T)target_x, (int32_t)actual_dist);
+            Adds<T>(this->sourceLocal[this->tilingKernel->nsource_aligned2],
+                this->sourceLocal[this->tilingKernel->nsource_aligned2], (T)target_y, (int32_t)actual_dist);
+            Adds<T>(this->sourceLocal[this->tilingKernel->nsource_aligned2 * 2],
+                this->sourceLocal[this->tilingKernel->nsource_aligned2 * 2], (T)target_z, (int32_t)actual_dist);
+            Mul<T>(this->sourceLocal, this->sourceLocal, this->sourceLocal,
+                (int32_t)this->tilingKernel->nsource_aligned2 * 3);
+            Add<T>(this->distLocal, this->sourceLocal, this->sourceLocal[this->tilingKernel->nsource_aligned2],
+                (int32_t)actual_dist);
+            Add<T>(this->distLocal, this->distLocal, this->sourceLocal[this->tilingKernel->nsource_aligned2 * 2],
+                (int32_t)actual_dist);
+
+            this->sourceUb.template FreeTensor<T>(this->sourceLocal);
+
+            this->tmpLocal = this->tmpBuf.template AllocTensor<uint8_t>();
+
+            dst_offset = (i == 0) ? 0 : this->tilingKernel->nsample_aligned;
+            set_flag(PIPE_S, PIPE_V, EVENT_ID1);
+            wait_flag(PIPE_S, PIPE_V, EVENT_ID1);
+
+            Muls<T>(this->distLocal, this->distLocal, -1, (int32_t)(this->tilingKernel->inner));
+            TopK<T>(this->dist2Local[dst_offset], this->idxLocal[dst_offset], this->distLocal,
+                sourceLocalIndex, sourceLocalFinish, this->tmpLocal, this->tilingKernel->nsample,
+                this->tilingKernel->topkTilingData, this->tilingKernel->topkInfo, true);
+            start = (i == 0) ? this->tilingKernel->nsample : (this->tilingKernel->nsample + this->tilingKernel->nsample_aligned);
+            end   = (i == 0) ? this->tilingKernel->nsample_aligned : this->tilingKernel->inner2;
+            for (uint32_t j = start; j < end; j++) {
+                this->dist2Local.SetValue(j, -INFINITY);
+            }
+            this->distUb.template FreeTensor<T>(this->distLocal);
+            this->tmpBuf.template FreeTensor<uint8_t>(this->tmpLocal);
+            if (i == 0) {
+                continue;
+            }
+            this->tmpLocal2 = this->tmpBuf2.template AllocTensor<uint8_t>();
+            Adds<U>(this->idxLocal[dst_offset], this->idxLocal[dst_offset], source_offset, this->tilingKernel->nsample);
+
+            TopK<T, true>(this->dist2Local, this->idxLocal, this->dist2Local, this->idxLocal, sourceLocalFinish,
+                this->tmpLocal2, this->tilingKernel->nsample, this->tilingKernel->topkTilingData2,
+                this->tilingKernel->topkInfo2, true);
+            this->tmpBuf2.template FreeTensor<uint8_t>(this->tmpLocal2);
+        }
+        Muls<T>(this->dist2Local, this->dist2Local, -1, (int32_t)(this->tilingKernel->nsample));
+        this->copyOut();
+    }
+private:
+    TQue<QuePosition::VECOUT, 1> tmpBuf2;
+    LocalTensor<uint8_t> tmpLocal2;
+};
+} // namespace AscendC
+
+#endif  // _KNN_BIG_N_H_

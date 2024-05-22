@@ -492,4 +492,66 @@ interval_lengths = torch.tensor([2], dtype=torch.int32).npu()
 bev_pooled_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths)
 loss = bev_pooled_feat.sum()
 print(loss)
+
+## knn
+### 接口原型
+```python
+ads.common.knn(int nsample, Tensor xyz, Tensor center_xyz, bool Transposed) -> Tensor
+```
+### 功能描述
+對center_xyz中的每個點找到xyz中對應batch中的距離最近的k個點，并且返回此k個點的索引值。
+### 参数说明
+- `xyz(Tensor)`：点数据，表示(x, y, z)三維坐標，数据类型为`float32`。shape为`[B, N, 3]`。其中`B`为batch size，`N`为点的数量。
+- `center_xyz(Tensor)`：点数据，表示(x, y, z)三維坐標，数据类型为`float32`。shape为`[B, npoint, 3]`。其中`B`为batch size，`npoint`为点的数量。
+- `nsample(int)`：采样点的数量。
+- `Transposed(bool)`: 輸入是否需要進行轉置
+### 返回值
+- `idx(Tensor)`：采样后的索引数据，数据类型为`int32`。shape为`[B, nsample, npoint]`。
+### 支持的型号
+- Atlas A2 训练系列产品
+### 调用示例
+```python
+import torch, torch_npu
+from ads.common import knn
+xyz = torch.tensor([[[1, 1, 1], [1, 1, 1], [1, 1, 1]], [[1, 1, 1], [1, 1, 1], [1, 1, 1]]], dtype=torch.float32).npu()
+center_xyz = torch.tensor([[1, 2, 3]], [[1, 2, 3]], dtype=torch.float32).npu()
+idx = knn(2, xyz, center_xyz, False)
+print(idx)
+```
+```text
+tensor([[0, 0], [1, 1]], dtype=torch.int32)
+```
+### 算子約束
+1. nsample必須>0且<100
+2. xyz中的每個batch中的任意一個點到center_xyz對應batch中的任意一個點的距離必須在1e10f以内
+3. GPU算法采用的堆排序，會導致儅距離相同的時候的排序是亂序，因此會存在正常的精度問題
+
+## three_nn
+### 接口原型
+```python
+ads.common.three_nn(Tensor target, Tensor source) -> (Tensor dist, Tensor idx)
+```
+### 功能描述
+對target中的每個點找到source中對應batch中的距離最近的3個點，并且返回此3個點的距離和索引值。
+### 参数说明
+- `target(Tensor)`：点数据，表示(x, y, z)三維坐標，数据类型为`float32/float16`。shape为`[B, npoint, 3]`。其中`B`为batch size，`npoint`为点的数量。
+- `source(Tensor)`：点数据，表示(x, y, z)三維坐標，数据类型为`float32/float16`。shape为`[B, N, 3]`。其中`B`为batch size，`N`为点的数量。
+### 返回值
+- `dist(Tensor)`：采样后的索引数据，数据类型为`float32/float16`。shape为`[B, npoint, 3]`。
+- `idx(Tensor)`：采样后的索引数据，数据类型为`int32/int32`。shape为`[B, npoint, 3]`。
+### 支持的型号
+- Atlas A2 训练系列产品
+### 调用示例
+```python
+import torch, torch_npu
+from ads.common import three_nn
+source = torch.tensor([[[1, 1, 1], [1, 1, 1], [1, 1, 1]], [[1, 1, 1], [1, 1, 1], [1, 1, 1]]], dtype=torch.float32).npu()
+target = torch.tensor([[1, 2, 3]], [[1, 2, 3]], dtype=torch.float32).npu()
+dist, idx = three_nn(target, source)
+print(dist)
+print(idx)
+```
+```text
+tensor([[2.236, 2.236, 2.236], [2.236, 2.236, 2.236]], dtype=torch.float32)
+tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.int32)
 ```
