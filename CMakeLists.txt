@@ -172,7 +172,7 @@ foreach(compute_unit ${ASCEND_COMPUTE_UNIT})
         packages/vendors/${vendor_name}/op_impl/ai_core/tbe/kernel
         COMPUTE_UNIT
         ${compute_unit})
-      add_dependencies(ascendc_bin_${compute_unit} ascendc_impl_gen)
+      add_dependencies(ascendc_bin_${compute_unit} ascendc_impl_gen cust_optiling)
     endif()
   endif()
 endforeach()

@@ -81,7 +81,7 @@ function main()
 
       echo "Successfully compiled the single op: ${SINGLE_OP}"
       echo "copying the custom op kernel code to the custom opp path: ${ASCEND_CUSTOM_OPP_PATH}"
-      cp -ruf ${BUILD_PACKAGES_DIR}/vendors/customize/* ${ASCEND_CUSTOM_OPP_PATH}/
+      cp -ruf ${BUILD_PACKAGES_DIR}/vendors/customize/op_impl/ai_core/tbe/kernel/* ${ASCEND_CUSTOM_OPP_PATH}/op_impl/ai_core/tbe/kernel/
       exit 0
     else
       bash ${SCRIPTS_DIR}/build_kernel.sh --build_type=${BUILD_TYPE}
