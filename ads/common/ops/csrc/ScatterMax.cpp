@@ -25,10 +25,11 @@ constexpr uint32_t SUPPORT_UPDATES = 32;
 constexpr uint32_t MAX_SUPPORT_UPDATES = 512;
 }
 
-void npu_scatter_max_check(const at::Tensor& updates, const at::Tensor& indices)
+void npu_scatter_max_check(const at::Tensor& updates, const at::Tensor& indices, const at::Tensor& result)
 {
     auto indicesSizes = indices.sizes();
     auto updatesSizes = updates.sizes();
+    auto resultSizes = result.sizes();
     int32_t indicesLength = 1;
     int32_t updatesLength = 1;
     for (size_t i = 1; i < updates.dim(); i++) {
@@ -39,9 +40,14 @@ void npu_scatter_max_check(const at::Tensor& updates, const at::Tensor& indices)
     }
     auto updates_dims = updatesSizes.size();
     auto index_dims = indicesSizes.size();
-    TORCH_CHECK(updatesLength % 8 == 0, "The shape of updates after combine the axis should be aligned by 32 Bytes.");
-    TORCH_CHECK(updates_dims != 0 && index_dims != 0, "updates and index should not be empty");
-    TORCH_CHECK(indicesLength == 1, "All the dims's range except the first dim of input tensor [indices] should be equal to 1.");
+    auto result_dims = resultSizes.size();
+    TORCH_CHECK(updates_dims != 0 && index_dims != 0, "updates and index should not be empty.");
+    TORCH_CHECK(result_dims == updates_dims, "out's dimension should be equal to updates's dimension.");
+    for (size_t i = 1; i < result.dim(); i++) {
+        TORCH_CHECK(updatesSizes[i] == resultSizes[i], "updates and out should have the same size except for dim 0.");
+    }
+    TORCH_CHECK(updatesLength % 8 == 0, "the shape of updates after combine the axis should be aligned by 32 Bytes.");
+    TORCH_CHECK(indicesLength == 1, "all the dims's range except the first dim of input tensor [indices] should be equal to 1.");
     TORCH_CHECK(indices.sizes()[0] == updates.sizes()[0], "input's updates size of dim 0 should be equal to indices's size.");
 }
 
@@ -67,15 +73,15 @@ bool npu_scatter_max_v2_support(const at::Tensor& updates, at::Tensor& var)
 std::tuple<at::Tensor, at::Tensor> scatter_max_with_argmax_v2(const at::Tensor& updates, const at::Tensor& indices,
                                                               c10::optional<at::Tensor> out)
 {
-    npu_scatter_max_check(updates, indices);
     auto sizes = updates.sizes().vec();
     auto indicesMax = indices.max().item().toLong();
     TORCH_CHECK(indicesMax > 0, "the value of indices is not a valid index.");
     sizes[0] = indicesMax + 1;
     at::Tensor result = out.value_or(at::zeros(sizes, updates.options().dtype(at::kFloat)));
+    npu_scatter_max_check(updates, indices, result);
     auto argmax_init = updates.sizes().vec()[0];
-    at::Tensor argmax = at::zeros(sizes, result.options().dtype(at::kInt)).fill_(argmax_init);
-    at::Tensor var = out.value_or(at::zeros(sizes, updates.options().dtype(at::kFloat)).fill_(-3.4e+38));
+    at::Tensor argmax = at::empty(result.sizes(), result.options().dtype(at::kInt)).fill_(argmax_init);
+    at::Tensor var = out.value_or(at::empty(sizes, updates.options().dtype(at::kFloat)).fill_(-3.4e+38));
     if (npu_scatter_max_v2_support(updates, var)) {
         EXEC_NPU_CMD(aclnnScatterMaxWithArgmaxV2, var, indices, updates, result, argmax);
     } else {

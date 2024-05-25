@@ -18,7 +18,9 @@ $$argmax_i = argmax_j(updates_j)$$
   - `indices`第0维的长度必须与`updates`第0维的长度相同。
   - `indices`的最大值必须小于`491520`。
   - `indices`的取值必须为非负的有效索引值。
-- `out`：被更新张量，数据类型为`float32`，默认为`None`。
+- `out`：被更新张量，数据类型为`float32`，默认为`None`,且
+  - `out`的维度必须与`updates`的维度相同。
+  - `out`除第0维外其余维的长度必须与`updates`相同。
 ### 返回值
 - `out`：更新后的张量，数据类型为`float32`。
 - `argmax`：最大值对应的索引张量，数据类型为`int32`。
