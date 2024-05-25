@@ -73,8 +73,11 @@ def bev_pool(feat, geom_feat, B, D, H, W):
         >>> import torch, torch_npu
         >>> from ads.perception.fused import bev_pool
         >>> feat = torch.rand(4, 256).npu()
+        >>> feat.requires_grad_()
         >>> geom_feat = torch.tensor([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 2], [0, 0, 0, 3]], dtype=torch.int32).npu()
         >>> bev_pooled_feat = bev_pool(feat, geom_feat, 4, 1, 256, 256)
+        >>> loss = bev_pooled_feat.sum()
+        >>> loss.backward()
     """
     if feat.shape[0] != geom_feat.shape[0]:
         raise ValueError("The number of features and geometry features should be the same.")

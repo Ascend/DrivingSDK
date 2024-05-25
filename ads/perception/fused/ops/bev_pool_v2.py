@@ -117,9 +117,10 @@ def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
         - N_RANKS <= 2^21
     Usage:
         >>> import torch, torch_npu
-        >>> from torch_npu.ops import bev_pool_v2
+        >>> from ads.perception.fused import bev_pool_v2
         >>> depth = torch.rand(2, 1, 8, 256, 256).npu()
         >>> feat = torch.rand(2, 1, 256, 256, 64).npu()
+        >>> feat.requires_grad_()
         >>> ranks_depth = torch.tensor([0, 1], dtype=torch.int32).npu()
         >>> ranks_feat = torch.tensor([0, 1], dtype=torch.int32).npu()
         >>> ranks_bev = torch.tensor([0, 1], dtype=torch.int32).npu()
@@ -127,6 +128,8 @@ def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
         >>> interval_starts = torch.tensor([0], dtype=torch.int32).npu()
         >>> interval_lengths = torch.tensor([2], dtype=torch.int32).npu()
         >>> out = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths)
+        >>> loss = out.sum()
+        >>> loss.backward()
     """
     x = BEVPoolV2.apply(
         depth, feat, ranks_depth, ranks_feat, ranks_bev,

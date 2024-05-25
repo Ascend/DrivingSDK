@@ -69,7 +69,7 @@ a = np.random.uniform(0, 1, (1, 3, 5)).astype(np.float16)
 b = np.random.uniform(0, 1, (1, 2, 5)).astype(np.float16)
 box1 = torch.from_numpy(a).npu()
 box2 = torch.from_numpy(b).npu()
-output = npu_rotated_overlaps(box1, box2)
+output = npu_rotated_overlaps(box1, box2, True)
 print(output)
 ```
 ```text
@@ -90,8 +90,8 @@ ads.common.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=False, in
 - `trans(bool)`：是否进行坐标变换。默认值为`False`。值为`True`时，表示`xyxyt`, 值为`False`时，表示`xywht`。
 - `is_cross(bool)`：是否计算交叉面积。默认值为`True`。值为`True`时，表示计算交叉面积，值为`False`时，表示计算并集面积。
 - `mode(int)`：计算IoU的模式。默认值为`0`。值为`0`时，表示计算`IoU`，值为`1`时，表示计算`IoF`。
-- `v_threshold(float)`：垂直方向的阈值。默认值为`0.0`。
-- `e_threshold(float)`：水平方向的阈值。默认值为`0.0`。
+- `v_threshold(float)`：顶点判断的容忍阈值。
+- `e_threshold(float)`：边相交判断的容忍阈值。
 ### 返回值
 - `Tensor`：IoU张量，数据类型为`float32, float16`，形状为`[B, N, M]`。
 ### 支持的型号
@@ -105,7 +105,7 @@ a = np.random.uniform(0, 1, (2, 2, 5)).astype(np.float16)
 b = np.random.uniform(0, 1, (2, 3, 5)).astype(np.float16)
 box1 = torch.from_numpy(a).npu()
 box2 = torch.from_numpy(b).npu()
-iou = npu_rotated_iou(box1, box2, trans=False, mode=0, is_cross=True, v_threshold=0.0, e_threshold=0.0)
+iou = npu_rotated_iou(box1, box2, False, 0, True, 1e-5, 1e-5)
 print(iou)
 ```
 ```text
@@ -445,7 +445,7 @@ BEV池化。可参考论文`BEVFusion: Multi-Task Multi-Sensor Fusion with Unifi
 import torch, torch_npu
 from ads.perception.fused import bev_pool
 feat = torch.rand(4, 256).npu()
-feat.requires_grad()
+feat.requires_grad_()
 geom_feat = torch.tensor([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 2], [0, 0, 0, 3]], dtype=torch.int32).npu()
 bev_pooled_feat = bev_pool(feat, geom_feat, 4, 1, 256, 256)
 loss = bev_pooled_feat.sum()
@@ -485,9 +485,10 @@ BEV池化优化版。可参考论文`BEVDet: High-performance Multi-camera 3D Ob
 ### 调用示例
 ```python
 import torch, torch_npu
-from torch_npu.ops import bev_pool_v2
+from ads.perception.fused import bev_pool_v2
 depth = torch.rand(2, 1, 8, 256, 256).npu()
 feat = torch.rand(2, 1, 256, 256, 64).npu()
+feat.requires_grad_()
 ranks_depth = torch.tensor([0, 1], dtype=torch.int32).npu()
 ranks_feat = torch.tensor([0, 1], dtype=torch.int32).npu()
 ranks_bev = torch.tensor([0, 1], dtype=torch.int32).npu()
@@ -496,7 +497,9 @@ interval_starts = torch.tensor([0], dtype=torch.int32).npu()
 interval_lengths = torch.tensor([2], dtype=torch.int32).npu()
 bev_pooled_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths)
 loss = bev_pooled_feat.sum()
+loss.backward()
 print(loss)
+print(feat.grad)
 
 ## knn
 ### 接口原型
