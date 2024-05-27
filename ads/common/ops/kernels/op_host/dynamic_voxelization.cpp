@@ -116,6 +116,7 @@ public:
         this->SetInferShape(ge::InferShapeForDynamicVoxel);
         this->AICore().SetTiling(optiling::TilingForDynamicVox);
         this->AICore().AddConfig("ascend910b");
+        this->AICore().AddConfig("ascend910c");
     }
 };
 OP_ADD(DynamicVoxelization);
