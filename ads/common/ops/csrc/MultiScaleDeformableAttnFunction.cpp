@@ -44,10 +44,10 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor &value_tran
     auto value_size = value_trans.sizes();
     auto location_size = sampling_locations_trans.sizes();
     auto embed_dims = value_size[3];
-    auto output_size = {value_size[0], location_size[1], value_size[1] * embed_dims};
+    auto output_size = {value_size[0], location_size[4], value_size[1] * embed_dims};
 
     auto num_points = location_size[5];
-    auto num_levels = location_size[3];
+    auto num_levels = location_size[2];
     auto data_total = embed_dims + num_points + num_levels;
 
     TORCH_CHECK(data_total < 512, "data_total is over 512: embed_dims ", embed_dims, ", num_points is ", num_points,
