@@ -44,6 +44,9 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value, con
 std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(const at::Tensor& value,
     const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location,
     const at::Tensor& attn_weight, const at::Tensor& grad_output);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad_v2(const at::Tensor& value,
+    const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location_trans,
+    const at::Tensor& attn_weight_trans, const at::Tensor& grad_output);
 at::Tensor npu_furthest_point_sampling(const at::Tensor& point_xyz, const at::Tensor& nearset_temp, int32_t num_points);
 at::Tensor dynamic_voxelization(const at::Tensor& points, at::Tensor& coors, int grid_x, int grid_y, int grid_z,
     double voxel_x, double voxel_y, double voxel_z, double coors_min_x, double coors_min_y, double coorsMinZ);

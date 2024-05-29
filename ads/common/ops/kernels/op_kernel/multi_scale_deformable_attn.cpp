@@ -173,11 +173,9 @@ private:
                 locLocal[miniBatch * numPointsAlignOpt], (DTYPE_VALUE)h, miniBatch * numPointsAlignOpt);
             for (uint32_t batch = 0; batch < batchSize; batch++) {
                 for (uint32_t head = 0; head < numHeads; head++) {
-                    baseOffset = batch * numHeads * numLevels * numQueries * numPointsAlignOpt +
-                                 head * numLevels * numQueries * numPointsAlignOpt +
-                                 level * numQueries * numPointsAlignOpt;
-
-                    valueOffset = batch * numHeads * numKeys + head * numKeys + dataOffset;
+                    baseOffset =
+                        (batch * numHeads * numLevels + head * numLevels + level) * numQueries * numPointsAlignOpt;
+                    valueOffset = (batch * numHeads + head) * numKeys + dataOffset;
                     moveOffset = (batch * numQueries * numHeads + head) * embedDimsOpt;
 
                     for (uint32_t queryloop = startLoop; queryloop < endLoop; queryloop++) {
@@ -251,7 +249,6 @@ private:
                             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
 
                             Sub(xLocal[tmpOffset2], floatOneLocal, paramLocal[tmpOffset2], numPointsAlignOpt);
-
                             Mul(weightLocal, paramLocal[tmpOffset2],
                                 paramLocal[tmpOffset2 + miniBatch * numPointsAlignOpt], numPointsAlignOpt);
                             Sub(weightLocal[numPointsAlignOpt], paramLocal[tmpOffset2], weightLocal, numPointsAlignOpt);
@@ -270,13 +267,15 @@ private:
                             Mul(valueLocal, valueLocal, cornerWeightLocal, 4 * numPointsAlignOpt * embedDimsOpt);
                             Add(tmpResLocal, valueLocal, valueLocal[numPointsAlignOpt * embedDimsOpt * 2],
                                 numPointsAlignOpt * embedDimsOpt * 2);
-                            Add(tmpResLocal2[srcOffset], tmpResLocal, tmpResLocal[numPointsAlignOpt * embedDimsOpt],
+                            Add(tmpResLocal, tmpResLocal, tmpResLocal[numPointsAlignOpt * embedDimsOpt],
                                 numPointsAlignOpt * embedDimsOpt);
+                            Add(tmpResLocal2[srcOffset], tmpResLocal, tmpResLocal[numPointsAlignOpt * embedDimsOptHalf],
+                                numPointsAlignOpt * embedDimsOptHalf);
 
                             SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
                             WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
                             dstOffset = moveOffset + (queryBase + curQuery) * numHeads * embedDimsOpt;
-                            for (uint32_t point = 0; point < numPointsAlignOpt; point++) {
+                            for (uint32_t point = 0; point < numPointsAlignOpt / 2; point++) {
                                 DataCopy(
                                     outputGm[dstOffset], tmpResLocal2[srcOffset + point * embedDimsOpt], embedDimsOpt);
                             }
@@ -343,8 +342,7 @@ private:
             Duplicate<DTYPE_VALUE>(locLocal[miniBatch * NUM_POINTS], (DTYPE_VALUE)h, miniBatch * NUM_POINTS);
             for (uint32_t batch = 0; batch < batchSize; batch++) {
                 for (uint32_t head = 0; head < numHeads; head++) {
-                    baseOffset = batch * numHeads * numLevels * numQueries * NUM_POINTS +
-                                 head * numLevels * numQueries * NUM_POINTS + level * numQueries * NUM_POINTS;
+                    baseOffset = (batch * numHeads * numLevels + head * numLevels + level) * numQueries * NUM_POINTS;
                     valueOffset = batch * numHeads * numKeys + head * numKeys + dataOffset;
                     moveOffset = (batch * numQueries * numHeads + head) * embedDimsOpt;
                     for (uint32_t queryloop = startLoop; queryloop < endLoop; queryloop++) {
@@ -373,20 +371,14 @@ private:
                         Mul(weightLocal, paramLocal, paramLocal[miniBatch * NUM_POINTS], miniBatch * NUM_POINTS);
 
                         Sub(xLocal, floatOneLocal, paramLocal, miniBatch * NUM_POINTS);
-                        Sub(weightLocal[miniBatch * NUM_POINTS], paramLocal, weightLocal, miniBatch * NUM_POINTS);
-                        Sub(weightLocal[miniBatch * NUM_POINTS * 2], paramLocal[miniBatch * NUM_POINTS], weightLocal,
-                            miniBatch * NUM_POINTS);
+                        Sub(weightLocal[miniBatch * NUM_POINTS], paramLocal, weightLocal, miniBatch * NUM_POINTS, 2,
+                            {1, 1, 1, uint8_t(miniBatch * NUM_POINTS / 8), uint8_t(miniBatch * NUM_POINTS / 8), 0});
                         Sub(weightLocal[miniBatch * NUM_POINTS * 3], xLocal, weightLocal[miniBatch * NUM_POINTS * 2],
                             miniBatch * NUM_POINTS);
 
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
-                        Mul(weightLocal, weightLocal, attentionWeightLocal, miniBatch * NUM_POINTS);
-                        Mul(weightLocal[miniBatch * NUM_POINTS], weightLocal[miniBatch * NUM_POINTS],
-                            attentionWeightLocal, miniBatch * NUM_POINTS);
-                        Mul(weightLocal[miniBatch * NUM_POINTS * 2], weightLocal[miniBatch * NUM_POINTS * 2],
-                            attentionWeightLocal, miniBatch * NUM_POINTS);
-                        Mul(weightLocal[miniBatch * NUM_POINTS * 3], weightLocal[miniBatch * NUM_POINTS * 3],
-                            attentionWeightLocal, miniBatch * NUM_POINTS);
+                        Mul(weightLocal, weightLocal, attentionWeightLocal, miniBatch * NUM_POINTS, 4,
+                            {1, 1, 1, uint8_t(miniBatch * NUM_POINTS / 8), uint8_t(miniBatch * NUM_POINTS / 8), 0});
 
                         BroadCast<DTYPE_VALUE, 2, 1>(cornerWeightLocal, weightLocal, dstShape_, srcShape_);
 
@@ -516,8 +508,7 @@ private:
             Duplicate<DTYPE_VALUE>(locLocal[miniBatch * numPoints], (DTYPE_VALUE)h, miniBatch * numPoints);
             for (uint32_t batch = 0; batch < batchSize; batch++) {
                 for (uint32_t head = 0; head < numHeads; head++) {
-                    baseOffset = batch * numHeads * numLevels * numQueries * numPoints +
-                                 head * numLevels * numQueries * numPoints + level * numQueries * numPoints;
+                    baseOffset = (batch * numHeads * numLevels + head * numLevels + level) * numQueries * numPoints;
                     valueOffset = batch * numHeads * numKeys + head * numKeys + dataOffset;
                     moveOffset = (batch * numQueries * numHeads + head) * embedDims;
                     for (uint32_t queryloop = startLoop; queryloop < endLoop; queryloop++) {

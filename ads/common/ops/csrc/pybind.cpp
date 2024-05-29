@@ -45,6 +45,7 @@ void init_common(pybind11::module& m)
     // npu_multi_scale_deformable_attn_function
     m.def("npu_multi_scale_deformable_attn_function", &npu_multi_scale_deformable_attn_function);
     m.def("multi_scale_deformable_attn_grad", &multi_scale_deformable_attn_grad);
+    m.def("multi_scale_deformable_attn_grad_v2", &multi_scale_deformable_attn_grad_v2);
 
     // npu_dynamic_scatter
     m.def("npu_dynamic_scatter", &npu_dynamic_scatter);
