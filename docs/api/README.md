@@ -563,3 +563,42 @@ print(idx)
 tensor([[2.236, 2.236, 2.236], [2.236, 2.236, 2.236]], dtype=torch.float32)
 tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.int32)
 ```
+## RoipointPool3d
+### 接口原型
+```python
+ads.common.RoipointPool3d(int num_sampled_points, Tensor points, Tensor point_features, Tensor boxes3d) -> (Tensor pooled_features, Tensor pooled_empty_flag)
+```
+### 功能描述
+对每个3D方案的几何特定特征进行编码。
+### 参数说明
+- `num_sampled_points(int)`：特征点的数量。
+- `points(Tensor)`：点张量，数据类型为`float32, float16`。shape 为`[B, N, 3]`。`3`分别代表`x, y, z`。
+- `point_features(Tensor)`：点特征张量，数据类型为`float32, float16`。shape 为`[B, N, C]`。`C`分别代表`x, y, z`。
+- `boxes3d(Tensor)`：框张量，数据类型为`float32, float16`。shape 为`[B, M, 7]`。`7`分别代表`x, y, z, x_size, y_size, z_size, rz`。
+### 返回值
+- `pooled_features(Tensor)`：点在框内的特征张量，数据类型为`float32, float16`。shape 为`[B, M, num, 3+C]`。
+- `pooled_empty_flag(Tensor)`：所有点不在框内的空标记张量，数据类型为`int32`。shape 为`[B, M]`。
+### 约束说明
+- `points`、`point_features`和`boxes3d`的数据类型必须相同，以及`B`也必须相同。
+- `num_sampled_points`必须小于等于`N`。
+- 数据类型为`float32`时，建议`N`小于等于2640、`M`小于等于48、`num_sampled_points`小于等于48。
+- 数据类型为`float16`时，建议`N`小于等于3360、`M`小于等于60、`num_sampled_points`小于等于60。
+### 支持的型号
+- Atlas A2 训练系列产品
+### 调用示例
+```python
+import torch, torch_npu
+from ads.common import RoIPointPool3d
+num_sampled_points = 1
+points = torch.tensor([[[1, 2, 3]]], dtype=torch.float).npu()
+point_features = points.clone()
+boxes3d = torch.tensor([[[1, 2, 3, 4, 5, 6, 1]]], dtype=torch.float).npu()
+roipoint_pool3d = RoIPointPool3d(num_sampled_points)
+pooled_features, pooled_empty_flag = roipoint_pool3d(points, point_features, boxes3d)
+print(pooled_features)
+print(pooled_empty_flag)
+```
+```text
+tensor([[[[1., 2., 3., 1., 2., 3.]]]])
+tensor([[0]], dtype=torch.int32)
+```

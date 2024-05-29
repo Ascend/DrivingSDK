@@ -15,3 +15,4 @@ from .ops.npu_scatter_mean_grad import npu_scatter_mean_grad
 from .ops.voxel_pooling_train import npu_voxel_pooling_train
 from .ops.knn import knn
 from .ops.threeNN import three_nn
+from .ops.npu_roipoint_pool3d import RoipointPool3d as RoIPointPool3d

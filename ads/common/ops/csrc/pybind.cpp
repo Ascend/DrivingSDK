@@ -71,4 +71,7 @@ void init_common(pybind11::module& m)
 
     // knn
     m.def("knn", &knn);
+
+    // npu_roipoint_pool3d_forward
+    m.def("npu_roipoint_pool3d_forward", &npu_roipoint_pool3d_forward);
 }

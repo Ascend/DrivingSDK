@@ -61,4 +61,8 @@ std::tuple<at::Tensor &, at::Tensor &> voxel_pooling_train(const at::Tensor& inp
 
 std::tuple<at::Tensor, at::Tensor> knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample,
     bool is_from_knn);
+std::tuple<at::Tensor, at::Tensor> npu_roipoint_pool3d_forward(const int32_t num_sampled_points,
+                                                               const at::Tensor &points,
+                                                               const at::Tensor &point_features,
+                                                               const at::Tensor &boxes3d);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_
