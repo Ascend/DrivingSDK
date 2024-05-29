@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import unittest
-import torch
+import torch  
 import numpy as np
 import torch_npu
 
@@ -32,7 +32,7 @@ class TestPointsInBox(TestCase):
             [[[4, 6.928, 0], [6.928, 4, 0], [4, -6.928, 0], [6.928, -4, 0],
             [-4, 6.928, 0], [-6.928, 4, 0], [-4, -6.928, 0], [-6.928, -4, 0]]],
             dtype=torch.float32).npu()
-        point_indices = ads.common.npu_points_in_box(points=pts, boxes=boxes).cpu().numpy()
+        point_indices = ads.common.npu_points_in_box(boxes, pts).cpu().numpy()
         expected_point_indices = torch.tensor([[-1, -1, 0, -1, 0, -1, -1, -1]],
                                             dtype=torch.int32).cpu().numpy()
         self.assertRtolEqual(point_indices, expected_point_indices)
