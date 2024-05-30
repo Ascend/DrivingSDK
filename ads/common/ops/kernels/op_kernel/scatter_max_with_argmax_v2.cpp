@@ -3,8 +3,11 @@
  *
  */
 #include "kernel_operator.h"
+
 using namespace AscendC;
 constexpr uint32_t BLOCK_SIZE = 32;
+constexpr uint32_t MAX_DEAL_NUM = 2048;
+constexpr uint32_t MAX_MASK = 64;
 
 class KernelScatterMaxWithArgmaxV2 {
 public:
@@ -34,6 +37,7 @@ public:
         taskNum = tiling_data->taskNumPerCore;
         outLastTaskNum = tiling_data->outeachCoreLastNum;
         outTaskLine = tiling_data->outLineEachTask;
+        isOneDeal = tiling_data->isOneDeal;
 
         curBlockIdx = GetBlockIdx();
         outEachLine = outEachCore / outTailNum;
@@ -50,6 +54,11 @@ public:
         indicesEachBlock = BLOCK_SIZE / sizeof(DTYPE_INDICES);
         dataEachBlock = BLOCK_SIZE / sizeof(DTYPE_UPDATES);
 
+        uint64_t updatesTailMem = min(AlignUp(updatesTail, MAX_MASK), MAX_DEAL_NUM);
+
+        updatesTailLoop = updatesTail / MAX_DEAL_NUM;
+        updatesTailLast = updatesTail - updatesTailLoop * MAX_DEAL_NUM;
+
         eventIdMte2ToV_0 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
         eventIdMte2ToV_1 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
         eventIdVToMte3_0 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
@@ -65,14 +74,14 @@ public:
         argmaxGm.SetGlobalBuffer((__gm__ DTYPE_ARGMAX*)argmax, outNum);
     
         pipe->InitBuffer(inQueueIndices, AlignUp(ubIndicesNum, indicesEachBlock) * sizeof(DTYPE_INDICES));
-        pipe->InitBuffer(inQueueUpdates, updatesTailCopy * sizeof(DTYPE_UPDATES));
-        pipe->InitBuffer(outQueueArgmax, updatesTailCopy * sizeof(DTYPE_ARGMAX));
-        pipe->InitBuffer(inQueueVar, updatesTailCopy * sizeof(DTYPE_VAR));
-        pipe->InitBuffer(outQueueOut, updatesTailCopy * sizeof(DTYPE_OUT));
-        pipe->InitBuffer(tempArgmaxFloat, updatesTailCopy * sizeof(float));
-        pipe->InitBuffer(tempArgmaxFloat2, updatesTailCopy * sizeof(float));
+        pipe->InitBuffer(inQueueUpdates, updatesTailMem * sizeof(DTYPE_UPDATES));
+        pipe->InitBuffer(outQueueArgmax, updatesTailMem * sizeof(DTYPE_ARGMAX));
+        pipe->InitBuffer(inQueueVar, updatesTailMem * sizeof(DTYPE_VAR));
+        pipe->InitBuffer(outQueueOut, updatesTailMem * sizeof(DTYPE_OUT));
+        pipe->InitBuffer(tempArgmaxFloat, updatesTailMem * sizeof(float));
+        pipe->InitBuffer(tempArgmaxFloat2, updatesTailMem * sizeof(float));
         pipe->InitBuffer(outSetNote, outrepeat * sizeof(int32_t));
-        pipe->InitBuffer(mask1Buf, updatesTailCopy * sizeof(DTYPE_UPDATES));
+        pipe->InitBuffer(mask1Buf, updatesTailMem * sizeof(DTYPE_UPDATES));
     }
     __aicore__ inline void Process()
     {
@@ -95,10 +104,82 @@ private:
         argmaxLocalTemp = outQueueArgmax.Get<DTYPE_ARGMAX>();
     }
 
+    __aicore__ inline void ComputeFirst(const int32_t const argmaxValue, uint64_t actualupdatesTail, uint64_t offsetInOut, uint64_t updatesOffset)
+    {
+        uint32_t actualupdatesTailCopy = (actualupdatesTail + 7) / 8 * 8;
+        SetFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
+        SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
+        WaitFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
+        WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
+        DataCopy(updatesLocal, updatesGm[updatesOffset], actualupdatesTailCopy);
+
+        DataCopy(argmaxLocalTemp, argmaxGm[offsetInOut], actualupdatesTailCopy);
+        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
+
+        DataCopy(outLocalTemp, varGm[offsetInOut], actualupdatesTailCopy);
+
+        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
+
+        uint32_t rep = (actualupdatesTail + MAX_MASK - 1) / MAX_MASK;
+        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
+        Compare(mask1Tensor, updatesLocal, outLocalTemp, CMPMODE::LT, MAX_MASK, rep, {1, 1, 1, 8, 8, 8});
+        Select(outLocalTemp, mask1Tensor, outLocalTemp, updatesLocal, SELMODE::VSEL_TENSOR_TENSOR_MODE, actualupdatesTail);
+        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
+        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
+        ComputeDataCopy<float>(outGm[offsetInOut], outLocalTemp, actualupdatesTail);
+
+        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
+        Cast(tempArgmaxFloatT, argmaxLocalTemp, RoundMode::CAST_ROUND, actualupdatesTail);
+        Duplicate(tempArgmaxFloatT2, (float)argmaxValue, actualupdatesTail);
+
+        Select(tempArgmaxFloatT, mask1Tensor, tempArgmaxFloatT, tempArgmaxFloatT2, SELMODE::VSEL_TENSOR_TENSOR_MODE, actualupdatesTail);
+        Cast(argmaxLocalTemp, tempArgmaxFloatT, RoundMode::CAST_ROUND, actualupdatesTail);
+        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+
+        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+        ComputeDataCopy<int32_t>(argmaxGm[offsetInOut], argmaxLocalTemp, actualupdatesTail);
+    }
+
+    __aicore__ inline void ComputeOthers(const int32_t const argmaxValue, uint64_t actualupdatesTail, uint64_t offsetInOut, uint64_t updatesOffset)
+    {
+        uint32_t actualupdatesTailCopy = (actualupdatesTail + 7) / 8 * 8;
+        SetFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
+        SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
+        WaitFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
+        WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
+        DataCopy(updatesLocal, updatesGm[updatesOffset], actualupdatesTailCopy);
+
+        DataCopy(argmaxLocalTemp, argmaxGm[offsetInOut], actualupdatesTailCopy);
+        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
+
+        DataCopy(outLocalTemp, outGm[offsetInOut], actualupdatesTailCopy);
+
+        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
+
+        uint32_t rep = (actualupdatesTail + MAX_MASK - 1) / MAX_MASK;
+        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
+        Compare(mask1Tensor, updatesLocal, outLocalTemp, CMPMODE::LT, MAX_MASK, rep, {1, 1, 1, 8, 8, 8});
+        Select(outLocalTemp, mask1Tensor, outLocalTemp, updatesLocal, SELMODE::VSEL_TENSOR_TENSOR_MODE, actualupdatesTail);
+        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
+        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
+        ComputeDataCopy<float>(outGm[offsetInOut], outLocalTemp, actualupdatesTail);
+
+        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
+        Cast(tempArgmaxFloatT, argmaxLocalTemp, RoundMode::CAST_ROUND, actualupdatesTail);
+        Duplicate(tempArgmaxFloatT2, (float)argmaxValue, actualupdatesTail);
+
+        Select(tempArgmaxFloatT, mask1Tensor, tempArgmaxFloatT, tempArgmaxFloatT2, SELMODE::VSEL_TENSOR_TENSOR_MODE, actualupdatesTail);
+        Cast(argmaxLocalTemp, tempArgmaxFloatT, RoundMode::CAST_ROUND, actualupdatesTail);
+        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+
+        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+        ComputeDataCopy<int32_t>(argmaxGm[offsetInOut], argmaxLocalTemp, actualupdatesTail);
+    }
+
     __aicore__ inline void CopyParamasInit(const uint32_t calCount)
     {
         copyParamsOut.blockCount = 1;
-        copyParamsOut.blockLen = static_cast<uint32_t>(calCount * sizeof(float)); // float 或者 int32
+        copyParamsOut.blockLen = static_cast<uint32_t>(calCount * sizeof(float));
         copyParamsOut.srcStride = 0;
         copyParamsOut.dstStride = 0;
         copyParamsOut.rsv = 0;
@@ -115,25 +196,46 @@ private:
         }
     }
 
+    __aicore__ inline void ComputeTail(const int32_t const argmaxValue, uint64_t updatesTail, uint64_t offsetInOut, uint64_t updatesOffset, bool is_first)
+    {
+        uint64_t offset;
+        if (!isOneDeal) {
+            for (uint64_t loop = 0; loop < updatesTailLoop; loop++) {
+                offset = loop * MAX_DEAL_NUM;
+                if (is_first) {
+                    ComputeFirst(argmaxValue, MAX_DEAL_NUM, offsetInOut + offset, updatesOffset + offset);
+                } else {
+                    ComputeOthers(argmaxValue, MAX_DEAL_NUM, offsetInOut + offset, updatesOffset + offset);
+                }
+            }
+        }
+
+        offset = updatesTailLoop * MAX_DEAL_NUM;
+        uint64_t updatesTailLast = updatesTail - offset;
+        if (updatesTailLast != 0) {
+            if (is_first) {
+                ComputeFirst(argmaxValue, updatesTailLast, offsetInOut + offset, updatesOffset + offset);
+            } else {
+                ComputeOthers(argmaxValue, updatesTailLast, offsetInOut + offset, updatesOffset + offset);
+            }
+        }
+    }
+
     __aicore__ inline void Compute(int32_t progress)
     {
-        LocalTensor<int32_t>localSetNote = outSetNote.Get<int32_t>();
-        LocalTensor<uint8_t> mask1Tensor = mask1Buf.Get<uint8_t>();
-        LocalTensor<float> tempArgmaxFloatT = tempArgmaxFloat.Get<float>();
-        LocalTensor<float> tempArgmaxFloatT2 = tempArgmaxFloat2.Get<float>();
+        localSetNote = outSetNote.Get<int32_t>();
+        mask1Tensor = mask1Buf.Get<uint8_t>();
+        tempArgmaxFloatT = tempArgmaxFloat.Get<float>();
+        tempArgmaxFloatT2 = tempArgmaxFloat2.Get<float>();
         Duplicate(localSetNote, 0, outrepeat);
 
         for (uint32_t loop = 0; loop < indicesLoop; loop++) {
             LocalTensor<DTYPE_INDICES>indicesLocal = inQueueIndices.Get<DTYPE_INDICES>();
-            LocalTensor<DTYPE_UPDATES>updatesLocal = inQueueUpdates.Get<DTYPE_UPDATES>();
+            updatesLocal = inQueueUpdates.Get<DTYPE_UPDATES>();
             DataCopy(indicesLocal, indicesGm[loop * ubIndicesNum], (ubIndicesNum + indicesEachBlock - 1) / indicesEachBlock * indicesEachBlock);
 
             int64_t indicesStart = curBlockIdx * outEachLine + outTaskLine * progress;
-            SetFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-            SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
             for (uint32_t idx = 0; idx < ubIndicesNum; idx++) {
-                WaitFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-                WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
                 DTYPE_INDICES dataInIndices = indicesLocal.GetValue(idx);
                 // if this indices should be processed in this task
                 if (dataInIndices >= indicesStart && dataInIndices < indicesStart + outThisLine) {
@@ -141,94 +243,28 @@ private:
                     int64_t outLineOffset = idx % (outTailNum / updatesTail);
                     int64_t outActualOffset = outBlockOffset * outTailNum + outLineOffset * updatesTail;
                     int64_t updatesOffset = idx * updatesTail;
-                    DataCopy(updatesLocal, updatesGm[loop * ubUpdatesNum + updatesOffset], updatesTailCopy);
                     // offset in localSetNote
                     int64_t localSetNoteOffset = dataInIndices % (outTaskNum / updatesTail);
                     DTYPE_INDICES argmaxValue = (idx + ubIndicesNum * loop) / argmaxGap;
-                    SetFlag<HardEvent::S_V>(eventIdSToV_0);
 
                     int64_t offsetInOut = curBlockIdx * outEachCore + progress * outTaskNum + outActualOffset;
                     if (localSetNote.GetValue(localSetNoteOffset) == 0) {
                         localSetNote.SetValue(localSetNoteOffset, 1);
-                        BinaryRepeatParams repeatParams = {1, 1, 1, 8, 8, 8};
-
-                        DataCopy(argmaxLocalTemp, argmaxGm[offsetInOut], updatesTailCopy);
-                        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-
-                        DataCopy(outLocalTemp, varGm[offsetInOut], updatesTailCopy);
-
-                        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-                        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-
-                        Compare(mask1Tensor, updatesLocal, outLocalTemp, CMPMODE::LT, 8, repeatTimes, repeatParams);
-                        Select(outLocalTemp, mask1Tensor, outLocalTemp, updatesLocal, SELMODE::VSEL_TENSOR_TENSOR_MODE, updatesTail);
-
-                        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
-
-                        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-                        Cast(tempArgmaxFloatT, argmaxLocalTemp, RoundMode::CAST_ROUND, updatesTail);
-                        WaitFlag<HardEvent::S_V>(eventIdSToV_0);
-                        Duplicate(tempArgmaxFloatT2, (float)argmaxValue, updatesTail);
-
-                        Select(tempArgmaxFloatT, mask1Tensor, tempArgmaxFloatT, tempArgmaxFloatT2, SELMODE::VSEL_TENSOR_TENSOR_MODE, updatesTail);
-                        Cast(argmaxLocalTemp, tempArgmaxFloatT, RoundMode::CAST_ROUND, updatesTail);
-                        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
-
-                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
-                        ComputeDataCopy<float>(outGm[offsetInOut], outLocalTemp, updatesTail);
-
-                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
-                        ComputeDataCopy<int32_t>(argmaxGm[offsetInOut], argmaxLocalTemp, updatesTail);
+                        ComputeTail(argmaxValue, updatesTail, offsetInOut, loop * ubUpdatesNum + updatesOffset, true);
                     } else {
-                        BinaryRepeatParams repeatParams = {1, 1, 1, 8, 8, 8};
-
-                        DataCopy(argmaxLocalTemp, argmaxGm[offsetInOut], updatesTailCopy);
-                        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-
-                        DataCopy(outLocalTemp, outGm[offsetInOut], updatesTailCopy);
-
-                        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-                        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-
-                        Compare(mask1Tensor, updatesLocal, outLocalTemp, CMPMODE::LT, 8, repeatTimes, repeatParams);
-                        Select(outLocalTemp, mask1Tensor, outLocalTemp, updatesLocal, SELMODE::VSEL_TENSOR_TENSOR_MODE, updatesTail);
-
-                        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
-
-                        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-                        Cast(tempArgmaxFloatT, argmaxLocalTemp, RoundMode::CAST_ROUND, updatesTail);
-                        WaitFlag<HardEvent::S_V>(eventIdSToV_0);
-                        Duplicate(tempArgmaxFloatT2, (float)argmaxValue, updatesTail);
-
-                        Select(tempArgmaxFloatT, mask1Tensor, tempArgmaxFloatT, tempArgmaxFloatT2, SELMODE::VSEL_TENSOR_TENSOR_MODE, updatesTail);
-                        Cast(argmaxLocalTemp, tempArgmaxFloatT, RoundMode::CAST_ROUND, updatesTail);
-                        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
-
-                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
-                        ComputeDataCopy<float>(outGm[offsetInOut], outLocalTemp, updatesTail);
-
-                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
-                        ComputeDataCopy<int32_t>(argmaxGm[offsetInOut], argmaxLocalTemp, updatesTail);
+                        ComputeTail(argmaxValue, updatesTail, offsetInOut, loop * ubUpdatesNum + updatesOffset, false);
                     }
                 }
-                SetFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-                SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
             }
-            WaitFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-            WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
         }
 
         if (indicesLastNum != 0) {
             LocalTensor<DTYPE_INDICES>indicesLocal = inQueueIndices.Get<DTYPE_INDICES>();
-            LocalTensor<DTYPE_UPDATES>updatesLocal = inQueueUpdates.Get<DTYPE_UPDATES>();
+            updatesLocal = inQueueUpdates.Get<DTYPE_UPDATES>();
             DataCopy(indicesLocal, indicesGm[indicesLoop * ubIndicesNum], (indicesLastNum + indicesEachBlock - 1) / indicesEachBlock * indicesEachBlock);
 
             int64_t indicesStart = curBlockIdx * outEachLine + outTaskLine * progress;
-            SetFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-            SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
             for (uint32_t idx = 0; idx < indicesLastNum; idx++) {
-                WaitFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-                WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
                 DTYPE_INDICES dataInIndices = indicesLocal.GetValue(idx);
                 // if this indices should be processed in this task
                 if (dataInIndices >= indicesStart && dataInIndices < indicesStart + outThisLine) {
@@ -236,88 +272,19 @@ private:
                     int64_t outLineOffset = idx % (outTailNum / updatesTail);
                     int64_t outActualOffset = outBlockOffset * outTailNum + outLineOffset * updatesTail;
                     int64_t updatesOffset = idx * updatesTail;
-                    DataCopy(updatesLocal, updatesGm[indicesLoop * ubUpdatesNum + updatesOffset], updatesTailCopy);
                     // offset in localSetNote
                     int64_t localSetNoteOffset = dataInIndices % (outTaskNum / updatesTail);
                     DTYPE_INDICES argmaxValue = (idx + ubIndicesNum * indicesLoop) / argmaxGap;
-                    SetFlag<HardEvent::S_V>(eventIdSToV_0);
-
                     int64_t offsetInOut = curBlockIdx * outEachCore + progress * outTaskNum + outActualOffset;
                     if (localSetNote.GetValue(localSetNoteOffset) == 0) {
                         localSetNote.SetValue(localSetNoteOffset, 1);
-
-                        BinaryRepeatParams repeatParams = {1, 1, 1, 8, 8, 8};
-
-                        DataCopy(argmaxLocalTemp, argmaxGm[offsetInOut], updatesTailCopy);
-                        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-
-                        DataCopy(outLocalTemp, varGm[offsetInOut], updatesTailCopy);
-
-                        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-                        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-
-                        Compare(mask1Tensor, updatesLocal, outLocalTemp, CMPMODE::LT, 8, repeatTimes, repeatParams);
-                        Select(outLocalTemp, mask1Tensor, outLocalTemp, updatesLocal, SELMODE::VSEL_TENSOR_TENSOR_MODE, updatesTail);
-
-                        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
-
-                        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-                        Cast(tempArgmaxFloatT, argmaxLocalTemp, RoundMode::CAST_ROUND, updatesTail);
-                        WaitFlag<HardEvent::S_V>(eventIdSToV_0);
-                        Duplicate(tempArgmaxFloatT2, (float)argmaxValue, updatesTail);
-
-                        Select(tempArgmaxFloatT, mask1Tensor, tempArgmaxFloatT, tempArgmaxFloatT2, SELMODE::VSEL_TENSOR_TENSOR_MODE, updatesTail);
-                        Cast(argmaxLocalTemp, tempArgmaxFloatT, RoundMode::CAST_ROUND, updatesTail);
-                        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
-
-                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
-                        ComputeDataCopy<float>(outGm[offsetInOut], outLocalTemp, updatesTail);
-
-                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
-                        ComputeDataCopy<int32_t>(argmaxGm[offsetInOut], argmaxLocalTemp, updatesTail);
+                        ComputeTail(argmaxValue, updatesTail, offsetInOut, indicesLoop * ubUpdatesNum + updatesOffset, true);
                     } else {
-                        BinaryRepeatParams repeatParams = {1, 1, 1, 8, 8, 8};
-
-                        DataCopy(argmaxLocalTemp, argmaxGm[offsetInOut], updatesTailCopy);
-                        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-
-                        DataCopy(outLocalTemp, outGm[offsetInOut], updatesTailCopy);
-
-                        SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-                        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
-
-                        Compare(mask1Tensor, updatesLocal, outLocalTemp, CMPMODE::LT, 8, repeatTimes, repeatParams);
-                        Select(outLocalTemp, mask1Tensor, outLocalTemp, updatesLocal, SELMODE::VSEL_TENSOR_TENSOR_MODE, updatesTail);
-
-                        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
-
-                        WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
-                        Cast(tempArgmaxFloatT, argmaxLocalTemp, RoundMode::CAST_ROUND, updatesTail);
-                        WaitFlag<HardEvent::S_V>(eventIdSToV_0);
-                        Duplicate(tempArgmaxFloatT2, (float)argmaxValue, updatesTail);
-
-                        Select(tempArgmaxFloatT, mask1Tensor, tempArgmaxFloatT, tempArgmaxFloatT2, SELMODE::VSEL_TENSOR_TENSOR_MODE, updatesTail);
-                        Cast(argmaxLocalTemp, tempArgmaxFloatT, RoundMode::CAST_ROUND, updatesTail);
-                        SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
-
-                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_0);
-                        ComputeDataCopy<float>(outGm[offsetInOut], outLocalTemp, updatesTail);
-
-                        WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
-                        ComputeDataCopy<int32_t>(argmaxGm[offsetInOut], argmaxLocalTemp, updatesTail);
+                        ComputeTail(argmaxValue, updatesTail, offsetInOut, indicesLoop * ubUpdatesNum + updatesOffset, false);
                     }
                 }
-                SetFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-                SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
             }
-            WaitFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-            WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV_0);
         }
-
-        outSetNote.FreeTensor(localSetNote);
-        mask1Buf.FreeTensor(mask1Tensor);
-        tempArgmaxFloat.FreeTensor(tempArgmaxFloatT);
-        tempArgmaxFloat2.FreeTensor(tempArgmaxFloatT2);
     }
 
 private:
@@ -336,16 +303,23 @@ private:
     LocalTensor<DTYPE_OUT> outLocalTemp;
     LocalTensor<DTYPE_ARGMAX> argmaxLocalTemp;
 
+    LocalTensor<int32_t> localSetNote;
+    LocalTensor<uint8_t> mask1Tensor;
+    LocalTensor<float> tempArgmaxFloatT;
+    LocalTensor<float> tempArgmaxFloatT2;
+    LocalTensor<DTYPE_UPDATES> updatesLocal;
+
     DataCopyExtParams copyParamsOut;
     uint64_t curBlockIdx;
     uint64_t argmaxGap;
     int32_t initArgmax;
-    bool isAligned;
+    bool isAligned, isOneDeal;
     uint64_t usedCoreNum, tilingMode;
     uint64_t indicesNum, updatesNum, outNum, updatesTail, outTailNum, outEachCore;
     uint64_t indicesLoop, ubIndicesNum, ubUpdatesNum, indicesLastNum, unpdatesLastNum;
     uint64_t outTaskNum, taskNum, outLastTaskNum, outrepeat, outEachLine, repeatTimes;
     uint64_t outTaskLine, outThisNum, outThisLine, updatesTailCopy, dataEachBlock, indicesEachBlock;
+    uint64_t updatesTailLast, updatesTailLoop;
 
     event_t eventIdMte2ToV_0, eventIdMte2ToV_1, eventIdVToMte3_0, eventIdVToMte3_1, eventIdSToV_0, eventIdMte3ToMte2_0, eventIdMte3ToV_0;
 };

@@ -30,6 +30,7 @@ BEGIN_TILING_DATA_DEF(ScatterMaxTilingData)
     TILING_DATA_FIELD_DEF(uint64_t, argmaxGap);
     TILING_DATA_FIELD_DEF(uint64_t, initArgmax);
     TILING_DATA_FIELD_DEF(bool, isAligned);
+    TILING_DATA_FIELD_DEF(bool, isOneDeal);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(ScatterMaxWithArgmaxV2, ScatterMaxTilingData)

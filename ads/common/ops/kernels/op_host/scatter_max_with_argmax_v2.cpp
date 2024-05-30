@@ -5,9 +5,15 @@
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
+#include "nms3d_normal_tiling.h"
+
+
+using namespace std;
+
 namespace optiling {
 const uint64_t BLOCK_SIZE = 32;
-const uint64_t MAX_OUT =  8192 * 8;
+const uint64_t MAX_OUT_LINE =  18000;
+const uint64_t MAX_DEAL_NUM =  2048;
 
 static uint64_t GetCeilInt(uint64_t value1, uint64_t value2)
 {
@@ -46,7 +52,7 @@ static ge::graphStatus GetTaskTilingData(gert::TilingContext* context, ScatterMa
     }
 
     uint64_t allrepeatLine = varShape.GetDim(0);
-    uint64_t outLineEachTask = MAX_OUT / outTailNum; // maximum lines can be procesed in a task
+    uint64_t outLineEachTask = MAX_OUT_LINE;
     uint64_t argmaxGap = 1; // a parameters to compute value in argmax
     for (uint64_t i = 1; i < indicesDim; i++) {
         argmaxGap *= indicesShape.GetDim(i);
@@ -58,7 +64,7 @@ static ge::graphStatus GetTaskTilingData(gert::TilingContext* context, ScatterMa
     uint64_t LastCoreLastTaskLine;
     uint64_t outlineEachCore;
     uint64_t outlinelastCore;
-    uint64_t taskNum = GetCeilInt(allrepeatLine, 64);
+    uint64_t taskNum = allrepeatLine; // GetCeilInt(allrepeatLine, 4);
     if (taskNum > coreNum) {
         usedCoreNum = coreNum;
     } else {
@@ -127,15 +133,18 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
     auto indicesShape = context->GetInputShape(1)->GetStorageShape();
 
     auto indicesDim = indicesShape.GetDimNum();
+    auto updatesDim = updatesShape.GetDimNum();
     auto indicesNum = indicesShape.GetShapeSize();
     auto updatesNum = updatesShape.GetShapeSize();
+
     uint64_t updatesTail = 1;
-    if (updatesShape.GetDimNum() == 0) {
+    if (updatesDim == 0) {
         return ge::GRAPH_FAILED;
     }
-    for (uint64_t i = 1; i < updatesShape.GetDimNum(); i++) {
+    for (uint64_t i = 1; i < updatesDim; i++) {
         updatesTail *= updatesShape.GetDim(i);
     }
+    bool isOneDeal = (updatesTail / MAX_DEAL_NUM) == 0;
 
     uint64_t argmaxGap = 1; // a parameters to compute value in argmax
     for (uint64_t i = 1; i < indicesDim; i++) {
@@ -144,7 +153,8 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
     uint64_t bytesData = 4;    // now only support float32
     uint64_t bytesIndices = 4; // now only support int32
 
-    uint64_t ubAvailableBytes = UB_size - 20*1024;
+    auto outLineEachTask = tiling.get_outLineEachTask();
+    uint64_t ubAvailableBytes = UB_size - std::min(updatesTail, MAX_DEAL_NUM) * 7 * 4 - outLineEachTask * 4 - 10*1024;
 
     uint64_t ubIndicesNum;
     uint64_t ubUpdatesNum;
@@ -179,6 +189,7 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
     tiling.set_initArgmax(initArgmax);
     tiling.set_isAligned(isAligned);
     tiling.set_updatesTail(updatesTail);
+    tiling.set_isOneDeal(isOneDeal);
 
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
@@ -213,17 +224,20 @@ public:
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("indices")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("updates")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Output("out")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
