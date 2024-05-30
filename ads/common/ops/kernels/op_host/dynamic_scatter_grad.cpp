@@ -191,6 +191,7 @@ public:
             .DynamicRankSupportFlag(true)
             .DynamicShapeSupportFlag(true);
         this->AICore().AddConfig("ascend910b", aicore_config);
+        this->AICore().AddConfig("ascend910c", aicore_config);
     }
 };
 

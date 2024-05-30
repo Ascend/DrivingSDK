@@ -58,6 +58,7 @@ public:
             .SetTiling(optiling::GatherNms3dMaskTiling);
 
         this->AICore().AddConfig("ascend910b");
+        this->AICore().AddConfig("ascend910c");
     }
 };
 

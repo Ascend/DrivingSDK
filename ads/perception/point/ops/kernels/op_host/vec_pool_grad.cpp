@@ -224,6 +224,7 @@ public:
         this->AICore()
             .SetTiling(optiling::VecPoolGradTilingFunc);
         this->AICore().AddConfig("ascend910b");
+        this->AICore().AddConfig("ascend910c");
     }
 };
 
