@@ -33,9 +33,7 @@ public:
     uint32_t big_core_len;
     uint32_t small_core_len;
     uint32_t aligned_big_len;
-    uint32_t aligned_big_size;
     uint32_t aligned_small_len;
-    uint32_t aligned_small_size;
     TopkTiling topkTilingData;
     TopkTiling topkTilingData2;
     TopKInfo topkInfo;
@@ -48,16 +46,16 @@ public:
     __aicore__ inline KnnKernel()
     {
         this->core_id = GetBlockIdx();
-    };
+    }
     __aicore__ inline ~KnnKernel()
     {
         if (this->tilingKernel->is_from_knn) {
             this->compareUb.template FreeTensor<uint8_t>(this->compareLocal);
         }
+        this->sourceBackupUb.template FreeTensor<T>(this->sourceBackupLocal);
+        this->sourceUb.template FreeTensor<T>(this->sourceLocal);
         this->targetUb.template FreeTensor(this->targetLocal);
-        this->idxUb.template FreeTensor(this->idxLocal);
-        this->dist2Ub.template FreeTensor(this->dist2Local);
-    };
+    }
     __aicore__ inline void InitGm(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR idx, GM_ADDR dist2, knnTilingArgs* tmpTiling,
         TPipe *tmpPipe)
     {
@@ -70,16 +68,14 @@ public:
         // calc data offsets where each core starts to deal with
         if (this->core_id < this->tilingKernel->big_core_num) {
             start_offset              = this->core_id * this->tilingKernel->big_core_len;
-            end_offset                = start_offset + this->tilingKernel->big_core_len;
+            end_offset                = start_offset + this->tilingKernel->big_core_len - 1;
             this->actual_len          = this->tilingKernel->big_core_len;
-            this->aligned_actual_size = this->tilingKernel->aligned_big_size;
             this->aligned_actual_len  = this->tilingKernel->aligned_big_len;
         } else {
             start_offset              = this->tilingKernel->big_core_num * this->tilingKernel->big_core_len +
                 (this->core_id - this->tilingKernel->big_core_num) * this->tilingKernel->small_core_len;
-            end_offset                = start_offset + this->tilingKernel->small_core_len;
+            end_offset                = start_offset + this->tilingKernel->small_core_len - 1;
             this->actual_len          = this->tilingKernel->small_core_len;
-            this->aligned_actual_size = this->tilingKernel->aligned_small_size;
             this->aligned_actual_len  = this->tilingKernel->aligned_small_len;
         }
         this->task_b     = start_offset / this->tilingKernel->npoint;
@@ -95,18 +91,26 @@ public:
         this->sourceGm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(xyz) + this->offset_sourceGm,
             this->num_batch * this->tilingKernel->nsource * 3);
         this->targetGm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(center_xyz) + this->offset_targetGm,
-            this->aligned_actual_len * 3);
+            this->aligned_actual_len);
         this->idxGm.SetGlobalBuffer(reinterpret_cast<__gm__ U *>(idx) + this->offset_outputGm,
             this->actual_len * this->tilingKernel->nsample);
         this->dist2Gm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(dist2) + this->offset_outputGm,
             this->actual_len * this->tilingKernel->nsample);
     }
+    __aicore__ inline void InitPipe()
+    {
+        this->pipe->InitBuffer(this->tmpBuf,   1, this->tilingKernel->topkmax);
+        this->pipe->InitBuffer(this->targetUb, 1, 32);
+        if (this->tilingKernel->is_from_knn) {
+            this->pipe->InitBuffer(this->compareUb, 1, this->tilingKernel->nsample_aligned);
+            this->compareLocal = this->compareUb.template AllocTensor<uint8_t>();
+        }
+    }
     __aicore__ inline void copyInTarget()
     {
-        this->current_point = 0;
-        set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-        DataCopy(this->targetLocal, this->targetGm, this->aligned_actual_len * 3);
+        set_flag(PIPE_S, PIPE_MTE2, EVENT_ID1);
+        wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID1);
+        DataCopy(this->targetLocal, this->targetGm[this->current_point * 3], this->target_num);
         set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
     }
@@ -133,9 +137,9 @@ public:
     }
     __aicore__ inline void spetialDeal()
     {
-        uint32_t dist2Local_start = 0;
-        uint32_t dist2Local_end   = this->tilingKernel->nsample - 1;
-        uint32_t first_inf;
+        int32_t dist2Local_start = 0;
+        int32_t dist2Local_end   = this->tilingKernel->nsample - 1;
+        int32_t first_inf;
 
         Mins<T>(this->dist2Local, this->dist2Local, static_cast<T>(1e10f), this->tilingKernel->nsample);
         set_flag(PIPE_V,  PIPE_S, EVENT_ID0);
@@ -174,17 +178,19 @@ public:
     GlobalTensor<T> sourceGm, targetGm, dist2Gm;
     GlobalTensor<U> idxGm;
     TQue<QuePosition::VECOUT, 1> targetUb, idxUb, dist2Ub, tmpBuf;
-    TQue<QuePosition::VECIN,  1> sourceUb, compareUb, distUb;
-    LocalTensor<T> sourceLocal, targetLocal, distLocal, dist2Local;
+    TQue<QuePosition::VECIN,  1> sourceUb, sourceBackupUb, compareUb, distUb;
+    LocalTensor<T> sourceLocal, sourceBackupLocal, targetLocal, distLocal, dist2Local;
     LocalTensor<U> idxLocal;
     LocalTensor<uint8_t> tmpLocal;
     LocalTensor<uint8_t> compareLocal;
     uint32_t core_id;
     uint32_t offset_sourceGm, offset_targetGm, offset_outputGm;
     uint32_t source_offset_x, source_offset_y, source_offset_z;
-    uint32_t actual_len, aligned_actual_len, aligned_actual_size;
+    uint32_t actual_len, aligned_actual_len;
     uint32_t task_b, task_m, last_task_b, num_batch;
     uint32_t current_b, current_m, current_point;
+    // target_num means the num of moved target from GM to UB, which is 8(float32) or 16(float16)
+    uint32_t target_num, target_x_num, target_pos_in_targe_num;
 };
 } // namespace AscendC
 

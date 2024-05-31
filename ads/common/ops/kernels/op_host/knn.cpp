@@ -53,6 +53,7 @@ ge::graphStatus KnnTiling::Init()
     if (this->core_num == 0) {
         return ge::GRAPH_FAILED;
     }
+    // divide the core by (batch x npoint)
     this->nsample_aligned = ceil_value(this->nsample, KNN_BLOCK_SIZE / this->dtype_size_);
     this->nsource_aligned = ceil_value(this->nsource, KNN_BLOCK_SIZE / this->dtype_size_);
     this->nsource_aligned_size = this->nsource_aligned * this->dtype_size_;
@@ -62,9 +63,7 @@ ge::graphStatus KnnTiling::Init()
     this->big_core_num = this->b_times_m - this->small_core_len * this->core_num; // 910B1range:0-39
     this->small_core_num = this->core_num - this->big_core_num; // 910B1range:1-40
     this->aligned_big_len = ceil_value(this->big_core_len * 3, KNN_BLOCK_SIZE / this->dtype_size_);
-    this->aligned_big_size = this->aligned_big_len * this->dtype_size_;
     this->aligned_small_len = ceil_value(this->small_core_len * 3, KNN_BLOCK_SIZE / this->dtype_size_);
-    this->aligned_small_size = this->aligned_small_len * this->dtype_size_;
     this->inner = ceil_value(this->nsource, 32) * 32;
     platformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, this->ub_size);
 
@@ -77,12 +76,16 @@ ge::graphStatus KnnTiling::Init()
     // case1
     res = AscendC::GetTopKMaxMinTmpSize(platformInfo, this->inner, 1, false, false, AscendC::TopKMode::TOPK_NORMAL,
         true, this->dtype_size_, this->topkmax, this->topkmin);
-    data_size = this->aligned_big_size + this->inner * this->dtype_size_ + std::max(this->nsource_aligned_size * 3,
-        this->topkmax + this->nsource_aligned_size * 3 + aligned_size_idx + aligned_size_dist2);
-    if (res == false) {
+    if (!res) {
         return ge::GRAPH_FAILED;
     }
+    // size = target + dist + source + source_backup + topkmax + idx + dist2
+    this->source_size = this->nsource_aligned_size * 3;
+    this->source_backup_size = this->source_size;
+    data_size = this->target_size + this->inner * this->dtype_size_ + this->source_size + this->source_backup_size +
+        this->topkmax + aligned_size_idx + aligned_size_dist2;
     if (data_size <= (this->ub_size - KNN_UBRESERVE)) {
+         // in this case, we can move complete source in the UB
         if (is_float) {
             TilingContext->SetTilingKey(100);
         } else {
@@ -90,47 +93,72 @@ ge::graphStatus KnnTiling::Init()
         }
         res = AscendC::TopKTilingFunc(platformInfo, this->inner, 1, this->nsample, this->dtype_size_,
             false, AscendC::TopKMode::TOPK_NORMAL, true, TilingData.topkTilingData);
-        if (res == false) {
+        if (!res) {
             return ge::GRAPH_FAILED;
         }
     } else {
-        // case2
-        this->loop_times = 1;
-        uint32_t new_nsource = this->nsource;
-        this->inner2 = ceil_value(this->nsample_aligned * 2, 32);
-        res = AscendC::GetTopKMaxMinTmpSize(platformInfo, this->inner2, 1, false, true, AscendC::TopKMode::TOPK_NORMAL,
-            true, this->dtype_size_, this->topkmax2, this->topkmin2);
-        if (res == false) {
-            return ge::GRAPH_FAILED;
-        }
-        do {
-            this->loop_times *= 2;
-            new_nsource = ceil_multiple(this->nsource, this->loop_times);
-            this->nsource_aligned2 = ceil_value(new_nsource, KNN_BLOCK_SIZE / this->dtype_size_);
-            this->nsource_aligned_size2 = this->nsource_aligned2 * this->dtype_size_;
-            this->inner = ceil_value(new_nsource, 32);
-            res = AscendC::GetTopKMaxMinTmpSize(platformInfo, this->inner, 1, false, false,
-                AscendC::TopKMode::TOPK_NORMAL, true, this->dtype_size_, this->topkmax, this->topkmin);
-            if (res == false) {
-                return ge::GRAPH_FAILED;
-            }
-            data_size = this->inner * this->dtype_size_ + std::max(this->nsource_aligned_size2 * 3, this->topkmax);
-            data_size = this->aligned_big_size + aligned_size_idx * 2 + this->inner2 * this->dtype_size_ +
-                std::max(data_size, this->topkmax2);
-        } while (data_size > (this->ub_size - KNN_UBRESERVE));
+        // in this case, we need to split source/xyz
         if (is_float) {
             TilingContext->SetTilingKey(102);
         } else {
             TilingContext->SetTilingKey(103);
         }
+        uint32_t size_tmp;
+        uint32_t new_n;
+        // calc the size of topkmax2
+        this->inner2 = ceil_value(this->nsample_aligned * 2, 32);
+        res = AscendC::GetTopKMaxMinTmpSize(platformInfo, this->inner2, 1, false, true, AscendC::TopKMode::TOPK_NORMAL,
+            true, this->dtype_size_, this->topkmax2, this->topkmin2);
+        if (!res) {
+            return ge::GRAPH_FAILED;
+        }
+        // size = target + idx + dist2
+        data_size = this->target_size + aligned_size_idx * 2 + this->inner2 * this->dtype_size_;
+        // minimum size of source and topkmax is based on 32 data
+        res = AscendC::GetTopKMaxMinTmpSize(platformInfo, 32, 1, false, false,
+            AscendC::TopKMode::TOPK_NORMAL, true, this->dtype_size_, this->topkmax, this->topkmin);
+        if (!res) {
+            return ge::GRAPH_FAILED;
+        }
+        this->source_size = 96 * this->dtype_size_;
+        this->source_backup_size = this->source_size;
+        this->dist_size = this->source_size;
+        // size_tmp = target + idx + dist2 + source + source_backup + max(dist + topkmax, topkmax2)
+        size_tmp = data_size + this->source_size + this->source_backup_size +
+            std::max(this->dist_size + this->topkmax, this->topkmax2);
+        if (size_tmp > (this->ub_size - KNN_UBRESERVE)) {
+            // 超出UB能处理的最大数据范围， 怎么办？
+            return ge::GRAPH_FAILED;
+        }
+        // then at least the UB space is capable for 32 data
+        this->loop_times = 1;
+        new_n = this->nsource;
+        do {
+            this->loop_times *= 2;
+            new_n = ceil_multiple(this->nsource, this->loop_times);
+            this->nsource_aligned2 = ceil_value(new_n, KNN_BLOCK_SIZE / this->dtype_size_);
+            this->nsource_aligned_size2 = this->nsource_aligned2 * this->dtype_size_;
+            this->inner = ceil_value(new_n, 32);
+            res = AscendC::GetTopKMaxMinTmpSize(platformInfo, this->inner, 1, false, false,
+                AscendC::TopKMode::TOPK_NORMAL, true, this->dtype_size_, this->topkmax, this->topkmin);
+            if (!res) {
+                return ge::GRAPH_FAILED;
+            }
+            // size = target + idx + dist2 + source + source_backup + max(dist + topkmax, topkmax2)
+            this->source_size = this->nsource_aligned_size2 * 3;
+            this->source_backup_size = this->source_size;
+            this->dist_size = this->inner * this->dtype_size_;
+            data_size += this->source_size + this->source_backup_size +
+                std::max(this->dist_size + this->topkmax, this->topkmax2);
+        } while ((data_size > (this->ub_size - KNN_UBRESERVE)) && (new_n >= 32));
         res = AscendC::TopKTilingFunc(platformInfo, this->inner, 1, this->nsample, this->dtype_size_,
             false, AscendC::TopKMode::TOPK_NORMAL, true, TilingData.topkTilingData);
-        if (res == false) {
+        if (!res) {
             return ge::GRAPH_FAILED;
         }
         res = AscendC::TopKTilingFunc(platformInfo, this->inner2, 1, this->nsample, this->dtype_size_,
             true, AscendC::TopKMode::TOPK_NORMAL, true, TilingData.topkTilingData2);
-        if (res == false) {
+        if (!res) {
             return ge::GRAPH_FAILED;
         }
     }
@@ -166,9 +194,7 @@ ge::graphStatus KnnTiling::RunTiling()
     TilingData.set_big_core_len(this->big_core_len);
     TilingData.set_small_core_len(this->small_core_len);
     TilingData.set_aligned_big_len(this->aligned_big_len);
-    TilingData.set_aligned_big_size(this->aligned_big_size);
     TilingData.set_aligned_small_len(this->aligned_small_len);
-    TilingData.set_aligned_small_size(this->aligned_small_size);
     if ((this->b_times_m) < this->core_num) {
         TilingContext->SetBlockDim(this->b_times_m);
     } else {

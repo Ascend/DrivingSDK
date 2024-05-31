@@ -500,6 +500,7 @@ loss = bev_pooled_feat.sum()
 loss.backward()
 print(loss)
 print(feat.grad)
+```
 
 ## knn
 ### 接口原型

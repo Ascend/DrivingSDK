@@ -36,9 +36,7 @@ extern "C" __global__ __aicore__ void knn(
     tmpTiling.big_core_len          = tiling_data.big_core_len;
     tmpTiling.small_core_len        = tiling_data.small_core_len;
     tmpTiling.aligned_big_len       = tiling_data.aligned_big_len;
-    tmpTiling.aligned_big_size      = tiling_data.aligned_big_size;
     tmpTiling.aligned_small_len     = tiling_data.aligned_small_len;
-    tmpTiling.aligned_small_size    = tiling_data.aligned_small_size;
 
     tmpTiling.topkTilingData        = tiling_data.topkTilingData;
     tmpTiling.topkTilingData2       = tiling_data.topkTilingData2;
@@ -50,18 +48,26 @@ extern "C" __global__ __aicore__ void knn(
 
     if (TILING_KEY_IS(100)) {
         KnnCase1<float, int32_t> op;
+        op.target_x_num = 8;
+        op.target_num = 24;
         op.Init(xyz, center_xyz, idx, dist2, &tmpTiling, &tmpPipe);
         op.Process();
     } else if (TILING_KEY_IS(101)) {
         KnnCase1<half, int32_t> op;
+        op.target_x_num = 16;
+        op.target_num = 48;
         op.Init(xyz, center_xyz, idx, dist2, &tmpTiling, &tmpPipe);
         op.Process();
     } else if (TILING_KEY_IS(102)) {
         KnnCase2<float, int32_t> op;
+        op.target_x_num = 8;
+        op.target_num = 24;
         op.Init(xyz, center_xyz, idx, dist2, &tmpTiling, &tmpPipe);
         op.Process();
     } else if (TILING_KEY_IS(103)) {
         KnnCase2<half, int32_t> op;
+        op.target_x_num = 16;
+        op.target_num = 48;
         op.Init(xyz, center_xyz, idx, dist2, &tmpTiling, &tmpPipe);
         op.Process();
     }
