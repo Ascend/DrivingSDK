@@ -29,7 +29,6 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn_grad(
 {
     TPipe pipe;
     GET_TILING_DATA(tiling_datas, tiling_data);
-    uint32_t numPoints = tiling_datas.numPoints;
     if (TILING_KEY_IS(0)) {
         MultiScaleDeformableAttnGradHighPerf<2> op;
         op.Init(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm, attn_weight_gm, grad_output_gm,
