@@ -75,13 +75,15 @@ public:
         valueStride0 = embedDimsOpt;
         valueStride1 = numHeads * valueStride0;
         valueStride2 = numKeys * valueStride1;
-        wStride = numHeads * embedDimsOpt;
+        wStride = embedDimsOpt;
 
         baseOffsetUb = numQueriesAlign * embedDimsOpt;
 
         eventIdMte2ToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
         eventIdMte2ToV_1 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
         eventIdMte2ToV_2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_V>());
+        eventIdVToMte3_1 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
+        eventIdVToMte3_2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
         eventIdMte3ToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_V>());
         eventIdVToMte2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE2>());
         eventIdVToMte3 = static_cast<event_t>(pipe->AllocEventID<HardEvent::V_MTE3>());
@@ -175,8 +177,6 @@ public:
 
     __aicore__ inline void Process()
     {
-        copyInParams = {2, uint32_t(embedDimsOpt * sizeof(DTYPE_VALUE)),
-            uint32_t((wStride - embedDimsOpt) * sizeof(DTYPE_VALUE)), 0, 0};
         uint32_t startIdx = startOffset;
         nqloop = startIdx % numQueriesper;
         startIdx = startIdx / numQueriesper;
@@ -217,7 +217,7 @@ private:
             valueGm[offsetValue + hPtrOffset + wPtrOffset], embedDimsOpt);
         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
-        Muls(mid[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w, embedDimsOpt);
+        Muls(mid, zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w, embedDimsOpt);
         SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
 
         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
@@ -247,20 +247,177 @@ private:
     {
         Muls(zerosLocal[queryOffset + topGradValueId * baseOffsetUb], topGradLocal[query * embedDimsOpt],
             attentionWeight, embedDimsOpt);
-        if (hLow >= 0 && wLow >= 0) {
-            ComputeGrad<false, false>(wv1Local, mid1Local, v1Id, distHH, distHW, hLowPtrOffset, wLowPtrOffset, w1);
+        if (hLow >= 0) {
+            if (wLow >= 0 && wLow < w - 1) {
+                DataCopy(zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
+                    valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset], 2 * embedDimsOpt);
+                SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
+
+                Muls(mid1Local[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w1, embedDimsOpt);
+                SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+
+                Muls(mid2Local[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w2, embedDimsOpt);
+                SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_2);
+
+                WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
+                Muls(wv1Local, zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], w1, embedDimsOpt);
+                Muls(
+                    tmpALocal, zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distHW, embedDimsOpt);
+                Muls(
+                    tmpBLocal, zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distHH, embedDimsOpt);
+                Sub(zerosLocal[queryOffset + gradHWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradHWeightId * baseOffsetUb], tmpALocal, embedDimsOpt);
+                Sub(zerosLocal[queryOffset + gradWWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradWWeightId * baseOffsetUb], tmpBLocal, embedDimsOpt);
+
+                Muls(wv2Local, zerosLocal[v2Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], w2, embedDimsOpt);
+                Muls(
+                    tmpALocal, zerosLocal[v2Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distLW, embedDimsOpt);
+                Muls(
+                    tmpBLocal, zerosLocal[v2Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distHH, embedDimsOpt);
+                Sub(zerosLocal[queryOffset + gradHWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradHWeightId * baseOffsetUb], tmpALocal, embedDimsOpt);
+
+                Add(zerosLocal[queryOffset + gradWWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradWWeightId * baseOffsetUb], tmpBLocal, embedDimsOpt);
+                WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+                DataCopy(
+                    gradValueGm[offsetValue + hLowPtrOffset + wLowPtrOffset], mid1Local[queryOffset], embedDimsOpt);
+
+                WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_2);
+                DataCopy(gradValueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + wStride], mid2Local[queryOffset],
+                    embedDimsOpt);
+            } else if (wLow >= 0) {
+                DataCopy(zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
+                    valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset], embedDimsOpt);
+                SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
+
+                Muls(mid1Local[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w1, embedDimsOpt);
+                SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+
+                WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
+                Muls(wv1Local, zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], w1, embedDimsOpt);
+                Muls(
+                    tmpALocal, zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distHW, embedDimsOpt);
+                Muls(
+                    tmpBLocal, zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distHH, embedDimsOpt);
+                Sub(zerosLocal[queryOffset + gradHWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradHWeightId * baseOffsetUb], tmpALocal, embedDimsOpt);
+                Sub(zerosLocal[queryOffset + gradWWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradWWeightId * baseOffsetUb], tmpBLocal, embedDimsOpt);
+                WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+                DataCopy(
+                    gradValueGm[offsetValue + hLowPtrOffset + wLowPtrOffset], mid1Local[queryOffset], embedDimsOpt);
+            } else if (wLow < w - 1) {
+                DataCopy(zerosLocal[v2Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
+                    valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + wStride], embedDimsOpt);
+                SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
+
+                Muls(mid2Local[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w2, embedDimsOpt);
+                SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+
+                WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
+                Muls(wv2Local, zerosLocal[v2Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], w2, embedDimsOpt);
+                Muls(
+                    tmpALocal, zerosLocal[v2Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distLW, embedDimsOpt);
+                Muls(
+                    tmpBLocal, zerosLocal[v2Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distHH, embedDimsOpt);
+                Sub(zerosLocal[queryOffset + gradHWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradHWeightId * baseOffsetUb], tmpALocal, embedDimsOpt);
+
+                Add(zerosLocal[queryOffset + gradWWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradWWeightId * baseOffsetUb], tmpBLocal, embedDimsOpt);
+                WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+                DataCopy(gradValueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + wStride], mid2Local[queryOffset],
+                    embedDimsOpt);
+            }
         }
-        if (hLow >= 0 && wLow < w - 1) {
-            ComputeGrad<false, true>(
-                wv2Local, mid2Local, v2Id, distHH, distLW, hLowPtrOffset, wLowPtrOffset + wStride, w2);
-        }
-        if (hLow < h - 1 && wLow >= 0) {
-            ComputeGrad<true, false>(
-                wv3Local, mid3Local, v3Id, distLH, distHW, hLowPtrOffset + hStride, wLowPtrOffset, w3);
-        }
-        if (hLow < h - 1 && wLow < w - 1) {
-            ComputeGrad<true, true>(
-                wv4Local, mid4Local, v4Id, distLH, distLW, hLowPtrOffset + hStride, wLowPtrOffset + wStride, w4);
+        if (hLow < h - 1) {
+            if (wLow >= 0 && wLow < w - 1) {
+                DataCopy(zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
+                    valueGm[offsetValue + hLowPtrOffset + hStride + wLowPtrOffset], 2 * embedDimsOpt);
+                SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
+
+                Muls(mid3Local[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w3, embedDimsOpt);
+                SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+
+                Muls(mid4Local[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w4, embedDimsOpt);
+                SetFlag<HardEvent::V_MTE3>(eventIdVToMte3_2);
+
+                WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
+                Muls(wv3Local, zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], w3, embedDimsOpt);
+                Muls(
+                    tmpALocal, zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distHW, embedDimsOpt);
+                Muls(
+                    tmpBLocal, zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distLH, embedDimsOpt);
+
+                Add(zerosLocal[queryOffset + gradHWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradHWeightId * baseOffsetUb], tmpALocal, embedDimsOpt);
+                Sub(zerosLocal[queryOffset + gradWWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradWWeightId * baseOffsetUb], tmpBLocal, embedDimsOpt);
+
+                Muls(wv4Local, zerosLocal[v4Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], w4, embedDimsOpt);
+                Muls(
+                    tmpALocal, zerosLocal[v4Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distLW, embedDimsOpt);
+                Muls(
+                    tmpBLocal, zerosLocal[v4Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distLH, embedDimsOpt);
+                Add(zerosLocal[queryOffset + gradHWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradHWeightId * baseOffsetUb], tmpALocal, embedDimsOpt);
+                Add(zerosLocal[queryOffset + gradWWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradWWeightId * baseOffsetUb], tmpBLocal, embedDimsOpt);
+                WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_1);
+                DataCopy(gradValueGm[offsetValue + hLowPtrOffset + hStride + wLowPtrOffset], mid3Local[queryOffset],
+                    embedDimsOpt);
+
+                WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3_2);
+                DataCopy(gradValueGm[offsetValue + hLowPtrOffset + hStride + wLowPtrOffset + wStride],
+                    mid4Local[queryOffset], embedDimsOpt);
+            } else if (wLow >= 0) {
+                DataCopy(zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
+                    valueGm[offsetValue + hLowPtrOffset + hStride + wLowPtrOffset], embedDimsOpt);
+                SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
+
+                Muls(mid3Local[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w3, embedDimsOpt);
+                SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+
+                WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
+                Muls(wv3Local, zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], w3, embedDimsOpt);
+                Muls(
+                    tmpALocal, zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distHW, embedDimsOpt);
+                Muls(
+                    tmpBLocal, zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distLH, embedDimsOpt);
+
+                Add(zerosLocal[queryOffset + gradHWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradHWeightId * baseOffsetUb], tmpALocal, embedDimsOpt);
+                Sub(zerosLocal[queryOffset + gradWWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradWWeightId * baseOffsetUb], tmpBLocal, embedDimsOpt);
+
+                WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+                DataCopy(gradValueGm[offsetValue + hLowPtrOffset + hStride + wLowPtrOffset], mid3Local[queryOffset],
+                    embedDimsOpt);
+            } else if (wLow < w - 1) {
+                DataCopy(zerosLocal[v4Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
+                    valueGm[offsetValue + hLowPtrOffset + hStride + wLowPtrOffset + wStride], embedDimsOpt);
+                SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
+
+                Muls(mid4Local[queryOffset], zerosLocal[queryOffset + topGradValueId * baseOffsetUb], w4, embedDimsOpt);
+                SetFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+
+                WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
+                Muls(wv4Local, zerosLocal[v4Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], w4, embedDimsOpt);
+                Muls(
+                    tmpALocal, zerosLocal[v4Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distLW, embedDimsOpt);
+                Muls(
+                    tmpBLocal, zerosLocal[v4Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb], distLH, embedDimsOpt);
+                Add(zerosLocal[queryOffset + gradHWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradHWeightId * baseOffsetUb], tmpALocal, embedDimsOpt);
+                Add(zerosLocal[queryOffset + gradWWeightId * baseOffsetUb],
+                    zerosLocal[queryOffset + gradWWeightId * baseOffsetUb], tmpBLocal, embedDimsOpt);
+
+                WaitFlag<HardEvent::V_MTE3>(eventIdVToMte3);
+                DataCopy(gradValueGm[offsetValue + hLowPtrOffset + hStride + wLowPtrOffset + wStride],
+                    mid4Local[queryOffset], embedDimsOpt);
+            }
         }
         Add(wv1Local, wv1Local, wv2Local, embedDimsOpt);
         Add(wv3Local, wv3Local, wv4Local, embedDimsOpt);
@@ -272,10 +429,10 @@ private:
     __aicore__ inline void ComputeGradTogether(DTYPE_VALUE distLH, DTYPE_VALUE distLW, DTYPE_VALUE w1, DTYPE_VALUE w2,
         DTYPE_VALUE w3, DTYPE_VALUE w4, DTYPE_VALUE attentionWeight)
     {
-        DataCopyPad(zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
-            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset], copyInParams, padParams);
-        DataCopyPad(zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
-            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + hStride], copyInParams, padParams);
+        DataCopy(zerosLocal[v1Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
+            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset], 2 * embedDimsOpt);
+        DataCopy(zerosLocal[v3Id * embedDimsOpt + queryOffsetv + 4 * baseOffsetUb],
+            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + hStride], 2 * embedDimsOpt);
 
         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
@@ -339,7 +496,7 @@ private:
         levelStartId = offsetLocal.GetValue(level);
         h = shapesLocal.GetValue(level * 2);
         w = shapesLocal.GetValue(level * 2 + 1);
-        offsetValue = batch * valueStride2 + levelStartId * valueStride1 + head * valueStride0;
+        offsetValue = batch * valueStride2 + head * numKeys * embedDimsOpt + levelStartId * embedDimsOpt;
         hStride = w * wStride;
 
         WaitFlag<HardEvent::V_MTE2>(eventIdVToMte2);
@@ -351,10 +508,11 @@ private:
         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_2);
 
         DataCopy(attentionWeightLocal, attentionWeightsGm[offsetWeight + nqloop * maxUbNum], thisCycleNumAlign);
-        for (query = 0; query < thisCycleNum; query++) {
-            DataCopy(
-                topGradLocal[query * embedDimsOpt], gradOutputGm[offsetGrad + query * gradOutStride1], embedDimsOpt);
-        }
+
+        copyGradParams = {uint16_t(thisCycleNum), uint32_t(embedDimsOpt * sizeof(DTYPE_VALUE)),
+            uint32_t((gradOutStride1 - embedDimsOpt) * sizeof(DTYPE_VALUE)), 0, 0};
+        DataCopyPad(topGradLocal, gradOutputGm[offsetGrad], copyGradParams, padParams);
+
         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_1);
@@ -501,11 +659,11 @@ private:
 
     SumParams sumParams;
     DataCopyParams copyParams;
-    DataCopyExtParams copyInParams;
+    DataCopyExtParams copyGradParams;
     DataCopyPadExtParams<DTYPE_VALUE> padParams {false, 0, 0, 0};
 
     event_t eventIdVToMte2, eventIdVToMte3, eventIdMte2ToV, eventIdMte3ToV, eventIdVToMteWeight, eventIdVToMte3X,
-        eventIdVToMte3Y, eventIdMte2ToV_1, eventIdMte2ToV_2;
+        eventIdVToMte3Y, eventIdMte2ToV_1, eventIdMte2ToV_2, eventIdVToMte3_1, eventIdVToMte3_2;
 
     TBuf<TPosition::VECCALC> wv1Ub, wv2Ub, wv3Ub, wv4Ub, mid1Ub, mid2Ub, mid3Ub, mid4Ub;
 };

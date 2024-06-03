@@ -78,7 +78,7 @@ public:
         valueStride0 = embedDims;
         valueStride1 = numHeads * valueStride0;
         valueStride2 = numKeys * valueStride1;
-        wStride = numHeads * embedDims;
+        wStride = embedDims;
 
         baseOffsetUb = numQueriesAlign * embedDims;
 
@@ -273,13 +273,9 @@ private:
         DTYPE_VALUE w3, DTYPE_VALUE w4, DTYPE_VALUE attentionWeight)
     {
         DataCopy(zerosLocal[v1Id * embedDims + queryOffsetv + 4 * baseOffsetUb],
-            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset], embedDims);
-        DataCopy(zerosLocal[v2Id * embedDims + queryOffsetv + 4 * baseOffsetUb],
-            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + wStride], embedDims);
+            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset], 2 * embedDims);
         DataCopy(zerosLocal[v3Id * embedDims + queryOffsetv + 4 * baseOffsetUb],
-            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + hStride], embedDims);
-        DataCopy(zerosLocal[v4Id * embedDims + queryOffsetv + 4 * baseOffsetUb],
-            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + hStride + wStride], embedDims);
+            valueGm[offsetValue + hLowPtrOffset + wLowPtrOffset + hStride], 2 * embedDims);
 
         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
@@ -343,7 +339,7 @@ private:
         levelStartId = offsetLocal.GetValue(level);
         h = shapesLocal.GetValue(level * 2);
         w = shapesLocal.GetValue(level * 2 + 1);
-        offsetValue = batch * valueStride2 + levelStartId * valueStride1 + head * valueStride0;
+        offsetValue = batch * valueStride2 + head * numKeys * embedDims + levelStartId * embedDims;
         hStride = w * wStride;
         copyParams = {1, (uint16_t)(thisCycleNum * sizeof(DTYPE_VALUE)), 0, 0};
         sumParams = {thisCycleNum, embedDims, embedDims};
@@ -362,9 +358,10 @@ private:
         Muls(imLocal[thisCycleNumAlign], locHLocal, (DTYPE_VALUE)h, thisCycleNumAlign);
 
         DataCopy(attentionWeightLocal, attentionWeightsGm[offsetWeight + nqloop * maxUbNum], thisCycleNumAlign);
-        for (query = 0; query < thisCycleNum; query++) {
-            DataCopy(topGradLocal[query * embedDims], gradOutputGm[offsetGrad + query * gradOutStride1], embedDims);
-        }
+
+        copyGradParams = {uint16_t(thisCycleNum), uint32_t(embedDims * sizeof(DTYPE_VALUE)),
+            uint32_t((gradOutStride1 - embedDims) * sizeof(DTYPE_VALUE)), 0, 0};
+        DataCopyPad(topGradLocal, gradOutputGm[offsetGrad], copyGradParams, padParams);
         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
         Adds(imLocal, imLocal, DTYPE_VALUE(-0.5), 2 * thisCycleNumAlign);
@@ -501,6 +498,8 @@ private:
 
     SumParams sumParams;
     DataCopyParams copyParams, copyParamsV2;
+    DataCopyExtParams copyGradParams;
+    DataCopyPadExtParams<DTYPE_VALUE> padParams {false, 0, 0, 0};
     event_t eventIdVToMte2, eventIdVToMte3, eventIdMte2ToV, eventIdMte3ToV, eventIdVToMteWeight, eventIdVToMte3X,
         eventIdVToMte3Y;
 
