@@ -29,46 +29,30 @@ class ThreeInterpolateFunction(Function):
     @staticmethod
     def forward(ctx: Any, features: torch.Tensor, indices: torch.Tensor,
                 weight: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            features (torch.Tensor): (B, C, M) Features descriptors to be
-                interpolated.
-            indices (torch.Tensor): (B, n, 3) indices of three nearest
-                neighbor features for the target features.
-            weight (torch.Tensor): (B, n, 3) weights of three nearest
-                neighbor features for the target features.
-
-        Returns:
-            torch.Tensor: (B, C, N) tensor of the interpolated features
-        """
-        B, c, m = features.size()
+        
+        b, c, m = features.size()
         n = indices.size(1)
         ctx.three_interpolate_for_backward = (indices, weight, m)
 
         func = ads_c.npu_three_interpolate
-        out = func(B, c, m, n, features, indices, weight)
+        out = func(b, c, m, n, features, indices, weight)
 
         return out
 
     @staticmethod
-    def backward(
-        ctx, grad_out: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Args:
-            grad_out (torch.Tensor): (B, C, N) tensor with gradients of outputs
-
-        Returns:
-            torch.Tensor: (B, C, M) tensor with gradients of features
-        """
+    def backward(ctx, grad_out: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        
+        b, c, n = grad_out.size()
         idx, weight, m = ctx.three_interpolate_for_backward
-        B, c, n = grad_out.size()
 
-        # grad_features = grad_out.new_zeros(B, c, m)
-        grad_out_data = grad_out.data.contiguous()
+        grad_out_dtype = grad_out.dtype
+        grad_out_data = grad_out.data.contiguous().to(torch.float)
+        weight = weight.to(torch.float)
 
-        grad_features = ads_c.npu_three_interpolate_backward(B, c, n, m,
-            grad_out_data, idx, weight)
+        grad_features = ads_c.npu_three_interpolate_backward(b, c, n, m, grad_out_data, idx, weight)
+
+        if grad_out_dtype == torch.half:
+            grad_features = grad_features.to(torch.half)
         
         return grad_features, None, None
 
