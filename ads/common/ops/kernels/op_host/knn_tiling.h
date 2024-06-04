@@ -38,8 +38,6 @@ BEGIN_TILING_DATA_DEF(KnnTilingData)
     TILING_DATA_FIELD_DEF(uint32_t, small_core_num);
     TILING_DATA_FIELD_DEF(uint32_t, big_core_len);
     TILING_DATA_FIELD_DEF(uint32_t, small_core_len);
-    TILING_DATA_FIELD_DEF(uint32_t, aligned_big_len);
-    TILING_DATA_FIELD_DEF(uint32_t, aligned_small_len);
     TILING_DATA_FIELD_DEF_STRUCT(TopkTiling, topkTilingData);
     TILING_DATA_FIELD_DEF_STRUCT(TopkTiling, topkTilingData2);
 END_TILING_DATA_DEF;
@@ -85,8 +83,6 @@ private:
     uint32_t small_core_num = 0;
     uint32_t big_core_len = 0;
     uint32_t small_core_len = 0;
-    uint32_t aligned_big_len = 0;
-    uint32_t aligned_small_len = 0;
     uint32_t target_size = 96; // the size of target/center_xyz we need to move into UB
     uint32_t source_size = 0; // the size of source/xyz we need to move into UB
     uint32_t source_backup_size = 0; // the size for backup of source/xyz in UB, equal to source_size

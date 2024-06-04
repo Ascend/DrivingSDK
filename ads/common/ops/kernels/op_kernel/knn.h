@@ -32,8 +32,6 @@ public:
     uint32_t small_core_num;
     uint32_t big_core_len;
     uint32_t small_core_len;
-    uint32_t aligned_big_len;
-    uint32_t aligned_small_len;
     TopkTiling topkTilingData;
     TopkTiling topkTilingData2;
     TopKInfo topkInfo;
@@ -70,13 +68,11 @@ public:
             start_offset              = this->core_id * this->tilingKernel->big_core_len;
             end_offset                = start_offset + this->tilingKernel->big_core_len - 1;
             this->actual_len          = this->tilingKernel->big_core_len;
-            this->aligned_actual_len  = this->tilingKernel->aligned_big_len;
         } else {
             start_offset              = this->tilingKernel->big_core_num * this->tilingKernel->big_core_len +
                 (this->core_id - this->tilingKernel->big_core_num) * this->tilingKernel->small_core_len;
             end_offset                = start_offset + this->tilingKernel->small_core_len - 1;
             this->actual_len          = this->tilingKernel->small_core_len;
-            this->aligned_actual_len  = this->tilingKernel->aligned_small_len;
         }
         this->task_b     = start_offset / this->tilingKernel->npoint;
         this->task_m     = start_offset - this->task_b * this->tilingKernel->npoint; // 0~(np-1)
@@ -91,7 +87,7 @@ public:
         this->sourceGm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(xyz) + this->offset_sourceGm,
             this->num_batch * this->tilingKernel->nsource * 3);
         this->targetGm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(center_xyz) + this->offset_targetGm,
-            this->aligned_actual_len);
+            this->target_num);
         this->idxGm.SetGlobalBuffer(reinterpret_cast<__gm__ U *>(idx) + this->offset_outputGm,
             this->actual_len * this->tilingKernel->nsample);
         this->dist2Gm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(dist2) + this->offset_outputGm,
@@ -186,7 +182,7 @@ public:
     uint32_t core_id;
     uint32_t offset_sourceGm, offset_targetGm, offset_outputGm;
     uint32_t source_offset_x, source_offset_y, source_offset_z;
-    uint32_t actual_len, aligned_actual_len;
+    uint32_t actual_len;
     uint32_t task_b, task_m, last_task_b, num_batch;
     uint32_t current_b, current_m, current_point;
     // target_num means the num of moved target from GM to UB, which is 8(float32) or 16(float16)

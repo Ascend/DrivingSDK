@@ -62,8 +62,6 @@ ge::graphStatus KnnTiling::Init()
     this->big_core_len = this->small_core_len + 1;
     this->big_core_num = this->b_times_m - this->small_core_len * this->core_num; // 910B1range:0-39
     this->small_core_num = this->core_num - this->big_core_num; // 910B1range:1-40
-    this->aligned_big_len = ceil_value(this->big_core_len * 3, KNN_BLOCK_SIZE / this->dtype_size_);
-    this->aligned_small_len = ceil_value(this->small_core_len * 3, KNN_BLOCK_SIZE / this->dtype_size_);
     this->inner = ceil_value(this->nsource, 32) * 32;
     platformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, this->ub_size);
 
@@ -137,6 +135,8 @@ ge::graphStatus KnnTiling::Init()
             this->loop_times *= 2;
             new_n = ceil_multiple(this->nsource, this->loop_times);
             this->nsource_aligned2 = ceil_value(new_n, KNN_BLOCK_SIZE / this->dtype_size_);
+            // update loop_times
+            this->loop_times = ceil_multiple(this->nsource, this->nsource_aligned2);
             this->nsource_aligned_size2 = this->nsource_aligned2 * this->dtype_size_;
             this->inner = ceil_value(new_n, 32);
             res = AscendC::GetTopKMaxMinTmpSize(platformInfo, this->inner, 1, false, false,
@@ -193,8 +193,6 @@ ge::graphStatus KnnTiling::RunTiling()
     TilingData.set_small_core_num(this->small_core_num);
     TilingData.set_big_core_len(this->big_core_len);
     TilingData.set_small_core_len(this->small_core_len);
-    TilingData.set_aligned_big_len(this->aligned_big_len);
-    TilingData.set_aligned_small_len(this->aligned_small_len);
     if ((this->b_times_m) < this->core_num) {
         TilingContext->SetBlockDim(this->b_times_m);
     } else {

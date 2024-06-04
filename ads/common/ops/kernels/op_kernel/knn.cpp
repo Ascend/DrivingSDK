@@ -35,8 +35,6 @@ extern "C" __global__ __aicore__ void knn(
     tmpTiling.small_core_num        = tiling_data.small_core_num;
     tmpTiling.big_core_len          = tiling_data.big_core_len;
     tmpTiling.small_core_len        = tiling_data.small_core_len;
-    tmpTiling.aligned_big_len       = tiling_data.aligned_big_len;
-    tmpTiling.aligned_small_len     = tiling_data.aligned_small_len;
 
     tmpTiling.topkTilingData        = tiling_data.topkTilingData;
     tmpTiling.topkTilingData2       = tiling_data.topkTilingData2;
