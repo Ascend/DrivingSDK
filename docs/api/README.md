@@ -612,7 +612,7 @@ ads.perception.vision.boxes_overlap_bev(Tensor boxes_a, Tensor boxes_b) -> Tenso
 Calculates the intersection of bounding boxes in Bird's Eye View.
 ### 参数说明
 - `boxes_a (Tensor)`：第一组bounding boxes，数据类型为`float32`。shape为`[M, 5]`。其中`5`分别代表`x1, y1, x2, y2, angle`, `x1, y1, x2, y2`代表box四个顶点的横纵坐标，`angle`代表box的弧度制旋转角。
-- `boxes_a (Tensor)`：第二组bounding boxes，数据类型为`float32`。shape为`[N, 5]`。其中`5`分别代表`x1, y1, x2, y2, angle`, `x1, y1, x2, y2`代表box四个顶点的横纵坐标，`angle`代表box的弧度制旋转角。
+- `boxes_b (Tensor)`：第二组bounding boxes，数据类型为`float32`。shape为`[N, 5]`。其中`5`分别代表`x1, y1, x2, y2, angle`, `x1, y1, x2, y2`代表box四个顶点的横纵坐标，`angle`代表box的弧度制旋转角。
 ### 返回值
 - `area_overlap(Tensor)`：包含两组bounding boxes交叠面积的张量，数据类型为`float32`。shape为`[M, N]`。
 ### 约束说明
