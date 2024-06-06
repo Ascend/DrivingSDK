@@ -249,7 +249,7 @@ class TestNms3d(TestCase):
         keep = ads.common.npu_nms3d(boxes, scores, threshold)
         return keep.cpu()
 
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d` is only supported on 910B, skip this ut!")
+    @unittest.skipIf(DEVICE_NAME != True, "OP `Nms3d` is only supported on 910B, skip this ut!")
     def test_nms3d(self):
         shape_format = [
             [[np.float32, -1, [5, 7]], [np.float32, -1, [5]], 0.1],

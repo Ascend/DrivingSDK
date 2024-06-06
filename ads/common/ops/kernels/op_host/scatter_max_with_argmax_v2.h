@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  */
 #ifndef SCATTER_MAX_WITH_ARGMAX_TILING_H
 #define SCATTER_MAX_WITH_ARGMAX_TILING_H

@@ -1,3 +1,6 @@
+"""
+Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+"""
 from typing import Union, Tuple
 import torch
 from torch.autograd import Function

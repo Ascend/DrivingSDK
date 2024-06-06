@@ -1,3 +1,11 @@
+"""
+Copyright (c) OpenMMLab. All rights reserved.
+Modification by: Huawei Developers
+Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+Modification date: 2024-06-04 
+Modification Description: 
+Modification 1. Add support fro Ascend NPU
+"""
 import torch
 from torch.autograd import Function
 

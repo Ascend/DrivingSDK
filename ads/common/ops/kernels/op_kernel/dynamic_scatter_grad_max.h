@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  */
 #ifndef _DYNAMIC_SCATTER_GRAD_MAX_H_
 #define _DYNAMIC_SCATTER_GRAD_MAX_H_

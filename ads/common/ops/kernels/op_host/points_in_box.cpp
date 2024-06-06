@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+ */
 #include "points_in_box_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"

@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+ */
 #include "register/tilingdata_base.h"
 
 namespace optiling {

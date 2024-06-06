@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  */
 #ifndef ROIPOINT_POOL3D_FORWARD_TILING_H
 #define ROIPOINT_POOL3D_FORWARD_TILING_H
