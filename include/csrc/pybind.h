@@ -22,4 +22,5 @@ void init_motion(pybind11::module& m);
 void init_perception_fused(pybind11::module& m);
 void init_perception_point(pybind11::module& m);
 void init_perception_vision(pybind11::module& m);
+void init_spconv(pybind11::module& m);
 #endif // CSRC_PYBIND_H_

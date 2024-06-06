@@ -6,13 +6,13 @@ from typing import Union
 
 import torch
 from setuptools import find_packages, setup
-from torch.utils.cpp_extension import BuildExtension
+from torch.utils.cpp_extension import BuildExtension 
 
 from utils import extension
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 VERSION = torch.__version__
-full_components = ["common", "motion", "perception/fused", "perception/point", "perception/vision"]
+full_components = ["common", "motion", "perception/fused", "perception/point", "perception/vision", "spconv"]
 source_file = glob.glob(os.path.join("./bind/", "*.cpp"))
 include_dirs = [os.path.join(BASE_DIR, "include")]
 for part in full_components:

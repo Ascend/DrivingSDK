@@ -10,6 +10,7 @@ set(ADS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ads)
 add_subdirectory(${ADS_DIR}/common)
 add_subdirectory(${ADS_DIR}/motion)
 add_subdirectory(${ADS_DIR}/perception)
+add_subdirectory(${ADS_DIR}/spconv)
 
 opbuild(OPS_SRC ${ASCEND_HOST_SRC} OUT_DIR ${ASCEND_AUTOGEN_PATH})
 
