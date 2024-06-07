@@ -68,6 +68,7 @@ void init_common(pybind11::module& m)
 
     // voxel_pooling
     m.def("voxel_pooling_train", &voxel_pooling_train);
+    m.def("voxel_pool_train_backward", &voxel_pool_train_backward);
 
     // knn
     m.def("knn", &knn);

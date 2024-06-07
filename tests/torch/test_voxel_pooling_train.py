@@ -11,7 +11,8 @@ import ads.common
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
-def voxel_pooling_train_cpu(batch_size, num_points, num_channels, num_voxel_x,
+# pylint: disable=too-many-arguments,huawei-too-many-arguments
+def voxel_pooling_train_cpu_forward(batch_size, num_points, num_channels, num_voxel_x,
                             num_voxel_y, num_voxel_z, geom_xyz, input_features):
     dtype = input_features.dtype
     pos_memo = torch.zeros((batch_size, num_points, 3), dtype=torch.int32) * -1
@@ -27,9 +28,11 @@ def voxel_pooling_train_cpu(batch_size, num_points, num_channels, num_voxel_x,
             sample_y = geom_xyz[i][j][1]
             sample_z = geom_xyz[i][j][2]
 
-            if ((sample_x < 0 or sample_x >= num_voxel_x) or
-                (sample_y < 0 or sample_y >= num_voxel_y) or
-                (sample_z < 0 or sample_z >= num_voxel_z)):
+            if sample_x < 0 or sample_x >= num_voxel_x:
+                continue
+            if sample_y < 0 or sample_y >= num_voxel_y:
+                continue
+            if sample_z < 0 or sample_z >= num_voxel_z:
                 continue  
 
             for k in range(num_channels):
@@ -37,18 +40,43 @@ def voxel_pooling_train_cpu(batch_size, num_points, num_channels, num_voxel_x,
     return pos_memo, output_features.permute(0, 3, 1, 2)
 
 
+def voxel_pooling_train_cpu_backward(pos, result_cpu, grad_features):
+    features_shape = grad_features.shape
+    mask = (pos != -1)[..., 0]
+
+    grad_features = grad_features.reshape(
+        grad_features.shape[0], -1, grad_features.shape[-1])
+
+    grad_features[mask] = result_cpu[pos[mask][..., 0].long(
+    ), :, pos[mask][..., 1].long(), pos[mask][..., 2].long()]
+
+    grad_features = grad_features.reshape(
+        features_shape)
+    return grad_features
+
+
 class TestVoxelPoolingTrain(TestCase):
     def cpu_to_exec(self, geom_xyz, input_features, voxel_num):
         batch_size = input_features.shape[0]
         num_points = input_features.shape[1]
         num_channels = input_features.shape[2]
-        pos, result = voxel_pooling_train_cpu(batch_size, num_points, num_channels, voxel_num[0],
-                                         voxel_num[1], voxel_num[2], geom_xyz, input_features)
-        return pos, result
+        pos, result = voxel_pooling_train_cpu_forward(batch_size, num_points, num_channels, voxel_num[0],
+                                                      voxel_num[1], voxel_num[2], geom_xyz, input_features)
+
+        pos_memo = pos
+        grad_features_cpu = torch.zeros_like(input_features)
+        grad_features_cpu = voxel_pooling_train_cpu_backward(
+            pos_memo, result, grad_features_cpu)
+
+        return pos, result, grad_features_cpu
 
     def npu_to_exec(self, geom_xyz, input_features, voxel_num):
-        result = ads.common.npu_voxel_pooling_train(geom_xyz, input_features, voxel_num)
-        return result
+        result = ads.common.npu_voxel_pooling_train(
+            geom_xyz, input_features, voxel_num)
+
+        result.backward(result)
+        grad_features_npu = input_features.grad
+        return result, grad_features_npu
     
     def gen_data(self, geom_shape, feature_shape, coeff, batch_size, num_channels, dtype):
         geom_xyz = torch.rand(geom_shape) * coeff
@@ -59,6 +87,7 @@ class TestVoxelPoolingTrain(TestCase):
         features = torch.rand(feature_shape, dtype=dtype) - 0.5
         features_cpu = features.reshape(batch_size, -1, num_channels)
         features_npu = features_cpu.npu()
+        features_npu.requires_grad = True
         return geom_xyz_cpu, features_cpu, geom_xyz_npu, features_npu
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DynVoxelization` is only supported on 910B, skip this ut!")
@@ -86,13 +115,13 @@ class TestVoxelPoolingTrain(TestCase):
                         geom_shape.append(3)
                         geom_cpu, feature_cpu, geom_npu, feature_npu = self.gen_data(
                             geom_shape, feature_shape, coeff, batch_size, num_channel, dtype)
-                        pos, result_cpu = self.cpu_to_exec(geom_cpu, feature_cpu, voxel_num)
-                        result_npu = self.npu_to_exec(geom_npu, feature_npu, voxel_num)
-                        result_cpu = result_cpu.numpy()
-                        result_npu = result_npu.cpu().numpy()
-                        print("npu shape ", result_npu.shape)
-                        print("cpu shape ", result_cpu.shape)
-                        self.assertRtolEqual(result_cpu, result_npu)
-
-if __name__ == '__main__':
-    run_tests()
+                        pos, cpu_result, cpu_grad_features = self.cpu_to_exec(geom_cpu, feature_cpu, voxel_num)
+                        npu_result, npu_grad_features = self.npu_to_exec(geom_npu, feature_npu, voxel_num)
+                        
+                        cpu_result = cpu_result.numpy()
+                        npu_result = npu_result.detach().cpu().numpy()
+                        self.assertRtolEqual(cpu_result, npu_result)
+                        
+                        cpu_grad_features = cpu_grad_features.numpy()
+                        npu_grad_features = npu_grad_features.cpu().numpy()
+                        self.assertRtolEqual(cpu_grad_features, npu_grad_features)

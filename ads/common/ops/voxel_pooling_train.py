@@ -4,7 +4,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 Modification by: Huawei Developers
 Modification date: 2024-06-04 
 Modification Description: 
-Modification 1. Add support fro Ascend NPU
+Modification 1. Add support for Ascend NPU
 """
 import torch
 from torch.autograd import Function
@@ -39,5 +39,28 @@ class AdsVoxelPoolingFunction(Function):
         )
         ctx.save_for_backward(grad_input_features, pos)
         return result.permute(0, 3, 1, 2)
-    
+
+    @staticmethod
+    def backward(ctx, grad_output_features):
+        (grad_input_features, pos_memo) = ctx.saved_tensors
+        grad_input_features_shape = grad_input_features.shape
+
+        batch_size = pos_memo.shape[0]
+        num_points = pos_memo.shape[1]
+        num_channels = grad_output_features.shape[1]
+        H = grad_output_features.shape[2]
+        W = grad_output_features.shape[3]
+
+        result = ads_c.voxel_pool_train_backward(
+            grad_output_features,
+            pos_memo,
+            batch_size,
+            num_points,
+            num_channels,
+            H,
+            W
+        )
+        grad_input_features = result.reshape(grad_input_features_shape)
+        return None, grad_input_features, None
+
 npu_voxel_pooling_train = AdsVoxelPoolingFunction.apply

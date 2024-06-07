@@ -55,9 +55,12 @@ std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor& boxes, double 
 
 std::tuple<at::Tensor, at::Tensor> nms3d(const at::Tensor& boxes, double threshold);
 at::Tensor npu_scatter_mean_grad(const at::Tensor &grad_out, const at::Tensor &index, int32_t dim);
+
 std::tuple<at::Tensor &, at::Tensor &> voxel_pooling_train(const at::Tensor& inputFeatures, const at::Tensor& geom,
     at::Tensor& outputFeatures, at::Tensor& posMemo, int batchSize, int numPoints, int numChannels,
     int numVoxelX, int numVoxelY, int numVoxelZ);
+at::Tensor voxel_pool_train_backward(const at::Tensor& grad_out, const at::Tensor& posMemo, const int64_t batchSize,
+    const int64_t numPoints, const int64_t numChannels, const int64_t h, const int64_t w);
 
 std::tuple<at::Tensor, at::Tensor> knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample,
     bool is_from_knn);
