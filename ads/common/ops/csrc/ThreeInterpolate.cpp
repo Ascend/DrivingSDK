@@ -43,20 +43,25 @@ at::Tensor npu_three_interpolate(int b, int c, int m, int n, const at::Tensor& p
 
     TORCH_CHECK((b < 10001 && c < 10001 && m < 10001 && n < 10001), "input dimension is too heavy.");
     
-    auto point_c_trans = points.transpose(1, 2);
+    auto point_c_trans = points.transpose(1, 2).to(at::kFloat);
+    auto weight_cast = weight.to(at::kFloat);
 
     c10::SmallVector<int64_t, 8> output_size = {b, c, n};
-    at::Tensor out = at::zeros(output_size, points.options());
+    at::Tensor out_cast = at::zeros(output_size, points.options()).to(at::kFloat);
 
     at_npu::native::OpCommand cmd;
     cmd.Name("ThreeInterpolate")
         .Input(point_c_trans)
         .Input(idx)
-        .Input(weight)
-        .Output(out)
+        .Input(weight_cast)
+        .Output(out_cast)
         .Run();
-        
-    auto output = out.view({b, n, c}).transpose(1, 2);
+    
+    auto out = out_cast;
+    if (point_dtype == at::kHalf) {
+        out = out_cast.to(at::kHalf);
+    }
+    auto output = out_cast.view({b, n, c}).transpose(1, 2);
     auto res = output.contiguous();
     out.copy_(res);
     
