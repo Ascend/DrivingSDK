@@ -21,4 +21,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_subm_sparse_conv3d(const at::
                                                                       const at::Tensor& weight,
                                                                       at::IntArrayRef kernel_size, int out_channel,
                                                                       at::IntArrayRef outSpatialShape, int batch_size);
+
+std::tuple<at::Tensor, at::Tensor> multi_to_sparse(const at::Tensor& out_features, const at::Tensor& unique_indices_offset,
+                                                   const at::Tensor& sorted_idx_to_former_indices, const at::Tensor& outidx_pair);
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_sparse_conv3d(const at::Tensor& feature, const at::Tensor& indices, const at::Tensor& weight,
+                                                                 at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding,
+                                                                 int out_channel, at::IntArrayRef outSpatialShape, int batch_size);
+
+std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad(const at::Tensor& indices_offset, const at::Tensor& former_sorted_indices,
+                                                          const at::Tensor& feature, const at::Tensor& weight, const at::Tensor& grad);
+
 #endif // PERCEPTION_VISION_OPS_CSRC_FUNCTIONS_H_

@@ -56,9 +56,9 @@ class SparseBaseCovFunction(Function):
                                                 kernel_size, out_channels,
                                                 out_spatial_shape, batch_size)
         else:
-            out_features, outidx, ouidx_offset = indice_conv(features, indices, weight,
-                                                kernel_size, out_channels,
-                                                out_spatial_shape, batch_size)
+            out_features, outidx_pair, ouidx_offset = indice_conv(features, indices, weight,
+                                                kernel_size, stride, padding,
+                                                out_channels, out_spatial_shape, batch_size)
         to_insert = torch.tensor(-1).to(device)
         sorted_idx, sorted_idx_to_former_indices = torch.sort(ouidx_offset)
         new_sorted_idx = torch.cat((to_insert.view(1), sorted_idx), 0)
@@ -67,7 +67,7 @@ class SparseBaseCovFunction(Function):
         unique_indices_offset = torch.nonzero(sub_result)
         out_features, outidx = multi_to_sparse(out_features, unique_indices_offset.int(),
                                                 sorted_idx_to_former_indices.int(), outidx_pair.int())
-        outidx, outidx_ = torch.chunk(outidx, 2, dim=1)                        
+        outidx, outidx_ = torch.chunk(outidx, 2, dim=1)
         if bias is not None:
             out_features += bias
         ctx.save_for_backward(features, weight, sorted_idx_to_former_indices, unique_indices_offset)
@@ -78,24 +78,19 @@ class SparseBaseCovFunction(Function):
     def backward(ctx: Any, grad_output: torch.Tensor, out_feature = None, outidx = None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
         feature_grad, weight_grad = ads_c.npu_sparse_conv3d_grad(unique_indices_offset,
-                                                                 sorted_idx_to_former_indices, 
+                                                                 sorted_idx_to_former_indices,
                                                                  features, weight, grad_output)
         return feature_grad, weight_grad, None, None, None, None, None, None, None, None, None, None
 
 
 class SparseConvFunction(Function):
-    """Sparse Convolution.
-
-    Please refer to `SECOND <https://www.mdpi.com/1424-8220/18/10/3337>`_ for
-    more details.
-    """
 
     @staticmethod
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def forward(ctx: Any, features: torch.Tensor, indices: torch.Tensor,
-                kernel_size,
+    def forward(ctx: Any, features: torch.Tensor, indices: torch.Tensor, weight: torch.Tensor,
+                kernel_size, stride, padding,
                 out_channels: int, out_spatial_shape,
-                batch_size: int) -> torch.Tensor: 
+                batch_size: int) -> torch.Tensor:
         """
         Args:
             features (torch.Tensor): Features that needs to convolute.
@@ -107,9 +102,9 @@ class SparseConvFunction(Function):
         Returns:
             torch.Tensor: Output features from gather-gemm-scatter.
         """
-        out_features, outidx_pair, ouidx_offset = ads_c.npu_sparse_conv3d(features, indices,
-                                         kernel_size, out_channels,
-                                         out_spatial_shape, batch_size)
+        out_features, outidx_pair, ouidx_offset = ads_c.npu_sparse_conv3d(features, indices, weight,
+                                        kernel_size, stride, padding,
+                                        out_channels, out_spatial_shape, batch_size)
         ctx.save_for_backward(out_features, outidx_pair, ouidx_offset)
         return out_features, outidx_pair, ouidx_offset
 
@@ -138,7 +133,7 @@ class SubMConvFunction(Function):
                                               kernel_size, out_channels,
                                               out_spatial_shape, batch_size)
         ctx.save_for_backward(features, weight, indices)
-        
+
         return out_features, outidx_pair, ouidx_offset
 
 
