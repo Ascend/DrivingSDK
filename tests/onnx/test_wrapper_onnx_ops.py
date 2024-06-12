@@ -43,26 +43,6 @@ class OpsOnnx(torch_npu.testing.testcase.TestCase):
                               operator_export_type=OPS_EXPORT_TYPE,
                               input_names=inputnames,
                               output_names=outputnames)
-
-    def test_addcustom_export_onnx(self):
-        class Model(torch.nn.Module):
-            def __init__(self):
-                super(Model, self).__init__()
-
-            def forward(self, x, y):
-                return onnx_ads.my_add(x, y)
-
-        def export_onnx(onnx_name):
-            x = torch.rand([8, 2048]).half().npu()
-            y = torch.rand([8, 2048]).half().npu()
-            model = Model().to("npu")
-            model(x, y)
-            self.onnx_export(model, (x, y), onnx_name, ["input1", "input2"], ["out"])
-        
-        onnx_name = "model_ads_add_custom.onnx"
-        export_onnx(onnx_name)
-        if not os.path.isfile(os.path.join(OpsOnnx.onnx_dir, onnx_name)):
-            raise FileNotFoundError("No such file:", onnx_name)
         
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `MultiScaleDeformableAttnFunction` is only supported on 910B, skip this ut!")
     def test_msda_export_onnx(self):
@@ -82,7 +62,7 @@ class OpsOnnx(torch_npu.testing.testcase.TestCase):
                                    [160, 140]]).to(torch.int32).npu()
             level_start_index = torch.tensor([0, 22400, 38000, 76400, 92000]).to(torch.int32).npu()
             sampling_locations = torch.rand([6, 10000, 8, 5, 4, 2]).to(torch.float32).npu()
-            attention_weights = torch.rand([6, 10000, 8, 5, 4, 2]).to(torch.float32).npu()
+            attention_weights = torch.rand([6, 10000, 8, 5, 4]).to(torch.float32).npu()
 
             model = Model().to("npu")
             model(value, shapes, level_start_index,
@@ -97,6 +77,6 @@ class OpsOnnx(torch_npu.testing.testcase.TestCase):
         export_onnx(onnx_name)
         if not os.path.isfile(os.path.join(OpsOnnx.onnx_dir, onnx_name)):
             raise FileNotFoundError("No such file:", onnx_name)
-          
+
 if __name__ == '__main__':
     run_tests()

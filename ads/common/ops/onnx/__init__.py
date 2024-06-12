@@ -1,6 +1,3 @@
-from .wrapper_onnx_ops import NPUAddCustomOP
-from .wrapper_onnx_ops import NPUMultiScaleDeformableAttnFunctionV2OP
+from .wrapper_onnx_ops import NPUMultiScaleDeformableAttnOP
 
-
-my_add = NPUAddCustomOP.apply
-onnx_msda = NPUMultiScaleDeformableAttnFunctionV2OP.apply
+onnx_msda = NPUMultiScaleDeformableAttnOP.apply
