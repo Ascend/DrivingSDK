@@ -83,14 +83,15 @@ public:
         this->outSpatialShape[2] = tiling_data->W;
 
         indicesGm.SetGlobalBuffer((__gm__ DTYPE_INDICES*)indices, this->indices_number * 4);
-        weightGm.SetGlobalBuffer((__gm__ DTYPE_FEATURE*)weight, 27*this->out_channel * this->inchannel);
+        weightGm.SetGlobalBuffer((__gm__ DTYPE_FEATURE*)weight,
+                                 total_kernel_size * this->out_channel * this->inchannel);
         featureGm.SetGlobalBuffer((__gm__ DTYPE_FEATURE*)feature, this->core_data * this->inchannel);
         outputGm.SetGlobalBuffer(
-            (__gm__ DTYPE_FEATURE*)feature_out, this->core_data * 27 * this->out_channel);
+            (__gm__ DTYPE_FEATURE*)feature_out, this->core_data * total_kernel_size * this->out_channel);
         indices_offsetGm.SetGlobalBuffer(
-            (__gm__ int32_t*)indices_offset, this->core_data * 27);
+            (__gm__ int32_t*)indices_offset, this->core_data * total_kernel_size);
         indices_pairGm.SetGlobalBuffer(
-            (__gm__ int32_t*)indices_pair, this->core_data * 27 * 4);
+            (__gm__ int32_t*)indices_pair, this->core_data * total_kernel_size * 4);
         pipe->InitBuffer(inQueueIndices, 1, this->available_ub_size * 4 * sizeof(DTYPE_FEATURE));
         pipe->InitBuffer(inQueueWeight, 1, this->out_channel * this->inchannel * sizeof(DTYPE_FEATURE));
         pipe->InitBuffer(inQueueFeature, 1, this->inchannel * sizeof(DTYPE_FEATURE));
@@ -110,7 +111,12 @@ public:
     {
         uint32_t core_id = GetBlockIdx();
         uint64_t start_address = core_id * this->core_data;
-        if (core_id > this->core_used) {
+        if (this->last_copy_tail != 0) {
+            uint64_t address = start_address + this->last_copy_loop * this->available_ub_size;
+            IndicesCompute(this->last_copy_loop, this->last_copy_tail, address);
+        }
+
+        if (core_id >= this->core_used) {
             return;
         }
         if (core_id != (this->core_used -1)) {
@@ -148,7 +154,7 @@ private:
                                         (uint16_t)(this->out_channel * this->inchannel * sizeof(DTYPE_FEATURE)), 0, 0};
         DataCopyParams copyParams_feature{1, (uint16_t)(this->inchannel * sizeof(DTYPE_FEATURE)), 0, 0};
         DataCopyParams copyParams_output{1, (uint16_t)(this->out_channel * sizeof(DTYPE_FEATURE)), 0, 0};
-        Duplicate(weight_ub, (float)(point_offset), tensor_size);
+        Duplicate(weight_ub, static_cast<float>(point_offset), tensor_size);
         temp_ub = feature_ub == weight_ub;
         BinaryRepeatParams repeatParams = { 1, 1, 1, 8, 8, 8 };
         Select(feature_ub, temp_ub, one_ub, zero_ub,
@@ -170,7 +176,8 @@ private:
                                          compute_temp, this->inchannel);
                 dst_ub.SetValue(mmi, result_temp.GetValue(0));
             }
-            DataCopyPad(outputGm[(int32_t)((address + point_idx) * total_kernel_size + kernel_size_offset)* this->out_channel],
+            DataCopyPad(outputGm[(int32_t)((address + point_idx) * total_kernel_size +
+                                           kernel_size_offset) * this->out_channel],
                         dst_ub, copyParams_output);
             indices_pair_ub.SetValue(kernel_size_offset*4, batch_id);
             indices_pair_ub.SetValue(kernel_size_offset*4 + 1, point0);
@@ -259,25 +266,25 @@ private:
         auto center = (this->K1 * this->K2 * this->K0 - 1) / 2;
         for (int32_t i = 0; i < tensor_size; i++) {
             int32_t batch_id = indices_ub.GetValue(i);
-            int32_t indice_z = indices_ub.GetValue(i + tensor_size);
-            int32_t indice_y = indices_ub.GetValue(i + tensor_size * 2);
-            int32_t indice_x = indices_ub.GetValue(i + tensor_size * 3);
+            int32_t indice_z = indices_ub.GetValue(i + this->available_ub_size);
+            int32_t indice_y = indices_ub.GetValue(i + this->available_ub_size * 2);
+            int32_t indice_x = indices_ub.GetValue(i + this->available_ub_size * 3);
             uint64_t mask = 64;
-            if (tensor_size < 64) {
-                mask = tensor_size;
+            if (this->available_ub_size < 64) {
+                mask = this->available_ub_size;
             }
-            int repeat = (tensor_size + mask - 1) / mask;
+            int repeat = (this->available_ub_size + mask - 1) / mask;
             // dup full onenumber tensor
             Duplicate<DTYPE_FEATURE>(one_ub, 1, mask, repeat, 1, 8);
             // dup full zeronumber tensor
             Duplicate<DTYPE_FEATURE>(zero_ub, 0, mask, repeat, 1, 8);
-            Duplicate<int32_t>(indices_offset_ub, -1, 27, 1, 1, 8);
+            Duplicate<int32_t>(indices_offset_ub, -1, total_kernel_size, 1, 1, 8);
             PipeBarrier<PIPE_ALL>();
             // 这里可以把每一列单独读出来，进行vector级别的offset计算
-            auto indices_loop = this->indices_number / tensor_size;
-            auto indices_tail = this->indices_number - indices_loop * tensor_size;
+            auto indices_loop = this->indices_number / this->available_ub_size;
+            auto indices_tail = this->indices_number - indices_loop * this->available_ub_size;
             for (int32_t il = 0; il < indices_loop; il++) {
-                indicesreshape(tensor_size, il);
+                indicesreshape(this->available_ub_size, il);
                 for (int32_t iz = 0; iz < this->K0; iz++) {
                     for (int32_t iy = 0; iy < this->K1; iy++) {
                         for (int32_t ix = 0; ix < this->K2; ix++) {
@@ -289,11 +296,13 @@ private:
                                 if (point[1] >= 0 && point[1] < outSpatialShape[1] &&
                                     point[2] >= 0 && point[2] < outSpatialShape[2] &&
                                     point[0] >= 0 && point[0] < outSpatialShape[0]) {
-                                        int32_t point_offset = point[0] * outSpatialShape[1] * this->outSpatialShape[0] +
+                                        int32_t point_offset = point[0] * outSpatialShape[1] *
+                                                               this->outSpatialShape[0] +
                                                                point[1] * this->outSpatialShape[0] + point[2] +
                                                                this->feature_map_size * batch_id;
                                         // 这段for循环可以放在最外层，省去多次的搬运(优化点)
-                                        convcompute(tensor_size, offset, il, point_offset, i, address, batch_id,
+                                        convcompute(this->available_ub_size, offset, il,
+                                                    point_offset, i, address, batch_id,
                                                     point[0], point[1],  point[2], offset);
                                     }
                             }
@@ -314,11 +323,13 @@ private:
                                 if (point[1] >= 0 && point[1] < outSpatialShape[1] &&
                                     point[2] >= 0 && point[2] < outSpatialShape[2] &&
                                     point[0] >= 0 && point[0] < outSpatialShape[0]) {
-                                        int32_t point_offset = point[0] * outSpatialShape[1] * this->outSpatialShape[0] +
-                                                            point[1] * this->outSpatialShape[0] + point[2] +
-                                                            this->feature_map_size * batch_id;
+                                        int32_t point_offset = point[0] * outSpatialShape[1] *
+                                                               this->outSpatialShape[0] +
+                                                               point[1] * this->outSpatialShape[0] + point[2] +
+                                                               this->feature_map_size * batch_id;
                                         // 这段for循环可以放在最外层，省去多次的搬运(优化点)
-                                        convcompute(indices_tail, offset, indices_loop, point_offset, i, address, batch_id,
+                                        convcompute(indices_tail, offset, indices_loop,
+                                                    point_offset, i, address, batch_id,
                                                     point[0], point[1], point[2], offset);
                                     }
                             }
@@ -354,7 +365,7 @@ private:
             DataCopyPad(indices_pairGm[(int32_t)(address + i)* total_kernel_size * 4],
                         indices_pair_ub, copyParams_count);
             DataCopyPad(indices_offsetGm[(int32_t)(address + i)* total_kernel_size],
-                        indices_offset_ub, copyParams_output);
+                        indices_offset_ub, copyParams_count_offset);
             PipeBarrier<PIPE_ALL>();
         }
         inQueueIndices.FreeTensor(indices_ub);
