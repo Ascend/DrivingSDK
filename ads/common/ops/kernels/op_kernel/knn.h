@@ -8,185 +8,119 @@
 #include "kernel_operator.h"
 
 namespace AscendC {
-class knnTilingArgs {
-public:
-    __aicore__ inline knnTilingArgs() = default;
-public:
-    uint32_t batch;
-    uint32_t npoint;
-    uint32_t nsample;
-    uint32_t nsample_aligned;
-    uint32_t nsource;
-    uint32_t nsource_aligned;
-    uint32_t nsource_aligned2;
-    uint32_t nsource_aligned_size;
-    uint32_t nsource_aligned_size2;
-    bool is_from_knn;
-    uint32_t inner;
-    uint32_t inner2;
-    uint32_t topkmax;
-    uint32_t topkmax2;
-    uint32_t loop_times;
-    uint32_t b_times_m;
-    uint32_t big_core_num;
-    uint32_t small_core_num;
-    uint32_t big_core_len;
-    uint32_t small_core_len;
-    TopkTiling topkTilingData;
-    TopkTiling topkTilingData2;
-    TopKInfo topkInfo;
-    TopKInfo topkInfo2;
-};
 // T is the dtype of input and output dist2(float32 or float16) while U is for the output idx(only int32_t)
 template<typename T, typename U>
 class KnnKernel {
 public:
-    __aicore__ inline KnnKernel()
+    __aicore__ inline KnnKernel(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR dist, const KnnTilingData* tiling_data, TPipe *tmpPipe)
     {
-        this->core_id = GetBlockIdx();
-    }
-    __aicore__ inline ~KnnKernel()
-    {
-        if (this->tilingKernel->is_from_knn) {
-            this->compareUb.template FreeTensor<uint8_t>(this->compareLocal);
-        }
-        this->sourceBackupUb.template FreeTensor<T>(this->sourceBackupLocal);
-        this->sourceUb.template FreeTensor<T>(this->sourceLocal);
-        this->targetUb.template FreeTensor(this->targetLocal);
-    }
-    __aicore__ inline void InitGm(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR idx, GM_ADDR dist2, knnTilingArgs* tmpTiling,
-        TPipe *tmpPipe)
-    {
-        uint32_t start_offset;
-        uint32_t end_offset;
-        this->pipe         = tmpPipe;
-        this->tilingKernel = tmpTiling;
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
+        batch = tiling_data->batch;
+        npoint = tiling_data->npoint;
+        nsource = tiling_data->nsource;
+        core_num = tiling_data->core_num;
+        former_task_num = (batch * npoint + core_num - 1) / core_num;
+        is_from_knn = tiling_data->is_from_knn;
 
-        // calc data offsets where each core starts to deal with
-        if (this->core_id < this->tilingKernel->big_core_num) {
-            start_offset              = this->core_id * this->tilingKernel->big_core_len;
-            end_offset                = start_offset + this->tilingKernel->big_core_len - 1;
-            this->actual_len          = this->tilingKernel->big_core_len;
-        } else {
-            start_offset              = this->tilingKernel->big_core_num * this->tilingKernel->big_core_len +
-                (this->core_id - this->tilingKernel->big_core_num) * this->tilingKernel->small_core_len;
-            end_offset                = start_offset + this->tilingKernel->small_core_len - 1;
-            this->actual_len          = this->tilingKernel->small_core_len;
-        }
-        this->task_b     = start_offset / this->tilingKernel->npoint;
-        this->task_m     = start_offset - this->task_b * this->tilingKernel->npoint; // 0~(np-1)
-        this->offset_sourceGm  = this->task_b * this->tilingKernel->nsource * 3;
-        this->offset_targetGm  = this->task_b * this->tilingKernel->npoint * 3 + this->task_m * 3;
-        this->offset_outputGm  = this->task_b * this->tilingKernel->npoint * this->tilingKernel->nsample +
-            this->task_m * this->tilingKernel->nsample;
-        // calc the final position
-        this->last_task_b  = end_offset / this->tilingKernel->npoint;
-        this->num_batch    = this->last_task_b - this->task_b + 1;
+        comp_num = 1024;
 
-        this->sourceGm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(xyz) + this->offset_sourceGm,
-            this->num_batch * this->tilingKernel->nsource * 3);
-        this->targetGm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(center_xyz) + this->offset_targetGm,
-            this->target_num);
-        this->idxGm.SetGlobalBuffer(reinterpret_cast<__gm__ U *>(idx) + this->offset_outputGm,
-            this->actual_len * this->tilingKernel->nsample);
-        this->dist2Gm.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(dist2) + this->offset_outputGm,
-            this->actual_len * this->tilingKernel->nsample);
+        core_id = GetBlockIdx();
+        InitGm(xyz, center_xyz, dist, tmpPipe);
+
+        pipe->InitBuffer(targetUb, 32); // 32 : move 8 target into UB
+        pipe->InitBuffer(sourceBackupUb, comp_num * sizeof(T) * 3);
+        pipe->InitBuffer(sourceUb, comp_num * sizeof(T) * 3);
+        pipe->InitBuffer(distUb, comp_num * sizeof(T));
     }
-    __aicore__ inline void InitPipe()
+    __aicore__ inline void InitGm(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR dist, TPipe *tmpPipe)
     {
-        this->pipe->InitBuffer(this->tmpBuf,   1, this->tilingKernel->topkmax);
-        this->pipe->InitBuffer(this->targetUb, 1, 32);
-        if (this->tilingKernel->is_from_knn) {
-            this->pipe->InitBuffer(this->compareUb, 1, this->tilingKernel->nsample_aligned);
-            this->compareLocal = this->compareUb.template AllocTensor<uint8_t>();
+        pipe = tmpPipe;
+        start_task = core_id * former_task_num;
+        end_task = start_task + former_task_num;
+        if (end_task > (batch * npoint)) {
+            end_task = batch * npoint;
         }
+
+        sourceGm.SetGlobalBuffer((__gm__ T *)xyz, batch * nsource * 3);
+        targetGm.SetGlobalBuffer((__gm__ T *)center_xyz, batch * npoint * 3);
+        distGm.SetGlobalBuffer((__gm__ T *)dist, batch * npoint * nsource);
     }
-    __aicore__ inline void copyInTarget()
+    __aicore__ inline void Process()
     {
-        set_flag(PIPE_S, PIPE_MTE2, EVENT_ID1);
-        wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID1);
-        DataCopy(this->targetLocal, this->targetGm[this->current_point * 3], this->target_num);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-    }
-    __aicore__ inline void calcNpStartAndEnd(uint32_t &start, uint32_t &end)
-    {
-        this->source_offset_x = (this->current_b - this->task_b) * this->tilingKernel->nsource * 3;
-        this->source_offset_y = this->source_offset_x + this->tilingKernel->nsource;
-        this->source_offset_z = this->source_offset_y + this->tilingKernel->nsource;
-        if (this->num_batch > 1) {
-            if (this->current_b == this->task_b) {
-                start = this->task_m;
-                end   = this->tilingKernel->npoint;
-            } else if (this->current_b == this->last_task_b) {
-                start = 0;
-                end   = this->actual_len - (this->num_batch - 1) * this->tilingKernel->npoint + this->task_m;
-            } else {
-                start = 0;
-                end   = this->tilingKernel->npoint;
+        // 计算loop time
+        uint32_t loop_times = nsource / comp_num;
+        uint32_t tail_num = nsource % comp_num;
+        uint32_t tail_num_align = (tail_num + 7) / 8 * 8;
+        sourceBackupLocal = sourceBackupUb.Get<T>();
+        sourceLocal = sourceUb.Get<T>();
+        targetLocal = targetUb.Get<T>();
+        distLocal = distUb.Get<T>();
+
+        for (uint32_t current_task = start_task; current_task < end_task; current_task++) {
+            uint32_t current_batch = current_task / npoint;
+            uint32_t source_offset = current_batch * nsource * 3; // B 3 N
+            uint32_t target_offset = current_task * 3; // B M 3
+            uint32_t dist_offset = current_task * nsource; // B M N
+            DataCopy(targetLocal, targetGm[target_offset], 8);
+            pipe_barrier(PIPE_ALL);
+            Duplicate<T>(sourceBackupLocal, targetLocal.GetValue(0), (int32_t)comp_num);
+            Duplicate<T>(sourceBackupLocal[comp_num], targetLocal.GetValue(1), (int32_t)comp_num);
+            Duplicate<T>(sourceBackupLocal[comp_num * 2], targetLocal.GetValue(2), (int32_t)comp_num);
+            pipe_barrier(PIPE_ALL);
+            for (uint32_t current_loop = 0; current_loop < loop_times; current_loop++) {
+                DataCopy(sourceLocal, sourceGm[source_offset + current_loop * comp_num], comp_num);
+                DataCopy(sourceLocal[comp_num], sourceGm[source_offset + current_loop * comp_num + nsource], comp_num);
+                DataCopy(sourceLocal[comp_num * 2], sourceGm[source_offset + current_loop * comp_num + nsource * 2], comp_num);
+                pipe_barrier(PIPE_ALL);
+                Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, comp_num * 3);
+                Mul<T>(sourceLocal, sourceLocal, sourceLocal, comp_num * 3);
+                Add<T>(distLocal, sourceLocal, sourceLocal[comp_num], comp_num);
+                Add<T>(distLocal, distLocal, sourceLocal[comp_num * 2], comp_num);
+                if (is_from_knn) {
+                    Mins<T>(distLocal, distLocal, static_cast<T>(1e10f), comp_num);
+                }
+
+                set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+                wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+                DataCopyPad(distGm[dist_offset + current_loop * comp_num], distLocal,
+                    {1, static_cast<uint32_t>(comp_num * sizeof(T)), 0, 0, 0});
             }
-        } else {
-            start = this->task_m;
-            end   = this->task_m + this->actual_len;
-        }
-    }
-    __aicore__ inline void spetialDeal()
-    {
-        int32_t dist2Local_start = 0;
-        int32_t dist2Local_end   = this->tilingKernel->nsample - 1;
-        int32_t first_inf;
+            if (tail_num > 0) {
+                DataCopy(sourceLocal, sourceGm[source_offset + loop_times * comp_num], tail_num_align);
+                DataCopy(sourceLocal[comp_num], sourceGm[source_offset + loop_times * comp_num + nsource], tail_num_align);
+                DataCopy(sourceLocal[comp_num * 2], sourceGm[source_offset + loop_times * comp_num + nsource * 2], tail_num_align);
+                pipe_barrier(PIPE_ALL);
+                Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, comp_num * 3);
+                Mul<T>(sourceLocal, sourceLocal, sourceLocal, comp_num * 3);
+                Add<T>(distLocal, sourceLocal, sourceLocal[comp_num], comp_num);
+                Add<T>(distLocal, distLocal, sourceLocal[comp_num * 2], comp_num);
+                if (is_from_knn) {
+                    Mins<T>(distLocal, distLocal, static_cast<T>(1e10f), comp_num);
+                }
 
-        Mins<T>(this->dist2Local, this->dist2Local, static_cast<T>(1e10f), this->tilingKernel->nsample);
-        set_flag(PIPE_V,  PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
-        while (dist2Local_start <= dist2Local_end) {
-            first_inf = (dist2Local_start + dist2Local_end) / 2;
-            if (static_cast<float>(this->dist2Local.GetValue(first_inf)) < static_cast<float>(1e10f)) {
-                dist2Local_start = first_inf + 1;
-            } else {
-                dist2Local_end   = first_inf - 1;
+                set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+                wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+                DataCopyPad(distGm[dist_offset + loop_times * comp_num], distLocal,
+                    {1, static_cast<uint32_t>(tail_num * sizeof(T)), 0, 0, 0});
             }
         }
-        first_inf = dist2Local_start;
-        if (static_cast<float>(this->dist2Local.GetValue(first_inf)) < static_cast<float>(1e10f)) {
-            first_inf++;
-        }
-        for (uint32_t i = first_inf; i < this->tilingKernel->nsample; i++) {
-            this->idxLocal.SetValue(i, 0);
-        }
-    }
-    __aicore__ inline void copyOut()
-    {
-        if (this->tilingKernel->is_from_knn) {
-            this->spetialDeal();
-        }
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        DataCopyPad(this->idxGm[this->current_point * this->tilingKernel->nsample], this->idxLocal,
-            {1, static_cast<uint32_t>(this->tilingKernel->nsample * sizeof(U)), 0, 0, 0});
-        DataCopyPad(this->dist2Gm[this->current_point * this->tilingKernel->nsample], this->dist2Local,
-            {1, static_cast<uint32_t>(this->tilingKernel->nsample * sizeof(T)), 0, 0, 0});
     }
 public:
     TPipe *pipe;
-    knnTilingArgs *tilingKernel;
-    GlobalTensor<T> sourceGm, targetGm, dist2Gm;
-    GlobalTensor<U> idxGm;
-    TQue<QuePosition::VECOUT, 1> targetUb, idxUb, dist2Ub, tmpBuf;
-    TQue<QuePosition::VECIN,  1> sourceUb, sourceBackupUb, compareUb, distUb;
-    LocalTensor<T> sourceLocal, sourceBackupLocal, targetLocal, distLocal, dist2Local;
-    LocalTensor<U> idxLocal;
-    LocalTensor<uint8_t> tmpLocal;
-    LocalTensor<uint8_t> compareLocal;
+    GlobalTensor<T> sourceGm, targetGm, distGm;
+    TBuf<TPosition::VECCALC> sourceUb, sourceBackupUb, targetUb, distUb;
+    LocalTensor<T> sourceLocal, sourceBackupLocal, targetLocal, distLocal;
     uint32_t core_id;
-    uint32_t offset_sourceGm, offset_targetGm, offset_outputGm;
-    uint32_t source_offset_x, source_offset_y, source_offset_z;
-    uint32_t actual_len;
-    uint32_t task_b, task_m, last_task_b, num_batch;
-    uint32_t current_b, current_m, current_point;
-    // target_num means the num of moved target from GM to UB, which is 8(float32) or 16(float16)
-    uint32_t target_num, target_x_num, target_pos_in_targe_num;
+    uint32_t former_task_num;
+    uint32_t start_task, end_task;
+    uint32_t comp_num;
+public:
+    // tiling
+    uint32_t batch;
+    uint32_t npoint;
+    uint32_t nsource;
+    uint32_t core_num;
+    bool is_from_knn;
 };
 } // namespace AscendC
 

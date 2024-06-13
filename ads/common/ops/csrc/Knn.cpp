@@ -17,20 +17,14 @@
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-std::tuple<at::Tensor, at::Tensor> knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample,
-    bool is_from_knn)
+at::Tensor knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample, bool is_from_knn)
 {
     TORCH_CHECK_NPU(xyz);
     TORCH_CHECK_NPU(center_xyz);
     TORCH_CHECK(center_xyz.dim() == 3, "center_xyz.dim() must be 3, but got: ", center_xyz.dim());
-    int64_t output_shape[] = {center_xyz.sizes()[0], center_xyz.sizes()[1], nsample};
-    at::Tensor idx = at::empty(output_shape, center_xyz.options().dtype(at::kInt));
-    at::Tensor dist2;
-    if (is_from_knn) {
-        dist2 = at::empty(output_shape, center_xyz.options().dtype(at::kFloat));
-    } else {
-        dist2 = at::empty(output_shape, center_xyz.options());
-    }
-    EXEC_NPU_CMD(aclnnKnn, xyz, center_xyz, nsample, is_from_knn, idx, dist2);
-    return std::make_tuple(idx, dist2);
+
+    at::Tensor dist = at::zeros({center_xyz.sizes()[0], center_xyz.sizes()[1], xyz.sizes()[2]}, center_xyz.options());
+    EXEC_NPU_CMD_SYNC(aclnnKnn, xyz, center_xyz, is_from_knn, dist);
+
+    return dist;
 }

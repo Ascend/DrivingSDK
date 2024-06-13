@@ -62,8 +62,7 @@ std::tuple<at::Tensor &, at::Tensor &> voxel_pooling_train(const at::Tensor& inp
 at::Tensor voxel_pool_train_backward(const at::Tensor& grad_out, const at::Tensor& posMemo, const int64_t batchSize,
     const int64_t numPoints, const int64_t numChannels, const int64_t h, const int64_t w);
 
-std::tuple<at::Tensor, at::Tensor> knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample,
-    bool is_from_knn);
+at::Tensor knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample, bool is_from_knn);
 std::tuple<at::Tensor, at::Tensor> npu_roipoint_pool3d_forward(const int32_t num_sampled_points,
                                                                const at::Tensor &points,
                                                                const at::Tensor &point_features,

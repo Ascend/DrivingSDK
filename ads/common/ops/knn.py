@@ -29,10 +29,10 @@ class AdsKnn(Function):
         if center_xyz is None:
             center_xyz = xyz
 
-        if not transposed:
-            xyz = xyz.transpose(1, 2).contiguous()
+        if transposed:
+            center_xyz = center_xyz.transpose(2, 1).contiguous()
         else:
-            center_xyz = center_xyz.transpose(1, 2).contiguous()
+            xyz = xyz.transpose(2, 1).contiguous()
 
         if not xyz.is_contiguous(): # [B, 3, N]
             return None
@@ -43,10 +43,13 @@ class AdsKnn(Function):
             print('center_xyz and xyz should be on the same device.')
             return None
 
-        idx, dist2 = ads_c.knn(xyz, center_xyz, k, True)
-        idx = idx.transpose(1, 2).contiguous() # [B, k, npoint]
+        dist = ads_c.knn(xyz, center_xyz, k, True)
+        dist2, idx = torch.topk(dist, k, dim=2, largest=False, sorted=True)
+        zeros_idx = torch.zeros(xyz.shape[0], center_xyz.shape[1], k, dtype=torch.int32).npu()
+        idx.where(dist2 >= 1e10, zeros_idx)
+        idx = idx.transpose(2, 1).contiguous() # [B, k, npoint]
 
-        return idx
+        return idx.type(torch.IntTensor)
 
 
 knn = AdsKnn.apply

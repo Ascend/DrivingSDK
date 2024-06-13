@@ -20,18 +20,19 @@ class AdsThreeNN(Function):
     def forward(ctx: Any, target: torch.Tensor, source: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # target is center_xyz
         target = target.contiguous()
-        source = source.transpose(1, 2).contiguous()
+        source = source.transpose(2, 1).contiguous()
         # strict to fp32
         dtype_ = source.dtype
         if dtype_ == torch.float16:
             target = target.float()
             source = source.float()
 
-        idx, dist2 = ads_c.knn(source, target, 3, False)
+        dist = ads_c.knn(source, target, 3, False)
+        dist2, idx = torch.topk(dist, 3, dim=2, largest=False, sorted=True)
+        dist2 = torch.sqrt(dist2)
         if dtype_ == torch.float16:
-            idx = idx.half()
             dist2 = dist2.half()
-        return torch.sqrt(dist2), idx
+        return dist2, idx.type(torch.IntTensor)
 
 
 three_nn = AdsThreeNN.apply

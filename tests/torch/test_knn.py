@@ -46,7 +46,19 @@ class TestKnn(TestCase):
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
         idx = ads.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx.cpu().numpy())
 
+    def test_knn_1(self):
+        b = 30
+        m = 256
+        n = 1024
+        k = 3
+        xyz = np.ones((b, n, 3)).astype(np.float32)
+        center_xyz = np.zeros((b, m, 3)).astype(np.float32)
+
+        expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
+        idx = ads.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx.cpu().numpy())
 
 if __name__ == "__main__":
     run_tests()

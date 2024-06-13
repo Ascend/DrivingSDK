@@ -249,5 +249,33 @@ class TestThreeNN(TestCase):
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
 
+    def test_three_nn_2(self):
+        batch = 21
+        N = 3
+        npoint = 1
+
+        source = np.ones((batch, N, 3)).astype(np.float32)
+        target = np.zeros((batch, npoint, 3)).astype(np.float32)
+
+        expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
+        dist, idx = ads.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+
+        self.assertRtolEqual(expected_dist, dist.cpu().numpy())
+        self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+    def test_three_nn_3(self):
+        batch = 256
+        N = 12
+        npoint = 21
+
+        source = np.ones((batch, N, 3)).astype(np.float32)
+        target = np.zeros((batch, npoint, 3)).astype(np.float32)
+
+        expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
+        dist, idx = ads.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+
+        self.assertRtolEqual(expected_dist, dist.cpu().numpy())
+        self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
 if __name__ == "__main__":
     run_tests()
