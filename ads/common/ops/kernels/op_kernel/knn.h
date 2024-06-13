@@ -15,19 +15,19 @@ public:
     __aicore__ inline KnnKernel(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR dist, const KnnTilingData* tiling_data, TPipe *tmpPipe)
     {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
-        batch = tiling_data->batch;
-        npoint = tiling_data->npoint;
-        nsource = tiling_data->nsource;
-        core_num = tiling_data->core_num;
-        former_task_num = (batch * npoint + core_num - 1) / core_num;
+        batch = (uint64_t)tiling_data->batch;
+        npoint = (uint64_t)tiling_data->npoint;
+        nsource = (uint64_t)tiling_data->nsource;
+        core_num = (uint64_t)tiling_data->core_num;
         is_from_knn = tiling_data->is_from_knn;
+        former_task_num = Ceil(batch * npoint, core_num);
 
-        comp_num = 1024;
+        comp_num = 256; // 256 : In UB, we will calc comp_num once
 
         core_id = GetBlockIdx();
         InitGm(xyz, center_xyz, dist, tmpPipe);
 
-        pipe->InitBuffer(targetUb, 32); // 32 : move 8 target into UB
+        pipe->InitBuffer(targetUb, 32);
         pipe->InitBuffer(sourceBackupUb, comp_num * sizeof(T) * 3);
         pipe->InitBuffer(sourceUb, comp_num * sizeof(T) * 3);
         pipe->InitBuffer(distUb, comp_num * sizeof(T));
@@ -48,26 +48,26 @@ public:
     __aicore__ inline void Process()
     {
         // 计算loop time
-        uint32_t loop_times = nsource / comp_num;
-        uint32_t tail_num = nsource % comp_num;
-        uint32_t tail_num_align = (tail_num + 7) / 8 * 8;
+        uint64_t loop_times = nsource / (uint64_t)comp_num;
+        uint64_t tail_num = nsource % (uint64_t)comp_num;
+        uint64_t tail_num_align = AlignUp(tail_num, 8);
         sourceBackupLocal = sourceBackupUb.Get<T>();
         sourceLocal = sourceUb.Get<T>();
         targetLocal = targetUb.Get<T>();
         distLocal = distUb.Get<T>();
 
-        for (uint32_t current_task = start_task; current_task < end_task; current_task++) {
-            uint32_t current_batch = current_task / npoint;
-            uint32_t source_offset = current_batch * nsource * 3; // B 3 N
-            uint32_t target_offset = current_task * 3; // B M 3
-            uint32_t dist_offset = current_task * nsource; // B M N
+        for (uint64_t current_task = start_task; current_task < end_task; current_task++) {
+            uint64_t current_batch = current_task / npoint;
+            uint64_t source_offset = current_batch * nsource * 3; // B 3 N
+            uint64_t target_offset = current_task * 3; // B M 3
+            uint64_t dist_offset = current_task * nsource; // B M N
             DataCopy(targetLocal, targetGm[target_offset], 8);
             pipe_barrier(PIPE_ALL);
             Duplicate<T>(sourceBackupLocal, targetLocal.GetValue(0), (int32_t)comp_num);
             Duplicate<T>(sourceBackupLocal[comp_num], targetLocal.GetValue(1), (int32_t)comp_num);
             Duplicate<T>(sourceBackupLocal[comp_num * 2], targetLocal.GetValue(2), (int32_t)comp_num);
             pipe_barrier(PIPE_ALL);
-            for (uint32_t current_loop = 0; current_loop < loop_times; current_loop++) {
+            for (uint64_t current_loop = 0; current_loop < loop_times; current_loop++) {
                 DataCopy(sourceLocal, sourceGm[source_offset + current_loop * comp_num], comp_num);
                 DataCopy(sourceLocal[comp_num], sourceGm[source_offset + current_loop * comp_num + nsource], comp_num);
                 DataCopy(sourceLocal[comp_num * 2], sourceGm[source_offset + current_loop * comp_num + nsource * 2], comp_num);
@@ -111,15 +111,15 @@ public:
     TBuf<TPosition::VECCALC> sourceUb, sourceBackupUb, targetUb, distUb;
     LocalTensor<T> sourceLocal, sourceBackupLocal, targetLocal, distLocal;
     uint32_t core_id;
-    uint32_t former_task_num;
     uint32_t start_task, end_task;
     uint32_t comp_num;
+    uint64_t former_task_num;
 public:
     // tiling
-    uint32_t batch;
-    uint32_t npoint;
-    uint32_t nsource;
-    uint32_t core_num;
+    uint64_t batch;
+    uint64_t npoint;
+    uint64_t nsource;
+    uint64_t core_num;
     bool is_from_knn;
 };
 } // namespace AscendC
