@@ -1,0 +1,43 @@
+import unittest
+
+import numpy as np
+import torch
+import torch_npu
+from torch_npu.testing.testcase import TestCase, run_tests
+import ads_c
+
+DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
+
+
+class TestVoxelToPoint(TestCase):
+    seed = 1024
+    point_nums = [1, 7, 6134, 99999]
+
+    def gen(self, point_num):
+        x = np.random.randint(0, 10240, (point_num,))
+        return x.astype(np.int32)
+
+    def golden_decode(self, voxels):
+        point_num = voxels.shape[0]
+        res = np.zeros((point_num, 3), dtype=np.int32)
+        for i in range(point_num):
+            res[i][0] = voxels[i] % 2048
+            res[i][1] = (voxels[i] // 2048) % 2048
+            res[i][2] = voxels[i] // (2048 * 2048)
+        return res
+
+    def npu_decode(self, voxels):
+        voxels_npu = torch.from_numpy(voxels.view(np.int32)).npu()
+        return ads_c.voxel_to_point(voxels_npu, None, None).cpu().numpy()
+
+    @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
+    def test_point_to_voxel(self):
+        for point_num in self.point_nums:
+            voxels = self.gen(point_num)
+            res_cpu = self.golden_decode(voxels)
+            res_npu = self.npu_decode(voxels)
+            self.assertRtolEqual(res_cpu, res_npu)
+
+
+if __name__ == "__main__":
+    run_tests()

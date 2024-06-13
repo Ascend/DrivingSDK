@@ -58,7 +58,7 @@ if not os.getenv("BUILD_WITHOUT_SHA"):
 setup(
     name="ads_accelerator",
     version=VERSION,
-    description="Cpp Extension Include ascend_ads",
+    description="A Library of acceleration for autonomous driving systems on Ascend-NPU.",
     keywords="ads",
     ext_modules=exts,
     author="Ascend Contributors",

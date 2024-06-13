@@ -1,7 +1,6 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
- * This sample is a very basic sample that implements vector add on Ascend plaform.
  */
 #include <cmath>
 #include "kernel_operator.h"
