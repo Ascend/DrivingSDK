@@ -26,7 +26,7 @@ class TestPointToVoxel(TestCase):
             if coords[i][0] < 0 or coords[i][1] < 0 or coords[i][2] < 0:
                 res[i] = -1082130432
             else:
-                res[i] = coords[i][0] + coords[i][1] * 2048 + coords[i][2] * 2048 * 2048
+                res[i] = coords[i][0] * 2048 * 256 + coords[i][1] * 256 + coords[i][2]
         return res
 
     def npu_encode(self, coords):

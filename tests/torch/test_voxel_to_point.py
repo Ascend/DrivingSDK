@@ -21,9 +21,9 @@ class TestVoxelToPoint(TestCase):
         point_num = voxels.shape[0]
         res = np.zeros((point_num, 3), dtype=np.int32)
         for i in range(point_num):
-            res[i][0] = voxels[i] % 2048
-            res[i][1] = (voxels[i] // 2048) % 2048
-            res[i][2] = voxels[i] // (2048 * 2048)
+            res[i][0] = voxels[i] // (2048 * 256)
+            res[i][1] = (voxels[i] // 256) % 2048
+            res[i][2] = voxels[i] % 256
         return res
 
     def npu_decode(self, voxels):

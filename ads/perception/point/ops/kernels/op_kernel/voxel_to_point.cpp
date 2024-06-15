@@ -1,8 +1,6 @@
 // Copyright (c) 2024 Huawei Technologies Co., Ltd
 
 
-#include <kernel_operator_vec_binary_scalar_intf.h>
-
 #include "kernel_operator.h"
 
 using namespace AscendC;
@@ -11,6 +9,7 @@ constexpr int32_t BUFFER_NUM = 2;
 constexpr uint32_t ONE_REPEAT_B64_SIZE = 32;
 constexpr uint64_t SELECT_MASK = 64;
 constexpr int32_t ENC_BITS = 11;
+constexpr int32_t ENC_BITS_Z = 8;
 
 class VoxelToPointKernel {
 public:
@@ -38,6 +37,7 @@ public:
 
         avgCpParam_.blockLen = avgPts_ * sizeof(int32_t) / ONE_BLK_SIZE;
         tailCpParam_.blockLen = Ceil(tailPts_ * sizeof(int32_t), ONE_BLK_SIZE);
+        tailPadParam_.blockLen = tailPts_ * sizeof(int32_t);
         rptTimes_ = avgPts_ / ONE_REPEAT_FLOAT_SIZE;
         maskRptTimes_ = Ceil(rptTimes_, ONE_REPEAT_B64_SIZE);
 
@@ -67,7 +67,7 @@ private:
     float voxelScaleX_, voxelScaleY_, voxelScaleZ_;
     float coorXMin_, coorYMin_, coorZMin_;
     int32_t coorXOffset_, coorYOffset_, coorZOffset_;
-    int32_t encCoefX_ {ENC_BITS}, encCoefY_ {ENC_BITS}, encCoefZ_ {0};
+    int32_t encCoefX_ {0}, encCoefY_ {ENC_BITS}, encCoefZ_ {ENC_BITS_Z};
 
     // for task iteration, totalPts = avgPts * (avgTasks + tailTasks - 1)  + tailPts
     int32_t curTaskIdx_, curPtsIdx_;
@@ -75,6 +75,7 @@ private:
     int32_t avgTasks_, tailTasks_, totalTasks_, coreTasks_;
 
     DataCopyParams avgCpParam_, tailCpParam_;
+    DataCopyExtParams tailPadParam_;
     UnaryRepeatParams unRptParam_ {1, 1, 8, 8};
     BinaryRepeatParams binRptParam_ {1, 1, 1, 8, 8, 8};
     uint8_t rptTimes_, maskRptTimes_;
@@ -141,12 +142,17 @@ __aicore__ inline void VoxelToPointKernel::CopyIn()
 template<bool is_tail>
 __aicore__ inline void VoxelToPointKernel::CopyOut()
 {
-    auto cpParam = is_tail ? tailCpParam_ : avgCpParam_;
     LocalTensor<int32_t> ptsT = ptsQue_.DeQue<int32_t>();
     // [coor_x, coor_y, coor_z]
-    DataCopy(ptsGm_[curPtsIdx_], ptsT[coorXOffset_], cpParam);
-    DataCopy(ptsGm_[totalPts_ + curPtsIdx_], ptsT[coorYOffset_], cpParam);
-    DataCopy(ptsGm_[totalPts_ * 2 + curPtsIdx_], ptsT[coorZOffset_], cpParam);
+    if (is_tail) {
+        DataCopyPad(ptsGm_[curPtsIdx_], ptsT[coorXOffset_], tailPadParam_);
+        DataCopyPad(ptsGm_[totalPts_ + curPtsIdx_], ptsT[coorYOffset_], tailPadParam_);
+        DataCopyPad(ptsGm_[totalPts_ * 2 + curPtsIdx_], ptsT[coorZOffset_], tailPadParam_);
+    } else {
+        DataCopy(ptsGm_[curPtsIdx_], ptsT[coorXOffset_], avgCpParam_);
+        DataCopy(ptsGm_[totalPts_ + curPtsIdx_], ptsT[coorYOffset_], avgCpParam_);
+        DataCopy(ptsGm_[totalPts_ * 2 + curPtsIdx_], ptsT[coorZOffset_], avgCpParam_);
+    }
     ptsQue_.FreeTensor(ptsT);
 }
 
@@ -157,14 +163,15 @@ __aicore__ inline void VoxelToPointKernel::DecVoxel(const LocalTensor<int32_t>& 
     LocalTensor<int32_t> coorX = ptsT[coorXOffset_];
     LocalTensor<int32_t> coorY = ptsT[coorYOffset_];
     LocalTensor<int32_t> coorZ = ptsT[coorZOffset_];
-    ShiftRight<int32_t, false>(coorX, voxT, encCoefX_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-    ShiftLeft<int32_t, false>(coorX, coorX, encCoefX_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-    Sub<int32_t, false>(coorX, voxT, coorX, MASK_PLACEHOLDER, rptTimes_, binRptParam_);
-
-    ShiftRight<int32_t, false>(voxT, voxT, encCoefX_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-    ShiftRight<int32_t, false>(coorZ, voxT, encCoefY_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-
-    ShiftLeft<int32_t, false>(coorY, coorZ, encCoefY_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftRight<int32_t, false>(coorZ, voxT, encCoefZ_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftLeft<int32_t, false>(coorZ, coorZ, encCoefZ_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    PipeBarrier<PIPE_V>();
+    Sub<int32_t, false>(coorZ, voxT, coorZ, MASK_PLACEHOLDER, rptTimes_, binRptParam_);
+    PipeBarrier<PIPE_V>();
+    ShiftRight<int32_t, false>(voxT, voxT, encCoefZ_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftRight<int32_t, false>(coorX, voxT, encCoefY_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftLeft<int32_t, false>(coorY, coorX, encCoefY_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    PipeBarrier<PIPE_V>();
     Sub<int32_t, false>(coorY, voxT, coorY, MASK_PLACEHOLDER, rptTimes_, binRptParam_);
 
     ptsQue_.EnQue(ptsT);

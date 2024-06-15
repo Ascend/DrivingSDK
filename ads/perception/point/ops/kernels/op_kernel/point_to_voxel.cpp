@@ -9,6 +9,7 @@ constexpr int32_t BUFFER_NUM = 2;
 constexpr uint32_t ONE_REPEAT_B64_SIZE = 32;
 constexpr uint64_t SELECT_MASK = 64;
 constexpr int32_t ENC_BITS = 11;
+constexpr int32_t ENC_BITS_Z = 8;
 
 template<typename T>
 class PointToVoxelKernel {
@@ -71,7 +72,7 @@ private:
     float voxelScaleX_, voxelScaleY_, voxelScaleZ_;
     float coorXMin_, coorYMin_, coorZMin_;
     int32_t coorXOffset_, coorYOffset_, coorZOffset_;
-    int32_t encCoefX_ {0}, encCoefY_ {ENC_BITS}, encCoefZ_ {ENC_BITS + ENC_BITS};
+    int32_t encCoefX_ {ENC_BITS + ENC_BITS_Z}, encCoefY_ {ENC_BITS_Z}, encCoefZ_ {0};
 
     // for task iteration, totalPts = avgPts * (avgTasks + tailTasks - 1)  + tailPts
     int32_t curTaskIdx_, curPtsIdx_;

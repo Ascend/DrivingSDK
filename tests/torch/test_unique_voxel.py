@@ -24,7 +24,40 @@ class TestUniqueVoxel(TestCase):
     def npu_unique(self, voxels):
         voxels_npu = torch.from_numpy(voxels.view(np.float32)).npu()
         cnt, uni_vox, _, _ = ads_c.unique_voxel(voxels_npu)
-        return cnt, uni_vox.cpu().numpy() 
+        return cnt, uni_vox.cpu().numpy()
+
+    def gen_integration(self, point_num):
+        x = np.random.randint(0, 256, (point_num,))
+        y = np.random.randint(0, 256, (point_num,))
+        z = np.random.randint(0, 256, (point_num,))
+        return np.stack([x, y, z], axis=-1).astype(np.int32)
+
+    def golden_integration(self, coords):
+        point_num = coords.shape[0]
+        res = np.zeros((point_num,), dtype=np.int32)
+        for i in range(point_num):
+            if coords[i][0] < 0 or coords[i][1] < 0 or coords[i][2] < 0:
+                res[i] = -1082130432
+            else:
+                res[i] = coords[i][0] * 2048 * 256 + coords[i][1] * 256 + coords[i][2]
+        uni = np.unique(res)
+        uni_sorted = np.sort(uni)
+        uni_count = uni.shape[0]
+
+        res = np.zeros((uni_count, 3), dtype=np.int32)
+        for i in range(uni_count):
+            res[i][0] = uni_sorted[i] // (2048 * 256)
+            res[i][1] = (uni_sorted[i] // 256) % 2048
+            res[i][2] = uni_sorted[i] % 256
+
+        return uni_count, res
+
+    def npu_integration(self, coords):
+        coords_npu = torch.from_numpy(coords.view(np.float32)).npu()
+        voxels_npu = ads_c.point_to_voxel(coords_npu, None, None)
+        cnt, uni_vox, _, _ = ads_c.unique_voxel(voxels_npu)
+        dec = ads_c.voxel_to_point(uni_vox, None, None)
+        return cnt, dec.cpu().numpy()
 
     @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
     def test_unique_voxel(self):
@@ -32,6 +65,15 @@ class TestUniqueVoxel(TestCase):
             voxels = self.gen(point_num)
             cnt_cpu, res_cpu = self.golden_unique(voxels)
             cnt_npu, res_npu = self.npu_unique(voxels)
+            self.assertRtolEqual(cnt_cpu, cnt_npu)
+            self.assertRtolEqual(res_cpu, res_npu)
+
+    @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
+    def test_integration(self):
+        for point_num in self.point_nums:
+            voxels = self.gen_integration(point_num)
+            cnt_cpu, res_cpu = self.golden_integration(voxels)
+            cnt_npu, res_npu = self.npu_integration(voxels)
             self.assertRtolEqual(cnt_cpu, cnt_npu)
             self.assertRtolEqual(res_cpu, res_npu)
 
