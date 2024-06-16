@@ -11,7 +11,6 @@ import ads.common
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-reduce_type_mapping = {"mean": 1, "max": 2}
 
 
 class TestDynamicScatter(TestCase):
@@ -28,7 +27,7 @@ class TestDynamicScatter(TestCase):
             coors_map = coors_map - 1
 
         output_feats = []
-        if reduce_type == 1:
+        if reduce_type == "mean":
             for ref_voxel_coors in out_coors:
                 voxel_mask = (coors == ref_voxel_coors).all(dim=-1)
                 output_feats.append(feats[voxel_mask].mean(dim=0))
@@ -84,7 +83,7 @@ class TestDynamicScatter(TestCase):
         shape_coors = (2000, 3)
         cpu_feats, npu_feats = create_common_tensor(["float32", 2, shape_feats], -50, 50)
         cpu_coors, npu_coors = create_common_tensor(["int32", 2, shape_coors], -1, 20)
-        reduce_type = reduce_type_mapping["max"]
+        reduce_type = "max"
         cpu_output = self.cpu_op_exec(cpu_feats, cpu_coors, reduce_type)
         npu_output = self.npu_op_exec(npu_feats, npu_coors, reduce_type)
         self.assertRtolEqual(cpu_output[0], npu_output[0])
@@ -96,7 +95,7 @@ class TestDynamicScatter(TestCase):
         shape_coors = (2000, 3)
         cpu_feats, npu_feats = create_common_tensor(["float32", 2, shape_feats], -50, 50)
         cpu_coors, npu_coors = create_common_tensor(["int32", 2, shape_coors], -1, 20)
-        reduce_type = reduce_type_mapping["mean"]
+        reduce_type = "mean"
         cpu_output = self.cpu_op_exec(cpu_feats, cpu_coors, reduce_type)
         npu_output = self.npu_op_exec(npu_feats, npu_coors, reduce_type)
         self.assertRtolEqual(cpu_output[0], npu_output[0])
