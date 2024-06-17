@@ -49,7 +49,7 @@ class AdsKnn(Function):
         idx.where(dist2 >= 1e10, zeros_idx)
         idx = idx.transpose(2, 1).contiguous() # [B, k, npoint]
 
-        return idx.type(torch.IntTensor)
+        return idx.int()
 
 
 knn = AdsKnn.apply
