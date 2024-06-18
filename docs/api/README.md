@@ -302,10 +302,10 @@ ads.common.npu_furthest_point_sampling(Tensor points, int num_points) -> Tensor
 ### 功能描述
 点云数据的最远点采样。
 ### 参数说明
-- `points(Tensor)`：点云数据，数据类型为`float32, float16`。shape为`[B, N, 3]`。其中`B`为batch size，`N`为点的数量，`3`分别代表`x, y, z`。
+- `points(Tensor)`：点云数据，数据类型为`float32`。shape为`[B, N, 3]`。其中`B`为batch size，`N`为点的数量，`3`分别代表`x, y, z`。
 - `num_points(int)`：采样点的数量。
 ### 返回值
-- `Tensor`：采样后的点云数据，数据类型为`float32, float16`。shape为`[B, num_points]`。
+- `Tensor`：采样后的点云数据，数据类型为`float32`。shape为`[B, num_points]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
@@ -319,6 +319,8 @@ print(out)
 ```text
 tensor([[0, 2]], dtype=torch.int32)
 ```
+### 算子約束
+1. points输入shape[B, N, 3]的总大小(B x N x 3)不应该超过383166
 ## furthest_point_sample_with_dist
 ### 接口原型
 ```python
@@ -327,10 +329,10 @@ ads.common.furthest_point_sample_with_dist(Tensor points, int num_points) -> (Te
 ### 功能描述
 与`npu_furthest_point_sampling`功能相同，但输入略有不同。
 ### 参数说明
-- `points(Tensor)`：点云数据，表示各点间的距离，数据类型为`float32, float16`。shape为`[B, N, N]`。其中`B`为batch size，`N`为点的数量。
+- `points(Tensor)`：点云数据，表示各点间的距离，数据类型为`float32`。shape为`[B, N, N]`。其中`B`为batch size，`N`为点的数量。
 - `num_points(int)`：采样点的数量。
 ### 返回值
-- `Tensor`：采样后的点云数据，数据类型为`float32, float16`。shape为`[B, num_points]`。
+- `Tensor`：采样后的点云数据，数据类型为`float32`。shape为`[B, num_points]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
@@ -571,17 +573,17 @@ expected_grad_features = tensor(
 ## knn
 ### 接口原型
 ```python
-ads.common.knn(int nsample, Tensor xyz, Tensor center_xyz, bool Transposed) -> Tensor
+ads.common.knn(int k, Tensor xyz, Tensor center_xyz, bool Transposed) -> Tensor
 ```
 ### 功能描述
 對center_xyz中的每個點找到xyz中對應batch中的距離最近的k個點，并且返回此k個點的索引值。
 ### 参数说明
-- `xyz(Tensor)`：点数据，表示(x, y, z)三維坐標，数据类型为`float32`。shape为`[B, N, 3]`。其中`B`为batch size，`N`为点的数量。
-- `center_xyz(Tensor)`：点数据，表示(x, y, z)三維坐標，数据类型为`float32`。shape为`[B, npoint, 3]`。其中`B`为batch size，`npoint`为点的数量。
-- `nsample(int)`：采样点的数量。
+- `xyz(Tensor)`：点数据，表示(x, y, z)三維坐標，数据类型为`float32`。shape为`[B, N, 3]`(当Transposed=False)或`[B, 3, N]`(当Transposed=True)。其中`B`为batch size，`N`为点的数量。
+- `center_xyz(Tensor)`：点数据，表示(x, y, z)三維坐標，数据类型为`float32`。shape为`[B, npoint, 3]`(当Transposed=False)或`[B, 3, npoint]`(当Transposed=True)。其中`B`为batch size，`npoint`为点的数量。
+- `k(int)`：采样点的数量。
 - `Transposed(bool)`: 輸入是否需要進行轉置
 ### 返回值
-- `idx(Tensor)`：采样后的索引数据，数据类型为`int32`。shape为`[B, nsample, npoint]`。
+- `idx(Tensor)`：采样后的索引数据，数据类型为`int32`。shape为`[B, k, npoint]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
@@ -597,9 +599,10 @@ print(idx)
 tensor([[0, 0], [1, 1]], dtype=torch.int32)
 ```
 ### 算子約束
-1. nsample必須>0且<100
+1. k必須>0且<100
 2. xyz中的每個batch中的任意一個點到center_xyz對應batch中的任意一個點的距離必須在1e10f以内
-3. GPU算法采用的堆排序，會導致儅距離相同的時候的排序是亂序，因此會存在正常的精度問題
+3. xyz和center_xyz的shape必须是3维，当Transposed=True时，xyz和center_xyz的shape的dim的第1位必须是3；当Transposed=False时，xyz和center_xyz的shape的dim的第2位必须是3
+4. 距离相同时索引存在不稳定排序问题,遇到距离精度通过但索引精度错误时，复用不稳定排序的CCB结论
 
 ## three_nn
 ### 接口原型
@@ -630,6 +633,9 @@ print(idx)
 tensor([[2.236, 2.236, 2.236], [2.236, 2.236, 2.236]], dtype=torch.float32)
 tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.int32)
 ```
+### 算子約束
+1. source和target的shape必须是3维，且source和target的shape的dim的第2位必须是3
+2. 距离相同时索引存在不稳定排序问题，遇到距离精度通过但索引精度错误时，复用不稳定排序的CCB结论
 ## RoipointPool3d
 ### 接口原型
 ```python
