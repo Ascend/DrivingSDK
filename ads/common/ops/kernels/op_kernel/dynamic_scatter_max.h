@@ -68,16 +68,13 @@ private:
         LocalTensor<uint8_t> bitMaskLocal = bitMaskBuf.template Get<uint8_t>();
         LocalTensor<uint16_t> bitMaskLocalB16 = bitMaskBuf.template Get<uint8_t>().ReinterpretCast<uint16_t>();
         LocalTensor<uint16_t> bitMaskTmpLocal = bitMaskTmpBuf.template Get<uint16_t>();
+        LocalTensor<int32_t> argsortCoorLocal = this->argsortCoorBuf.template Get<int32_t>();
+        LocalTensor<T> pointFeatsLocal = this->pointFeatsBuf.template Get<T>();
 
         for (uint32_t voxelIdx = 0; voxelIdx < this->voxelNum; voxelIdx++) {
             this->GetPointNum(voxelIdx, prefixSumLocal);
             this->alignedPointNum = AlignUp(this->pointNum, this->alignedNum);
             this->copyArgsortCoorParams.blockLen = this->alignedPointNum / this->alignedNum;
-            this->pipe->InitBuffer(this->pointFeatsBuf, this->pointNum * this->featsDimAligned * sizeof(T));
-            this->pipe->InitBuffer(this->argsortCoorBuf, this->alignedPointNum * sizeof(int32_t));
-
-            LocalTensor<T> pointFeatsLocal = this->pointFeatsBuf.template Get<T>();
-            LocalTensor<int32_t> argsortCoorLocal = this->argsortCoorBuf.template Get<int32_t>();
 
             SetFlag<HardEvent::S_MTE2>(this->eventIdSToMTE2);
             WaitFlag<HardEvent::S_MTE2>(this->eventIdSToMTE2);

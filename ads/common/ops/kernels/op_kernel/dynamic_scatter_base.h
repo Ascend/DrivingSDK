@@ -11,6 +11,7 @@ namespace DynamicScatter {
 using namespace AscendC;
 
 constexpr int32_t BUFFER_NUM = 1;
+constexpr uint32_t RESERVED_NUM = 1000;
 
 template<typename T>
 class DynamicScatterBase {
@@ -52,6 +53,7 @@ public:
         voxelFeatsNumLastCore = tilingData->voxelFeatsNumLastCore;
         alignedNum = tilingData->alignedNum;
         featsDimAligned = tilingData->featsDimAligned;
+        availablePointNum = tilingData->availablePointNum;
         blockLen = tilingData->blockLen;
         blockLenPad = tilingData->blockLenPad;
         isFeatsAligned = tilingData->isFeatsAligned;
@@ -105,6 +107,8 @@ public:
     __aicore__ inline void BufInit()
     {
         pipe->InitBuffer(prefixSumBuf, alignedNum * sizeof(int32_t));
+        this->pipe->InitBuffer(this->argsortCoorBuf, RESERVED_NUM * sizeof(int32_t));
+        this->pipe->InitBuffer(this->pointFeatsBuf, availablePointNum * this->featsDimAligned * sizeof(T));
     }
 
     __aicore__ inline void GetPointNum(uint32_t voxelIdx, const LocalTensor<int32_t>& prefixSumLocal)
@@ -163,7 +167,7 @@ protected:
     TBuf<TPosition::VECCALC> pointFeatsBuf, prefixSumBuf, argsortCoorBuf;
 
     uint32_t totalPointNum, totalVoxelNum;
-    uint32_t featsDim, pointFeatsNum, alignedNum, featsDimAligned;
+    uint32_t featsDim, pointFeatsNum, alignedNum, featsDimAligned, availablePointNum;
     uint32_t usedCoreNum, voxelNumPerCore, voxelNumLastCore, voxelFeatsNumPerCore, voxelFeatsNumLastCore;
     uint32_t blockLen, blockLenPad;
     uint32_t voxelFeatNum, voxelNum, voxelOffset, voxelfeatsOffset;

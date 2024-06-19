@@ -20,6 +20,7 @@ TILING_DATA_FIELD_DEF(uint32_t, voxelFeatsNumPerCore);
 TILING_DATA_FIELD_DEF(uint32_t, voxelFeatsNumLastCore);
 TILING_DATA_FIELD_DEF(uint32_t, alignedNum);
 TILING_DATA_FIELD_DEF(uint32_t, featsDimAligned);
+TILING_DATA_FIELD_DEF(uint32_t, availablePointNum);
 TILING_DATA_FIELD_DEF(uint32_t, maskNum);
 TILING_DATA_FIELD_DEF(uint32_t, maskDim);
 TILING_DATA_FIELD_DEF(uint32_t, maskDimAligned);
@@ -44,6 +45,7 @@ private:
     void CalUsedCoreNum();
     void CalTilingAligned();
     void CalMaskTiling();
+    void CalAvailableUbTiling();
 
 private:
     DynamicScatterTilingData tilingData;
@@ -60,6 +62,7 @@ private:
     uint32_t voxelFeatsNumLastCore;
     uint32_t alignedNum;
     uint32_t featsDimAligned;
+    uint32_t availablePointNum = 1;
     uint32_t maskNum = 0;
     uint32_t maskDim = 0;
     uint32_t maskDimAligned = 0;
@@ -68,6 +71,7 @@ private:
     uint32_t blockLenPad = 0;
     uint32_t blockLenMask = 0;
     uint32_t repeatTimes = 1;
+    uint64_t ubSizePlatForm;
     bool isFeatsAligned = false;
 };
 } // namespace optiling

@@ -19,9 +19,9 @@ constexpr uint32_t SIZE_OF_B32 = 4;
 constexpr uint32_t BIT_OF_B8 = 8;
 constexpr uint32_t DIM_INDEX0 = 0;
 constexpr uint32_t DIM_INDEX1 = 1;
-constexpr uint32_t BYTES_PER_DATA = 20;
 constexpr uint32_t TILING_KEY_COE = 100;
-constexpr uint32_t RESERVED_UB_SIZE = 2 * 1024;
+constexpr uint32_t RESERVED_UB_SIZE = 16 * 1024;
+constexpr uint32_t RESERVED_ARGSORT_NUM = 1000;
 static std::map<std::string, uint32_t> REDUCE_TYPE_MAP = {{"sum", 0}, {"mean", 1}, {"max", 2}};
 
 void DynamicScatterTiling::CalUsedCoreNum()
@@ -57,6 +57,16 @@ void DynamicScatterTiling::CalMaskTiling()
     repeatTimes = (featsDim + elePerRepeat) / elePerRepeat;
 }
 
+void DynamicScatterTiling::CalAvailableUbTiling()
+{
+    uint64_t availableUbSize = ubSizePlatForm - RESERVED_UB_SIZE;
+    availableUbSize -= RESERVED_ARGSORT_NUM * SIZE_OF_B32;
+    availableUbSize -= maskDimAligned * SIZE_OF_B8;
+    availableUbSize -= maskDimAlignedB16 * SIZE_OF_B16 * 2;
+    availableUbSize -= featsDimAligned * SIZE_OF_B32;
+    availablePointNum = availableUbSize / (featsDimAligned * SIZE_OF_B32);
+}
+
 ge::graphStatus DynamicScatterTiling::Init()
 {
     auto pointFeatsShape = tilingContext->GetInputShape(0)->GetStorageShape();
@@ -72,6 +82,7 @@ ge::graphStatus DynamicScatterTiling::Init()
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     coreNum = ascendcPlatform.GetCoreNumAiv();
+    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatForm);
     if (coreNum == 0) {
         return ge::GRAPH_FAILED;
     }
@@ -92,6 +103,7 @@ ge::graphStatus DynamicScatterTiling::Init()
     if (reduceType == "max") {
         CalMaskTiling();
     }
+    CalAvailableUbTiling();
 
     return ge::GRAPH_SUCCESS;
 }
@@ -108,6 +120,7 @@ ge::graphStatus DynamicScatterTiling::RunKernelTiling()
     tilingData.set_voxelFeatsNumLastCore(voxelFeatsNumLastCore);
     tilingData.set_alignedNum(alignedNum);
     tilingData.set_featsDimAligned(featsDimAligned);
+    tilingData.set_availablePointNum(availablePointNum);
     tilingData.set_maskNum(maskNum);
     tilingData.set_maskDim(maskDim);
     tilingData.set_maskDimAligned(maskDimAligned);

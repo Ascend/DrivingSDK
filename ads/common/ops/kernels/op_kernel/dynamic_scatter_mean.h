@@ -17,7 +17,6 @@ public:
         GM_ADDR voxel_feats, DynamicScatterTilingData* tilingData, TPipe* in_pipe)
     {
         this->BaseInit(point_feats, prefix_sum_point_per_voxel, argsort_coor, voxel_feats, tilingData, in_pipe);
-        this->pipe->InitBuffer(this->pointFeatsBuf, this->featsDimAligned * sizeof(T));
         this->pipe->InitBuffer(pointNumDupBuf, this->featsDimAligned * sizeof(T));
     }
 
@@ -33,13 +32,12 @@ private:
         LocalTensor<T> pointFeatsLocal = this->pointFeatsBuf.template Get<T>();
         LocalTensor<int32_t> prefixSumLocal = this->prefixSumBuf.template Get<int32_t>();
         LocalTensor<T> pointNumDupLocal = pointNumDupBuf.template Get<T>();
+        LocalTensor<int32_t> argsortCoorLocal = this->argsortCoorBuf.template Get<int32_t>();
 
         for (uint32_t voxelIdx = 0; voxelIdx < this->voxelNum; voxelIdx++) {
             this->GetPointNum(voxelIdx, prefixSumLocal);
             this->alignedPointNum = AlignUp(this->pointNum, this->alignedNum);
             this->copyArgsortCoorParams.blockLen = this->alignedPointNum / this->alignedNum;
-            this->pipe->InitBuffer(this->argsortCoorBuf, this->alignedPointNum * sizeof(int32_t));
-            LocalTensor<int32_t> argsortCoorLocal = this->argsortCoorBuf.template Get<int32_t>();
 
             SetFlag<HardEvent::S_V>(this->eventIdSToV);
             WaitFlag<HardEvent::S_V>(this->eventIdSToV);
