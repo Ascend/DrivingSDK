@@ -39,8 +39,8 @@ static ge::graphStatus TilingForDynamicVox(gert::TilingContext* context)
     int gridZ = *(attrsPtr->GetAttrPointer<int32_t>(8));
 
     // tiling by pts num
-    uint32_t ptsNum = ptsShape.GetDim(0);
-    uint32_t ptsFeature = ptsShape.GetDim(1);
+    uint32_t ptsNum = ptsShape.GetDim(1);
+    uint32_t ptsFeature = ptsShape.GetDim(0);
 
     uint32_t ptsNumInCore = ptsNum / coreNum;
     uint32_t ptsNumInLastCore = ptsNum - ptsNumInCore * (coreNum - 1);
@@ -81,8 +81,8 @@ static ge::graphStatus InferShapeForDynamicVoxel(gert::InferShapeContext* contex
         return ge::GRAPH_FAILED;
     }
     coorsShape->SetDimNum(0);
-    coorsShape->AppendDim(ptsShape->GetDim(0));
     coorsShape->AppendDim(3);
+    coorsShape->AppendDim(ptsShape->GetDim(1));
     return GRAPH_SUCCESS;
 }
 } // namespace ge
@@ -97,7 +97,8 @@ public:
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Output("coors")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
