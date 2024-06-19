@@ -35,7 +35,7 @@ constexpr int64_t POINTSDIMSNUM = 3;
 /****************struct definition*****************/
 struct ub_memory_tag {
     uint64_t ub_size = 0;
-    uint64_t ub_reserve = 2048;
+    uint64_t ub_reserve = 3072;
     // 8 :dev into 8 pieces(point_x, point_y, point_z, temp, distance, pointTempX, pointTempY, pointTempZ, store N data each)
     uint64_t ub_data_blocks = 8;
 };
