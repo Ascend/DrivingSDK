@@ -66,7 +66,7 @@ private:
         LocalTensor<T> voxelFeatsLocal = this->voxelFeatsBuf.template Get<T>();
         LocalTensor<uint16_t> recordMaskLocal = recordMaskBuf.template Get<uint16_t>();
         LocalTensor<uint8_t> bitMaskLocal = bitMaskBuf.template Get<uint8_t>();
-        LocalTensor<uint16_t> bitMaskLocalB16 = bitMaskBuf.template Get<uint8_t>().ReinterpretCast<uint16_t>();
+        LocalTensor<uint16_t> bitMaskLocalB16 = bitMaskLocal.ReinterpretCast<uint16_t>();
         LocalTensor<uint16_t> bitMaskTmpLocal = bitMaskTmpBuf.template Get<uint16_t>();
         LocalTensor<int32_t> argsortCoorLocal = this->argsortCoorBuf.template Get<int32_t>();
         LocalTensor<T> pointFeatsLocal = this->pointFeatsBuf.template Get<T>();
@@ -97,24 +97,25 @@ private:
             Duplicate(recordMaskLocal, static_cast<uint16_t>(0), this->maskDimAlignedB16);
             DataCopy(voxelFeatsLocal, this->voxelFeatsGm[voxelIdx * this->featsDim], this->copyFeatParams);
 
-            SetFlag<HardEvent::MTE3_V>(this->eventIdMTE3ToV);
-            WaitFlag<HardEvent::MTE3_V>(this->eventIdMTE3ToV);
+            SetFlag<HardEvent::MTE2_V>(this->eventIdMTE2ToV);
+            WaitFlag<HardEvent::MTE2_V>(this->eventIdMTE2ToV);
             for (uint32_t idx = 0; idx < this->pointNum; idx++) {
                 this->pointIdx = argsortCoorLocal.GetValue(idx);
-                SetFlag<HardEvent::S_MTE3>(this->eventIdSToMTE3);
-                WaitFlag<HardEvent::S_MTE3>(this->eventIdSToMTE3);
                 Compare(bitMaskLocal, voxelFeatsLocal, pointFeatsLocal[idx * this->featsDimAligned], CMPMODE::EQ, mask,
                     repeatTimes, compareParams);
                 pipe_barrier(PIPE_ALL);
+
                 Not(bitMaskTmpLocal, recordMaskLocal, maskDimAlignedB16);
                 And(bitMaskLocalB16, bitMaskLocalB16, bitMaskTmpLocal, maskDimAlignedB16);
                 Or(recordMaskLocal, bitMaskLocalB16, recordMaskLocal, maskDimAlignedB16);
                 SetFlag<HardEvent::V_MTE3>(this->eventIdVToMTE3);
                 WaitFlag<HardEvent::V_MTE3>(this->eventIdVToMTE3);
+
                 SetFlag<HardEvent::S_MTE3>(this->eventIdSToMTE3);
                 WaitFlag<HardEvent::S_MTE3>(this->eventIdSToMTE3);
                 DataCopyPad(compareMaskGm[this->pointIdx * maskDim], bitMaskLocal, copyMaskOutParams);
-                PipeBarrier<PIPE_MTE3>();
+                SetFlag<HardEvent::MTE3_S>(this->eventIdMTE3ToS);
+                WaitFlag<HardEvent::MTE3_S>(this->eventIdMTE3ToS);
             }
             SetFlag<HardEvent::MTE3_MTE2>(this->eventIdMTE3ToMTE2);
             WaitFlag<HardEvent::MTE3_MTE2>(this->eventIdMTE3ToMTE2);
@@ -122,7 +123,7 @@ private:
     }
 
 private:
-    uint32_t maskNum, maskDim, maskDimAligned, maskDimAlignedB16, blockLenMask, repeatTimes, curBlockIdx;
+    uint32_t maskNum, maskDim, maskDimAligned, maskDimAlignedB16, blockLenMask, repeatTimes, curBlockIdx, maskOffset;
     uint64_t mask = 64;
     GlobalTensor<uint8_t> compareMaskGm;
     TBuf<TPosition::VECCALC> voxelFeatsBuf, bitMaskBuf, bitMaskTmpBuf, recordMaskBuf;

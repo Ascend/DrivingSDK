@@ -31,25 +31,23 @@ public:
 private:
     __aicore__ inline void Compute()
     {
-        LocalTensor<T> voxelGradLocal = this->voxelGradBuf.template Get<T>();
         LocalTensor<T> pointGradLocal = pointGradBuf.template Get<T>();
         LocalTensor<T> pointNumDupLocal = pointNumDupBuf.template Get<T>();
+        LocalTensor<T> voxelGradLocal = this->voxelGradBuf.template Get<T>();
         LocalTensor<int32_t> prefixSumLocal = this->prefixSumBuf.template Get<int32_t>();
+        LocalTensor<int32_t> argsortCoorLocal = this->argsortCoorBuf.template Get<int32_t>();
 
         for (uint32_t voxel_idx = 0; voxel_idx < this->voxelNum; voxel_idx++) {
             DataCopy(voxelGradLocal, this->voxelGradGm[voxel_idx * this->featDim], this->copyFeatParams);
             this->GetPointNum(voxel_idx, prefixSumLocal);
+            uint32_t aligned_point_num = AlignUp(this->pointNum, this->alignedNum);
+            this->copyArgsortCoorParams.blockLen = aligned_point_num / this->alignedNum;
 
             SetFlag<HardEvent::S_V>(this->eventIdSToV);
             WaitFlag<HardEvent::S_V>(this->eventIdSToV);
             Duplicate(pointNumDupLocal, static_cast<T>(static_cast<int32_t>(this->pointNum)), this->featDimAligned);
             Div(pointGradLocal, voxelGradLocal, pointNumDupLocal, this->featDimAligned);
 
-            uint32_t aligned_point_num = AlignUp(this->pointNum, this->alignedNum);
-            this->pipe->InitBuffer(this->argsortCoorBuf, aligned_point_num * sizeof(int32_t));
-            LocalTensor<int32_t> argsortCoorLocal = this->argsortCoorBuf.template Get<int32_t>();
-
-            this->copyArgsortCoorParams.blockLen = aligned_point_num / this->alignedNum;
             SetFlag<HardEvent::S_MTE2>(this->eventIdSToMTE2);
             WaitFlag<HardEvent::S_MTE2>(this->eventIdSToMTE2);
             DataCopy(argsortCoorLocal, this->argsortCoorGm[this->startPoint], this->copyArgsortCoorParams);

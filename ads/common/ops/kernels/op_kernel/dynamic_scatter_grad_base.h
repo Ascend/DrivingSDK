@@ -13,6 +13,7 @@ namespace DynamicScatterGrad {
 using namespace AscendC;
 
 constexpr int32_t BUFFER_NUM = 1;
+constexpr uint32_t RESERVED_NUM = 1000;
 
 template<typename T>
 class DynamicScatterGradBase {
@@ -29,10 +30,10 @@ public:
         GlobalBufInit(grad_voxel_feats, prefix_sum_point_per_voxel, argsort_coor, grad_point_feats);
         BufInit();
 
+        eventIdSToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::S_V>());
         eventIdMte2ToS = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_S>());
         eventIdSToMTE2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::S_MTE2>());
         eventIdSToMTE3 = static_cast<event_t>(pipe->AllocEventID<HardEvent::S_MTE3>());
-        eventIdSToV = static_cast<event_t>(pipe->AllocEventID<HardEvent::S_V>());
         eventIdMTE3ToMTE2 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_MTE2>());
     }
 
@@ -94,7 +95,7 @@ public:
         GM_ADDR grad_voxel_feats, GM_ADDR prefix_sum_point_per_voxel, GM_ADDR argsort_coor, GM_ADDR grad_point_feats)
     {
         voxelGradGm.SetGlobalBuffer((__gm__ T*)grad_voxel_feats + voxelfeatsOffset, voxelFeatNum);
-        prefixSumGm.SetGlobalBuffer((__gm__ int32_t*)prefix_sum_point_per_voxel, totalVoxelNum);
+        prefixSumGm.SetGlobalBuffer((__gm__ int32_t*)prefix_sum_point_per_voxel + voxelOffset, totalVoxelNum);
         argsortCoorGm.SetGlobalBuffer((__gm__ int32_t*)argsort_coor, totalVoxelNum - 1);
         pointGradGm.SetGlobalBuffer((__gm__ T*)grad_point_feats, pointGradNum);
     }
@@ -103,24 +104,19 @@ public:
     {
         pipe->InitBuffer(voxelGradBuf, featDimAligned * sizeof(T));
         pipe->InitBuffer(prefixSumBuf, alignedNum * sizeof(int32_t));
+        pipe->InitBuffer(argsortCoorBuf, RESERVED_NUM * sizeof(int32_t));
     }
 
     __aicore__ inline void GetPointNum(uint32_t voxel_idx, LocalTensor<int32_t> prefixSumLocal)
     {
-        if (GetBlockIdx() == 0 && voxel_idx == 0) {
-            DataCopy(prefixSumLocal, prefixSumGm[0], copyprefixSumParams);
-            startPoint = 0;
-            SetFlag<HardEvent::MTE2_S>(eventIdMte2ToS);
-            WaitFlag<HardEvent::MTE2_S>(eventIdMte2ToS);
-            pointNum = prefixSumLocal.GetValue(0);
-        } else if (GetBlockIdx() == usedCoreNum - 1 && voxel_idx == voxelNum - 1) {
-            DataCopy(prefixSumLocal, prefixSumGm[voxelOffset + voxel_idx - 1], copyprefixSumParams);
+        if (GetBlockIdx() == usedCoreNum - 1 && voxel_idx == voxelNum - 1) {
+            DataCopy(prefixSumLocal, prefixSumGm[voxel_idx], copyprefixSumParams);
             SetFlag<HardEvent::MTE2_S>(eventIdMte2ToS);
             WaitFlag<HardEvent::MTE2_S>(eventIdMte2ToS);
             startPoint = prefixSumLocal.GetValue(0);
             pointNum = totalPointNum - startPoint;
         } else {
-            DataCopy(prefixSumLocal, prefixSumGm[voxelOffset + voxel_idx - 1], copyprefixSumParams);
+            DataCopy(prefixSumLocal, prefixSumGm[voxel_idx], copyprefixSumParams);
             SetFlag<HardEvent::MTE2_S>(eventIdMte2ToS);
             WaitFlag<HardEvent::MTE2_S>(eventIdMte2ToS);
             startPoint = prefixSumLocal.GetValue(0);
