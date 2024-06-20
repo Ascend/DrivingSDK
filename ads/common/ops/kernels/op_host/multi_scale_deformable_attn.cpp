@@ -17,10 +17,10 @@ const uint32_t INPUT_SPATIAL_SHAPE = 1;
 const uint32_t INPUT_ATTN_WEIGHT = 4;
 const uint32_t BATCh_SIZE_DIM = 0;
 const uint32_t NUM_KEYS_DIM = 2;
-const uint32_t NUM_HEADS_DIM = 1;
+const uint32_t NUM_HEADS_DIM = 2;
 const uint32_t EMBED_DIMS_DIM = 3;
 const uint32_t NUM_LEVEL_DIM = 0;
-const uint32_t NUM_QUERIES_DIM = 3;
+const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
 } // namespace
 
@@ -80,7 +80,7 @@ static ge::graphStatus InferShapeForMultiScaleDeformableAttn(gert::InferShapeCon
     }
     y_shape->SetDimNum(0);
     y_shape->AppendDim(valueShape->GetDim(0));
-    y_shape->AppendDim(samplingLocationsShape->GetDim(4));
+    y_shape->AppendDim(samplingLocationsShape->GetDim(1));
     y_shape->AppendDim(valueShape->GetDim(1) * valueShape->GetDim(3));
 
     return GRAPH_SUCCESS;

@@ -19,9 +19,8 @@ class MultiScaleDeformableAttnFunction(Function):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(ctx, value, shape, offset, locations, weight):
         value_trans = torch.permute(value, (0, 2, 1, 3)).contiguous()
-        locations_trans = torch.permute(locations, (0, 2, 3, 5, 1, 4)).contiguous()
-        weight_trans = torch.permute(weight, (0, 2, 3, 1, 4)).contiguous()
-        result = ads_c.npu_multi_scale_deformable_attn_function(value_trans, shape, offset, locations_trans, weight_trans)
+        locations_trans = torch.permute(locations, (0, 1, 2, 3, 5, 4)).contiguous()
+        result = ads_c.npu_multi_scale_deformable_attn_function(value_trans, shape, offset, locations_trans, weight)
         ctx.save_for_backward(value_trans, shape, offset, locations, weight)
         return result
 
