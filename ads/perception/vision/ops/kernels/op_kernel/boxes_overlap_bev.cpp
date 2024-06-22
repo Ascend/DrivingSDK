@@ -390,7 +390,7 @@ protected:
 
     uint32_t startOffset_, endOffset_;
     uint32_t dataAlign_, outerLoopCnt_, innerLoopCnt_;
-    uint32_t boxesANum_, boxesBNum_, boxesDescDimNum_, 
+    uint32_t boxesANum_, boxesBNum_, boxesDescDimNum_;
     bool trans_, isClockwise_, needIoU_;
 
     DataCopyExtParams cpInPadParams_;
