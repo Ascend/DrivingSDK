@@ -52,6 +52,7 @@ public:
         boxesDescDimNum_ = tilingData->boxesDescDimNum;
         trans_ = tilingData->trans;
         isClockwise_ = tilingData->isClockwise;
+        needIoU_ = tilingData->needIoU;
 
         cpInPadExtParams_ = {false, 0, 0, 0};
         cpInPadParams_ = {1, static_cast<uint32_t>(boxesDescDimNum_ * sizeof(DTYPE_AREA_OVERLAP)), 0, 0, 0};
@@ -101,8 +102,11 @@ public:
                     boxesANum_ > boxesBNum_ ? outerId * innerLoopCnt_ + innerId : innerId * outerLoopCnt_ + outerId;
                 DataCopyPad(boxesALocalT_, boxesAGm_[offsetBoxesA], cpInPadParams_, cpInPadExtParams_);
                 DataCopyPad(boxesBLocalT_, boxesBGm_[offsetBoxesB], cpInPadParams_, cpInPadExtParams_);
-                float areaOverlap = BoxOverlap(boxesALocalT_, boxesBLocalT_);
-                areaOverlapLocalT_.SetValue(0, areaOverlap);
+                float res = BoxOverlap(boxesALocalT_, boxesBLocalT_);
+                if (needIoU_) {
+                    res = ComputeIoU(res);
+                }
+                areaOverlapLocalT_.SetValue(0, res);
                 DataCopyPad(areaOverlapGm_[offsetAreaOverlap], areaOverlapLocalT_, cpOutPadParams_);
             }
         }
@@ -121,30 +125,6 @@ protected:
         int ret = (min(p1.x, p2.x) <= max(q1.x, q2.x)) && (min(q1.x, q2.x) <= max(p1.x, p2.x)) &&
                   (min(p1.y, p2.y) <= max(q1.y, q2.y)) && (min(q1.y, q2.y) <= max(p1.y, p2.y));
         return ret;
-    }
-
-    __aicore__ inline int CheckInBox2d(const LocalTensor<float> &box, const Point &p)
-    {
-        const float MARGIN = 1e-5;
-        float centerX = (box.GetValue(0) + box.GetValue(2)) / 2;
-        float centerY = (box.GetValue(1) + box.GetValue(3)) / 2;
-        angleLocalT_.SetValue(0, -box.GetValue(4));
-        Sin(sinLocalT_, angleLocalT_);
-        Cos(cosLocalT_, angleLocalT_);
-        float angleCos = cosLocalT_.GetValue(0);
-        float angleSin = sinLocalT_.GetValue(0);
-        float rotX;
-        float rotY;
-        if (isClockwise_ == 1) {
-            rotX = (p.x - centerX) * angleCos + (p.y - centerY) * angleSin + centerX;
-            rotY = -(p.x - centerX) * angleSin + (p.y - centerY) * angleCos + centerY;
-        } else {
-            rotX = (p.x - centerX) * angleCos - (p.y - centerY) * angleSin + centerX;
-            rotY = (p.x - centerX) * angleSin + (p.y - centerY) * angleCos + centerY;
-        }
-
-        return ((rotX > box.GetValue(0) - MARGIN) && (rotX < box.GetValue(2) + MARGIN) &&
-                (rotY > box.GetValue(1) - MARGIN) && (rotY < box.GetValue(3) + MARGIN));
     }
 
     __aicore__ inline int Intersection(const Point &p1, const Point &p0, const Point &q1, const Point &q0,
@@ -184,7 +164,7 @@ protected:
     {
         float newX;
         float newY;
-        if (isClockwise_ == 1) {
+        if (isClockwise_) {
             newX = (p.x - center.x) * angleCos + (p.y - center.y) * angleSin + center.x;
             newY = -(p.x - center.x) * angleSin + (p.y - center.y) * angleCos + center.y;
         } else {
@@ -192,6 +172,24 @@ protected:
             newY = (p.x - center.x) * angleSin + (p.y - center.y) * angleCos + center.y;
         }
         p.set(newX, newY);
+    }
+
+    __aicore__ inline int CheckInBox2d(const LocalTensor<float> &box, const Point &p)
+    {
+        const float MARGIN = 1e-5;
+        float centerX = (box.GetValue(0) + box.GetValue(2)) / 2;
+        float centerY = (box.GetValue(1) + box.GetValue(3)) / 2;
+        Point center(centerX, centerY);
+        Point rot(p.x, p.y);
+        angleLocalT_.SetValue(0, -box.GetValue(4));
+        Sin(sinLocalT_, angleLocalT_);
+        Cos(cosLocalT_, angleLocalT_);
+        float angleCos = cosLocalT_.GetValue(0);
+        float angleSin = sinLocalT_.GetValue(0);
+        RotateAroundCenter(center, angleCos, angleSin, rot);
+
+        return ((rot.x > box.GetValue(0) - MARGIN) && (rot.x < box.GetValue(2) + MARGIN) &&
+                (rot.y > box.GetValue(1) - MARGIN) && (rot.y < box.GetValue(3) + MARGIN));
     }
 
     __aicore__ inline int PointCmp(const Point &a, const Point &b, const Point &center)
@@ -214,7 +212,7 @@ protected:
 
     __aicore__ inline void ParseBox(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor)
     {
-        if (trans_ == 1) {
+        if (trans_) {
             if (boxesDescDimNum_ == 5) {
                 aX2_ = boxATensor.GetValue(2);
                 aY2_ = boxATensor.GetValue(3);
@@ -235,13 +233,13 @@ protected:
             aX1_ = boxATensor.GetValue(0);
             aY1_ = boxATensor.GetValue(1);
             bX1_ = boxBTensor.GetValue(0);
-            bY1 = boxBTensor.GetValue(1);
+            bY1_ = boxBTensor.GetValue(1);
 
             centerAX_ = (aX1_ + aX2_) / 2;
             centerBX_ = (bX1_ + bX2_) / 2;
             centerAY_ = (aY1_ + aY2_) / 2;
-            centerBY_ = (bY1 + bY2_) / 2;
-        } else if (trans_ == 0) {
+            centerBY_ = (bY1_ + bY2_) / 2;
+        } else {
             if (boxesDescDimNum_ == 5) {
                 aAngle_ = boxATensor.GetValue(4);
                 bAngle_ = boxBTensor.GetValue(4);
@@ -267,21 +265,37 @@ protected:
             aX2_ = centerAX_ + aDxHalf_;
             aY2_ = centerAY_ + aDyHalf_;
             bX1_ = centerBX_ - bDxHalf_;
-            bY1 = centerBY_ - bDyHalf_;
+            bY1_ = centerBY_ - bDyHalf_;
             bX2_ = centerBX_ + bDxHalf_;
             bY2_ = centerBY_ + bDyHalf_;
         }
     }
 
+    __aicore__ inline void updateBoxDesc(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor)
+    {
+        boxATensor.SetValue(0, aX1_);
+        boxATensor.SetValue(1, aY1_);
+        boxATensor.SetValue(2, aX2_);
+        boxATensor.SetValue(3, aY2_);
+        boxATensor.SetValue(4, aAngle_);
+
+        boxBTensor.SetValue(0, bX1_);
+        boxBTensor.SetValue(1, bY1_);
+        boxBTensor.SetValue(2, bX2_);
+        boxBTensor.SetValue(3, bY2_);
+        boxBTensor.SetValue(4, bAngle_);
+    }
+
     __aicore__ inline float BoxOverlap(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor)
     {
         ParseBox(boxATensor, boxBTensor);
+        updateBoxDesc(boxATensor, boxBTensor);
 
         Point centerA(centerAX_, centerAY_);
         Point centerB(centerBX_, centerBY_);
 
         Point boxACorners[5] = {{aX1_, aY1_}, {aX2_, aY1_}, {aX2_, aY2_}, {aX1_, aY2_}, {aX1_, aY1_}};
-        Point boxBCorners[5] = {{bX1_, bY1}, {bX2_, bY1}, {bX2_, bY2_}, {bX1_, bY2_}, {bX1_, bY1}};
+        Point boxBCorners[5] = {{bX1_, bY1_}, {bX2_, bY1_}, {bX2_, bY2_}, {bX1_, bY2_}, {bX1_, bY1_}};
 
         angleLocalT_.SetValue(0, aAngle_);
         angleLocalT_.SetValue(1, bAngle_);
@@ -354,6 +368,13 @@ protected:
         return abs(areaOverlap) / static_cast<float>(2.0);
     }
 
+    __aicore__ inline float ComputeIoU(float areaOverlap)
+    {
+        float areaA = abs((aX2_ - aX1_) * (aY2_ - aY1_));
+        float areaB = abs((bX2_ - bX1_) * (bY2_ - bY1_));
+        return areaOverlap / (areaA + areaB - areaOverlap);
+    }
+
 protected:
     TPipe *pipe_;
     GlobalTensor<DTYPE_AREA_OVERLAP> boxesAGm_, boxesBGm_, areaOverlapGm_;
@@ -364,12 +385,13 @@ protected:
     LocalTensor<DTYPE_AREA_OVERLAP> areaOverlapLocalT_, boxesALocalT_, boxesBLocalT_;
     LocalTensor<DTYPE_AREA_OVERLAP> angleLocalT_, sinLocalT_, cosLocalT_;
 
-    DTYPE_AREA_OVERLAP aX1_, aX2_, aY1_, aY2_, aAngle_, bX1_, bX2_, bY1, bY2_, bAngle_;
+    DTYPE_AREA_OVERLAP aX1_, aX2_, aY1_, aY2_, aAngle_, bX1_, bX2_, bY1_, bY2_, bAngle_;
     DTYPE_AREA_OVERLAP centerAX_, centerAY_, centerBX_, centerBY_, aDxHalf_, aDyHalf_, bDxHalf_, bDyHalf_;
 
     uint32_t startOffset_, endOffset_;
     uint32_t dataAlign_, outerLoopCnt_, innerLoopCnt_;
-    uint32_t boxesANum_, boxesBNum_, boxesDescDimNum_, trans_, isClockwise_;
+    uint32_t boxesANum_, boxesBNum_, boxesDescDimNum_, 
+    bool trans_, isClockwise_, needIoU_;
 
     DataCopyExtParams cpInPadParams_;
     DataCopyExtParams cpOutPadParams_;

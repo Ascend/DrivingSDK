@@ -15,8 +15,9 @@ TILING_DATA_FIELD_DEF(uint32_t, taskNumPerCore)
 TILING_DATA_FIELD_DEF(uint32_t, outerLoopCnt)
 TILING_DATA_FIELD_DEF(uint32_t, innerLoopCnt)
 TILING_DATA_FIELD_DEF(uint32_t, boxesDescDimNum)
-TILING_DATA_FIELD_DEF(uint32_t, trans)
-TILING_DATA_FIELD_DEF(uint32_t, isClockwise)
+TILING_DATA_FIELD_DEF(bool, trans)
+TILING_DATA_FIELD_DEF(bool, isClockwise)
+TILING_DATA_FIELD_DEF(bool, needIoU)
 
 END_TILING_DATA_DEF;
 

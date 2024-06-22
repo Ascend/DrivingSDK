@@ -16,6 +16,7 @@ const uint32_t INPUT_BOXES_B = 1;
 const uint32_t OUTPUT_AREA_OVERLAP = 0;
 const uint32_t ATTR_TRANS = 0;
 const uint32_t ATTR_IS_CLOCKWISE = 1;
+const uint32_t ATTR_NEED_IOU = 2;
 const uint32_t BOXES_NUM_DIM = 0;
 const uint32_t BOXES_DESC_DIM = 1;
 
@@ -53,8 +54,13 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
     }
     auto transPtr = attrs->GetAttrPointer<bool>(ATTR_TRANS);
     auto isClockwisePtr = attrs->GetAttrPointer<bool>(ATTR_IS_CLOCKWISE);
-    auto trans = static_cast<uint32_t>(*transPtr);
-    auto isClockwise = static_cast<uint32_t>(*isClockwisePtr);
+    auto needIoUPtr = attrs->GetAttrPointer<bool>(ATTR_NEED_IOU);
+    if (transPtr == nullptr || isClockwisePtr == nullptr || needIoUPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    auto trans = *transPtr;
+    auto isClockwise = *isClockwisePtr;
+    auto needIoU = *needIoUPtr;
 
     auto boxesAShape = boxesATensorPtr->GetStorageShape();
     auto boxesBShape = boxesBTensorPtr->GetStorageShape();
@@ -77,6 +83,7 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
     tiling.set_boxesDescDimNum(boxesDescDimNum);
     tiling.set_trans(trans);
     tiling.set_isClockwise(isClockwise);
+    tiling.set_needIoU(needIoU);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -132,6 +139,7 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("trans").AttrType(OPTIONAL).Bool(true);
         this->Attr("is_clockwise").AttrType(OPTIONAL).Bool(true);
+        this->Attr("need_iou").AttrType(OPTIONAL).Bool(false);
 
         this->SetInferShape(ge::Infershape4BoxesOverlapBev);
 
