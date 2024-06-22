@@ -240,8 +240,9 @@ private:
         }
         float s5 = cross(q1, p1, p0);
         if (abs(s5 - s1) > EPS) {
-            ans_point.x = (s5 * q0.x - s1 * q1.x) / (s5 - s1) == 0 ? ((s5 - s1) + EPS) : (s5 - s1);
-            ans_point.y = (s5 * q0.y - s1 * q1.y) / (s5 - s1) == 0 ? ((s5 - s1) + EPS) : (s5 - s1);
+            float divisor = s5 - s1 == 0 ? ((s5 - s1) + EPS) : (s5 - s1);
+            ans_point.x = (s5 * q0.x - s1 * q1.x) / divisor;
+            ans_point.y = (s5 * q0.y - s1 * q1.y) / divisor;
         } else {
             float a0 = p0.y - p1.y;
             float b0 = p1.x - p0.x;
@@ -250,9 +251,9 @@ private:
             float b1 = q1.x - q0.x;
             float c1 = q0.x * q1.y - q1.x * q0.y;
             float D = a0 * b1 - a1 * b0;
-
-            ans_point.x = (b0 * c1 - b1 * c0) / D == 0 ? D + EPS : D;
-            ans_point.y = (a1 * c0 - a0 * c1) / D == 0 ? D + EPS : D;
+            float divisor = D == 0 ? D + EPS : D;
+            ans_point.x = (b0 * c1 - b1 * c0) / divisor;
+            ans_point.y = (a1 * c0 - a0 * c1) / divisor;
         }
 
         return 1;
