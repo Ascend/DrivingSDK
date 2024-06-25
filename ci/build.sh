@@ -1,7 +1,7 @@
 # Copyright 2023 Huawei Technologies Co., Ltd
 CUR_DIR=$(dirname $(readlink -f $0))
 SCRIPTS_DIR=${CUR_DIR}/../scripts
-BUILD_PACKAGES_DIR=${CUR_DIR}/../ads/packages
+BUILD_PACKAGES_DIR=${CUR_DIR}/../mx_driving/packages
 SUPPORTED_PY_VERSION=(3.7 3.8 3.9 3.10)
 PY_VERSION='3.7'
 SINGLE_OP=''
@@ -93,11 +93,11 @@ function main()
     fi
     cd ${CUR_DIR}/..
     rm -rf build
-    if [ -d "ads_accelerator.egg-info" ]; then
-        echo "ads_accelerator.egg-info exist"
-        rm -rf ads_accelerator.egg-info
+    if [ -d "mx_driving.egg-info" ]; then
+        echo "mx_driving.egg-info exist"
+        rm -rf mx_driving.egg-info
     else
-        echo "ads_accelerator.egg-info not exist"
+        echo "mx_driving.egg-info not exist"
     fi
 
     python"${PY_VERSION}" setup.py build bdist_wheel

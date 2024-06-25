@@ -17,7 +17,7 @@ import torch
 import torch_npu
 import numpy as np
 from torch_npu.testing.testcase import TestCase, run_tests
-from ads.common import RoIPointPool3d
+from mx_driving.common import RoIPointPool3d
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]

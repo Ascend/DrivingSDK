@@ -3,7 +3,7 @@
 ## scatter_max
 ### 接口原型
 ```python
-ads.common.scatter_max(Tensor updates, Tensor indices, Tensor out=None) -> (Tensor out, Tensor argmax)
+mx_driving.common.scatter_max(Tensor updates, Tensor indices, Tensor out=None) -> (Tensor out, Tensor argmax)
 ```
 ### 功能描述
 在第0维上，将输入张量`updates`中的元素按照`indices`中的索引进行分散，然后在第0维上取最大值，返回最大值和对应的索引。对于1维张量，公式如下：
@@ -29,7 +29,7 @@ $$argmax_i = argmax_j(updates_j)$$
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import scatter_max
+from mx_driving.common import scatter_max
 updates = torch.tensor([[2, 0, 1, 3, 1, 0, 0, 4], [0, 2, 1, 3, 0, 3, 4, 2], [1, 2, 3, 4, 4, 3, 2, 1]], dtype=torch.float32).npu()
 indices = torch.tensor([0, 2, 0], dtype=torch.int32).npu()
 out = updates.new_zeros((3, 8))
@@ -45,10 +45,10 @@ tensor([[0, 2, 2, 2, 2, 2, 2, 0],
         [3, 3, 3, 3, 3, 3, 3, 3],
         [1, 1, 1, 1, 1, 1, 1, 1]])
 ```
-## \[prototype\] npu_rotated_overlaps
+## npu_rotated_overlaps
 ### 接口原型
 ```python
-ads.common.npu_rotated_overlaps(Tensor self, Tensor query_boxes, bool trans=False) -> Tensor
+mx_driving.common.npu_rotated_overlaps(Tensor self, Tensor query_boxes, bool trans=False) -> Tensor
 ```
 ### 功能描述
 计算旋转框的重叠面积。
@@ -64,7 +64,7 @@ ads.common.npu_rotated_overlaps(Tensor self, Tensor query_boxes, bool trans=Fals
 ```python
 import torch, torch_npu
 import numpy as np
-from ads.common import npu_rotated_overlaps
+from mx_driving.common import npu_rotated_overlaps
 a = np.random.uniform(0, 1, (1, 3, 5)).astype(np.float16)
 b = np.random.uniform(0, 1, (1, 2, 5)).astype(np.float16)
 box1 = torch.from_numpy(a).npu()
@@ -77,10 +77,10 @@ tensor([[[0.0000, 0.1562, 0.0000],
          [0.1562, 0.3713, 0.0611],
          [0.0000, 0.0611, 0.0000]]], dtype=torch.float16)
 ```
-## \[prototype\] npu_rotated_iou
+## npu_rotated_iou
 ### 接口原型
 ```python
-ads.common.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=False, int mode=0, bool is_cross=True, float v_threshold=0.0, float e_threshold=0.0) -> Tensor
+mx_driving.common.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=False, int mode=0, bool is_cross=True, float v_threshold=0.0, float e_threshold=0.0) -> Tensor
 ```
 ### 功能描述
 计算旋转框的IoU。
@@ -100,7 +100,7 @@ ads.common.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=False, in
 ```python
 import torch, torch_npu
 import numpy as np
-from ads.common import npu_rotated_iou
+from mx_driving.common import npu_rotated_iou
 a = np.random.uniform(0, 1, (2, 2, 5)).astype(np.float16)
 b = np.random.uniform(0, 1, (2, 3, 5)).astype(np.float16)
 box1 = torch.from_numpy(a).npu()
@@ -118,7 +118,7 @@ tensor([[[3.3325e-01, 1.0162e-01],
 ## npu_dynamic_scatter
 ### 接口原型
 ```python
-ads.common.npu_dynamic_scatter(Tensor feats, Tensor coors, str reduce_type = 'max') -> Tuple[torch.Tensor, torch.Tensor]
+mx_driving.common.npu_dynamic_scatter(Tensor feats, Tensor coors, str reduce_type = 'max') -> Tuple[torch.Tensor, torch.Tensor]
 ```
 ### 功能描述
 将点云特征点在对应体素中进行特征压缩。
@@ -134,7 +134,7 @@ ads.common.npu_dynamic_scatter(Tensor feats, Tensor coors, str reduce_type = 'ma
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import npu_dynamic_scatter
+from mx_driving.common import npu_dynamic_scatter
 
 feats = torch.tensor([[1, 2, 3], [3, 2, 1], [7, 8, 9], [9, 8, 7]], dtype=torch.float32).npu()
 coors = torch.tensor([[1, 1, 1], [1, 1, 1], [2, 2, 2], [2, 2, 2]], dtype=torch.int32).npu()
@@ -146,7 +146,7 @@ print(voxel_coors)
 ## npu_points_in_box
 ### 接口原型
 ```python
-ads.common.npu_points_in_box(Tensor boxes, Tensor points) -> Tensor
+mx_driving.common.npu_points_in_box(Tensor boxes, Tensor points) -> Tensor
 ```
 ### 功能描述
 判断点是否在框内。
@@ -162,7 +162,7 @@ ads.common.npu_points_in_box(Tensor boxes, Tensor points) -> Tensor
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import npu_points_in_box
+from mx_driving.common import npu_points_in_box
 boxes = torch.tensor([[[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]]], dtype=torch.float32).npu()
 points = torch.tensor([[[1, 2, 3], [3, 4, 5]]], dtype=torch.float32).npu()
 out = npu_points_in_box(boxes, points)
@@ -174,7 +174,7 @@ tensor([[0, 1]], dtype=torch.int32)
 ## npu_multi_scale_deformable_attn_function
 ### 接口原型
 ```python
-ads.common.npu_multi_scale_deformable_attn_function(Tensor value, Tensor shape, Tensor offset, Tensor locations, Tensor weight) -> Tensor
+mx_driving.common.npu_multi_scale_deformable_attn_function(Tensor value, Tensor shape, Tensor offset, Tensor locations, Tensor weight) -> Tensor
 ```
 ### 功能描述
 多尺度可变形注意力机制, 将多个视角的特征图进行融合。
@@ -193,7 +193,7 @@ ads.common.npu_multi_scale_deformable_attn_function(Tensor value, Tensor shape, 
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import npu_multi_scale_deformable_attn_function
+from mx_driving.common import npu_multi_scale_deformable_attn_function
 bs, num_levels, num_heads, num_points, num_queries, embed_dims = 1, 1, 4, 8, 16, 32
 
 shapes = torch.as_tensor([(100, 100)], dtype=torch.long)
@@ -213,7 +213,7 @@ tensor([[[9.3002, 11.1603, 0.0000, 0.0000]]], dtype=torch.float32)
 ## voxelization
 ### 接口原型
 ```python
-ads.common.voxelization(Tensor points, List[float] voxel_size, List[float] coors_range, int max_points=-1, int max_voxels=-1, bool deterministic=True) -> Tensor
+mx_driving.common.voxelization(Tensor points, List[float] voxel_size, List[float] coors_range, int max_points=-1, int max_voxels=-1, bool deterministic=True) -> Tensor
 ```
 ### 功能描述
 将点云数据进行体素化。
@@ -231,7 +231,7 @@ ads.common.voxelization(Tensor points, List[float] voxel_size, List[float] coors
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import Voxelization
+from mx_driving.common import Voxelization
 points = torch.randint(-20, 100, [16, 3], dtype=torch.float32).npu()
 coors_range = [0, -40, -3, 70.4, 40, 1]
 max_points = -1
@@ -243,7 +243,7 @@ print(out)
 ## npu_nms3d_normal
 ### 接口原型
 ```python
-ads.common.npu_nms3d_normal(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
+mx_driving.common.npu_nms3d_normal(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
 ```
 ### 功能描述
 3D非极大值抑制。
@@ -258,7 +258,7 @@ ads.common.npu_nms3d_normal(Tensor boxes, Tensor scores, float: iou_threshold) -
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import npu_nms3d_normal
+from mx_driving.common import npu_nms3d_normal
 boxes = torch.tensor([[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]], dtype=torch.float32).npu()
 scores = torch.tensor([1, 2], dtype=torch.float32).npu()
 out = npu_nms3d_normal(boxes, scores, 0.5)
@@ -270,7 +270,7 @@ tensor([[1, 0]], dtype=torch.int32)
 ## npu_nms3d
 ### 接口原型
 ```python
-ads.common.npu_nms3d(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
+mx_driving.common.npu_nms3d(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
 ```
 ### 功能描述
 3D非极大值抑制，在bev视角下剔除多个3d box交并比大于阈值的box。
@@ -285,7 +285,7 @@ ads.common.npu_nms3d(Tensor boxes, Tensor scores, float: iou_threshold) -> Tenso
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import npu_nms3d
+from mx_driving.common import npu_nms3d
 boxes = torch.tensor([[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]], dtype=torch.float32).npu()
 scores = torch.tensor([1, 2], dtype=torch.float32).npu()
 out = npu_nms3d(boxes, scores, 0.5)
@@ -297,7 +297,7 @@ tensor([[1]], dtype=torch.int32)
 ## npu_furthest_point_sampling
 ### 接口原型
 ```python
-ads.common.npu_furthest_point_sampling(Tensor points, int num_points) -> Tensor
+mx_driving.common.npu_furthest_point_sampling(Tensor points, int num_points) -> Tensor
 ```
 ### 功能描述
 点云数据的最远点采样。
@@ -311,7 +311,7 @@ ads.common.npu_furthest_point_sampling(Tensor points, int num_points) -> Tensor
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import npu_furthest_point_sampling
+from mx_driving.common import npu_furthest_point_sampling
 points = torch.tensor([[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=torch.float32).npu()
 out = npu_furthest_point_sampling(points, 2)
 print(out)
@@ -324,7 +324,7 @@ tensor([[0, 2]], dtype=torch.int32)
 ## furthest_point_sample_with_dist
 ### 接口原型
 ```python
-ads.common.furthest_point_sample_with_dist(Tensor points, int num_points) -> (Tensor, Tensor)
+mx_driving.common.furthest_point_sample_with_dist(Tensor points, int num_points) -> (Tensor, Tensor)
 ```
 ### 功能描述
 与`npu_furthest_point_sampling`功能相同，但输入略有不同。
@@ -338,7 +338,7 @@ ads.common.furthest_point_sample_with_dist(Tensor points, int num_points) -> (Te
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import furthest_point_sample_with_dist
+from mx_driving.common import furthest_point_sample_with_dist
 points = torch.tensor([[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=torch.float32).npu()
 out = furthest_point_sample_with_dist(points, 2)
 print(out)
@@ -350,7 +350,7 @@ tensor([[0, 2]], dtype=torch.int32)
 ## three_interpolate
 ### 接口原型
 ```python
-ads.common.three_interpolate(features: torch.Tensor, indices: torch.Tensor,
+mx_driving.common.three_interpolate(features: torch.Tensor, indices: torch.Tensor,
                 weight: torch.Tensor) -> torch.Tensor:
 ```
 ### 功能描述
@@ -370,7 +370,7 @@ ads.common.three_interpolate(features: torch.Tensor, indices: torch.Tensor,
 ### 调用示例
 ```python
 import torch
-from ads.common import three_interpolate
+from mx_driving.common import three_interpolate
 features = torch.tensor(
             [[[2.4350, 4.7516, 4.4995, 2.4350, 2.4350, 2.4350],
             [3.1236, 2.6278, 3.0447, 3.1236, 3.1236, 3.1236],
@@ -423,7 +423,7 @@ torch.tensor(
 ## bev_pool
 ### 接口原型
 ```python
-ads.perception.fused.bev_pool(Tensor feat, Tensor geom_feat, int B, int D, int H, int W) -> Tensor
+mx_driving.perception.fused.bev_pool(Tensor feat, Tensor geom_feat, int B, int D, int H, int W) -> Tensor
 ```
 ### 功能描述
 BEV池化。可参考论文`BEVFusion: Multi-Task Multi-Sensor Fusion with Unified Bird's-Eye View Representation`
@@ -447,7 +447,7 @@ BEV池化。可参考论文`BEVFusion: Multi-Task Multi-Sensor Fusion with Unifi
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.perception.fused import bev_pool
+from mx_driving.perception.fused import bev_pool
 feat = torch.rand(4, 256).npu()
 feat.requires_grad_()
 geom_feat = torch.tensor([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 2], [0, 0, 0, 3]], dtype=torch.int32).npu()
@@ -460,7 +460,7 @@ print(feat.grad)
 ## bev_pool_v2
 ### 接口原型
 ```python
-ads.perception.fused.bev_pool_v2(Tensor depth, feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
+mx_driving.perception.fused.bev_pool_v2(Tensor depth, feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
                                  List[int] bev_feat_shape, Tensor interval_starts, Tensor interval_lengths) -> Tensor
 ```
 ### 功能描述
@@ -489,7 +489,7 @@ BEV池化优化版。可参考论文`BEVDet: High-performance Multi-camera 3D Ob
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.perception.fused import bev_pool_v2
+from mx_driving.perception.fused import bev_pool_v2
 depth = torch.rand(2, 1, 8, 256, 256).npu()
 feat = torch.rand(2, 1, 256, 256, 64).npu()
 feat.requires_grad_()
@@ -509,7 +509,7 @@ print(feat.grad)
 ## group_points
 ### 接口原型
 ```python
-ads.perception.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
+mx_driving.perception.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
 ```
 ### 功能描述
 点云数据按照索引重新分组。
@@ -528,7 +528,7 @@ ads.perception.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
 ```python
 import torch
 import torch_npu
-import ads.perception.point
+import mx_driving.perception.point
 indices = torch.tensor([[[0, 2, 5, 5], [1, 0, 5, 0], [2, 1, 4, 4]]]).int().npu()
 features = torch.tensor([[[0.9178, -0.7250, -1.6587, 0.0715, -0.2252, 0.4994],
                           [0.6190, 0.1755, -1.7902, -0.5852, -0.3311, 1.9764],
@@ -537,7 +537,7 @@ features = torch.tensor([[[0.9178, -0.7250, -1.6587, 0.0715, -0.2252, 0.4994],
                           [0.7239, 0.2321, -0.6578, -1.1395, -2.3874, 1.1281]]],
                           dtype=torch.float32).npu()
 features.requires_grad = True
-output = ads.perception.point.npu_group_points(features, indices)
+output = mx_driving.perception.point.npu_group_points(features, indices)
 output.backward(output)
 grad_features = features.grad
 ```
@@ -573,7 +573,7 @@ expected_grad_features = tensor(
 ## knn
 ### 接口原型
 ```python
-ads.common.knn(int k, Tensor xyz, Tensor center_xyz, bool Transposed) -> Tensor
+mx_driving.common.knn(int k, Tensor xyz, Tensor center_xyz, bool Transposed) -> Tensor
 ```
 ### 功能描述
 對center_xyz中的每個點找到xyz中對應batch中的距離最近的k個點，并且返回此k個點的索引值。
@@ -589,7 +589,7 @@ ads.common.knn(int k, Tensor xyz, Tensor center_xyz, bool Transposed) -> Tensor
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import knn
+from mx_driving.common import knn
 xyz = torch.tensor([[[1, 1, 1], [1, 1, 1], [1, 1, 1]], [[1, 1, 1], [1, 1, 1], [1, 1, 1]]], dtype=torch.float32).npu()
 center_xyz = torch.tensor([[1, 2, 3]], [[1, 2, 3]], dtype=torch.float32).npu()
 idx = knn(2, xyz, center_xyz, False)
@@ -607,7 +607,7 @@ tensor([[0, 0], [1, 1]], dtype=torch.int32)
 ## three_nn
 ### 接口原型
 ```python
-ads.common.three_nn(Tensor target, Tensor source) -> (Tensor dist, Tensor idx)
+mx_driving.common.three_nn(Tensor target, Tensor source) -> (Tensor dist, Tensor idx)
 ```
 ### 功能描述
 對target中的每個點找到source中對應batch中的距離最近的3個點，并且返回此3個點的距離和索引值。
@@ -622,7 +622,7 @@ ads.common.three_nn(Tensor target, Tensor source) -> (Tensor dist, Tensor idx)
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import three_nn
+from mx_driving.common import three_nn
 source = torch.tensor([[[1, 1, 1], [1, 1, 1], [1, 1, 1]], [[1, 1, 1], [1, 1, 1], [1, 1, 1]]], dtype=torch.float32).npu()
 target = torch.tensor([[1, 2, 3]], [[1, 2, 3]], dtype=torch.float32).npu()
 dist, idx = three_nn(target, source)
@@ -639,7 +639,7 @@ tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.int32)
 ## RoipointPool3d
 ### 接口原型
 ```python
-ads.common.RoipointPool3d(int num_sampled_points, Tensor points, Tensor point_features, Tensor boxes3d) -> (Tensor pooled_features, Tensor pooled_empty_flag)
+mx_driving.common.RoipointPool3d(int num_sampled_points, Tensor points, Tensor point_features, Tensor boxes3d) -> (Tensor pooled_features, Tensor pooled_empty_flag)
 ```
 ### 功能描述
 对每个3D方案的几何特定特征进行编码。
@@ -661,7 +661,7 @@ ads.common.RoipointPool3d(int num_sampled_points, Tensor points, Tensor point_fe
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.common import RoIPointPool3d
+from mx_driving.common import RoIPointPool3d
 num_sampled_points = 1
 points = torch.tensor([[[1, 2, 3]]], dtype=torch.float).npu()
 point_features = points.clone()
@@ -678,7 +678,7 @@ tensor([[0]], dtype=torch.int32)
 ## boxes_overlap_bev
 ### 接口原型
 ```python
-ads.perception.vision.boxes_overlap_bev(Tensor boxes_a, Tensor boxes_b) -> Tensor
+mx_driving.perception.vision.boxes_overlap_bev(Tensor boxes_a, Tensor boxes_b) -> Tensor
 ```
 ### 功能描述
 Calculates the intersection of bounding boxes in Bird's Eye View.
@@ -694,7 +694,7 @@ Calculates the intersection of bounding boxes in Bird's Eye View.
 ### 调用示例
 ```python
 import torch, torch_npu
-from ads.perception.vision import boxes_overlap_bev
+from mx_driving.perception.vision import boxes_overlap_bev
 boxes_a = torch.tensor([[0, 0, 2, 2, 0]], dtype=torch.float32).npu()
 boxes_b = torch.tensor([[1, 1, 3, 3, 0]], dtype=torch.float32).npu()
 area_overlap = boxes_overlap_bev(boxes_a, boxes_b)

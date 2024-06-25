@@ -5,7 +5,7 @@ import torch_scatter
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 from torch_npu.testing.common_utils import create_common_tensor
-import ads.common
+import mx_driving.common
 
 
 class TestScatterMaxWithArgmax(TestCase):
@@ -26,7 +26,7 @@ class TestScatterMaxWithArgmax(TestCase):
     def npu_op_exec(self, updates, indices):
         updates.requires_grad = True
 
-        output, output_argmax = ads.common.scatter_max(updates, indices)
+        output, output_argmax = mx_driving.common.scatter_max(updates, indices)
         output.backward(torch.ones_like(output))
 
         output_grad = updates.grad.cpu()

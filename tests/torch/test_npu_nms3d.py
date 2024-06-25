@@ -8,7 +8,7 @@ import torch_npu
 from torch_npu.testing.common_utils import create_common_tensor
 from torch_npu.testing.testcase import TestCase, run_tests
 
-import ads.common
+import mx_driving.common
 
 torch.npu.config.allow_internal_format = False
 torch_npu.npu.set_compile_mode(jit_compile=False)
@@ -246,7 +246,7 @@ class TestNms3d(TestCase):
         return keep, num_out
 
     def npu_to_exec(self, boxes, scores, threshold=0.0):
-        keep = ads.common.npu_nms3d(boxes, scores, threshold)
+        keep = mx_driving.common.npu_nms3d(boxes, scores, threshold)
         return keep.cpu()
 
     @unittest.skipIf(DEVICE_NAME != True, "OP `Nms3d` is only supported on 910B, skip this ut!")

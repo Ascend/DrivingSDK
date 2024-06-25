@@ -5,7 +5,7 @@ import numpy as np
 
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads.common
+import mx_driving.common
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -24,7 +24,7 @@ class TestNms3dNormal(TestCase):
         np_inds = np.array([1, 0, 3])
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = ads.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
         
         self.assertRtolEqual(inds.cpu().numpy(), np_inds)
 
@@ -34,7 +34,7 @@ class TestNms3dNormal(TestCase):
         np_scores = np.random.rand(555).astype(np.float32)
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = ads.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
 
         self.assertRtolEqual(len(inds.cpu().numpy()), 148)
 

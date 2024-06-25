@@ -3,7 +3,7 @@ from collections import namedtuple
 import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads.common
+import mx_driving.common
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -130,7 +130,7 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
         npu_sampling_locations = npu_inputs.sampling_locations
         npu_attention_weights = npu_inputs.attention_weights
         npu_grad_output = npu_inputs.grad_output
-        npu_output = ads.common.npu_multi_scale_deformable_attn_function(npu_value, npu_shapes, npu_offset, npu_sampling_locations, npu_attention_weights)
+        npu_output = mx_driving.common.npu_multi_scale_deformable_attn_function(npu_value, npu_shapes, npu_offset, npu_sampling_locations, npu_attention_weights)
         npu_output.backward(npu_grad_output)
         return ExecResults(
             output=npu_output.detach().cpu().numpy(),

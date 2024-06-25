@@ -1,6 +1,6 @@
 import torch
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads.common
+import mx_driving.common
 
 
 class TestThreeinterpolate(TestCase):
@@ -51,7 +51,7 @@ class TestThreeinterpolate(TestCase):
               [3.8760e-01, 1.0300e-02, 8.3569e-09, 3.8760e-01, 3.8760e-01, 1.9723e-01]]],
             ).npu()
         
-        output = ads.common.three_interpolate(features, idx, weight)
+        output = mx_driving.common.three_interpolate(features, idx, weight)
         self.assertRtolEqual(expected_output, output)
            
         

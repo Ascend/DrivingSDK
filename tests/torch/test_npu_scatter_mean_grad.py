@@ -5,7 +5,7 @@ from torch_scatter import scatter_mean
 
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads.common
+import mx_driving.common
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -29,7 +29,7 @@ class TestScatterMeanGradFunction(TestCase):
         return result_cpu.numpy(), grad_out_tensor
 
     def npu_to_exec(self, index_tensor, grad_out_tensor, dim):
-        result_npu = ads.common.npu_scatter_mean_grad(grad_out_tensor.npu(),
+        result_npu = mx_driving.common.npu_scatter_mean_grad(grad_out_tensor.npu(),
                                                       index_tensor.to(torch.int32).npu(),
                                                       dim)
         return result_npu.cpu().numpy()

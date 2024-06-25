@@ -13,7 +13,7 @@ import numpy as np
 import torch
 import torch_npu
 from torch import nn
-from ads.spconv import SparseSequential, SparseConvTensor, SubMConv3d
+from mx_driving.spconv import SparseSequential, SparseConvTensor, SubMConv3d
 
 
 def generate_sparse_data(shape,

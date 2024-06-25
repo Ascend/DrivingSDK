@@ -1,7 +1,7 @@
 #!/bin/bash
 CUR_DIR=$(dirname $(readlink -f $0))
 NEW_BRANCH_PATH=$(readlink -f ${CUR_DIR}/..)
-MASTER_BRANCH_PATH=$(readlink -f ${NEW_BRANCH_PATH}/../ads)
+MASTER_BRANCH_PATH=$(readlink -f ${NEW_BRANCH_PATH}/../mx_driving)
 
 #生成覆盖率
 diff -r -N -x ".git" -x "*.doc" -x "*.json" -x "*.h" -x "*.py" -x "*.so" -x "*.info" -x "*.o" -u ${MASTER_BRANCH_PATH} ${NEW_BRANCH_PATH} >> diff.txt

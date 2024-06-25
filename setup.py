@@ -16,7 +16,7 @@ full_components = ["common", "motion", "perception/fused", "perception/point", "
 source_file = glob.glob(os.path.join("./bind/", "*.cpp"))
 include_dirs = [os.path.join(BASE_DIR, "include")]
 for part in full_components:
-    source_file += glob.glob(os.path.join(f"./ads/{part}/ops/csrc/", "*.cpp"))
+    source_file += glob.glob(os.path.join(f"./mx_driving/{part}/ops/csrc/", "*.cpp"))
 
 exts = []
 ext1 = extension.NpuExtension(
@@ -56,10 +56,10 @@ if not os.getenv("BUILD_WITHOUT_SHA"):
     VERSION += "+git" + sha[:7]
 
 setup(
-    name="ads_accelerator",
+    name="mx_driving",
     version=VERSION,
     description="A Library of acceleration for autonomous driving systems on Ascend-NPU.",
-    keywords="ads",
+    keywords="mx_driving",
     ext_modules=exts,
     author="Ascend Contributors",
     cmdclass={"build_ext": BuildExtension},

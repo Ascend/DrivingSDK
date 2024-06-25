@@ -6,11 +6,11 @@ include(cmake/config.cmake)
 include(cmake/func.cmake)
 include(cmake/intf.cmake)
 
-set(ADS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ads)
-add_subdirectory(${ADS_DIR}/common)
-add_subdirectory(${ADS_DIR}/motion)
-add_subdirectory(${ADS_DIR}/perception)
-add_subdirectory(${ADS_DIR}/spconv)
+set(MX_DRIVING_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mx_driving)
+add_subdirectory(${MX_DRIVING_DIR}/common)
+add_subdirectory(${MX_DRIVING_DIR}/motion)
+add_subdirectory(${MX_DRIVING_DIR}/perception)
+add_subdirectory(${MX_DRIVING_DIR}/spconv)
 
 opbuild(OPS_SRC ${ASCEND_HOST_SRC} OUT_DIR ${ASCEND_AUTOGEN_PATH})
 
@@ -59,13 +59,13 @@ add_custom_command(
   POST_BUILD
   COMMAND
     ${CMAKE_COMMAND} -E chdir
-    ${ADS_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/op_tiling
+    ${MX_DRIVING_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/op_tiling
     ${CMAKE_COMMAND} -E create_symlink
     lib/linux/${CMAKE_SYSTEM_PROCESSOR}/$<TARGET_FILE_NAME:cust_optiling>
     liboptiling.so)
 install(
   FILES
-    ${ADS_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/op_tiling/liboptiling.so
+    ${MX_DRIVING_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/op_tiling/liboptiling.so
   DESTINATION packages/vendors/${vendor_name}/op_impl/ai_core/tbe/op_tiling)
 
 if(${ENABLE_ONNX})
@@ -125,7 +125,7 @@ foreach(compute_unit ${ASCEND_COMPUTE_UNIT})
       TARGET
       ops_info_gen_${compute_unit}
       OUTPUT
-      ${ADS_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/config/${compute_unit}/aic-${compute_unit}-ops-info.json
+      ${MX_DRIVING_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/config/${compute_unit}/aic-${compute_unit}-ops-info.json
       OPS_INFO
       ${ASCEND_AUTOGEN_PATH}/aic-${compute_unit}-ops-info.ini
       INSTALL_DIR
@@ -142,7 +142,7 @@ foreach(compute_unit ${ASCEND_COMPUTE_UNIT})
         IMPL_DIR
         ${ASCEND_KERNEL_PATH}
         OUT_DIR
-        ${ADS_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl
+        ${MX_DRIVING_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl
       )
       install_file(
         TRG
@@ -164,11 +164,11 @@ foreach(compute_unit ${ASCEND_COMPUTE_UNIT})
         IMPL_DIR
         ${ASCEND_KERNEL_PATH}
         ADP_DIR
-        ${ADS_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl/dynamic
+        ${MX_DRIVING_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl/dynamic
         OUT_DIR
         ${CMAKE_CURRENT_BINARY_DIR}/binary/${compute_unit}
         KERNEL_DIR
-        ${ADS_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/kernel
+        ${MX_DRIVING_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/kernel
         INSTALL_DIR
         packages/vendors/${vendor_name}/op_impl/ai_core/tbe/kernel
         COMPUTE_UNIT
@@ -185,7 +185,7 @@ add_npu_support_target(
   OPS_INFO_DIR
   ${ASCEND_AUTOGEN_PATH}
   OUT_DIR
-  ${ADS_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/op_info_cfg/ai_core
+  ${MX_DRIVING_PATH}/packages/vendors/${vendor_name}/op_impl/ai_core/tbe/op_info_cfg/ai_core
   INSTALL_DIR
   packages/vendors/${vendor_name}/framework/${ASCEND_FRAMEWORK_TYPE})
 
@@ -202,9 +202,9 @@ add_custom_target(
   gen_version_info ALL
   COMMAND
     bash ${CMAKE_CURRENT_SOURCE_DIR}/cmake/util/gen_version_info.sh
-    ${ASCEND_CANN_PACKAGE_PATH} ${ADS_PATH}/packages/vendors/${vendor_name})
+    ${ASCEND_CANN_PACKAGE_PATH} ${MX_DRIVING_PATH}/packages/vendors/${vendor_name})
 
-install(FILES ${ADS_PATH}/packages/vendors/${vendor_name}/version.info
+install(FILES ${MX_DRIVING_PATH}/packages/vendors/${vendor_name}/version.info
         DESTINATION packages/vendors/${vendor_name})
 
 if(COMPILE_OPP_PACKAGE)

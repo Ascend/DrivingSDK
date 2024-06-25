@@ -3,20 +3,20 @@ function(install_target)
   set_target_properties(
     ${INSTALL_TARGET_TRG}
     PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-               ${ADS_PATH}/${INSTALL_TARGET_DST})
+               ${MX_DRIVING_PATH}/${INSTALL_TARGET_DST})
   install(TARGETS ${INSTALL_TARGET_TRG}
           LIBRARY DESTINATION ${INSTALL_TARGET_DST})
 endfunction()
 
 function(install_file)
   cmake_parse_arguments(INSTALL_TARGET "" "DST;TRG" "SRC" ${ARGN})
-  file(MAKE_DIRECTORY ${ADS_PATH}/${INSTALL_TARGET_DST})
+  file(MAKE_DIRECTORY ${MX_DRIVING_PATH}/${INSTALL_TARGET_DST})
   foreach(SOURCE_FILE ${INSTALL_TARGET_SRC})
     add_custom_command(
       TARGET ${INSTALL_TARGET_TRG}
       POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy ${SOURCE_FILE}
-              ${ADS_PATH}/${INSTALL_TARGET_DST})
+              ${MX_DRIVING_PATH}/${INSTALL_TARGET_DST})
   endforeach()
   install(FILES ${INSTALL_TARGET_SRC} DESTINATION ${INSTALL_TARGET_DST})
 endfunction()
@@ -216,7 +216,7 @@ function(add_bin_compile_target)
       ${BINCMP_TARGET}_${op_file}_${op_index}
       COMMAND
         export HI_PYTHON=${ASCEND_PYTHON_EXECUTABLE} && export
-        ASCEND_CUSTOM_OPP_PATH=${ADS_PATH}/packages/vendors/${vendor_name}
+        ASCEND_CUSTOM_OPP_PATH=${MX_DRIVING_PATH}/packages/vendors/${vendor_name}
         && bash ${CMAKE_SOURCE_DIR}/scripts/retry.sh \"bash ${bin_script} ${BINCMP_OUT_DIR}/src/${op_type}.py
 ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/${op_file}\"
       WORKING_DIRECTORY ${BINCMP_OUT_DIR})

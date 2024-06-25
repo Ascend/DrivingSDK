@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads.perception.vision
+import mx_driving.perception.vision
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -282,7 +282,7 @@ class TestBoxesOverlapBev(TestCase):
     def npu_to_exec(self, npu_inputs):
         npu_boxes_a = npu_inputs.boxes_a
         npu_boxes_b = npu_inputs.boxes_b
-        npu_ans_overlap = ads.perception.vision.boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
+        npu_ans_overlap = mx_driving.perception.vision.boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
         return npu_ans_overlap.cpu().float().numpy()
 
     def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):

@@ -3,7 +3,7 @@ import numpy as np
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 from torch_npu.testing.common_utils import create_common_tensor
-import ads.common
+import mx_driving.common
 
 
 class TestRotatedIou(TestCase):
@@ -47,7 +47,7 @@ class TestRotatedIou(TestCase):
         return output
 
     def npu_op_exec(self, box1, box2, trans=False):
-        output = ads.common.npu_rotated_iou(box1, box2, trans, 0, True, 0.0, 0.0)
+        output = mx_driving.common.npu_rotated_iou(box1, box2, trans, 0, True, 0.0, 0.0)
         output = output.detach().cpu().numpy()
         return output
 

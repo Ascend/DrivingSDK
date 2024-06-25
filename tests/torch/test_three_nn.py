@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads.common
+import mx_driving.common
 
 
 class TestThreeNN(TestCase):
@@ -38,7 +38,7 @@ class TestThreeNN(TestCase):
         target = np.zeros((batch, npoint, 3)).astype(np.float32)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
-        dist, idx = ads.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        dist, idx = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
 
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
@@ -244,7 +244,7 @@ class TestThreeNN(TestCase):
         N = 19
         npoint = 7
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
-        dist, idx = ads.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        dist, idx = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
 
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
@@ -258,7 +258,7 @@ class TestThreeNN(TestCase):
         target = np.zeros((batch, npoint, 3)).astype(np.float32)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
-        dist, idx = ads.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        dist, idx = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
 
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
@@ -272,7 +272,7 @@ class TestThreeNN(TestCase):
         target = np.zeros((batch, npoint, 3)).astype(np.float32)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
-        dist, idx = ads.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        dist, idx = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
 
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())

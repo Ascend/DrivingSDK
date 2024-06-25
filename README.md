@@ -1,8 +1,8 @@
-# ADS-Accelerator
+# mxDriving
 
 # 简介
 
-ADS-Accelerator是基于昇腾NPU平台开发的适用于自动驾驶场景的算子和模型加速库，提供了一系列高性能的算子和模型加速接口，支持PyTorch框架。
+mxDriving是基于昇腾NPU平台开发的适用于自动驾驶场景的算子和模型加速库，提供了一系列高性能的算子和模型加速接口，支持PyTorch框架。
 
 
 # 安装
@@ -20,14 +20,14 @@ ADS-Accelerator是基于昇腾NPU平台开发的适用于自动驾驶场景的�
 ## 从源码安装
 1. 克隆原始仓
 ```shell
-git clone https://gitee.com/ascend/ads.git
+git clone https://gitee.com/ascend/mxDriving.git
 ```
-2. 编译ADS
+2. 编译mxDriving
 > 注意：请在仓库根目录下执行编译命令
 ```shell
 bash ci/build.sh --python=3.7
 ```
-生成的whl包在`ads/dist`目录下, 命名规则为`ads_accelerator-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
+生成的whl包在`mx_driving/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
 参数`--python`指定编译过程中使用的python版本，支持3.7及以上：
 
 | 参数   | 取值范围                                                     | 说明                           | 缺省值 | 备注                                           |
@@ -44,26 +44,26 @@ bash ci/build.sh --python=3.7
 | aarch64 | pytorch1.11  | Python3.7(\>=3.7.5)， Python3.8， Python3.9， Python3.10 |
 | aarch64 | pytorch2.0.1 | Python3.8， Python3.9， Python3.10                       |
 | aarch64 | pytorch2.1.0 | Python3.8， Python3.9， Python3.10                       |
-3. 安装ADS
+3. 安装mxDriving
 ```shell
-cd ads/dist
-pip3 install ads_accelerator-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
+cd mx_driving/dist
+pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
 ```
 如需要保存安装日志，可在`pip3 install`命令后添加`--log <PATH>`参数，并对您指定的目录<PATH>做好权限控制。
 # 卸载
 Pytorch 框架训练环境的卸载请参考昇腾官方文档[Pytorch框架训练环境卸载](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00032.html)。
-ADS-Accelerator的卸载只需执行以下命令：
+mxDriving的卸载只需执行以下命令：
 ```shell
-pip3 uninstall ads-accelerator
+pip3 uninstall mx_driving
 ```
 
 # 快速上手
 1. source 环境变量
 ```shell
-# 查看ads安装路径
-pip3 show ads-accelerator
-export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/ads/packages/vendors/customize/
-export LD_LIBRARY_PATH=xxx/site-packages/ads/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
+# 查看mx_driving安装路径
+pip3 show mx_driving
+export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/
+export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
 ```
 2. 算子调用
 请参见下文算子清单。
@@ -72,7 +72,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/ads/packages/vendors/customize/op_api/l
 ## 目录结构及说明
 ```
 .
-├── ads
+├── mx_driving
 │  ├── __init__.py
 │  ├── common                   # 通用模块
 │  │  ├── __init__.py
@@ -122,20 +122,20 @@ export LD_LIBRARY_PATH=xxx/site-packages/ads/packages/vendors/customize/op_api/l
     ```shell
     echo 2 > /proc/sys/kernel/randomize_va_space
     ```
-2. 由于ADS-Accelerator需要用户自行编译，建议您对编译后生成的so文件开启`strip`, 又称**移除调试符号信息**, 开启方式如下：
+2. 由于mxDriving需要用户自行编译，建议您对编译后生成的so文件开启`strip`, 又称**移除调试符号信息**, 开启方式如下：
     ```shell
     strip -s <so_file>
     ```
    具体so文件如下：
-    - ads/packages/vendors/customize/op_api/lib/libcust_opapi.so
-    - ads/packages/vendors/customize/op_proto/lib/linux/aarch64/libcust_opsproto_rt2.0.so
-    - ads/packages/vendors/customize/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64/libcust_opsproto_rt2.0.so
+    - mx_driving/packages/vendors/customize/op_api/lib/libcust_opapi.so
+    - mx_driving/packages/vendors/customize/op_proto/lib/linux/aarch64/libcust_opsproto_rt2.0.so
+    - mx_driving/packages/vendors/customize/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64/libcust_opsproto_rt2.0.so
 ## 运行用户建议
-出于安全性及权限最小化角度考虑，不建议使用`root`等管理员类型账户使用ads。
+出于安全性及权限最小化角度考虑，不建议使用`root`等管理员类型账户使用mx_driving。
 
 ## 文件权限控制
-在使用ADS-Accelerator时，您可能会进行profiling、调试等操作，建议您对相关目录及文件做好权限控制，以保证文件安全。
-1. 建议您在使用ADS-Accelerator时，将umask调整为`0027`及以上，保障新增文件夹默认最高权限为`750`，文件默认最高权限为`640`。
+在使用mxDriving时，您可能会进行profiling、调试等操作，建议您对相关目录及文件做好权限控制，以保证文件安全。
+1. 建议您在使用mxDriving时，将umask调整为`0027`及以上，保障新增文件夹默认最高权限为`750`，文件默认最高权限为`640`。
 2. 建议您对个人数据、商业资产、源文件、训练过程中保存的各类文件等敏感内容做好权限管控，可参考下表设置安全权限。
 ### 文件权限参考
 
@@ -160,13 +160,13 @@ export LD_LIBRARY_PATH=xxx/site-packages/ads/packages/vendors/customize/op_api/l
 |  加解密接口、加解密脚本              |   500（r-x------）      |
     
 ## 构建安全声明
-在源码编译安装ADS-Accelerator时，需要您自行编译，编译过程中会生成一些中间文件，建议您在编译完成后，对中间文件做好权限控制，以保证文件安全。
+在源码编译安装mxDriving时，需要您自行编译，编译过程中会生成一些中间文件，建议您在编译完成后，对中间文件做好权限控制，以保证文件安全。
 ## 运行安全声明
 1. 建议您结合运行环境资源状况编写对应训练脚本。若训练脚本与资源状况不匹配，如数据集加载内存大小超出内存容量限制、训练脚本在本地生成数据超过磁盘空间大小等情况，可能引发错误并导致进程意外退出。
-2. ADS-Accelerator在运行异常时(如输入校验异常（请参考api文档说明），环境变量配置错误，算子执行报错等)会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括通过设定算子同步执行、查看CANN日志、解析生成的Core Dump文件等方式。
+2. mxDriving在运行异常时(如输入校验异常（请参考api文档说明），环境变量配置错误，算子执行报错等)会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括通过设定算子同步执行、查看CANN日志、解析生成的Core Dump文件等方式。
 ## 公网地址声明
 
-在ads的配置文件和脚本中存在[公网地址](#公网地址)
+在mx_driving的配置文件和脚本中存在[公网地址](#公网地址)
 
 ### 公网地址
 
@@ -183,11 +183,11 @@ export LD_LIBRARY_PATH=xxx/site-packages/ads/packages/vendors/customize/op_api/l
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
 
 ## 公开接口声明
-参考[API清单](./docs/api/README.md)，Ads提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
+参考[API清单](./docs/api/README.md)，mxDriving提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
 ## 通信安全加固
-ADS-Accelerator在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
+mxDriving在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
 ## 通信矩阵
-ADS-Accelerator在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
+mxDriving在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
 
 # 支持Python,PyTorch和torch_npu版本说明
 
@@ -203,17 +203,17 @@ ADS-Accelerator在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵
 # 软件生命周期说明 
 ## 分支维护策略
 
-ADS-Accelerator版本分支的维护阶段如下：
+mxDriving版本分支的维护阶段如下：
 
 | **状态**            | **时间** | **说明**                                         |
 | ------------------- | -------- | ------------------------------------------------ |
 | 计划                | 1—3 个月 | 计划特性                                         |
 | 开发                | 3 个月   | 开发特性                                         |
-| 维护                | 6-12 个月| 合入所有已解决的问题并发布版本，针对不同的ADS-Accelerator版本采取不同的维护策略，常规版本和长期支持版本维护周期分别为6个月和12个月 |
+| 维护                | 6-12 个月| 合入所有已解决的问题并发布版本，针对不同的mxDriving版本采取不同的维护策略，常规版本和长期支持版本维护周期分别为6个月和12个月 |
 | 无维护              | 0—3 个月 | 合入所有已解决的问题，无专职维护人员，无版本发布 |
 | 生命周期终止（EOL） | N/A      | 分支不再接受任何修改                             |
 
-## ADS-Accelerator版本维护策略
+## mxDriving版本维护策略
 
-| **ADS-Accelerator版本** | **维护策略** | **当前状态** | **发布时间** | **后续状态** | **EOL日期** |
+| **mxDriving版本** | **维护策略** | **当前状态** | **发布时间** | **后续状态** | **EOL日期** |
 |-----------|-----------|--------|------------|-----------------------|-----------|

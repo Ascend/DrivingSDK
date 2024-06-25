@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads.common
+import mx_driving.common
 
 
 class TestKnn(TestCase):
@@ -45,7 +45,7 @@ class TestKnn(TestCase):
         center_xyz = np.zeros((b, m, 3)).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = ads.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
 
     def test_knn_1(self):
@@ -57,7 +57,7 @@ class TestKnn(TestCase):
         center_xyz = np.zeros((b, m, 3)).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = ads.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
 
 if __name__ == "__main__":
