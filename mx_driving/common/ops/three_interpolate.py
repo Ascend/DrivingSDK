@@ -4,7 +4,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 Modification by: Huawei Developers
 Modification date: 2024-06-04 
 Modification Description: 
-Modification 1. Add support fro Ascend NPU
+Modification 1. Add support for Ascend NPU
 """
 
 from typing import Any, Tuple
