@@ -37,6 +37,7 @@ void npu_dynamic_scatter_grad(at::Tensor& grad_point_feats, const at::Tensor& gr
     const at::Tensor& prefix_sum_point_per_voxel, const at::Tensor& argsort_coor, const at::Tensor& compare_mask,
     const char* reduce_type);
 
+at::Tensor npu_max_pool2d(const at::Tensor& x_trans, int kernel_size, int stride, int padding);
 at::Tensor npu_points_in_box(const at::Tensor& boxes, const at::Tensor& pts);
 at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value, const at::Tensor& value_spatial_shapes,
     const at::Tensor& value_level_start_index, const at::Tensor& sampling_locations,
