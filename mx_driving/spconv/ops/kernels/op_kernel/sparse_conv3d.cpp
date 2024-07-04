@@ -170,7 +170,7 @@ private:
                     uint32_t yOffset = (uint32_t)iy * outputWidth;
                     for (int32_t iz = outBeginW; iz < outEndW; iz++) {
                         uint32_t zOffset = (uint32_t)iz;
-                        uint32_t gmOutValueOffset = xOffset + yOffset + zOffset;
+                        uint32_t gmOutValueOffset = bOffset + xOffset + yOffset + zOffset;
                         uint32_t weightD = featureD - ix * strideDepth;
                         uint32_t weightH = featureH - iy * strideHeight;
                         uint32_t weightW = featureW - iz * strideWidth;

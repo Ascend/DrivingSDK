@@ -31,7 +31,7 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
     uint32_t coreTask = AlignUp(actualNum, coreNum);
     uint32_t usedCoreNum = AlignUp(actualNum, coreTask);
     uint32_t lastCoreTask = 0;
-    if (coreTask =! 0) {
+    if (coreTask != 0) {
         lastCoreTask = actualNum % coreTask;
     }
     if (lastCoreTask == 0) lastCoreTask = coreTask;
@@ -137,17 +137,20 @@ public:
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("indices")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("weight")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
 
         this->Output("feature_out")
             .ParamType(REQUIRED)

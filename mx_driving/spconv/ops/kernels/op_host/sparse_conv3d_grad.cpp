@@ -31,7 +31,7 @@ static ge::graphStatus TilingForSparseConv3dGrad(gert::TilingContext* context)
     uint32_t coreTask = AlignUp(actualNum, coreNum);
     uint32_t usedCoreNum = AlignUp(actualNum, coreTask);
     uint32_t lastCoreTask = 0;
-    if (coreTask =! 0) {
+    if (coreTask != 0) {
         lastCoreTask = actualNum % coreTask;
     }
     if (lastCoreTask == 0) lastCoreTask = coreTask;
