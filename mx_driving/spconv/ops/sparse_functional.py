@@ -16,6 +16,7 @@
 from typing import Any
 
 import torch
+import numpy as np
 from torch.autograd import Function
 
 import ads_c
@@ -45,6 +46,8 @@ class SparseBaseCovFunction(Function):
         device = features.device
         indices = input.indices
         spatial_shape = input.spatial_shape
+        if isinstance(input.spatial_shape, np.ndarray):
+            spatial_shape = input.spatial_shape.tolist()
         batch_size = input.batch_size
         if not subm:
             out_spatial_shape = ops.get_conv_output_size(
@@ -52,11 +55,11 @@ class SparseBaseCovFunction(Function):
         else:
             out_spatial_shape = spatial_shape
         if subm:
-            out_features, outidx_pair, ouidx_offset = indice_subm_conv(features, indices, weight,
+            out_features, outidx_pair, ouidx_offset = indice_subm_conv(features, indices, weight.data,
                                                 kernel_size, out_channels,
                                                 out_spatial_shape, batch_size)
         else:
-            out_features, outidx_pair, ouidx_offset = indice_conv(features, indices, weight,
+            out_features, outidx_pair, ouidx_offset = indice_conv(features, indices, weight.data,
                                                 kernel_size, stride, padding,
                                                 out_channels, out_spatial_shape, batch_size)
         to_insert = torch.tensor(-1).to(device)
@@ -71,7 +74,7 @@ class SparseBaseCovFunction(Function):
         if bias is not None:
             out_features += bias
         ctx.save_for_backward(features, weight, sorted_idx_to_former_indices, unique_indices_offset)
-        return out_features, outidx_pair
+        return out_features, outidx
 
     @staticmethod
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments

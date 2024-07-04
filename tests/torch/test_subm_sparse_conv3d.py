@@ -93,7 +93,7 @@ def _test_single_impl(dtype: torch.dtype):
 
     np.random.seed(50051)
     
-    spatial_shape = [4, 4, 4]
+    spatial_shape = np.array([4, 4, 4])
     sparse_dict = generate_sparse_data(spatial_shape, [2] * 1, 16)
 
     voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
@@ -114,7 +114,7 @@ def _test_large_x_impl(dtype: torch.dtype):
 
     np.random.seed(50051)
     
-    spatial_shape = [200, 200, 40]
+    spatial_shape = np.array([200, 200, 40])
     sparse_dict = generate_sparse_data(spatial_shape, [2] * 1, 16)
 
     voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
@@ -135,8 +135,29 @@ def _test_large_indices_impl(dtype: torch.dtype):
 
     np.random.seed(50051)
     
-    spatial_shape = [200, 200, 40]
+    spatial_shape = np.array([200, 200, 40])
     sparse_dict = generate_sparse_data(spatial_shape, [62454] * 1, 16)
+
+    voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
+    coors = np.ascontiguousarray(
+        sparse_dict["indices"][:, [3, 0, 1, 2]]).astype(np.int32)
+
+    voxels_th_npu = torch.from_numpy(voxels).to(dtype).npu()
+    coors_th_npu = torch.from_numpy(coors).npu()
+    net_cls = Net
+    # npu 
+    torch.manual_seed(50051)
+    net_native_npu = net_cls(spatial_shape).to(dtype).npu()
+
+    out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
+
+
+def _test_disalign_impl(dtype: torch.dtype):
+
+    np.random.seed(50051)
+    
+    spatial_shape = np.array([200, 200, 40])
+    sparse_dict = generate_sparse_data(spatial_shape, [62454] * 1, 5)
 
     voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
     coors = np.ascontiguousarray(
@@ -156,6 +177,7 @@ def test_multi_impl():
     _test_single_impl(torch.float32)
     _test_large_x_impl(torch.float32)
     _test_large_indices_impl(torch.float32)
+    _test_disalign_impl(torch.float32)
 
 
 if __name__ == "__main__":
