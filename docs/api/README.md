@@ -179,10 +179,10 @@ mx_driving.common.npu_multi_scale_deformable_attn_function(Tensor value, Tensor 
 ### 功能描述
 多尺度可变形注意力机制, 将多个视角的特征图进行融合。
 ### 参数说明
-- `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dims]`。其中`bs`为batch size，`num_keys`为特征图的数量，`num_heads`为头的数量，`embed_dims`为特征图的维度，需要为8的倍数。
-- `shape(Tensor)`：特征图的形状，数据类型为`int32`。shape为`[num_levels, 2]`。其中`num_levels`为特征图的数量，`2`分别代表`H, W`。
-- `offset(Tensor)`：偏移量张量，数据类型为`int32`。shape为`[num_levels]`。
-- `locations(Tensor)`：位置张量，数据类型为`int32`。shape为`[bs, num_queries, num_heads, num_levels, num_points, 2]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量，`2`分别代表`y, x`。
+- `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dims]`。其中`bs`为batch size，`num_keys`为特征图的大小，`num_heads`为头的数量，`embed_dims`为特征图的维度，需要为8的倍数。
+- `shape(Tensor)`：特征图的形状，数据类型为`int32, int64`。shape为`[num_levels, 2]`。其中`num_levels`为特征图的数量，`2`分别代表`H, W`。
+- `offset(Tensor)`：偏移量张量，数据类型为`int32, int64`。shape为`[num_levels]`。
+- `locations(Tensor)`：位置张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads, num_levels, num_points, 2]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量，`2`分别代表`y, x`。
 - `weight(Tensor)`：权重张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads, num_levels, num_points]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量。
 ### 返回值
 - `output(Tensor)`：融合后的特征张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads*embed_dims]`。
