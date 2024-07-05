@@ -24,9 +24,9 @@ class DynamicScatterFunction(Function):
         if reduce_type not in ('max', 'sum', 'mean'):
             raise ValueError("reduce_type should be 'max', 'sum' or 'mean', but now is %s." % reduce_type)
 
-        voxel_idx = ads_c.point_to_voxel(coors, None, None)
-        num_voxels, uniqued_voxel_idx, prefix_sum_point_per_voxel, argsort_coor = ads_c.unique_voxel(voxel_idx)
-        voxel_coors = ads_c.voxel_to_point(uniqued_voxel_idx, None, None)
+        voxel_idx = ads_c.point_to_voxel(coors, [], [])
+        num_voxels, uniqued_voxel_idx, prefix_sum_point_per_voxel, argsort_coor, _ = ads_c.unique_voxel(voxel_idx)
+        voxel_coors = ads_c.voxel_to_point(uniqued_voxel_idx, [], [])
         voxel_feats, compare_mask = ads_c.npu_dynamic_scatter(feats, coors, prefix_sum_point_per_voxel,
                                                               argsort_coor, num_voxels, reduce_type)
 

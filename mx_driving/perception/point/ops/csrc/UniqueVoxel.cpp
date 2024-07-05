@@ -1,5 +1,5 @@
-// Copyright (c) OpenMMLab. All rights reserved.
 // Copyright (c) 2024 Huawei Technologies Co., Ltd
+// Copyright (c) 2019, Facebook CORPORATION.
 // All rights reserved.
 //
 // Licensed under the BSD 3-Clause License  (the "License");
@@ -18,7 +18,7 @@
 #include "functions.h"
 
 
-std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> unique_voxel(const at::Tensor& voxels)
+std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor, at::Tensor> unique_voxel(const at::Tensor& voxels)
 {
     TORCH_CHECK_NPU(voxels);
     TORCH_CHECK(voxels.dim() == 1, "voxels.dim() must be 1, but got: ", voxels.dim());
@@ -37,7 +37,7 @@ std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> unique_voxel(const at::T
 
     at::Tensor uni_voxels = at::empty({num_points + 1}, voxels.options().dtype(at::kInt));
     at::Tensor uni_indices = at::empty({num_points + 1}, voxels.options().dtype(at::kInt));
-    at::Tensor uni_argsort_indices = at::empty({num_points + 1}, voxels.options().dtype(at::kInt));
+    at::Tensor uni_argsort_indices = at::empty({num_points + 1}, voxels.options());
     at::Tensor num_voxels = at::empty({1}, voxels.options().dtype(at::kInt));
     EXEC_NPU_CMD_SYNC(aclnnUniqueVoxel, sorted_voxels, indices, argsort_indices, uni_voxels, uni_indices,
         uni_argsort_indices, num_voxels);
@@ -45,5 +45,6 @@ std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> unique_voxel(const at::T
     int32_t num_voxels_ = num_voxels.item().toInt();
     uni_voxels = uni_voxels.slice(0, 0, num_voxels_);
     uni_indices = uni_indices.slice(0, 0, num_voxels_);
-    return std::make_tuple(num_voxels_, uni_voxels, uni_indices, argsort_indices);
+    uni_argsort_indices = uni_argsort_indices.slice(0, 0, num_voxels_);
+    return std::make_tuple(num_voxels_, uni_voxels, uni_indices, argsort_indices, uni_argsort_indices);
 }

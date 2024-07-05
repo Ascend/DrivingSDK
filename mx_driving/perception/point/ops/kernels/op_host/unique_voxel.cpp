@@ -16,8 +16,8 @@
 namespace {
 constexpr size_t POINT_IDX = 0;
 constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
-// 2[double buffer] * （3[vox1, vox2, idx] + 2[uniVox, uniIdx]）* 4[float size] + 1[temp] = 41
-constexpr int32_t COEF = 41;
+// 2[double buffer] * （3[vox1, vox2, idx] + 3[uniVox, uniIdx, uinArgsortIdx]）* 4[float size] + 1[temp] = 49
+constexpr int32_t COEF = 49;
 constexpr int32_t ONE_REPEAT_FLOAT_SIZE = 64;
 
 int32_t AlignDown(int32_t a, int32_t b)
@@ -126,12 +126,14 @@ static ge::graphStatus InferShapeForUniqueVoxel(gert::InferShapeContext* context
     const gert::Shape* pointShape = context->GetInputShape(POINT_IDX);
     gert::Shape* uniVoxShape = context->GetOutputShape(0);
     gert::Shape* uniIdxShape = context->GetOutputShape(1);
-    gert::Shape* voxNumShape = context->GetOutputShape(2);
-    if (!pointShape || !uniVoxShape || !uniIdxShape || !voxNumShape) {
+    gert::Shape* uniArgsortIdxShape = context->GetOutputShape(2);
+    gert::Shape* voxNumShape = context->GetOutputShape(3);
+    if (!pointShape || !uniVoxShape || !uniArgsortIdxShape || !uniIdxShape || !voxNumShape) {
         return ge::GRAPH_FAILED;
     }
     *uniVoxShape = *pointShape;
     *uniIdxShape = *pointShape;
+    *uniArgsortIdxShape = *pointShape;
     *voxNumShape = {1};
     return GRAPH_SUCCESS;
 }
@@ -141,6 +143,7 @@ static ge::graphStatus InferDataTypeForUniqueVoxel(gert::InferDataTypeContext* c
     context->SetOutputDataType(0, ge::DT_INT32);
     context->SetOutputDataType(1, ge::DT_INT32);
     context->SetOutputDataType(2, ge::DT_INT32);
+    context->SetOutputDataType(3, ge::DT_INT32);
     return GRAPH_SUCCESS;
 }
 } // namespace ge
@@ -187,7 +190,7 @@ public:
 
         this->Output("uni_argsort_indices")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
+            .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND})
             .AutoContiguous();

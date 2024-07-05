@@ -17,13 +17,9 @@ public:
     __aicore__ inline PointToVoxelKernel() = delete;
     __aicore__ inline ~PointToVoxelKernel() = default;
     __aicore__ inline PointToVoxelKernel(GM_ADDR points, GM_ADDR voxels, const PointToVoxelTilingData& tiling)
-        : blkIdx_(GetBlockIdx()), usedBlkNum_(tiling.usedBlkNum), avgTasks_(tiling.avgTasks),
-          tailTasks_(tiling.tailTasks), totalTasks_(tiling.totalTasks), avgPts_(tiling.avgPts),
-          tailPts_(tiling.tailPts), totalPts_(tiling.totalPts), gridX_(tiling.gridX), gridY_(tiling.gridY),
-          gridZ_(tiling.gridZ), voxelSizeX_(tiling.voxelSizeX), voxelSizeY_(tiling.voxelSizeY),
-          voxelSizeZ_(tiling.voxelSizeZ), coorXMin_(tiling.coorXMin), coorYMin_(tiling.coorYMin),
-          coorZMin_(tiling.coorZMin)
+        : blkIdx_(GetBlockIdx())
     {
+        GetTiling(tiling);
         // init task
         curTaskIdx_ = blkIdx_ < tailTasks_ ? blkIdx_ * (avgTasks_ + 1) : blkIdx_ * avgTasks_ + tailTasks_;
         coreTasks_ = blkIdx_ < tailTasks_ ? avgTasks_ + 1 : avgTasks_;
@@ -49,6 +45,9 @@ public:
         pipe_.InitBuffer(maskXBuf_, maskRptTimes_ * ONE_REPEAT_BYTE_SIZE);
         pipe_.InitBuffer(maskYBuf_, maskRptTimes_ * ONE_REPEAT_BYTE_SIZE);
         pipe_.InitBuffer(maskZBuf_, maskRptTimes_ * ONE_REPEAT_BYTE_SIZE);
+        pipe_.InitBuffer(maskX1Buf_, maskRptTimes_ * ONE_REPEAT_BYTE_SIZE);
+        pipe_.InitBuffer(maskY1Buf_, maskRptTimes_ * ONE_REPEAT_BYTE_SIZE);
+        pipe_.InitBuffer(maskZ1Buf_, maskRptTimes_ * ONE_REPEAT_BYTE_SIZE);
 
         SetVectorMask<int32_t>(FULL_MASK, FULL_MASK);
     }
@@ -66,8 +65,9 @@ private:
     TQue<QuePosition::VECIN, BUFFER_NUM> ptsQue_;
     TQue<QuePosition::VECOUT, BUFFER_NUM> voxQue_;
     TBuf<TPosition::VECCALC> maskXBuf_, maskYBuf_, maskZBuf_;
+    TBuf<TPosition::VECCALC> maskX1Buf_, maskY1Buf_, maskZ1Buf_;
 
-    int32_t gridX_, gridY_, gridZ_;
+    float gridX_, gridY_, gridZ_;
     float voxelSizeX_, voxelSizeY_, voxelSizeZ_;
     float voxelScaleX_, voxelScaleY_, voxelScaleZ_;
     float coorXMin_, coorYMin_, coorZMin_;
@@ -85,6 +85,26 @@ private:
     uint8_t rptTimes_, maskRptTimes_;
 
 private:
+    __aicore__ inline void GetTiling(const PointToVoxelTilingData& tiling)
+    {
+        usedBlkNum_ = tiling.usedBlkNum;
+        avgTasks_ = tiling.avgTasks;
+        tailTasks_ = tiling.tailTasks;
+        totalTasks_ = tiling.totalTasks;
+        avgPts_ = tiling.avgPts;
+        tailPts_ = tiling.tailPts;
+        totalPts_ = tiling.totalPts;
+        gridX_ = *reinterpret_cast<const float*>(&tiling.gridX);
+        gridY_ = *reinterpret_cast<const float*>(&tiling.gridY);
+        gridZ_ = *reinterpret_cast<const float*>(&tiling.gridZ);
+        voxelSizeX_ = tiling.voxelSizeX;
+        voxelSizeY_ = tiling.voxelSizeY;
+        voxelSizeZ_ = tiling.voxelSizeZ;
+        coorXMin_ = tiling.coorXMin;
+        coorYMin_ = tiling.coorYMin;
+        coorZMin_ = tiling.coorZMin;
+    }
+
     __aicore__ inline bool IsLastTask() const
     {
         return curTaskIdx_ == totalTasks_ - 1;
@@ -197,9 +217,12 @@ template<typename T>
 __aicore__ inline void PointToVoxelKernel<T>::EncVoxel(
     const LocalTensor<int32_t>& coorX, const LocalTensor<int32_t>& coorY, const LocalTensor<int32_t>& coorZ)
 {
-    LocalTensor<uint8_t> maskX = maskXBuf_.AllocTensor<uint8_t>();
-    LocalTensor<uint8_t> maskY = maskYBuf_.AllocTensor<uint8_t>();
-    LocalTensor<uint8_t> maskZ = maskZBuf_.AllocTensor<uint8_t>();
+    LocalTensor<uint8_t> maskX = maskXBuf_.Get<uint8_t>();
+    LocalTensor<uint8_t> maskY = maskYBuf_.Get<uint8_t>();
+    LocalTensor<uint8_t> maskZ = maskZBuf_.Get<uint8_t>();
+    LocalTensor<uint8_t> maskX1 = maskX1Buf_.Get<uint8_t>();
+    LocalTensor<uint8_t> maskY1 = maskY1Buf_.Get<uint8_t>();
+    LocalTensor<uint8_t> maskZ1 = maskZ1Buf_.Get<uint8_t>();
     // 1. find the valid part(> -1)
     CompareScalar<float, uint8_t, false>(
         maskX, coorX.ReinterpretCast<float>(), 0.f, CMPMODE::GE, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
@@ -207,11 +230,23 @@ __aicore__ inline void PointToVoxelKernel<T>::EncVoxel(
         maskY, coorY.ReinterpretCast<float>(), 0.f, CMPMODE::GE, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
     CompareScalar<float, uint8_t, false>(
         maskZ, coorZ.ReinterpretCast<float>(), 0.f, CMPMODE::GE, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    CompareScalar<float, uint8_t, false>(
+        maskX1, coorX.ReinterpretCast<float>(), gridX_, CMPMODE::LT, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    CompareScalar<float, uint8_t, false>(
+        maskY1, coorY.ReinterpretCast<float>(), gridY_, CMPMODE::LT, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    CompareScalar<float, uint8_t, false>(
+        maskZ1, coorZ.ReinterpretCast<float>(), gridZ_, CMPMODE::LT, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
     PipeBarrier<PIPE_V>();
     And<uint16_t, false>(maskX.ReinterpretCast<uint16_t>(), maskX.ReinterpretCast<uint16_t>(),
         maskY.ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, maskRptTimes_, binRptParam_);
     And<uint16_t, false>(maskX.ReinterpretCast<uint16_t>(), maskX.ReinterpretCast<uint16_t>(),
         maskZ.ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, maskRptTimes_, binRptParam_);
+    And<uint16_t, false>(maskX.ReinterpretCast<uint16_t>(), maskX.ReinterpretCast<uint16_t>(),
+        maskX1.ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, maskRptTimes_, binRptParam_);
+    And<uint16_t, false>(maskX.ReinterpretCast<uint16_t>(), maskX.ReinterpretCast<uint16_t>(),
+        maskY1.ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, maskRptTimes_, binRptParam_);
+    And<uint16_t, false>(maskX.ReinterpretCast<uint16_t>(), maskX.ReinterpretCast<uint16_t>(),
+        maskZ1.ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, maskRptTimes_, binRptParam_);
     // 2. encode voxel
     ShiftLeft<int32_t, false>(coorX, coorX, encCoefX_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
     ShiftLeft<int32_t, false>(coorY, coorY, encCoefY_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);

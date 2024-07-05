@@ -23,9 +23,9 @@ constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
 // 2[double buffer] * （3[coorx, coor_y, coor_z] + 1[output]）* 4[float size] + 1[temp] = 33
 constexpr int32_t COEF = 33;
 constexpr int32_t ONE_REPEAT_FLOAT_SIZE = 64;
-constexpr int DEFAULT_GRID_X = -1;
-constexpr int DEFAULT_GRID_Y = -1;
-constexpr int DEFAULT_GRID_Z = -1;
+constexpr int DEFAULT_GRID_X = 2048;
+constexpr int DEFAULT_GRID_Y = 2048;
+constexpr int DEFAULT_GRID_Z = 256;
 
 template<typename T>
 ge::graphStatus GetElementInListAttr(const gert::RuntimeAttrs* attrs, size_t index, size_t offset, T& value)
@@ -76,18 +76,18 @@ ge::graphStatus SetTilingDataFromAttr(const gert::TilingContext* context, optili
     if (GetElementInListAttr(attrs, VOXEL_SIZES_IDX, 0, voxelSizeX) != ge::GRAPH_SUCCESS ||
         GetElementInListAttr(attrs, VOXEL_SIZES_IDX, 1, voxelSizeY) != ge::GRAPH_SUCCESS ||
         GetElementInListAttr(attrs, VOXEL_SIZES_IDX, 2, voxelSizeZ) != ge::GRAPH_SUCCESS ||
-        GetElementInListAttr(attrs, COOR_MINS_IDX, 0, coorXMax) != ge::GRAPH_SUCCESS ||
-        GetElementInListAttr(attrs, COOR_MINS_IDX, 1, coorYMax) != ge::GRAPH_SUCCESS ||
-        GetElementInListAttr(attrs, COOR_MINS_IDX, 2, coorZMax) != ge::GRAPH_SUCCESS ||
-        GetElementInListAttr(attrs, COOR_MINS_IDX, 3, coorXMin) != ge::GRAPH_SUCCESS ||
-        GetElementInListAttr(attrs, COOR_MINS_IDX, 4, coorYMin) != ge::GRAPH_SUCCESS ||
-        GetElementInListAttr(attrs, COOR_MINS_IDX, 5, coorZMin) != ge::GRAPH_SUCCESS) {
+        GetElementInListAttr(attrs, COOR_MINS_IDX, 0, coorXMin) != ge::GRAPH_SUCCESS ||
+        GetElementInListAttr(attrs, COOR_MINS_IDX, 1, coorYMin) != ge::GRAPH_SUCCESS ||
+        GetElementInListAttr(attrs, COOR_MINS_IDX, 2, coorZMin) != ge::GRAPH_SUCCESS ||
+        GetElementInListAttr(attrs, COOR_MINS_IDX, 3, coorXMax) != ge::GRAPH_SUCCESS ||
+        GetElementInListAttr(attrs, COOR_MINS_IDX, 4, coorYMax) != ge::GRAPH_SUCCESS ||
+        GetElementInListAttr(attrs, COOR_MINS_IDX, 5, coorZMax) != ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }
     if (voxelSizeX > 0 && voxelSizeY > 0 && voxelSizeZ > 0) {
-        gridX = std::floor((coorXMax - coorXMin) / voxelSizeX);
-        gridY = std::floor((coorYMax - coorYMin) / voxelSizeY);
-        gridZ = std::floor((coorZMax - coorZMin) / voxelSizeZ);
+        gridX = std::round((coorXMax - coorXMin) / voxelSizeX);
+        gridY = std::round((coorYMax - coorYMin) / voxelSizeY);
+        gridZ = std::round((coorZMax - coorZMin) / voxelSizeZ);
     }
 
     tilingData.set_gridX(gridX);

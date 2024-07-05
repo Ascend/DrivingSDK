@@ -28,13 +28,15 @@ at::Tensor group_points_backward(const at::Tensor& grad_out, const at::Tensor& i
 at::Tensor vec_pool_backward(const at::Tensor& grad_new_features, const at::Tensor& point_cnt_of_grid,
     const at::Tensor& grouped_idxs, const int64_t n, const int64_t num_c_in);
 
-at::Tensor point_to_voxel(const at::Tensor& points, const c10::optional<at::ArrayRef<float>> voxel_sizes,
-    const c10::optional<at::ArrayRef<float>> coor_ranges);
+at::Tensor point_to_voxel(
+    const at::Tensor& points, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges);
 
-at::Tensor voxel_to_point(const at::Tensor& voxels, const c10::optional<at::ArrayRef<float>> voxel_sizes,
-    const c10::optional<at::ArrayRef<float>> coor_ranges);
+at::Tensor voxel_to_point(
+    const at::Tensor& voxels, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges);
 
-std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> unique_voxel(const at::Tensor& voxels);
+std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor, at::Tensor> unique_voxel(const at::Tensor& voxels);
 
+std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> hard_voxelize(const at::Tensor& points,
+    const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges, int64_t max_points, int64_t max_voxels);
 
 #endif // PERCEPTION_POINT_OPS_CSRC_FUNCTIONS_H_

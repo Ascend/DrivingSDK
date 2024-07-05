@@ -19,27 +19,32 @@
 
 constexpr float DEFAULT_VALUE = -1.0f;
 
-at::Tensor voxel_to_point(const at::Tensor& voxels, const c10::optional<at::ArrayRef<float>> voxel_sizes,
-    const c10::optional<at::ArrayRef<float>> coor_ranges)
+at::Tensor voxel_to_point(
+    const at::Tensor& voxels, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges)
 {
     TORCH_CHECK_NPU(voxels);
-    TORCH_CHECK(voxels.dim() == 1, "points.dim() must be 2, but got: ", voxels.dim());
+    TORCH_CHECK(voxels.dim() == 1, "voxels.dim() must be 1, but got: ", voxels.dim());
 
     at::Tensor points = at::empty({3, voxels.size(0)}, voxels.options().dtype(at::kInt));
 
-    at::ArrayRef<float> voxel_sizes_value({DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE});
-    at::ArrayRef<float> coor_ranges_value(
-        {DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE});
-    if (voxel_sizes.has_value()) {
-        TORCH_CHECK(
-            voxel_sizes.value().size() == 3, "voxel_sizes.size() must be 3, but got: ", voxel_sizes.value().size());
-        voxel_sizes_value = voxel_sizes.value();
+    at::SmallVector<float, 3> voxel_sizes_vector {DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE};
+    at::SmallVector<float, 6> coor_ranges_vector {
+        DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE};
+    at::ArrayRef<float> voxel_sizes_value;
+    at::ArrayRef<float> coor_ranges_value;
+    if (voxel_sizes.empty()) {
+        voxel_sizes_value = at::ArrayRef<float>(voxel_sizes_vector);
+    } else {
+        TORCH_CHECK(voxel_sizes.size() == 3, "voxel_sizes.size() must be 3, but got: ", voxel_sizes.size());
+        voxel_sizes_value = at::ArrayRef<float>(voxel_sizes);
     }
-    if (coor_ranges.has_value()) {
-        TORCH_CHECK(
-            coor_ranges.value().size() == 6, "coor_ranges.size() must be 6, but got: ", coor_ranges.value().size());
-        coor_ranges_value = coor_ranges.value();
+    if (coor_ranges.empty()) {
+        coor_ranges_value = at::ArrayRef<float>(coor_ranges_vector);
+    } else {
+        TORCH_CHECK(coor_ranges.size() == 6, "coor_ranges.size() must be 6, but got: ", coor_ranges.size());
+        coor_ranges_value = at::ArrayRef<float>(coor_ranges);
     }
+
     EXEC_NPU_CMD_SYNC(aclnnVoxelToPoint, voxels, voxel_sizes_value, coor_ranges_value, points);
     return points.transpose(0, 1);
 }

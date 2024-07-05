@@ -12,8 +12,8 @@ class UniqueVoxelKernel {
 public:
     __aicore__ inline UniqueVoxelKernel() = delete;
     __aicore__ inline ~UniqueVoxelKernel() = default;
-    __aicore__ inline UniqueVoxelKernel(GM_ADDR voxels, GM_ADDR idxs, GM_ADDR uniVoxs, GM_ADDR uniIdxs, GM_ADDR voxNum,
-        GM_ADDR workspace, const UniqueVoxelTilingData& tiling)
+    __aicore__ inline UniqueVoxelKernel(GM_ADDR voxels, GM_ADDR idxs, GM_ADDR argsortIdxs, GM_ADDR uniVoxs,
+        GM_ADDR uniIdxs, GM_ADDR uniArgsortIdxs, GM_ADDR voxNum, GM_ADDR workspace, const UniqueVoxelTilingData& tiling)
         : blkIdx_(GetBlockIdx()), usedBlkNum_(tiling.usedBlkNum), avgTasks_(tiling.avgTasks),
           tailTasks_(tiling.tailTasks), totalTasks_(tiling.totalTasks), avgPts_(tiling.avgPts), tailPts_(tiling.tailPts)
     {
@@ -27,7 +27,8 @@ public:
         rptTimes_ = avgPts_ / ONE_REPEAT_FLOAT_SIZE;
         adjOffset_ = avgPts_;
         idxOffset_ = 2 * avgPts_;
-        rsvCntOffset_ = 2 * avgPts_;
+        argOffset_ = 3 * avgPts_;
+        rsvCntOffset_ = 3 * avgPts_;
 
         cpParam_.blockLen = static_cast<uint16_t>(avgPts_ / B32_DATA_NUM_PER_BLOCK);
         cpExtParam_.blockLen = static_cast<uint32_t>(tailPts_ * B32_BYTE_SIZE);
@@ -36,14 +37,16 @@ public:
         // init global memory
         voxGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(voxels));
         idxGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(idxs));
+        argsortIdxGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(argsortIdxs));
         uniVoxGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(uniVoxs));
         uniIdxGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(uniIdxs));
+        uniArgsortIdxGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(uniArgsortIdxs));
         voxNumGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(voxNum));
         workspaceGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(workspace));
 
         // init buffer
         pipe_.InitBuffer(inQue_, BUFFER_NUM, avgPts_ * 3 * B32_BYTE_SIZE);
-        pipe_.InitBuffer(uniQue_, BUFFER_NUM, avgPts_ * 2 * B32_BYTE_SIZE + 2 * ONE_BLK_SIZE);
+        pipe_.InitBuffer(uniQue_, BUFFER_NUM, avgPts_ * 3 * B32_BYTE_SIZE + 3 * ONE_BLK_SIZE);
         pipe_.InitBuffer(maskBuf_, avgPts_ / 8);
 
         vecEvent_ = pipe_.AllocEventID<HardEvent::V_MTE2>();
@@ -54,7 +57,7 @@ public:
 
 private:
     TPipe pipe_;
-    GlobalTensor<int32_t> voxGm_, idxGm_, uniVoxGm_, uniIdxGm_, voxNumGm_;
+    GlobalTensor<int32_t> voxGm_, idxGm_, argsortIdxGm_, uniVoxGm_, uniIdxGm_, uniArgsortIdxGm_, voxNumGm_;
     GlobalTensor<int32_t> workspaceGm_;
     TQue<QuePosition::VECIN, BUFFER_NUM> inQue_;
     TQue<QuePosition::VECOUT, BUFFER_NUM> uniQue_;
@@ -63,7 +66,7 @@ private:
     int32_t curTaskIdx_, curPtsIdx_, curOutputIdx_, startOutputIdx_;
     int32_t avgTasks_, tailTasks_, totalTasks_, coreTasks_;
     int32_t avgPts_, tailPts_; // here, avgPts_must be multiple of 64
-    int32_t adjOffset_, idxOffset_, rsvCntOffset_;
+    int32_t adjOffset_, idxOffset_, argOffset_, rsvCntOffset_;
     DataCopyParams cpParam_;
     DataCopyExtParams cpExtParam_, cpOneIntParam_ {1, 4, 0, 0, 0}, cpDoubleIntsParam_ {1, 8, 0, 0, 0};
     DataCopyPadExtParams<int32_t> padParam_ {true, 0, 0, -1};
@@ -72,7 +75,7 @@ private:
     GatherMaskParams gatherMaskParam_ {1, 1, 8, 1};
     uint8_t rptTimes_;
     uint64_t voxCnt_ {0};
-    int32_t headVox_;
+    int32_t headVox_, headArgsortIdx_;
     bool hasHeadVox_;
 
     TEventID vecEvent_;
@@ -157,6 +160,7 @@ __aicore__ inline void UniqueVoxelKernel::CopyIn()
     LocalTensor<int32_t> voxA = inT[0];
     LocalTensor<int32_t> voxB = inT[adjOffset_];
     LocalTensor<int32_t> idxT = inT[idxOffset_];
+    LocalTensor<int32_t> argT = inT[argOffset_];
     if (is_tail) {
         Duplicate<int32_t, false>(voxA, -1, MASK_PLACEHOLDER, rptTimes_, 1, 8);
         Duplicate<int32_t, false>(voxB, -1, MASK_PLACEHOLDER, rptTimes_, 1, 8);
@@ -165,10 +169,12 @@ __aicore__ inline void UniqueVoxelKernel::CopyIn()
         DataCopyPad(voxB, voxGm_[curPtsIdx_], cpExtParam_, padParam_);
         DataCopyPad(voxA, voxGm_[curPtsIdx_ + 1], cpExtParam_, padParam_);
         DataCopyPad(idxT, idxGm_[curPtsIdx_], cpExtParam_, padParam_);
+        DataCopyPad(argT, argsortIdxGm_[curPtsIdx_ + 1], cpExtParam_, padParam_);
     } else {
         DataCopy(voxB, voxGm_[curPtsIdx_], cpParam_);
         DataCopy(voxA, voxGm_[curPtsIdx_ + 1], cpParam_);
         DataCopy(idxT, idxGm_[curPtsIdx_], cpParam_);
+        DataCopy(argT, argsortIdxGm_[curPtsIdx_ + 1], cpParam_);
     }
     inQue_.EnQue(inT);
 }
@@ -180,15 +186,18 @@ __aicore__ inline void UniqueVoxelKernel::Compute()
     LocalTensor<int32_t> voxA = voxT[0];
     LocalTensor<int32_t> voxB = voxT[adjOffset_];
     LocalTensor<int32_t> idxT = voxT[idxOffset_];
+    LocalTensor<int32_t> argT = voxT[argOffset_];
     LocalTensor<uint8_t> mask = maskBuf_.AllocTensor<uint8_t>();
     LocalTensor<int32_t> uniT = uniQue_.AllocTensor<int32_t>();
     LocalTensor<int32_t> uniVox = uniT[0];
     LocalTensor<int32_t> uniIdx = uniT[adjOffset_];
+    LocalTensor<int32_t> uniArg = uniT[idxOffset_];
     LocalTensor<int32_t> rsvCntT = uniT[rsvCntOffset_];
     uint64_t rsvCnt;
     // we need to look at the first element of the voxel
     if (is_head) {
         headVox_ = voxB.GetValue(0);
+        headArgsortIdx_ = argsortIdxGm_.GetValue(0);
         hasHeadVox_ = headVox_ > -1;
         if (hasHeadVox_) {
             ++voxCnt_;
@@ -207,6 +216,8 @@ __aicore__ inline void UniqueVoxelKernel::Compute()
         uniVox, voxA, mask.ReinterpretCast<uint32_t>(), true, avgPts_, gatherMaskParam_, rsvCnt);
     GatherMask<int32_t, uint32_t>(
         uniIdx, idxT, mask.ReinterpretCast<uint32_t>(), true, avgPts_, gatherMaskParam_, rsvCnt);
+    GatherMask<int32_t, uint32_t>(
+        uniArg, argT, mask.ReinterpretCast<uint32_t>(), true, avgPts_, gatherMaskParam_, rsvCnt);
     inQue_.FreeTensor(voxT);
     SetVectorMask<float>(FULL_MASK, FULL_MASK);
     voxCnt_ += rsvCnt;
@@ -220,6 +231,7 @@ __aicore__ inline void UniqueVoxelKernel::CopyOut()
     LocalTensor<int32_t> uniT = uniQue_.DeQue<int32_t>();
     LocalTensor<int32_t> uniVoxT = uniT[0];
     LocalTensor<int32_t> uniIdxT = uniT[adjOffset_];
+    LocalTensor<int32_t> uniArgT = uniT[idxOffset_];
     LocalTensor<int32_t> rsvCntT = uniT[rsvCntOffset_];
     int32_t rsvCnt = rsvCntT.GetValue(0);
 
@@ -228,8 +240,10 @@ __aicore__ inline void UniqueVoxelKernel::CopyOut()
         if (hasHeadVox_) {
             rsvCntT.SetValue(0, headVox_);
             rsvCntT.SetValue(8, 0);
+            rsvCntT.SetValue(16, headArgsortIdx_);
             DataCopyPad(uniVoxGm_, rsvCntT, cpOneIntParam_);
             DataCopyPad(uniIdxGm_, rsvCntT[8], cpOneIntParam_);
+            DataCopyPad(uniArgsortIdxGm_, rsvCntT[16], cpOneIntParam_);
         } else {
             curOutputIdx_ = 0;
         }
@@ -242,6 +256,7 @@ __aicore__ inline void UniqueVoxelKernel::CopyOut()
             0, 0);
         DataCopy(uniVoxGm_[curOutputIdx_], uniVoxT, mvParam);
         DataCopy(uniIdxGm_[curOutputIdx_], uniIdxT, mvParam);
+        DataCopy(uniArgsortIdxGm_[curOutputIdx_], uniArgT, mvParam);
         curOutputIdx_ += rsvCnt;
     }
     uniQue_.FreeTensor(uniT);
@@ -289,6 +304,12 @@ __aicore__ inline void UniqueVoxelKernel::CompactOutput()
                 DataCopy(uniIdxGm_[totalVoxelCnt], inT, mvParam);
                 SetFlag<HardEvent::MTE3_MTE2>(mte3Event);
                 WaitFlag<HardEvent::MTE3_MTE2>(mte3Event);
+                DataCopy(inT, uniArgsortIdxGm_[startIdx], mvParam);
+                SetFlag<HardEvent::MTE2_MTE3>(mte2Event);
+                WaitFlag<HardEvent::MTE2_MTE3>(mte2Event);
+                DataCopy(uniArgsortIdxGm_[totalVoxelCnt], inT, mvParam);
+                SetFlag<HardEvent::MTE3_MTE2>(mte3Event);
+                WaitFlag<HardEvent::MTE3_MTE2>(mte3Event);
                 totalVoxelCnt += voxelCnt;
             }
         }
@@ -300,9 +321,7 @@ __aicore__ inline void UniqueVoxelKernel::CompactOutput()
 extern "C" __global__ __aicore__ void unique_voxel(GM_ADDR voxels, GM_ADDR idxs, GM_ADDR argsortIdxs, GM_ADDR uniVoxs,
     GM_ADDR uniIdxs, GM_ADDR uniArgsortIdxs, GM_ADDR voxNum, GM_ADDR workspace, GM_ADDR tiling)
 {
-    SetSysWorkspace(workspace);
-    GM_ADDR usrWorkspace = GetUserWorkspace(workspace);
     GET_TILING_DATA(tilingData, tiling);
-    UniqueVoxelKernel op(voxels, idxs, uniVoxs, uniIdxs, voxNum, usrWorkspace, tilingData);
+    UniqueVoxelKernel op(voxels, idxs, argsortIdxs, uniVoxs, uniIdxs, uniArgsortIdxs, voxNum, workspace, tilingData);
     op.Process();
 }

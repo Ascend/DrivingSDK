@@ -18,28 +18,35 @@
 #include "functions.h"
 
 constexpr float DEFAULT_VALUE = -1.0f;
+constexpr size_t VOXEL_SIZES_SIZE = 3;
+constexpr size_t COOR_RANGES_SIZE = 6;
 
-at::Tensor point_to_voxel(const at::Tensor& points, const c10::optional<at::ArrayRef<float>> voxel_sizes,
-    const c10::optional<at::ArrayRef<float>> coor_ranges)
+at::Tensor point_to_voxel(
+    const at::Tensor& points, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges)
 {
     TORCH_CHECK_NPU(points);
     TORCH_CHECK(points.dim() == 2, "points.dim() must be 2, but got: ", points.dim());
 
     at::Tensor voxels = at::empty({points.size(0)}, points.options().dtype(at::kFloat));
-    at::SmallVector<float, 3> voxel_sizes_vector {DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE};
-    at::SmallVector<float, 6> coor_ranges_vector {
+
+    at::SmallVector<float, VOXEL_SIZES_SIZE> voxel_sizes_vector {DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE};
+    at::SmallVector<float, COOR_RANGES_SIZE> coor_ranges_vector {
         DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE};
-    auto voxel_sizes_value = at::ArrayRef<float>(voxel_sizes_vector);
-    auto coor_ranges_value = at::ArrayRef<float>(coor_ranges_vector);
-    if (voxel_sizes.has_value()) {
+    at::ArrayRef<float> voxel_sizes_value;
+    at::ArrayRef<float> coor_ranges_value;
+    if (voxel_sizes.empty()) {
+        voxel_sizes_value = at::ArrayRef<float>(voxel_sizes_vector);
+    } else {
         TORCH_CHECK(
-            voxel_sizes.value().size() == 3, "voxel_sizes.size() must be 3, but got: ", voxel_sizes.value().size());
-        voxel_sizes_value = voxel_sizes.value();
+            voxel_sizes.size() == VOXEL_SIZES_SIZE, "voxel_sizes.size() must be 3, but got: ", voxel_sizes.size());
+        voxel_sizes_value = at::ArrayRef<float>(voxel_sizes);
     }
-    if (coor_ranges.has_value()) {
+    if (coor_ranges.empty()) {
+        coor_ranges_value = at::ArrayRef<float>(coor_ranges_vector);
+    } else {
         TORCH_CHECK(
-            coor_ranges.value().size() == 6, "coor_ranges.size() must be 6, but got: ", coor_ranges.value().size());
-        coor_ranges_value = coor_ranges.value();
+            coor_ranges.size() == COOR_RANGES_SIZE, "coor_ranges.size() must be 6, but got: ", coor_ranges.size());
+        coor_ranges_value = at::ArrayRef<float>(coor_ranges);
     }
     // transpose points
     at::Tensor points_transpose = points.transpose(0, 1);

@@ -18,4 +18,6 @@ void init_perception_point(pybind11::module& m)
     m.def("voxel_to_point", &voxel_to_point);
 
     m.def("unique_voxel", &unique_voxel);
+    
+    m.def("hard_voxelize", &hard_voxelize);
 }
