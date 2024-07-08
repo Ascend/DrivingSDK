@@ -27,32 +27,32 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
-    auto CoreNumber = ascendplatformInfo.GetCoreNumAiv();
-    uint32_t TotalResult = context->GetInputTensor(0)->GetShapeSize();
-    int32_t CoreData;
-    int32_t CoreUsed;
-    int32_t CoreLast;
-    CoreData = GetCeilInt(TotalResult, CoreNumber);
-    CoreData = GetCeilInt(CoreData, 64) * 64;
-    CoreUsed = GetCeilInt(totalresult, CoreData);
-    CoreLast = CoreData;
-    if (CoreData == 0) {
+    auto coreNumber = ascendplatformInfo.GetCoreNumAiv();
+    uint32_t totalResult = context->GetInputTensor(0)->GetShapeSize();
+    int32_t coreData;
+    int32_t coreUsed;
+    int32_t coreLast;
+    coreData = GetCeilInt(totalResult, coreNumber);
+    coreData = GetCeilInt(coreData, 64) * 64;
+    coreUsed = GetCeilInt(totalResult, coreData);
+    coreLast = coreData;
+    if (coreData == 0) {
         return ge::GRAPH_FAILED;
     }
-    if (TotalResult % CoreData != 0) { CoreLast = TotalResult % CoreData;}
-    uint64_t AvailableUbSize;
-    ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, AvailableUbSize);
-    AvailableUbSize = (AvailableUbSize - 20*1024) / 12;
-    AvailableUbSize = GetCeilInt(AvailableUbSize, 32) * 32;
+    if (totalResult % coreData != 0) { coreLast = totalResult % coreData;}
+    uint64_t availableUbSize;
+    ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, availableUbSize);
+    availableUbSize = (availableUbSize - 20*1024) / 12;
+    availableUbSize = GetCeilInt(availableUbSize, 32) * 32;
     context->SetBlockDim(coreUsed);
-    tiling.set_core_data(CoreData);
+    tiling.set_core_data(coreData);
     tiling.set_core_used(coreUsed);
-    tiling.set_copy_loop(CoreData / AvailableUbSize);
-    tiling.set_copy_tail(CoreData % AvailableUbSize);
-    tiling.set_last_copy_loop(CoreLast / AvailableUbSize);
-    tiling.set_last_copy_tail(CoreLast % AvailableUbSize);
-    tiling.set_box_number(totalresult);
-    tiling.set_available_ub_size(AvailableUbSize);
+    tiling.set_copy_loop(coreData / availableUbSize);
+    tiling.set_copy_tail(coreData % availableUbSize);
+    tiling.set_last_copy_loop(coreLast / availableUbSize);
+    tiling.set_last_copy_tail(coreLast % availableUbSize);
+    tiling.set_box_number(totalResult);
+    tiling.set_available_ub_size(availableUbSize);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
