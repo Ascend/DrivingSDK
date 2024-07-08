@@ -17,3 +17,4 @@ from .ops.knn import knn
 from .ops.threeNN import three_nn
 from .ops.npu_roipoint_pool3d import RoipointPool3d as RoIPointPool3d
 from .ops.npu_max_pool2d import npu_max_pool2d
+from .ops.npu_add_relu import npu_add_relu

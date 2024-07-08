@@ -19,6 +19,7 @@ SOC_TO_SHORT_SOC_MAP = {
     "ascend910premiuma": "ascend910",
     "ascend910b1": "ascend910b",
     "ascend910b2": "ascend910b",
+    "ascend910b2c": "ascend910b",
     "ascend910b3": "ascend910b",
     "ascend910b4": "ascend910b",
     "ascend910c1": "ascend910c",
@@ -86,7 +87,7 @@ class OpDesc:
     def parse_input(self: any, conf: str):
         if conf.startswith('input{}.name'.format(int(self.input_idx) + 1)):
             self.input_idx += 1
-            self.input_name.append(self._parse_str(conf))
+            self.input_name.append(self._parse_str(conf) + '_in__')
         elif conf.startswith('input{}.paramType'.format(int(self.input_idx))):
             self.input_type.append(self._parse_str(conf))
         elif conf.startswith('input{}.dtype'.format(int(self.input_idx))):
@@ -99,7 +100,7 @@ class OpDesc:
     def parse_output(self: any, conf: str):
         if conf.startswith('output{}.name'.format(int(self.output_idx) + 1)):
             self.output_idx += 1
-            self.output_name.append(self._parse_str(conf))
+            self.output_name.append(self._parse_str(conf) + '_out_')
         elif conf.startswith('output{}.paramType'.format(int(self.output_idx))):
             self.output_type.append(self._parse_str(conf))
         elif conf.startswith('output{}.dtype'.format(int(self.output_idx))):
@@ -133,12 +134,24 @@ class OpDesc:
     def parse_attr_list(self: any, conf: str):
         self.attr_list = self._parse_list(conf)
 
+    @staticmethod
+    def _camel_to_snake(camel_case_str: str):
+        snake_case_str = ''
+        for i, c in enumerate(camel_case_str):
+            if i == 0:
+                snake_case_str += c.lower()
+            elif c.isupper():
+                snake_case_str += '_' + c.lower()
+            else:
+                snake_case_str += c
+        return snake_case_str
+
     def parse_attr_val(self: any, conf: str):
         for attr in self.attr_list:
             if self.attr_val.get(attr) is None:
                 self.attr_val[attr] = {}
             if conf.startswith('attr_{}.type'.format(attr)):
-                self.attr_val.get(attr)['type'] = self._parse_str(conf)
+                self.attr_val.get(attr)['type'] = self._camel_to_snake(self._parse_str(conf))
             elif conf.startswith('attr_{}.paramType'.format(attr)):
                 self.attr_val.get(attr)['paramType'] = self._parse_str(conf)
             elif conf.startswith('attr_{}.defaultValue'.format(attr)):

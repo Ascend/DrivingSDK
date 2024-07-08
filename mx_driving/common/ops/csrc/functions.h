@@ -68,4 +68,6 @@ std::tuple<at::Tensor, at::Tensor> npu_roipoint_pool3d_forward(const int32_t num
                                                                const at::Tensor &points,
                                                                const at::Tensor &point_features,
                                                                const at::Tensor &boxes3d);
+at::Tensor npu_add_relu(at::Tensor& x, const at::Tensor& y);
+at::Tensor npu_add_relu_grad(at::Tensor& self, at::Tensor& grad_output);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_

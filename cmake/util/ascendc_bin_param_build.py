@@ -40,7 +40,7 @@ class BinParamBuilder(opdesc_parser.OpDesc):
                 ifmts = self.input_fmt[idx].split(',')
                 itype = self.input_type[idx]
                 para = {}
-                para['name'] = self.input_name[idx]
+                para['name'] = self.input_name[idx][:-5]
                 para['index'] = idx
                 para['dtype'] = idtypes[i]
                 para['format'] = ifmts[i]
@@ -55,7 +55,7 @@ class BinParamBuilder(opdesc_parser.OpDesc):
                 ofmts = self.output_fmt[idx].split(',')
                 otype = self.output_type[idx]
                 para = {}
-                para['name'] = self.output_name[idx]
+                para['name'] = self.output_name[idx][:-5]
                 para['index'] = idx
                 para['dtype'] = odtypes[i]
                 para['format'] = ofmts[i]
@@ -69,7 +69,6 @@ class BinParamBuilder(opdesc_parser.OpDesc):
                 att = {}
                 att['name'] = attr
                 atype = self.attr_val.get(attr).get('type').lower()
-                atype = atype.replace('list', 'list_')
                 att['dtype'] = atype
                 att['value'] = const_var.ATTR_DEF_VAL.get(atype)
                 attrs.append(att)
@@ -95,11 +94,10 @@ class BinParamBuilder(opdesc_parser.OpDesc):
                 json.dump(param, fd, indent='  ')
             self._write_buld_cmd(param_file, bin_file, i)
 
-
     def _write_buld_cmd(self: any, param_file: str, bin_file: str, index: int):
         hard_soc = const_var.SOC_MAP_EXT.get(self.soc)
         if not hard_soc:
-            hard_soc = soc.capitalize()
+            hard_soc = self.soc.capitalize()
         name_com = [self.op_type, self.op_file, str(index)]
         compile_file = os.path.join(self.out_path, '-'.join(name_com) + '.sh')
         compile_file = os.path.realpath(compile_file)

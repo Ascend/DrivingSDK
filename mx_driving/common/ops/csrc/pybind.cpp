@@ -76,4 +76,8 @@ void init_common(pybind11::module& m)
 
     // npu_roipoint_pool3d_forward
     m.def("npu_roipoint_pool3d_forward", &npu_roipoint_pool3d_forward);
+
+    // npu_add_relu
+    m.def("npu_add_relu", &npu_add_relu);
+    m.def("npu_add_relu_grad", &npu_add_relu_grad);
 }
