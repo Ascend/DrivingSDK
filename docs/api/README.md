@@ -151,8 +151,8 @@ mx_driving.common.npu_points_in_box(Tensor boxes, Tensor points) -> Tensor
 ### 功能描述
 判断点是否在框内。
 ### 参数说明
-- `boxes(Tensor)`：框张量，数据类型为`float32, float16`。shape 为`[B, M, 7]`。`7`分别代表`x, y, z, x_size, y_size, z_size, rz`。
-- `points(Tensor)`：点张量，数据类型为`float32, float16`。shape 为`[B, N, 3]`。`3`分别代表`x, y, z`。
+- `boxes(Tensor)`：框张量，数据类型为`float32`。shape 为`[B, M, 7]`。`7`分别代表`x, y, z, x_size, y_size, z_size, rz`。
+- `points(Tensor)`：点张量，数据类型为`float32`。shape 为`[B, N, 3]`。`3`分别代表`x, y, z`。
 ### 返回值
 - `boxes_idx_of_points(Tensor)`：点在框内的索引张量，数据类型为`int32`。shape 为`[B, N]`。
 ### 约束说明
