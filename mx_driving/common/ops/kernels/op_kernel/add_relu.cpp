@@ -67,8 +67,7 @@ private:
         DataCopyPadParams padParams{true, 0, 0, 0};
         DataCopyPad(input_x, ptsGm[address], copyParams_in, padParams);
         DataCopyPad(input_y, boxesGm[address], copyParams_box, padParams);
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        pipe_barrier(PIPE_ALL);
         AddRelu(zLocal, input_x, input_y, tensor_size);
         set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
         wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
