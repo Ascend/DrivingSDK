@@ -13,8 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import numpy as np
 import torch
+import numpy as np
 from torch.autograd import Function
 from torch.nn import Module
 
@@ -32,19 +32,17 @@ class AdsGroupPoints(Function):
             indices: torch.Tensor):
         """
         Args:
-            features (Tensor): Tensor of features to group, input shape is
-                (B, C, N).
-            indices (Tensor):  The indices of features to group with, input
-                shape is (B, npoint, nsample).
+            features (Tensor): Tensor of features to group, input shape is (B, C, N).
+            indices (Tensor):  The indices of features to group with, input shape is (B, npoints, nsample).
 
         Returns:
-            Tensor: Grouped features, the shape is (B, C, npoint, nsample)
+            Tensor: Grouped features, the shape is (B, C, npoints, nsample)
         """
         features = features.contiguous()
         indices = indices.contiguous()
 
-        B, nfeatures, nsample = indices.size()
-        _, C, N = features.size()
+        B, C, N = features.size()
+        _, npoints, nsample = indices.size()
 
         output = ads_c.group_points(
             features,
@@ -52,7 +50,7 @@ class AdsGroupPoints(Function):
             B,
             C,
             N,
-            nfeatures,
+            npoints,
             nsample)
 
         ctx.for_backwards = (indices, N)

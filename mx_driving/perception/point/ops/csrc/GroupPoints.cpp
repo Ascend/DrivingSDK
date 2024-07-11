@@ -17,44 +17,32 @@
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
+
 at::Tensor group_points(
     const at::Tensor& points, const at::Tensor& idx, int64_t b, int64_t c, int64_t n, int64_t npoints, int64_t nsample)
 {
-    // b, c, n, and npoints do not need to be passed into gatherv2,
-    // b, c, n, and npoints are calculated inside the operator
-    // gatherv2 operator in ascend needs to set axis to 0, dims is 0
     TORCH_CHECK_NPU(points);
     TORCH_CHECK_NPU(idx);
+    TORCH_CHECK(points.scalar_type() == at::kHalf || points.scalar_type() == at::kFloat, "group_points only support float16 or float32 tensor.")
     TORCH_CHECK(points.dim() == 3, "points.dim() must be 3, but got: ", points.dim());
     TORCH_CHECK(idx.dim() == 3, "idx.dim() must be 3, but got: ", idx.dim());
-    c10::SmallVector<int64_t, N> axis = {0};
-    int64_t dim = 0;
-
-    auto index = at::arange(0, b);
-    index = index.to(points.device());
-    index = index.view({-1, 1, 1});
-    index = at::mul(index, n);
-    at::Tensor indices = at::add(index, idx);
-    indices = indices.view({-1});
+    TORCH_CHECK(points.size(0) == idx.size(0), "the input first dimension must be the same.")
 
     at::Tensor trans_features = points.transpose(1, 2);
     at::Tensor features = trans_features.contiguous();
     features = features.view({b * n, c});
+    at::Tensor indices = idx.view({b * npoints * nsample});
 
     at::Tensor out = at::empty({b, c, npoints, nsample}, points.options());
-
     out = out.view({b * npoints * nsample, c});
 
-    EXEC_NPU_CMD(aclnnGatherV2, features, dim, indices, out);
+    EXEC_NPU_CMD(aclnnGroupPoints, features, indices, b, c, n, npoints, nsample, out);
 
     at::Tensor output = out.view({b, npoints, nsample, c}).permute({0, 3, 1, 2});
-
     return output;
 }
 
-// grad_out = [b, c, npoints, nsample]
-// idx = [b, npoints, nsample]
-// grad_points = [b, c, n]
+
 at::Tensor group_points_backward(const at::Tensor& grad_out, const at::Tensor& idx, int64_t b,
                                  int64_t c, int64_t n, int64_t npoints, int64_t nsample)
 {
