@@ -34,11 +34,11 @@ bash ci/build.sh --python=3.7
 | 架构    | pytorch版本  | 出包版本                                                 |
 | ------- | ------------ | -------------------------------------------------------- |
 | x86     | pytorch1.11  | Python3.7(\>=3.7.5)， Python3.8， Python3.9， Python3.10 |
-| x86     | pytorch2.0.1 | Python3.8， Python3.9， Python3.10                       |
 | x86     | pytorch2.1.0 | Python3.8， Python3.9， Python3.10                       |
+| x86     | pytorch2.2.0 | Python3.8， Python3.9， Python3.10                       |
 | aarch64 | pytorch1.11  | Python3.7(\>=3.7.5)， Python3.8， Python3.9， Python3.10 |
-| aarch64 | pytorch2.0.1 | Python3.8， Python3.9， Python3.10                       |
 | aarch64 | pytorch2.1.0 | Python3.8， Python3.9， Python3.10                       |
+| aarch64 | pytorch2.2.0 | Python3.8， Python3.9， Python3.10                       |
 3. 安装ADS
 ```shell
 cd ads/dist
