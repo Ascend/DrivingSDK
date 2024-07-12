@@ -18,11 +18,11 @@ mxDriving是基于昇腾NPU平台开发的适用于自动驾驶场景的算子�
 ## 从发布包安装
 当前并未正式发布whl包 ，请参考源码安装方式。
 ## 从源码安装
-1. 克隆原始仓
+1. 克隆原始仓。
 ```shell
 git clone https://gitee.com/ascend/mxDriving.git
 ```
-2. 编译mxDriving
+2. 编译mxDriving。
 > 注意：请在仓库根目录下执行编译命令
 ```shell
 bash ci/build.sh --python=3.7
@@ -34,18 +34,24 @@ bash ci/build.sh --python=3.7
 | ------ | ------------------------------------------------------------ | ------------------------------ | ------ | ---------------------------------------------- |
 | python | pytorch1.11，支持3.7及以上；pytorch1.11以上版本，支持3.8及以上 | 指定编译过程中使用的python版本 | 3.7    | 仅pytorch版本为1.11时才支持指定python版本为3.7 |
 
-支持的CPU架构，python和torch版本对应关系如下：
+支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如下：
 
-| 架构    | pytorch版本  | 出包版本                                                 |
-| ------- | ------------ | -------------------------------------------------------- |
-| x86     | pytorch1.11  | Python3.7(\>=3.7.5)， Python3.8， Python3.9， Python3.10 |
-| x86     | pytorch2.0.1 | Python3.8， Python3.9， Python3.10                       |
-| x86     | pytorch2.1.0 | Python3.8， Python3.9， Python3.10                       |
-| aarch64 | pytorch1.11  | Python3.7(\>=3.7.5)， Python3.8， Python3.9， Python3.10 |
-| aarch64 | pytorch2.0.1 | Python3.8， Python3.9， Python3.10                       |
-| aarch64 | pytorch2.1.0 | Python3.8， Python3.9， Python3.10                       |
-3. 安装mxDriving
-```shell
+| Gitee分支 |  CPU架构 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
+|-----------|-----------|-------------------|-------------------|---------------------|
+| master    | x86&aarch64|  Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.3.1|v2.3.1|
+| branch_v6.0.0-RC1    |x86&aarch64 |    Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0-6.0.rc1|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0-6.0.rc1|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0-6.0.rc1|
+| branch_v6.0.0-RC2    |x86&aarch64 |    Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0-6.0.rc2|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0-6.0.rc2|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0-6.0.rc2|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.3.1|v2.3.1-6.0.rc2|
+
+3. 安装mxDriving。
+```shell+
 cd mx_driving/dist
 pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
 ```
@@ -58,14 +64,14 @@ pip3 uninstall mx_driving
 ```
 
 # 快速上手
-1. source 环境变量
+1. source 环境变量。
 ```shell
 # 查看mx_driving安装路径
 pip3 show mx_driving
 export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/
 export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
 ```
-2. 算子调用
+2. 算子调用。
 请参见下文算子清单。
 
 # 特性介绍
@@ -115,25 +121,25 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 - [ ] 支持图模式
 
 ## 模型清单
-|  Model   | 性能  | 链接  |
-|  :----:  | :----  | :----  |
-| MatrixVT  | 0.82x | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/MatrixVT |
-| PointPillar(2D)  | 0.88x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/OpenPCDet |
-| YoloV5X  | 1.21x |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 |
-| swin-Transformer  | 1.44x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/Swin-Transformer_for_PyTorch |
-| centerNet  | 1.34x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/detection/CenterNet |
-| CenterPoint(2D)  | 0.63x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/OpenPCDet |
-| BevFormer  | 0.6x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/BEVFormer |
-| SurroundOcc  | 0.6x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/SurroundOcc |
-| UniAD  | 0.3x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/UniAD |
-| YoloX  | 0.62x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |
-| EfficientNet  | 0.9+x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |
-| TPVFormer  | 0.45x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/TPVFormer_for_PyTorch |
-| FCN-res18  | 0.6x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |
-| BEevDet  | 0.45x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BEVDet_for_PyTorch |
-| SSD MobileNetV1  | 0.9x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 |
-| BisenetV2  | 0.75x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 |
-| Petr  | 0.7x |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/PETR |
+|  Model   | 链接  |
+|  :----:  |  :----  |
+| MatrixVT  | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/MatrixVT |
+| PointPillar(2D)  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/OpenPCDet |
+| YoloV5X  |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 |
+| swin-Transformer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/Swin-Transformer_for_PyTorch |
+| centerNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/detection/CenterNet |
+| CenterPoint(2D)  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/OpenPCDet |
+| BevFormer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/BEVFormer |
+| SurroundOcc  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/SurroundOcc |
+| UniAD  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/UniAD |
+| YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |
+| EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |
+| TPVFormer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/TPVFormer_for_PyTorch |
+| FCN-res18  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |
+| BEevDet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BEVDet_for_PyTorch |
+| SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 |
+| BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 |
+| Petr  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/PETR |
 
 
 
@@ -188,7 +194,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 2. mxDriving在运行异常时(如输入校验异常（请参考api文档说明），环境变量配置错误，算子执行报错等)会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括通过设定算子同步执行、查看CANN日志、解析生成的Core Dump文件等方式。
 ## 公网地址声明
 
-在mx_driving的配置文件和脚本中存在[公网地址](#公网地址)
+在mx_driving的配置文件和脚本中存在[公网地址](#公网地址)。
 
 ### 公网地址
 
@@ -211,16 +217,6 @@ mxDriving在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安全
 ## 通信矩阵
 mxDriving在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
 
-# 支持Python,PyTorch和torch_npu版本说明
-
-| Gitee分支 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
-|-----------|-------------------|-------------------|---------------------|
-| master    |Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0|
-|           |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0|
-|           |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0|
-| v1.0.0    |Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0-6.0.rc1|
-|           |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0-6.0.rc1|
-|           |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0-6.0.rc1|
 
 # 软件生命周期说明 
 ## 分支维护策略
