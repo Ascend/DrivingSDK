@@ -18,7 +18,7 @@ class DynamicVoxKernel {
 public:
     __aicore__ inline DynamicVoxKernel() = delete;
     __aicore__ inline DynamicVoxKernel(GM_ADDR points, GM_ADDR coors, GM_ADDR workspace,
-                                       const DynamicVoxTilingData* __restrict tiling)
+                                       const DynamicVoxTilingData *__restrict tiling)
     {
         ASSERT(GetBlockNum() != 0 && "block num can not be zero");
         InitParams(tiling);
@@ -40,8 +40,9 @@ public:
             CopyOut(i, false);
         }
     }
+
 private:
-    __aicore__ inline void InitParams(const DynamicVoxTilingData* __restrict tiling)
+    __aicore__ inline void InitParams(const DynamicVoxTilingData *__restrict tiling)
     {
         blockIdx_ = GetBlockIdx();
         lastCoreIdx_ = GetBlockNum() - 1;
@@ -49,11 +50,11 @@ private:
         ptsFeature_ = tiling->pts_feature;
         ptsNumInCore_ = tiling->points_num_in_core;
         ptsNumInLastCore_ = tiling->points_num_in_last_core;
-        
+
         voxelX_ = tiling->voxel_x;
         voxelY_ = tiling->voxel_y;
         voxelZ_ = tiling->voxel_z;
-        
+
         coorsMinX_ = tiling->coors_min_x;
         coorsMinY_ = tiling->coors_min_y;
         coorsMinZ_ = tiling->coors_min_z;
@@ -70,9 +71,9 @@ private:
         int ptsAllNum = ptsNum * N_DIM;
         // coors: coors num equal to points num
         int coorsAllNum = ptsNum * N_DIM;
-        
-        ptsGm_.SetGlobalBuffer((__gm__ float*)points + blockIdx_ * ptsNumInCore_, ptsAllNum);
-        coorsGm_.SetGlobalBuffer((__gm__ int*)coors + blockIdx_ * ptsNumInCore_, coorsAllNum);
+
+        ptsGm_.SetGlobalBuffer((__gm__ float *)points + blockIdx_ * ptsNumInCore_, ptsAllNum);
+        coorsGm_.SetGlobalBuffer((__gm__ int *)coors + blockIdx_ * ptsNumInCore_, coorsAllNum);
     }
 
     __aicore__ inline void SetUBSizeForData()
@@ -117,6 +118,9 @@ private:
         pipe_.InitBuffer(tmpQue3_, BUFFER_NUM, ptsInUBParam_[4] * sizeof(float));
         pipe_.InitBuffer(tmpQue4_, BUFFER_NUM, ptsInUBParam_[4] * sizeof(float));
         pipe_.InitBuffer(tmpQue5_, BUFFER_NUM, ptsInUBParam_[4] * sizeof(float));
+        pipe_.InitBuffer(voxelSizeXBuf_, VECORE_PROCESS_SIZE);
+        pipe_.InitBuffer(voxelSizeYBuf_, VECORE_PROCESS_SIZE);
+        pipe_.InitBuffer(voxelSizeZBuf_, VECORE_PROCESS_SIZE);
     }
 
     __aicore__ inline void CopyIn(const uint32_t progress, const bool formerFlag)
@@ -177,9 +181,15 @@ private:
         scalarCoors_[0] = -1.0F * coorsMinX_;
         scalarCoors_[1] = -1.0F * coorsMinY_;
         scalarCoors_[2] = -1.0F * coorsMinZ_;
-        reciproVoxel_[0] = 1.0F / voxelX_;
-        reciproVoxel_[1] = 1.0F / voxelY_;
-        reciproVoxel_[2] = 1.0F / voxelZ_;
+    }
+
+    __aicore__ inline void DupScalar2Tensor(LocalTensor<float> &voxelSizeXT, LocalTensor<float> &voxelSizeYT,
+                                            LocalTensor<float> &voxelSizeZT)
+    {
+        int32_t calcCnt = VECORE_PROCESS_SIZE / sizeof(float);
+        Duplicate<float>(voxelSizeXT, voxelX_, calcCnt);
+        Duplicate<float>(voxelSizeYT, voxelY_, calcCnt);
+        Duplicate<float>(voxelSizeZT, voxelZ_, calcCnt);
     }
 
     template <typename T>
@@ -205,13 +215,17 @@ private:
         LocalTensor<float> coorsLocalz = tmpQue3_.AllocTensor<float>();
         LocalTensor<float> dstLocal = tmpQue4_.AllocTensor<float>();
         LocalTensor<uint8_t> selMask = tmpQue5_.AllocTensor<uint8_t>();
+        LocalTensor<float> voxelSizeXT = voxelSizeXBuf_.Get<float>();
+        LocalTensor<float> voxelSizeYT = voxelSizeYBuf_.Get<float>();
+        LocalTensor<float> voxelSizeZT = voxelSizeZBuf_.Get<float>();
+        DupScalar2Tensor(voxelSizeXT, voxelSizeYT, voxelSizeZT);
         // coors x
-        ComputePtOneDim2VoxCoors(coorsLocalx, dstLocal, ptsLocal, 0, scalarCoors_[0], reciproVoxel_[0], ptNum);
+        ComputePtOneDim2VoxCoors(coorsLocalx, dstLocal, ptsLocal, voxelSizeXT, 0, scalarCoors_[0], ptNum);
         // coors y
-        ComputePtOneDim2VoxCoors(coorsLocaly, dstLocal, ptsLocal, ptNumAlign, scalarCoors_[1], reciproVoxel_[1], ptNum);
+        ComputePtOneDim2VoxCoors(coorsLocaly, dstLocal, ptsLocal, voxelSizeYT, ptNumAlign, scalarCoors_[1], ptNum);
         // coors z
-        ComputePtOneDim2VoxCoors(coorsLocalz, dstLocal, ptsLocal, 2 * ptNumAlign, scalarCoors_[2], reciproVoxel_[2], ptNum);
-        
+        ComputePtOneDim2VoxCoors(coorsLocalz, dstLocal, ptsLocal, voxelSizeZT, 2 * ptNumAlign, scalarCoors_[2], ptNum);
+
         FillInvalidData(coorsLocalx, coorsLocaly, coorsLocalz, dstLocal, selMask, -1, gridX_, ptNum); // x
         FillInvalidData(coorsLocaly, coorsLocalx, coorsLocalz, dstLocal, selMask, -1, gridY_, ptNum); // y
         FillInvalidData(coorsLocalz, coorsLocalx, coorsLocaly, dstLocal, selMask, -1, gridZ_, ptNum); // z
@@ -236,7 +250,8 @@ private:
         tmpQue5_.FreeTensor<uint8_t>(selMask);
     }
 
-    __aicore__ inline void CastCoorsToInt(const LocalTensor<float> &srcLocal, LocalTensor<int> &dstLocal, const uint32_t ptNum)
+    __aicore__ inline void CastCoorsToInt(const LocalTensor<float> &srcLocal, LocalTensor<int> &dstLocal,
+                                          const uint32_t ptNum)
     {
         uint64_t mask = 0;
         uint8_t repeatTime = 0;
@@ -251,7 +266,8 @@ private:
         }
     }
 
-    __aicore__ inline void CopyCoors(const LocalTensor<int> &tmpLocal, LocalTensor<int> &coorsLocal, const uint32_t offset, const uint32_t ptNum)
+    __aicore__ inline void CopyCoors(const LocalTensor<int> &tmpLocal, LocalTensor<int> &coorsLocal,
+                                     const uint32_t offset, const uint32_t ptNum)
     {
         uint64_t mask = 0;
         uint8_t repeatTime = 0;
@@ -266,9 +282,10 @@ private:
         }
     }
 
-    __aicore__ inline void FillInvalidData(LocalTensor<float> &src0Local, LocalTensor<float> &src1Local, LocalTensor<float> &src2Local,
-                                           LocalTensor<float> &thresholdLocal, LocalTensor<uint8_t> &selMask, const int minThresh,
-                                           const int maxThresh, const uint32_t ptNum)
+    __aicore__ inline void FillInvalidData(LocalTensor<float> &src0Local, LocalTensor<float> &src1Local,
+                                           LocalTensor<float> &src2Local, LocalTensor<float> &thresholdLocal,
+                                           LocalTensor<uint8_t> &selMask, const int minThresh, const int maxThresh,
+                                           const uint32_t ptNum)
     {
         float negativeFlag = -1.0F;
         // mask with min threshold
@@ -284,7 +301,8 @@ private:
     }
 
     template <typename T>
-    __aicore__ inline void SelectByMask(const LocalTensor<uint8_t> &selMask, LocalTensor<T> &srcLocal, const uint32_t ptNum, const T flag)
+    __aicore__ inline void SelectByMask(const LocalTensor<uint8_t> &selMask, LocalTensor<T> &srcLocal,
+                                        const uint32_t ptNum, const T flag)
     {
         uint64_t mask = 0;
         uint8_t repeatTime = 0;
@@ -292,19 +310,22 @@ private:
         uint64_t tailNum = 0;
         ComputeParamFor0Interface<float>(ptNum, mask, repeatTime, formerNum, tailNum);
         if (repeatTime > 0) {
-            Select(srcLocal, selMask, srcLocal, flag, SELMODE::VSEL_TENSOR_SCALAR_MODE, mask, repeatTime, {1, 1, 0, 8, 8, 0});
+            Select(srcLocal, selMask, srcLocal, flag, SELMODE::VSEL_TENSOR_SCALAR_MODE, mask, repeatTime,
+                   {1, 1, 0, 8, 8, 0});
         }
         if (tailNum > 0) {
-            Select(srcLocal[formerNum], selMask[formerNum], srcLocal[formerNum], flag, SELMODE::VSEL_TENSOR_SCALAR_MODE, tailNum, 1, {1, 1, 0, 0, 0, 0});
+            Select(srcLocal[formerNum], selMask[formerNum], srcLocal[formerNum], flag, SELMODE::VSEL_TENSOR_SCALAR_MODE,
+                   tailNum, 1, {1, 1, 0, 0, 0, 0});
         }
     }
 
-    __aicore__ inline void MaskWithThreshold(LocalTensor<float> &srcLocal, LocalTensor<float> &thresholdLocal, LocalTensor<uint8_t> &selMask,
-                                             const int threshold, const uint32_t ptNum, const int compareFlag)
+    __aicore__ inline void MaskWithThreshold(LocalTensor<float> &srcLocal, LocalTensor<float> &thresholdLocal,
+                                             LocalTensor<uint8_t> &selMask, const int threshold, const uint32_t ptNum,
+                                             const int compareFlag)
     {
         float thresholdF = static_cast<float>(threshold);
         CMPMODE compareMode = compareFlag == 0 ? CMPMODE::LT : CMPMODE::GT;
-        
+
         uint64_t mask = 0;
         uint8_t repeatTime = 0;
         uint64_t formerNum = 0;
@@ -318,12 +339,14 @@ private:
         if (tailNum > 0) {
             Duplicate(thresholdLocal[formerNum], thresholdF, tailNum, 1, 1, 0);
             pipe_barrier(PIPE_V);
-            Compare(selMask[formerNum], srcLocal[formerNum], thresholdLocal[formerNum], compareMode, tailNum, 1, {1, 1, 1, 0, 0, 0});
+            Compare(selMask[formerNum], srcLocal[formerNum], thresholdLocal[formerNum], compareMode, tailNum, 1,
+                    {1, 1, 1, 0, 0, 0});
         }
     }
 
-    __aicore__ inline void ComputePtOneDim2VoxCoors(LocalTensor<float> &castLocal, LocalTensor<float> &dstLocal, const LocalTensor<float> &ptsLocal,
-                                                    const uint32_t offset, const float scalar, const float reciproVox, const uint32_t ptNum)
+    __aicore__ inline void ComputePtOneDim2VoxCoors(LocalTensor<float> &castLocal, LocalTensor<float> &dstLocal,
+                                                    const LocalTensor<float> &ptsLocal, LocalTensor<float> &voxelSizeT,
+                                                    const uint32_t offset, const float scalar, const uint32_t ptNum)
     {
         uint64_t mask = 0;
         uint8_t repeatTime = 0;
@@ -332,12 +355,12 @@ private:
         ComputeParamFor0Interface<float>(ptNum, mask, repeatTime, formerNum, tailNum);
         if (repeatTime > 0) {
             Adds(dstLocal, ptsLocal[offset], scalar, mask, repeatTime, {1, 1, 8, 8});
-            Muls(dstLocal, dstLocal, reciproVox, mask, repeatTime, {1, 1, 8, 8});
+            Div(dstLocal, dstLocal, voxelSizeT, mask, repeatTime, {1, 1, 1, 8, 8, 0});
             Cast(castLocal, dstLocal, RoundMode::CAST_FLOOR, mask, repeatTime, {1, 1, 8, 8});
         }
         if (tailNum > 0) {
             Adds(dstLocal[formerNum], ptsLocal[offset + formerNum], scalar, tailNum, 1, {1, 1, 0, 0});
-            Muls(dstLocal[formerNum], dstLocal[formerNum], reciproVox, tailNum, 1, {1, 1, 0, 0});
+            Div(dstLocal[formerNum], dstLocal[formerNum], voxelSizeT, tailNum, 1, {1, 1, 1, 0, 0, 0});
             Cast(castLocal[formerNum], dstLocal[formerNum], RoundMode::CAST_FLOOR, tailNum, 1, {1, 1, 0, 0});
         }
     }
@@ -354,6 +377,7 @@ private:
     TQue<TPosition::VECIN, BUFFER_NUM> tmpQue4_;
     TQue<TPosition::VECIN, BUFFER_NUM> tmpQue5_;
     TQue<TPosition::VECOUT, BUFFER_NUM> coorsQue_;
+    TBuf<TPosition::VECCALC> voxelSizeXBuf_, voxelSizeYBuf_, voxelSizeZBuf_;
 
     int ptsNum_;
     int ptsFeature_;
@@ -386,7 +410,8 @@ private:
     float reciproVoxel_[3];
 };
 
-extern "C" __global__ __aicore__ void dynamic_voxelization(GM_ADDR points, GM_ADDR coors, GM_ADDR workspace, GM_ADDR tiling)
+extern "C" __global__ __aicore__ void dynamic_voxelization(GM_ADDR points, GM_ADDR coors, GM_ADDR workspace,
+                                                           GM_ADDR tiling)
 {
     if (workspace == nullptr) {
         return;
@@ -394,7 +419,7 @@ extern "C" __global__ __aicore__ void dynamic_voxelization(GM_ADDR points, GM_AD
     SetSysWorkspace(workspace);
 
     GET_TILING_DATA(tilingData, tiling);
-    const DynamicVoxTilingData* __restrict tilingDevice = &tilingData;
+    const DynamicVoxTilingData *__restrict tilingDevice = &tilingData;
     DynamicVoxKernel op(points, coors, workspace, tilingDevice);
     op.Process();
 }

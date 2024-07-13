@@ -63,7 +63,7 @@ class TestDynVoxelization(TestCase):
         return points_cpu, points_npu
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DynVoxelization` is only supported on 910B, skip this ut!")
-    def test_dyn_voxelization(self):
+    def test_dyn_voxelization_general(self):
         dtype = torch.float32
         points_shape_list = [
             [16, 3],
@@ -84,6 +84,17 @@ class TestDynVoxelization(TestCase):
                 coors_cpu = self.cpu_to_exec(points_cpu, coors_range, voxel_size)
                 coors_npu = self.npu_to_exec(points_npu, coors_range, voxel_size)
                 self.assertRtolEqual(coors_cpu, coors_npu)
+                
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DynVoxelization` is only supported on 910B, skip this ut!")
+    def test_dyn_voxelization_boundary(self):
+        points_cpu = torch.tensor([[0.9890, 4.6407, -4.9517, -1.3076, 0.2576, -1.4615, -1.6132, -1.8242, 0.4206]])
+        voxel_size = [35.47308521738105, 15.469724056371934, 92.16283622466237]
+        coors_range = [-266.61751401434685, -490.3904950050411, -672.6572843925751,
+                       191.79477406132705, 677.45900318772, 248.5950831410758]
+        points_npu = points_cpu.npu()
+        coors_cpu = self.cpu_to_exec(points_cpu, coors_range, voxel_size)
+        coors_npu = self.npu_to_exec(points_npu, coors_range, voxel_size)
+        self.assertRtolEqual(coors_cpu, coors_npu)
 
 if __name__ == '__main__':
     run_tests()
