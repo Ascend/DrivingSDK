@@ -116,7 +116,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 ## 算子清单
 请参见[算子清单](./docs/api/README.md)。
 ## 支持特性
-- [x] 支持PyTorch 1.11.0，2.0.1，2.1.0
+- [x] 支持PyTorch 1.11.0，2.1.0
 - [x] 支持ONNX模型转换，训推一体
 - [ ] 支持图模式
 
