@@ -10,17 +10,10 @@ from mx_driving.perception.fused import bev_pool_v2
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
-B = 32
-D = 4
-H = 128
-W = 128
-C = 64
-N_RANKS = 1000
-
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 def golden_bev_pool_v2(
-    depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
+        depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
 ):
     output = np.zeros((b, d, h, w, c), dtype=np.float32)
     depth = depth.flatten()
@@ -28,7 +21,7 @@ def golden_bev_pool_v2(
     output = output.reshape((-1, c))
     for start, length in zip(interval_starts, interval_lengths):
         for i in range(length):
-            output[ranks_bev[start + i]] += depth[ranks_depth[start + i]] * feat[ranks_feat[start + i]]
+            output[ranks_bev[start]] += depth[ranks_depth[start + i]] * feat[ranks_feat[start + i]]
     output = output.reshape((b, d, h, w, c))
     output = np.transpose(output, (0, 4, 1, 2, 3))
     return output
@@ -36,7 +29,7 @@ def golden_bev_pool_v2(
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 def golden_bev_pool_v2_grad(
-    grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
+        grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
 ):
     grad_depth = np.zeros_like(depth).flatten()
     grad_feat = np.zeros_like(feat).reshape((-1, c))
@@ -53,7 +46,7 @@ def golden_bev_pool_v2_grad(
 
 
 # pylint: disable=too-many-return-values
-def generate_bev_pool_data():
+def generate_bev_pool_data(B, D, H, W, C, N_RANKS):
     feat = np.random.rand(B, 1, H, W, C).astype(np.float32)
     depth = np.random.rand(B, 1, D, H, W).astype(np.float32)
     grad_out = np.random.rand(B, D, H, W, C).astype(np.float32)
@@ -67,55 +60,58 @@ def generate_bev_pool_data():
 class TestBEVPoolV2(TestCase):
     @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `bev_pool` is only supported on 910B, skip this ut!")
     def test_bev_pool_v2(self):
-        feat, depth, grad_out, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape = generate_bev_pool_data()
-        kept = np.ones(ranks_bev.shape[0], dtype=bool)
-        kept[1:] = ranks_feat[1:] != ranks_feat[:-1]
-        interval_starts = np.where(kept)[0].astype(np.int32)
-        interval_lengths = np.zeros_like(interval_starts, dtype=np.int32)
-        interval_lengths[:-1] = interval_starts[1:] - interval_starts[:-1]
-        interval_lengths[-1] = ranks_feat.shape[0] - interval_starts[-1]
+        shapes = [[1, 1, 1, 1, 1, 1], [3, 3, 3, 3, 3, 3], [3, 3, 15, 15, 17, 33], [1, 5, 128, 128, 31, 777], [32, 4, 128, 128, 64, 9999]]
+        for shape in shapes:
+            B, D, H, W, C, N_RANKS = shape
+            feat, depth, grad_out, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape = generate_bev_pool_data(B, D, H, W, C, N_RANKS)
+            kept = np.ones(ranks_bev.shape[0], dtype=bool)
+            kept[1:] = ranks_feat[1:] != ranks_feat[:-1]
+            interval_starts = np.where(kept)[0].astype(np.int32)
+            interval_lengths = np.zeros_like(interval_starts, dtype=np.int32)
+            interval_lengths[:-1] = interval_starts[1:] - interval_starts[:-1]
+            interval_lengths[-1] = ranks_feat.shape[0] - interval_starts[-1]
 
-        feat_npu = torch.from_numpy(feat).npu()
-        grad_out_npu = torch.from_numpy(grad_out).npu()
-        depth_npu = torch.from_numpy(depth).npu()
-        ranks_depth_npu = torch.from_numpy(ranks_depth).npu()
-        ranks_feat_npu = torch.from_numpy(ranks_feat).npu()
-        ranks_bev_npu = torch.from_numpy(ranks_bev).npu()
-        interval_lengths_npu = torch.from_numpy(interval_lengths).npu()
-        interval_starts_npu = torch.from_numpy(interval_starts).npu()
+            feat_npu = torch.from_numpy(feat).npu()
+            grad_out_npu = torch.from_numpy(grad_out).npu()
+            depth_npu = torch.from_numpy(depth).npu()
+            ranks_depth_npu = torch.from_numpy(ranks_depth).npu()
+            ranks_feat_npu = torch.from_numpy(ranks_feat).npu()
+            ranks_bev_npu = torch.from_numpy(ranks_bev).npu()
+            interval_lengths_npu = torch.from_numpy(interval_lengths).npu()
+            interval_starts_npu = torch.from_numpy(interval_starts).npu()
 
-        bev_feat = bev_pool_v2(
-            depth_npu,
-            feat_npu,
-            ranks_depth_npu,
-            ranks_feat_npu,
-            ranks_bev_npu,
-            (B, D, H, W, C),
-            interval_starts_npu,
-            interval_lengths_npu,
-        )
-        bev_feat_cpu = golden_bev_pool_v2(
-            depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, B, D, H, W, C
-        )
-        _, grad_feat_npu = npu_bev_pool_v2_backward(
-            grad_out_npu,
-            depth_npu,
-            feat_npu,
-            ranks_depth_npu,
-            ranks_feat_npu,
-            ranks_bev_npu,
-            interval_lengths_npu,
-            interval_starts_npu,
-            B,
-            D,
-            H,
-            W,
-        )
-        grad_feat = golden_bev_pool_v2_grad(
-            grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, B, D, H, W, C
-        )
-        self.assertRtolEqual(bev_feat.detach().cpu().numpy(), bev_feat_cpu)
-        self.assertRtolEqual(grad_feat_npu.cpu().numpy(), grad_feat)
+            bev_feat = bev_pool_v2(
+                depth_npu,
+                feat_npu,
+                ranks_depth_npu,
+                ranks_feat_npu,
+                ranks_bev_npu,
+                (B, D, H, W, C),
+                interval_starts_npu,
+                interval_lengths_npu,
+            )
+            bev_feat_cpu = golden_bev_pool_v2(
+                depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, B, D, H, W, C
+            )
+            _, grad_feat_npu = npu_bev_pool_v2_backward(
+                grad_out_npu,
+                depth_npu,
+                feat_npu,
+                ranks_depth_npu,
+                ranks_feat_npu,
+                ranks_bev_npu,
+                interval_lengths_npu,
+                interval_starts_npu,
+                B,
+                D,
+                H,
+                W,
+            )
+            grad_feat = golden_bev_pool_v2_grad(
+                grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, B, D, H, W, C
+            )
+            self.assertRtolEqual(bev_feat.detach().cpu().numpy(), bev_feat_cpu)
+            self.assertRtolEqual(grad_feat_npu.cpu().numpy(), grad_feat)
 
 
 if __name__ == "__main__":

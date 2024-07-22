@@ -39,25 +39,30 @@ def golden_bev_pool_grad(feat, geom_feat, interval_starts, interval_lengths, gra
     return grad_feat
 
 
-def generate_bev_pool_data(n, c):
+def generate_bev_pool_data(n, b, d, h, w, c):
     feat = np.random.rand(n, c).astype(np.float32)
-    geom_feat = np.random.randint(0, 32, (n, 4)).astype(np.int32)
-    out_shape = (32, 32, 32, 32, c)
-    return feat, geom_feat, out_shape
+    geom_feat_b = np.random.randint(0, b, (n,)).astype(np.int32)
+    geom_feat_d = np.random.randint(0, d, (n,)).astype(np.int32)
+    geom_feat_h = np.random.randint(0, h, (n,)).astype(np.int32)
+    geom_feat_w = np.random.randint(0, w, (n,)).astype(np.int32)
+    geom_feat = np.stack([geom_feat_h, geom_feat_w, geom_feat_d, geom_feat_b], axis=1)
+    return feat, geom_feat 
 
 
 class TestBEVPool(TestCase):
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B',
                      "OP `bev_pool` is only supported on 910B, skip this ut!")
     def test_bev_pool(self):
-        feat, geom_feat, out_shape = generate_bev_pool_data(1000, 64)
-        (b, d, h, w, c) = out_shape
-        feat_npu = torch.from_numpy(feat).npu()
-        geom_feat_npu = torch.from_numpy(geom_feat).npu()
-        out_npu = bev_pool(feat_npu, geom_feat_npu, b, d, h, w)
-        out_cpu, interval_starts, interval_lengths = golden_bev_pool(feat, geom_feat, b, d, h, w, c)
+        shapes = [[1, 1, 1, 1, 1, 1], [3, 3, 3, 3, 3, 3], [3, 3, 15, 15, 17, 33], [1, 5, 128, 128, 31, 777], [32, 4, 128, 128, 64, 9999]]
+        for shape in shapes:
+            (b, d, h, w, c, n) = shape 
+            feat, geom_feat = generate_bev_pool_data(n, b, d, h, w, c)
+            feat_npu = torch.from_numpy(feat).npu()
+            geom_feat_npu = torch.from_numpy(geom_feat).npu()
+            out_npu = bev_pool(feat_npu, geom_feat_npu, b, d, h, w)
+            out_cpu, interval_starts, interval_lengths = golden_bev_pool(feat, geom_feat, b, d, h, w, c)
 
-        self.assertRtolEqual(out_cpu, out_npu.cpu().numpy())
+            self.assertRtolEqual(out_cpu, out_npu.cpu().numpy())
 
 if __name__ == '__main__':
     run_tests()
