@@ -220,7 +220,7 @@ private:
                     copyParams_indices_stride, padParams);
         set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        Muls(indices_ub_temp2, indices_ub_temp2, outSpatialShape[0], tensor_size);
+        Muls(indices_ub_temp2, indices_ub_temp2, outSpatialShape[2], tensor_size);
         Add(indices_ub_temp, indices_ub_temp2, indices_ub_temp, tensor_size);
         set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
         wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
@@ -230,7 +230,7 @@ private:
         set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
         Muls(indices_ub_temp2, indices_ub_temp2,
-                outSpatialShape[1]*outSpatialShape[0], tensor_size);
+                outSpatialShape[1]*outSpatialShape[2], tensor_size);
         Add(indices_ub_temp, indices_ub_temp2, indices_ub_temp, tensor_size);
     }
 

@@ -46,15 +46,15 @@ public:
         outputIndicesPairGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INDICES *>(indices_pair) + beginOffset * kernelSize * 4);
 
         pipe->InitBuffer(featuresQueue, BUFFER_NUM, AlignUp(kernelIC, valueBlockNum) * moveLen * sizeof(DTYPE_FEATURES));
-        pipe->InitBuffer(indicesQueue, BUFFER_NUM, AlignUp(moveLen * 4, idxBlockNum) * sizeof(DTYPE_INDICES));
+        pipe->InitBuffer(indicesQueue, BUFFER_NUM, moveLen * 4 * sizeof(DTYPE_INDICES));
         pipe->InitBuffer(weightQueue, BUFFER_NUM, kernelOC * AlignUp(kernelIC, valueBlockNum) * sizeof(DTYPE_WEIGHT));
 
         pipe->InitBuffer(mulTmpUB, AlignUp(kernelIC, valueBlockNum) * sizeof(DTYPE_FEATURE_OUT));
         pipe->InitBuffer(sumTmpUB, AlignUp(kernelIC, valueBlockNum) * sizeof(DTYPE_FEATURE_OUT));
         pipe->InitBuffer(outTmpUB, AlignUp(kernelOC, valueBlockNum) * sizeof(DTYPE_FEATURE_OUT));
 
-        pipe->InitBuffer(outIndicesUB, AlignUp(moveLen * kernelSize, idxBlockNum) * sizeof(DTYPE_INDICES));
-        pipe->InitBuffer(outIndicesPairUB, AlignUp(moveLen * kernelSize * 4, idxBlockNum) * sizeof(DTYPE_INDICES));
+        pipe->InitBuffer(outIndicesUB, moveLen * kernelSize * sizeof(DTYPE_INDICES));
+        pipe->InitBuffer(outIndicesPairUB, moveLen * kernelSize * 4 * sizeof(DTYPE_INDICES));
         pipe->InitBuffer(workUB, workSize * sizeof(DTYPE_FEATURE_OUT));
     }
 
@@ -62,6 +62,7 @@ public:
     {
         for (uint32_t i = 0; i < coreRepeatTimes; i++) {
             Compute(i);
+            pipe_barrier(PIPE_ALL);
         }
     }
 
@@ -108,12 +109,15 @@ private:
         if (query == coreRepeatTimes - 1) {
             forMoveLen = coreMoveTail;
         }
+
         DataCopyExtParams featureCopyParams {(uint16_t)forMoveLen, (uint32_t)(kernelIC * sizeof(DTYPE_WEIGHT)), 0, 0, 0};
         DataCopyExtParams weightCopyParams {(uint16_t)kernelOC, (uint32_t)(kernelIC * sizeof(DTYPE_WEIGHT)), 0, 0, 0};
         DataCopyExtParams indicesCopyParams {1, (uint32_t)(forMoveLen * 4 * sizeof(DTYPE_INDICES)), 0, 0, 0};
+
         DataCopyExtParams outCopyParams {1, (uint32_t)(kernelOC * sizeof(DTYPE_WEIGHT)), 0, 0, 0};
         DataCopyExtParams outIndicesCopyParams {1, (uint32_t)(forMoveLen * kernelSize * sizeof(DTYPE_INDICES)), 0, 0, 0};
         DataCopyExtParams outPairCopyParams {1, (uint32_t)(forMoveLen * kernelSize * 4 * sizeof(DTYPE_INDICES)), 0, 0, 0};
+
         DataCopyPadExtParams<DTYPE_WEIGHT> featurePadParams{true, 0, 0, 0};
         DataCopyPadExtParams<DTYPE_WEIGHT> weightPadParams{true, 0, 0, 0};
         DataCopyPadExtParams<DTYPE_INDICES> indicesPadParams{true, 0, 0, 0};
@@ -129,6 +133,7 @@ private:
 
         LocalTensor<DTYPE_INDICES> outIndicesTemp = outIndicesUB.Get<DTYPE_INDICES>();
         LocalTensor<DTYPE_INDICES> outIndicesPairTemp = outIndicesPairUB.Get<DTYPE_INDICES>();
+
         DTYPE_INDICES onesVal = -1;
         Duplicate<DTYPE_INDICES>(outIndicesTemp, onesVal, moveLen * kernelSize);
 
@@ -142,28 +147,32 @@ private:
 
         SetFlag<HardEvent::S_MTE2>(eventIDSToMTE2);
         WaitFlag<HardEvent::S_MTE2>(eventIDSToMTE2);
-        DataCopyPad(indicesLocal, indicesGm[taskOffset], indicesCopyParams, indicesPadParams);
+        DataCopyPad(indicesLocal, indicesGm[taskOffset * 4], indicesCopyParams, indicesPadParams);
         pipe_barrier(PIPE_MTE2);
 
         for (uint32_t i = 0; i < forMoveLen; i++) {
+            // GetValue feature's locations
             int32_t idxOffset = i * 4;
             int32_t featureB = indicesLocal.GetValue(idxOffset);
             int32_t featureD = indicesLocal.GetValue(idxOffset + 1) + paddingDepth;
             int32_t featureH = indicesLocal.GetValue(idxOffset + 2) + paddingHeight;
             int32_t featureW = indicesLocal.GetValue(idxOffset + 3) + paddingWidth;
             int32_t bOffset = featureB * outputDepth * outputHeight * outputWidth;
+            // Calculate the features of this position that affect the positions of the output
             int32_t startD = Max(featureD - kernelD + 1, 0);
             int32_t startH = Max(featureH - kernelH + 1, 0);
             int32_t startW = Max(featureW - kernelW + 1, 0);
-            int32_t outBeginD = AlignUp(startD, strideDepth);
-            int32_t outBeginH = AlignUp(startH, strideHeight);
-            int32_t outBeginW = AlignUp(startW, strideWidth);
-            int32_t outEndD = Min(AlignUp(featureD + 1, strideDepth), outputDepth);
-            int32_t outEndH = Min(AlignUp(featureH + 1, strideHeight), outputHeight);
-            int32_t outEndW = Min(AlignUp(featureW + 1, strideWidth), outputWidth);
+            int32_t outBeginD = AlignUp(startD, strideDepth) / strideDepth;
+            int32_t outBeginH = AlignUp(startH, strideHeight) / strideHeight;
+            int32_t outBeginW = AlignUp(startW, strideWidth) / strideWidth;
+            int32_t outEndD = Min(AlignUp(featureD + 1, strideDepth) / strideDepth, outputDepth);
+            int32_t outEndH = Min(AlignUp(featureH + 1, strideHeight) / strideHeight, outputHeight);
+            int32_t outEndW = Min(AlignUp(featureW + 1, strideWidth) / strideWidth, outputWidth);
+
             SetFlag<HardEvent::S_MTE2>(eventIDSToMTE2);
             WaitFlag<HardEvent::S_MTE2>(eventIDSToMTE2);
             DataCopyPad(featuresLocal, featuresGm[(taskOffset + i) * kernelIC], featureCopyParams, featurePadParams);
+
             for (int32_t ix = outBeginD; ix < outEndD; ix++) {
                 uint32_t xOffset = (uint32_t)ix * outputHeight * outputWidth;
                 for (int32_t iy = outBeginH; iy < outEndH; iy++) {
@@ -194,6 +203,7 @@ private:
                         int64_t outInidcesPairOffset = (i * kernelSize + convOffset) * 4;
                         SetFlag<HardEvent::S_MTE3>(eventIDSToMTE3);
                         WaitFlag<HardEvent::S_MTE3>(eventIDSToMTE3);
+                        DataCopyPad(outputFeatureGm[outFeatureOffset], outTmpLocal, outCopyParams);
                         outIndicesTemp.SetValue(outInidcesOffset, gmOutValueOffset);
                         outIndicesPairTemp.SetValue(outInidcesPairOffset, featureB);
                         outIndicesPairTemp.SetValue(outInidcesPairOffset + 1, ix);
@@ -204,11 +214,8 @@ private:
             }
             pipe_barrier(PIPE_ALL);
         }
-        SetFlag<HardEvent::S_MTE3>(eventIDSToMTE3);
-        WaitFlag<HardEvent::S_MTE3>(eventIDSToMTE3);
         DataCopyPad(outputIndicesGm[taskOffset * kernelSize], outIndicesTemp, outIndicesCopyParams);
         DataCopyPad(outputIndicesPairGm[taskOffset * kernelSize * 4], outIndicesPairTemp, outPairCopyParams);
-
         featuresQueue.FreeTensor(featuresLocal);
         indicesQueue.FreeTensor(indicesLocal);
         weightQueue.FreeTensor(weightLocal);
@@ -219,8 +226,8 @@ private:
         if (mulmask > kernelIC) {
             mulmask = kernelIC;
         }
-        mulRepeatTimes = DivCeil(kernelIC, mulmask);
-        int workSize = AlignUp(mulRepeatTimes, dataAlign);
+        mulRepeatTimes = AlignUp(kernelIC, mulmask);
+        workSize = AlignUp(mulRepeatTimes, dataAlign);
     }
     __aicore__ inline uint32_t Max(int32_t a, int32_t b)
     {
@@ -286,6 +293,7 @@ private:
     uint32_t workSize;
 };
 extern "C" __global__ __aicore__ void sparse_conv3d(GM_ADDR features, GM_ADDR indices, GM_ADDR weight, GM_ADDR feature_out, GM_ADDR indices_out, GM_ADDR indices_pair, GM_ADDR workspace, GM_ADDR tiling) {
+    SetSysWorkspace(workspace);
     GET_TILING_DATA(tiling_data, tiling);
     TPipe pipe;
     KernelSparseConv3d op;

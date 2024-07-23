@@ -49,6 +49,7 @@ public:
     {
         for (uint32_t i = 0; i < coreRepeatTimes; i++) {
             Compute(i);
+            pipe_barrier(PIPE_ALL);
         }
     }
 
@@ -123,8 +124,8 @@ private:
             DataCopyPad(indicesLocal[i * 8], indicesGm[sortOffset * 4], indicesCopyParams, indicesPadParams);
             for (uint32_t j = 0; j < endIndicesOffset - beginIndicesOffset; j++) {
                 sortOffset = sortLocal.GetValue(j);
-                SetFlag<HardEvent::S_V>(eventIDSToV);
-                WaitFlag<HardEvent::S_V>(eventIDSToV);
+                SetFlag<HardEvent::S_MTE2>(eventIDSToMTE2);
+                WaitFlag<HardEvent::S_MTE2>(eventIDSToMTE2);
                 DataCopyPad(valueLocal, valueGm[sortOffset * outChannels], valueCopyParams, valuePadParams);
                 SetFlag<HardEvent::MTE2_V>(eventIDMTE2ToV);
                 WaitFlag<HardEvent::MTE2_V>(eventIDMTE2ToV);

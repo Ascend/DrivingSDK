@@ -89,12 +89,12 @@ class Net(nn.Module):
         return self.net(x)
 
 
-def _test_multi_impl(dtype: torch.dtype):
+def _test_multi_impl(spatial_shape, feature_num, dtype: torch.dtype):
 
     np.random.seed(50051)
 
     spatial_shape = [4, 4, 4]
-    sparse_dict = generate_sparse_data(spatial_shape, [2] * 1, 16)
+    sparse_dict = generate_sparse_data(spatial_shape, [feature_num] * 1, 16)
 
     voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
     coors = np.ascontiguousarray(
@@ -102,7 +102,7 @@ def _test_multi_impl(dtype: torch.dtype):
     device = torch.device("npu:0")
 
     voxels_th_npu = torch.from_numpy(voxels).to(device).to(dtype)
-    print(voxels_th_npu, voxels_th_npu.shape)
+
     coors_th_npu = torch.from_numpy(coors).to(device)
     net_cls = Net
     # npu
@@ -113,7 +113,10 @@ def _test_multi_impl(dtype: torch.dtype):
 
 
 def test_multi_impl():
-    _test_multi_impl(torch.float32)
+    _test_multi_impl([4, 4, 4], 3, torch.float32)
+    _test_multi_impl([7, 7, 7], 9, torch.float32)
+    _test_multi_impl([12, 13, 14], 100, torch.float32)
+    _test_multi_impl([25, 25, 25], 400, torch.float32)
 
 
 if __name__ == "__main__":

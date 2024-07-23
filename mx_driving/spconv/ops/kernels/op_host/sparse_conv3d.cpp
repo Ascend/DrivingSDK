@@ -6,12 +6,19 @@
 using namespace ge;
 
 namespace optiling {
-static uint32_t AlignUp(uint32_t x, uint32_t y)
+static uint32_t Ceil(uint32_t x, uint32_t y)
 {
     if (y == 0) {
         return x;
     }
     return (x - 1 + y) / y;
+}
+static uint32_t AlignUp(uint32_t x, uint32_t y)
+{
+    if (y == 0) {
+        return x;
+    }
+    return ((x - 1 + y) / y) * y;
 }
 
 static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
@@ -28,8 +35,8 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
     uint32_t coreNum = platformInfo.GetCoreNumAiv();
     uint32_t actualNum = feature_shape.GetDim(0);
 
-    uint32_t coreTask = AlignUp(actualNum, coreNum);
-    uint32_t usedCoreNum = AlignUp(actualNum, coreTask);
+    uint32_t coreTask = AlignUp(Ceil(actualNum, coreNum), 32);
+    uint32_t usedCoreNum = Ceil(actualNum, coreTask);
     uint32_t lastCoreTask = 0;
     if (coreTask != 0) {
         lastCoreTask = actualNum % coreTask;
@@ -45,12 +52,18 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
     uint32_t kernelIC = weight_shape.GetDim(4);
     uint32_t kernelSize = kernelD * kernelH * kernelW;
 
-    uint32_t usedUbSize = kernelOC * kernelIC * 4 + kernelIC * 4 * 3;
-    uint32_t moveLen = (uint32_t)((availableUbSize - 10 * 1024 - usedUbSize) / 4 / (kernelSize * 5 + 4 + AlignUp(kernelIC, 8) * 8));
+    uint32_t reserveUbSize = 8 * 1024;
+    uint32_t usedUbSize = 256 * 4 * sizeof(float);
+    uint32_t weightUbSize = kernelOC * AlignUp(kernelIC, 8) * sizeof(float);
+    // featureUb [moveLen, icAlignUp], indicesUb [moveLen, 4], outidxUb [moveLen, 27] outidxPairUb [moveLen, kernelSize, 4]
+    // The max Value of ic and oc is 256 -> mulUb + sumUb + tmpUb + workUb = 256 * 4 * sizeof(int32 or float32)
+    // weight shape is [..., oc, ic] ->  weightUb = oc * ic
+    uint32_t moveLen = (availableUbSize - usedUbSize - weightUbSize - reserveUbSize) / 4 / (AlignUp(kernelIC, 8) + 4 + 5 * kernelSize);
+    moveLen = moveLen / 32 * 32;
     if (moveLen > coreTask) moveLen = coreTask;
 
-    uint32_t repeatTimes = AlignUp(coreTask, moveLen);
-    uint32_t lastRepeatTimes = AlignUp(lastCoreTask, moveLen);
+    uint32_t repeatTimes = Ceil(coreTask, moveLen);
+    uint32_t lastRepeatTimes = Ceil(lastCoreTask, moveLen);
     uint32_t moveTail = 0;
     uint32_t lastMoveTail = 0;
     if (moveLen != 0) {
@@ -95,6 +108,9 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
     tiling.set_paddingWidth(paddingData[2]);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    currentWorkspace[0] = 16 * 1024 * 1024;
+
     return ge::GRAPH_SUCCESS;
 }
 } // namespace optiling
