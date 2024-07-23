@@ -300,6 +300,7 @@ private:
                         for (uint32_t point = 0; point < NUM_POINTS / 2; point++) {
                             DataCopy(outputGm[dstOffset], tmpResLocal3[srcOffset + point * embedDimsOpt], embedDimsOpt);
                         }
+                        pipe_barrier(PIPE_ALL);
                     }
                 }
                 SetAtomicNone();
@@ -447,6 +448,7 @@ private:
 
                         Mul(weightLocal, weightLocal, attentionWeightLocal, numPointsAlign, 4,
                             {1, 1, 1, uint8_t(numPointsAlign / dataAlign), uint8_t(numPointsAlign / dataAlign), 0});
+                        pipe_barrier(PIPE_ALL);
                         if (head < numHeads - 1) {
                             weightOffset = dataOffset + ((head + 1) * numLevels + level) * numPoints;
                             locationOffset = weightOffset * 2;
