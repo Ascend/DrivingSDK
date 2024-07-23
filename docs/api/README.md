@@ -700,3 +700,30 @@ boxes_b = torch.tensor([[1, 1, 3, 3, 0]], dtype=torch.float32).npu()
 area_overlap = boxes_overlap_bev(boxes_a, boxes_b)
 print(area_overlap)
 ```
+
+## npu_max_pool2d
+### 接口原型
+```python
+mx_driving.common.npu_max_pool2d(Tensor x, int kernel_size, int stride, int padding) -> Tensor
+```
+### 功能描述
+Performs max pooling on the input and outputs max values.
+### 参数说明
+- `x (Tensor)`：一组待池化对象，数据类型为`float32`，format为NCHW。
+### 返回值
+- `y (Tensor)`：池化后的最大值，数据类型为`float32`，format为NCHW。
+### 约束说明
+kernel_size仅支持3，stride仅支持2，padding仅支持1，且输入C轴数据量要求为8的倍数。
+### 支持的型号
+- Atlas A2 训练系列产品
+### 调用示例
+```python
+import torch, torch_npu
+from mx_driving.common import npu_max_pool2d
+kernel_size = 3
+stride = 2
+padding = 1
+x = torch.randn(18, 64, 464, 800).npu()
+res = npu_max_pool2d(x, kernel_size, stride, padding)
+print(res)
+```

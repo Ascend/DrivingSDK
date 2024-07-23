@@ -5,6 +5,7 @@ import mx_driving.common
 
 
 def gen_inputs(shape, dtype):
+    torch.manual_seed(123)
     x_data_cpu = torch.rand(shape, dtype=dtype)
     return x_data_cpu
 
@@ -26,6 +27,8 @@ class TestNpuMaxPool2d(TestCase):
         shape_list = [
             [18, 64, 464, 800],
             [6, 64, 464, 800],
+            [7, 32, 46400, 18],
+            [2, 16, 42, 24785],
             [1, 8, 3, 3]
         ]
 
