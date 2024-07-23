@@ -37,13 +37,13 @@ class TestFurthestPointSampleWithDist(TestCase):
                     point_dist[batch_id, src_id, dst_id] = point_dist[batch_id, src_id, dst_id] =\
                     (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2)
         return point_dist
-    
+
     def compare_min(self, a, b):
         if a > b:
             return b
         else:
             return a
-    
+
     def supported_op_exec(self, point_dist, point_num):
         b, n, _ = point_dist.shape
         tmp = np.zeros([b, n]).astype(np.float32)
@@ -67,12 +67,12 @@ class TestFurthestPointSampleWithDist(TestCase):
         point_dist_npu = torch.tensor(point_dist, dtype=input_dtype).npu()
         output = mx_driving.common.furthest_point_sample_with_dist(point_dist_npu, point_num)
         return output.cpu().numpy()
-    
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampleWithDist` is only supported on 910B, skip this ut!")   
+
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampleWithDist` is only supported on 910B, skip this ut!")
     def test_FurthestPointSampleWithDist(self):
-        shape_list = [[4, 100], [30, 1000]]
-        point_num_list = [32, 1000]
-        dtype_list = [torch.float32, torch.float32]
+        shape_list = [[4, 100], [30, 1000], [3, 2567], [454, 6]]
+        point_num_list = [32, 1000, 1400, 3]
+        dtype_list = [torch.float32, torch.float32, torch.float32, torch.float32]
         for idx in range(2):
             shape = shape_list[idx]
             point_num = point_num_list[idx]
