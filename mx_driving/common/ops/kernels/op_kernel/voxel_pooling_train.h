@@ -199,6 +199,7 @@ private:
             int32_t addrOffset = idxLocal(i);
             SetAtomicAdd<T>();
             DataCopyPad(featuresOutGm_[addrOffset], featureLocal[i * numChannelAlign], copyParams);
+            pipe_barrier(PIPE_ALL);
             SetAtomicNone();
         }
 

@@ -90,7 +90,7 @@ class TestVoxelPoolingTrain(TestCase):
         features_npu.requires_grad = True
         return geom_xyz_cpu, features_cpu, geom_xyz_npu, features_npu
     
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DynVoxelization` is only supported on 910B, skip this ut!")
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `VoxelPoolingTrain` is only supported on 910B, skip this ut!")
     def test_voxel_pooling_train(self):
         torch.npu.set_device('npu:0')
         types = [torch.float32, ]
@@ -125,3 +125,7 @@ class TestVoxelPoolingTrain(TestCase):
                         cpu_grad_features = cpu_grad_features.numpy()
                         npu_grad_features = npu_grad_features.cpu().numpy()
                         self.assertRtolEqual(cpu_grad_features, npu_grad_features)
+
+
+if __name__ == "__main__":
+    run_tests()
