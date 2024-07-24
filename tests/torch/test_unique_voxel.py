@@ -11,6 +11,7 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 class TestUniqueVoxel(TestCase):
     seed = 1024
+    np.random.seed(seed)
     point_nums = [1, 7, 6134, 99999]
 
     def gen(self, point_num):
@@ -22,7 +23,7 @@ class TestUniqueVoxel(TestCase):
         return res.shape[0], np.sort(res)
 
     def npu_unique(self, voxels):
-        voxels_npu = torch.from_numpy(voxels.view(np.float32)).npu()
+        voxels_npu = torch.from_numpy(voxels).npu()
         cnt, uni_vox, _, _, _ = ads_c.unique_voxel(voxels_npu)
         return cnt, uni_vox.cpu().numpy()
 
@@ -65,6 +66,15 @@ class TestUniqueVoxel(TestCase):
             voxels = self.gen(point_num)
             cnt_cpu, res_cpu = self.golden_unique(voxels)
             cnt_npu, res_npu = self.npu_unique(voxels)
+            self.assertRtolEqual(cnt_cpu, cnt_npu)
+            self.assertRtolEqual(res_cpu, res_npu)
+
+    @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
+    def test_unique_voxel_int32(self):
+        for point_num in self.point_nums:
+            voxels = self.gen(point_num)
+            cnt_cpu, res_cpu = self.golden_unique(voxels)
+            cnt_npu, res_npu = self.npu_unique(voxels.view(np.float32))
             self.assertRtolEqual(cnt_cpu, cnt_npu)
             self.assertRtolEqual(res_cpu, res_npu)
 

@@ -5,8 +5,7 @@ from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_di
 from .ops.npu_dynamic_scatter import npu_dynamic_scatter
 from .ops.npu_points_in_box import npu_points_in_box
 from .ops.npu_multi_scale_deformable_attn_function import npu_multi_scale_deformable_attn_function
-from .ops.dynamic_voxelization import voxelization
-from .ops.dynamic_voxelization import Voxelization
+from .ops.voxelization import voxelization, Voxelization
 from .ops.nms3d_normal import npu_nms3d_normal
 from .ops.furthest_point_sampling import npu_furthest_point_sampling
 from .ops.npu_nms3d import npu_nms3d

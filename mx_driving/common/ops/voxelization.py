@@ -10,6 +10,7 @@ import ads_c
 
 class AdsVoxelizationFunction(Function):
     @staticmethod
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(
         ctx,
         points,
@@ -19,9 +20,8 @@ class AdsVoxelizationFunction(Function):
         max_voxels: int = -1,
         deterministic: bool = True):
 
-        if max_points != -1:
-            print("ERROR: npu is only support dynamic voxelizaiton, please check max_num_point param \n")
-            print("return the result with dynamic voxelization") 
+        if max_points != -1 and max_voxels != -1:
+            return ads_c.hard_voxelize(points, voxel_size, coors_range, max_points, max_voxels)
 
         float_espolin = 1e-9
         if (voxel_size[0] < float_espolin or 
@@ -57,8 +57,8 @@ class Voxelization(torch.nn.Module):
         self.point_cloud_range = point_cloud_range
         self.max_num_points = max_num_points
 
-    def forward(self, input: torch.Tensor):
-        return voxelization(input, self.voxel_size, self.point_cloud_range,
+    def forward(self, points: torch.Tensor):
+        return voxelization(points, self.voxel_size, self.point_cloud_range,
                             self.max_num_points)
 
     

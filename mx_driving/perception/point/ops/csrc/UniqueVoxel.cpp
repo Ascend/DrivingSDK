@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <c10/core/ScalarType.h>
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
@@ -22,11 +23,11 @@ std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor, at::Tensor> unique_voxel
 {
     TORCH_CHECK_NPU(voxels);
     TORCH_CHECK(voxels.dim() == 1, "voxels.dim() must be 1, but got: ", voxels.dim());
-    TORCH_CHECK(voxels.dtype() == at::kFloat, "voxels.dtype() must be float, but got: ", voxels.dtype());
+    TORCH_CHECK(voxels.dtype() == at::kFloat || voxels.dtype() == at::kInt, "voxels.dtype() must be float or int32, but got: ", voxels.dtype());
 
     size_t num_points = voxels.size(0);
 
-    auto sorted = at::sort(voxels);
+    auto sorted = voxels.dtype() == at::kFloat ? at::sort(voxels) : at::sort(voxels.view(at::kFloat));
     at::Tensor sorted_voxels = std::get<0>(sorted);
     at::Tensor argsort_indices = std::get<1>(sorted).to(at::kInt);
 
@@ -37,7 +38,7 @@ std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor, at::Tensor> unique_voxel
 
     at::Tensor uni_voxels = at::empty({num_points + 1}, voxels.options().dtype(at::kInt));
     at::Tensor uni_indices = at::empty({num_points + 1}, voxels.options().dtype(at::kInt));
-    at::Tensor uni_argsort_indices = at::empty({num_points + 1}, voxels.options());
+    at::Tensor uni_argsort_indices = at::empty({num_points + 1}, voxels.options().dtype(at::kFloat));
     at::Tensor num_voxels = at::empty({1}, voxels.options().dtype(at::kInt));
     EXEC_NPU_CMD_SYNC(aclnnUniqueVoxel, sorted_voxels, indices, argsort_indices, uni_voxels, uni_indices,
         uni_argsort_indices, num_voxels);
