@@ -99,8 +99,42 @@ class Test2(CreateBenchMarkTest):
         self.point = torch.from_numpy(self.point)
 
 
+class Test3(CreateBenchMarkTest):
+    def createData(self):
+        self.batch = 21
+        self.N = 3901
+        self.numPoints = 671
+
+        self.point = np.zeros([self.batch, 3, self.N], dtype=np.float32)
+        for i in range(self.batch):
+            for j in range(self.N):
+                self.point[i, 0, j] = j
+
+        self.nearestDist = np.ones([self.batch, self.N], dtype=np.float32) * 1e10
+        self.point = torch.from_numpy(self.point)
+
+
+class Test4(CreateBenchMarkTest):
+    def createData(self):
+        self.batch = 151
+        self.N = 3901
+        self.numPoints = 671
+
+        self.point = np.zeros([self.batch, 3, self.N], dtype=np.float32)
+        for i in range(self.batch):
+            for j in range(self.N):
+                self.point[i, 0, j] = j
+                self.point[i, 1, j] = j + 1
+                self.point[i, 2, j] = j + 3
+
+        self.nearestDist = np.ones([self.batch, self.N], dtype=np.float32) * 1e10
+        self.point = torch.from_numpy(self.point)
+
+
 test1 = Test1()
 test2 = Test2()
+test3 = Test3()
+test4 = Test4()
 
 
 class TestFurthestPointSample(TestCase):
@@ -120,6 +154,8 @@ class TestFurthestPointSample(TestCase):
     def test_FurthestPointSample(self):
         self.compare_res(test1)
         self.compare_res(test2)
+        self.compare_res(test3)
+        self.compare_res(test4)
 
 
 if __name__ == "__main__":
