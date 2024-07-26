@@ -214,6 +214,8 @@ Inputs = namedtuple('Inputs', ['boxes_a', 'boxes_b'])
 
 
 class TestBoxesOverlapBev(TestCase):
+    np.random.seed(2024)
+
     def setUp(self):
         self.dtype_list = [torch.float32]
         self.shape_list = [

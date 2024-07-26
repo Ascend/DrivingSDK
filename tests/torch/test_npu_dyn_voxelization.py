@@ -46,6 +46,8 @@ def dyn_voxelization_cpu(points, voxel_size, coors_range):
 
 
 class TestDynVoxelization(TestCase):
+    torch.manual_seed(2024)
+
     def cpu_to_exec(self, points, coors_range, voxel_size):
         coors = dyn_voxelization_cpu(points, voxel_size, coors_range)
         return coors
