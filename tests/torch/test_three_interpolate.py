@@ -1,59 +1,67 @@
 import torch
+import numpy as np
+
 from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving.common
 
 
 class TestThreeinterpolate(TestCase):
     
-    def test_three_interpolate(self):
-        features = torch.tensor(
-            [[[2.4350, 4.7516, 4.4995, 2.4350, 2.4350, 2.4350],
-            [3.1236, 2.6278, 3.0447, 3.1236, 3.1236, 3.1236],
-            [2.6732, 2.8677, 2.6436, 2.6732, 2.6732, 2.6732],
-            [0.0124, 7.0150, 7.0199, 0.0124, 0.0124, 0.0124],
-            [0.3207, 0.0000, 0.3411, 0.3207, 0.3207, 0.3207]],
-            [[0.0000, 0.9544, 2.4532, 0.0000, 0.0000, 0.0000],
-            [0.5346, 1.9176, 1.4715, 0.5346, 0.5346, 0.5346],
-            [0.0000, 0.2744, 2.0842, 0.0000, 0.0000, 0.0000],
-            [0.3414, 1.5063, 1.6209, 0.3414, 0.3414, 0.3414],
-            [0.5814, 0.0103, 0.0000, 0.5814, 0.5814, 0.5814]]],
-            ).npu()
-        idx = torch.tensor(
-            [[[0, 1, 2], [2, 3, 4], [2, 3, 4], [0, 1, 2], [0, 1, 2], [0, 1, 3]],
-            [[0, 2, 3], [1, 3, 4], [2, 1, 4], [0, 2, 4], [0, 2, 4], [0, 1, 2]]],
-            ).int().npu()
-
-        weight = torch.tensor(
-            [[[3.3333e-01, 3.3333e-01, 3.3333e-01],
-              [1.0000e+00, 5.8155e-08, 2.2373e-08],
-              [1.0000e+00, 1.7737e-08, 1.7356e-08],
-              [3.3333e-01, 3.3333e-01, 3.3333e-01],
-              [3.3333e-01, 3.3333e-01, 3.3333e-01],
-              [3.3333e-01, 3.3333e-01, 3.3333e-01]],
-             [[3.3333e-01, 3.3333e-01, 3.3333e-01],
-              [1.0000e+00, 1.3651e-08, 7.7312e-09],
-              [1.0000e+00, 1.7148e-08, 1.4070e-08],
-              [3.3333e-01, 3.3333e-01, 3.3333e-01],
-              [3.3333e-01, 3.3333e-01, 3.3333e-01],
-              [3.3333e-01, 3.3333e-01, 3.3333e-01]]],
-            ).npu()
-
-        expected_output = torch.tensor(
-            [[[3.8953e+00, 4.4995e+00, 4.4995e+00, 3.8953e+00, 3.8953e+00, 3.2072e+00], 
-              [2.9320e+00, 3.0447e+00, 3.0447e+00, 2.9320e+00, 2.9320e+00, 2.9583e+00], 
-              [2.7281e+00, 2.6436e+00, 2.6436e+00, 2.7281e+00, 2.7281e+00, 2.7380e+00], 
-              [4.6824e+00, 7.0199e+00, 7.0199e+00, 4.6824e+00, 4.6824e+00, 2.3466e+00], 
-              [2.2060e-01, 3.4110e-01, 3.4110e-01, 2.2060e-01, 2.2060e-01, 2.1380e-01]], 
-             [[8.1773e-01, 9.5440e-01, 2.4532e+00, 8.1773e-01, 8.1773e-01, 1.1359e+00], 
-              [8.4689e-01, 1.9176e+00, 1.4715e+00, 8.4689e-01, 8.4689e-01, 1.3079e+00], 
-              [6.9473e-01, 2.7440e-01, 2.0842e+00, 6.9473e-01, 6.9473e-01, 7.8619e-01], 
-              [7.6789e-01, 1.5063e+00, 1.6209e+00, 7.6789e-01, 7.6789e-01, 1.1562e+00], 
-              [3.8760e-01, 1.0300e-02, 8.3569e-09, 3.8760e-01, 3.8760e-01, 1.9723e-01]]],
-            ).npu()
+    def cpu_op_exec(self, feat, idx, wt):
+        bs, cs, ms = feat.shape
+        ns = idx.shape[1]
+        out = np.zeros((bs, cs, ns)).astype(feat.dtype)
+        # forward
+        for b in range(bs):
+            for c in range(cs):
+                for n in range(ns):
+                    out[b, c, n] = feat[b, c, idx[b, n, 0]] * wt[b, n, 0] + \
+                                    feat[b, c, idx[b, n, 1]] * wt[b, n, 1] + \
+                                    feat[b, c, idx[b, n, 2]] * wt[b, n, 2]
         
-        output = mx_driving.common.three_interpolate(features, idx, weight)
-        self.assertRtolEqual(expected_output, output)
-           
+        grad_out = np.zeros((bs, cs, ms)).astype(feat.dtype)
+        grad_out = grad_out.transpose(0, 2, 1)
+        for b in range(bs):
+            for n in range(ns):
+                ind = idx[b, n, :]
+                weight = wt[b, n, :]
+                grad_out[b, ind[0], :] += weight[0].repeat(cs)
+                grad_out[b, ind[1], :] += weight[1].repeat(cs)
+                grad_out[b, ind[2], :] += weight[2].repeat(cs)
+        grad_out = grad_out.transpose(0, 2, 1)
+        
+        return out, grad_out
+    
+    def npu_op_exec(self, feat, idx, wt):
+        feat.requires_grad = True
+        
+        out = mx_driving.common.three_interpolate(feat, idx, wt)
+        out.backward(torch.ones_like(out))
+        grad_out = feat.grad
+        grad_out = grad_out.detach().cpu().numpy()
+        out = out.detach().cpu().numpy()
+        
+        return out, grad_out
+    
+    def test_three_interpolate_with_grad(self):
+        bs = [2, 10, 224]
+        cs = [3, 20, 45]
+        ms = [4, 17, 224]
+        ns = [5, 34, 150]
+        for i in range(3):
+            np.random.seed(i)
+            features = np.random.uniform(-1000, 1000, size=(bs[i], cs[i], ms[i])).astype(np.float32)
+            indices = np.random.randint(0, ms[i], size=(bs[i], ns[i], 3)).astype(np.int32)
+            weights = np.random.uniform(0, 1, size=(bs[i], ns[i], 3)).astype(np.float32)
+            
+            npu_features = torch.from_numpy(features).to(torch.float32).npu()
+            npu_indices = torch.from_numpy(indices).int().npu()
+            npu_weights = torch.from_numpy(weights).to(torch.float32).npu()
+            cpu_output = self.cpu_op_exec(features, indices, weights)
+            npu_output = self.npu_op_exec(npu_features, npu_indices, npu_weights)
+            self.assertRtolEqual(cpu_output[0], npu_output[0])
+            self.assertRtolEqual(cpu_output[1], npu_output[1])
+        
         
 if __name__ == "__main__":
     run_tests()

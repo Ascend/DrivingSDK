@@ -33,6 +33,7 @@ class TestGroupPoints(TestCase):
         
         for i in range(5):
             
+            np.random.seed(i)
             B = np.random.randint(1, 500)
             C = np.random.randint(1, 500)
             N = np.random.randint(1, 500)
