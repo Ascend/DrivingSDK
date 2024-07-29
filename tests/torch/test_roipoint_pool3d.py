@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import sys
 import random
 import unittest
 import torch
@@ -18,6 +19,8 @@ import torch_npu
 import numpy as np
 from torch_npu.testing.testcase import TestCase, run_tests
 from mx_driving.common import RoIPointPool3d
+sys.path.append("../utils")
+from random_matrix import random_value
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -103,15 +106,12 @@ class TestRoipointPool3d(TestCase):
         num_sampled_points = random.randint(1, 48) # num
         boxes_num = random.randint(1, 48) # M
         point_num = random.randint(max(num_sampled_points, boxes_num), 105) # N
-        points = np.random.uniform(low=-2048, high=2048, size=(batch_size, point_num, 3)) # (B, N, 3)
-        points = points.astype(np.float32)
+        points = random_value(-15.5, 16, (batch_size, point_num, 3), np.float32) # (B, N, 3)
         point_features = points.copy() # (B, N, C)
         boxes3d = np.zeros((batch_size, boxes_num, 7), dtype=np.float32) # (B, M, 7)
-        boxes3d[0:batch_size, 0:boxes_num, 0:3] = \
-            np.random.uniform(low=-2048, high=2048, size=(batch_size, boxes_num, 3)).astype(np.float32)
-        boxes3d[0:batch_size, 0:boxes_num, 3:6] = \
-            np.random.uniform(low=0, high=8192, size=(batch_size, boxes_num, 3)).astype(np.float32)
-        boxes3d[0:batch_size, 0:boxes_num, 6:7] = \
+        boxes3d[0:, 0:, 0:3] = random_value(-15.5, 16, (batch_size, boxes_num, 3))
+        boxes3d[0:, 0:, 3:6] = random_value(-63, 64, (batch_size, boxes_num, 3), nega_flag=False)
+        boxes3d[0:, 0:, 6:] = \
             np.random.uniform(low=0, high=3.141592654, size=(batch_size, boxes_num, 1)).astype(np.float32)
 
         cpu_pooled_features, cpu_pooled_empty_flag = cpu_roipoint_pool3d(
@@ -134,15 +134,12 @@ class TestRoipointPool3d(TestCase):
         num_sampled_points = random.randint(1, 60) # num
         boxes_num = random.randint(1, 60) # M
         point_num = random.randint(max(num_sampled_points, boxes_num), 105) # N
-        points = np.random.uniform(low=-2048, high=2048, size=(batch_size, point_num, 3)) # (B, N, 3)
-        points = points.astype(np.float16)
+        points = random_value(-3.5, 4, (batch_size, point_num, 3), np.float16) # (B, N, 3)
         point_features = points.copy() # (B, N, C)
         boxes3d = np.zeros((batch_size, boxes_num, 7), dtype=np.float16) # (B, M, 7)
-        boxes3d[0:batch_size, 0:boxes_num, 0:3] = \
-            np.random.uniform(low=-2048, high=2048, size=(batch_size, boxes_num, 3)).astype(np.float16)
-        boxes3d[0:batch_size, 0:boxes_num, 3:6] = \
-            np.random.uniform(low=0, high=8192, size=(batch_size, boxes_num, 3)).astype(np.float16)
-        boxes3d[0:batch_size, 0:boxes_num, 6:7] = \
+        boxes3d[0:, 0:, 0:3] = random_value(-3.5, 4, (batch_size, boxes_num, 3), np.float16)
+        boxes3d[0:, 0:, 3:6] = random_value(-14, 16, (batch_size, boxes_num, 3), np.float16, nega_flag=False)
+        boxes3d[0:, 0:, 6:] = \
             np.random.uniform(low=0, high=3.142, size=(batch_size, boxes_num, 1)).astype(np.float16)
 
         cpu_pooled_features, cpu_pooled_empty_flag = cpu_roipoint_pool3d(num_sampled_points,
