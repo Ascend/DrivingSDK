@@ -53,8 +53,8 @@ mx_driving.common.npu_rotated_overlaps(Tensor self, Tensor query_boxes, bool tra
 ### 功能描述
 计算旋转框的重叠面积。
 ### 参数说明
-- `self(Tensor)`：梯度增量，数据类型为`float32, float16`，形状为`[B, 5, N]`。
-- `query_boxes(Tensor)`：查询框张量，数据类型为`float32, float16`，形状为`[B, 5, M]`。
+- `self(Tensor)`：边界框张量，数据类型为`float32, float16`，形状为`[B, N, 5]`。
+- `query_boxes(Tensor)`：查询框张量，数据类型为`float32, float16`，形状为`[B, M, 5]`。
 - `trans(bool)`：是否进行坐标变换。默认值为`False`。值为`True`时，表示`xyxyt`, 值为`False`时，表示`xywht`。
 ### 返回值
 - `Tensor`：重叠面积张量，数据类型为`float32, float16`，形状为`[B, N, M]`。
@@ -85,15 +85,15 @@ mx_driving.common.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=Fa
 ### 功能描述
 计算旋转框的IoU。
 ### 参数说明
-- `self(Tensor)`：梯度增量，数据类型为`float32, float16`，形状为`[B, 5, N]`。
-- `query_boxes(Tensor)`：查询框张量，数据类型为`float32, float16`，形状为`[B, 5, M]`。
-- `trans(bool)`：是否进行坐标变换。默认值为`False`。值为`True`时，表示`xyxyt`, 值为`False`时，表示`xywht`。
-- `is_cross(bool)`：是否计算交叉面积。默认值为`True`。值为`True`时，表示计算交叉面积，值为`False`时，表示计算并集面积。
+- `self(Tensor)`：边界框张量，数据类型为`float32, float16`，形状为`[B, N, 5]`。
+- `query_boxes(Tensor)`：查询框张量，数据类型为`float32, float16`，形状为`[B, M, 5]`。
+- `trans(bool)`：是否进行坐标变换。默认值为`False`。值为`True`时，表示`xyxyt`, 值为`False`时，表示`xywht`，其中`t`为角度制。
+- `is_cross(bool)`：值为`True`时，则对两组边界框中每个边界框之间进行计算。值为`False`时，只对对齐的边界框之间进行计算。
 - `mode(int)`：计算IoU的模式。默认值为`0`。值为`0`时，表示计算`IoU`，值为`1`时，表示计算`IoF`。
 - `v_threshold(float)`：顶点判断的容忍阈值。
 - `e_threshold(float)`：边相交判断的容忍阈值。
 ### 返回值
-- `Tensor`：IoU张量，数据类型为`float32, float16`，形状为`[B, N, M]`。
+- `Tensor`：IoU张量，数据类型为`float32, float16`，`is_cross`为`True`时形状为`[B, N, M]，反之则为`[B, N]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
