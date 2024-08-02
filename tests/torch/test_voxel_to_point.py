@@ -11,6 +11,7 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 class TestVoxelToPoint(TestCase):
     seed = 1024
+    np.random.seed(seed)
     point_nums = [1, 7, 6134, 99999]
 
     def gen(self, point_num):

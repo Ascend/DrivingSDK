@@ -50,8 +50,10 @@ def generate_bev_pool_data(n, b, d, h, w, c):
 
 
 class TestBEVPool(TestCase):
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B',
-                     "OP `bev_pool` is only supported on 910B, skip this ut!")
+    seed = 1024
+    np.random.seed(seed)
+
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `bev_pool` is only supported on 910B, skip this ut!")
     def test_bev_pool(self):
         shapes = [[1, 1, 1, 1, 1, 1], [3, 3, 3, 3, 3, 3], [3, 3, 15, 15, 17, 33], [1, 5, 128, 128, 31, 777], [32, 4, 128, 128, 64, 9999]]
         for shape in shapes:
