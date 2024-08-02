@@ -8,6 +8,34 @@
 
 using namespace AscendC;
 constexpr float EPS = 1e-8;
+// (x1, y1, x2, y2, angle)
+constexpr uint32_t TRANS_D5_X1_OFFSET = 0;
+constexpr uint32_t TRANS_D5_Y1_OFFSET = 1;
+constexpr uint32_t TRANS_D5_X2_OFFSET = 2;
+constexpr uint32_t TRANS_D5_Y2_OFFSET = 3;
+constexpr uint32_t TRANS_D5_ANGLE_OFFSET = 4;
+// (x1, y1, z1, x2, y2, z2, angle)
+constexpr uint32_t TRANS_D7_X1_OFFSET = 0;
+constexpr uint32_t TRANS_D7_Y1_OFFSET = 1;
+constexpr uint32_t TRANS_D7_Z1_OFFSET = 2;
+constexpr uint32_t TRANS_D7_X2_OFFSET = 3;
+constexpr uint32_t TRANS_D7_Y2_OFFSET = 4;
+constexpr uint32_t TRANS_D7_Z2_OFFSET = 5;
+constexpr uint32_t TRANS_D7_ANGLE_OFFSET = 6;
+// (x_center, y_center, dx, dy, angle)
+constexpr uint32_t UNTRANS_D5_XCENTER_OFFSET = 0;
+constexpr uint32_t UNTRANS_D5_YCENTER_OFFSET = 1;
+constexpr uint32_t UNTRANS_D5_DX_OFFSET = 2;
+constexpr uint32_t UNTRANS_D5_DY_OFFSET = 3;
+constexpr uint32_t UNTRANS_D5_ANGLE_OFFSET = 4;
+// (x_center, y_center, z_center, dx, dy, dz, angle)
+constexpr uint32_t UNTRANS_D7_XCENTER_OFFSET = 0;
+constexpr uint32_t UNTRANS_D7_YCENTER_OFFSET = 1;
+constexpr uint32_t UNTRANS_D7_ZCENTER_OFFSET = 2;
+constexpr uint32_t UNTRANS_D7_DX_OFFSET = 3;
+constexpr uint32_t UNTRANS_D7_DY_OFFSET = 4;
+constexpr uint32_t UNTRANS_D7_DZ_OFFSET = 5;
+constexpr uint32_t UNTRANS_D7_ANGLE_OFFSET = 6;
 
 
 struct Point {
@@ -32,6 +60,7 @@ struct Point {
     __aicore__ Point operator-(const Point &b) const { return Point(x - b.x, y - b.y); }
 };
 
+template<int32_t callerFlag_, int32_t modeFlag_, bool aligned_>
 class BoxesOverlapBevKernel {
 public:
     __aicore__ inline BoxesOverlapBevKernel() {}
@@ -52,7 +81,6 @@ public:
         boxesDescDimNum_ = tilingData->boxesDescDimNum;
         trans_ = tilingData->trans;
         isClockwise_ = tilingData->isClockwise;
-        needIoU_ = tilingData->needIoU;
 
         cpInPadExtParams_ = {false, 0, 0, 0};
         cpInPadParams_ = {1, static_cast<uint32_t>(boxesDescDimNum_ * sizeof(DTYPE_AREA_OVERLAP)), 0, 0, 0};
@@ -92,24 +120,44 @@ public:
 
     __aicore__ inline void Process()
     {
-        for (uint32_t outerId = startOffset_; outerId < endOffset_; ++outerId) {
-            for (uint32_t innerId = 0; innerId < innerLoopCnt_; ++innerId) {
-                uint32_t offsetBoxesA =
-                    boxesANum_ > boxesBNum_ ? outerId * boxesDescDimNum_ : innerId * boxesDescDimNum_;
-                uint32_t offsetBoxesB =
-                    boxesANum_ > boxesBNum_ ? innerId * boxesDescDimNum_ : outerId * boxesDescDimNum_;
-                uint32_t offsetAreaOverlap =
-                    boxesANum_ > boxesBNum_ ? outerId * innerLoopCnt_ + innerId : innerId * outerLoopCnt_ + outerId;
-                DataCopyPad(boxesALocalT_, boxesAGm_[offsetBoxesA], cpInPadParams_, cpInPadExtParams_);
-                DataCopyPad(boxesBLocalT_, boxesBGm_[offsetBoxesB], cpInPadParams_, cpInPadExtParams_);
-                float res = BoxOverlap(boxesALocalT_, boxesBLocalT_);
-                if (needIoU_) {
-                    res = ComputeIoU(res);
+        if (aligned_) {
+            for (uint32_t outerId = startOffset_; outerId < endOffset_; ++outerId) {
+                uint32_t offsetBoxes = outerId * boxesDescDimNum_;
+                uint32_t offsetAreaOverlap = outerId;
+                ProcessMain(offsetBoxes, offsetBoxes, offsetAreaOverlap);
+            }
+        } else {
+            for (uint32_t outerId = startOffset_; outerId < endOffset_; ++outerId) {
+                for (uint32_t innerId = 0; innerId < innerLoopCnt_; ++innerId) {
+                    uint32_t offsetBoxesA =
+                        boxesANum_ > boxesBNum_ ? outerId * boxesDescDimNum_ : innerId * boxesDescDimNum_;
+                    uint32_t offsetBoxesB =
+                        boxesANum_ > boxesBNum_ ? innerId * boxesDescDimNum_ : outerId * boxesDescDimNum_;
+                    uint32_t offsetAreaOverlap =
+                        boxesANum_ > boxesBNum_ ? outerId * innerLoopCnt_ + innerId : innerId * outerLoopCnt_ + outerId;
+                    ProcessMain(offsetBoxesA, offsetBoxesB, offsetAreaOverlap);
                 }
-                areaOverlapLocalT_.SetValue(0, res);
-                DataCopyPad(areaOverlapGm_[offsetAreaOverlap], areaOverlapLocalT_, cpOutPadParams_);
             }
         }
+    }
+
+    __aicore__ inline void ProcessMain(uint32_t offsetBoxesA, uint32_t offsetBoxesB, uint32_t offsetAreaOverlap)
+    {
+        DataCopyPad(boxesALocalT_, boxesAGm_[offsetBoxesA], cpInPadParams_, cpInPadExtParams_);
+        DataCopyPad(boxesBLocalT_, boxesBGm_[offsetBoxesB], cpInPadParams_, cpInPadExtParams_);
+        bool retZero = callerFlag_ == 2 && PreJudge(boxesALocalT_, boxesBLocalT_);
+        if (retZero) {
+            areaOverlapLocalT_.SetValue(0, static_cast<float>(0.0));
+        } else {
+            float res = BoxOverlap(boxesALocalT_, boxesBLocalT_);
+            if (modeFlag_ == 0) {
+                res = ComputeIoU(res);
+            } else if (modeFlag_ == 1) {
+                res = ComputeIoF(res);
+            }
+            areaOverlapLocalT_.SetValue(0, res);
+        }
+        DataCopyPad(areaOverlapGm_[offsetAreaOverlap], areaOverlapLocalT_, cpOutPadParams_);
     }
 
 protected:
@@ -174,11 +222,9 @@ protected:
         p.set(newX, newY);
     }
 
-    __aicore__ inline int CheckInBox2d(const LocalTensor<float> &box, const Point &p)
+    __aicore__ inline int CheckInBox2d(const LocalTensor<float> &box, const Point &p, const float centerX, const float centerY)
     {
-        const float MARGIN = 1e-5;
-        float centerX = (box.GetValue(0) + box.GetValue(2)) / 2;
-        float centerY = (box.GetValue(1) + box.GetValue(3)) / 2;
+        const float margin = callerFlag_ == 1 ? static_cast<float>(1e-2) : static_cast<float>(1e-5);
         Point center(centerX, centerY);
         Point rot(p.x, p.y);
         angleLocalT_.SetValue(0, -box.GetValue(4));
@@ -188,8 +234,8 @@ protected:
         float angleSin = sinLocalT_.GetValue(0);
         RotateAroundCenter(center, angleCos, angleSin, rot);
 
-        return ((rot.x > box.GetValue(0) - MARGIN) && (rot.x < box.GetValue(2) + MARGIN) &&
-                (rot.y > box.GetValue(1) - MARGIN) && (rot.y < box.GetValue(3) + MARGIN));
+        return ((rot.x > box.GetValue(0) - margin) && (rot.x < box.GetValue(2) + margin) &&
+                (rot.y > box.GetValue(1) - margin) && (rot.y < box.GetValue(3) + margin));
     }
 
     __aicore__ inline int PointCmp(const Point &a, const Point &b, const Point &center)
@@ -208,6 +254,14 @@ protected:
             float slopeB = bY / bX;
             return slopeA > slopeB;
         }
+    }
+
+    __aicore__ inline bool PreJudge(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor)
+    {
+        auto areaA = boxATensor.GetValue(UNTRANS_D5_DX_OFFSET) * boxATensor.GetValue(UNTRANS_D5_DY_OFFSET);
+        auto areaB = boxBTensor.GetValue(UNTRANS_D5_DX_OFFSET) * boxBTensor.GetValue(UNTRANS_D5_DY_OFFSET);
+
+        return areaA < static_cast<float>(1e-14) || areaB < static_cast<float>(1e-14);
     }
 
     __aicore__ inline void ParseBox(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor)
@@ -240,6 +294,11 @@ protected:
             centerAY_ = (aY1_ + aY2_) / 2;
             centerBY_ = (bY1_ + bY2_) / 2;
         } else {
+            centerAX_ = boxATensor.GetValue(0);
+            centerAY_ = boxATensor.GetValue(1);
+            centerBX_ = boxBTensor.GetValue(0);
+            centerBY_ = boxBTensor.GetValue(1);
+
             if (boxesDescDimNum_ == 5) {
                 aAngle_ = boxATensor.GetValue(4);
                 bAngle_ = boxBTensor.GetValue(4);
@@ -255,10 +314,15 @@ protected:
                 bDxHalf_ = boxBTensor.GetValue(3) / 2;
                 bDyHalf_ = boxBTensor.GetValue(4) / 2;
             }
-            centerAX_ = boxATensor.GetValue(0);
-            centerAY_ = boxATensor.GetValue(1);
-            centerBX_ = boxBTensor.GetValue(0);
-            centerBY_ = boxBTensor.GetValue(1);
+
+            if (callerFlag_ == 2) {
+                auto xCenterShift = (centerAX_ + centerBX_) / 2;
+                auto yCenterShift = (centerAY_ + centerBY_) / 2;
+                centerAX_ -= xCenterShift;
+                centerAY_ -= yCenterShift;
+                centerBX_ -= xCenterShift;
+                centerBY_ -= yCenterShift;
+            }
 
             aX1_ = centerAX_ - aDxHalf_;
             aY1_ = centerAY_ - aDyHalf_;
@@ -334,12 +398,12 @@ protected:
 
         // check corners
         for (int k = 0; k < 4; k++) {
-            if (CheckInBox2d(boxATensor, boxBCorners[k])) {
+            if (CheckInBox2d(boxATensor, boxBCorners[k], centerAX_, centerAY_)) {
                 polyCenter = polyCenter + boxBCorners[k];
                 crossPoints[count] = boxBCorners[k];
                 count++;
             }
-            if (CheckInBox2d(boxBTensor, boxACorners[k])) {
+            if (CheckInBox2d(boxBTensor, boxACorners[k], centerBX_, centerBY_)) {
                 polyCenter = polyCenter + boxACorners[k];
                 crossPoints[count] = boxACorners[k];
                 count++;
@@ -375,6 +439,12 @@ protected:
         return areaOverlap / (areaA + areaB - areaOverlap);
     }
 
+    __aicore__ inline float ComputeIoF(float areaOverlap)
+    {
+        float areaA = abs((aX2_ - aX1_) * (aY2_ - aY1_));
+        return areaOverlap / areaA;
+    }
+
 protected:
     TPipe *pipe_;
     GlobalTensor<DTYPE_AREA_OVERLAP> boxesAGm_, boxesBGm_, areaOverlapGm_;
@@ -391,7 +461,7 @@ protected:
     uint32_t startOffset_, endOffset_;
     uint32_t dataAlign_, outerLoopCnt_, innerLoopCnt_;
     uint32_t boxesANum_, boxesBNum_, boxesDescDimNum_;
-    bool trans_, isClockwise_, needIoU_;
+    bool trans_, isClockwise_;
 
     DataCopyExtParams cpInPadParams_;
     DataCopyExtParams cpOutPadParams_;
@@ -403,9 +473,41 @@ extern "C" __global__ __aicore__ void boxes_overlap_bev(GM_ADDR boxesA, GM_ADDR 
 {
     TPipe pipe;
     GET_TILING_DATA(tilingData, tiling);
-    BoxesOverlapBevKernel op;
-    op.Init(boxesA, boxesB, areaOverlap, &tilingData, &pipe);
-    op.InitBuf();
-    op.GetLocalTensor();
-    op.Process();
+    if (TILING_KEY_IS(0)) {
+        BoxesOverlapBevKernel<0, 2, false> op;
+        op.Init(boxesA, boxesB, areaOverlap, &tilingData, &pipe);
+        op.InitBuf();
+        op.GetLocalTensor();
+        op.Process();
+    } else if (TILING_KEY_IS(1)) {
+        BoxesOverlapBevKernel<1, 2, false> op;
+        op.Init(boxesA, boxesB, areaOverlap, &tilingData, &pipe);
+        op.InitBuf();
+        op.GetLocalTensor();
+        op.Process();
+    } else if (TILING_KEY_IS(2)) {
+        BoxesOverlapBevKernel<2, 0, true> op;
+        op.Init(boxesA, boxesB, areaOverlap, &tilingData, &pipe);
+        op.InitBuf();
+        op.GetLocalTensor();
+        op.Process();
+    } else if (TILING_KEY_IS(3)) {
+        BoxesOverlapBevKernel<2, 1, true> op;
+        op.Init(boxesA, boxesB, areaOverlap, &tilingData, &pipe);
+        op.InitBuf();
+        op.GetLocalTensor();
+        op.Process();
+    }else if (TILING_KEY_IS(4)) {
+        BoxesOverlapBevKernel<2, 0, false> op;
+        op.Init(boxesA, boxesB, areaOverlap, &tilingData, &pipe);
+        op.InitBuf();
+        op.GetLocalTensor();
+        op.Process();
+    } else if (TILING_KEY_IS(5)) {
+        BoxesOverlapBevKernel<2, 1, false> op;
+        op.Init(boxesA, boxesB, areaOverlap, &tilingData, &pipe);
+        op.InitBuf();
+        op.GetLocalTensor();
+        op.Process();
+    }
 }

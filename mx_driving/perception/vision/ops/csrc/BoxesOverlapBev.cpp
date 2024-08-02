@@ -44,8 +44,9 @@ at::Tensor npu_boxes_overlap_bev(const at::Tensor &boxes_a, const at::Tensor &bo
     auto output_size = {boxes_a_num, boxes_b_num};
     auto trans = true;
     auto is_clockwise = true;
-    auto need_iou = false;
+    auto aligned = false;
+    auto mode_flag = 2;
     at::Tensor area_overlap = at::zeros(output_size, boxes_a.options());
-    EXEC_NPU_CMD(aclnnBoxesOverlapBev, boxes_a, boxes_b, trans, is_clockwise, need_iou, area_overlap);
+    EXEC_NPU_CMD(aclnnBoxesOverlapBev, boxes_a, boxes_b, trans, is_clockwise, aligned, mode_flag, area_overlap);
     return area_overlap;
 }

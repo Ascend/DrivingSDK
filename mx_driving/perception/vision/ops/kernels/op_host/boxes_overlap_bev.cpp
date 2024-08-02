@@ -16,9 +16,16 @@ const uint32_t INPUT_BOXES_B = 1;
 const uint32_t OUTPUT_AREA_OVERLAP = 0;
 const uint32_t ATTR_TRANS = 0;
 const uint32_t ATTR_IS_CLOCKWISE = 1;
-const uint32_t ATTR_NEED_IOU = 2;
+const uint32_t ATTR_ALIGNED = 2;
+const uint32_t ATTR_MODE_FLAG = 3;
 const uint32_t BOXES_NUM_DIM = 0;
 const uint32_t BOXES_DESC_DIM = 1;
+const uint32_t TILING_KEY_ADS = 0; // ads boxes_overlap_bev
+const uint32_t TILING_KEY_MMCV = 1; // mmcv boxes_overlap_bev
+const uint32_t TILING_KEY_MMCV_BIR_ALIGNED_IOU = 2; // mmcv box_iou_rotated, aligned=true, modeFlag=0
+const uint32_t TILING_KEY_MMCV_BIR_ALIGNED_IOF = 3; // mmcv box_iou_rotated, aligned=true, modeFlag=1
+const uint32_t TILING_KEY_MMCV_BIR_UNALIGNED_IOU = 4; // mmcv box_iou_rotated, aligned=false, modeFlag=0
+const uint32_t TILING_KEY_MMCV_BIR_UNALIGNED_IOF = 5; // mmcv box_iou_rotated, aligned=false, modeFlag=1
 
 
 uint32_t DivCeil(uint32_t a, uint32_t b) { return (a + b - 1) / b; }
@@ -54,13 +61,15 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
     }
     auto transPtr = attrs->GetAttrPointer<bool>(ATTR_TRANS);
     auto isClockwisePtr = attrs->GetAttrPointer<bool>(ATTR_IS_CLOCKWISE);
-    auto needIoUPtr = attrs->GetAttrPointer<bool>(ATTR_NEED_IOU);
-    if (transPtr == nullptr || isClockwisePtr == nullptr || needIoUPtr == nullptr) {
+    auto alignedPtr = attrs->GetAttrPointer<bool>(ATTR_ALIGNED);
+    auto modeFlagPtr = attrs->GetAttrPointer<int>(ATTR_MODE_FLAG);
+    if (transPtr == nullptr || isClockwisePtr == nullptr || alignedPtr == nullptr || modeFlagPtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto trans = *transPtr;
     auto isClockwise = *isClockwisePtr;
-    auto needIoU = *needIoUPtr;
+    auto aligned = *alignedPtr;
+    auto modeFlag = *modeFlagPtr;
 
     auto boxesAShape = boxesATensorPtr->GetStorageShape();
     auto boxesBShape = boxesBTensorPtr->GetStorageShape();
@@ -69,10 +78,13 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
     auto boxesBNum = boxesBShape.GetDim(BOXES_NUM_DIM);
     auto boxesDescDimNum = boxesAShape.GetDim(BOXES_DESC_DIM);
 
-    auto taskNum = boxesANum > boxesBNum ? boxesANum : boxesBNum;
+    auto boxesMinNum = boxesANum < boxesBNum ? boxesANum : boxesBNum;
+    auto boxesMaxNum = boxesANum > boxesBNum ? boxesANum : boxesBNum;
+
+    auto taskNum = aligned ? boxesMinNum : boxesMaxNum;
     auto taskNumPerCore = DivCeil(taskNum, coreNum);
     auto outerLoopCnt = taskNum;
-    auto innerLoopCnt = boxesANum > boxesBNum ? boxesBNum : boxesANum;
+    auto innerLoopCnt = boxesMinNum;
 
     tiling.set_boxesANum(boxesANum);
     tiling.set_boxesBNum(boxesBNum);
@@ -83,9 +95,24 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
     tiling.set_boxesDescDimNum(boxesDescDimNum);
     tiling.set_trans(trans);
     tiling.set_isClockwise(isClockwise);
-    tiling.set_needIoU(needIoU);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+
+    if (!trans && boxesDescDimNum == 5) {
+        if (aligned && modeFlag == 0) {
+            context->SetTilingKey(TILING_KEY_MMCV_BIR_ALIGNED_IOU);
+        } else if (aligned && modeFlag == 1) {
+            context->SetTilingKey(TILING_KEY_MMCV_BIR_ALIGNED_IOF);
+        } else if (!aligned && modeFlag == 0) {
+            context->SetTilingKey(TILING_KEY_MMCV_BIR_UNALIGNED_IOU);
+        } else if (!aligned && modeFlag == 1) {
+            context->SetTilingKey(TILING_KEY_MMCV_BIR_UNALIGNED_IOF);
+        }
+    } else if (!trans && boxesDescDimNum == 7) {
+        context->SetTilingKey(TILING_KEY_MMCV);
+    } else {
+        context->SetTilingKey(TILING_KEY_ADS);
+    }
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
@@ -107,10 +134,34 @@ static ge::graphStatus Infershape4BoxesOverlapBev(gert::InferShapeContext *conte
     }
     auto boxesANum = boxesAShape->GetDim(BOXES_NUM_DIM);
     auto boxesBNum = boxesBShape->GetDim(BOXES_NUM_DIM);
-    areaOverlapShape->SetDimNum(0);
-    areaOverlapShape->AppendDim(boxesANum);
-    areaOverlapShape->AppendDim(boxesBNum);
 
+    auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    auto alignedPtr = attrs->GetAttrPointer<bool>(ATTR_ALIGNED);
+    if (alignedPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    auto aligned = *alignedPtr;
+
+    if (aligned) {
+        auto boxesMinNum = boxesANum < boxesBNum ? boxesANum : boxesBNum;
+        areaOverlapShape->SetDimNum(0);
+        areaOverlapShape->AppendDim(boxesMinNum);
+    } else {
+        areaOverlapShape->SetDimNum(0);
+        areaOverlapShape->AppendDim(boxesANum);
+        areaOverlapShape->AppendDim(boxesBNum);
+    }
+
+    return GRAPH_SUCCESS;
+}
+
+static ge::graphStatus InferDataType4BoxesOverlapBev(gert::InferDataTypeContext *context)
+{
+    const ge::DataType box_dtype = context->GetInputDataType(INPUT_BOXES_A);
+    context->SetOutputDataType(OUTPUT_AREA_OVERLAP, box_dtype);
     return GRAPH_SUCCESS;
 }
 } // namespace ge
@@ -139,9 +190,11 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("trans").AttrType(OPTIONAL).Bool(true);
         this->Attr("is_clockwise").AttrType(OPTIONAL).Bool(true);
-        this->Attr("need_iou").AttrType(OPTIONAL).Bool(false);
+        this->Attr("aligned").AttrType(OPTIONAL).Bool(false);
+        this->Attr("mode_flag").AttrType(OPTIONAL).Int(2);
 
-        this->SetInferShape(ge::Infershape4BoxesOverlapBev);
+        this->SetInferShape(ge::Infershape4BoxesOverlapBev)
+            .SetInferDataType(ge::InferDataType4BoxesOverlapBev);
 
         this->AICore().SetTiling(optiling::TilingFunc4BoxesOverlapBev);
         this->AICore().AddConfig("ascend910b");
