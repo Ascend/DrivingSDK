@@ -85,6 +85,12 @@ static ge::graphStatus InferShapeForDynamicVoxel(gert::InferShapeContext* contex
     coorsShape->AppendDim(ptsShape->GetDim(1));
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDataTypeForDynamicVoxel(gert::InferDataTypeContext *context)
+{
+    context->SetOutputDataType(0, ge::DT_INT32);
+    return GRAPH_SUCCESS;
+}
 } // namespace ge
 
 
@@ -114,7 +120,9 @@ public:
         this->Attr("grid_y").Int();
         this->Attr("grid_z").Int();
 
-        this->SetInferShape(ge::InferShapeForDynamicVoxel);
+        this->SetInferShape(ge::InferShapeForDynamicVoxel)
+            .SetInferDataType(ge::InferDataTypeForDynamicVoxel);
+
         this->AICore().SetTiling(optiling::TilingForDynamicVox);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910c");

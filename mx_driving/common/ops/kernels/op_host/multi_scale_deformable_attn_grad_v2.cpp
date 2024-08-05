@@ -13,8 +13,10 @@ namespace {
 const uint32_t INPUT_VALUE = 0;
 const uint32_t INPUT_SPATIAL_SHAPE = 1;
 const uint32_t INPUT_LOCATION = 3;
-const uint32_t OUTPUT_ATTN_WEIGHT = 2;
 const uint32_t INPUT_ATTN_WEIGHT = 4;
+const uint32_t OUTPUT_VALUE = 0;
+const uint32_t OUTPUT_LOCATION = 1;
+const uint32_t OUTPUT_ATTN_WEIGHT = 2;
 const uint32_t BATCh_SIZE_DIM = 0;
 const uint32_t NUM_KEYS_DIM = 2;
 const uint32_t NUM_HEADS_DIM = 1;
@@ -100,8 +102,8 @@ static ge::graphStatus InferShapeForMultiScaleDeformableAttnGradV2(gert::InferSh
     if (attn_weight_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* grad_value_shape = context->GetOutputShape(0);
-    gert::Shape* grad_sample_loc_shape = context->GetOutputShape(1);
+    gert::Shape* grad_value_shape = context->GetOutputShape(OUTPUT_VALUE);
+    gert::Shape* grad_sample_loc_shape = context->GetOutputShape(OUTPUT_LOCATION);
     gert::Shape* grad_attn_weight_shape = context->GetOutputShape(OUTPUT_ATTN_WEIGHT);
     if ((grad_value_shape == nullptr) || (grad_sample_loc_shape == nullptr) || (grad_attn_weight_shape == nullptr)) {
         return ge::GRAPH_FAILED;
@@ -109,6 +111,18 @@ static ge::graphStatus InferShapeForMultiScaleDeformableAttnGradV2(gert::InferSh
     *grad_value_shape = *value_shape;
     *grad_sample_loc_shape = *sampling_locations_shape;
     *grad_attn_weight_shape = *attn_weight_shape;
+    return GRAPH_SUCCESS;
+}
+
+static ge::graphStatus InferDataTypeForMultiScaleDeformableAttnGradV2(gert::InferDataTypeContext *context)
+{
+    const ge::DataType value_dtype = context->GetInputDataType(INPUT_VALUE);
+    const ge::DataType sampling_loc_dtype = context->GetInputDataType(INPUT_LOCATION);
+    const ge::DataType attn_weight_dtype = context->GetInputDataType(INPUT_ATTN_WEIGHT);
+
+    context->SetOutputDataType(OUTPUT_VALUE, value_dtype);
+    context->SetOutputDataType(OUTPUT_LOCATION, sampling_loc_dtype);
+    context->SetOutputDataType(OUTPUT_ATTN_WEIGHT, attn_weight_dtype);
     return GRAPH_SUCCESS;
 }
 } // namespace ge
@@ -170,7 +184,9 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnGradV2);
+        this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnGradV2)
+            .SetInferDataType(ge::InferDataTypeForMultiScaleDeformableAttnGradV2);
+
         this->AICore().SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnGradV2);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910c");
