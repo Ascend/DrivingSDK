@@ -164,13 +164,6 @@ static ge::graphStatus InferDataType4BoxesOverlapBev(gert::InferDataTypeContext 
     context->SetOutputDataType(OUTPUT_AREA_OVERLAP, box_dtype);
     return GRAPH_SUCCESS;
 }
-
-static ge::graphStatus InferDataType4BoxesOverlapBev(gert::InferDataTypeContext *context)
-{
-    const ge::DataType box_dtype = context->GetInputDataType(INPUT_BOXES_A);
-    context->SetOutputDataType(OUTPUT_AREA_OVERLAP, box_dtype);
-    return GRAPH_SUCCESS;
-}
 } // namespace ge
 
 namespace ops {
