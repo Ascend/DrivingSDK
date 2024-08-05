@@ -26,6 +26,18 @@ def get_conv_output_size(input_size, kernel_size, stride, padding, dilation):
     return output_size
 
 
+def get_inverse_conv_output_size(input_size, kernel_size, stride, padding, dilation, output_padding):
+    ndim = len(input_size)
+    output_size = []
+    for i in range(ndim):
+        size = (input_size[i] - 1) * stride[i] - 2 * padding[i] + dilation[i] * (kernel_size[i] - 1) + output_padding[i] + 1
+        if kernel_size[i] == -1:
+            output_size.append(1)
+        else:
+            output_size.append(size)
+    return output_size
+
+
 def get_deconv_output_size(input_size, kernel_size, stride, padding, dilation,
                            output_padding):
     ndim = len(input_size)

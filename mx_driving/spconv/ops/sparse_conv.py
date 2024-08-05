@@ -48,7 +48,7 @@ def _calculate_fan_in_and_fan_out_hwio(tensor):
 
 
 class SparseConvolution(SparseModule):
-    
+
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def __init__(self,
                  ndim,
@@ -121,14 +121,19 @@ class SparseConvolution(SparseModule):
     def forward(self, input):
         if not isinstance(input, SparseConvTensor):
             raise RuntimeError("input is not SparseConvTensor")
-        if not self.subm:
+        if self.inverse:
+            out_spatial_shape = ops.get_inverse_conv_output_size(
+                input.spatial_shape, self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding)
+        elif not self.subm:
             out_spatial_shape = ops.get_conv_output_size(
                 input.spatial_shape, self.kernel_size, self.stride, self.padding, self.dilation)
         else:
             out_spatial_shape = input.spatial_shape
-        out_features, outidx = Fsp.indices_conv_base(input, self.weight, self.ndim, self.in_channels,
-                                                        self.out_channels, self.kernel_size, self.stride,
-                                                        self.padding, self.dilation, self.groups, self.bias, self.subm)
+        out_features, outidx = Fsp.indices_conv_base(input.features, input.indices, self.weight.data, out_spatial_shape,
+                                                    self.out_channels, input.batch_size,
+                                                    self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding,
+                                                    self.groups, self.bias, self.subm, self.inverse)
+
         out_tensor = SparseConvTensor(out_features, outidx, out_spatial_shape,
                                       input.batch_size)
         return out_tensor

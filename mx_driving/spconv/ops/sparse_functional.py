@@ -18,7 +18,7 @@ from typing import Any
 import torch
 import numpy as np
 from torch.autograd import Function
-
+from torch.autograd.function import once_differentiable
 import ads_c
 from . import sparse_ops as ops
 
@@ -26,10 +26,10 @@ from . import sparse_ops as ops
 class SparseBaseCovFunction(Function):
     @staticmethod
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def forward(ctx: Any, input, weight, ndim, in_channels,
-                 out_channels, kernel_size, stride,
-                 padding, dilation, groups,
-                 bias, subm) -> torch.Tensor:
+    def forward(ctx: Any, features, indices, weight, out_spatial_shape,
+                out_channels, batch_size,
+                kernel_size, stride, padding, dilation, output_padding,
+                groups, bias, subm, inverse) -> torch.Tensor:
         """
         Args:
             features (torch.Tensor): Features that needs to convolute.
@@ -42,24 +42,18 @@ class SparseBaseCovFunction(Function):
         Returns:
             torch.Tensor: Output features from gather-gemm-scatter.
         """
-        features = input.features
         device = features.device
-        indices = input.indices
-        spatial_shape = input.spatial_shape
-        if isinstance(input.spatial_shape, np.ndarray):
-            spatial_shape = input.spatial_shape.tolist()
-        batch_size = input.batch_size
-        if not subm:
-            out_spatial_shape = ops.get_conv_output_size(
-                spatial_shape, kernel_size, stride, padding, dilation)
-        else:
-            out_spatial_shape = spatial_shape
+        out_spatial_shape = [int(i) for i in out_spatial_shape]
         if subm:
-            out_features, outidx_pair, ouidx_offset = indice_subm_conv(features, indices, weight.data,
+            out_features, outidx_pair, ouidx_offset = indice_subm_conv(features, indices, weight,
                                                 kernel_size, out_channels,
                                                 out_spatial_shape, batch_size)
+        elif inverse:
+            out_features, outidx_pair, ouidx_offset = indice_inverse_conv(features, indices, weight,
+                                                    kernel_size, stride, padding, dilation, output_padding,
+                                                    out_channels, out_spatial_shape, batch_size)
         else:
-            out_features, outidx_pair, ouidx_offset = indice_conv(features, indices, weight.data,
+            out_features, outidx_pair, ouidx_offset = indice_conv(features, indices, weight,
                                                 kernel_size, stride, padding,
                                                 out_channels, out_spatial_shape, batch_size)
         to_insert = torch.tensor(-1).to(device)
@@ -73,17 +67,18 @@ class SparseBaseCovFunction(Function):
         outidx, outidx_ = torch.chunk(outidx, 2, dim=1)
         if bias is not None:
             out_features += bias
-        ctx.save_for_backward(features, weight, sorted_idx_to_former_indices, unique_indices_offset)
+        ctx.save_for_backward(features, weight, sorted_idx_to_former_indices.int(), unique_indices_offset.int())
         return out_features, outidx
 
     @staticmethod
+    @once_differentiable
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def backward(ctx: Any, grad_output: torch.Tensor, out_feature = None, outidx = None) -> tuple:
+    def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        feature_grad, weight_grad = ads_c.npu_sparse_conv3d_grad(unique_indices_offset,
+        weight_grad, feature_grad = ads_c.npu_sparse_conv3d_grad(unique_indices_offset,
                                                                  sorted_idx_to_former_indices,
-                                                                 features, weight, grad_output)
-        return feature_grad, weight_grad, None, None, None, None, None, None, None, None, None, None
+                                                                 features, weight, grad_out_features)
+        return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None, None, None, None
 
 
 class SparseConvFunction(Function):
@@ -105,10 +100,37 @@ class SparseConvFunction(Function):
         Returns:
             torch.Tensor: Output features from gather-gemm-scatter.
         """
+
         out_features, outidx_pair, ouidx_offset = ads_c.npu_sparse_conv3d(features, indices, weight,
                                         kernel_size, stride, padding,
                                         out_channels, out_spatial_shape, batch_size)
-        ctx.save_for_backward(out_features, outidx_pair, ouidx_offset)
+
+        return out_features, outidx_pair, ouidx_offset
+
+
+class SparseInverseConvFunction(Function):
+
+    @staticmethod
+    # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+    def forward(ctx: Any, features: torch.Tensor, indices: torch.Tensor, weight: torch.Tensor,
+                kernel_size, stride, padding, dilation, output_padding,
+                out_channels: int, out_spatial_shape,
+                batch_size: int) -> torch.Tensor:
+        """
+        Args:
+            features (torch.Tensor): Features that needs to convolute.
+            indices (torch.Tensor):  Indices of feature that needs to convolute.
+            kernel_size (Union[List, Tuple]): Kernel size of convolute.
+            out_channels (int): Output channels num..
+            spatial_shape (Union[List, Tuple]): Output channels num.
+
+        Returns:
+            torch.Tensor: Output features from gather-gemm-scatter.
+        """
+        out_features, outidx_pair, ouidx_offset = ads_c.npu_sparse_inverse_conv3d(features, indices, weight,
+                                        kernel_size, stride, padding, dilation, output_padding,
+                                        out_channels, out_spatial_shape, batch_size)
+
         return out_features, outidx_pair, ouidx_offset
 
 
@@ -135,7 +157,6 @@ class SubMConvFunction(Function):
         out_features, outidx_pair, ouidx_offset = ads_c.npu_subm_sparse_conv3d(features, indices, weight,
                                               kernel_size, out_channels,
                                               out_spatial_shape, batch_size)
-        ctx.save_for_backward(features, weight, indices)
 
         return out_features, outidx_pair, ouidx_offset
 
@@ -164,6 +185,7 @@ class MultiToSparseFunction(Function):
 
 
 indice_conv = SparseConvFunction.apply
+indice_inverse_conv = SparseInverseConvFunction.apply
 indice_subm_conv = SubMConvFunction.apply
 multi_to_sparse = MultiToSparseFunction.apply
 indices_conv_base = SparseBaseCovFunction.apply

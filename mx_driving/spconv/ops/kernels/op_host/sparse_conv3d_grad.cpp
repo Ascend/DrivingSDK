@@ -38,8 +38,14 @@ static ge::graphStatus TilingForSparseConv3dGrad(gert::TilingContext* context)
 
     uint64_t availableUbSize;
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, availableUbSize);
-
-    uint32_t moveLen = (uint32_t)((availableUbSize - 20 * 1024) / 4 / (kernelOC + 1));
+    // indicesOffsetUb [moveLen]
+    // SortindicesOffsetUb [kernelSize]
+    // gradUb [kernelOC, moveLen]
+    // featureUb and reduceSumTmpUB [kernelIC] * 2
+    // WeightUB and WeightTmpUB [kernelIC, kernelOC] * 2
+    uint32_t tmpUsedUbSize = (kernelIC * kernelOC * 2 + kernelIC + kernelSize) * sizeof(float);
+    uint32_t reserveUbSize = 8 * 1024;
+    uint32_t moveLen = (uint32_t)((availableUbSize - tmpUsedUbSize - reserveUbSize) / 4 / (kernelOC + 1));
     if (moveLen > coreTask) moveLen = coreTask;
     uint32_t repeatTimes = AlignUp(coreTask, moveLen);
     uint32_t lastRepeatTimes = AlignUp(lastCoreTask, moveLen);
@@ -65,6 +71,7 @@ static ge::graphStatus TilingForSparseConv3dGrad(gert::TilingContext* context)
     tiling.set_kernelIC(kernelIC);
     tiling.set_kernelOC(kernelOC);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
+
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     return ge::GRAPH_SUCCESS;
 }
