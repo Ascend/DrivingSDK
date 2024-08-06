@@ -277,7 +277,7 @@ private:
     uint32_t outHeight;
     uint32_t outWidth;
     uint32_t coreNum;
-    uint32_t numAlign = 128 * 64;
+    uint32_t numAlign = 64 * 64;
 
     uint32_t wBatch;
     uint32_t validW;
