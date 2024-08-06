@@ -478,6 +478,39 @@ feature_npu = feature_cpu.npu()
 result_npu = mx_driving.common.npu_voxel_pooling_train(geom_npu, feature_npu, voxel_num)
 ```
 
+## scatter_mean
+### 接口原型
+```python
+mx_driving.common.scatter_mean(Tensor src, Tensor indices, int dim=0， Tensor out=None, int dim_size=None) -> Tensor
+```
+### 功能描述
+将输入张量`src`中的元素按照`indices`中的索引在指定的`dim`维进行分组，并计算每组的平均值，返回平均值。
+### 参数说明
+- `src`：源张量，数据类型为`float32`。
+- `indices`：索引张量，数据类型为`int32`，且
+  - `indices`的维度必须小于等于`src`的维度，
+  - `indices`每一维的长度均必须与`src`长度相同。
+  - `indices`的取值必须为非负的有效索引值。
+- `out`：被更新张量，数据类型为`float32`，默认为`None`，输入out不为`None`时，`out`中的元素参与平均值的计算，且
+  - `out`的维度必须与`src`的维度相同。
+  - `out`除第`dim`维外其余维的长度必须与`src`相同。
+- `dim`：指定的维度，表示按照哪个维度进行分组平均计算。
+- `dim_size`：输出张量在`dim`维的长度，数据类型为`int32`，该参数仅在输入out为`None`时生效。
+### 返回值
+- `out`：求平均后的张量，数据类型为`float32`。
+### 支持的型号
+- Atlas A2 训练系列产品
+### 调用示例
+
+```python
+import torch, torch_npu
+from mx_driving.common import scatter_mean
+src = torch.randn(4, 5, 6).to(torch.float)
+indices = torch.randint(5, (4, 5)).to(torch.int32)
+dim = 0
+out = scatter_mean(src.npu(), indices.npu(), None, dim)
+print(out)
+```
 # Perception 算子
 ## bev_pool
 ### 接口原型

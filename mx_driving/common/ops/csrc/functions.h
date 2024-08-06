@@ -70,4 +70,7 @@ std::tuple<at::Tensor, at::Tensor> npu_roipoint_pool3d_forward(const int32_t num
                                                                const at::Tensor &boxes3d);
 at::Tensor npu_add_relu(at::Tensor& x, const at::Tensor& y);
 at::Tensor npu_add_relu_grad(at::Tensor& self, at::Tensor& grad_output);
+std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor& index,
+                                                    c10::optional<at::Tensor> out, c10::optional<int> dim,
+                                                    c10::optional<int> dim_size);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_

@@ -80,4 +80,7 @@ void init_common(pybind11::module& m)
     // npu_add_relu
     m.def("npu_add_relu", &npu_add_relu);
     m.def("npu_add_relu_grad", &npu_add_relu_grad);
+
+    // scatter_mean
+    m.def("npu_scatter_mean", &npu_scatter_mean, "npu_scatter_mean NPU version");
 }
