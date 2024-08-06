@@ -106,6 +106,11 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     idx_shape->AppendDim(*points_num);
     return GRAPH_SUCCESS;
 }
+static ge::graphStatus InferDataType(gert::InferDataTypeContext* context)
+{
+    context->SetOutputDataType(0, ge::DT_INT32);
+    return GRAPH_SUCCESS;
+}
 }
 
 
@@ -131,7 +136,7 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("num_points").Int();
 
-        this->SetInferShape(ge::InferShape);
+        this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDataType);
 
         this->AICore()
             .SetTiling(optiling::TilingForFurthestPointSamplingWithDist);
