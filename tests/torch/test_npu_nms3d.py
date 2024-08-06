@@ -250,14 +250,30 @@ class TestNms3d(TestCase):
         return keep.cpu()
 
     @unittest.skipIf(DEVICE_NAME != True, "OP `Nms3d` is only supported on 910B, skip this ut!")
-    def test_nms3d(self):
+    def test_nms3d_float32(self):
         shape_format = [
             [[np.float32, -1, [5, 7]], [np.float32, -1, [5]], 0.1],
             [[np.float32, -1, [100, 7]], [np.float32, -1, [100]], 0.2],
             [[np.float32, -1, [500, 7]], [np.float32, -1, [500]], 0.3],
+            [[np.float32, -1, [800, 7]], [np.float32, -1, [800]], 0.4],
+            [[np.float32, -1, [1000, 7]], [np.float32, -1, [1000]], 0.5]
+        ]
+        for item in shape_format:
+            boxes_cpu, boxes_npu = create_common_tensor(item[0], 0, 10)
+            scores_cpu, scores_npu = create_common_tensor(item[1], 0, 1)
+            threshold = item[2]
+            out_cpu = self.cpu_to_exec(boxes_cpu, scores_cpu, threshold)
+            out_npu = self.npu_to_exec(boxes_npu, scores_npu, threshold)
+            self.assertRtolEqual(out_cpu, out_npu)
+
+    @unittest.skipIf(DEVICE_NAME != True, "OP `Nms3d` is only supported on 910B, skip this ut!")
+    def test_nms3d_float16(self):
+        shape_format = [
             [[np.float16, -1, [5, 7]], [np.float16, -1, [5]], 0.1],
             [[np.float16, -1, [100, 7]], [np.float16, -1, [100]], 0.2],
             [[np.float16, -1, [500, 7]], [np.float16, -1, [500]], 0.3],
+            [[np.float16, -1, [800, 7]], [np.float16, -1, [800]], 0.4],
+            [[np.float16, -1, [1000, 7]], [np.float16, -1, [1000]], 0.5]
         ]
         for item in shape_format:
             boxes_cpu, boxes_npu = create_common_tensor(item[0], 0, 10)
