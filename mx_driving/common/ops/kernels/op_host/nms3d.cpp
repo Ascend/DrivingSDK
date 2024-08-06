@@ -66,6 +66,11 @@ static ge::graphStatus Nms3dInferShape(gert::InferShapeContext *context)
 {
     return GRAPH_SUCCESS;
 }
+static ge::graphStatus Nms3dInferDataType(gert::InferDataTypeContext *context)
+{
+    context -> SetOutputDataType(0, ge::DT_INT16);
+    return GRAPH_SUCCESS;
+}
 } // namespace ge
 
 namespace ops {
@@ -85,7 +90,8 @@ public:
                 .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Attr("threshold").AttrType(REQUIRED).Float();
 
-        this->SetInferShape(ge::Nms3dInferShape);
+        this->SetInferShape(ge::Nms3dInferShape)
+            .SetInferDataType(ge::Nms3dInferDataType);
 
         this->AICore().SetTiling(optiling::Nms3dTilingFunc);
         this->AICore().AddConfig("ascend910b");

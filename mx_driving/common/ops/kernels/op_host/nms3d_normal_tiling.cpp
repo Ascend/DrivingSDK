@@ -79,6 +79,11 @@ static ge::graphStatus Nms3dNormalInferShape(gert::InferShapeContext* context)
 {
     return GRAPH_SUCCESS;
 }
+static ge::graphStatus Nms3dNormalInferDataType(gert::InferDataTypeContext* context)
+{
+    context -> SetOutputDataType(0, ge::DT_INT16);
+    return GRAPH_SUCCESS;
+}
 }
 
 namespace ops {
@@ -100,7 +105,8 @@ public:
             .AttrType(REQUIRED)
             .Float();
 
-        this->SetInferShape(ge::Nms3dNormalInferShape);
+        this->SetInferShape(ge::Nms3dNormalInferShape)
+            .SetInferDataType(ge::Nms3dNormalInferDataType);
 
         this->AICore()
             .SetTiling(optiling::Nms3dNormalTilingFunc);
@@ -111,3 +117,4 @@ public:
 
 OP_ADD(Nms3dNormal);
 }
+
