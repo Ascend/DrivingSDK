@@ -772,7 +772,7 @@ Performs max pooling on the input and outputs max values.
 ### 返回值
 - `y (Tensor)`：池化后的最大值，数据类型为`float32`，format为NCHW。
 ### 约束说明
-kernel_size仅支持3，stride仅支持2，padding仅支持1，且输入C轴数据量要求为8的倍数，H与W需要大于1。
+kernel_size仅支持3，stride仅支持2，padding仅支持1，且输入C轴数据量要求为8的倍数，H和W需要大于100。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
