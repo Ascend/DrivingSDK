@@ -211,6 +211,13 @@ static ge::graphStatus InferShape4ScatterMeanGrad(gert::InferShapeContext* conte
     gradInShape->SetDim(axis, indexShape->GetDim(axis));
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDtype4ScatterMeanGrad(gert::InferDataTypeContext *context)
+{
+    const ge::DataType grad_out_dtype = context->GetInputDataType(0);
+    context->SetOutputDataType(0, grad_out_dtype);
+    return GRAPH_SUCCESS;
+}
 }
 
 
@@ -235,7 +242,8 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("dim").Int();
-        this->SetInferShape(ge::InferShape4ScatterMeanGrad);
+        this->SetInferShape(ge::InferShape4ScatterMeanGrad)
+             .SetInferDataType(ge::InferDtype4ScatterMeanGrad);
         this->AICore()
             .SetTiling(optiling::TilingFunc4ScatterMeanGrad);
         this->AICore().AddConfig("ascend910b");

@@ -186,14 +186,26 @@ private:
     }
 
     template <typename T>
-    __aicore__ inline void ComputeDataCopy(const GlobalTensor<T>& dstLocal, const LocalTensor<T>& srcGlobal, const uint32_t calCount)
-    {
-        if (isAligned) {
-            DataCopy(dstLocal, srcGlobal, calCount);
+    __aicore__ inline void ComputeDataCopy(const GlobalTensor<T>& dst, const LocalTensor<T>& src, const uint32_t calCount) {
+#if __CCE_AICORE__ == 220
+        CopyParamasInit(calCount);
+        DataCopyPad(dst, src, copyParamsOut);
+#else
+        int32_t numPerBlock = BLOCK_SIZE / sizeof(T);
+        if (calCount % numPerBlock == 0) {
+            DataCopy(dst, src, calCount);
         } else {
-            CopyParamasInit(calCount);
-            DataCopyPad(dstLocal, srcGlobal, copyParamsOut);
+            int32_t num = calCount / numPerBlock * numPerBlock;
+            DataCopy(dst, src, num);
+            if (calCount != num) {
+                for (int32_t i = 0; i < numPerBlock; i++) {
+                auto tensorValue = src.GetValue(calCount - numPerBlock + i);
+                src.SetValue(i, tensorValue);
+                }
+                DataCopy(dst[calCount - numPerBlock], src, numPerBlock);
+            }
         }
+#endif
     }
 
     __aicore__ inline void ComputeTail(const int32_t const argmaxValue, uint64_t updatesTail, uint64_t offsetInOut, uint64_t updatesOffset, bool is_first)

@@ -14,6 +14,15 @@ namespace optiling {
 const uint64_t BLOCK_SIZE = 32;
 const uint64_t MAX_OUT_LINE =  18000;
 const uint64_t MAX_DEAL_NUM =  2048;
+const uint64_t DATA_SIZE_2 = 2;
+const uint64_t DATA_SIZE_4 = 4;
+
+static map<ge::DataType, uint64_t> kDataSizeMap = {
+    {ge::DT_FLOAT16, DATA_SIZE_2},
+    {ge::DT_BF16, DATA_SIZE_2},
+    {ge::DT_FLOAT, DATA_SIZE_4},
+    {ge::DT_INT32, DATA_SIZE_4}
+};
 
 static uint64_t GetCeilInt(uint64_t value1, uint64_t value2)
 {
@@ -127,6 +136,8 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
     uint64_t UB_size;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
 
+    auto socVersion = ascendcPlatform.GetSocVersion();
+
     GetTaskTilingData(context, &tiling, coreNum);
 
     auto updatesShape = context->GetInputShape(2)->GetStorageShape();
@@ -137,6 +148,11 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
     auto indicesNum = indicesShape.GetShapeSize();
     auto updatesNum = updatesShape.GetShapeSize();
 
+    auto dataDtype = context->GetInputDesc(0)->GetDataType();
+    auto indicesDtype = context->GetInputDesc(1)->GetDataType();
+    uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
+    uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
+
     uint64_t updatesTail = 1;
     if (updatesDim == 0) {
         return ge::GRAPH_FAILED;
@@ -144,14 +160,16 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
     for (uint64_t i = 1; i < updatesDim; i++) {
         updatesTail *= updatesShape.GetDim(i);
     }
-    bool isOneDeal = (updatesTail / MAX_DEAL_NUM) == 0;
 
+    if (socVersion == platform_ascendc::SocVersion::ASCEND310P && updatesTail < BLOCK_SIZE / bytesData) {
+        return ge::GRAPH_FAILED;
+    }
+
+    bool isOneDeal = (updatesTail / MAX_DEAL_NUM) == 0;
     uint64_t argmaxGap = 1; // a parameters to compute value in argmax
     for (uint64_t i = 1; i < indicesDim; i++) {
         argmaxGap *= indicesShape.GetDim(i);
     }
-    uint64_t bytesData = 4;    // now only support float32
-    uint64_t bytesIndices = 4; // now only support int32
 
     auto outLineEachTask = tiling.get_outLineEachTask();
     uint64_t ubAvailableBytes = UB_size - std::min(updatesTail, MAX_DEAL_NUM) * 7 * 4 - outLineEachTask * 4 - 10*1024;
@@ -213,6 +231,16 @@ static ge::graphStatus ScatterMaxWithArgmaxV2InferShape(gert::InferShapeContext*
     *argmax_shape = *x1_shape;
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus ScatterMaxWithArgmaxV2InferDtype(gert::InferDataTypeContext *context)
+{
+    const ge::DataType var_dtype = context->GetInputDataType(0);
+    const ge::DataType indices_dtype = context->GetInputDataType(1);
+    context->SetOutputDataType(0, var_dtype);
+    context->SetOutputDataType(1, indices_dtype);
+    return GRAPH_SUCCESS;
+}
+
 }
 
 namespace ops {
@@ -249,13 +277,15 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::ScatterMaxWithArgmaxV2InferShape);
+        this->SetInferShape(ge::ScatterMaxWithArgmaxV2InferShape)
+             .SetInferDataType(ge::ScatterMaxWithArgmaxV2InferDtype);
 
         this->AICore()
             .SetTiling(optiling::ScatterMaxWithArgmaxV2TilingFunc);
         this->AICore().AddConfig("ascend910");
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend310p");
     }
 };
 
