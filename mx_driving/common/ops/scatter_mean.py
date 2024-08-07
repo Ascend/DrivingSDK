@@ -8,9 +8,9 @@ import ads_c
 
 class ScatterMeanFunction(Function):
     @staticmethod
-    def forward(ctx, src, index, out=None, dim=0):
+    def forward(ctx, src, index, out=None, dim=0, dim_size=None):
         func = ads_c.npu_scatter_mean
-        res, count = func(src, index, out, dim, None)
+        res, count = func(src, index, out, dim, dim_size)
         return res
 
 scatter_mean = ScatterMeanFunction.apply

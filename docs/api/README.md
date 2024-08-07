@@ -490,12 +490,12 @@ mx_driving.common.scatter_mean(Tensor src, Tensor indices, int dim=0， Tensor o
 - `indices`：索引张量，数据类型为`int32`，且
   - `indices`的维度必须小于等于`src`的维度，
   - `indices`每一维的长度均必须与`src`长度相同。
-  - `indices`的取值必须为非负的有效索引值。
-- `out`：被更新张量，数据类型为`float32`，默认为`None`，输入out不为`None`时，`out`中的元素参与平均值的计算，且
+  - `indices`的取值必须为非负的有效索引值，参数`out`或`data_size`不为`None`时，`indices`的取值应该为输出张量在`dim`维的有效索引值。
+- `out`：被更新张量，数据类型为`float32`，可选入参，默认为`None`，输入`out`不为`None`时，`out`中的元素参与平均值的计算，且
   - `out`的维度必须与`src`的维度相同。
   - `out`除第`dim`维外其余维的长度必须与`src`相同。
-- `dim`：指定的维度，表示按照哪个维度进行分组平均计算。
-- `dim_size`：输出张量在`dim`维的长度，数据类型为`int32`，该参数仅在输入out为`None`时生效。
+- `dim`：指定的维度，表示按照哪个维度进行分组平均计算，数据类型为`int32`，可选入参，默认取值为`0`，`dim`取值不超过`indices`的维度。
+- `dim_size`：输出张量在`dim`维的长度，数据类型为`int32`，可选入参，默认为`None`，`dim_size`的取值必须为非负的有效长度值，该参数仅在输入`out`为`None`时生效。
 ### 返回值
 - `out`：求平均后的张量，数据类型为`float32`。
 ### 支持的型号
