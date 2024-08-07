@@ -50,6 +50,7 @@ public:
         weightStride0 = numLevels * numPoints;
         weightStride1 = numHeads * weightStride0;
         weightStride2 = numQueries * weightStride1;
+        weightStrideInput = numHeads * numPoints;
         valueStride0 = embedDims;
         valueStride1 = numKeys * valueStride0;
         valueStride2 = numHeads * valueStride1;
@@ -225,6 +226,9 @@ private:
                 for (head = 0; head < numHeads; head++) {
                     offsetWeight = batch * weightStride2 + query * weightStride1 + head * weightStride0;
                     offsetLocation = 2 * offsetWeight;
+                    uint32_t offsetWeightInput = batch * weightStride2 + query * weightStride1 + head * numPoints;
+                    uint32_t offsetLocationX = 2 * (batch * weightStride2 + query * weightStride1) + head * numPoints;
+                    uint32_t offsetLocationY = 2 * (batch * weightStride2 + query * weightStride1) + weightStride1 + head * numPoints;
                     DataCopy(topGradLocal,
                              gradOutputGm[batch * gradOutStride2 + query * gradOutStride1 + head * gradOutStride0],
                              embedDims);
@@ -239,13 +243,11 @@ private:
                         offsetValue = batch * valueStride2 + head * valueStride1 + levelStartId * valueStride0;
                         wStride = embedDims;
                         hStride = w * wStride;
-                        DataCopy(locWLocal, locationGm[offsetLocation + level * numPoints * 2], numPointsAlign);
-                        DataCopy(locHLocal, locationGm[offsetLocation + level * numPoints * 2 + numPoints],
-                                 numPointsAlign);
+                        DataCopy(locWLocal, locationGm[offsetLocationX], numPointsAlign);
+                        DataCopy(locHLocal, locationGm[offsetLocationY], numPointsAlign);
                         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
                         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
-                        DataCopy(attentionWeightLocal, attentionWeightsGm[offsetWeight + level * numPoints],
-                                 numPointsAlign);
+                        DataCopy(attentionWeightLocal, attentionWeightsGm[offsetWeightInput], numPointsAlign);
                         Muls(imLocal[numPointsAlign], locHLocal, (DTYPE_VALUE)h, numPointsAlign);
                         Muls(imLocal, locWLocal, (DTYPE_VALUE)w, numPointsAlign);
                         Adds(imLocal, imLocal, DTYPE_VALUE(-0.5), 2 * numPointsAlign);
@@ -336,6 +338,9 @@ private:
                         DataCopyPad(gradLocationGm[offsetLocation + level * 2 * numPoints], locSumLocal, copyParamsV2);
                         WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
                         WaitFlag<HardEvent::V_MTE2>(eventIdVToMte2);
+                        offsetWeightInput += weightStrideInput;
+                        offsetLocationX += weightStrideInput;
+                        offsetLocationY += weightStrideInput;
                     }
                 }
             }
@@ -365,7 +370,7 @@ private:
     uint32_t startOffset, endOffset;
     uint32_t dataAlign, blockBytes;
     uint32_t gradOutStride0, gradOutStride1, gradOutStride2;
-    uint32_t weightStride0, weightStride1, weightStride2;
+    uint32_t weightStride0, weightStride1, weightStride2, weightStrideInput;
     uint32_t valueStride0, valueStride1, valueStride2;
     uint32_t baseOffsetUb, pointOffset;
     uint32_t mid1Id = 0, mid2Id = 1, mid3Id = 2, mid4Id = 3;

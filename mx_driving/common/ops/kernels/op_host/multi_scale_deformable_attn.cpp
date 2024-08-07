@@ -2,30 +2,28 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
  */
 #include "multi_scale_deformable_attn_tiling.h"
-
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/tiling_api.h"
 
 using namespace ge;
-using namespace std;
-using namespace AscendC;
 
 namespace {
 const uint32_t INPUT_VALUE = 0;
 const uint32_t INPUT_SPATIAL_SHAPE = 1;
 const uint32_t INPUT_ATTN_WEIGHT = 4;
-const uint32_t BATCh_SIZE_DIM = 0;
+const uint32_t BATCH_SIZE_DIM = 0;
 const uint32_t NUM_KEYS_DIM = 2;
-const uint32_t NUM_HEADS_DIM = 2;
+const uint32_t NUM_HEADS_DIM = 3;
 const uint32_t EMBED_DIMS_DIM = 3;
 const uint32_t NUM_LEVEL_DIM = 0;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
+const uint32_t B32_DATA_NUM_PER_BLOCK = 4;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext *context)
+static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext* context)
 {
     MultiScaleDeformableAttnTilingData tiling;
 
@@ -46,35 +44,44 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     uint32_t coreNum = ascendplatformInfo.GetCoreNumAiv();
     context->SetBlockDim(coreNum);
 
-    tiling.set_batchSize(valueShape.GetDim(BATCh_SIZE_DIM));
+    uint32_t numLevels = spatialShape.GetDim(NUM_LEVEL_DIM);
+    uint32_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
+    uint32_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
+    uint32_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
+    uint32_t optPoint = (numLevels * numPoints * numHeads % B32_DATA_NUM_PER_BLOCK) == 0 && embedDims == 32 &&
+                        (numPoints == 2 || numPoints == 4 || numPoints == 8);
+
+    context->SetTilingKey(optPoint == 1 ? optPoint * 1000 + numPoints : 0);
+
+    tiling.set_batchSize(valueShape.GetDim(BATCH_SIZE_DIM));
     tiling.set_numKeys(valueShape.GetDim(NUM_KEYS_DIM));
-    tiling.set_numHeads(attnWeightShape.GetDim(NUM_HEADS_DIM));
-    tiling.set_embedDims(valueShape.GetDim(EMBED_DIMS_DIM));
-    tiling.set_numLevels(spatialShape.GetDim(NUM_LEVEL_DIM));
+    tiling.set_numHeads(numHeads);
+    tiling.set_embedDims(embedDims);
+    tiling.set_numLevels(numLevels);
     tiling.set_numQueries(attnWeightShape.GetDim(NUM_QUERIES_DIM));
-    tiling.set_numPoints(attnWeightShape.GetDim(NUM_POINTS_DIM));
+    tiling.set_numPoints(numPoints);
     tiling.set_coreNum(coreNum);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-    currentWorkspace[0] = 0;
+    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    currentWorkspace[0] = 16 * 1024 * 1024;
     return ge::GRAPH_SUCCESS;
 }
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus InferShapeForMultiScaleDeformableAttn(gert::InferShapeContext *context)
+static ge::graphStatus InferShapeForMultiScaleDeformableAttn(gert::InferShapeContext* context)
 {
-    const gert::Shape *valueShape = context->GetInputShape(0);
+    const gert::Shape* valueShape = context->GetInputShape(0);
     if (valueShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const gert::Shape *samplingLocationsShape = context->GetInputShape(3);
+    const gert::Shape* samplingLocationsShape = context->GetInputShape(3);
     if (samplingLocationsShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape *y_shape = context->GetOutputShape(0);
+    gert::Shape* y_shape = context->GetOutputShape(0);
     if (y_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -86,7 +93,7 @@ static ge::graphStatus InferShapeForMultiScaleDeformableAttn(gert::InferShapeCon
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForMultiScaleDeformableAttn(gert::InferDataTypeContext *context)
+static ge::graphStatus InferDataTypeForMultiScaleDeformableAttn(gert::InferDataTypeContext* context)
 {
     const ge::DataType value_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, value_dtype);
@@ -97,7 +104,7 @@ static ge::graphStatus InferDataTypeForMultiScaleDeformableAttn(gert::InferDataT
 namespace ops {
 class MultiScaleDeformableAttn : public OpDef {
 public:
-    explicit MultiScaleDeformableAttn(const char *name) : OpDef(name)
+    explicit MultiScaleDeformableAttn(const char* name) : OpDef(name)
     {
         this->Input("value")
             .ParamType(REQUIRED)

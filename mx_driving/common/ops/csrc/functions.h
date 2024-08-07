@@ -16,15 +16,22 @@
 
 #include <ATen/ATen.h>
 
-at::Tensor npu_three_interpolate(int b, int c, int m, int n, const at::Tensor& points, const at::Tensor& idx, const at::Tensor& weight);
-at::Tensor npu_three_interpolate_backward(int b, int c, int n, int m, const at::Tensor& grad_out, const at::Tensor& idx, const at::Tensor& weight);
+at::Tensor npu_three_interpolate(
+    int b, int c, int m, int n, const at::Tensor& points, const at::Tensor& idx, const at::Tensor& weight);
+
+at::Tensor npu_three_interpolate_backward(
+    int b, int c, int n, int m, const at::Tensor& grad_out, const at::Tensor& idx, const at::Tensor& weight);
 
 std::tuple<at::Tensor, at::Tensor> scatter_max_with_argmax_v2(
     const at::Tensor& updates, const at::Tensor& indices, c10::optional<at::Tensor> out);
+
 at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments);
+
 at::Tensor npu_rotated_overlaps(const at::Tensor& self, const at::Tensor& query_boxes, bool trans);
+
 at::Tensor npu_rotated_iou(const at::Tensor& boxes, const at::Tensor& query_boxes, bool trans, int64_t mode,
     bool is_cross, double v_threshold, double e_threshold);
+
 at::Tensor npu_scatter(const at::Tensor& self, const at::Tensor& indices, const at::Tensor& updates, int64_t dim);
 
 at::Tensor furthest_point_sampling_with_dist(
@@ -33,42 +40,52 @@ at::Tensor furthest_point_sampling_with_dist(
 std::tuple<at::Tensor, at::Tensor> npu_dynamic_scatter(const at::Tensor& feats, const at::Tensor& coors,
     const at::Tensor& prefix_sum_point_per_voxel, const at::Tensor& argsort_coor, int32_t num_voxels,
     const char* reduce_type);
+
 void npu_dynamic_scatter_grad(at::Tensor& grad_point_feats, const at::Tensor& grad_voxel_feats,
     const at::Tensor& prefix_sum_point_per_voxel, const at::Tensor& argsort_coor, const at::Tensor& compare_mask,
     const char* reduce_type);
 
 at::Tensor npu_max_pool2d(const at::Tensor& x_trans, int kernel_size, int stride, int padding);
+
 at::Tensor npu_points_in_box(const at::Tensor& boxes, const at::Tensor& pts);
+
 at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value, const at::Tensor& value_spatial_shapes,
     const at::Tensor& value_level_start_index, const at::Tensor& sampling_locations,
     const at::Tensor& attention_weights);
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(const at::Tensor& value,
-    const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location,
-    const at::Tensor& attn_weight, const at::Tensor& grad_output);
+    const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location_trans,
+    const at::Tensor& attn_weight_trans, const at::Tensor& grad_output);
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad_v2(const at::Tensor& value,
     const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location_trans,
     const at::Tensor& attn_weight_trans, const at::Tensor& grad_output);
+
 at::Tensor npu_furthest_point_sampling(const at::Tensor& point_xyz, const at::Tensor& nearset_temp, int32_t num_points);
+
 at::Tensor dynamic_voxelization(const at::Tensor& points, at::Tensor& coors, int grid_x, int grid_y, int grid_z,
     double voxel_x, double voxel_y, double voxel_z, double coors_min_x, double coors_min_y, double coorsMinZ);
 
 std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor& boxes, double nms_overlap_thresh);
 
 std::tuple<at::Tensor, at::Tensor> nms3d(const at::Tensor& boxes, double threshold);
-at::Tensor npu_scatter_mean_grad(const at::Tensor &grad_out, const at::Tensor &index, int32_t dim);
 
-std::tuple<at::Tensor &, at::Tensor &> voxel_pooling_train(const at::Tensor& inputFeatures, const at::Tensor& geom,
-    at::Tensor& outputFeatures, at::Tensor& posMemo, int batchSize, int numPoints, int numChannels,
-    int numVoxelX, int numVoxelY, int numVoxelZ);
+at::Tensor npu_scatter_mean_grad(const at::Tensor& grad_out, const at::Tensor& index, int32_t dim);
+
+std::tuple<at::Tensor&, at::Tensor&> voxel_pooling_train(const at::Tensor& inputFeatures, const at::Tensor& geom,
+    at::Tensor& outputFeatures, at::Tensor& posMemo, int batchSize, int numPoints, int numChannels, int numVoxelX,
+    int numVoxelY, int numVoxelZ);
+
 at::Tensor voxel_pool_train_backward(const at::Tensor& grad_out, const at::Tensor& posMemo, const int64_t batchSize,
     const int64_t numPoints, const int64_t numChannels, const int64_t h, const int64_t w);
 
 at::Tensor knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample, bool is_from_knn);
+
 std::tuple<at::Tensor, at::Tensor> npu_roipoint_pool3d_forward(const int32_t num_sampled_points,
-                                                               const at::Tensor &points,
-                                                               const at::Tensor &point_features,
-                                                               const at::Tensor &boxes3d);
+    const at::Tensor& points, const at::Tensor& point_features, const at::Tensor& boxes3d);
+
 at::Tensor npu_add_relu(at::Tensor& x, const at::Tensor& y);
+
 at::Tensor npu_add_relu_grad(at::Tensor& self, at::Tensor& grad_output);
 std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor& index,
                                                     c10::optional<at::Tensor> out, c10::optional<int> dim,

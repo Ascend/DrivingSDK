@@ -17,6 +17,13 @@
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
+constexpr size_t BATCH_SIZE_IDX = 0;
+constexpr size_t NUM_QUERIES_IDX = 1;
+constexpr size_t NUM_HEADS_IDX = 4;
+constexpr size_t NUM_POINTS_IDX = 5;
+constexpr size_t NUM_LEVELS_IDX = 3;
+constexpr size_t EMBED_DIMS_IDX = 3;
+
 at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value_trans,
     const at::Tensor& value_spatial_shapes, const at::Tensor& value_level_start_index,
     const at::Tensor& sampling_locations_trans, const at::Tensor& attention_weights)
@@ -43,14 +50,6 @@ at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value_tran
     auto location_size = sampling_locations_trans.sizes();
     auto embed_dims = value_size[3];
     auto output_size = {value_size[0], location_size[1], value_size[1] * embed_dims};
-
-    auto num_points = location_size[5];
-    auto num_levels = location_size[3];
-    auto data_total = embed_dims + num_points + num_levels;
-
-    TORCH_CHECK(data_total < 512, "data_total is over 512: embed_dims ", embed_dims, ", num_points is ", num_points,
-        ", num_level is ", num_levels, ".");
-    TORCH_CHECK(embed_dims % 8 == 0, "embed_dims must be a multiple of 8, but embed_dims is ", embed_dims, ".");
 
     at::Tensor result = at::zeros(output_size, value_trans.options().dtype(at::kFloat));
 
@@ -110,15 +109,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad_
     at::Tensor sampling_locations_fp = location_trans.to(at::kFloat);
     at::Tensor attn_weight_fp = attn_weight_trans.to(at::kFloat);
     at::Tensor grad_output_fp = grad_output.to(at::kFloat);
-    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttnGradV2, value_trans_fp, shape_fp, level_start_index_fp, sampling_locations_fp,
-        attn_weight_fp, grad_output_fp, grad_value_trans, grad_location_trans, grad_attn_weight_trans);
+    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttnGradV2, value_trans_fp, shape_fp, level_start_index_fp,
+        sampling_locations_fp, attn_weight_fp, grad_output_fp, grad_value_trans, grad_location_trans,
+        grad_attn_weight_trans);
     return std::make_tuple(
         grad_value_trans.to(ori_dtype), grad_location_trans.to(ori_dtype), grad_attn_weight_trans.to(ori_dtype));
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(const at::Tensor& value_trans,
     const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location_trans,
-    const at::Tensor& attn_weight, const at::Tensor& grad_output)
+    const at::Tensor& attn_weight_trans, const at::Tensor& grad_output)
 {
     TORCH_CHECK(value_trans.scalar_type() == at::kHalf || value_trans.scalar_type() == at::kFloat,
         "value_trans: float16 or float32 tensor expected but got a tensor with dtype: ", value_trans.scalar_type());
@@ -130,36 +130,39 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     TORCH_CHECK(location_trans.scalar_type() == at::kHalf || location_trans.scalar_type() == at::kFloat,
         "sampling_locations: float16 or float32 tensor expected but got a tensor with dtype: ",
         location_trans.scalar_type());
-    TORCH_CHECK(attn_weight.scalar_type() == at::kHalf || attn_weight.scalar_type() == at::kFloat,
-        "attn_weight: float16 or float32 tensor expected but got a tensor with dtype: ", attn_weight.scalar_type());
+    TORCH_CHECK(attn_weight_trans.scalar_type() == at::kHalf || attn_weight_trans.scalar_type() == at::kFloat,
+        "attn_weight_trans: float16 or float32 tensor expected but got a tensor with dtype: ",
+        attn_weight_trans.scalar_type());
     TORCH_CHECK(grad_output.scalar_type() == at::kHalf || grad_output.scalar_type() == at::kFloat,
         "grad_output: float16 or float32 tensor expected but got a tensor with dtype: ", grad_output.scalar_type());
 
     auto ori_dtype = value_trans.scalar_type();
-    auto value_size = value_trans.sizes();
-    auto location_size = location_trans.sizes();
-    auto attn_weight_size = attn_weight.sizes();
-    auto num_heads = value_size[1];
-    auto embed_dims = value_size[3];
-    auto num_points = location_size[5];
-    auto num_levels = location_size[3];
-    auto data_total = embed_dims + num_points + num_levels;
-    TORCH_CHECK(data_total < 512, "data_total is over 512: embed_dims ", embed_dims, " num_points is ", num_points,
-        " num_level is ", num_levels, ".");
+    auto value_trans_size = value_trans.sizes();
+    auto location_trans_size = location_trans.sizes();
+    auto batch_size = location_trans_size[BATCH_SIZE_IDX];
+    auto embed_dims = value_trans_size[EMBED_DIMS_IDX];
+    auto num_queries = location_trans_size[NUM_QUERIES_IDX];
+    auto num_heads = location_trans_size[NUM_HEADS_IDX];
+    auto num_points = location_trans_size[NUM_POINTS_IDX];
+    auto num_levels = location_trans_size[NUM_LEVELS_IDX];
+
     TORCH_CHECK(embed_dims % 8 == 0, "embed_dims must be a multiple of 8, but embed_dims is ", embed_dims, ".");
 
-    at::Tensor grad_value_trans = at::zeros(value_size, value_trans.options().dtype(at::kFloat));
-    at::Tensor grad_location_trans = at::zeros(location_size, location_trans.options().dtype(at::kFloat));
-    at::Tensor grad_attn_weight = at::zeros(attn_weight_size, attn_weight.options().dtype(at::kFloat));
+    at::Tensor grad_value_trans = at::zeros(value_trans_size, value_trans.options().dtype(at::kFloat));
+    at::Tensor grad_location_trans = at::zeros(
+        {batch_size, num_queries, num_heads, num_levels, 2, num_points}, location_trans.options().dtype(at::kFloat));
+    at::Tensor grad_attn_weight_trans = at::zeros(
+        {batch_size, num_queries, num_heads, num_levels, num_points}, attn_weight_trans.options().dtype(at::kFloat));
 
-    at::Tensor value_fp = value_trans.to(at::kFloat);
+    at::Tensor value_trans_fp = value_trans.to(at::kFloat);
     at::Tensor shape_fp = shape.to(at::kInt);
     at::Tensor level_start_index_fp = level_start_index.to(at::kInt);
     at::Tensor sampling_locations_fp = location_trans.to(at::kFloat);
-    at::Tensor attn_weight_fp = attn_weight.to(at::kFloat);
+    at::Tensor attn_weight_fp = attn_weight_trans.to(at::kFloat);
     at::Tensor grad_output_fp = grad_output.to(at::kFloat);
-    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttnGrad, value_fp, shape_fp, level_start_index_fp, sampling_locations_fp,
-        attn_weight_fp, grad_output_fp, grad_value_trans, grad_location_trans, grad_attn_weight);
+    EXEC_NPU_CMD(aclnnMultiScaleDeformableAttnGrad, value_trans_fp, shape_fp, level_start_index_fp,
+        sampling_locations_fp, attn_weight_fp, grad_output_fp, grad_value_trans, grad_location_trans,
+        grad_attn_weight_trans);
     return std::make_tuple(
-        grad_value_trans.to(ori_dtype), grad_location_trans.to(ori_dtype), grad_attn_weight.to(ori_dtype));
+        grad_value_trans.to(ori_dtype), grad_location_trans.to(ori_dtype), grad_attn_weight_trans.to(ori_dtype));
 }
