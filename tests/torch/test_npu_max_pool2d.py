@@ -12,7 +12,7 @@ def gen_inputs(shape, dtype):
 
 def cpu_to_exec(x_data_cpu):
     f = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-    cpu_output = f(x_data_cpu)
+    cpu_output = f(x_data_cpu.float())
     return cpu_output
 
 
@@ -23,13 +23,13 @@ def npu_to_exec(x_data_cpu):
 
 class TestNpuMaxPool2d(TestCase):
     def test_npu_max_pool2d(self):
-        dtype_list = [torch.float32]
+        dtype_list = [torch.float32, torch.float16]
         shape_list = [
             [18, 64, 464, 800],
             [6, 64, 464, 800],
             [7, 32, 46400, 18],
             [2, 16, 42, 24785],
-            [1, 8, 3, 3]
+            [1, 16, 3, 3]
         ]
 
         items = [
@@ -45,7 +45,7 @@ class TestNpuMaxPool2d(TestCase):
             cpu_output = cpu_to_exec(x_data_cpu)
             npu_output = npu_to_exec(x_data_cpu)
 
-            self.assertRtolEqual(cpu_output, npu_output)
+            self.assertRtolEqual(cpu_output, npu_output.float())
 
 
 if __name__ == "__main__":

@@ -20,8 +20,8 @@
 at::Tensor npu_max_pool2d(const at::Tensor& x_trans, int kernel_size, int stride, int padding)
 {
     TORCH_CHECK_NPU(x_trans);
-    TORCH_CHECK(x_trans.scalar_type() == at::kFloat,
-        "x: float32 tensor expected but got a tensor with dtype: ", x_trans.scalar_type());
+    TORCH_CHECK(x_trans.scalar_type() == at::kFloat || x_trans.scalar_type() == at::kHalf,
+        "x: float32 or float16 tensor expected but got a tensor with dtype: ", x_trans.scalar_type());
     TORCH_CHECK(kernel_size == 3, "kernel_size: expected 3 but got: ", kernel_size);
     TORCH_CHECK(stride == 2, "stride: expected 2 but got: ", stride);
     TORCH_CHECK(padding == 1, "padding: expected 1 but got: ", padding);
@@ -32,8 +32,11 @@ at::Tensor npu_max_pool2d(const at::Tensor& x_trans, int kernel_size, int stride
     auto height = x_size[1];
     auto width = x_size[2];
     auto channel = x_size[3];
-    TORCH_CHECK(channel % 8 == 0, "channel: expected 8X but got: ", channel);
-
+    if (x_trans.scalar_type() == at::kFloat) {
+        TORCH_CHECK(channel % 8 == 0, "channel: expected 8X when dtype is fp32  but got: ", channel);
+    } else if (x_trans.scalar_type() == at::kHalf) {
+        TORCH_CHECK(channel % 16 == 0, "channel: expected 16X when dtype is fp16 but got: ", channel);
+    }
     auto output_size = {batch, (height + 1) / 2, (width + 1) / 2, channel};
     at::Tensor y_trans = at::empty(output_size, x_trans.options());
 
