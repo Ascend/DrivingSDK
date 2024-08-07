@@ -18,7 +18,7 @@ class MaxPool2d(Function):
     @staticmethod
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(ctx, x, kernel_size, stride, padding):
-        if x.shape[1] <= 16 or x.shape[2] >= x.shape[3]:
+        if x.shape[2] == 1 or x.shape[3] == 1:
             f = nn.MaxPool2d(kernel_size, stride, padding)
             y = f(x)
             return y
