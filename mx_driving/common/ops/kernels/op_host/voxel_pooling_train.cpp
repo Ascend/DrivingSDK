@@ -2,14 +2,27 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  */
 
-#include "voxel_pooling_train_tiling.h"
 #include "register/op_def_registry.h"
-#include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
+#include "tiling/tiling_api.h"
+#include "voxel_pooling_train_tiling.h"
 
-constexpr uint32_t FP32_MODE = 0;
-constexpr uint32_t FP16_MODE = 1;
-constexpr uint32_t WORKSPACE_16MBYTE_SIZE = 16 * 1024 * 1024;
+
+namespace {
+constexpr uint32_t INDICES = 3;
+
+constexpr uint32_t BYTE_BLOCK = 32;
+constexpr uint32_t SIZE_OF_DATA = 4;
+constexpr uint32_t BLOCK_INT32 = 8;
+
+constexpr size_t B_IDX = 0;
+constexpr size_t N_IDX = 1;
+constexpr size_t C_IDX = 2;
+constexpr size_t X_IDX = 3;
+constexpr size_t Y_IDX = 4;
+constexpr size_t Z_IDX = 5;
+
+} // namespace
 
 namespace optiling {
 static ge::graphStatus TilingForVoxelPooling(gert::TilingContext* context)
@@ -28,34 +41,40 @@ static ge::graphStatus TilingForVoxelPooling(gert::TilingContext* context)
     if (attrsPtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    int batchSize = *(attrsPtr->GetAttrPointer<int>(0));
-    int numPoints = *(attrsPtr->GetAttrPointer<int>(1));
-    int numChannels = *(attrsPtr->GetAttrPointer<int>(2));
-    int numVoxelX = *(attrsPtr->GetAttrPointer<int>(3));
-    int numVoxelY = *(attrsPtr->GetAttrPointer<int>(4));
-    int numVoxelZ = *(attrsPtr->GetAttrPointer<int>(5));
+    int batchSize = *(attrsPtr->GetAttrPointer<int>(B_IDX));
+    int numPoints = *(attrsPtr->GetAttrPointer<int>(N_IDX));
+    int numChannels = *(attrsPtr->GetAttrPointer<int>(C_IDX));
+    int numVoxelX = *(attrsPtr->GetAttrPointer<int>(X_IDX));
+    int numVoxelY = *(attrsPtr->GetAttrPointer<int>(Y_IDX));
+    int numVoxelZ = *(attrsPtr->GetAttrPointer<int>(Z_IDX));
 
-    // set workspace
-    size_t sysWorkspaceSize = WORKSPACE_16MBYTE_SIZE + batchSize * numVoxelX * numVoxelY * numChannels * sizeof(float);
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-    currentWorkspace[0] = sysWorkspaceSize;
+    uint32_t alignNum = BYTE_BLOCK / SIZE_OF_DATA;
+    uint32_t cAligned = (numChannels + alignNum - 1) / alignNum * alignNum;
+    uint32_t indicesAligned = (INDICES + BLOCK_INT32 - 1) / BLOCK_INT32 * BLOCK_INT32;
 
-    uint32_t featuresNumInCore = numPoints / coreNum;
-    uint32_t featuresNumInLastCore = numPoints - featuresNumInCore * (coreNum - 1);
+    uint32_t average = batchSize * numPoints / coreNum;
+    uint32_t taskLast = batchSize * numPoints % coreNum;
+    uint32_t usedCoreNum = coreNum;
 
+    if (average == 0) {
+        usedCoreNum = taskLast;
+    }
     // save param
-    context->SetBlockDim(coreNum);
-    tiling.set_core_num(coreNum);
-    tiling.set_features_num_in_core(featuresNumInCore);
-    tiling.set_features_num_in_last_core(featuresNumInLastCore);
-    tiling.set_batch_size(batchSize);
-    tiling.set_num_points(numPoints);
-    tiling.set_num_channels(numChannels);
-    tiling.set_num_voxel_x(numVoxelX);
-    tiling.set_num_voxel_y(numVoxelY);
-    tiling.set_num_voxel_z(numVoxelZ);
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
-                        context->GetRawTilingData()->GetCapacity());
+    context->SetBlockDim(usedCoreNum);
+
+    tiling.set_batchSize(batchSize);
+    tiling.set_numPoints(numPoints);
+    tiling.set_numChannels(numChannels);
+    tiling.set_cAligned(cAligned);
+    tiling.set_numVoxelX(numVoxelX);
+    tiling.set_numVoxelY(numVoxelY);
+    tiling.set_numVoxelZ(numVoxelZ);
+    tiling.set_indicesAligned(indicesAligned);
+    tiling.set_average(average);
+    tiling.set_taskLast(taskLast);
+    tiling.set_usedCoreNum(usedCoreNum);
+
+    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     return ge::GRAPH_SUCCESS;
@@ -68,15 +87,16 @@ static ge::graphStatus InferShapeForVoxelPoolingTrain(gert::InferShapeContext* c
     auto attrsPtr = context->GetAttrs();
     gert::Shape* outFeaturesShape = context->GetOutputShape(0);
     gert::Shape* posMemoShape = context->GetOutputShape(1);
-    if (attrsPtr == nullptr || outFeaturesShape == nullptr ||
-        posMemoShape == nullptr) {
+    if (attrsPtr == nullptr || outFeaturesShape == nullptr || posMemoShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    int batchSize = *(attrsPtr->GetAttrPointer<int>(0));
-    int numPoints = *(attrsPtr->GetAttrPointer<int>(1));
-    int numChannels = *(attrsPtr->GetAttrPointer<int>(2));
-    int numVoxelX = *(attrsPtr->GetAttrPointer<int>(3));
-    int numVoxelY = *(attrsPtr->GetAttrPointer<int>(4));
+
+    int batchSize = *(attrsPtr->GetAttrPointer<int>(B_IDX));
+    int numPoints = *(attrsPtr->GetAttrPointer<int>(N_IDX));
+    int numChannels = *(attrsPtr->GetAttrPointer<int>(C_IDX));
+    int numVoxelX = *(attrsPtr->GetAttrPointer<int>(X_IDX));
+    int numVoxelY = *(attrsPtr->GetAttrPointer<int>(Y_IDX));
+    int numVoxelZ = *(attrsPtr->GetAttrPointer<int>(Z_IDX));
 
     outFeaturesShape->SetDimNum(0);
     outFeaturesShape->AppendDim(batchSize);

@@ -7,15 +7,17 @@
 
 namespace optiling {
 BEGIN_TILING_DATA_DEF(VoxelPoolingTilingData)
-    TILING_DATA_FIELD_DEF(uint32_t, core_num)
-    TILING_DATA_FIELD_DEF(uint32_t, features_num_in_core)
-    TILING_DATA_FIELD_DEF(uint32_t, features_num_in_last_core)
-    TILING_DATA_FIELD_DEF(uint32_t, batch_size)
-    TILING_DATA_FIELD_DEF(uint32_t, num_points)
-    TILING_DATA_FIELD_DEF(uint32_t, num_channels)
-    TILING_DATA_FIELD_DEF(uint32_t, num_voxel_x)
-    TILING_DATA_FIELD_DEF(uint32_t, num_voxel_y)
-    TILING_DATA_FIELD_DEF(uint32_t, num_voxel_z)
+    TILING_DATA_FIELD_DEF(uint32_t, batchSize);
+    TILING_DATA_FIELD_DEF(uint32_t, numPoints);
+    TILING_DATA_FIELD_DEF(uint32_t, numChannels);
+    TILING_DATA_FIELD_DEF(uint32_t, cAligned);
+    TILING_DATA_FIELD_DEF(uint32_t, numVoxelX)
+    TILING_DATA_FIELD_DEF(uint32_t, numVoxelY)
+    TILING_DATA_FIELD_DEF(uint32_t, numVoxelZ)
+    TILING_DATA_FIELD_DEF(uint32_t, indicesAligned);
+    TILING_DATA_FIELD_DEF(uint32_t, average);
+    TILING_DATA_FIELD_DEF(uint32_t, taskLast);
+    TILING_DATA_FIELD_DEF(uint32_t, usedCoreNum);
 END_TILING_DATA_DEF
 
 REGISTER_TILING_DATA_CLASS(VoxelPoolingTrain, VoxelPoolingTilingData)

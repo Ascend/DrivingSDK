@@ -423,7 +423,7 @@ torch.tensor(
 ## voxel_pooling_train
 ### 接口原型
 ```python
-mx_driving.common.npu_voxel_pooling_train(Tensor geom_xyz, Tensor input_features, Tensor voxel_num) -> Tensor
+mx_driving.common.npu_voxel_pooling_train(Tensor geom_xyz, Tensor input_features, List[int] voxel_num) -> Tensor
 ```
 ### 功能描述
 点云数据体素化。
@@ -435,11 +435,13 @@ mx_driving.common.npu_voxel_pooling_train(Tensor geom_xyz, Tensor input_features
 - `output(Tensor)`：输出结果，数据类型为`float32|float16`。shape为`[B, num_voxel_y, num_voxel_x, C]`。
 ### 约束说明
 - B <= 128
-- N <= 1000000
+- N <= 100000
 - C <= 256
 - num_voxel_x <= 1000
 - num_voxel_y <= 1000
 - num_voxel_z <= 10
+- B * num_voxel_y * num_voxel_x * C <= 100000000
+- B * N * C <= 100000000
 - 反向具有相同约束。
 ### 支持的型号
 - Atlas A2 训练系列产品

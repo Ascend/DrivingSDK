@@ -36,11 +36,8 @@ std::tuple<at::Tensor&, at::Tensor&> voxel_pooling_train(const at::Tensor& input
         outputFeatures = outputFeatures.to(at::kFloat);
     }
 
-    at::Tensor geomTrans = geom.transpose(1, 2).contiguous();
-    at::Tensor posMemoTrans = posMemo.transpose(1, 2).contiguous();
-    EXEC_NPU_CMD(aclnnVoxelPoolingTrain, geomTrans, inputFeatures_cast, batchSize, numPoints, numChannels, numVoxelX,
-        numVoxelY, numVoxelZ, outputFeatures, posMemoTrans);
-    posMemo = posMemoTrans.transpose(1, 2).contiguous();
+    EXEC_NPU_CMD(aclnnVoxelPoolingTrain, geom, inputFeatures_cast, batchSize, numPoints, numChannels, numVoxelX,
+        numVoxelY, numVoxelZ, outputFeatures, posMemo);
 
     if (origin_dtype == at::kHalf) {
         outputFeatures = outputFeatures.to(at::kHalf);

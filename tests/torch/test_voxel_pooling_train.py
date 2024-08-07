@@ -20,10 +20,6 @@ def voxel_pooling_train_cpu_forward(batch_size, num_points, num_channels, num_vo
     for i in range(batch_size):
         for j in range(num_points):
             
-            pos_memo[i][j][0] = i
-            pos_memo[i][j][1] = geom_xyz[i][j][1]
-            pos_memo[i][j][2] = geom_xyz[i][j][0]
-
             sample_x = geom_xyz[i][j][0]
             sample_y = geom_xyz[i][j][1]
             sample_z = geom_xyz[i][j][2]
@@ -34,6 +30,10 @@ def voxel_pooling_train_cpu_forward(batch_size, num_points, num_channels, num_vo
                 continue
             if sample_z < 0 or sample_z >= num_voxel_z:
                 continue  
+
+            pos_memo[i][j][0] = i
+            pos_memo[i][j][1] = geom_xyz[i][j][1]
+            pos_memo[i][j][2] = geom_xyz[i][j][0]
 
             for k in range(num_channels):
                 output_features[i][sample_y][sample_x][k] += input_features[i][j][k]
