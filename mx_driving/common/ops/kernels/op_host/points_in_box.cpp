@@ -81,6 +81,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     y_shape->AppendDim(pts_shape->GetDim(1));
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus PointsInBoxInferDataType(gert::InferDataTypeContext *context)
+{
+    context->SetOutputDataType(0, ge::DT_INT32);
+    return GRAPH_SUCCESS;
+}
 }
 
 
@@ -105,8 +111,9 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShape);
-
+        this->SetInferShape(ge::InferShape)
+            .SetInferDataType(ge::PointsInBoxInferDataType);
+        
         this->AICore()
             .SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910b");
