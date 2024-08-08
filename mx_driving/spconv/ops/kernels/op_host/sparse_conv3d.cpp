@@ -116,7 +116,7 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
+static ge::graphStatus InferShapeForSparseConv3d(gert::InferShapeContext* context)
 {
     const gert::Shape* featureShape = context->GetInputShape(0);
     const gert::Shape* indicesShape = context->GetInputShape(1);
@@ -141,6 +141,15 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     *indicesOutShape = {kernelSize};
     *indicesPairShape = {kernelSize, indicesSecondSize};
     return GRAPH_SUCCESS;
+}
+
+static ge::graphStatus InferDtypeForSparseConv3d(gert::InferDataTypeContext* context)
+{
+    const ge::DataType feature_dtype = context->GetInputDataType(0);
+    const ge::DataType indices_dtype = context->GetInputDataType(1);
+    context->SetOutputDataType(0, feature_dtype);
+    context->SetOutputDataType(1, indices_dtype);
+    context->SetOutputDataType(2, indices_dtype);
 }
 }
 
@@ -188,7 +197,7 @@ public:
         this->Attr("stride").ListInt();
         this->Attr("padding").ListInt();
 
-        this->SetInferShape(ge::InferShape);
+        this->SetInferShape(ge::InferShapeForSparseConv3d).SetInferDataType(ge::InferDtypeForSparseConv3d);
         this->AICore().SetTiling(optiling::TilingForSparseConv3d);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910c");

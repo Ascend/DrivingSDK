@@ -64,7 +64,7 @@ static ge::graphStatus TilingForToSparse(gert::TilingContext* context)
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
+static ge::graphStatus InferShapeForToSparse(gert::InferShapeContext* context)
 {
     auto indicesOffsetShape = context->GetInputShape(0);
     auto valueShape = context->GetInputShape(1);
@@ -80,6 +80,14 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     *sparseValueShape = {actualNum, valueShape->GetDim(1)};
     *sparseIndicesShape = {actualNum, 8};
     return GRAPH_SUCCESS;
+}
+
+static ge::graphStatus InferDtypeForToSparse(gert::InferDataTypeContext* context)
+{
+    const ge::DataType indices_dtype = context->GetInputDataType(0);
+    const ge::DataType feature_dtype = context->GetInputDataType(1);
+    context->SetOutputDataType(0, feature_dtype);
+    context->SetOutputDataType(1, indices_dtype);
 }
 }
 
@@ -120,7 +128,7 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShape);
+        this->SetInferShape(ge::InferShapeForToSparse).SetInferDataType(ge::InferDtypeForToSparse);
 
         this->AICore().SetTiling(optiling::TilingForToSparse);
         this->AICore().AddConfig("ascend910b");
