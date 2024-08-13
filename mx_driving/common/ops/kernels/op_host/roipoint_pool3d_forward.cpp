@@ -137,6 +137,14 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     pooled_empty_flag_shape->AppendDim(boxes3d_shape->GetDim(1));
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDataTypeForRoipointPool3dForward(gert::InferDataTypeContext* context)
+{
+    const ge::DataType value_dtype = context->GetInputDataType(0);
+    context->SetOutputDataType(0, value_dtype);
+    context->SetOutputDataType(1, ge::DT_INT32);
+    return GRAPH_SUCCESS;
+}
 }
 
 namespace ops {
@@ -173,7 +181,8 @@ public:
         this->Attr("num_sampled_points")
             .AttrType(OPTIONAL).Int();
 
-        this->SetInferShape(ge::InferShape);
+        this->SetInferShape(ge::InferShape)
+             .SetInferDataType(ge::InferDataTypeForRoipointPool3dForward);
 
         this->AICore()
             .SetTiling(optiling::TilingForRoipointPool3dForward);
