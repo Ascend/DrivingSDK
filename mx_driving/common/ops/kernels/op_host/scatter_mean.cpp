@@ -15,7 +15,6 @@ const uint64_t INDICES_ONCE_DATANUM = 2048;
 const uint64_t TILING_MODE_NO_TAIL = 2;
 const uint64_t TILING_MODE_NORMAL = 1;
 const uint64_t LEAST_LINE_EACH_TASK = 4;
-const uint64_t UB_NUM_FOR_TAIL = 2;
 
 const uint64_t DATA_SIZE_2 = 2;
 const uint64_t DATA_SIZE_4 = 4;
@@ -68,9 +67,9 @@ static ge::graphStatus ScatterMeanGetUBNum(gert::TilingContext* context, uint64_
     uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
     auto dataEachBlock = BLOCK_SIZE / bytesData;
 
-    uint64_t ubAvailableBytes = UB_size - INDICES_ONCE_DATANUM * 2 * bytesIndices - 8 * 1024;
+    uint64_t ubIndicesNumTemp = std::min(INDICES_ONCE_DATANUM, indicesNumEachBatch);
+    uint64_t ubAvailableBytes = UB_size - ubIndicesNumTemp * 2 * bytesIndices - 8 * 1024;
     *ubOutNum = ubAvailableBytes / 2 / BLOCK_SIZE * dataEachBlock;
-    uint64_t ubIndicesNumTemp = std::min(INDICES_ONCE_DATANUM / BLOCK_SIZE * BLOCK_SIZE / bytesIndices, indicesNumEachBatch);
     *ubIndicesNum = ubIndicesNumTemp;
 
     return ge::GRAPH_SUCCESS;
@@ -196,7 +195,6 @@ static uint64_t GetAvailableDimNum(gert::TilingContext* context)
     return indicesDim - lastIndicesDim;
 }
 
-/***********scatterMeanDiv***********/
 static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
 {
     ScatterMeanTilingData tiling;
@@ -276,10 +274,10 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
 
     uint64_t ubIndicesNum;
     UB_size = UB_size - 8 * 1024;
-    ubIndicesNum = UB_size - std::min(tail, MAX_DEAL_NUM) * UB_NUM_FOR_TAIL * bytesData;
+    ubIndicesNum = UB_size - std::min(tail, MAX_DEAL_NUM) * bytesData;
     ubIndicesNum = std::min(ubIndicesNum / BLOCK_SIZE * BLOCK_SIZE / bytesIndices, bacthBigCore);
 
-    uint64_t ubTailNum = (UB_size - ubIndicesNum * bytesIndices) / UB_NUM_FOR_TAIL / BLOCK_SIZE * dataEachBlock;
+    uint64_t ubTailNum = (UB_size - ubIndicesNum * bytesIndices) / BLOCK_SIZE * dataEachBlock;
     ubTailNum = std::min(ubTailNum, GetCeilInt(tail, dataEachBlock) * dataEachBlock);
 
     uint64_t outDimSize = varShape.GetDim(dim);

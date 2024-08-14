@@ -54,9 +54,9 @@ static void npu_scatter_mean_shape_check(const at::Tensor& src, const at::Tensor
 static int32_t get_available_dimnum(const at::Tensor& indices)
 {
     auto indices_sizes = indices.sizes();
-    auto indices_dim = indices.dim();
+    int64_t indices_dim = indices.dim();
     int32_t last_indices_dim = 0;
-    for (uint64_t i = indices_dim - 1; i >= 0; i--) {
+    for (int64_t i = indices_dim - 1; i >= 0; i--) {
         if (indices_sizes[i] == 1) {
             last_indices_dim++;
         } else {
@@ -97,6 +97,7 @@ std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor&
     npu_scatter_mean_shape_check(src, indices, true_out, true_dim, max_index);
 
     int32_t available_indices_dim = get_available_dimnum(indices);
+    available_indices_dim = std::max(available_indices_dim, true_dim + 1);
     auto src_size = src.sizes();
     uint64_t tail = 1;
     for (uint64_t i = available_indices_dim; i < src.dim(); i++) {
@@ -104,15 +105,11 @@ std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor&
     }
 
     if (tail == 1) {
-        int32_t dim_input = available_indices_dim - 1;
+        int32_t dim_input = available_indices_dim == 0 ? 0 : available_indices_dim - 1;
         src = src.transpose(true_dim, dim_input);
         indices = indices.transpose(true_dim, dim_input);
         at::Tensor out_trans = true_out.transpose(true_dim, dim_input).contiguous();
-
-        auto sizeTrans = sizes;
-        sizeTrans[true_dim] = sizes[dim_input];
-        sizeTrans[dim_input] = sizes[true_dim];
-        at::Tensor count = at::zeros(sizeTrans, src.options().dtype(at::kFloat));
+        at::Tensor count = at::zeros(out_trans.sizes(), src.options().dtype(at::kFloat));
 
         EXEC_NPU_CMD(aclnnScatterMean, src, indices, out_trans, dim_input, out_trans, count);
         count = at::where(

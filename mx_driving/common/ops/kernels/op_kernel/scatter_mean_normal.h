@@ -29,7 +29,7 @@ public:
         eventIdMte3ToMte2_0 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_MTE2>());
         pipe->InitBuffer(inQueueIndices, AlignUp(ubIndicesNum, indicesEachBlock) * sizeof(DTYPE_INDICES));
         pipe->InitBuffer(inQueueSrc, AlignUp(ubTailNum, indicesEachBlock) * sizeof(DTYPE_SRC));
-        pipe->InitBuffer(onesTensorBuff, AlignUp(ubTailNum, dataEachBlock) * sizeof(DTYPE_COUNT));
+        pipe->InitBuffer(onesTensorBuff, dataEachBlock * sizeof(DTYPE_COUNT));
     }
 
     __aicore__ inline void TilingDataInit(ScatterMeanTilingData *tiling_data)
@@ -128,8 +128,7 @@ private:
         LocalTensor<DTYPE_INDICES>indicesLocal = inQueueIndices.Get<DTYPE_INDICES>();
         onesTensor = onesTensorBuff.Get<DTYPE_COUNT>();
         srcLocal = inQueueSrc.Get<DTYPE_SRC>();
-        Duplicate(onesTensor, (float)0, dataEachBlock); // 一个Block
-        onesTensor.SetValue(0, (float)1);
+        Duplicate(onesTensor, (float)1, dataEachBlock); // one Block
 
         auto indices_offset = indicesBaseOffset + taskEachLine * taskId;
         DataCopy(indicesLocal, indicesGm[indices_offset], AlignUp(ubIndicesNum, indicesEachBlock));

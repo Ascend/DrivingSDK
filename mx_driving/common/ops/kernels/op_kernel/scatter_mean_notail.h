@@ -28,7 +28,7 @@ public:
         eventIdMte2ToMte3_0 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_MTE3>());
 
         pipe->InitBuffer(inQueueIndices, AlignUp(ubIndicesNum, indicesEachBlock) * sizeof(DTYPE_INDICES));
-        pipe->InitBuffer(inQueueSrc, AlignUp(ubIndicesNum, indicesEachBlock) * sizeof(DTYPE_SRC));
+        pipe->InitBuffer(inQueueSrc, AlignUp(ubIndicesNum, dataEachBlock) * sizeof(DTYPE_SRC));
         pipe->InitBuffer(outSetNote, AlignUp(taskEachLine, MAX_MASK) * sizeof(DTYPE_SRC));
         pipe->InitBuffer(outQueueOut, AlignUp(taskEachLine, MAX_MASK) * sizeof(DTYPE_OUT));
     }
