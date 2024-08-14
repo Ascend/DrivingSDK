@@ -47,6 +47,11 @@ typedef struct aclFloatArray aclFloatArray;
 typedef struct aclBoolArray aclBoolArray;
 typedef struct aclTensorList aclTensorList;
 
+typedef aclOpExecutor* (*PTAGetExecCache)(uint64_t, uint64_t*);
+typedef void (*InitPTACacheThreadLocal)();
+typedef void (*SetPTAHashKey)(uint64_t);
+typedef bool (*CanUsePTACache)(const char*);
+
 typedef aclTensor* (*_aclCreateTensor)(const int64_t* view_dims, uint64_t view_dims_num, aclDataType data_type,
     const int64_t* stride, int64_t offset, aclFormat format, const int64_t* storage_dims, uint64_t storage_dims_num,
     void* tensor_data);
@@ -54,7 +59,7 @@ typedef aclScalar* (*_aclCreateScalar)(void* value, aclDataType data_type);
 typedef aclIntArray* (*_aclCreateIntArray)(const int64_t* value, uint64_t size);
 typedef aclFloatArray* (*_aclCreateFloatArray)(const float* value, uint64_t size);
 typedef aclBoolArray* (*_aclCreateBoolArray)(const bool* value, uint64_t size);
-typedef aclTensorList* (*_aclCreateTensorList)(const aclTensor* const *value, uint64_t size);
+typedef aclTensorList* (*_aclCreateTensorList)(const aclTensor *const *value, uint64_t size);
 
 typedef int (*_aclDestroyTensor)(const aclTensor* tensor);
 typedef int (*_aclDestroyScalar)(const aclScalar* scalar);
@@ -62,6 +67,7 @@ typedef int (*_aclDestroyIntArray)(const aclIntArray* array);
 typedef int (*_aclDestroyFloatArray)(const aclFloatArray* array);
 typedef int (*_aclDestroyBoolArray)(const aclBoolArray* array);
 typedef int (*_aclDestroyTensorList)(const aclTensorList* array);
+
 
 constexpr int kHashBufSize = 8192;
 constexpr int kHashBufMaxSize = kHashBufSize + 1024;
@@ -523,6 +529,10 @@ typedef void (*ReleaseHugeMem)(void*, bool);
         static const auto initMemAddr = GetOpApiFuncAddr("InitHugeMemThreadLocal");                                  \
         static const auto unInitMemAddr = GetOpApiFuncAddr("UnInitHugeMemThreadLocal");                              \
         static const auto releaseMemAddr = GetOpApiFuncAddr("ReleaseHugeMem");                                       \
+        static const auto ptaGetExecCacheAddr = GetOpApiFuncAddr("PTAGetExecCache");                                 \
+        static const auto initPTACacheThreadLocalAddr = GetOpApiFuncAddr("InitPTACacheThreadLocal");                 \
+        static const auto setPTAHashKeyAddr = GetOpApiFuncAddr("SetPTAHashKey");                                     \
+        static const auto canUsePTACacheAddr = GetOpApiFuncAddr("CanUsePTACache");                                   \
         TORCH_CHECK(getWorkspaceSizeFuncAddr != nullptr && opApiFuncAddr != nullptr, #aclnn_api, " or ",             \
             #aclnn_api "GetWorkspaceSize", " not in ", GetOpApiLibName(), ", or ", GetOpApiLibName(), "not found."); \
         auto acl_stream = c10_npu::getCurrentNPUStream().stream(false);                                              \
@@ -532,6 +542,41 @@ typedef void (*ReleaseHugeMem)(void*, bool);
         aclOpExecutor** executor_addr = &executor;                                                                   \
         InitHugeMemThreadLocal initMemFunc = reinterpret_cast<InitHugeMemThreadLocal>(initMemAddr);                  \
         UnInitHugeMemThreadLocal unInitMemFunc = reinterpret_cast<UnInitHugeMemThreadLocal>(unInitMemAddr);          \
+        PTAGetExecCache ptaGetExecCacheFunc = reinterpret_cast<PTAGetExecCache>(ptaGetExecCacheAddr);                \
+        InitPTACacheThreadLocal initPTACacheThreadLocalFunc =                                                        \
+            reinterpret_cast<InitPTACacheThreadLocal>(initPTACacheThreadLocalAddr);                                  \
+        SetPTAHashKey setPTAHashKeyFunc = reinterpret_cast<SetPTAHashKey>(setPTAHashKeyAddr);                        \
+        CanUsePTACache canUsePTACacheFunc = reinterpret_cast<CanUsePTACache>(canUsePTACacheAddr);                    \
+        bool has_func = ptaGetExecCacheFunc && initPTACacheThreadLocalFunc && setPTAHashKeyFunc;                     \
+        bool can_use = canUsePTACacheFunc && canUsePTACacheFunc(#aclnn_api);                                         \
+        if (has_func && can_use) {                                                                                   \
+            initPTACacheThreadLocalFunc();                                                                           \
+            g_hashOffset = 0;                                                                                        \
+            AddParamToBuf(std::string(#aclnn_api), __VA_ARGS__);                                                     \
+            uint64_t hashId = CalcHashId();                                                                          \
+            setPTAHashKeyFunc(hashId);                                                                               \
+            executor = ptaGetExecCacheFunc(hashId, workspace_size_addr);                                             \
+            if (executor != nullptr) {                                                                               \
+                void* workspace_addr = nullptr;                                                                      \
+                if (workspace_size != 0) {                                                                           \
+                    at::TensorOptions options = at::TensorOptions(torch_npu::utils::get_npu_device_type());          \
+                    auto workspace_tensor = at::empty({workspace_size}, options.dtype(at::kByte));                   \
+                    workspace_addr = const_cast<void*>(workspace_tensor.storage().data());                           \
+                }                                                                                                    \
+                auto acl_call = [workspace_addr, workspace_size, acl_stream, executor]() -> int {                    \
+                    typedef int (*OpApiFunc)(void*, uint64_t, aclOpExecutor*, const aclrtStream);                    \
+                    OpApiFunc opApiFunc = reinterpret_cast<OpApiFunc>(opApiFuncAddr);                                \
+                    auto api_ret = opApiFunc(workspace_addr, workspace_size, executor, acl_stream);                  \
+                    TORCH_CHECK(api_ret == 0, "call " #aclnn_api " failed, detail:", aclGetRecentErrMsg());          \
+                    return api_ret;                                                                                  \
+                };                                                                                                   \
+                at_npu::native::OpCommand cmd;                                                                       \
+                cmd.Name(#aclnn_api);                                                                                \
+                cmd.SetCustomHandler(acl_call);                                                                      \
+                cmd.Run();                                                                                           \
+                break;                                                                                               \
+            }                                                                                                        \
+        }                                                                                                            \
         if (initMemFunc) {                                                                                           \
             initMemFunc(nullptr, false);                                                                             \
         }                                                                                                            \
@@ -573,6 +618,8 @@ typedef void (*ReleaseHugeMem)(void*, bool);
         static const auto initMemAddr = GetOpApiFuncAddr("InitHugeMemThreadLocal");                                  \
         static const auto unInitMemAddr = GetOpApiFuncAddr("UnInitHugeMemThreadLocal");                              \
         static const auto releaseMemAddr = GetOpApiFuncAddr("ReleaseHugeMem");                                       \
+        static const auto initPTACacheThreadLocalAddr = GetOpApiFuncAddr("InitPTACacheThreadLocal");                 \
+        static const auto setPTAHashKeyAddr = GetOpApiFuncAddr("SetPTAHashKey");                                     \
         TORCH_CHECK(getWorkspaceSizeFuncAddr != nullptr && opApiFuncAddr != nullptr, #aclnn_api, " or ",             \
             #aclnn_api "GetWorkspaceSize", " not in ", GetOpApiLibName(), ", or ", GetOpApiLibName(), "not found."); \
         auto acl_stream = c10_npu::getCurrentNPUStream().stream(false);                                              \
@@ -580,6 +627,13 @@ typedef void (*ReleaseHugeMem)(void*, bool);
         uint64_t* workspace_size_addr = &workspace_size;                                                             \
         aclOpExecutor* executor = nullptr;                                                                           \
         aclOpExecutor** executor_addr = &executor;                                                                   \
+        InitPTACacheThreadLocal initPTACacheThreadLocalFunc =                                                        \
+            reinterpret_cast<InitPTACacheThreadLocal>(initPTACacheThreadLocalAddr);                                  \
+        SetPTAHashKey setPTAHashKeyFunc = reinterpret_cast<SetPTAHashKey>(setPTAHashKeyAddr);                        \
+        if (initPTACacheThreadLocalFunc && setPTAHashKeyFunc) {                                                      \
+            initPTACacheThreadLocalFunc();                                                                           \
+            setPTAHashKeyFunc(0);                                                                                    \
+        }                                                                                                            \
         InitHugeMemThreadLocal initMemFunc = reinterpret_cast<InitHugeMemThreadLocal>(initMemAddr);                  \
         UnInitHugeMemThreadLocal unInitMemFunc = reinterpret_cast<UnInitHugeMemThreadLocal>(unInitMemAddr);          \
         if (initMemFunc) {                                                                                           \
