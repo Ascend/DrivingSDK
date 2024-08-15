@@ -150,6 +150,7 @@ static ge::graphStatus InferDtypeForSparseConv3d(gert::InferDataTypeContext* con
     context->SetOutputDataType(0, feature_dtype);
     context->SetOutputDataType(1, indices_dtype);
     context->SetOutputDataType(2, indices_dtype);
+    return GRAPH_SUCCESS;
 }
 }
 

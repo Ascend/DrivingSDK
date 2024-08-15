@@ -57,9 +57,9 @@ class SparseBaseCovFunction(Function):
                                                 kernel_size, stride, padding,
                                                 out_channels, out_spatial_shape, batch_size)
         to_insert = torch.tensor(-1).to(device)
-        sorted_idx, sorted_idx_to_former_indices = torch.sort(ouidx_offset)
-        new_sorted_idx = torch.cat((to_insert.view(1), sorted_idx), 0)
-        new_sorted_idx_2 = torch.cat((sorted_idx, to_insert.view(1)), 0)
+        sorted_idx, sorted_idx_to_former_indices = torch.sort(ouidx_offset.view(torch.float32))
+        new_sorted_idx = torch.cat((to_insert.view(1), sorted_idx.view(torch.int32)), 0)
+        new_sorted_idx_2 = torch.cat((sorted_idx.view(torch.int32), to_insert.view(1)), 0)
         sub_result = new_sorted_idx - new_sorted_idx_2
         unique_indices_offset = torch.nonzero(sub_result)
         out_features, outidx = multi_to_sparse(out_features, unique_indices_offset.int(),

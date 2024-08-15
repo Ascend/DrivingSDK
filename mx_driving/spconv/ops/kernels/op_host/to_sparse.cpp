@@ -88,6 +88,7 @@ static ge::graphStatus InferDtypeForToSparse(gert::InferDataTypeContext* context
     const ge::DataType feature_dtype = context->GetInputDataType(1);
     context->SetOutputDataType(0, feature_dtype);
     context->SetOutputDataType(1, indices_dtype);
+    return GRAPH_SUCCESS;
 }
 }
 

@@ -42,7 +42,7 @@ public:
         featureGradGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_FEATURE *>(feature_grad));
         weightGradGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_WEIGHT *>(weight_grad));
 
-        pipe->InitBuffer(indicesOffsetQueue, BUFFER_NUM, AlignUp(moveLen, idxBlockNum) * sizeof(DTYPE_INDICES_OFFSET));
+        pipe->InitBuffer(indicesOffsetQueue, BUFFER_NUM, AlignUp(moveLen + 1, idxBlockNum) * sizeof(DTYPE_INDICES_OFFSET));
         pipe->InitBuffer(gradQueue, BUFFER_NUM, AlignUp(kernelOC * moveLen, idxBlockNum) * sizeof(DTYPE_INDICES_OFFSET));
         pipe->InitBuffer(formerSortedIndicesQueue, BUFFER_NUM, AlignUp(kernelSize, valueBlockNum) * sizeof(DTYPE_WEIGHT));
         pipe->InitBuffer(featureUb, AlignUp(kernelIC, valueBlockNum) * sizeof(DTYPE_WEIGHT));
