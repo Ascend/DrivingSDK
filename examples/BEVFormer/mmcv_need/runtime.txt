@@ -1,0 +1,10 @@
+addict
+mmengine>=0.3.0
+numpy==1.23.5
+packaging
+Pillow
+pyyaml
+regex;sys_platform=='win32'
+yapf
+protobuf==3.20.0
+opencv-python
