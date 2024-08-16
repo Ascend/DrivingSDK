@@ -6,7 +6,10 @@
 using namespace AscendC;
 
 constexpr int32_t BUFFER_NUM = 2;
+constexpr int32_t WAIT_ALL_NUM_LARGE = 3072;
+constexpr int32_t WAIT_ALL_NUM_SMALL = 8;
 constexpr int32_t MOVE_BYTE = 160 * 1024;
+constexpr int32_t MOVE_NUM = MOVE_BYTE / B32_BYTE_SIZE;
 
 class UniqueVoxelKernel {
 public:
@@ -257,6 +260,9 @@ __aicore__ inline void UniqueVoxelKernel::CopyOut()
         DataCopy(uniVoxGm_[curOutputIdx_], uniVoxT, mvParam);
         DataCopy(uniIdxGm_[curOutputIdx_], uniIdxT, mvParam);
         DataCopy(uniArgsortIdxGm_[curOutputIdx_], uniArgT, mvParam);
+        if (rsvCnt > WAIT_ALL_NUM_LARGE || rsvCnt < WAIT_ALL_NUM_SMALL) {
+            PipeBarrier<PIPE_ALL>();
+        }
         curOutputIdx_ += rsvCnt;
     }
     uniQue_.FreeTensor(uniT);
@@ -287,10 +293,13 @@ __aicore__ inline void UniqueVoxelKernel::CompactOutput()
         for (int32_t i = 1; i < usedBlkNum_; ++i) {
             int32_t startIdx = workspaceGm_.GetValue(i * 2);
             int32_t voxelCnt = workspaceGm_.GetValue(i * 2 + 1);
-            if (voxelCnt > 0) {
+            while (voxelCnt > 0) {
+                int32_t moveCnt = voxelCnt > MOVE_NUM ? MOVE_NUM : voxelCnt;
+                voxelCnt -= moveCnt;
+
                 DataCopyParams mvParam(1,
                     static_cast<uint16_t>(
-                        AlignUp(static_cast<uint32_t>(voxelCnt), B32_DATA_NUM_PER_BLOCK) / B32_DATA_NUM_PER_BLOCK),
+                        AlignUp(static_cast<uint32_t>(moveCnt), B32_DATA_NUM_PER_BLOCK) / B32_DATA_NUM_PER_BLOCK),
                     0, 0);
                 DataCopy(inT, uniVoxGm_[startIdx], mvParam);
                 SetFlag<HardEvent::MTE2_MTE3>(mte2Event);
@@ -310,7 +319,9 @@ __aicore__ inline void UniqueVoxelKernel::CompactOutput()
                 DataCopy(uniArgsortIdxGm_[totalVoxelCnt], inT, mvParam);
                 SetFlag<HardEvent::MTE3_MTE2>(mte3Event);
                 WaitFlag<HardEvent::MTE3_MTE2>(mte3Event);
-                totalVoxelCnt += voxelCnt;
+
+                totalVoxelCnt += moveCnt;
+                startIdx += moveCnt;
             }
         }
         inT.SetValue(0, totalVoxelCnt);
