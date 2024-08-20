@@ -29,6 +29,11 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_sparse_conv3d(const at::Tenso
                                                                  at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding,
                                                                  int out_channel, at::IntArrayRef outSpatialShape, int batch_size);
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_sparse_inverse_conv3d(const at::Tensor& feature, const at::Tensor& indices, const at::Tensor& weight,
+                                                                         at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding,
+                                                                         at::IntArrayRef dilation, at::IntArrayRef output_padding,
+                                                                         int out_channel, at::IntArrayRef outSpatialShape, int batch_size);
+
 std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad(const at::Tensor& indices_offset, const at::Tensor& former_sorted_indices,
                                                           const at::Tensor& feature, const at::Tensor& weight, const at::Tensor& grad);
 
