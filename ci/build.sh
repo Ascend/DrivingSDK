@@ -2,7 +2,7 @@
 CUR_DIR=$(dirname $(readlink -f $0))
 SCRIPTS_DIR=${CUR_DIR}/../scripts
 BUILD_PACKAGES_DIR=${CUR_DIR}/../mx_driving/packages
-SUPPORTED_PY_VERSION=(3.7 3.8 3.9 3.10)
+SUPPORTED_PY_VERSION=(3.7 3.8 3.9 3.10 3.11)
 PY_VERSION='3.7'
 SINGLE_OP=''
 BUILD_TYPE='Release'
