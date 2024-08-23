@@ -6,8 +6,6 @@
 using namespace AscendC;
 
 constexpr int32_t BUFFER_NUM = 2;
-constexpr int32_t WAIT_ALL_NUM_LARGE = 3072;
-constexpr int32_t WAIT_ALL_NUM_SMALL = 8;
 constexpr int32_t MOVE_BYTE = 160 * 1024;
 constexpr int32_t MOVE_NUM = MOVE_BYTE / B32_BYTE_SIZE;
 
@@ -260,9 +258,8 @@ __aicore__ inline void UniqueVoxelKernel::CopyOut()
         DataCopy(uniVoxGm_[curOutputIdx_], uniVoxT, mvParam);
         DataCopy(uniIdxGm_[curOutputIdx_], uniIdxT, mvParam);
         DataCopy(uniArgsortIdxGm_[curOutputIdx_], uniArgT, mvParam);
-        if (rsvCnt > WAIT_ALL_NUM_LARGE || rsvCnt < WAIT_ALL_NUM_SMALL) {
-            PipeBarrier<PIPE_ALL>();
-        }
+        PipeBarrier<PIPE_ALL>();
+        
         curOutputIdx_ += rsvCnt;
     }
     uniQue_.FreeTensor(uniT);
