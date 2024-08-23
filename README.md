@@ -39,9 +39,10 @@ bash ci/build.sh --python=3.7
 | Gitee分支 |  CPU架构 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
 |-----------|-----------|-------------------|-------------------|---------------------|
 | master    | x86&aarch64|  Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0|
-|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0|
-|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0|
-|           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.3.1|v2.3.1|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.2.0|v2.2.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.3.1|v2.3.1|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.4.0|v2.4.0|
 | branch_v6.0.0-RC1    |x86&aarch64 |    Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0-6.0.rc1|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0-6.0.rc1|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0-6.0.rc1|
@@ -72,7 +73,8 @@ export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/mx_driving/packages/vendors/cust
 export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
 ```
 2. 算子调用。
-请参见下文算子清单。
+
+请参见下文算子清单中的算子API调用示例。
 
 # 特性介绍
 ## 目录结构及说明
@@ -90,18 +92,26 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 │  │  ├── CMakeLists.txt   
 │  │  ├── components            # 运动组件
 │  │  └── ops                   # 运动算子
-│  └── perception               # 感知模块
+│  ├── perception               # 感知模块
+│  |   ├── __init__.py
+│  |   ├── CMakeLists.txt
+│  |   ├── fused                 # 融合模块
+│  |   ├── point                 # 点云模块
+│  |   └── vision                # 视觉模块
+│  └── spconv                    # 稀疏卷积模块
 │     ├── __init__.py
 │     ├── CMakeLists.txt
-│     ├── fused                 # 融合模块
-│     ├── point                 # 点云模块
-│     └── vision                # 视觉模块
+|     └── ops                   # 稀疏卷积算子
+├── examples                    # 自动驾驶模型示例
+│  └── BEVFormer                # BEVFormer模型示例
 ├── bind                        # torch 绑定
 ├── ci                          # ci脚本
 ├── cmake                       # cmake脚本
 ├── CMakeLists.txt              # cmake配置文件
 ├── CMakePresets.json           # cmake配置文件
 ├── docs                        # 文档
+|  ├── api                      # 算子api调用文档
+|  └── ...
 ├── include                     # 头文件
 ├── LICENSE                     # 开源协议
 ├── MANIFEST.in                 # whl打包配置
@@ -116,7 +126,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 ## 算子清单
 请参见[算子清单](./docs/api/README.md)。
 ## 支持特性
-- [x] 支持PyTorch 1.11.0，2.1.0，2.2.0，2.3.1
+- [x] 支持PyTorch 1.11.0，2.1.0，2.2.0，2.3.1，2.4.0
 - [x] 支持ONNX模型转换，训推一体
 - [ ] 支持图模式
 
@@ -204,9 +214,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 |   自研   |   不涉及   | ci/docker/X86/Dockerfile            |   https://mirrors.huaweicloud.com/repository/pypi/simple   | docker配置文件，用于配置pip源           |
 |   自研   |   不涉及   | ci/docker/ARM/Dockerfile            |   https://dl.fedoraproject.org/pub/epel/7/aarch64/Packages/n/ninja-build-1.7.2-2.el7.aarch64.rpm   | docker配置文件，用于下载ninja-build    |
 |   自研   |   不涉及   | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于打包whl的url入参                 |
-|   自研   |   不涉及   | setup.cfg                           |   https://gitee.com/ascend/pytorch/tags   | 用于打包whl的download_url入参        |
-|   自研   |   不涉及   | third_party\op-plugin\ci\build.sh   |   https://gitee.com/ascend/pytorch.git   | 编译脚本根据torch_npu仓库地址拉取代码进行编译   |
-|   自研   |   不涉及   | third_party\op-plugin\ci\exec_ut.sh |   https://gitee.com/ascend/pytorch.git   | UT脚本根据torch_npu仓库地址下拉取代码进行UT测试 |
+|   自研   |   不涉及   | ci/build.sh   |   https://gitee.com/ascend/pytorch.git   | 编译脚本根据torch_npu仓库地址拉取代码进行编译   |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
 |   开源引入   |   | examples/BEVFormer/public_address_statement.md |  |BEVFormer模型示例代码中，公网地址声明 |
