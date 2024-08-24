@@ -32,6 +32,9 @@ BEGIN_TILING_DATA_DEF(ScatterMeanTilingData)
     TILING_DATA_FIELD_DEF(uint64_t, dimSize);
     TILING_DATA_FIELD_DEF(uint64_t, ubTailNum);
     TILING_DATA_FIELD_DEF(bool, isOneDeal);
+    TILING_DATA_FIELD_DEF(uint64_t, headNumSmallLast);
+    TILING_DATA_FIELD_DEF(uint64_t, headNumBigLast);
+    TILING_DATA_FIELD_DEF(uint64_t, headNumEachTask);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(ScatterMean, ScatterMeanTilingData)

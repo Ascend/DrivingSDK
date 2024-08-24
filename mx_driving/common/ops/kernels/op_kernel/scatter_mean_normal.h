@@ -27,6 +27,7 @@ public:
         countGm.SetGlobalBuffer((__gm__ DTYPE_OUT*)count, outNum / tail);
 
         eventIdMte3ToMte2_0 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE3_MTE2>());
+        eventIdMte2ToMte3_0 = static_cast<event_t>(pipe->AllocEventID<HardEvent::MTE2_MTE3>());
         pipe->InitBuffer(inQueueIndices, AlignUp(ubIndicesNum, indicesEachBlock) * sizeof(DTYPE_INDICES));
         pipe->InitBuffer(inQueueSrc, AlignUp(ubTailNum, indicesEachBlock) * sizeof(DTYPE_SRC));
         pipe->InitBuffer(onesTensorBuff, dataEachBlock * sizeof(DTYPE_COUNT));
@@ -63,6 +64,15 @@ public:
 
         indicesEachBlock = BLOCK_SIZE / sizeof(DTYPE_INDICES);
         dataEachBlock = BLOCK_SIZE / sizeof(DTYPE_SRC);
+
+        tailLoop = tail / ubTailNum;
+        tailLast = tail - tailLoop * ubTailNum;
+
+        copyParamsCount.blockCount = 1;
+        copyParamsCount.blockLen = static_cast<uint32_t>(1 * sizeof(float));
+        copyParamsCount.srcStride = 0;
+        copyParamsCount.dstStride = 0;
+        copyParamsCount.rsv = 0;
     }
     __aicore__ inline void Process()
     {
@@ -86,41 +96,34 @@ private:
 
     __aicore__ inline void ComputeTailAdd(uint64_t idxTure, uint64_t dataInIndices, uint64_t src_offset)
     {
-        uint64_t tailLoop = tail / ubTailNum;
         uint64_t offset = 0;
 
-        auto idx1 = idxTure / (dimSize * body);
-        auto idx2 = (idxTure - idx1 * dimSize * body) / body;
-        auto idx3 = idxTure - idx1 * dimSize * body - idx2 * body;
-        auto out_offset = idx3 + dataInIndices * body + idx1 * (outDimSize * body);
-        SetFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
-        WaitFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2_0);
+        auto srcLineEachHead = dimSize * body;
+        auto idx1 = idxTure / srcLineEachHead;
+        auto idx2 = (idxTure - idx1 * srcLineEachHead) / body;
+        auto idx3 = idxTure - idx1 * srcLineEachHead - idx2 * body;
+        auto outLineOffset = idx3 + dataInIndices * body + idx1 * (outDimSize * body);
         pipe_barrier(PIPE_ALL);
         for (uint64_t loop = 0; loop < tailLoop; loop++) {
             pipe_barrier(PIPE_ALL);
             offset = loop * ubTailNum;
 
             DataCopy(srcLocal, srcGm[src_offset + offset], ubTailNum);
-            pipe_barrier(PIPE_ALL);
-            DataCopy(outGm[out_offset * tail + offset], srcLocal, ubTailNum);
+            SetFlag<HardEvent::MTE2_MTE3>(eventIdMte2ToMte3_0);
+            WaitFlag<HardEvent::MTE2_MTE3>(eventIdMte2ToMte3_0);
+            DataCopy(outGm[outLineOffset * tail + offset], srcLocal, ubTailNum);
         }
 
         offset = tailLoop * ubTailNum;
-        uint64_t tailLast = tail - offset;
-        pipe_barrier(PIPE_ALL);
         if (tailLast != 0) {
+            pipe_barrier(PIPE_ALL);
             CopyParamasInit(tailLast);
             DataCopy(srcLocal, srcGm[src_offset + offset], AlignUp(tailLast, dataEachBlock));
-            pipe_barrier(PIPE_ALL);
-            DataCopyPad(outGm[out_offset * tail + offset], srcLocal, copyParamsOut);
+            SetFlag<HardEvent::MTE2_MTE3>(eventIdMte2ToMte3_0);
+            WaitFlag<HardEvent::MTE2_MTE3>(eventIdMte2ToMte3_0);
+            DataCopyPad(outGm[outLineOffset * tail + offset], srcLocal, copyParamsOut);
         }
-        DataCopyExtParams copyParamsCount;
-        copyParamsCount.blockCount = 1;
-        copyParamsCount.blockLen = static_cast<uint32_t>(1 * sizeof(float));
-        copyParamsCount.srcStride = 0;
-        copyParamsCount.dstStride = 0;
-        copyParamsCount.rsv = 0;
-        DataCopyPad<DTYPE_SRC>(countGm[out_offset], onesTensor, copyParamsCount);
+        DataCopyPad<DTYPE_SRC>(countGm[outLineOffset], onesTensor, copyParamsCount);
     }
 
     __aicore__ inline void ComputeEachTask(int32_t taskId, uint64_t taskLine)
@@ -159,6 +162,7 @@ private:
     LocalTensor<float>onesTensor;
 
     DataCopyExtParams copyParamsOut;
+    DataCopyExtParams copyParamsCount;
     uint64_t curBlockIdx;
     bool isOneDeal;
     uint64_t usedCoreNum, bigCoreNum;
@@ -172,6 +176,9 @@ private:
     uint64_t ubTailNum;
     uint64_t indicesBaseOffset;
 
-    event_t eventIdMte3ToMte2_0;
+    int64_t tailLoop;
+    uint64_t tailLast;
+
+    event_t eventIdMte3ToMte2_0, eventIdMte2ToMte3_0;
 };
 #endif

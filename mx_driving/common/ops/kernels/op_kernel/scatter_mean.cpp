@@ -9,6 +9,7 @@
 #include "kernel_utils.h"
 #include "scatter_mean_normal.h"
 #include "scatter_mean_notail.h"
+#include "scatter_mean_notail_bighead.h"
 
 extern "C" __global__ __aicore__ void scatter_mean(GM_ADDR src, GM_ADDR indices, GM_ADDR var, GM_ADDR out, GM_ADDR count,
                                                               GM_ADDR workspace, GM_ADDR tiling)
@@ -19,9 +20,12 @@ extern "C" __global__ __aicore__ void scatter_mean(GM_ADDR src, GM_ADDR indices,
         ScatterMeanNoTail op;
         op.Init(src, indices, var, out, count, &tiling_data, &pipe);
         op.Process();
-    }
-    if (TILING_KEY_IS(1)) {
+    } else if (TILING_KEY_IS(1)) {
         KernelScatterMeanFix op;
+        op.Init(src, indices, var, out, count, &tiling_data, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(3)) {
+        ScatterMeanNoTailBigHead op;
         op.Init(src, indices, var, out, count, &tiling_data, &pipe);
         op.Process();
     }

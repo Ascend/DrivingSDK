@@ -12,6 +12,7 @@ const uint64_t BLOCK_SIZE = 32;
 const uint64_t MAX_OUT_LINE =  16000;
 const uint64_t MAX_DEAL_NUM =  2048;
 const uint64_t INDICES_ONCE_DATANUM = 2048;
+const uint64_t TILING_MODE_NO_TAIL_MULTIHEAD = 3;
 const uint64_t TILING_MODE_NO_TAIL = 2;
 const uint64_t TILING_MODE_NORMAL = 1;
 const uint64_t LEAST_LINE_EACH_TASK = 4;
@@ -48,7 +49,7 @@ static void ComputeTaskForBatch(uint64_t ubOutNum, uint64_t outLineEachBacth, ui
     }
 }
 
-static ge::graphStatus ScatterMeanGetUBNum(gert::TilingContext* context, uint64_t indicesNumEachBatch, uint64_t *ubOutNum, uint64_t *ubIndicesNum)
+static ge::graphStatus ScatterMeanGetUBNum(gert::TilingContext* context, uint64_t indicesNumEachHead, uint64_t *ubOutNum, uint64_t *ubIndicesNum)
 {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -67,11 +68,47 @@ static ge::graphStatus ScatterMeanGetUBNum(gert::TilingContext* context, uint64_
     uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
     auto dataEachBlock = BLOCK_SIZE / bytesData;
 
-    uint64_t ubIndicesNumTemp = std::min(INDICES_ONCE_DATANUM, indicesNumEachBatch);
+    uint64_t ubIndicesNumTemp = std::min(INDICES_ONCE_DATANUM, indicesNumEachHead);
     uint64_t ubAvailableBytes = UB_size - ubIndicesNumTemp * 2 * bytesIndices - 8 * 1024;
     *ubOutNum = ubAvailableBytes / 2 / BLOCK_SIZE * dataEachBlock;
     *ubIndicesNum = ubIndicesNumTemp;
 
+    return ge::GRAPH_SUCCESS;
+}
+
+static ge::graphStatus ScatterMeanGetUBNumMulitHead(gert::TilingContext* context, uint64_t indicesNumEachHead, uint64_t outNumEachHead, uint64_t *ubOutNum, uint64_t *ubIndicesNum, uint64_t * headNum)
+{
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    auto platformInfo = context->GetPlatformInfo();
+    if (platformInfo == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
+    uint64_t UB_size;
+    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
+
+    auto dataDtype = context->GetInputDesc(0)->GetDataType();
+    auto indicesDtype = context->GetInputDesc(1)->GetDataType();
+    uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
+    uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
+    auto dataEachBlock = BLOCK_SIZE / bytesData;
+
+    UB_size =  UB_size - 8 * 1024;
+    uint64_t tempHeadNum = UB_size / BLOCK_SIZE * dataEachBlock / (indicesNumEachHead + outNumEachHead) / 2;
+    *headNum = tempHeadNum;
+
+    if (tempHeadNum == 0) {
+        uint64_t ubIndicesNumTemp = std::min(INDICES_ONCE_DATANUM, indicesNumEachHead);
+        uint64_t ubAvailableBytes = UB_size - ubIndicesNumTemp * 2 * bytesIndices;
+        *ubOutNum = ubAvailableBytes / 2 / BLOCK_SIZE * dataEachBlock;
+        *ubIndicesNum = ubIndicesNumTemp;
+    } else {
+        // new
+        *ubOutNum  = tempHeadNum * outNumEachHead;
+        *ubIndicesNum = tempHeadNum * indicesNumEachHead;
+    }
     return ge::GRAPH_SUCCESS;
 }
 
@@ -111,6 +148,12 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
         head *= srcShape.GetDim(i);
     }
 
+    uint64_t ubIndicesNum;
+    uint64_t ubOutNum;
+    uint64_t indicesNumEachHead = indicesNum / head;
+    uint64_t outNumEachHead = outNum / head;
+    uint64_t headNum;
+
     uint64_t bacthSmallCore = 1;
     uint64_t bacthBigCore = 1;
     uint64_t outLineEachBacth;
@@ -122,34 +165,53 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     uint64_t coreEachHead = 1;
     uint64_t out_dim_shape = varShape.GetDim(dim);
 
+    uint64_t taskNum, taskEachLine, taskLastLine;
+    uint64_t taskNumLast, taskEachLineLast, taskLastLineLast;
+    
     if (head > coreNum) {
+        context->SetTilingKey(TILING_MODE_NO_TAIL_MULTIHEAD);
+        ScatterMeanGetUBNumMulitHead(context, indicesNumEachHead, outNumEachHead, &ubOutNum, &ubIndicesNum, &headNum);
         bacthSmallCore = head / coreNum;
         bacthBigCore = bacthSmallCore + 1;
-        bigCoreNum = head - bacthSmallCore*coreNum;
-        outLineEachBacth = out_dim_shape;
-        outLineLastBigBatch = out_dim_shape;
+        bigCoreNum = head - bacthSmallCore * coreNum;
+
+        uint64_t headNumEachTask = std::min(headNum, bacthBigCore);
+        if (headNumEachTask == 0) {
+            outLineEachBacth = out_dim_shape;
+            outLineLastBigBatch = out_dim_shape;
+            ComputeTaskForBatch(ubOutNum, outLineEachBacth, &taskNum, &taskEachLine, &taskLastLine);
+            ComputeTaskForBatch(ubOutNum, outLineLastBigBatch, &taskNumLast, &taskEachLineLast, &taskLastLineLast);
+        } else {
+            ubOutNum = headNumEachTask * outNumEachHead;
+            ubIndicesNum = headNumEachTask * indicesNumEachHead;
+            taskNum = GetCeilInt(bacthBigCore, headNumEachTask);
+            uint64_t headNumBigLast = bacthBigCore - (taskNum - 1) * headNumEachTask;
+            taskEachLine = headNumEachTask * out_dim_shape;
+            taskLastLine = headNumBigLast * out_dim_shape;
+
+            taskNumLast = GetCeilInt(bacthSmallCore, headNumEachTask);
+            uint64_t headNumSmallLast = bacthSmallCore - (taskNumLast - 1) * headNumEachTask;
+            taskEachLineLast = taskEachLine;
+            taskLastLineLast = headNumSmallLast * out_dim_shape;
+            tiling.set_headNumEachTask(headNumEachTask);
+            tiling.set_headNumBigLast(headNumBigLast);
+            tiling.set_headNumSmallLast(headNumSmallLast);
+        }
     } else {
+        ScatterMeanGetUBNum(context, indicesNumEachHead, &ubOutNum, &ubIndicesNum);
+        context->SetTilingKey(TILING_MODE_NO_TAIL);
         coreEachHead = std::min(coreNum / head, out_dim_shape);
         bigCoreNum = usedCoreNum;
         outLineEachBacth = GetCeilInt(out_dim_shape, coreEachHead);
         coreEachHead = GetCeilInt(out_dim_shape, outLineEachBacth);
         usedCoreNum = head * coreEachHead;
         outLineLastBigBatch = out_dim_shape - outLineEachBacth * (coreEachHead - 1);
+        ComputeTaskForBatch(ubOutNum, outLineEachBacth, &taskNum, &taskEachLine, &taskLastLine);
+        ComputeTaskForBatch(ubOutNum, outLineLastBigBatch, &taskNumLast, &taskEachLineLast, &taskLastLineLast);
     }
 
-    uint64_t ubIndicesNum;
-    uint64_t ubOutNum;
-    uint64_t taskNum, taskEachLine, taskLastLine;
-    uint64_t taskNumLast, taskEachLineLast, taskLastLineLast;
-
-    uint64_t indicesNumEachBatch = indicesNum / head;
-    ScatterMeanGetUBNum(context, indicesNumEachBatch, &ubOutNum, &ubIndicesNum);
-
-    ComputeTaskForBatch(ubOutNum, outLineEachBacth, &taskNum, &taskEachLine, &taskLastLine);
-    ComputeTaskForBatch(ubOutNum, outLineLastBigBatch, &taskNumLast, &taskEachLineLast, &taskLastLineLast);
-
-    uint64_t indicesLoop = indicesNumEachBatch / ubIndicesNum;
-    uint64_t indicesLastNum = indicesNumEachBatch % ubIndicesNum;
+    uint64_t indicesLoop = indicesNumEachHead / ubIndicesNum;
+    uint64_t indicesLastNum = indicesNumEachHead % ubIndicesNum;
 
     context->SetBlockDim(usedCoreNum);
     tiling.set_usedCoreNum(usedCoreNum);
@@ -261,16 +323,16 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
         usedCoreNum = GetCeilInt(dataLine, bacthBigCore);
         bigCoreNum = dataLine - bacthSmallCore * usedCoreNum;
     }
-    uint64_t taskNum, taskEachLine, taskLastLine;
-    uint64_t taskNumLast, taskEachLineLast, taskLastLineLast;
-    ComputeTaskForBatch(MAX_OUT_LINE, bacthBigCore, &taskNum, &taskEachLine, &taskLastLine);
-    ComputeTaskForBatch(MAX_OUT_LINE, bacthSmallCore, &taskNumLast, &taskEachLineLast, &taskLastLineLast);
-
     auto dataDtype = context->GetInputDesc(0)->GetDataType();
     auto indicesDtype = context->GetInputDesc(1)->GetDataType();
     uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
     uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
     auto dataEachBlock = BLOCK_SIZE / bytesData;
+
+    uint64_t taskNum, taskEachLine, taskLastLine;
+    uint64_t taskNumLast, taskEachLineLast, taskLastLineLast;
+    ComputeTaskForBatch(MAX_OUT_LINE, bacthBigCore, &taskNum, &taskEachLine, &taskLastLine);
+    ComputeTaskForBatch(MAX_OUT_LINE, bacthSmallCore, &taskNumLast, &taskEachLineLast, &taskLastLineLast);
 
     uint64_t ubIndicesNum;
     UB_size = UB_size - 8 * 1024;
@@ -338,7 +400,6 @@ static ge::graphStatus ScatterMeanTilingFunc(gert::TilingContext* context)
         tail *= srcShape.GetDim(i);
     }
     if (tail == 1) {
-        context->SetTilingKey(TILING_MODE_NO_TAIL);
         ScatterMeanNoTailTilingFunc(context);
     } else {
         context->SetTilingKey(TILING_MODE_NORMAL);
