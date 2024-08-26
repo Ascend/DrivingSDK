@@ -83,4 +83,7 @@ void init_common(pybind11::module& m)
 
     // scatter_mean
     m.def("npu_scatter_mean", &npu_scatter_mean, "npu_scatter_mean NPU version");
+
+    // npu_sort_pairs
+    m.def("npu_sort_pairs", &npu_sort_pairs, "sort_pairs NPU version");
 }

@@ -18,3 +18,4 @@ from .ops.npu_roipoint_pool3d import RoipointPool3d as RoIPointPool3d
 from .ops.npu_max_pool2d import npu_max_pool2d
 from .ops.npu_add_relu import npu_add_relu
 from .ops.scatter_mean import scatter_mean
+from .ops.sort_pairs import sort_pairs

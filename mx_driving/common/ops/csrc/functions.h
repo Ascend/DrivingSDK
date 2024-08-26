@@ -90,4 +90,5 @@ at::Tensor npu_add_relu_grad(at::Tensor& self, at::Tensor& grad_output);
 std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor& index,
                                                     c10::optional<at::Tensor> out, c10::optional<int> dim,
                                                     c10::optional<int> dim_size);
+std::tuple<at::Tensor, at::Tensor> npu_sort_pairs(const at::Tensor &keys_in, const at::Tensor &values_in, int64_t dim, bool descending);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_
