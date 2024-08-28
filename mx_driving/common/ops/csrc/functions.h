@@ -49,6 +49,8 @@ at::Tensor npu_max_pool2d(const at::Tensor& x, int kernel_size, int stride, int 
 
 at::Tensor npu_points_in_box(const at::Tensor& boxes, const at::Tensor& pts);
 
+at::Tensor npu_points_in_box_all(const at::Tensor& boxes, const at::Tensor& pts);
+
 at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value, const at::Tensor& value_spatial_shapes,
     const at::Tensor& value_level_start_index, const at::Tensor& sampling_locations,
     const at::Tensor& attention_weights);

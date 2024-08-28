@@ -41,6 +41,8 @@ void init_common(pybind11::module& m)
 
     // npu_points_in_box
     m.def("npu_points_in_box", &npu_points_in_box);
+    // npu_points_in_box_all
+    m.def("npu_points_in_box_all", &npu_points_in_box_all);
     // npu_points_in_box
     m.def("npu_max_pool2d", &npu_max_pool2d);
     // npu_multi_scale_deformable_attn_function

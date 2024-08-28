@@ -4,6 +4,7 @@ from .ops.rotated_iou import npu_rotated_iou
 from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_dist
 from .ops.npu_dynamic_scatter import npu_dynamic_scatter
 from .ops.npu_points_in_box import npu_points_in_box
+from .ops.npu_points_in_box_all import npu_points_in_box_all
 from .ops.npu_multi_scale_deformable_attn_function import npu_multi_scale_deformable_attn_function
 from .ops.voxelization import voxelization, Voxelization
 from .ops.nms3d_normal import npu_nms3d_normal
