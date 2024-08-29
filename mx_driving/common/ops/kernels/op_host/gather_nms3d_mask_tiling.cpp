@@ -32,6 +32,13 @@ static ge::graphStatus GatherNms3dMaskInferShape(gert::InferShapeContext* contex
 {
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDataTypeForGatherNms3dMask(gert::InferDataTypeContext *context)
+{
+    context->SetOutputDataType(0, ge::DT_INT16);
+    context->SetOutputDataType(1, ge::DT_INT16);
+    return GRAPH_SUCCESS;
+}
 }
 
 namespace ops {
@@ -55,7 +62,8 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::GatherNms3dMaskInferShape);
+        this->SetInferShape(ge::GatherNms3dMaskInferShape)
+            .SetInferDataType(ge::InferDataTypeForGatherNms3dMask);
 
         this->AICore()
             .SetTiling(optiling::GatherNms3dMaskTiling);

@@ -150,6 +150,12 @@ static ge::graphStatus InferShapeForDynamicScatterGrad(gert::InferShapeContext* 
     outShape->SetDim(1, featShape->GetDim(1));
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDataTypeForDynamicScatterGrad(gert::InferDataTypeContext *context)
+{
+    context->SetOutputDataType(0, ge::DT_FLOAT);
+    return GRAPH_SUCCESS;
+}
 } // namespace ge
 
 namespace ops {
@@ -183,7 +189,8 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("reduce_type").AttrType(REQUIRED).String("max");
-        this->SetInferShape(ge::InferShapeForDynamicScatterGrad);
+        this->SetInferShape(ge::InferShapeForDynamicScatterGrad)
+            .SetInferDataType(ge::InferDataTypeForDynamicScatterGrad);
         this->AICore().SetTiling(optiling::TilingForDynamicScatterGrad);
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)

@@ -312,6 +312,12 @@ static ge::graphStatus InfershapeForFurthestPointSampling(gert::InferShapeContex
 
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDataTypeForFurthestPointSampling(gert::InferDataTypeContext *context)
+{
+    context->SetOutputDataType(0, ge::DT_INT32);
+    return GRAPH_SUCCESS;
+}
 }
 
 namespace ops {
@@ -338,7 +344,8 @@ public:
             .AttrType(REQUIRED)
             .Int();
 
-        this->SetInferShape(ge::InfershapeForFurthestPointSampling);
+        this->SetInferShape(ge::InfershapeForFurthestPointSampling)
+            .SetInferDataType(ge::InferDataTypeForFurthestPointSampling);
         this->AICore().SetTiling(optiling::TilingFurthestPointSampling);
 
         OpAICoreConfig aicore_config;

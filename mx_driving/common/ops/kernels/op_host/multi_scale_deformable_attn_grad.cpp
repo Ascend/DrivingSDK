@@ -103,6 +103,17 @@ static ge::graphStatus InferShapeForMultiScaleDeformableAttnGrad(gert::InferShap
     *grad_attn_weight_shape = *attn_weight_shape;
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDataTypeForMultiScaleDeformableAttnGrad(gert::InferDataTypeContext *context)
+{
+    const ge::DataType value_dtype = context->GetInputDataType(0);
+    const ge::DataType sampling_loc_dtype = context->GetInputDataType(3);
+    const ge::DataType attn_weight_dtype = context->GetInputDataType(4);
+    context->SetOutputDataType(0, value_dtype);
+    context->SetOutputDataType(1, sampling_loc_dtype);
+    context->SetOutputDataType(2, attn_weight_dtype);
+    return GRAPH_SUCCESS;
+}
 } // namespace ge
 
 namespace ops {
@@ -162,7 +173,8 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnGrad);
+        this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnGrad)
+            .SetInferDataType(ge::InferDataTypeForMultiScaleDeformableAttnGrad);
         this->AICore().SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnGrad);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910c");

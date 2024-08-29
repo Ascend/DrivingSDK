@@ -88,6 +88,12 @@ static ge::graphStatus InfershapeForKnn(gert::InferShapeContext *context)
     dist_shape->SetDim(2, nsource);
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDataTypeForKnn(gert::InferDataTypeContext *context)
+{
+    context->SetOutputDataType(0, ge::DT_FLOAT);
+    return GRAPH_SUCCESS;
+}
 }
 
 namespace ops {
@@ -113,7 +119,8 @@ public:
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
-        this->SetInferShape(ge::InfershapeForKnn);
+        this->SetInferShape(ge::InfershapeForKnn)
+            .SetInferDataType(ge::InferDataTypeForKnn);
         this->AICore().SetTiling(optiling::TilingForKnn);
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)

@@ -111,6 +111,13 @@ static ge::graphStatus InferShapeForVoxelPoolingTrain(gert::InferShapeContext* c
 
     return GRAPH_SUCCESS;
 }
+
+static ge::graphStatus InferDataTypeForVoxelPoolingTrain(gert::InferDataTypeContext* context)
+{
+    context->SetOutputDataType(0, ge::DT_FLOAT);
+    context->SetOutputDataType(1, ge::DT_INT32);
+    return GRAPH_SUCCESS;
+}
 } // namespace ge
 
 namespace ops {
@@ -145,7 +152,8 @@ public:
         this->Attr("num_voxel_y").Int();
         this->Attr("num_voxel_z").Int();
 
-        this->SetInferShape(ge::InferShapeForVoxelPoolingTrain);
+        this->SetInferShape(ge::InferShapeForVoxelPoolingTrain)
+            .SetInferDataType(ge::InferDataTypeForVoxelPoolingTrain);
         this->AICore().SetTiling(optiling::TilingForVoxelPooling);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910c");
