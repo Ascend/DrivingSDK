@@ -20,3 +20,5 @@ from .ops.npu_max_pool2d import npu_max_pool2d
 from .ops.npu_add_relu import npu_add_relu
 from .ops.scatter_mean import scatter_mean
 from .ops.sort_pairs import sort_pairs
+from .ops.fused_bias_leaky_relu import npu_fused_bias_leaky_relu
+

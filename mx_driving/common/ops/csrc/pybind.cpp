@@ -88,4 +88,6 @@ void init_common(pybind11::module& m)
 
     // npu_sort_pairs
     m.def("npu_sort_pairs", &npu_sort_pairs, "sort_pairs NPU version");
+    // fused_bias_leaky_relu
+    m.def("fused_bias_leaky_relu", &fused_bias_leaky_relu);
 }

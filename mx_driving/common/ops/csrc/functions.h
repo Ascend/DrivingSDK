@@ -93,4 +93,6 @@ std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor&
                                                     c10::optional<at::Tensor> out, c10::optional<int> dim,
                                                     c10::optional<int> dim_size);
 std::tuple<at::Tensor, at::Tensor> npu_sort_pairs(const at::Tensor &keys_in, const at::Tensor &values_in, int64_t dim, bool descending);
+
+at::Tensor fused_bias_leaky_relu(const at::Tensor& x, const at::Tensor& bias, const double negative_slop, const double scale);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_
