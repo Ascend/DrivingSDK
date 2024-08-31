@@ -130,9 +130,9 @@ class SparseConvolution(SparseModule):
         else:
             out_spatial_shape = input.spatial_shape
         out_features, outidx = Fsp.indices_conv_base(input.features, input.indices, self.weight.data, out_spatial_shape,
-                                                    self.out_channels, input.batch_size,
-                                                    self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding,
-                                                    self.groups, self.bias, self.subm, self.inverse)
+                                                     self.out_channels, input.batch_size,
+                                                     self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding,
+                                                     self.groups, self.bias, self.subm, self.inverse)
 
         out_tensor = SparseConvTensor(out_features, outidx, out_spatial_shape,
                                       input.batch_size)

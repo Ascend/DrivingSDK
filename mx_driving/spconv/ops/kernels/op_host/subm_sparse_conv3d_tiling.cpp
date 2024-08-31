@@ -61,7 +61,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, available_ub_size);
     int32_t number = 300 + feature_shape.GetDim(1);
     available_ub_size = (available_ub_size - 20*1024) / number;
-    available_ub_size = GetCeilInt(available_ub_size, 32) * 32;
+    available_ub_size = GetCeilInt(available_ub_size, 64) * 64;
     context->SetBlockDim(core_used);
     tiling.set_core_data(core_data);
     tiling.set_core_used(core_used);
