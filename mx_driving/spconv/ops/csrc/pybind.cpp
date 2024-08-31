@@ -16,6 +16,9 @@ void init_spconv(pybind11::module &m)
     // multi_to_sparse
     m.def("multi_to_sparse", &multi_to_sparse);
 
+    // multi_to_sparse_v2
+    m.def("multi_to_sparse_v2", &multi_to_sparse_v2);
+
     // npu_sparse_conv3d_grad
     m.def("npu_sparse_conv3d_grad", &npu_sparse_conv3d_grad);
 }

@@ -31,6 +31,7 @@ static ge::graphStatus TilingForSparseConv3dGrad(gert::TilingContext* context)
     uint32_t coreTask = AlignUp(actualNum, coreNum);
     uint32_t usedCoreNum = AlignUp(actualNum, coreTask);
     uint32_t lastCoreTask = 0;
+    uint32_t kernelSizeAlign = AlignUp(kernelSize, 8) * 8;
     if (coreTask != 0) {
         lastCoreTask = actualNum % coreTask;
     }
@@ -39,13 +40,13 @@ static ge::graphStatus TilingForSparseConv3dGrad(gert::TilingContext* context)
     uint64_t availableUbSize;
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, availableUbSize);
     // indicesOffsetUb [moveLen]
-    // SortindicesOffsetUb [kernelSize]
-    // gradUb [kernelOC, moveLen]
+    // SortindicesOffsetUb [moveLen, kernelSizeAlign]
+    // gradUb [kernelOC]
     // featureUb and reduceSumTmpUB [kernelIC] * 2
     // WeightUB and WeightTmpUB [kernelIC, kernelOC] * 2
-    uint32_t tmpUsedUbSize = (kernelIC * kernelOC * 2 + kernelIC + kernelSize) * sizeof(float);
+    uint32_t tmpUsedUbSize = (kernelIC * kernelOC * 2 + kernelIC * 2) * sizeof(float);
     uint32_t reserveUbSize = 8 * 1024;
-    uint32_t moveLen = (uint32_t)((availableUbSize - tmpUsedUbSize - reserveUbSize) / 4 / (kernelOC + 1));
+    uint32_t moveLen = (uint32_t)((availableUbSize - tmpUsedUbSize - reserveUbSize) / 4 / (1 + kernelSizeAlign));
     if (moveLen > coreTask) moveLen = coreTask;
     uint32_t repeatTimes = AlignUp(coreTask, moveLen);
     uint32_t lastRepeatTimes = AlignUp(lastCoreTask, moveLen);

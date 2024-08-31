@@ -18,33 +18,30 @@
 #include "functions.h"
 #include <torch/extension.h>
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_sparse_conv3d(const at::Tensor& feature, const at::Tensor& indices, const at::Tensor& weight,
-                                                                 at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding,
-                                                                 int out_channel, at::IntArrayRef outSpatialShape, int batch_size)
+std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d(const at::Tensor& indices, at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding,
+                                                     int out_channel, at::IntArrayRef outSpatialShape, int batch_size)
 {
-    TORCH_CHECK_NPU(feature);
     TORCH_CHECK_NPU(indices);
-    TORCH_CHECK_NPU(weight);
-
+    TORCH_CHECK(out_channel <= 128, "out_channel must less or equal than 128 expected but got out_channel: ",
+        out_channel);
+    TORCH_CHECK(out_channel % 8 == 0, "out_channel must be divisible by 8 but got out_channel: ",
+        out_channel);
     auto indices_size = indices.sizes();
     int64_t kernelsum = 1;
     for (int32_t i = 0; i < kernel_size.size(); i++) {
         kernelsum  *= kernel_size[i];
     }
     int64_t outputsum = indices_size[0] * kernelsum;
-    c10::SmallVector<int64_t, 8> output_size = {outputsum, out_channel};
+
     c10::SmallVector<int64_t, 8> indices_out_size = {outputsum};
     c10::SmallVector<int64_t, 8> indices_pairs_size = {outputsum, indices_size[1]};
 
     c10::SmallVector<int64_t, 8> spatial_size = {batch_size, outSpatialShape[0], outSpatialShape[1], outSpatialShape[2], out_channel};
     at::IntArrayRef outputShape =  at::IntArrayRef(spatial_size);
 
-    at::Tensor weight_trans = weight.transpose(-1, -2).contiguous();
-
-    at::Tensor out = at::empty(output_size, feature.options());
     at::Tensor indices_out = at::empty(indices_out_size, indices.options()).fill_(-1);
     at::Tensor indices_pairs = at::empty(indices_pairs_size, indices.options()).fill_(-1);
-    EXEC_NPU_CMD(aclnnSparseConv3d, feature, indices, weight_trans, outputShape,
-                 stride, padding, out, indices_out, indices_pairs);
-    return std::tie(out, indices_pairs, indices_out);
+    EXEC_NPU_CMD(aclnnSparseConv3d, indices, kernel_size, outputShape,
+                 stride, padding, indices_out, indices_pairs);
+    return std::tie(indices_pairs, indices_out);
 }
