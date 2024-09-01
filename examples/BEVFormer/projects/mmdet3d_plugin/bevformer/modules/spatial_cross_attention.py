@@ -3,20 +3,20 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 # Copyright 2024 Huawei Technologies Co., Ltd
 # ---------------------------------------------
-#  Modified by Zhiqi Li
+#  Modified by ZheXu Liu
 # ---------------------------------------------
 
+from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
 import warnings
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
 from mmcv.cnn import xavier_init, constant_init
 from mmcv.cnn.bricks.registry import (ATTENTION,
                                       TRANSFORMER_LAYER,
                                       TRANSFORMER_LAYER_SEQUENCE)
 from mmcv.cnn.bricks.transformer import build_attention
+import math
 from mmcv.runner import force_fp32
 from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
@@ -26,8 +26,6 @@ bev_mask_global = torch.tensor([]).npu()
 indexes_global = None
 max_len_global = None
 bev_mask_id_global = -1
-
-
 @ATTENTION.register_module()
 class SpatialCrossAttention(BaseModule):
     """An attention module used in BEVFormer.
@@ -135,16 +133,23 @@ class SpatialCrossAttention(BaseModule):
 
         D = reference_points_cam.size(3)
         indexes = []
-        global bev_mask_global, indexes_global, max_len_global, bev_mask_id_global
+        global bev_mask_global, indexes_global, max_len_global, bev_mask_id_global, count_global
         bev_mask_id = id(bev_mask)
         if bev_mask_id == bev_mask_id_global:
             indexes = indexes_global
             max_len = max_len_global
+            count = count_global
         else:
-            for i, mask_per_img in enumerate(bev_mask):
-                index_query_per_img = mask_per_img[0].sum(-1).to(torch.float).nonzero().squeeze(-1)
+            count = torch.any(bev_mask, 3)
+            bev_mask_ = count.squeeze()
+            for i, mask_per_img in enumerate(bev_mask_):
+                index_query_per_img = mask_per_img.nonzero().squeeze(-1)
                 indexes.append(index_query_per_img)
+
             max_len = max([len(each) for each in indexes])
+            count = count.permute(1, 2, 0).sum(-1)
+            count = torch.clamp(count, min=1.0)
+            count_global = count
             bev_mask_global = bev_mask.clone()
             indexes_global = indexes
             max_len_global = max_len
@@ -156,9 +161,9 @@ class SpatialCrossAttention(BaseModule):
         reference_points_rebatch = reference_points_cam.new_zeros(
             [bs, self.num_cams, max_len, D, 2])
         
-        for j in range(bs):
-            for i, reference_points_per_img in enumerate(reference_points_cam):   
-                index_query_per_img = indexes[i]
+        for i, reference_points_per_img in enumerate(reference_points_cam):   
+            index_query_per_img = indexes[i]
+            for j in range(bs):
                 queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
                 reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
 
@@ -169,16 +174,14 @@ class SpatialCrossAttention(BaseModule):
         value = value.permute(2, 0, 1, 3).reshape(
             bs * self.num_cams, l, self.embed_dims)
 
-        queries = self.deformable_attention(query=queries_rebatch.view(bs * self.num_cams, max_len, self.embed_dims), key=key, value=value,
-                                            reference_points=reference_points_rebatch.view(bs * self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
+        queries = self.deformable_attention(query=queries_rebatch.view(bs*self.num_cams, max_len, self.embed_dims), key=key, value=value,
+                                            reference_points=reference_points_rebatch.view(bs*self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
                                             level_start_index=level_start_index).view(bs, self.num_cams, max_len, self.embed_dims)
         for j in range(bs):
             for i, index_query_per_img in enumerate(indexes):
                 slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
 
-        count = bev_mask.sum(-1) > 0
-        count = count.permute(1, 2, 0).sum(-1)
-        count = torch.clamp(count, min=1.0)
+
         slots = slots / count[..., None]
         slots = self.output_proj(slots)
 
