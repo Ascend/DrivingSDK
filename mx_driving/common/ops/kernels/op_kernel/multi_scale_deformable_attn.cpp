@@ -13,15 +13,27 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn(GM_ADDR value,
     TPipe pipe;
     GET_TILING_DATA(tilingData, tiling);
     if (TILING_KEY_IS(1002)) {
-        KernelMultiScaleDeformableAttnOpt<2> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+        KernelMultiScaleDeformableAttnOpt<2, 16> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
             attentionWeights, output, &tilingData, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(1004)) {
-        KernelMultiScaleDeformableAttnOpt<4> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+        KernelMultiScaleDeformableAttnOpt<4, 16> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
             attentionWeights, output, &tilingData, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(1008)) {
-        KernelMultiScaleDeformableAttnOpt<8> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+        KernelMultiScaleDeformableAttnOpt<8, 16> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+            attentionWeights, output, &tilingData, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(2002)) {
+        KernelMultiScaleDeformableAttnOpt<2, 32> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+            attentionWeights, output, &tilingData, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(2004)) {
+        KernelMultiScaleDeformableAttnOpt<4, 32> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+            attentionWeights, output, &tilingData, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(2008)) {
+        KernelMultiScaleDeformableAttnOpt<8, 32> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
             attentionWeights, output, &tilingData, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(0)) {

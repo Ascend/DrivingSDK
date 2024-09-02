@@ -30,19 +30,34 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn_grad(GM_ADDR v
     TPipe pipe;
     GET_TILING_DATA(tiling_datas, tiling_data);
     if (TILING_KEY_IS(1002)) {
-        KernelMultiScaleDeformableAttnGradOpt<2> op(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm,
-            attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas,
-            &pipe);
+        KernelMultiScaleDeformableAttnGradOpt<2, 16> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(1004)) {
-        KernelMultiScaleDeformableAttnGradOpt<4> op(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm,
-            attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas,
-            &pipe);
+        KernelMultiScaleDeformableAttnGradOpt<4, 16> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(1008)) {
-        KernelMultiScaleDeformableAttnGradOpt<8> op(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm,
-            attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas,
-            &pipe);
+        KernelMultiScaleDeformableAttnGradOpt<8, 16> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(2002)) {
+        KernelMultiScaleDeformableAttnGradOpt<2, 32> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(2004)) {
+        KernelMultiScaleDeformableAttnGradOpt<4, 32> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(2008)) {
+        KernelMultiScaleDeformableAttnGradOpt<8, 32> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(0)) {
         MultiScaleDeformableAttnGrad op;

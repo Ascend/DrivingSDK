@@ -1,6 +1,8 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
  */
+#include <cstdint>
+
 #include "multi_scale_deformable_attn_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -13,13 +15,29 @@ const uint32_t INPUT_VALUE = 0;
 const uint32_t INPUT_SPATIAL_SHAPE = 1;
 const uint32_t INPUT_ATTN_WEIGHT = 4;
 const uint32_t BATCH_SIZE_DIM = 0;
-const uint32_t NUM_KEYS_DIM = 2;
-const uint32_t NUM_HEADS_DIM = 3;
+const uint32_t NUM_KEYS_DIM = 1;
+const uint32_t NUM_HEADS_DIM = 2;
 const uint32_t EMBED_DIMS_DIM = 3;
 const uint32_t NUM_LEVEL_DIM = 0;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
 const uint32_t B32_DATA_NUM_PER_BLOCK = 4;
+
+// the points can be grouped into 2, 4 or 8 points per block
+// the numPoints has to be even, except 1
+std::tuple<uint32_t, uint32_t> GroupPoints(uint32_t numPoints)
+{
+    if (numPoints % 8 == 0) {
+        return std::make_tuple(8, numPoints / 8);
+    }
+    if (numPoints % 4 == 0) {
+        return std::make_tuple(4, numPoints / 4);
+    }
+    if (numPoints % 2 == 0) {
+        return std::make_tuple(2, numPoints / 2);
+    }
+    return std::make_tuple(1, numPoints);
+}
 } // namespace
 
 namespace optiling {
@@ -48,10 +66,17 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     uint32_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
     uint32_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
     uint32_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
-    uint32_t optPoint = (numLevels * numPoints * numHeads % B32_DATA_NUM_PER_BLOCK) == 0 && embedDims == 32 &&
-                        (numPoints == 2 || numPoints == 4 || numPoints == 8);
+    uint32_t optPoint = numLevels <= 8 && numHeads <= 8 && (embedDims == 16 || embedDims == 32) &&
+                        (numPoints % 2 == 0 || numPoints == 1);
+    uint32_t pointLoops = 0;
+    uint32_t point = 0;
+    if (optPoint) {
+        auto groups = GroupPoints(numPoints);
+        pointLoops = std::get<1>(groups);
+        point = std::get<0>(groups);
+    }
 
-    context->SetTilingKey(optPoint == 1 ? optPoint * 1000 + numPoints : 0);
+    context->SetTilingKey(optPoint == 1 ? (embedDims / 16) * 1000 + point : 0);
 
     tiling.set_batchSize(valueShape.GetDim(BATCH_SIZE_DIM));
     tiling.set_numKeys(valueShape.GetDim(NUM_KEYS_DIM));
@@ -61,6 +86,8 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     tiling.set_numQueries(attnWeightShape.GetDim(NUM_QUERIES_DIM));
     tiling.set_numPoints(numPoints);
     tiling.set_coreNum(coreNum);
+    tiling.set_pointLoops(pointLoops);
+
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
