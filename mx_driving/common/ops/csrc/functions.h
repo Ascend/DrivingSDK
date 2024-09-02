@@ -95,4 +95,7 @@ std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor&
 std::tuple<at::Tensor, at::Tensor> npu_sort_pairs(const at::Tensor &keys_in, const at::Tensor &values_in, int64_t dim, bool descending);
 
 at::Tensor fused_bias_leaky_relu(const at::Tensor& x, const at::Tensor& bias, const double negative_slop, const double scale);
+
+at::Tensor deformable_aggregation(const at::Tensor& mc_ms_feat, const at::Tensor& spatial_shape,
+    const at::Tensor& scale_start_index, const at::Tensor& sampling_location, const at::Tensor& weights);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_
