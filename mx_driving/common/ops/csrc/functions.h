@@ -98,4 +98,15 @@ at::Tensor fused_bias_leaky_relu(const at::Tensor& x, const at::Tensor& bias, co
 
 at::Tensor deformable_aggregation(const at::Tensor& mc_ms_feat, const at::Tensor& spatial_shape,
     const at::Tensor& scale_start_index, const at::Tensor& sampling_location, const at::Tensor& weights);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> deformable_aggregation_grad(
+    const at::Tensor& mc_ms_feat,
+    const at::Tensor& spatial_shape,
+    const at::Tensor& scale_start_index,
+    const at::Tensor& sampling_location,
+    const at::Tensor& weights,
+    const at::Tensor& grad_output,
+    const at::Tensor& grad_mc_ms_feat,
+    const at::Tensor& grad_sampling_location,
+    const at::Tensor& grad_weights
+);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_

@@ -92,4 +92,5 @@ void init_common(pybind11::module& m)
     m.def("fused_bias_leaky_relu", &fused_bias_leaky_relu);
     // npu_deformable_aggregation
     m.def("npu_deformable_aggregation", &deformable_aggregation);
+    m.def("npu_deformable_aggregation_grad", &deformable_aggregation_grad);
 }
