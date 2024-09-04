@@ -137,14 +137,21 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(
     auto ori_dtype = value.scalar_type();
     auto value_size = value.sizes();
     auto location_size = location.sizes();
+    auto shape_size = shape.sizes();
     auto attn_size = attn_weight.sizes();
     auto embed_dims = value_size[EMBED_DIMS_IDX];
 
     TORCH_CHECK(embed_dims % 8 == 0, "embed_dims must be a multiple of 8, but embed_dims is ", embed_dims, ".");
 
     at::Tensor grad_value = at::zeros(value_size, value.options().dtype(at::kFloat));
-    at::Tensor grad_location = at::empty(location_size, location.options().dtype(at::kFloat));
-    at::Tensor grad_attn_weight = at::empty(attn_size, attn_weight.options().dtype(at::kFloat));
+    at::Tensor grad_location, grad_attn_weight;
+    if (shape_size[0] != attn_size[4]) {
+        grad_location = at::zeros(location_size, location.options().dtype(at::kFloat));
+        grad_attn_weight = at::zeros(attn_size, attn_weight.options().dtype(at::kFloat));
+    } else {
+        grad_location = at::empty(location_size, location.options().dtype(at::kFloat));
+        grad_attn_weight = at::empty(attn_size, attn_weight.options().dtype(at::kFloat));
+    }
 
     at::Tensor value_fp = value.to(at::kFloat);
     at::Tensor shape_fp = shape.to(at::kInt);

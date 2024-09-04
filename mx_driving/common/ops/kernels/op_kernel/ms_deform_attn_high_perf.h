@@ -64,8 +64,9 @@ private:
         numPoints_ = tilingData->numPoints;
         coreNum_ = tilingData->coreNum;
         pointLoops_ = tilingData->pointLoops;
+        realLevels_ = tilingData->realLevels;
 
-        oneQueryNum_ = numLevels_ * numHeads_ * numPoints_;
+        oneQueryNum_ = realLevels_ * numHeads_ * numPoints_;
 
         alignedNumPoints_ = AlignUp(num_points, B32_DATA_NUM_PER_BLOCK);
         alignedOneHeadNum_ = numLevels_ * alignedNumPoints_;
@@ -173,7 +174,7 @@ private:
     int32_t blkIdx_;
 
     uint32_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, coreNum_,
-        pointLoops_;
+        pointLoops_, realLevels_;
     uint32_t startOffset_, endOffset_;
     uint32_t alignedNumPoints_, alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_,
         alignedHeadEmbedDims_;

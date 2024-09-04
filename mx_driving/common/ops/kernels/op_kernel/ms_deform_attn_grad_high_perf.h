@@ -70,9 +70,9 @@ private:
         numPoints_ = tilingData->numPoints;
         coreNum_ = tilingData->coreNum;
         pointLoops_ = tilingData->pointLoops;
+        realLevels_ = tilingData->realLevels;
 
-        oneQueryNum_ = numLevels_ * numHeads_ * numPoints_;
-        oneQueryBlk_ = DivCeil(oneQueryNum_, B32_DATA_NUM_PER_BLOCK);
+        oneQueryNum_ = realLevels_ * numHeads_ * numPoints_;
 
         alignedNumPoints_ = AlignUp(num_points, B32_DATA_NUM_PER_BLOCK);
         alignedOneHeadNum_ = numLevels_ * alignedNumPoints_;
@@ -201,11 +201,11 @@ private:
     int32_t blkIdx_;
 
     uint32_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, coreNum_,
-        pointLoops_;
+        pointLoops_, realLevels_;
     uint32_t startOffset_, endOffset_;
     uint32_t alignedNumPoints_, alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_;
     uint32_t oneQueryNum_;
-    uint16_t pointBlk_, headBlk_, queryBlk_, oneQueryBlk_, embedBlk_, outBlk_, dstRptStride_;
+    uint16_t pointBlk_, headBlk_, queryBlk_, embedBlk_, outBlk_, dstRptStride_;
     uint16_t rptTimes_, valRptTimes4_, valRptTimes1_;
 
     TEventID calEvt_, copyEvt_;
@@ -263,8 +263,6 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
         DataCopyPad(location, locationGm_[weightOffset_ * 2], cpDoubleSampleParams_, {});
         DataCopyPad(attentionWeight, attentionWeightsGm_[weightOffset_], cpSampleParams_, {});
     }
-
-    SetFlag<HardEvent::MTE2_V>(copyEvt_);
 }
 
 template<int32_t num_points, int32_t embed_dims>
@@ -273,6 +271,7 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
 {
     uint32_t gradOffset = (batch * numQueries_ + query) * numHeads_ * embedDims_;
     DataCopy(gradOut, gradOutGm_[gradOffset], cpGradOutParams_);
+    SetFlag<HardEvent::MTE2_V>(copyEvt_);
 }
 
 template<int32_t num_points, int32_t embed_dims>
@@ -357,6 +356,7 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
     for (uint32_t head = 0; head < numHeads_; ++head) {
         uint32_t valueOffset = (baseSrcOffset_ + head) * embedDims_;
         uint32_t outOffset = head * alignedEmbedDims_;
+        uint32_t weightOffset = weightOffset_ + head * realLevels_ * num_points;
 
         for (uint32_t level = 0; level < numLevels_; ++level) {
             SetVectorMask<float>(0, (1UL << embedDims_) - 1);
@@ -487,9 +487,9 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
             SetFlag<HardEvent::V_MTE3>(calEvt_);
             WaitFlag<HardEvent::V_MTE3>(calEvt_);
             if (num_points == 8) {
-                DataCopy(gradAttentionWeightsGm_[weightOffset_], gradWeight[level * alignedNumPoints_], {1, 1, 0, 0});
+                DataCopy(gradAttentionWeightsGm_[weightOffset], gradWeight[level * alignedNumPoints_], {1, 1, 0, 0});
             } else {
-                DataCopyPad(gradAttentionWeightsGm_[weightOffset_], gradWeight[level * alignedNumPoints_],
+                DataCopyPad(gradAttentionWeightsGm_[weightOffset], gradWeight[level * alignedNumPoints_],
                     {1, static_cast<uint16_t>(num_points * B32_BYTE_SIZE), 0, 0});
             }
 
@@ -509,13 +509,13 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
             SetFlag<HardEvent::V_MTE3>(calEvt_);
             WaitFlag<HardEvent::V_MTE3>(calEvt_);
             if (num_points >= 4) { // has padded
-                DataCopy(gradLocGm_[weightOffset_ * 2], gradLoc[level * 32],
+                DataCopy(gradLocGm_[weightOffset * 2], gradLoc[level * 32],
                     {1, static_cast<uint16_t>(num_points * 2 / B32_DATA_NUM_PER_BLOCK), 0, 0});
             } else {
-                DataCopyPad(gradLocGm_[weightOffset_ * 2], gradLoc[level * 32],
+                DataCopyPad(gradLocGm_[weightOffset * 2], gradLoc[level * 32],
                     {1, static_cast<uint16_t>(2 * num_points * B32_BYTE_SIZE), 0, 0});
             }
-            weightOffset_ += numPoints_;
+            weightOffset += numPoints_;
         }
     }
 

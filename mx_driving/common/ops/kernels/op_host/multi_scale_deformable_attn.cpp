@@ -19,6 +19,7 @@ const uint32_t NUM_KEYS_DIM = 1;
 const uint32_t NUM_HEADS_DIM = 2;
 const uint32_t EMBED_DIMS_DIM = 3;
 const uint32_t NUM_LEVEL_DIM = 0;
+const uint32_t REAL_LEVEL_DIM = 3;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
 const uint32_t B32_DATA_NUM_PER_BLOCK = 4;
@@ -87,6 +88,7 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     tiling.set_numPoints(numPoints);
     tiling.set_coreNum(coreNum);
     tiling.set_pointLoops(pointLoops);
+    tiling.set_realLevels(attnWeightShape.GetDim(REAL_LEVEL_DIM));
 
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
