@@ -6,7 +6,7 @@ import torch_npu
 from ads_c import npu_bev_pool_v2_backward
 from torch_npu.testing.testcase import TestCase, run_tests
 
-from mx_driving.perception.fused import bev_pool_v2
+from mx_driving.point import bev_pool_v2
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 

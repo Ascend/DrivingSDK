@@ -87,22 +87,27 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 │  │  ├── CMakeLists.txt
 │  │  ├── components            # 通用组件
 │  │  └── ops                   # 通用算子
-│  ├── motion                   # 运动模块
+│  ├── data                     # 数据预处理模块
 │  │  ├── __init__.py
 │  │  ├── CMakeLists.txt   
-│  │  ├── components            # 运动组件
-│  │  └── ops                   # 运动算子
-│  ├── perception               # 感知模块
-│  |   ├── __init__.py
-│  |   ├── CMakeLists.txt
-│  |   ├── fused                 # 融合模块
-│  |   ├── point                 # 点云模块
-│  |   └── vision                # 视觉模块
-│  └── spconv                    # 稀疏卷积模块
+│  │  └── ops                   # 数据预处理算子
+│  ├── detection                # 目标检测模块
+│  │  ├── __init__.py
+│  │  ├── CMakeLists.txt   
+│  │  └── ops                   # 目标检测算子
+│  ├── point                    # 点云模块
+│  │  ├── __init__.py
+│  │  ├── CMakeLists.txt   
+│  │  └── ops                   # 点云算子
+│  ├── fused                    # 融合模块
+│  │  ├── __init__.py
+│  │  ├── CMakeLists.txt   
+│  │  └── ops                   # 融合算子
+│  └── spconv                   # 稀疏卷积模块
 │     ├── __init__.py
 │     ├── CMakeLists.txt
 |     └── ops                   # 稀疏卷积算子
-├── examples                    # 自动驾驶模型示例
+├── model_examples              # 自动驾驶模型示例
 │  └── BEVFormer                # BEVFormer模型示例
 ├── bind                        # torch 绑定
 ├── ci                          # ci脚本

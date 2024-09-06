@@ -5,7 +5,7 @@ import torch_npu
 import torch.nn.functional as F
 
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.common
+import mx_driving.fused
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -27,7 +27,7 @@ class TestFusedBiasLeakyRelu(TestCase):
         cpu_result = F.leaky_relu(x + bias, negative_slop)
         cpu_result = cpu_result * scale
 
-        npu_result = mx_driving.common.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
+        npu_result = mx_driving.fused.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
         self.assertRtolEqual(npu_result, cpu_result.numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FusedBiasLeakyRelu` is only supported on 910B, skip this ut!")
@@ -40,7 +40,7 @@ class TestFusedBiasLeakyRelu(TestCase):
         cpu_result = F.leaky_relu(x + bias, negative_slop)
         cpu_result = cpu_result * scale
 
-        npu_result = mx_driving.common.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
+        npu_result = mx_driving.fused.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
         self.assertRtolEqual(npu_result, cpu_result.numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FusedBiasLeakyRelu` is only supported on 910B, skip this ut!")
@@ -53,7 +53,7 @@ class TestFusedBiasLeakyRelu(TestCase):
         cpu_result = F.leaky_relu(x.float() + bias.float(), negative_slop)
         cpu_result = cpu_result * scale
 
-        npu_result = mx_driving.common.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
+        npu_result = mx_driving.fused.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
         self.assertRtolEqual(npu_result, cpu_result.half().numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FusedBiasLeakyRelu` is only supported on 910B, skip this ut!")
@@ -66,7 +66,7 @@ class TestFusedBiasLeakyRelu(TestCase):
         cpu_result = F.leaky_relu(x.float() + bias.float(), negative_slop)
         cpu_result = cpu_result * scale
 
-        npu_result = mx_driving.common.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
+        npu_result = mx_driving.fused.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
         self.assertRtolEqual(npu_result, cpu_result.half().numpy())
 
 

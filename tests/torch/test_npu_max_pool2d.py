@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.common
+import mx_driving.fused
 
 
 def gen_inputs(shape, dtype):
@@ -17,7 +17,7 @@ def cpu_to_exec(x_data_cpu):
 
 
 def npu_to_exec(x_data_cpu):
-    npu_output = mx_driving.common.npu_max_pool2d(x_data_cpu.npu(), 3, 2, 1)
+    npu_output = mx_driving.fused.npu_max_pool2d(x_data_cpu.npu(), 3, 2, 1)
     return npu_output
 
 

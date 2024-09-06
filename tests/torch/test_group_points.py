@@ -4,7 +4,7 @@ import numpy as np
 
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-from mx_driving.perception.point import npu_group_points
+from mx_driving.point import npu_group_points
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]

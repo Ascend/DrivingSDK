@@ -6,7 +6,7 @@ import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 import ads_c
 import numpy as np
-import mx_driving.common
+import mx_driving.point
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -71,7 +71,7 @@ class TestVoxelPoolingTrain(TestCase):
         return pos, result, grad_features_cpu
 
     def npu_to_exec(self, geom_xyz, input_features, voxel_num):
-        result = mx_driving.common.npu_voxel_pooling_train(
+        result = mx_driving.point.npu_voxel_pooling_train(
             geom_xyz, input_features, voxel_num)
 
         result.backward(result)

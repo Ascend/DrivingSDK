@@ -1,2 +1,0 @@
-from .ops.group_points import npu_group_points
-

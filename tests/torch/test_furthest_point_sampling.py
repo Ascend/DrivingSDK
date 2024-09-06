@@ -20,7 +20,7 @@ import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 from torch_npu.testing.common_utils import create_common_tensor
-import mx_driving.common
+import mx_driving.point
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -142,7 +142,7 @@ class TestFurthestPointSample(TestCase):
         return myTest.getCpuRes()
 
     def npu_op_exec(self, myTest):
-        return mx_driving.common.npu_furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
+        return mx_driving.point.npu_furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
 
     def compare_res(self, myTest):
         myTest.createData()

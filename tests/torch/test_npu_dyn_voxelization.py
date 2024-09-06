@@ -5,7 +5,7 @@ import torch
 import torch_npu
 
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.common
+import mx_driving.point
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -54,7 +54,7 @@ class TestDynVoxelization(TestCase):
     
     def npu_to_exec(self, points, coors_range, voxel_size):
         max_num_points = -1
-        dynamic_voxelization_npu = mx_driving.common.Voxelization(voxel_size, coors_range, max_num_points)
+        dynamic_voxelization_npu = mx_driving.point.Voxelization(voxel_size, coors_range, max_num_points)
         coors = dynamic_voxelization_npu.forward(points)
         return coors
 

@@ -8,8 +8,10 @@ include(cmake/intf.cmake)
 
 set(MX_DRIVING_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mx_driving)
 add_subdirectory(${MX_DRIVING_DIR}/common)
-add_subdirectory(${MX_DRIVING_DIR}/motion)
-add_subdirectory(${MX_DRIVING_DIR}/perception)
+add_subdirectory(${MX_DRIVING_DIR}/data)
+add_subdirectory(${MX_DRIVING_DIR}/fused)
+add_subdirectory(${MX_DRIVING_DIR}/point)
+add_subdirectory(${MX_DRIVING_DIR}/detection)
 add_subdirectory(${MX_DRIVING_DIR}/spconv)
 
 opbuild(OPS_SRC ${ASCEND_HOST_SRC} OUT_DIR ${ASCEND_AUTOGEN_PATH})

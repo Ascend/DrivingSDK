@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-from mx_driving.perception.fused import bev_pool
+from mx_driving.point import bev_pool
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 

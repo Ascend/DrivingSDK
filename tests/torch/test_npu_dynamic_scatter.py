@@ -7,7 +7,7 @@ from torch_npu.testing.testcase import TestCase, run_tests
 from torch_npu.testing.common_utils import create_common_tensor
 
 import ads_c
-import mx_driving.common
+import mx_driving.point
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -70,11 +70,11 @@ class TestDynamicScatter(TestCase):
                     grad_point_feats[point_idx, :] = torch.where(mask_bit, grad_voxel_feats[voxel_idx, :], zero_tensor)
 
     def npu_op_exec(self, feats, coors, reduce_type):
-        output_feats, output_coors = mx_driving.common.npu_dynamic_scatter(feats, coors, reduce_type)
+        output_feats, output_coors = mx_driving.point.npu_dynamic_scatter(feats, coors, reduce_type)
         return output_feats.cpu().numpy(), output_coors.cpu().numpy()
 
     def grad_npu_op_exec(self, feats, coors, reduce_type):
-        output_feats, output_coors = mx_driving.common.npu_dynamic_scatter(feats, coors, reduce_type)
+        output_feats, output_coors = mx_driving.point.npu_dynamic_scatter(feats, coors, reduce_type)
         return output_feats.cpu().numpy(), output_coors.cpu().numpy()
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DynamicScatter` is only supported on 910B, skip this ut!")

@@ -5,7 +5,7 @@ import torch_npu
 import torch.nn.functional as F
 
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.common
+import mx_driving.fused
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -18,7 +18,7 @@ class TestPointsInBox(TestCase):
         y = np.random.uniform(2.0, 2.0, [1, 100, 3]).astype(np.float32)
         y = torch.from_numpy(y)
         cpu_result = F.relu(x + y)
-        x = mx_driving.common.npu_add_relu(x.npu(), y.npu()).cpu().numpy()
+        x = mx_driving.fused.npu_add_relu(x.npu(), y.npu()).cpu().numpy()
         self.assertRtolEqual(x, cpu_result.numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `AddRelu` is only supported on 910B, skip this ut!")
@@ -28,7 +28,7 @@ class TestPointsInBox(TestCase):
         y = np.random.uniform(2.0, 2.0, [18, 256, 232, 400]).astype(np.float32)
         y = torch.from_numpy(y)
         cpu_result = F.relu(x + y)
-        x = mx_driving.common.npu_add_relu(x.npu(), y.npu()).cpu().numpy()
+        x = mx_driving.fused.npu_add_relu(x.npu(), y.npu()).cpu().numpy()
         self.assertRtolEqual(x, cpu_result.numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `AddRelu` is only supported on 910B, skip this ut!")
@@ -38,7 +38,7 @@ class TestPointsInBox(TestCase):
         y = np.random.uniform(2.0, 2.0, [18, 256, 232, 400]).astype(np.float16)
         y = torch.from_numpy(y)
         cpu_result = F.relu(x.float() + y.float())
-        x = mx_driving.common.npu_add_relu(x.npu(), y.npu()).cpu().numpy()
+        x = mx_driving.fused.npu_add_relu(x.npu(), y.npu()).cpu().numpy()
         self.assertRtolEqual(x, cpu_result.half().numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `AddRelu` is only supported on 910B, skip this ut!")
@@ -48,7 +48,7 @@ class TestPointsInBox(TestCase):
         y = np.random.uniform(2.0, 2.0, [18]).astype(np.float16)
         y = torch.from_numpy(y)
         cpu_result = F.relu(x.float() + y.float())
-        x = mx_driving.common.npu_add_relu(x.npu(), y.npu()).cpu().numpy()
+        x = mx_driving.fused.npu_add_relu(x.npu(), y.npu()).cpu().numpy()
         self.assertRtolEqual(x, cpu_result.half().numpy())
 
 

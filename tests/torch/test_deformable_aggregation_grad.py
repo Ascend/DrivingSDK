@@ -5,7 +5,7 @@ import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 
-import mx_driving.common
+import mx_driving.fused
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -227,7 +227,7 @@ class TestDeformableAggregation(TestCase):
                                 grad_weights,
                             )
 
-                            out_npu = mx_driving.common.npu_deformable_aggregation(
+                            out_npu = mx_driving.fused.npu_deformable_aggregation(
                                 torch_feature_maps,
                                 torch_spatial_shape,
                                 torch_scale_start_index,

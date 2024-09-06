@@ -5,7 +5,7 @@ import numpy as np
 
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.common
+import mx_driving.detection
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -24,7 +24,7 @@ class TestNms3dNormal(TestCase):
         np_inds = np.array([1, 0, 3])
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.detection.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
         self.assertRtolEqual(inds.cpu().numpy(), np_inds)
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d_Normal` is only supported on 910B, skip this ut!")
@@ -36,7 +36,7 @@ class TestNms3dNormal(TestCase):
         np_scores = np.random.rand(10).astype(np.float32)
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.detection.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
         self.assertRtolEqual(len(inds.cpu().numpy()), 9)
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d_Normal` is only supported on 910B, skip this ut!")
@@ -47,7 +47,7 @@ class TestNms3dNormal(TestCase):
         np_scores = np.random.rand(200).astype(np.float32)
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.detection.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
         self.assertRtolEqual(len(inds.cpu().numpy()), 79)
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d_Normal` is only supported on 910B, skip this ut!")
@@ -58,7 +58,7 @@ class TestNms3dNormal(TestCase):
         np_scores = np.random.rand(369).astype(np.float32)
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.detection.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
         self.assertRtolEqual(len(inds.cpu().numpy()), 109)
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d_Normal` is only supported on 910B, skip this ut!")
@@ -69,7 +69,7 @@ class TestNms3dNormal(TestCase):
         np_scores = np.random.rand(555).astype(np.float32)
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.detection.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
         self.assertRtolEqual(len(inds.cpu().numpy()), 148)
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d_Normal` is only supported on 910B, skip this ut!")
@@ -80,7 +80,7 @@ class TestNms3dNormal(TestCase):
         np_scores = np.random.rand(300).astype(np.float32)
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.detection.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
         self.assertRtolEqual(len(inds.cpu().numpy()), 102)
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d_Normal` is only supported on 910B, skip this ut!")
@@ -91,7 +91,7 @@ class TestNms3dNormal(TestCase):
         np_scores = np.random.rand(600).astype(np.float32)
         boxes = torch.from_numpy(np_boxes)
         scores = torch.from_numpy(np_scores)
-        inds = mx_driving.common.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
+        inds = mx_driving.detection.npu_nms3d_normal(boxes.npu(), scores.npu(), 0.3)
         self.assertRtolEqual(len(inds.cpu().numpy()), 161)
 
 if __name__ == "__main__":
