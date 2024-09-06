@@ -9,10 +9,9 @@ mxDriving是基于昇腾NPU平台开发的适用于自动驾驶场景的算子�
 ## 前提条件
 1. 本项目依赖昇腾提供的pytorch_npu包和CANN包，需要先安装对应版本的pytorch_npu和CANN软件包，具体配套关系见pytorch仓[README](https://gitee.com/ascend/pytorch)。
 请参考昇腾官方文档[Pytorch框架训练环境准备](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html)。
-2. 使用`pip3 install -r requirements.txt` 安装python依赖。
-3. 如果您需要编译`ONNX`插件，请安装`protobuf-devel-3.14.0`, 在`centos` 系统上可以执行`yum install protobuf-devel-3-14.0`，否则请将`CMakePresets.json`中的`ENABLE_ONNX`选项改为`FALSE`。
-
-4. 建议您在准备好环境后，将umask调整为`0027`，以保证文件权限正确。
+2. 使用`pip3 install -r requirements.txt` 安装python依赖，`requirements.txt`文件位于项目根目录下。
+3. 如果您需要编译`ONNX`插件，请安装`protobuf-devel-3.14.0`, 在`centos` 系统上可以执行`yum install protobuf-devel-3-14.0`，否则请将`CMakePresets.json`中的`ENABLE_ONNX`选项改为`FALSE`，`CMakePresets.json`文件位于项目根目录下。
+4. 建议您在准备好环境后，使用`umask 0027`将umask调整为0027，以保证文件权限正确。
 5. 建议您以非root用户身份执行以下操作。
 
 ## 从发布包安装
@@ -172,7 +171,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
    具体so文件如下：
     - mx_driving/packages/vendors/customize/op_api/lib/libcust_opapi.so
     - mx_driving/packages/vendors/customize/op_proto/lib/linux/aarch64/libcust_opsproto_rt2.0.so
-    - mx_driving/packages/vendors/customize/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64/libcust_opsproto_rt2.0.so
+    - mx_driving/packages/vendors/customize/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64/libcust_opmaster_rt2.0.so
 ## 运行用户建议
 出于安全性及权限最小化角度考虑，不建议使用`root`等管理员类型账户使用mx_driving。
 
