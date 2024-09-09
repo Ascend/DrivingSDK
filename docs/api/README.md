@@ -270,10 +270,10 @@ mx_driving.data.npu_points_in_box_all(Tensor boxes, Tensor points) -> Tensor
 ### 调用示例
 ```python
 import torch, torch_npu
-from mx_driving.data import npu_points_in_box
+from mx_driving.data import npu_points_in_box_all
 boxes = torch.tensor([[[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]]], dtype=torch.float32).npu()
 points = torch.tensor([[[1, 2, 5], [3, 4, 8]]], dtype=torch.float32).npu()
-out = npu_points_in_box(boxes, points)
+out = npu_points_in_box_all(boxes, points)
 print(out)
 ```
 ```text
