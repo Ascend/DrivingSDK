@@ -521,7 +521,7 @@ mx_driving.fused.npu_max_pool2d(Tensor x, int kernel_size, int stride, int paddi
 ### 功能描述
 Performs max pooling on the input and outputs max values.
 ### 参数说明
-- `x (Tensor)`：一组待池化对象，数据类型为`float32`，format为NCHW。
+- `x (Tensor)`：一组待池化对象，数据类型为`float32`，format为NCHW，输入数据量不超过10亿。
 ### 返回值
 - `y (Tensor)`：池化后的最大值，数据类型为`float32`，format为NCHW。
 ### 约束说明
