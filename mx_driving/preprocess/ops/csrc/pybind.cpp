@@ -2,7 +2,7 @@
 #include "csrc/pybind.h"
 #include "functions.h"
 
-void init_data(pybind11::module& m)
+void init_preprocess(pybind11::module& m)
 {
     // npu_points_in_box
     m.def("npu_points_in_box", &npu_points_in_box);

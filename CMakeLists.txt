@@ -8,7 +8,7 @@ include(cmake/intf.cmake)
 
 set(MX_DRIVING_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mx_driving)
 add_subdirectory(${MX_DRIVING_DIR}/common)
-add_subdirectory(${MX_DRIVING_DIR}/data)
+add_subdirectory(${MX_DRIVING_DIR}/preprocess)
 add_subdirectory(${MX_DRIVING_DIR}/fused)
 add_subdirectory(${MX_DRIVING_DIR}/point)
 add_subdirectory(${MX_DRIVING_DIR}/detection)

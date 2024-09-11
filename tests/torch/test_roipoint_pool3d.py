@@ -18,7 +18,7 @@ import torch
 import torch_npu
 import numpy as np
 from torch_npu.testing.testcase import TestCase, run_tests
-from mx_driving.data import RoIPointPool3d
+from mx_driving.preprocess import RoIPointPool3d
 sys.path.append("../utils")
 from random_matrix import random_value
 

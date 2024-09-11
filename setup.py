@@ -12,7 +12,7 @@ from utils import extension
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 VERSION = torch.__version__
-full_components = ["common", "data", "fused", "point", "detection", "spconv"]
+full_components = ["common", "preprocess", "fused", "point", "detection", "spconv"]
 source_file = glob.glob(os.path.join("./bind/", "*.cpp"))
 include_dirs = [os.path.join(BASE_DIR, "include")]
 for part in full_components:

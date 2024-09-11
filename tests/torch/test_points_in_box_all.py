@@ -16,7 +16,7 @@ import torch
 import numpy as np
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.data
+import mx_driving.preprocess
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -72,7 +72,7 @@ class TestPointsInBoxAll(TestCase):
         for b in range(batch_size):
             point_indices[b] = points_in_boxes_all_cpu_forward(boxes[b].float(),
                                         points[b].float())
-        point_indices_npu = mx_driving.data.npu_points_in_box_all(boxes.npu(), points.npu())
+        point_indices_npu = mx_driving.preprocess.npu_points_in_box_all(boxes.npu(), points.npu())
         self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBoxAll` is only supported on 910B, skip this ut!")
@@ -89,7 +89,7 @@ class TestPointsInBoxAll(TestCase):
         for b in range(batch_size):
             point_indices[b] = points_in_boxes_all_cpu_forward(boxes[b].float(),
                                         points[b].float())
-        point_indices_npu = mx_driving.data.npu_points_in_box_all(boxes.npu(), points.npu())
+        point_indices_npu = mx_driving.preprocess.npu_points_in_box_all(boxes.npu(), points.npu())
         self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBoxAll` is only supported on 910B, skip this ut!")
@@ -106,7 +106,7 @@ class TestPointsInBoxAll(TestCase):
         for b in range(batch_size):
             point_indices[b] = points_in_boxes_all_cpu_forward(boxes[b].float(),
                                         points[b].float())
-        point_indices_npu = mx_driving.data.npu_points_in_box_all(boxes.npu(), points.npu())
+        point_indices_npu = mx_driving.preprocess.npu_points_in_box_all(boxes.npu(), points.npu())
         self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBoxAll` is only supported on 910B, skip this ut!")
@@ -123,7 +123,7 @@ class TestPointsInBoxAll(TestCase):
         for b in range(batch_size):
             point_indices[b] = points_in_boxes_all_cpu_forward(boxes[b].float(),
                                         points[b].float())
-        point_indices_npu = mx_driving.data.npu_points_in_box_all(boxes.npu(), points.npu())
+        point_indices_npu = mx_driving.preprocess.npu_points_in_box_all(boxes.npu(), points.npu())
         self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBoxAll` is only supported on 910B, skip this ut!")
@@ -140,7 +140,7 @@ class TestPointsInBoxAll(TestCase):
         for b in range(batch_size):
             point_indices[b] = points_in_boxes_all_cpu_forward(boxes[b].float(),
                                         points[b].float())
-        point_indices_npu = mx_driving.data.npu_points_in_box_all(boxes.npu(), points.npu())
+        point_indices_npu = mx_driving.preprocess.npu_points_in_box_all(boxes.npu(), points.npu())
         self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
 
 if __name__ == "__main__":

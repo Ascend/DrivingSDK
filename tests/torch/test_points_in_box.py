@@ -17,7 +17,7 @@ import numpy as np
 import torch_npu
 
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.data
+import mx_driving.preprocess
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -75,7 +75,7 @@ class TestPointsInBox(TestCase):
             [[[4, 6.928, 0], [6.928, 4, 0], [4, -6.928, 0], [6.928, -4, 0],
             [-4, 6.928, 0], [-6.928, 4, 0], [-4, -6.928, 0], [-6.928, -4, 0]]],
             dtype=torch.float32).npu()
-        point_indices = mx_driving.data.npu_points_in_box(boxes, pts).cpu().numpy()
+        point_indices = mx_driving.preprocess.npu_points_in_box(boxes, pts).cpu().numpy()
         expected_point_indices = torch.tensor([[-1, -1, 0, -1, 0, -1, -1, -1]],
                                             dtype=torch.int32).cpu().numpy()
         self.assertRtolEqual(point_indices, expected_point_indices)
@@ -96,7 +96,7 @@ class TestPointsInBox(TestCase):
                                         points[b].float(),
                                         point_indices[b])
 
-        point_indices_npu = mx_driving.data.npu_points_in_box(boxes.npu(), points.npu())
+        point_indices_npu = mx_driving.preprocess.npu_points_in_box(boxes.npu(), points.npu())
         self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBox` is only supported on 910B, skip this ut!")
@@ -116,7 +116,7 @@ class TestPointsInBox(TestCase):
                                         point_indices[b])
 
         with self.assertRaisesRegex(RuntimeError, "boxes is larger than 200"):
-            point_indices_npu = mx_driving.data.npu_points_in_box(boxes.npu(), points.npu())
+            point_indices_npu = mx_driving.preprocess.npu_points_in_box(boxes.npu(), points.npu())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBox` is only supported on 910B, skip this ut!")
     def test_points_in_box_shape_large_points(self, device="npu"):
@@ -134,7 +134,7 @@ class TestPointsInBox(TestCase):
                                         points[b].float(),
                                         point_indices[b])
 
-        point_indices_npu = mx_driving.data.npu_points_in_box(boxes.npu(), points.npu())
+        point_indices_npu = mx_driving.preprocess.npu_points_in_box(boxes.npu(), points.npu())
         self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBox` is only supported on 910B, skip this ut!")
@@ -154,7 +154,7 @@ class TestPointsInBox(TestCase):
                                         point_indices[b])
 
         with self.assertRaisesRegex(RuntimeError, "points_in_box npu only support batch size = 1"):
-            point_indices_npu = mx_driving.data.npu_points_in_box(boxes.npu(), points.npu())
+            point_indices_npu = mx_driving.preprocess.npu_points_in_box(boxes.npu(), points.npu())
 
 
 if __name__ == "__main__":

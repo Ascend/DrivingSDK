@@ -86,7 +86,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 │  │  ├── CMakeLists.txt
 │  │  ├── components            # 通用组件
 │  │  └── ops                   # 通用算子
-│  ├── data                     # 数据预处理模块
+│  ├── preprocess               # 数据预处理模块
 │  │  ├── __init__.py
 │  │  ├── CMakeLists.txt   
 │  │  └── ops                   # 数据预处理算子

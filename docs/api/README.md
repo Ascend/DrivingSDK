@@ -226,7 +226,7 @@ tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.int32)
 ## npu_points_in_box
 ### 接口原型
 ```python
-mx_driving.data.npu_points_in_box(Tensor boxes, Tensor points) -> Tensor
+mx_driving.preprocess.npu_points_in_box(Tensor boxes, Tensor points) -> Tensor
 ```
 ### 功能描述
 判断点是否在框内。
@@ -242,7 +242,7 @@ mx_driving.data.npu_points_in_box(Tensor boxes, Tensor points) -> Tensor
 ### 调用示例
 ```python
 import torch, torch_npu
-from mx_driving.data import npu_points_in_box
+from mx_driving.preprocess import npu_points_in_box
 boxes = torch.tensor([[[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]]], dtype=torch.float32).npu()
 points = torch.tensor([[[1, 2, 3], [3, 4, 5]]], dtype=torch.float32).npu()
 out = npu_points_in_box(boxes, points)
@@ -254,7 +254,7 @@ tensor([[0, 1]], dtype=torch.int32)
 ## npu_points_in_box_all
 ### 接口原型
 ```python
-mx_driving.data.npu_points_in_box_all(Tensor boxes, Tensor points) -> Tensor
+mx_driving.preprocess.npu_points_in_box_all(Tensor boxes, Tensor points) -> Tensor
 ```
 ### 功能描述
 判断点是否在框内。
@@ -270,7 +270,7 @@ mx_driving.data.npu_points_in_box_all(Tensor boxes, Tensor points) -> Tensor
 ### 调用示例
 ```python
 import torch, torch_npu
-from mx_driving.data import npu_points_in_box_all
+from mx_driving.preprocess import npu_points_in_box_all
 boxes = torch.tensor([[[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]]], dtype=torch.float32).npu()
 points = torch.tensor([[[1, 2, 5], [3, 4, 8]]], dtype=torch.float32).npu()
 out = npu_points_in_box_all(boxes, points)
@@ -283,7 +283,7 @@ tensor([[[1, 0],
 ## RoipointPool3d
 ### 接口原型
 ```python
-mx_driving.data.RoipointPool3d(int num_sampled_points, Tensor points, Tensor point_features, Tensor boxes3d) -> (Tensor pooled_features, Tensor pooled_empty_flag)
+mx_driving.preprocess.RoipointPool3d(int num_sampled_points, Tensor points, Tensor point_features, Tensor boxes3d) -> (Tensor pooled_features, Tensor pooled_empty_flag)
 ```
 ### 功能描述
 对每个3D方案的几何特定特征进行编码。
@@ -306,7 +306,7 @@ mx_driving.data.RoipointPool3d(int num_sampled_points, Tensor points, Tensor poi
 ### 调用示例
 ```python
 import torch, torch_npu
-from mx_driving.data import RoIPointPool3d
+from mx_driving.preprocess import RoIPointPool3d
 num_sampled_points = 1
 points = torch.tensor([[[1, 2, 3]]], dtype=torch.float).npu()
 point_features = points.clone()
