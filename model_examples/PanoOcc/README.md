@@ -1,0 +1,206 @@
+# PanoOcc for PyTorch
+
+## 目录
+
+-   [简介](#简介)
+    - [模型介绍](#模型介绍)
+    - [支持任务列表](#支持任务列表)
+    - [代码实现](#代码实现)
+-   [PanoOcc](#PanoOcc)
+    - [准备训练环境](#准备训练环境)
+    - [快速开始](#快速开始)
+       - [训练任务](#训练任务) 
+-   [公网地址说明](#公网地址说明)
+-   [变更说明](#变更说明)
+-   [FAQ](#FAQ)
+
+# 简介
+
+## 模型介绍
+
+现有的感知任务（如对象检测、道路结构分割等）都只关注整体 3D 场景理解任务的一小部分。这种分而治之的策略简化了算法开发过程，但代价是失去了问题的端到端统一解决方案。PanoOcc 利用体素查询以从粗到细的方案聚合来自多帧和多视图图像的时空信息，将特征学习和场景表示集成到统一的占用表示中，为仅依赖相机的 3D 场景理解实现统一的占用表示，实现了基于相机的 3D 全景分割。
+
+## 支持任务列表
+
+本仓已经支持以下模型任务类型
+
+|    模型     | 任务列表 | 是否支持 |
+| :---------: | :------: | :------: |
+| PanoOcc |   训练   |    ✔     |
+
+## 代码实现
+
+- 参考实现：
+
+    ```
+    url=https://github.com/Robertwyq/PanoOcc
+    commit_id=3d93b119fcced35612af05587b395e8b38d8271f
+    ```
+
+- 适配昇腾 AI 处理器的实现：
+
+    ```
+    url=https://gitee.com/ascend/mxDriving.git
+    code_path=model_examples/PanoOcc
+    ```
+
+# PanoOcc（在研版本）
+
+## 准备训练环境
+
+### 安装昇腾环境
+
+请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境，本仓已支持表1中软件版本。
+
+**表 1**  昇腾软件版本支持表
+
+|     软件类型      | 支持版本 |
+| :---------------: | :------: |
+| FrameworkPTAdaper | 6.0.RC3  |
+|       CANN        | 8.0.RC3  |
+|    昇腾NPU固件    | 24.1.RC2 |
+|    昇腾NPU驱动    | 24.1.RC2 |
+
+### 安装模型环境
+
+**表 2**  三方库版本支持表
+
+| 三方库  | 支持版本 |
+| :-----: | :------: |
+| PyTorch |   2.1.0   |
+
+0. 激活 CANN 环境
+
+    将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
+    ```
+    source {cann_root_dir}/set_env.sh
+    ```
+
+1. 安装 mmcv
+
+    在模型根目录下，克隆 mmcv 仓，替换其中部分代码，并进入 mmcv 目录安装
+
+    ```
+    git clone -b 1.x https://github.com/open-mmlab/mmcv
+    cp -f patch/mmcv/distributed.py mmcv/mmcv/parallel/distributed.py
+    cp -f patch/mmcv/modulated_deform_conv.py mmcv/mmcv/ops/modulated_deform_conv.py
+    cp -f patch/mmcv/optimizer.py mmcv/mmcv/runner/hooks/optimizer.py
+    cd mmcv
+    MMCV_WITH_OPS=1 pip install -e . -v
+    ```
+
+2. 安装 mmdet
+
+    在模型根目录下，克隆 mmdet 仓，替换其中部分代码，并进入 mmdet 目录安装
+
+    ```
+    git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
+    cp -f patch/mmdet/__init__.py mmdetection/mmdet/__init__.py
+    cp -f patch/mmdet/resnet.py mmdetection/mmdet/models/backbones/resnet.py
+    cd mmdetection
+    pip install -e .
+    ```
+
+3. 安装 mmdet3d
+
+    在模型根目录下，克隆 mmdet3d 仓，替换其中部分代码，并进入 mmdet3d 目录安装
+
+    ```
+    git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
+    cp -f patch/mmdet3d/__init__.py mmdetection3d/mmdet3d/__init__.py
+    cp -f patch/mmdet3d/runtime.txt mmdetection3d/requirements/runtime.txt
+    cp -f patch/mmdet3d/nuscenes_dataset.py mmdetection3d/mmdet3d/datasets/nuscenes_dataset.py
+    cp -f patch/mmdet3d/loading.py mmdetection3d/mmdet3d/datasets/pipelines/loading.py
+    cp -f patch/mmdet3d/transforms_3d.py mmdetection3d/mmdet3d/datasets/pipelines/transforms_3d.py
+    cd mmdetection3d
+    pip install -v -e .
+    ```
+
+4. 安装其他依赖
+
+    ```
+    pip install mmsegmentation==0.30.0
+    pip install torch==2.1.0 torchvision
+    pip install ipython==8.18.1
+    ```
+
+5. 安装 mxDriving 加速库
+
+    安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)，安装后手动 source 环境变量。
+
+6. 替换部分 torch 代码
+
+    在当前 python 环境下执行'pip show torch'，得到 torch 安装路径，记作 packages_path，在模型根目录下执行以下命令来替换部分 torch 代码。
+    ```
+    cp -f patch/torch/conv.py {packages_path}/torch/nn/modules/conv.py
+    ```
+
+### 准备数据集
+
+1. 根据原仓数据集准备中的 [NuScenes LiDAR Benchmark](https://github.com/Robertwyq/PanoOcc/blob/main/docs/dataset.md#1-nuscenes-lidar-benchmark) 章节准备数据集，参考数据集结构如下：
+
+    ```
+    PanoOcc
+    ├── data/
+    │   ├── nuscenes/
+    │   │   ├── can_bus/
+    │   │   ├── maps/
+    │   │   ├── lidarseg/
+    │   │   ├── panoptic/
+    │   │   ├── samples/
+    │   │   ├── sweeps/
+    │   │   ├── v1.0-trainval/
+    │   │   ├── v1.0-test/
+    │   │   ├── nuscenes_infos_temporal_train.pkl (经数据预处理后生成)
+    │   │   ├── nuscenes_infos_temporal_val.pkl (经数据预处理后生成)
+    │   │   ├── nuscenes_infos_temporal_test.pkl (经数据预处理后生成)
+    │   │   ├── nuscenes.yaml
+    ```
+
+2. 数据预处理
+
+   ```
+   python tools/create_data.py nuscenes --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data/nuscenes
+   ```
+
+### 准备预训练权重
+
+创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
+   ```
+   ckpts/
+   ├── r101_dcn_fcos3d_pretrain.pth
+   ```
+
+## 快速开始
+
+### 训练任务
+
+本任务主要提供**单机**的**8卡**训练脚本。
+
+#### 开始训练
+
+  - 在模型根目录下，运行训练脚本。
+
+     ```
+     bash test/train_8p_panoocc_base_4f_fp32.sh --epochs=3 # 8卡性能
+     bash test/train_8p_panoocc_base_4f_fp32.sh # 8卡精度
+     ```
+
+#### 训练结果
+
+| 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | mAP | NDS | 性能-单步迭代耗时(ms) |
+| ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :----: | :-------------------: |
+| 竞品A           |  8p  |         8         |   fp32    |  24   | 0.712 | 0.411 | 0.497 |         1322          |
+| Atlas 800T A2 |  8p  |         8         |   fp32    |  24   | 0.710 | 0.416 | 0.499 |         2675          |
+
+# 公网地址说明
+
+代码涉及公网地址参考 public_address_statement.md
+
+# 变更说明
+
+2024.09.10：首次发布。
+
+# FAQ
+
+无
