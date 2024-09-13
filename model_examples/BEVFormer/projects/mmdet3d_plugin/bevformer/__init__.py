@@ -1,6 +1,6 @@
 
-import dense_heads
-import detectors
-import modules
-import runner
-import hooks
+from .dense_heads import *
+from .detectors import *
+from .modules import *
+from .runner import *
+from .hooks import *
