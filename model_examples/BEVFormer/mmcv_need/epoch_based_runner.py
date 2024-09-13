@@ -58,8 +58,6 @@ class EpochBasedRunner(BaseRunner):
             self.call_hook('after_train_iter')
             del self.data_batch
             self._iter += 1
-            if self._iter == self._stop_iters:
-                exit("STOP!!!")
 
         self.call_hook('after_train_epoch')
         self._epoch += 1
