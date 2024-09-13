@@ -18,4 +18,7 @@ void init_detection(pybind11::module& m)
     
     // npu_boxes_overlap_bev
     m.def("npu_boxes_overlap_bev", &npu_boxes_overlap_bev, "boxes_overlap_bev NPU version");
+
+    // roi_align_rotated_v2_forward_npu
+    m.def("roi_align_rotated_v2_forward_npu", &roi_align_rotated_v2_forward_npu);
 }
