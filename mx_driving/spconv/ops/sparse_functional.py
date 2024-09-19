@@ -45,9 +45,27 @@ class SparseBaseCovFunction(Function):
         device = features.device
         out_spatial_shape = [int(i) for i in out_spatial_shape]
         if subm:
+            hh = indices[:, 0] * out_spatial_shape[0] * out_spatial_shape[1] * out_spatial_shape[2] + \
+                indices[:, 1] * out_spatial_shape[1] * out_spatial_shape[2] + indices[:, 2] * out_spatial_shape[2] + indices[:, 3]
+            temp, hh2 = ads_c.npu_prepare_subm_conv3d(hh, out_spatial_shape, batch_size)
+            temp[hh] = hh2
+            feature_align = features.shape[1] % 8
+            if feature_align != 0:
+                zero_tensor = torch.zeros((kernel_size[0], kernel_size[0], kernel_size[0], 8 - feature_align, out_channels)).npu()
+                weight = torch.cat((weight, zero_tensor), 3)
             out_features, outidx_pair, ouidx_offset = indice_subm_conv(features, indices, weight,
                                                 kernel_size, out_channels,
-                                                out_spatial_shape, batch_size)
+                                                out_spatial_shape, batch_size, temp)
+            to_insert = torch.tensor(-1).to(device)
+            sorted_idx, sorted_idx_to_former_indices = torch.sort(ouidx_offset.view(torch.float32))
+            new_sorted_idx = torch.cat((to_insert.view(1), sorted_idx.view(torch.int32)), 0)
+            new_sorted_idx_2 = torch.cat((sorted_idx.view(torch.int32), to_insert.view(1)), 0)
+            sub_result = new_sorted_idx - new_sorted_idx_2
+            unique_indices_offset = torch.nonzero(sub_result != 0)
+            if bias is not None:
+                out_features += bias
+            ctx.save_for_backward(features, weight, sorted_idx_to_former_indices.int(), unique_indices_offset.int())
+            return out_features, indices
         elif inverse:
             out_features, outidx_pair, ouidx_offset = indice_inverse_conv(features, indices, weight,
                                                     kernel_size, stride, padding, dilation, output_padding,
@@ -61,7 +79,7 @@ class SparseBaseCovFunction(Function):
         new_sorted_idx_2 = torch.cat((sorted_idx.view(torch.int32), to_insert.view(1)), 0)
         sub_result = new_sorted_idx - new_sorted_idx_2
         unique_indices_offset = torch.nonzero(sub_result != 0)
-        if subm or inverse:
+        if inverse:
             out_features, outidx = multi_to_sparse(out_features, unique_indices_offset.int(),
                                                     sorted_idx_to_former_indices.int(), outidx_pair.int())
         else:
@@ -144,7 +162,7 @@ class SubMConvFunction(Function):
     def forward(ctx: Any, features: torch.Tensor, indices: torch.Tensor, weight: torch.Tensor,
                 kernel_size,
                 out_channels: int, out_spatial_shape,
-                batch_size: int) -> torch.Tensor:
+                batch_size: int, temp: torch.Tensor) -> torch.Tensor:
         """
         Args:
             features (torch.Tensor): Features that needs to convolute.
@@ -159,7 +177,7 @@ class SubMConvFunction(Function):
         """
         out_features, outidx_pair, ouidx_offset = ads_c.npu_subm_sparse_conv3d(features, indices, weight,
                                               kernel_size, out_channels,
-                                              out_spatial_shape, batch_size)
+                                              out_spatial_shape, batch_size, temp)
 
         return out_features, outidx_pair, ouidx_offset
 

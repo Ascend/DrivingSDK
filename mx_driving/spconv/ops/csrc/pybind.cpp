@@ -21,4 +21,6 @@ void init_spconv(pybind11::module &m)
 
     // npu_sparse_conv3d_grad
     m.def("npu_sparse_conv3d_grad", &npu_sparse_conv3d_grad);
+   
+    m.def("npu_prepare_subm_conv3d", &npu_prepare_subm_conv3d);
 }
