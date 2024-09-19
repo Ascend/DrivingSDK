@@ -18,6 +18,133 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 EPS = 1e-8
 
 
+def cpu_roi_align_rotated_grad(input_array, rois, grad_outputs, args_dict):
+    spatial_scale, sampling_ratio, pooled_height, pooled_width, aligned, clockwise = args_dict.values()
+    bs, c, h, w = input_array.shape
+    n = rois.shape[0]
+    assert rois.size(1) == 6
+    idx = rois[:, 0]
+    offset = 0.5 if aligned else 0
+    cxcywh = rois[:, 1:5] * spatial_scale
+    cxcywh[:, 0:2] = cxcywh[:, 0:2] - offset
+    angle = rois[:, 5]
+    height = cxcywh[:, 3]
+    width = cxcywh[:, 2]
+    grad_input = torch.zeros(bs, c, h, w).to(input_array.device)
+    if clockwise:
+        angle = -1 * angle
+
+    if aligned == False:
+        height = torch.clamp(height, low=1.0)
+        width = torch.clamp(width, low=1.0)
+
+    for index in range(n * pooled_height * pooled_width):
+        pid = index // (pooled_height * pooled_width)
+        pH = (index // pooled_width) % pooled_height
+        pW = index % pooled_width
+
+        pbs = int(idx[pid])
+        pa = angle[pid]
+        cospa = math.cos(pa)
+        sinpa = math.sin(pa)
+
+        bin_size_w = width[pid] / pooled_width
+        bin_size_h = height[pid] / pooled_height
+
+        if sampling_ratio > 0:
+            bin_grid_h = bin_grid_w = sampling_ratio
+        else:
+            bin_grid_w = torch.ceil(width[pid] / pooled_width).item()
+            bin_grid_h = torch.ceil(height[pid] / pooled_height).item()
+            bin_grid_w = int(bin_grid_w)
+            bin_grid_h = int(bin_grid_h)
+
+        delta_start_w = -1 * cxcywh[pid, 2] / 2.0
+        delta_start_h = -1 * cxcywh[pid, 3] / 2.0
+
+        count = max(bin_grid_h * bin_grid_w, 1)
+        grad_bin = grad_outputs[pid, :, pH, pW]
+
+        for iy in range(bin_grid_h):
+            yy = delta_start_h + pH * bin_size_h + (iy + 0.5) * bin_size_h / bin_grid_h
+            for ix in range(bin_grid_w):
+                xx = delta_start_w + pW * bin_size_w + (ix + 0.5) * bin_size_w / bin_grid_w
+
+                x = yy * sinpa + xx * cospa + cxcywh[pid, 0]
+                y = yy * cospa - xx * sinpa + cxcywh[pid, 1]
+
+                bilinear_args = bilinear_interpolate_grad(h, w, y, x)
+                w1, w2, w3, w4, xl, xh, yl, yh = bilinear_args.values()
+                g1 = grad_bin * w1 / count
+                g2 = grad_bin * w2 / count
+                g3 = grad_bin * w3 / count
+                g4 = grad_bin * w4 / count
+
+                if xl >= 0 and yl >= 0:
+                    grad_input[pbs, :, yl, xl] = grad_input[pbs, :, yl, xl] + g1
+                    grad_input[pbs, :, yl, xh] = grad_input[pbs, :, yl, xh] + g2
+                    grad_input[pbs, :, yh, xl] = grad_input[pbs, :, yh, xl] + g3
+                    grad_input[pbs, :, yh, xh] = grad_input[pbs, :, yh, xh] + g4
+
+    return grad_input
+
+
+def bilinear_interpolate_grad(height, width, y, x):
+    if y < -1 or y > height:
+        bilinear_args = dict(w1=-1,
+                             w2=-1, 
+                             w3=-1, 
+                             w4=-1, 
+                             x_low=-1, 
+                             x_high=-1, 
+                             y_low=-1, 
+                             y_high=-1)
+        return bilinear_args
+    if x < -1 or x > width:
+        bilinear_args = dict(w1=-1,
+                             w2=-1, 
+                             w3=-1, 
+                             w4=-1, 
+                             x_low=-1, 
+                             x_high=-1, 
+                             y_low=-1, 
+                             y_high=-1)
+        return bilinear_args
+    y = y if y > 0 else 0
+    x = x if x > 0 else 0
+    y_low = int(y)
+    x_low = int(x)
+    if y_low >= height - 1:
+        y_high = y_low = height - 1
+        y = y_low
+    else:
+        y_high = y_low + 1
+    if x_low >= width - 1:
+        x_high = x_low = width - 1
+        x = x_low
+    else:
+        x_high = x_low + 1
+    ly = y - y_low
+    lx = x - x_low
+    hy = 1 - ly
+    hx = 1 - lx
+
+    w1 = (hy * hx)
+    w2 = (hy * lx)
+    w3 = (ly * hx)
+    w4 = (ly * lx)
+
+    bilinear_args = dict(w1=w1,
+                         w2=w2, 
+                         w3=w3, 
+                         w4=w4, 
+                         x_low=x_low, 
+                         x_high=x_high, 
+                         y_low=y_low, 
+                         y_high=y_high)
+    return bilinear_args
+
+
 def cpu_roi_align_rotated(input_array, rois, args_dict):
     spatial_scale, sampling_ratio, pooled_height, pooled_width, aligned, clockwise = args_dict.values()
     N, C, H, W = input_array.shape
@@ -157,16 +284,16 @@ def bilinear_interpolate(feature_map, fm_batch, bilinear_args):
 
 
 class TestRoiAlignedRotatedV2(TestCase):
-    def cpu_to_exec(self, features, rois, args_dict):
-        features = features.numpy()
-        rois = rois.numpy()
-        output = cpu_roi_align_rotated(features, rois, args_dict)
-        return torch.from_numpy(output)
+    def cpu_to_exec(self, features, rois, grad_output, args_dict):
+        output = cpu_roi_align_rotated(features.numpy(), rois.numpy(), args_dict)
+        grad_feature_map = cpu_roi_align_rotated_grad(features, rois, grad_output, args_dict)
+        return torch.from_numpy(output), grad_feature_map
 
-    def npu_to_exec(self, features, rois, args_dict):
+    def npu_to_exec(self, features, rois, grad_output, args_dict):
         spatial_scale, sampling_ratio, ph, pw, aligned, clockwise = args_dict.values()
         output = mx_driving.detection.roi_align_rotated_v2(features.npu(), rois.npu(), spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
-        return output.cpu()
+        output.backward(grad_output.npu())
+        return output.cpu(), features.grad.cpu()
 
     def generate_features(self, feature_shape):
         features = torch.rand(feature_shape)
@@ -183,7 +310,13 @@ class TestRoiAlignedRotatedV2(TestCase):
         rois[5].uniform_(0, math.pi)
 
         return rois.transpose(0, 1).contiguous()
-    
+
+    def generate_grad(self, roi_shape, feature_shape, pooled_height, pooled_width):
+        num_boxes = roi_shape[0]
+        channels = feature_shape[1]
+        output_grad = torch.rand([num_boxes, channels, pooled_height, pooled_width])
+        return output_grad
+
     @unittest.skipIf(DEVICE_NAME not in ['Ascend910B', 'Ascend910C'], "OP `RoiAlignedRotatedV2` is only supported on 910B and 910C, skip this ut!")
     def test_RoiAlignedRotatedV2_Aligned(self):
         shape_format = [
@@ -196,6 +329,7 @@ class TestRoiAlignedRotatedV2(TestCase):
         for item in shape_format:
             features = self.generate_features(item[0])
             rois = self.generate_rois(item[1], item[0], item[2])
+            grad_output = self.generate_grad(item[1], item[0], item[4], item[5])
             spatial_scale = item[2]
             sampling_ratio = item[3]
             ph = item[4]
@@ -208,9 +342,12 @@ class TestRoiAlignedRotatedV2(TestCase):
                              pw=pw, 
                              aligned=aligned, 
                              clockwise=clockwise)
-            out_cpu = self.cpu_to_exec(features, rois, args_dict)
-            out_npu = self.npu_to_exec(features, rois, args_dict)
+            features.requires_grad_()
+            rois.requires_grad_()
+            out_cpu, grad_cpu = self.cpu_to_exec(features.detach(), rois.detach(), grad_output, args_dict)
+            out_npu, grad_npu = self.npu_to_exec(features, rois, grad_output, args_dict)
             self.assertRtolEqual(out_cpu, out_npu)
+            self.assertRtolEqual(grad_cpu, grad_npu)
 
     @unittest.skipIf(DEVICE_NAME not in ['Ascend910B', 'Ascend910C'], "OP `RoiAlignedRotatedV2` is only supported on 910B and 910C, skip this ut!")
     def test_RoiAlignedRotatedV2_NonAligned(self):
@@ -224,6 +361,7 @@ class TestRoiAlignedRotatedV2(TestCase):
         for item in shape_format:
             features = self.generate_features(item[0])
             rois = self.generate_rois(item[1], item[0], item[2])
+            grad_output = self.generate_grad(item[1], item[0], item[4], item[5])
             spatial_scale = item[2]
             sampling_ratio = item[3]
             ph = item[4]
@@ -236,9 +374,13 @@ class TestRoiAlignedRotatedV2(TestCase):
                              pw=pw, 
                              aligned=aligned, 
                              clockwise=clockwise)
-            out_cpu = self.cpu_to_exec(features, rois, args_dict)
-            out_npu = self.npu_to_exec(features, rois, args_dict)
+            features.requires_grad_()
+            rois.requires_grad_()
+            out_cpu, grad_cpu = self.cpu_to_exec(features.detach(), rois.detach(), grad_output, args_dict)
+            out_npu, grad_npu = self.npu_to_exec(features, rois, grad_output, args_dict)
             self.assertRtolEqual(out_cpu, out_npu)
+            self.assertRtolEqual(grad_cpu, grad_npu)
+
 
 if __name__ == '__main__':
     run_tests()

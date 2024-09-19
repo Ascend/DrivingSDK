@@ -21,4 +21,7 @@ void init_detection(pybind11::module& m)
 
     // roi_align_rotated_v2_forward_npu
     m.def("roi_align_rotated_v2_forward_npu", &roi_align_rotated_v2_forward_npu);
+
+    // npu_roi_align_rotated_grad_v2
+    m.def("npu_roi_align_rotated_grad_v2", &npu_roi_align_rotated_grad_v2);
 }

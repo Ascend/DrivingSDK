@@ -31,4 +31,8 @@ at::Tensor npu_boxes_overlap_bev(const at::Tensor &boxes_a, const at::Tensor &bo
 void roi_align_rotated_v2_forward_npu(const at::Tensor& input, const at::Tensor& rois_map, at::Tensor& output,
                                       double spatial_scale, int32_t sampling_ratio, int32_t pooled_height, int32_t pooled_width,
                                       bool aligned, bool clockwise);
+at::Tensor npu_roi_align_rotated_grad_v2(const at::Tensor& input,
+                                         const at::Tensor& rois, const at::Tensor& grad_output,
+                                         int32_t pooled_height, int32_t pooled_width, double spatial_scale,
+                                         int32_t sampling_ratio, bool aligned, bool clockwise);
 #endif // PERCEPTION_VISION_OPS_CSRC_FUNCTIONS_H_
