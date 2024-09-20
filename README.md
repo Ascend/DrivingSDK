@@ -24,22 +24,20 @@ git clone https://gitee.com/ascend/mxDriving.git
 2. 编译mxDriving。
 > 注意：请在仓库根目录下执行编译命令
 ```shell
-bash ci/build.sh --python=3.7
+bash ci/build.sh --python=3.8
 ```
 生成的whl包在`mx_driving/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
-参数`--python`指定编译过程中使用的python版本，支持3.7及以上：
+参数`--python`指定编译过程中使用的python版本，支持3.8及以上：
 
 | 参数   | 取值范围                                                     | 说明                           | 缺省值 | 备注                                           |
 | ------ | ------------------------------------------------------------ | ------------------------------ | ------ | ---------------------------------------------- |
-| python | pytorch1.11，支持3.7及以上；pytorch1.11以上版本，支持3.8及以上 | 指定编译过程中使用的python版本 | 3.7    | 仅pytorch版本为1.11时才支持指定python版本为3.7 |
+| python | pytorch2.1.0、2.3.1及以上版本，支持3.8及以上 | 指定编译过程中使用的python版本 | 3.8    | 
 
 支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如下：
 
 | Gitee分支 |  CPU架构 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
 |-----------|-----------|-------------------|-------------------|---------------------|
-| master    | x86&aarch64|  Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0|
-|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0|
-|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.2.0|v2.2.0|
+| master    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.3.1|v2.3.1|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.4.0|v2.4.0|
 | branch_v6.0.0-RC1    |x86&aarch64 |    Python3.7.x(>=3.7.5),Python3.8.x,Python3.9.x,Python3.10.x|1.11.0|v1.11.0-6.0.rc1|
@@ -130,7 +128,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 ## 算子清单
 请参见[算子清单](./docs/api/README.md)。
 ## 支持特性
-- [x] 支持PyTorch 1.11.0，2.1.0，2.2.0，2.3.1，2.4.0
+- [x] 支持PyTorch 2.1.0，2.3.1，2.4.0
 - [x] 支持ONNX模型转换，训推一体
 - [ ] 支持图模式
 
