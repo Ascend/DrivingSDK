@@ -221,6 +221,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
 |   开源引入   |   | model_examples/BEVFormer/public_address_statement.md |  |BEVFormer模型示例代码中，公网地址声明 |
 |   开源引入   |   |model_examples/OpenPCDet/public_address_statement.md |  |CenterPoint2D模型示例代码中，公网地址声明 |
+|   开源引入   |   |model_examples/SurroundOcc/public_address_statement.md |  |SurroundOcc模型示例代码中，公网地址声明 |
 
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，mxDriving提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
