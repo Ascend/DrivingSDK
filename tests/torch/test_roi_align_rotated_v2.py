@@ -317,7 +317,7 @@ class TestRoiAlignedRotatedV2(TestCase):
         output_grad = torch.rand([num_boxes, channels, pooled_height, pooled_width])
         return output_grad
 
-    @unittest.skipIf(DEVICE_NAME not in ['Ascend910B', 'Ascend910C'], "OP `RoiAlignedRotatedV2` is only supported on 910B and 910C, skip this ut!")
+    @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `RoiAlignedRotatedV2` is only supported on 910B, skip this ut!")
     def test_RoiAlignedRotatedV2_Aligned(self):
         shape_format = [
             [[8, 32, 64, 64], [16, 6], 0.5, 2, 7, 7, True, False],
@@ -349,7 +349,7 @@ class TestRoiAlignedRotatedV2(TestCase):
             self.assertRtolEqual(out_cpu, out_npu)
             self.assertRtolEqual(grad_cpu, grad_npu)
 
-    @unittest.skipIf(DEVICE_NAME not in ['Ascend910B', 'Ascend910C'], "OP `RoiAlignedRotatedV2` is only supported on 910B and 910C, skip this ut!")
+    @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `RoiAlignedRotatedV2` is only supported on 910B, skip this ut!")
     def test_RoiAlignedRotatedV2_NonAligned(self):
         shape_format = [
             [[8, 3, 64, 64], [16, 6], 0.5, 2, 7, 7, True, True],

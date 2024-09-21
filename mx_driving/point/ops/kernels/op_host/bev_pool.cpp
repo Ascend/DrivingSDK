@@ -196,7 +196,7 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForBEVPool<V1>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 
@@ -259,7 +259,7 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForBEVPool<V1>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 
@@ -319,7 +319,7 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForBEVPool<V2>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 
@@ -401,7 +401,7 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForBEVPool<V2>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 OP_ADD(BEVPool);

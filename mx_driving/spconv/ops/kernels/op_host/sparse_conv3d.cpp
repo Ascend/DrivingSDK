@@ -168,7 +168,7 @@ public:
         this->SetInferShape(ge::InferShapeForSparseConv3d).SetInferDataType(ge::InferDtypeForSparseConv3d);
         this->AICore().SetTiling(optiling::TilingForSparseConv3d);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 

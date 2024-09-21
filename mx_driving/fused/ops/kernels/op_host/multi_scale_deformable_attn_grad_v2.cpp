@@ -189,7 +189,7 @@ public:
 
         this->AICore().SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnGradV2);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 

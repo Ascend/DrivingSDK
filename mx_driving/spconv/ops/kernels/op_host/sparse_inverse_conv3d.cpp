@@ -207,7 +207,7 @@ public:
         this->SetInferShape(ge::InferShape);
         this->AICore().SetTiling(optiling::TilingForSparseInverseConv3d);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 

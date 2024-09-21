@@ -162,7 +162,7 @@ public:
             .SetInferDataType(ge::InferDataTypeForRoiAlignRotatedGradV2);
         this->AICore().SetTiling(optiling::TilingFuncForRoiAlignRotatedGradV2);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 

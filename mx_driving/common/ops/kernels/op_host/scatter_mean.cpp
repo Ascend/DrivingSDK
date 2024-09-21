@@ -472,7 +472,7 @@ public:
         this->AICore()
             .SetTiling(optiling::ScatterMeanTilingFunc);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 
@@ -640,7 +640,7 @@ public:
         this->AICore()
             .SetTiling(optiling::ScatterMeanDivTilingFunc);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 

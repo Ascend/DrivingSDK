@@ -138,7 +138,7 @@ public:
 
     this->AICore().SetTiling(optiling::TilingForFusedBiasLeakyRelu);
     this->AICore().AddConfig("ascend910b");
-    this->AICore().AddConfig("ascend910c");
+    this->AICore().AddConfig("ascend910_93");
     }
 };
 OP_ADD(FusedBiasLeakyRelu);
