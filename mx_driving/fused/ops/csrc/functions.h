@@ -54,4 +54,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> deformable_aggregation_grad(
     const at::Tensor& grad_weights
 );
 
+std::tuple<at::Tensor, at::Tensor> npu_deformable_conv2d(const at::Tensor &input, const at::Tensor &offset, const at::Tensor &weight,
+    const c10::optional<at::Tensor> &bias_opt, at::IntArrayRef kernel_size, at::IntArrayRef stride,
+    at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups, int64_t deformable_groups, bool modulated, bool xoffsets_transpose);
+
 #endif // PERCEPTION_FUSED_OPS_CSRC_FUNCTIONS_H_

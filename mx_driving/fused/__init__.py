@@ -3,3 +3,4 @@ from .ops.npu_add_relu import npu_add_relu
 from .ops.npu_multi_scale_deformable_attn_function import npu_multi_scale_deformable_attn_function
 from .ops.fused_bias_leaky_relu import npu_fused_bias_leaky_relu
 from .ops.npu_deformable_aggregation import npu_deformable_aggregation
+from .ops.deformable_conv2d import deformable_conv2d

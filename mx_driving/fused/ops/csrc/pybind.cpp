@@ -22,4 +22,7 @@ void init_fused(pybind11::module& m)
     // npu_deformable_aggregation
     m.def("npu_deformable_aggregation", &deformable_aggregation);
     m.def("npu_deformable_aggregation_grad", &deformable_aggregation_grad);
+
+    // deformable_conv2d
+    m.def("npu_deformable_conv2d", &npu_deformable_conv2d);
 }
