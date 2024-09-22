@@ -13,6 +13,7 @@ from torch.nn.modules.utils import _pair, _single
 from mmcv.utils import IS_MLU_AVAILABLE, deprecated_api_warning
 from ..cnn import CONV_LAYERS
 from ..utils import ext_loader, print_log
+from mx_driving.fused import deformable_conv2d
 
 ext_module = ext_loader.load_ext(
     '_ext',
@@ -69,20 +70,24 @@ class ModulatedDeformConv2dFunction(Function):
                 kernel_w, kernel_h, ctx.deform_groups)
         select_offset = offset.index_select(1, sort_index_fp)
         offset_all = torch.cat([select_offset, mask], dim=1)
-        output, offset_out = torch_npu.npu_deformable_conv2d(
+
+        tmp_offst = torch.cat([offset, mask], dim=1)
+
+        output, offset_out = deformable_conv2d(
             input_tensor,
             weight,
-            offset_all,
+            tmp_offst,
             conv2d_bias,
-            kernel_size=[kernel_w, kernel_h],
-            stride=[1, 1, ctx.stride[0], ctx.stride[1]],
-            padding=[
+            [kernel_w, kernel_h],
+            [1, 1, ctx.stride[0], ctx.stride[1]],
+            [
                 ctx.padding[0], ctx.padding[0], ctx.padding[1], ctx.padding[1]
             ],
-            dilation=[1, 1, ctx.dilation[0], ctx.dilation[1]],
-            groups=ctx.groups,
-            deformable_groups=ctx.deform_groups,
-            modulated=True)
+            [1, 1, ctx.dilation[0], ctx.dilation[1]],
+            ctx.groups,
+            ctx.deform_groups,
+            True)
+
         if weight.requires_grad or mask.requires_grad or offset.requires_grad \
                 or input_tensor.requires_grad:
             ctx.save_for_backward(input_tensor, weight, offset_out, offset_all,
