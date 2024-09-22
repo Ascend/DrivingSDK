@@ -3,7 +3,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 # Copyright 2024 Huawei Technologies Co., Ltd
 # ---------------------------------------------
-#  Modified by Zhiqi Li
+#  Modified by Zhexu Liu
 # ---------------------------------------------
 
 import warnings
@@ -135,16 +135,24 @@ class SpatialCrossAttention(BaseModule):
 
         D = reference_points_cam.size(3)
         indexes = []
-        global bev_mask_global, indexes_global, max_len_global, bev_mask_id_global
+        global bev_mask_global, indexes_global, max_len_global, bev_mask_id_global, count_global
         bev_mask_id = id(bev_mask)
         if bev_mask_id == bev_mask_id_global:
             indexes = indexes_global
             max_len = max_len_global
+            count = count_global
         else:
-            for i, mask_per_img in enumerate(bev_mask):
-                index_query_per_img = mask_per_img[0].sum(-1).to(torch.float).nonzero().squeeze(-1)
+            count = torch.any(bev_mask, 3)
+            bev_mask_ = count.squeeze()
+            for i, mask_per_img in enumerate(bev_mask_):
+                index_query_per_img = mask_per_img.nonzero().squeeze(-1)
                 indexes.append(index_query_per_img)
+
             max_len = max([len(each) for each in indexes])
+            count = count.permute(1, 2, 0).sum(-1)
+            count = torch.clamp(count, min=1.0)
+            count = count[..., None]
+            count_global = count
             bev_mask_global = bev_mask.clone()
             indexes_global = indexes
             max_len_global = max_len
@@ -156,9 +164,9 @@ class SpatialCrossAttention(BaseModule):
         reference_points_rebatch = reference_points_cam.new_zeros(
             [bs, self.num_cams, max_len, D, 2])
         
-        for j in range(bs):
-            for i, reference_points_per_img in enumerate(reference_points_cam):   
-                index_query_per_img = indexes[i]
+        for i, reference_points_per_img in enumerate(reference_points_cam):   
+            index_query_per_img = indexes[i]
+            for j in range(bs):
                 queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
                 reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
 
@@ -166,7 +174,7 @@ class SpatialCrossAttention(BaseModule):
 
         key = key.permute(2, 0, 1, 3).reshape(
             bs * self.num_cams, l, self.embed_dims)
-        value = value.permute(2, 0, 1, 3).reshape(
+        value = value.permute(2, 0, 1, 3).reshape( 
             bs * self.num_cams, l, self.embed_dims)
 
         queries = self.deformable_attention(query=queries_rebatch.view(bs * self.num_cams, max_len, self.embed_dims), key=key, value=value,
@@ -176,10 +184,8 @@ class SpatialCrossAttention(BaseModule):
             for i, index_query_per_img in enumerate(indexes):
                 slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
 
-        count = bev_mask.sum(-1) > 0
-        count = count.permute(1, 2, 0).sum(-1)
-        count = torch.clamp(count, min=1.0)
-        slots = slots / count[..., None]
+
+        slots = slots / count
         slots = self.output_proj(slots)
 
         return self.dropout(slots) + inp_residual
@@ -388,7 +394,6 @@ class MSDeformableAttention3D(BaseModule):
 
         #  sampling_locations.shape: bs, num_query, num_heads, num_levels, num_all_points, 2
         #  attention_weights.shape: bs, num_query, num_heads, num_levels, num_all_points
-        #
 
         if torch.cuda.is_available() and value.is_cuda:
 
