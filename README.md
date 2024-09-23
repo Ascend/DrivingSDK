@@ -47,6 +47,9 @@ bash ci/build.sh --python=3.8
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.1.0|v2.1.0-6.0.rc2|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.2.0|v2.2.0-6.0.rc2|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x|2.3.1|v2.3.1-6.0.rc2|
+| branch_v6.0.0-RC3    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-6.0.rc3|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.3.1|v2.3.1-6.0.rc3|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.4.0|v2.4.0-6.0.rc3|
 
 3. 安装mxDriving。
 ```shell+
@@ -227,12 +230,17 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 |   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |  https://www.etalabs.net/sh_tricks.html   | 接口文档  |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
-|   开源引入   |   | model_examples/BEVFormer/public_address_statement.md |  |BEVFormer模型示例代码中，公网地址声明 |
-|   开源引入   |   |model_examples/OpenPCDet/public_address_statement.md |  |CenterPoint2D模型示例代码中，公网地址声明 |
-|   开源引入   |   |model_examples/SurroundOcc/public_address_statement.md |  |SurroundOcc模型示例代码中，公网地址声明 |
-|   开源引入   |   |model_examples/GameFormer-Planner/public_address_statement.md |  |GameFormer-Planner模型示例代码中，公网地址声明 |
-|   开源引入   |   |model_examples/PanoOcc/public_address_statement.md |  |PanoOcc模型示例代码中，公网地址声明 |
 
+
+### 示例模型公网地址声明
+|   模型名称   |   公网地址声明   |
+|-----------|----------|
+|BEVFormer|   [model_examples/BEVFormer/public_address_statement.md](./model_examples/BEVFormer/public_address_statement.md)|
+|CenterPoint2D|   [model_examples/OpenPCDet/public_address_statement.md](./model_examples/OpenPCDet/public_address_statement.md)|
+|PointPillar(2D)|   [model_examples/OpenPCDet/public_address_statement.md](./model_examples/OpenPCDet/public_address_statement.md)|
+|SurroundOcc|   [model_examples/SurroundOcc/public_address_statement.md](./model_examples/SurroundOcc/public_address_statement.md)|
+|GameFormer-Planner|   [model_examples/GameFormer-Planner/public_address_statement.md](./model_examples/GameFormer-Planner/public_address_statement.md)|
+|PanoOcc|   [model_examples/PanoOcc/public_address_statement.md](./model_examples/PanoOcc/public_address_statement.md)|
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，mxDriving提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
 ## 通信安全加固
