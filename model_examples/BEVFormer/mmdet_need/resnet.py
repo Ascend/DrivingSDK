@@ -660,8 +660,7 @@ class ResNet(BaseModule):
 
 @BACKBONES.register_module()
 class ResNetV1d(ResNet):
-    r"""ResNetV1d variant described in `Bag of Tricks
-    <https://arxiv.org/pdf/1812.01187.pdf>`_.
+    r"""
 
     Compared with default ResNet(ResNetV1b), ResNetV1d replaces the 7x7 conv in
     the input stem with three 3x3 convs. And in the downsampling block, a 2x2

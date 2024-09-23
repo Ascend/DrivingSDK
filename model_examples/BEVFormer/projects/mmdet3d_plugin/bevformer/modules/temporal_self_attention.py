@@ -26,7 +26,6 @@ class TemporalSelfAttention(BaseModule):
     """An attention module used in BEVFormer based on Deformable-Detr.
 
     `Deformable DETR: Deformable Transformers for End-to-End Object Detection.
-    <https://arxiv.org/pdf/2010.04159.pdf>`_.
 
     Args:
         embed_dims (int): The embedding dimension of Attention.

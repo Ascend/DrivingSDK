@@ -136,22 +136,23 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 |  Model   | 链接  |
 |  :----:  |  :----  |
 | MatrixVT  | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/MatrixVT |
-| PointPillar(2D)  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/OpenPCDet |
+| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |
 | YoloV5X  |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 |
 | swin-Transformer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/Swin-Transformer_for_PyTorch |
 | centerNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/detection/CenterNet |
-| CenterPoint(2D)  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/OpenPCDet |
-| BevFormer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/BEVFormer |
-| SurroundOcc  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/SurroundOcc |
+| CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |
+| BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |
+| SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |
 | UniAD  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/UniAD |
 | YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |
 | EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |
 | TPVFormer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/TPVFormer_for_PyTorch |
 | FCN-res18  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |
-| BEevDet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BEVDet_for_PyTorch |
+| BEVDet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BEVDet_for_PyTorch |
 | SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 |
 | BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 |
-| Petr  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/PETR |
+| GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner |
+| PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |
 
 
 
@@ -213,15 +214,24 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 |   类型   |   开源代码地址   | 文件名                                 |   公网IP地址/公网URL地址/域名/邮箱地址   | 用途说明                          |
 |-------------------------|-------------------------|-------------------------------------|-------------------------|-------------------------------|
 |   自研   |   不涉及   | ci/docker/ARM/Dockerfile            |   https://mirrors.huaweicloud.com/repository/pypi/simple   | docker配置文件，用于配置pip源           |
-|   自研   |   不涉及   | ci/docker/X86/Dockerfile            |   https://mirrors.huaweicloud.com/repository/pypi/simple   | docker配置文件，用于配置pip源           |
-|   自研   |   不涉及   | ci/docker/ARM/Dockerfile            |   https://dl.fedoraproject.org/pub/epel/7/aarch64/Packages/n/ninja-build-1.7.2-2.el7.aarch64.rpm   | docker配置文件，用于下载ninja-build    |
+|   自研   |   不涉及   | ci/docker/X86/Dockerfile            |   https://mirrors.huaweicloud.com/repository/pypi/simple   | docker配置文件，用于配置pip源           |   |
+|   自研   |   不涉及   | ci/docker/ARM/install_cann.sh     |   https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN   | cann包下载地址    |
+|   自研   |   不涉及   | ci/docker/x86/install_cann.sh     |   https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN   | cann包下载地址    |
 |   自研   |   不涉及   | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于打包whl的url入参                 |
+|   自研   |   不涉及   | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于打包whl的url入参                 |
+|   自研   |   不涉及   | ci/docker/X86/install_obs.sh     |   https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_amd64.tar.gz   | obs下载链接                 |
+|   自研   |   不涉及   | ci/docker/ARM/install_obs.sh     |   https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_amd64.tar.gz   | obs下载链接                 |
 |   自研   |   不涉及   | ci/build.sh   |   https://gitee.com/ascend/pytorch.git   | 编译脚本根据torch_npu仓库地址拉取代码进行编译   |
+|   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |   https://makeself.io/   | makeself主页  |
+|   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |   http://www.gnu.org/copyleft/gpl.html   | license  |
+|   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |  https://www.etalabs.net/sh_tricks.html   | 接口文档  |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
 |   开源引入   |   | model_examples/BEVFormer/public_address_statement.md |  |BEVFormer模型示例代码中，公网地址声明 |
 |   开源引入   |   |model_examples/OpenPCDet/public_address_statement.md |  |CenterPoint2D模型示例代码中，公网地址声明 |
 |   开源引入   |   |model_examples/SurroundOcc/public_address_statement.md |  |SurroundOcc模型示例代码中，公网地址声明 |
+|   开源引入   |   |model_examples/GameFormer-Planner/public_address_statement.md |  |GameFormer-Planner模型示例代码中，公网地址声明 |
+|   开源引入   |   |model_examples/PanoOcc/public_address_statement.md |  |PanoOcc模型示例代码中，公网地址声明 |
 
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，mxDriving提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
