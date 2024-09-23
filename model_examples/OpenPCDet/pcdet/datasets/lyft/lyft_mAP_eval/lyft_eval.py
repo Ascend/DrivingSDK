@@ -5,30 +5,6 @@ modified from lyft toolkit https://github.com/lyft/nuscenes-devkit.git
 """
 mAP 3D calculation for the data in nuScenes format.
 
-
-The intput files expected to have the format:
-
-Expected fields:
-
-
-gt = [{
-    'sample_token': '0f0e3ce89d2324d8b45aa55a7b4f8207fbb039a550991a5149214f98cec136ac',
-    'translation': [974.2811881299899, 1714.6815014457964, -23.689857123368846],
-    'size': [1.796, 4.488, 1.664],
-    'rotation': [0.14882026466054782, 0, 0, 0.9888642620837121],
-    'name': 'car'
-}]
-
-prediction_result = {
-    'sample_token': '0f0e3ce89d2324d8b45aa55a7b4f8207fbb039a550991a5149214f98cec136ac',
-    'translation': [971.8343488872263, 1713.6816097857359, -25.82534357061308],
-    'size': [2.519726579986132, 7.810161372666739, 3.483438286096803],
-    'rotation': [0.10913582721095375, 0.04099572636992043, 0.01927712319721745, 1.029328402625659],
-    'name': 'car',
-    'score': 0.3077029437237213
-}
-
-
 input arguments:
 
 --pred_file:  file with predictions

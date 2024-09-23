@@ -52,3 +52,5 @@
 | 开源代码引入 | https://github.com/open-mmlab/OpenPCDet/blob/master/pcdet/models/backbones_3d/dsvt.py | OpenPCDet/pcdet/models/backbones_3d/dsvt.py                  | https://arxiv.org/abs/2301.06051                             | 参考论文地址                |
 | 开源代码引入 | https://github.com/open-mmlab/OpenPCDet/blob/master/pcdet/models/backbones_3d/spconv_unet.py | OpenPCDet/pcdet/models/backbones_3d/spconv_unet.py           | https://arxiv.org/abs/1907.03670                             | 参考论文地址                |
 | 配置文件引入 |                                                              | OpenPCDet/tools/ckpt_config.json                             | https://download.pytorch.org/models/                         | 从pytorch官网下载ckpt的地址 |
+| 开源代码引入 | http://www.apache.org/licenses/ | OpenPCDet/LICENSE           | http://www.apache.org/licenses/                             | 版权声明                |
+| 开源代码引入 | http://www.apache.org/licenses/LICENSE-2.0 | OpenPCDet/LICENSE           | http://www.apache.org/licenses/LICENSE-2.0                             | 版权声明                |
