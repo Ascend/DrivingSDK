@@ -72,8 +72,6 @@ def bezier_derivatives_control_points(control_points, n_derivatives):
     Compute control points of the successive derivatives of a given bezier curve.
 
     A derivative of a bezier curve is a bezier curve.
-    See https://pomax.github.io/bezierinfo/#derivatives
-    for detailed explanations
 
     :param control_points: (numpy array)
     :param n_derivatives: (int)
