@@ -29,10 +29,10 @@ at::Tensor vec_pool_backward(const at::Tensor& grad_new_features, const at::Tens
     const at::Tensor& grouped_idxs, const int64_t n, const int64_t num_c_in);
 
 at::Tensor point_to_voxel(
-    const at::Tensor& points, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges);
+    const at::Tensor& points, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges, const char* layout);
 
 at::Tensor voxel_to_point(
-    const at::Tensor& voxels, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges);
+    const at::Tensor& voxels, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges, const char* layout);
 
 std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor, at::Tensor> unique_voxel(const at::Tensor& voxels);
 

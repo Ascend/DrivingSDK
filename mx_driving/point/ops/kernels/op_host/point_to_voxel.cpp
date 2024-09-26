@@ -5,9 +5,12 @@
 #include <graph/ge_error_codes.h>
 #include <graph/types.h>
 #include <register/op_def.h>
+#include <register/tilingdata_base.h>
+#include <strings.h>
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 #include "point_to_voxel_tiling.h"
 #include "register/op_def_registry.h"
@@ -17,8 +20,11 @@ namespace {
 constexpr size_t POINT_IDX = 0;
 constexpr uint64_t RAW_TILING_KEY = 0;
 constexpr uint64_t COOR_TILING_KEY = 1;
+constexpr uint64_t XYZ_TILING_KEY = 0;
+constexpr uint64_t ZYX_TILING_KEY = 1;
 constexpr size_t VOXEL_SIZES_IDX = 0;
 constexpr size_t COOR_MINS_IDX = 1;
+constexpr uint64_t LAYOUT_IDX = 2;
 constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
 // 2[double buffer] * （3[coorx, coor_y, coor_z] + 1[output]）* 4[float size] + 1[temp] = 33
 constexpr int32_t COEF = 33;
@@ -48,21 +54,29 @@ ge::graphStatus GetElementInListAttr(const gert::RuntimeAttrs* attrs, size_t ind
     value = data[offset];
     return ge::GRAPH_SUCCESS;
 }
+
 template<bool forward>
 ge::graphStatus SetTilingKey(gert::TilingContext* context)
 {
-    if (!forward) {
-        return ge::GRAPH_SUCCESS;
-    }
     auto attrs = context->GetAttrs();
     if (!attrs) {
         return ge::GRAPH_FAILED;
     }
+    auto layout = attrs->GetStr(LAYOUT_IDX);
+    if (layout == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
+    if (!forward) {
+        return context->SetTilingKey(strcmp(layout, "XYZ") != 0 ? ZYX_TILING_KEY : XYZ_TILING_KEY);
+    }
+
     float voxelSizeX;
     if (GetElementInListAttr(attrs, VOXEL_SIZES_IDX, 0, voxelSizeX) != ge::GRAPH_SUCCESS) {
         return ge::GRAPH_FAILED;
     }
-    return context->SetTilingKey(voxelSizeX > 0 ? RAW_TILING_KEY : COOR_TILING_KEY);
+    return context->SetTilingKey(((voxelSizeX > 0 ? RAW_TILING_KEY : COOR_TILING_KEY) << 1) |
+                                 (strcmp(layout, "XYZ") != 0 ? ZYX_TILING_KEY : XYZ_TILING_KEY));
 }
 
 ge::graphStatus SetTilingDataFromAttr(const gert::TilingContext* context, optiling::PointToVoxelTilingData& tilingData)
@@ -249,6 +263,7 @@ public:
 
         this->Attr("voxel_sizes").AttrType(REQUIRED).ListFloat();
         this->Attr("coor_ranges").AttrType(REQUIRED).ListFloat();
+        this->Attr("layout").AttrType(REQUIRED).String("XYZ");
 
         this->SetInferShape(ge::InferShapeForPointToVoxel<true>)
             .SetInferDataType(ge::InferDataTypeForPointToVoxel<true>);
@@ -278,6 +293,7 @@ public:
 
         this->Attr("voxel_sizes").AttrType(REQUIRED).ListFloat();
         this->Attr("coor_ranges").AttrType(REQUIRED).ListFloat();
+        this->Attr("layout").AttrType(REQUIRED).String("XYZ");
 
         this->SetInferShape(ge::InferShapeForPointToVoxel<false>)
             .SetInferDataType(ge::InferDataTypeForPointToVoxel<false>);

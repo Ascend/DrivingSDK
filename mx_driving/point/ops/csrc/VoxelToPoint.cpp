@@ -19,8 +19,8 @@
 
 constexpr float DEFAULT_VALUE = -1.0f;
 
-at::Tensor voxel_to_point(
-    const at::Tensor& voxels, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges)
+at::Tensor voxel_to_point(const at::Tensor& voxels, const std::vector<float> voxel_sizes,
+    const std::vector<float> coor_ranges, const char* layout)
 {
     TORCH_CHECK_NPU(voxels);
     TORCH_CHECK(voxels.dim() == 1, "voxels.dim() must be 1, but got: ", voxels.dim());
@@ -45,6 +45,6 @@ at::Tensor voxel_to_point(
         coor_ranges_value = at::ArrayRef<float>(coor_ranges);
     }
 
-    EXEC_NPU_CMD_SYNC(aclnnVoxelToPoint, voxels, voxel_sizes_value, coor_ranges_value, points);
+    EXEC_NPU_CMD_SYNC(aclnnVoxelToPoint, voxels, voxel_sizes_value, coor_ranges_value, layout, points);
     return points.transpose(0, 1);
 }

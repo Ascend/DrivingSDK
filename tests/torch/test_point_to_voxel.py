@@ -32,7 +32,7 @@ class TestPointToVoxel(TestCase):
 
     def npu_encode(self, coords):
         coords_npu = torch.from_numpy(coords.view(np.float32)).npu()
-        return ads_c.point_to_voxel(coords_npu, [], []).cpu().numpy().view(np.int32)
+        return ads_c.point_to_voxel(coords_npu, [], [], "XYZ").cpu().numpy().view(np.int32)
 
     @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
     def test_point_to_voxel(self):
