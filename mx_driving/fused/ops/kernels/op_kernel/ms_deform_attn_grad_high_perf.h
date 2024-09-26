@@ -353,6 +353,7 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
 {
     uint8_t ping = 0;
 
+#pragma bisheng auto_sync parallel
     for (uint32_t head = 0; head < numHeads_; ++head) {
         uint32_t valueOffset = (baseSrcOffset_ + head) * embedDims_;
         uint32_t outOffset = head * alignedEmbedDims_;
@@ -467,21 +468,26 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
             SetVectorMask<float>(0, (1UL << embedDims_) - 1);
             Mul<float, false>(value[pingOffset], value[pingOffset], gradOut[outOffset], MASK_PLACEHOLDER,
                 num_points * 4, {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_), 0});
+            PipeBarrier<PIPE_V>();
             for (uint32_t i = 0; i < 4; ++i) {
                 WholeReduceSum<float, false>(reducedValue[i * alignedNumPoints_],
                     value[pingOffset + i * num_points * alignedEmbedDims_], MASK_PLACEHOLDER, num_points, 1, 1,
                     embedBlk_); // dstRepStride Unit: 4 bytes
             }
+            PipeBarrier<PIPE_V>();
             Duplicate<float, false>(value[pingOffset], 0.f, MASK_PLACEHOLDER, num_points * 4, 1, embedBlk_);
             SetFlag<HardEvent::V_MTE2>(ping);
             ping = 1 - ping;
 
             SetVectorMask<float>(0, 0xff);
+            PipeBarrier<PIPE_V>();
             Mul<float, false>(cornerWeight, reducedValue, cornerWeight, MASK_PLACEHOLDER, 4,
                 {1, 1, 1, 1, 1, 1}); // [4*numPoints,] * [4*numPoints,]
 
+            PipeBarrier<PIPE_V>();
             Add<float, false>(cornerWeight, cornerWeight, cornerWeight[2 * alignedNumPoints_], MASK_PLACEHOLDER, 2,
                 {1, 1, 1, 1, 1, 1});
+            PipeBarrier<PIPE_V>();
             Add<float, false>(gradWeight[level * alignedNumPoints_], cornerWeight, cornerWeight[alignedNumPoints_],
                 MASK_PLACEHOLDER, 1, {1, 1, 1, 1, 1, 1});
             SetFlag<HardEvent::V_MTE3>(calEvt_);
@@ -495,16 +501,21 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
 
             Sub<float, false>(valueDiff, reducedValue[3 * alignedNumPoints_], reducedValue[alignedNumPoints_],
                 MASK_PLACEHOLDER, 2, {1, 1, 1, 1, 0, 1});
+            PipeBarrier<PIPE_V>();
             Sub<float, false>(valueDiff[2 * alignedNumPoints_], reducedValue[2 * alignedNumPoints_], reducedValue,
                 MASK_PLACEHOLDER, 1, {1, 1, 1, 1, 1, 0});
+            PipeBarrier<PIPE_V>();
             Sub<float, false>(valueDiff[3 * alignedNumPoints_], reducedValue[alignedNumPoints_], reducedValue,
                 MASK_PLACEHOLDER, 1, {1, 1, 1, 1, 1, 0});
 
             SetVectorMask<float>(0, 0xffffffff);
             Copy<float, false>(reducedValue, locFloat[sx], MASK_PLACEHOLDER, 1, {1, queryBlk_, 8, 8});
+            PipeBarrier<PIPE_V>();
             Mul<float, false>(reducedValue, reducedValue, valueDiff, MASK_PLACEHOLDER, 1, {1, 1, 1, 1, 1, 1});
+            PipeBarrier<PIPE_V>();
             Add<float, false>(reducedValue, reducedValue, reducedValue[2 * alignedNumPoints_], MASK_PLACEHOLDER, 1,
                 {1, 1, 1, 1, 1, 1});
+            PipeBarrier<PIPE_V>();
             Gather(gradLoc[level * 32], reducedValue, gatherOffset, 0, 16);
             SetFlag<HardEvent::V_MTE3>(calEvt_);
             WaitFlag<HardEvent::V_MTE3>(calEvt_);

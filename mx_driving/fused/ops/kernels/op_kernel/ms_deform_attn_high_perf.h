@@ -288,6 +288,7 @@ __aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>
 {
     uint8_t ping = 0;
 
+#pragma bisheng auto_sync parallel
     for (uint32_t head = 0; head < numHeads_; ++head) {
         uint32_t valueOffset = (baseSrcOffset_ + head) * embedDims_;
         uint32_t outOffset = head * alignedEmbedDims_;
@@ -338,10 +339,12 @@ __aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>
 
             // broadcast to [4*8, embedDims_]
             Copy<float, false>(cornerWeight, weight[sx], MASK_PLACEHOLDER, 1, {1, queryBlk_, 8, 8});
+            PipeBarrier<PIPE_V>();
             for (uint32_t i = 0; i < 4; ++i) {
                 Brcb(cornerWeightBrc[i * num_points * alignedEmbedDims_], cornerWeight[i * alignedNumPoints_], 1,
                     {embedBlk_, dstRptStride_});
             }
+            PipeBarrier<PIPE_V>();
             for (uint32_t i = 1; i < embedBlk_; ++i) {
                 Copy<float, false>(cornerWeightBrc[i * B32_DATA_NUM_PER_BLOCK], cornerWeightBrc, MASK_PLACEHOLDER, 4,
                     {embedBlk_, embedBlk_, dstRptStride_, dstRptStride_});
@@ -349,37 +352,45 @@ __aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>
 
             WaitFlag<HardEvent::MTE2_V>(copyEvt_);
 
+            PipeBarrier<PIPE_V>();
             Mul<float, false>(cornerWeightBrc, value[pingOffset], cornerWeightBrc, MASK_PLACEHOLDER, valRptTimes4_,
                 {1, 1, 1, 8, 8, 8});
+
+            PipeBarrier<PIPE_V>();
             Duplicate<float, false>(value[pingOffset], 0.f, MASK_PLACEHOLDER, valRptTimes4_, 1, 8);
             SetFlag<HardEvent::V_MTE2>(ping);
             ping = 1 - ping;
 
             Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[2 * num_points * alignedEmbedDims_],
                 MASK_PLACEHOLDER, valRptTimes2_, {1, 1, 1, 8, 8, 8});
+            PipeBarrier<PIPE_V>();
             Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[num_points * alignedEmbedDims_],
                 MASK_PLACEHOLDER, valRptTimes1_, {1, 1, 1, 8, 8, 8});
 
             SetVectorMask<float>(0, (1UL << embedDims_) - 1);
             if (num_points == 8) {
+                PipeBarrier<PIPE_V>();
                 Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[4 * alignedEmbedDims_],
                     MASK_PLACEHOLDER, 4,
                     {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_),
                         static_cast<uint8_t>(embedBlk_)});
             }
             if (num_points >= 4) {
+                PipeBarrier<PIPE_V>();
                 Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[2 * alignedEmbedDims_],
                     MASK_PLACEHOLDER, 2,
                     {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_),
                         static_cast<uint8_t>(embedBlk_)});
             }
             if (num_points >= 2) {
+                PipeBarrier<PIPE_V>();
                 Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[alignedEmbedDims_],
                     MASK_PLACEHOLDER, 1,
                     {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_),
                         static_cast<uint8_t>(embedBlk_)});
             }
             if (num_points >= 1) {
+                PipeBarrier<PIPE_V>();
                 Add<float, false>(output[outOffset], output[outOffset], cornerWeightBrc, MASK_PLACEHOLDER, 1,
                     {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_),
                         static_cast<uint8_t>(embedBlk_)});
