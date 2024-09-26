@@ -10,7 +10,7 @@ export CPU_AFFINITY_CONF=1
 export HCCL_WHITELIST_DISABLE=1
 export HCCL_OP_BASE_FFTS_MODE_ENABLE=TRUE
 
-torchrun --standalone --nnodes=1 \
+torchrun --nnodes=1 \
         --nproc_per_node=$GPUS_PER_NODE \
         train_predictor.py \
         --batch_size=256 \
