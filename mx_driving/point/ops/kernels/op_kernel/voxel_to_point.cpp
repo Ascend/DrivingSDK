@@ -50,6 +50,7 @@ public:
         SetVectorMask<int32_t>(FULL_MASK, FULL_MASK);
     }
 
+    template<bool is_xyz>
     __aicore__ inline void Process();
 
 private:
@@ -67,7 +68,6 @@ private:
     float voxelScaleX_, voxelScaleY_, voxelScaleZ_;
     float coorXMin_, coorYMin_, coorZMin_;
     int32_t coorXOffset_, coorYOffset_, coorZOffset_;
-    int32_t encCoefX_ {0}, encCoefY_ {ENC_BITS}, encCoefZ_ {ENC_BITS_Z};
 
     // for task iteration, totalPts = avgPts * (avgTasks + tailTasks - 1)  + tailPts
     int32_t curTaskIdx_, curPtsIdx_;
@@ -86,9 +86,10 @@ private:
         return curTaskIdx_ == totalTasks_ - 1;
     }
 
-    template<bool is_tail>
+    template<bool is_xyz, bool is_tail>
     __aicore__ inline void DoProcess();
 
+    template<bool is_xyz>
     __aicore__ inline void Compute();
 
     template<bool is_tail>
@@ -97,35 +98,38 @@ private:
     template<bool is_tail>
     __aicore__ inline void CopyOut();
 
+    template<bool is_xyz>
     __aicore__ inline void DecVoxel(const LocalTensor<int32_t>& voxT);
 };
 
+template<bool is_xyz>
 __aicore__ inline void VoxelToPointKernel::Process()
 {
     for (int32_t i = 0; i < coreTasks_ - 1; ++i) {
-        DoProcess<false>();
+        DoProcess<is_xyz, false>();
         ++curTaskIdx_;
         curPtsIdx_ += avgPts_;
     }
     if (IsLastTask()) {
-        DoProcess<true>();
+        DoProcess<is_xyz, true>();
     } else {
-        DoProcess<false>();
+        DoProcess<is_xyz, false>();
     }
 }
 
-template<bool is_tail>
+template<bool is_xyz, bool is_tail>
 __aicore__ inline void VoxelToPointKernel::DoProcess()
 {
     CopyIn<is_tail>();
-    Compute();
+    Compute<is_xyz>();
     CopyOut<is_tail>();
 }
 
+template<bool is_xyz>
 __aicore__ inline void VoxelToPointKernel::Compute()
 {
     LocalTensor<int32_t> voxT = voxQue_.DeQue<int32_t>();
-    DecVoxel(voxT);
+    DecVoxel<is_xyz>(voxT);
     voxQue_.FreeTensor(voxT);
 }
 
@@ -157,20 +161,21 @@ __aicore__ inline void VoxelToPointKernel::CopyOut()
 }
 
 
+template<bool is_xyz>
 __aicore__ inline void VoxelToPointKernel::DecVoxel(const LocalTensor<int32_t>& voxT)
 {
     LocalTensor<int32_t> ptsT = ptsQue_.AllocTensor<int32_t>();
     LocalTensor<int32_t> coorX = ptsT[coorXOffset_];
     LocalTensor<int32_t> coorY = ptsT[coorYOffset_];
     LocalTensor<int32_t> coorZ = ptsT[coorZOffset_];
-    ShiftRight<int32_t, false>(coorZ, voxT, encCoefZ_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-    ShiftLeft<int32_t, false>(coorZ, coorZ, encCoefZ_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftRight<int32_t, false>(coorZ, voxT, is_xyz ? ENC_BITS_Z : ENC_BITS, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftLeft<int32_t, false>(coorZ, coorZ, is_xyz ? ENC_BITS_Z : ENC_BITS, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
     PipeBarrier<PIPE_V>();
     Sub<int32_t, false>(coorZ, voxT, coorZ, MASK_PLACEHOLDER, rptTimes_, binRptParam_);
     PipeBarrier<PIPE_V>();
-    ShiftRight<int32_t, false>(voxT, voxT, encCoefZ_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-    ShiftRight<int32_t, false>(coorX, voxT, encCoefY_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-    ShiftLeft<int32_t, false>(coorY, coorX, encCoefY_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftRight<int32_t, false>(voxT, voxT, is_xyz ? ENC_BITS_Z : ENC_BITS, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftRight<int32_t, false>(coorX, voxT, ENC_BITS, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    ShiftLeft<int32_t, false>(coorY, coorX, ENC_BITS, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
     PipeBarrier<PIPE_V>();
     Sub<int32_t, false>(coorY, voxT, coorY, MASK_PLACEHOLDER, rptTimes_, binRptParam_);
 
@@ -181,6 +186,11 @@ extern "C" __global__ __aicore__ void voxel_to_point(GM_ADDR voxels, GM_ADDR poi
 {
     GET_TILING_DATA(tilingData, tiling);
 
-    VoxelToPointKernel op(voxels, points, tilingData);
-    op.Process();
+    if (TILING_KEY_IS(0)) {
+        VoxelToPointKernel op(voxels, points, tilingData);
+        op.Process<true>();
+    } else if (TILING_KEY_IS(1)) {
+        VoxelToPointKernel op(voxels, points, tilingData);
+        op.Process<false>();
+    }
 }

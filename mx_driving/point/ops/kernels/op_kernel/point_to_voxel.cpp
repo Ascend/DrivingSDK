@@ -52,7 +52,7 @@ public:
         SetVectorMask<int32_t>(FULL_MASK, FULL_MASK);
     }
 
-    template<bool is_raw_point>
+    template<bool is_raw_point, bool is_xyz>
     __aicore__ inline void Process();
 
 private:
@@ -72,7 +72,6 @@ private:
     float voxelScaleX_, voxelScaleY_, voxelScaleZ_;
     float coorXMin_, coorYMin_, coorZMin_;
     int32_t coorXOffset_, coorYOffset_, coorZOffset_;
-    int32_t encCoefX_ {ENC_BITS + ENC_BITS_Z}, encCoefY_ {ENC_BITS_Z}, encCoefZ_ {0};
 
     // for task iteration, totalPts = avgPts * (avgTasks + tailTasks - 1)  + tailPts
     int32_t curTaskIdx_, curPtsIdx_;
@@ -110,10 +109,10 @@ private:
         return curTaskIdx_ == totalTasks_ - 1;
     }
 
-    template<bool is_raw_point, bool is_tail>
+    template<bool is_raw_point, bool is_xyz, bool is_tail>
     __aicore__ inline void DoProcess();
 
-    template<bool is_raw_point>
+    template<bool is_raw_point, bool is_xyz>
     __aicore__ inline void Compute();
 
     template<bool is_tail>
@@ -125,37 +124,38 @@ private:
     __aicore__ inline void ConvertRawPointToVoxel(
         const LocalTensor<float>& coorX, const LocalTensor<float>& coorY, const LocalTensor<float>& coorZ);
 
+    template<bool is_xyz>
     __aicore__ inline void EncVoxel(
         const LocalTensor<int32_t>& coorX, const LocalTensor<int32_t>& coorY, const LocalTensor<int32_t>& coorZ);
 };
 
 template<typename T>
-template<bool is_raw_point>
+template<bool is_raw_point, bool is_xyz>
 __aicore__ inline void PointToVoxelKernel<T>::Process()
 {
     for (int32_t i = 0; i < coreTasks_ - 1; ++i) {
-        DoProcess<is_raw_point, false>();
+        DoProcess<is_raw_point, is_xyz, false>();
         ++curTaskIdx_;
         curPtsIdx_ += avgPts_;
     }
     if (IsLastTask()) {
-        DoProcess<is_raw_point, true>();
+        DoProcess<is_raw_point, is_xyz, true>();
     } else {
-        DoProcess<is_raw_point, false>();
+        DoProcess<is_raw_point, is_xyz, false>();
     }
 }
 
 template<typename T>
-template<bool is_raw_point, bool is_tail>
+template<bool is_raw_point, bool is_xyz, bool is_tail>
 __aicore__ inline void PointToVoxelKernel<T>::DoProcess()
 {
     CopyIn<is_tail>();
-    Compute<is_raw_point>();
+    Compute<is_raw_point, is_xyz>();
     CopyOut<is_tail>();
 }
 
 template<typename T>
-template<bool is_raw_point>
+template<bool is_raw_point, bool is_xyz>
 __aicore__ inline void PointToVoxelKernel<T>::Compute()
 {
     LocalTensor<T> ptsT = ptsQue_.DeQue<T>();
@@ -166,7 +166,7 @@ __aicore__ inline void PointToVoxelKernel<T>::Compute()
         ConvertRawPointToVoxel(coorX.template ReinterpretCast<float>(), coorY.template ReinterpretCast<float>(),
             coorZ.template ReinterpretCast<float>());
     }
-    EncVoxel(coorX.template ReinterpretCast<int32_t>(), coorY.template ReinterpretCast<int32_t>(),
+    EncVoxel<is_xyz>(coorX.template ReinterpretCast<int32_t>(), coorY.template ReinterpretCast<int32_t>(),
         coorZ.template ReinterpretCast<int32_t>());
     ptsQue_.FreeTensor(ptsT);
 }
@@ -214,6 +214,7 @@ __aicore__ inline void PointToVoxelKernel<T>::ConvertRawPointToVoxel(
 }
 
 template<typename T>
+template<bool is_xyz>
 __aicore__ inline void PointToVoxelKernel<T>::EncVoxel(
     const LocalTensor<int32_t>& coorX, const LocalTensor<int32_t>& coorY, const LocalTensor<int32_t>& coorZ)
 {
@@ -248,9 +249,13 @@ __aicore__ inline void PointToVoxelKernel<T>::EncVoxel(
     And<uint16_t, false>(maskX.ReinterpretCast<uint16_t>(), maskX.ReinterpretCast<uint16_t>(),
         maskZ1.ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, maskRptTimes_, binRptParam_);
     // 2. encode voxel
-    ShiftLeft<int32_t, false>(coorX, coorX, encCoefX_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-    ShiftLeft<int32_t, false>(coorY, coorY, encCoefY_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
-    ShiftLeft<int32_t, false>(coorZ, coorZ, encCoefZ_, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    if (is_xyz) { // xyz
+        ShiftLeft<int32_t, false>(coorY, coorY, ENC_BITS_Z, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+        ShiftLeft<int32_t, false>(coorX, coorX, ENC_BITS + ENC_BITS_Z, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    } else { // zyx
+        ShiftLeft<int32_t, false>(coorY, coorY, ENC_BITS, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+        ShiftLeft<int32_t, false>(coorZ, coorZ, ENC_BITS + ENC_BITS, MASK_PLACEHOLDER, rptTimes_, unRptParam_);
+    }
     LocalTensor<float> voxT = voxQue_.AllocTensor<float>();
     Add<int32_t, false>(coorX, coorX, coorY, MASK_PLACEHOLDER, rptTimes_, binRptParam_);
     Add<int32_t, false>(voxT.ReinterpretCast<int32_t>(), coorX, coorZ, MASK_PLACEHOLDER, rptTimes_, binRptParam_);
@@ -267,9 +272,15 @@ extern "C" __global__ __aicore__ void point_to_voxel(GM_ADDR points, GM_ADDR vox
 
     if (TILING_KEY_IS(0)) {
         PointToVoxelKernel<float> op(points, voxels, tilingData);
-        op.template Process<true>();
+        op.template Process<true, true>();
     } else if (TILING_KEY_IS(1)) {
+        PointToVoxelKernel<float> op(points, voxels, tilingData);
+        op.template Process<true, false>();
+    } else if (TILING_KEY_IS(2)) {
         PointToVoxelKernel<int32_t> op(points, voxels, tilingData);
-        op.template Process<false>();
+        op.template Process<false, true>();
+    } else if (TILING_KEY_IS(3)) {
+        PointToVoxelKernel<int32_t> op(points, voxels, tilingData);
+        op.template Process<false, false>();
     }
 }

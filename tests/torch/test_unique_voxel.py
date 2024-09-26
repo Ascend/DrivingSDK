@@ -55,9 +55,9 @@ class TestUniqueVoxel(TestCase):
 
     def npu_integration(self, coords):
         coords_npu = torch.from_numpy(coords.view(np.float32)).npu()
-        voxels_npu = ads_c.point_to_voxel(coords_npu, [], [])
+        voxels_npu = ads_c.point_to_voxel(coords_npu, [], [], "XYZ")
         cnt, uni_vox, _, _, _ = ads_c.unique_voxel(voxels_npu)
-        dec = ads_c.voxel_to_point(uni_vox, [], [])
+        dec = ads_c.voxel_to_point(uni_vox, [], [], "XYZ")
         return cnt, dec.cpu().numpy()
 
     @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
