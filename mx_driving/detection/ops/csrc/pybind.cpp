@@ -24,4 +24,10 @@ void init_detection(pybind11::module& m)
 
     // npu_roi_align_rotated_grad_v2
     m.def("npu_roi_align_rotated_grad_v2", &npu_roi_align_rotated_grad_v2);
+
+    // npu_box_iou_quadri
+    m.def("npu_box_iou_quadri", &npu_box_iou_quadri, "box_iou_quadri NPU version");
+
+    // npu_box_iou_rotated
+    m.def("npu_box_iou_rotated", &npu_box_iou_rotated, "box_iou_rotated NPU version");
 }

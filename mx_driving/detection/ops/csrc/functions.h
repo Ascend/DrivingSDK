@@ -35,4 +35,10 @@ at::Tensor npu_roi_align_rotated_grad_v2(const at::Tensor& input,
                                          const at::Tensor& rois, const at::Tensor& grad_output,
                                          int32_t pooled_height, int32_t pooled_width, double spatial_scale,
                                          int32_t sampling_ratio, bool aligned, bool clockwise);
+
+at::Tensor npu_box_iou_quadri(const at::Tensor &boxes_a, const at::Tensor &boxes_b,
+    const int64_t mode_flag, const bool aligned);
+
+at::Tensor npu_box_iou_rotated(const at::Tensor &boxes_a, const at::Tensor &boxes_b,
+    const int64_t mode_flag, const bool aligned);
 #endif // PERCEPTION_VISION_OPS_CSRC_FUNCTIONS_H_
