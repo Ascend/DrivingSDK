@@ -6,7 +6,7 @@
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
 
-#include "fused_bias_leaky_relu_tiling.h"
+#include "fused_bias_leaky_relu_v2_tiling.h"
 
 using namespace ge;
 using namespace std;
@@ -25,9 +25,9 @@ constexpr uint32_t BLOCK_SIZE = 32 * 1024;
 constexpr int32_t SINGLE_BLOCK = BLOCK_SIZE / SIZE_OF_DATA;
 
 
-static ge::graphStatus TilingForFusedBiasLeakyRelu(gert::TilingContext* context)
+static ge::graphStatus TilingForFusedBiasLeakyReluV2(gert::TilingContext* context)
 {
-    FusedBiasLeakyReluTilingData tiling;
+    FusedBiasLeakyReluV2TilingData tiling;
 
     auto platformInfoPtr = context->GetPlatformInfo();
     if (platformInfoPtr == nullptr) {
@@ -87,7 +87,7 @@ static ge::graphStatus TilingForFusedBiasLeakyRelu(gert::TilingContext* context)
 
 
 namespace ge {
-static ge::graphStatus InferShapeForFusedBiasLeakyRelu(gert::InferShapeContext* context)
+static ge::graphStatus InferShapeForFusedBiasLeakyReluV2(gert::InferShapeContext* context)
 {
     const gert::Shape* xShape = context->GetInputShape(0);
     if (xShape == nullptr) {
@@ -101,7 +101,7 @@ static ge::graphStatus InferShapeForFusedBiasLeakyRelu(gert::InferShapeContext* 
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForFusedBiasLeakyRelu(gert::InferDataTypeContext* context)
+static ge::graphStatus InferDataTypeForFusedBiasLeakyReluV2(gert::InferDataTypeContext* context)
 {
     const ge::DataType value_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, value_dtype);
@@ -111,9 +111,9 @@ static ge::graphStatus InferDataTypeForFusedBiasLeakyRelu(gert::InferDataTypeCon
 
 
 namespace ops {
-class FusedBiasLeakyRelu : public OpDef {
+class FusedBiasLeakyReluV2 : public OpDef {
 public:
-    explicit FusedBiasLeakyRelu(const char* name) : OpDef(name)
+    explicit FusedBiasLeakyReluV2(const char* name) : OpDef(name)
     {
     this->Input("x")
         .ParamType(REQUIRED)
@@ -133,13 +133,13 @@ public:
     this->Attr("negative_slope").Float();
     this->Attr("scale").Float();
 
-    this->SetInferShape(ge::InferShapeForFusedBiasLeakyRelu)
-        .SetInferDataType(ge::InferDataTypeForFusedBiasLeakyRelu);;
+    this->SetInferShape(ge::InferShapeForFusedBiasLeakyReluV2)
+        .SetInferDataType(ge::InferDataTypeForFusedBiasLeakyReluV2);;
 
-    this->AICore().SetTiling(optiling::TilingForFusedBiasLeakyRelu);
+    this->AICore().SetTiling(optiling::TilingForFusedBiasLeakyReluV2);
     this->AICore().AddConfig("ascend910b");
     this->AICore().AddConfig("ascend910_93");
     }
 };
-OP_ADD(FusedBiasLeakyRelu);
+OP_ADD(FusedBiasLeakyReluV2);
 }

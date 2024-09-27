@@ -26,6 +26,6 @@ at::Tensor fused_bias_leaky_relu(const at::Tensor& x, const at::Tensor& bias, co
 
     auto output = at::ones_like(x);
 
-    EXEC_NPU_CMD(aclnnFusedBiasLeakyRelu, x, bias, negative_slope, scale, output);
+    EXEC_NPU_CMD(aclnnFusedBiasLeakyReluV2, x, bias, negative_slope, scale, output);
     return output;
 }

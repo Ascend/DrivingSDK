@@ -9,9 +9,9 @@ using namespace AscendC;
 constexpr uint32_t BUFFER_NUM = 2;
 constexpr uint32_t SINGLE_BLOCK = 8;
 
-class KernelFusedBiasLeakyRelu {
+class KernelFusedBiasLeakyReluV2 {
 public:
-    __aicore__ inline KernelFusedBiasLeakyRelu(GM_ADDR x, GM_ADDR bias, GM_ADDR output, FusedBiasLeakyReluTilingData* tiling_data)
+    __aicore__ inline KernelFusedBiasLeakyReluV2(GM_ADDR x, GM_ADDR bias, GM_ADDR output, FusedBiasLeakyReluV2TilingData* tiling_data)
     {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zeronumber!");
 
