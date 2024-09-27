@@ -2,13 +2,14 @@
 Copyright (c) OpenMMLab. All rights reserved.
 Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 Modification by: Huawei Developers
-Modification date: 2024-06-04
+Modification date: 2024-09-24
 Modification Description:
 Modification 1. Add support for Ascend NPU
 """
 
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 import torch
+from torch import nn
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
@@ -16,14 +17,16 @@ import torch_npu
 import ads_c
 
 
-class DeformableConv2dFunction(Function):
+class ModulatedDeformableConv2dFunction(Function):
     @staticmethod
     #pylint: disable=huawei-too-many-arguments
     def forward(
         ctx,
         x: torch.Tensor,
         offset: torch.Tensor,
+        mask: torch.Tensor,
         weight: torch.Tensor,
+        bias: Optional[nn.Parameter] = None,
         stride: Union[int, Tuple[int, ...]] = 1,
         padding: Union[int, Tuple[int, ...]] = 0,
         dilation: Union[int, Tuple[int, ...]] = 1,
@@ -40,49 +43,59 @@ class DeformableConv2dFunction(Function):
         nhwc_x = x.permute(0, 2, 3, 1).contiguous()
         nhwc_offset = offset.permute(0, 2, 3, 1).contiguous()
         nhwc_weight = weight.permute(0, 2, 3, 1).contiguous()
+        nhwc_mask = mask.permute(0, 2, 3, 1).contiguous()
 
-        out, offset_output = ads_c.deformable_conv2d(
+        out, offset_output = ads_c.modulated_deformable_conv2d(
             nhwc_x,
             nhwc_offset,
+            nhwc_mask,
             nhwc_weight,
+            None,
             ctx.kernel_size,
             ctx.stride,
             ctx.padding,
             ctx.dilation,
             ctx.groups,
             ctx.deformable_groups,
+            False,
         )
-        ctx.save_for_backward(nhwc_x, nhwc_offset, nhwc_weight, offset_output)
+        ctx.save_for_backward(nhwc_x, nhwc_offset, nhwc_weight, nhwc_mask, offset_output)
         return out
 
     @staticmethod
     @once_differentiable
     #pylint: disable=huawei-too-many-arguments,too-many-return-values
-    def backward(ctx, grad_out, grad_offset):
-        nhwc_x, nhwc_offset, nhwc_weight, offset_output = ctx.saved_tensors
-        grad_x, grad_weight, grad_offset = ads_c.deformable_conv2d_backward(
+    def backward(ctx, grad_out):
+        nhwc_x, nhwc_offset, nhwc_weight, nhwc_mask, offset_output = ctx.saved_tensors
+        nhwc_grad_out = grad_out.permute(0, 2, 3, 1).contiguous()
+        grad_x, grad_weight, _, grad_offset, grad_mask = ads_c.modulated_deformable_conv2d_backward(
             nhwc_x,
-            nhwc_weight,
             nhwc_offset,
+            nhwc_mask,
+            nhwc_weight,
+            None,
             offset_output,
-            grad_out,
+            nhwc_grad_out,
             ctx.kernel_size,
             ctx.stride,
             ctx.padding,
             ctx.dilation,
             ctx.groups,
             ctx.deformable_groups,
+            False,
         )
         return (
             grad_x,
             grad_offset,
+            grad_mask,
             grad_weight,
             None,
             None,
             None,
             None,
             None,
+            None,
         )
 
 
-deformable_conv2d = DeformableConv2dFunction.apply
+modulated_deformable_conv2d = ModulatedDeformableConv2dFunction.apply

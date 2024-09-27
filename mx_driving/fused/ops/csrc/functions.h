@@ -34,28 +34,36 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad_
 at::Tensor npu_add_relu(at::Tensor& x, const at::Tensor& y);
 
 at::Tensor npu_add_relu_grad(at::Tensor& self, at::Tensor& grad_output);
-std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor& index,
-                                                    c10::optional<at::Tensor> out, c10::optional<int> dim,
-                                                    c10::optional<int> dim_size);
+std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor& index, c10::optional<at::Tensor> out,
+    c10::optional<int> dim, c10::optional<int> dim_size);
 
-at::Tensor fused_bias_leaky_relu(const at::Tensor& x, const at::Tensor& bias, const double negative_slop, const double scale);
+at::Tensor fused_bias_leaky_relu(
+    const at::Tensor& x, const at::Tensor& bias, const double negative_slop, const double scale);
 
 at::Tensor deformable_aggregation(const at::Tensor& mc_ms_feat, const at::Tensor& spatial_shape,
     const at::Tensor& scale_start_index, const at::Tensor& sampling_location, const at::Tensor& weights);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> deformable_aggregation_grad(
-    const at::Tensor& mc_ms_feat,
-    const at::Tensor& spatial_shape,
-    const at::Tensor& scale_start_index,
-    const at::Tensor& sampling_location,
-    const at::Tensor& weights,
-    const at::Tensor& grad_output,
-    const at::Tensor& grad_mc_ms_feat,
-    const at::Tensor& grad_sampling_location,
-    const at::Tensor& grad_weights
-);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> deformable_aggregation_grad(const at::Tensor& mc_ms_feat,
+    const at::Tensor& spatial_shape, const at::Tensor& scale_start_index, const at::Tensor& sampling_location,
+    const at::Tensor& weights, const at::Tensor& grad_output, const at::Tensor& grad_mc_ms_feat,
+    const at::Tensor& grad_sampling_location, const at::Tensor& grad_weights);
 
-std::tuple<at::Tensor, at::Tensor> npu_deformable_conv2d(const at::Tensor &input, const at::Tensor &offset, const at::Tensor &weight,
-    const c10::optional<at::Tensor> &bias_opt, at::IntArrayRef kernel_size, at::IntArrayRef stride,
-    at::IntArrayRef padding, at::IntArrayRef dilation, int64_t groups, int64_t deformable_groups, bool modulated, bool xoffsets_transpose);
+std::tuple<at::Tensor, at::Tensor> deformable_conv2d(const at::Tensor& input, const at::Tensor& offset,
+    const at::Tensor& weight, at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding,
+    at::IntArrayRef dilation, int64_t groups, int64_t deformable_groups);
 
+std::tuple<at::Tensor, at::Tensor> modulated_deformable_conv2d(const at::Tensor& input, const at::Tensor& offset,
+    const at::Tensor& mask, const at::Tensor& weight, const c10::optional<at::Tensor>& bias_opt,
+    at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation,
+    int64_t groups, int64_t deformable_groups, int64_t with_bias);
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> deformable_conv2d_backward(const at::Tensor& input,
+    const at::Tensor& weight, const at::Tensor& offset, const at::Tensor& offset_output, const at::Tensor& grad_y,
+    at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation,
+    int64_t groups, int64_t deformable_groups);
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> modulated_deformable_conv2d_backward(
+    const at::Tensor& input, const at::Tensor& offset, const at::Tensor& mask, const at::Tensor& weight,
+    const c10::optional<at::Tensor>& bias_opt, const at::Tensor& offset_output, const at::Tensor& grad_y,
+    at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation,
+    int64_t groups, int64_t deformable_groups, int64_t with_bias);
 #endif // PERCEPTION_FUSED_OPS_CSRC_FUNCTIONS_H_
