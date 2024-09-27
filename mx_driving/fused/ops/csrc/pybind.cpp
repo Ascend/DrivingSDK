@@ -18,11 +18,14 @@ void init_fused(pybind11::module& m)
 
     // fused_bias_leaky_relu
     m.def("fused_bias_leaky_relu", &fused_bias_leaky_relu);
-    
+
     // npu_deformable_aggregation
     m.def("npu_deformable_aggregation", &deformable_aggregation);
     m.def("npu_deformable_aggregation_grad", &deformable_aggregation_grad);
 
     // deformable_conv2d
-    m.def("npu_deformable_conv2d", &npu_deformable_conv2d);
+    m.def("deformable_conv2d", &deformable_conv2d);
+    m.def("modulated_deformable_conv2d", &modulated_deformable_conv2d);
+    m.def("deformable_conv2d_backward", &deformable_conv2d_backward);
+    m.def("modulated_deformable_conv2d_backward", &modulated_deformable_conv2d_backward);
 }

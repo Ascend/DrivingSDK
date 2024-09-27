@@ -17,9 +17,10 @@
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-std::tuple<at::Tensor, at::Tensor> deformable_conv2d(const at::Tensor& input, const at::Tensor& offset,
-    const at::Tensor& weight, at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding,
-    at::IntArrayRef dilation, int64_t groups, int64_t deformable_groups)
+std::tuple<at::Tensor, at::Tensor> modulated_deformable_conv2d(const at::Tensor& input, const at::Tensor& offset,
+    const at::Tensor& mask, const at::Tensor& weight, const c10::optional<at::Tensor>& bias_opt,
+    at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation,
+    int64_t groups, int64_t deformable_groups, int64_t with_bias)
 {
     TORCH_CHECK_NPU(input);
     TORCH_CHECK_NPU(offset);
@@ -28,8 +29,7 @@ std::tuple<at::Tensor, at::Tensor> deformable_conv2d(const at::Tensor& input, co
     TORCH_CHECK(offset.dim() == 4, "offset has to be a 4D Tensor, but got: ", offset.dim());
     TORCH_CHECK(weight.dim() == 4, "weight has to be a 4D Tensor, but got: ", offset.dim());
 
-    const at::Tensor& bias = at::Tensor();
-    const at::Tensor& mask = at::Tensor();
+    const at::Tensor& bias = c10::value_or_else(bias_opt, [] { return at::Tensor(); });
 
     uint32_t n = input.size(0);
     uint32_t c_in = input.size(3);
@@ -42,10 +42,9 @@ std::tuple<at::Tensor, at::Tensor> deformable_conv2d(const at::Tensor& input, co
     uint32_t kw = weight.size(2);
 
     bool modulated = true;
-    bool with_bias = false;
 
     at::Tensor output = at::empty({n, h_out, w_out, c_out}, input.options());
-    at::Tensor offset_output = at::empty({n, h_out * w_out, kh * kw, c_in}, input.options());
+    at::Tensor offset_output = at::empty({n, h_out, w_out, kh * kw * c_in}, input.options());
 
     EXEC_NPU_CMD(aclnnDeformableConv2d, input, weight, bias, offset, mask, kernel_size, stride, padding, dilation,
         groups, deformable_groups, modulated, with_bias, output, offset_output);

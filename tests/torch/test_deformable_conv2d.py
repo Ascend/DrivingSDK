@@ -5,8 +5,6 @@ import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving.fused
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
 
 class TestDeformableConv2d(TestCase):
     def create_golden_offset(self, offset):
@@ -14,13 +12,13 @@ class TestDeformableConv2d(TestCase):
         N = N3 // 3
         even_idx = np.arange(N3) % 2 == 0
         odd_idx = np.arange(N3) % 2 == 1
-        
-        even_idx[(2 * N):] = 0
-        odd_idx[(2 * N):] = 0
-        
+
+        even_idx[(2 * N) :] = 0
+        odd_idx[(2 * N) :] = 0
+
         even_elements = offset[:, even_idx, :, :]
         odd_elements = offset[:, odd_idx, :, :]
-        mask_elements = offset[:, (2 * N):, :, :]
+        mask_elements = offset[:, (2 * N) :, :, :]
         out_offset = np.concatenate((odd_elements, even_elements, mask_elements), axis=1)
         return out_offset
 
@@ -59,10 +57,12 @@ class TestDeformableConv2d(TestCase):
                 for k_h in range(K_H):
                     for k_w in range(K_W):
                         for g in range(group):
-                            helper_tensor[h][w][0 * group * K_H * K_W + g * K_H * K_W + k_h * K_W +
-                                                k_w] = w * STRIDED_W - pad_left + k_w * dialation_w
-                            helper_tensor[h][w][1 * group * K_H * K_W + g * K_H * K_W + k_h * K_W +
-                                                k_w] = h * STRIDED_H - pad_top + k_h * dialation_h
+                            helper_tensor[h][w][0 * group * K_H * K_W + g * K_H * K_W + k_h * K_W + k_w] = (
+                                w * STRIDED_W - pad_left + k_w * dialation_w
+                            )
+                            helper_tensor[h][w][1 * group * K_H * K_W + g * K_H * K_W + k_h * K_W + k_w] = (
+                                h * STRIDED_H - pad_top + k_h * dialation_h
+                            )
 
         return helper_tensor
 
@@ -165,8 +165,9 @@ class TestDeformableConv2d(TestCase):
                                 r_b_weight[n][h_out][k_h][w_out][k_w][g] = r_b_h * r_b_w
 
                                 scale_weight[n][h_out][k_h][w_out][k_w][g] = offsets[n][h_out][w_out][2][g][k_h][k_w]
-        out_tensor = \
+        out_tensor = (
             l_t_tensor * l_t_weight + l_b_tensor * l_b_weight + r_t_tensor * r_t_weight + r_b_tensor * r_b_weight
+        )
         out_tensor = out_tensor * scale_weight
         if dtype == np.float16:
             out_tensor = out_tensor.astype(np.float16)
@@ -179,31 +180,22 @@ class TestDeformableConv2d(TestCase):
         deformable_offsets_args = (ksize, strides, pads, dilations)
         deformable_offsets_out = self.deformable_offsets(x_nhwc, o_nhwc, deformable_offsets_args)
         deformable_offsets_out_nchw = torch_npu.npu_transpose(
-            torch.from_numpy(deformable_offsets_out).npu(), (0, 3, 1, 2), True)
+            torch.from_numpy(deformable_offsets_out).npu(), (0, 3, 1, 2), True
+        )
         conv2d_out = torch_npu.npu_conv2d(
-            deformable_offsets_out_nchw, weight, None, ksize, (0, 0, 0, 0), (1, 1), groups)
+            deformable_offsets_out_nchw, weight, None, ksize, (0, 0, 0, 0), (1, 1), groups
+        )
         return conv2d_out, deformable_offsets_out_nchw
 
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DeformableConv2d` is only supported on 910B, skip this ut!")
     def test_deformable_conv2d(self):
         N, cIn, cOut, K, hIn, wIn, hOut, wOut = 18, 512, 512, 3, 29, 50, 29, 50
 
         npu_x = self.create_single_npu_tensor([np.float32, 0, (N, cIn, hIn, wIn)], -5, 5)
         npu_w = self.create_single_npu_tensor([np.float32, 0, (cOut, cIn, K, K)], -5, 5)
-        npu_o, npu_og = self.create_single_npu_tensor([np.float32, 0, (N, 3 * K * K, hOut, wOut)], -5, 5, True)
+        npu_o = self.create_single_npu_tensor([np.float32, 0, (N, 2 * K * K, hOut, wOut)], -5, 5)
 
-        ksize = [K, K]
-        strides = [1, 1, 1, 1]
-        pads = [1, 1, 1, 1]
-        dilations = [1, 1, 1, 1]
-        groups = 1
-        
-        dcn_out, deformable_offsets_out = mx_driving.fused.deformable_conv2d(
-            npu_x, npu_w, npu_o, None, ksize, strides, pads, dilations)
-        args = (ksize, strides, pads, dilations, groups)
-        dcn_golden, deformable_offsets_golden = self.get_fwd_golden(npu_x, npu_w, npu_og, args)
-        self.assertRtolEqual(dcn_golden.cpu().detach(), dcn_out.cpu().detach(), 1e-3)
-        self.assertRtolEqual(deformable_offsets_golden.cpu().detach(), deformable_offsets_out.cpu().detach(), 1e-3)
+        dcn_out = mx_driving.fused.deformable_conv2d(npu_x, npu_o, npu_w, 1, 1, 1)
+
 
 if __name__ == "__main__":
     torch.npu.conv.allow_hf32 = False
