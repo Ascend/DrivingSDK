@@ -156,22 +156,8 @@ weight = torch.tensor(
               [3.3333e-01, 3.3333e-01, 3.3333e-01]]],
             ).npu()
 output = three_interpolate(features, idx, weight)
-print(output)
 ```
-```text
-tensor(
-  [[[3.8953e+00, 4.4995e+00, 4.4995e+00, 3.8953e+00, 3.8953e+00, 3.2072e+00], 
-  [2.9320e+00, 3.0447e+00, 3.0447e+00, 2.9320e+00, 2.9320e+00, 2.9583e+00], 
-  [2.7281e+00, 2.6436e+00, 2.6436e+00, 2.7281e+00, 2.7281e+00, 2.7380e+00], 
-  [4.6824e+00, 7.0199e+00, 7.0199e+00, 4.6824e+00, 4.6824e+00, 2.3466e+00], 
-  [2.2060e-01, 3.4110e-01, 3.4110e-01, 2.2060e-01, 2.2060e-01, 2.1380e-01]],
-  [[8.1773e-01, 9.5440e-01, 2.4532e+00,8.1773e-01, 8.1773e-01, 1.1359e+00],
-  [8.4689e-01, 1.9176e+00, 1.4715e+00, 8.4689e-01, 8.4689e-01, 1.3079e+00],
-  [6.9473e-01, 2.7440e-01, 2.0842e+00, 6.9473e-01, 6.9473e-01, 7.8619e-01],
-  [7.6789e-01, 1.5063e+00, 1.6209e+00, 7.6789e-01, 7.6789e-01, 1.1562e+00],
-  [3.8760e-01, 1.0300e-02, 8.3569e-09, 3.8760e-01, 3.8760e-01, 1.9723e-01]]],
-  device='npu:0')
-```
+
 
 ## three_nn
 ### 接口原型
@@ -225,11 +211,8 @@ from mx_driving.preprocess import npu_points_in_box
 boxes = torch.tensor([[[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]]], dtype=torch.float32).npu()
 points = torch.tensor([[[1, 2, 3], [3, 4, 5]]], dtype=torch.float32).npu()
 out = npu_points_in_box(boxes, points)
-print(out)
 ```
-```text
-tensor([[0, 1]], device='npu:0', dtype=torch.int32)
-```
+
 ## npu_points_in_box_all
 ### 接口原型
 ```python
@@ -253,12 +236,8 @@ from mx_driving.preprocess import npu_points_in_box_all
 boxes = torch.tensor([[[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]]], dtype=torch.float32).npu()
 points = torch.tensor([[[1, 2, 5], [3, 4, 8]]], dtype=torch.float32).npu()
 out = npu_points_in_box_all(boxes, points)
-print(out)
 ```
-```text
-tensor([[[1, 0],
-         [0, 1]]], device='npu:0', dtype=torch.int32)
-```
+
 ## RoipointPool3d
 ### 接口原型
 ```python
@@ -292,13 +271,8 @@ point_features = points.clone()
 boxes3d = torch.tensor([[[1, 2, 3, 4, 5, 6, 1]]], dtype=torch.float).npu()
 roipoint_pool3d = RoIPointPool3d(num_sampled_points)
 pooled_features, pooled_empty_flag = roipoint_pool3d(points, point_features, boxes3d)
-print(pooled_features)
-print(pooled_empty_flag)
 ```
-```text
-tensor([[[[1., 2., 3., 1., 2., 3.]]]])
-tensor([[0]], dtype=torch.int32)
-```
+
 
 # 目标检测算子
 ## npu_boxes_overlap_bev
@@ -488,7 +462,6 @@ stride = 2
 padding = 1
 x = torch.randn(18, 64, 464, 800).npu()
 res = npu_max_pool2d(x, kernel_size, stride, padding)
-print(res)
 ```
 
 ## npu_deformable_aggregation
@@ -534,7 +507,6 @@ sampling_location = torch.rand(bs, anchor, pts, cam, 2)
 weights = torch.randn(bs, anchor, pts, cam, scale, group)
 
 out = npu_deformable_aggregation(feature_maps.npu(), spatial_shape.npu(), scale_start_index.npu(), sampling_location.npu(), weights.npu())
-print(out)
 ```
 
 # 点云算子
@@ -618,8 +590,6 @@ interval_lengths = torch.tensor([2], dtype=torch.int32).npu()
 bev_pooled_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths)
 loss = bev_pooled_feat.sum()
 loss.backward()
-print(loss)
-print(feat.grad)
 ```
 ## furthest_point_sample_with_dist
 ### 接口原型
@@ -662,11 +632,8 @@ import torch, torch_npu
 from mx_driving.point import npu_furthest_point_sampling
 points = torch.tensor([[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=torch.float32).npu()
 out = npu_furthest_point_sampling(points, 2)
-print(out)
 ```
-```text
-tensor([[0, 2]], dtype=torch.int32)
-```
+
 ### 算子约束
 1. points输入shape[B, N, 3]的总大小(B x N x 3)不应该超过383166
 ## npu_group_points
@@ -702,29 +669,8 @@ features = torch.tensor([[[0.9178, -0.7250, -1.6587, 0.0715, -0.2252, 0.4994],
                           [0.7239, 0.2321, -0.6578, -1.1395, -2.3874, 1.1281]]],
                           dtype=torch.float32).npu()
 output = npu_group_points(features, indices)
-print(output)
 ```
-```text
-tensor([[[[ 0.9178, -1.6587,  0.4994,  0.4994],
-          [-0.7250,  0.9178,  0.4994,  0.9178],
-          [-1.6587, -0.7250, -0.2252, -0.2252]],
 
-         [[ 0.6190, -1.7902,  1.9764,  1.9764],
-          [ 0.1755,  0.6190,  1.9764,  0.6190],
-          [-1.7902,  0.1755, -0.3311, -0.3311]],
-
-         [[ 1.7567, -1.1414,  1.1944,  1.1944],
-          [ 0.0740,  1.7567,  1.1944,  1.7567],
-          [-1.1414,  0.0740, -0.3197, -0.3197]],
-
-         [[-0.2343,  0.4306, -0.6377, -0.6377],
-          [ 0.1194, -0.2343, -0.6377, -0.2343],
-          [ 0.4306,  0.1194, -1.4282, -1.4282]],
-
-         [[ 0.7239, -0.6578,  1.1281,  1.1281],
-          [ 0.2321,  0.7239,  1.1281,  0.7239],
-          [-0.6578,  0.2321, -2.3874, -2.3874]]]], device='npu:0')
-```
 ## voxelization
 ### 接口原型
 ```python
@@ -779,8 +725,6 @@ feats = torch.tensor([[1, 2, 3], [3, 2, 1], [7, 8, 9], [9, 8, 7]], dtype=torch.f
 coors = torch.tensor([[1, 1, 1], [1, 1, 1], [2, 2, 2], [2, 2, 2]], dtype=torch.int32).npu()
 voxel_feats, voxel_coors = npu_dynamic_scatter(feats, coors, 'max')
 
-print(voxel_feats)
-print(voxel_coors)
 ```
 ## unique_voxel
 ### 接口原型
