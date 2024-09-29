@@ -644,7 +644,7 @@ out = furthest_point_sample_with_dist(points, 2)
 print(out)
 ```
 ```text
-tensor([[0, 2]], dtype=torch.int32)
+tensor([[0, 2]], device='npu:0', dtype=torch.int32)
 ```
 ## npu_furthest_point_sampling
 ### 接口原型
