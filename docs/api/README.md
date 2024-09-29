@@ -426,12 +426,6 @@ b = np.random.uniform(0, 1, (1, 2, 5)).astype(np.float16)
 box1 = torch.from_numpy(a).npu()
 box2 = torch.from_numpy(b).npu()
 output = npu_rotated_overlaps(box1, box2, True)
-print(output)
-```
-```text
-tensor([[[0.0000, 0.1562, 0.0000],
-         [0.1562, 0.3713, 0.0611],
-         [0.0000, 0.0611, 0.0000]]], dtype=torch.float16)
 ```
 # 融合算子
 ## npu_multi_scale_deformable_attn_function
