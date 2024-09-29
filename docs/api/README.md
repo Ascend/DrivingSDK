@@ -369,12 +369,7 @@ from mx_driving.detection import npu_nms3d
 boxes = torch.tensor([[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]], dtype=torch.float32).npu()
 scores = torch.tensor([1, 2], dtype=torch.float32).npu()
 out = npu_nms3d(boxes, scores, 0.5)
-print(out)
 ```
-```text
-tensor([[1]], dtype=torch.int32)
-```
-
 ## npu_nms3d_normal
 ### 接口原型
 ```python
@@ -397,10 +392,6 @@ from mx_driving.detection import npu_nms3d_normal
 boxes = torch.tensor([[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]], dtype=torch.float32).npu()
 scores = torch.tensor([1, 2], dtype=torch.float32).npu()
 out = npu_nms3d_normal(boxes, scores, 0.5)
-print(out)
-```
-```text
-tensor([[1, 0]], dtype=torch.int32)
 ```
 ## npu_rotated_iou
 ### 接口原型
