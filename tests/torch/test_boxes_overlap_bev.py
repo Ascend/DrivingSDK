@@ -284,7 +284,7 @@ class TestBoxesOverlapBev(TestCase):
     def npu_to_exec(self, npu_inputs):
         npu_boxes_a = npu_inputs.boxes_a
         npu_boxes_b = npu_inputs.boxes_b
-        npu_ans_overlap = mx_driving.detection.boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
+        npu_ans_overlap = mx_driving.detection.npu_boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
         return npu_ans_overlap.cpu().float().numpy()
 
     def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):
