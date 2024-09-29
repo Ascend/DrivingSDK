@@ -8,7 +8,7 @@ import torch_npu
 import torch.nn as nn
 from torch.nn.modules.utils import _pair, _single
 from mmcv.utils import deprecated_api_warning
-from mx_driving.fused import modulated_deformable_conv2d
+from mx_driving.fused import modulated_deform_conv2d, ModulatedDeformConv2dFunction
 
 from ..cnn import CONV_LAYERS
 from ..utils import print_log
@@ -59,7 +59,7 @@ class ModulatedDeformConv2d(nn.Module):
             self.bias.data.zero_()
 
     def forward(self, x: torch.Tensor, offset: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        return modulated_deformable_conv2d(
+        return modulated_deform_conv2d(
             x,
             offset,
             mask,
@@ -118,7 +118,7 @@ class ModulatedDeformConv2dPack(ModulatedDeformConv2d):
         len2 = out.shape[1] - len1
         offset, mask = torch.split(out, [len1, len2], dim=1)
         mask = torch.sigmoid(mask)
-        return modulated_deformable_conv2d(
+        return modulated_deform_conv2d(
             x,
             offset,
             mask,

@@ -17,9 +17,9 @@ import torch_npu
 import ads_c
 
 
-class ModulatedDeformableConv2dFunction(Function):
+class ModulatedDeformConv2dFunction(Function):
     @staticmethod
-    #pylint: disable=huawei-too-many-arguments
+    # pylint: disable=huawei-too-many-arguments
     def forward(
         ctx,
         x: torch.Tensor,
@@ -64,7 +64,7 @@ class ModulatedDeformableConv2dFunction(Function):
 
     @staticmethod
     @once_differentiable
-    #pylint: disable=huawei-too-many-arguments,too-many-return-values
+    # pylint: disable=huawei-too-many-arguments,too-many-return-values
     def backward(ctx, grad_out):
         nhwc_x, nhwc_offset, nhwc_weight, nhwc_mask, offset_output = ctx.saved_tensors
         nhwc_grad_out = grad_out.permute(0, 2, 3, 1).contiguous()
@@ -98,4 +98,4 @@ class ModulatedDeformableConv2dFunction(Function):
         )
 
 
-modulated_deformable_conv2d = ModulatedDeformableConv2dFunction.apply
+modulated_deform_conv2d = ModulatedDeformConv2dFunction.apply

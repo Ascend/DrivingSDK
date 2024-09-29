@@ -16,9 +16,9 @@ import torch_npu
 import ads_c
 
 
-class DeformableConv2dFunction(Function):
+class DeformConv2dFunction(Function):
     @staticmethod
-    #pylint: disable=huawei-too-many-arguments
+    # pylint: disable=huawei-too-many-arguments
     def forward(
         ctx,
         x: torch.Tensor,
@@ -57,7 +57,7 @@ class DeformableConv2dFunction(Function):
 
     @staticmethod
     @once_differentiable
-    #pylint: disable=huawei-too-many-arguments,too-many-return-values
+    # pylint: disable=huawei-too-many-arguments,too-many-return-values
     def backward(ctx, grad_out, grad_offset):
         nhwc_x, nhwc_offset, nhwc_weight, offset_output = ctx.saved_tensors
         grad_x, grad_weight, grad_offset = ads_c.deformable_conv2d_backward(
@@ -85,4 +85,4 @@ class DeformableConv2dFunction(Function):
         )
 
 
-deformable_conv2d = DeformableConv2dFunction.apply
+deform_conv2d = DeformConv2dFunction.apply

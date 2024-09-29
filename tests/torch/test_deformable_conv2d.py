@@ -194,7 +194,7 @@ class TestDeformableConv2d(TestCase):
         npu_w = self.create_single_npu_tensor([np.float32, 0, (cOut, cIn, K, K)], -5, 5)
         npu_o = self.create_single_npu_tensor([np.float32, 0, (N, 2 * K * K, hOut, wOut)], -5, 5)
 
-        dcn_out = mx_driving.fused.deformable_conv2d(npu_x, npu_o, npu_w, 1, 1, 1)
+        dcn_out = mx_driving.fused.deform_conv2d(npu_x, npu_o, npu_w, 1, 1, 1)
 
 
 if __name__ == "__main__":
