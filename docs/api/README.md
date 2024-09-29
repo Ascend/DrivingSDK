@@ -523,17 +523,17 @@ mx_driving.fused.npu_deformable_aggregation(Tensor feature_maps, Tensor spatial_
 ### 调用示例
 ```python
 import torch, torch_npu
-import mx_driving.fused
+from mx_driving.fused import npu_deformable_aggregation
 
 bs, num_feat, c, cam, anchor, pts, scale, group = 1, 2816, 256, 1, 10, 2000, 1, 8
 
 feature_maps = torch.ones_like(torch.randn(bs,num_feat ,c)).to(torch.float16)
 spatial_shape = torch.tensor([[[32, 88]]])
-scale_start_index = torch.tensor([[[0]]])
+scale_start_index = torch.tensor([[0]])
 sampling_location = torch.rand(bs, anchor, pts, cam, 2)
 weights = torch.randn(bs, anchor, pts, cam, scale, group)
 
-out = mx_driving.fused.npu_deformable_aggregation(feature_maps.npu(), spatial_shape.npu(), scale_start_index.npu(), sampling_location.npu(), weights.npu())
+out = npu_deformable_aggregation(feature_maps.npu(), spatial_shape.npu(), scale_start_index.npu(), sampling_location.npu(), weights.npu())
 print(out)
 ```
 
