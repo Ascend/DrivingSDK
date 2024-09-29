@@ -462,7 +462,7 @@ mx_driving.fused.npu_multi_scale_deformable_attn_function(Tensor value, Tensor s
 ### 功能描述
 多尺度可变形注意力机制, 将多个视角的特征图进行融合。
 ### 参数说明
-- `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dims]`。其中`bs`为batch size，`num_keys`为特征图的大小，`num_heads`为头的数量，`embed_dims`为特征图的维度，需要为8的倍数。
+- `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dims]`。其中`bs`为batch size，`num_keys`为特征图的大小，`num_heads`为头的数量，`embed_dims`为特征图的维度，其中`embed_dims`需要为8的倍数。
 - `shape(Tensor)`：特征图的形状，数据类型为`int32, int64`。shape为`[num_levels, 2]`。其中`num_levels`为特征图的数量，`2`分别代表`H, W`。
 - `offset(Tensor)`：偏移量张量，数据类型为`int32, int64`。shape为`[num_levels]`。
 - `locations(Tensor)`：位置张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads, num_levels, num_points, 2]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量，`2`分别代表`y, x`。
@@ -488,10 +488,6 @@ attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_point
 level_start_index = torch.cat((shapes.new_zeros((1, )), shapes.prod(1).cumsum(0)[:-1]))
 
 out = npu_multi_scale_deformable_attn_function(value.npu(), shapes.npu(), level_start_index.npu(), sampling_locations.npu(), attention_weights.npu())
-print(out)
-```
-```text
-tensor([[[9.3002, 11.1603, 0.0000, 0.0000]]], dtype=torch.float32)
 ```
 
 ## npu_max_pool2d
@@ -602,7 +598,6 @@ geom_feat = torch.tensor([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 2], [0, 0, 0, 3]
 bev_pooled_feat = bev_pool(feat, geom_feat, 4, 1, 256, 256)
 loss = bev_pooled_feat.sum()
 loss.backward()
-print(feat.grad)
 ```
 ## bev_pool_v2
 ### 接口原型
@@ -794,8 +789,7 @@ coors_range = [0, -40, -3, 70.4, 40, 1]
 max_points = -1
 voxel_size = [0.5, 0.5, 0.5]
 dynamic_voxelization = Voxelization(voxel_size, coors_range, max_points)
-out = dynamic_voxelization.forward(points)
-print(out)
+coors = dynamic_voxelization.forward(points)
 ```
 ## npu_dynamic_scatter
 ### 接口原型
@@ -828,7 +822,7 @@ print(voxel_coors)
 ## unique_voxel
 ### 接口原型
 ```python
-ads_c.unique_voxel(Tensor input) -> Tensor
+ads_c.unique_voxel(Tensor voxels) -> int, Tensor, Tensor, Tensor, Tensor
 ```
 ### 功能描述
 对输入的点云数据进行去重处理。
@@ -848,16 +842,13 @@ N的大小受限于内存大小，建议N小于等于2^32。
 - Atlas A2 训练系列产品
 ### 调用示例
 ```python
-import torch, torch_npu, numpy
+import torch
+import torch_npu
+import numpy as np
 from ads_c import unique_voxel
 voxels = np.random.randint(0, 1024, (100000,)).astype(np.int32)
 voxels_npu = torch.from_numpy(voxels).npu()
-num_voxels, uni_voxels, uni_indices, argsort_indices, uin_argsort_indices = unique_voxel(voxels_npu)
-print(num_voxels)
-print(uni_voxels)
-print(uni_indices)
-print(argsort_indices)
-print(uin_argsort_indices)
+num_voxels, uni_voxels, uni_indices, argsort_indices, uni_argsort_indices = unique_voxel(voxels_npu)
 
 ```
 
