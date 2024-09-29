@@ -624,7 +624,7 @@ print(feat.grad)
 ## furthest_point_sample_with_dist
 ### 接口原型
 ```python
-mx_driving.point.furthest_point_sample_with_dist(Tensor points, int num_points) -> (Tensor, Tensor)
+mx_driving.point.furthest_point_sample_with_dist(Tensor points, int num_points) -> Tensor
 ```
 ### 功能描述
 与`npu_furthest_point_sampling`功能相同，但输入略有不同。
@@ -641,10 +641,6 @@ import torch, torch_npu
 from mx_driving.point import furthest_point_sample_with_dist
 points = torch.tensor([[[1, 2, 3], [4, 5, 6], [7, 8, 9]]], dtype=torch.float32).npu()
 out = furthest_point_sample_with_dist(points, 2)
-print(out)
-```
-```text
-tensor([[0, 2]], dtype=torch.int32)
 ```
 ## npu_furthest_point_sampling
 ### 接口原型
