@@ -320,11 +320,10 @@ mx_driving.detection.npu_boxes_overlap_bev(Tensor boxes_a, Tensor boxes_b) -> Te
 ### 调用示例
 ```python
 import torch, torch_npu
-from mx_driving.detection import boxes_overlap_bev
+from mx_driving.detection import npu_boxes_overlap_bev
 boxes_a = torch.tensor([[0, 0, 2, 2, 0]], dtype=torch.float32).npu()
 boxes_b = torch.tensor([[1, 1, 3, 3, 0]], dtype=torch.float32).npu()
-area_overlap = boxes_overlap_bev(boxes_a, boxes_b)
-print(area_overlap)
+area_overlap = npu_boxes_overlap_bev(boxes_a, boxes_b)
 ```
 ## npu_nms3d
 ### 接口原型
@@ -401,14 +400,6 @@ b = np.random.uniform(0, 1, (2, 3, 5)).astype(np.float16)
 box1 = torch.from_numpy(a).npu()
 box2 = torch.from_numpy(b).npu()
 iou = npu_rotated_iou(box1, box2, False, 0, True, 1e-5, 1e-5)
-print(iou)
-```
-```text
-tensor([[[3.3325e-01, 1.0162e-01],
-         [1.0162e-01, 1.0000e+00]],
-
-        [[0.0000e+00, 0.0000e+00],
-         [0.0000e+00, 5.9605e-08]]], dtype=torch.float16)
 ```
 ## npu_rotated_overlaps
 ### 接口原型
