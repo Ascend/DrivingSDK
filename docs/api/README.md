@@ -34,16 +34,6 @@ updates = torch.tensor([[2, 0, 1, 3, 1, 0, 0, 4], [0, 2, 1, 3, 0, 3, 4, 2], [1, 
 indices = torch.tensor([0, 2, 0], dtype=torch.int32).npu()
 out = updates.new_zeros((3, 8))
 out, argmax = scatter_max(updates, indices, out)
-print(out)
-print(argmax)
-```
-```text
-tensor([[2., 2., 3., 4., 4., 3., 2., 4.],
-        [0., 0., 0., 0., 0., 0., 0., 0.],
-        [0., 2., 1., 3., 0., 3., 4., 2.]])
-tensor([[0, 2, 2, 2, 2, 2, 2, 0],
-        [3, 3, 3, 3, 3, 3, 3, 3],
-        [1, 1, 1, 1, 1, 1, 1, 1]])
 ```
 ## knn
 ### 接口原型
@@ -106,7 +96,6 @@ src = torch.randn(4, 5, 6).to(torch.float)
 indices = torch.randint(5, (4, 5)).to(torch.int32)
 dim = 0
 out = scatter_mean(src.npu(), indices.npu(), None, dim)
-print(out)
 ```
 ### 其他说明
 - 该算子对尾块较大的场景较为亲和，对尾块很小的场景不亲和，其中，尾块表示`src`后`N`维的大小，`N = src.dim() - indices.dim()`。
