@@ -103,8 +103,7 @@ out = scatter_mean(src.npu(), indices.npu(), None, dim)
 ## three_interpolate
 ### 接口原型
 ```python
-mx_driving.common.three_interpolate(features: torch.Tensor, indices: torch.Tensor,
-                weight: torch.Tensor) -> torch.Tensor:
+mx_driving.common.three_interpolate(features: torch.Tensor, indices: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
 ```
 ### 功能描述
 对三维数据进行加权最近邻线性插值处理
@@ -124,6 +123,8 @@ mx_driving.common.three_interpolate(features: torch.Tensor, indices: torch.Tenso
 ```python
 import torch
 from mx_driving.common import three_interpolate
+
+
 features = torch.tensor(
             [[[2.4350, 4.7516, 4.4995, 2.4350, 2.4350, 2.4350],
             [3.1236, 2.6278, 3.0447, 3.1236, 3.1236, 3.1236],
@@ -158,19 +159,18 @@ output = three_interpolate(features, idx, weight)
 print(output)
 ```
 ```text
-torch.tensor(
-        [[[3.8953e+00, 4.4995e+00, 4.4995e+00, 3.8953e+00, 3.8953e+00, 3.2072e+00], 
-        [2.9320e+00, 3.0447e+00, 3.0447e+00, 2.9320e+00, 2.9320e+00, 2.9583e+00], 
-        [2.7281e+00, 2.6436e+00, 2.6436e+00, 2.7281e+00, 2.7281e+00, 2.7380e+00], 
-        [4.6824e+00, 7.0199e+00, 7.0199e+00, 4.6824e+00, 4.6824e+00, 2.3466e+00], 
-        [2.2060e-01, 3.4110e-01, 3.4110e-01, 2.2060e-01, 2.2060e-01, 2.1380e-01]],
-        [[8.1773e-01, 9.5440e-01, 2.4532e+00,8.1773e-01, 8.1773e-01, 1.1359e+00],
-        [8.4689e-01, 1.9176e+00, 1.4715e+00, 8.4689e-01, 8.4689e-01, 1.3079e+00],
-        [6.9473e-01, 2.7440e-01, 2.0842e+00, 6.9473e-01, 6.9473e-01, 7.8619e-01],
-        [7.6789e-01, 1.5063e+00, 1.6209e+00, 7.6789e-01, 7.6789e-01, 1.1562e+00],
-        [3.8760e-01, 1.0300e-02, 8.3569e-09, 3.8760e-01, 3.8760e-01, 1.9723e-01]]],
-        device='npu:0'
-        )
+tensor(
+  [[[3.8953e+00, 4.4995e+00, 4.4995e+00, 3.8953e+00, 3.8953e+00, 3.2072e+00], 
+  [2.9320e+00, 3.0447e+00, 3.0447e+00, 2.9320e+00, 2.9320e+00, 2.9583e+00], 
+  [2.7281e+00, 2.6436e+00, 2.6436e+00, 2.7281e+00, 2.7281e+00, 2.7380e+00], 
+  [4.6824e+00, 7.0199e+00, 7.0199e+00, 4.6824e+00, 4.6824e+00, 2.3466e+00], 
+  [2.2060e-01, 3.4110e-01, 3.4110e-01, 2.2060e-01, 2.2060e-01, 2.1380e-01]],
+  [[8.1773e-01, 9.5440e-01, 2.4532e+00,8.1773e-01, 8.1773e-01, 1.1359e+00],
+  [8.4689e-01, 1.9176e+00, 1.4715e+00, 8.4689e-01, 8.4689e-01, 1.3079e+00],
+  [6.9473e-01, 2.7440e-01, 2.0842e+00, 6.9473e-01, 6.9473e-01, 7.8619e-01],
+  [7.6789e-01, 1.5063e+00, 1.6209e+00, 7.6789e-01, 7.6789e-01, 1.1562e+00],
+  [3.8760e-01, 1.0300e-02, 8.3569e-09, 3.8760e-01, 3.8760e-01, 1.9723e-01]]],
+  device='npu:0')
 ```
 
 ## three_nn
@@ -669,7 +669,7 @@ tensor([[0, 2]], dtype=torch.int32)
 ```
 ### 算子约束
 1. points输入shape[B, N, 3]的总大小(B x N x 3)不应该超过383166
-## group_points
+## npu_group_points
 ### 接口原型
 ```python
 mx_driving.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
@@ -691,7 +691,9 @@ mx_driving.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
 ```python
 import torch
 import torch_npu
-import mx_driving.point
+from mx_driving.point import npu_group_points
+
+
 indices = torch.tensor([[[0, 2, 5, 5], [1, 0, 5, 0], [2, 1, 4, 4]]]).int().npu()
 features = torch.tensor([[[0.9178, -0.7250, -1.6587, 0.0715, -0.2252, 0.4994],
                           [0.6190, 0.1755, -1.7902, -0.5852, -0.3311, 1.9764],
@@ -699,14 +701,11 @@ features = torch.tensor([[[0.9178, -0.7250, -1.6587, 0.0715, -0.2252, 0.4994],
                           [-0.2343, 0.1194, 0.4306, 1.3780, -1.4282, -0.6377],
                           [0.7239, 0.2321, -0.6578, -1.1395, -2.3874, 1.1281]]],
                           dtype=torch.float32).npu()
-features.requires_grad = True
-output = mx_driving.point.npu_group_points(features, indices)
-output.backward(output)
-grad_features = features.grad
+output = npu_group_points(features, indices)
+print(output)
 ```
 ```text
-expected_output = tensor(
-        [[[[ 0.9178, -1.6587,  0.4994,  0.4994],
+tensor([[[[ 0.9178, -1.6587,  0.4994,  0.4994],
           [-0.7250,  0.9178,  0.4994,  0.9178],
           [-1.6587, -0.7250, -0.2252, -0.2252]],
 
@@ -724,13 +723,7 @@ expected_output = tensor(
 
          [[ 0.7239, -0.6578,  1.1281,  1.1281],
           [ 0.2321,  0.7239,  1.1281,  0.7239],
-          [-0.6578,  0.2321, -2.3874, -2.3874]]]], dtype=torch.float32)
-expected_grad_features = tensor(
-        [[[ 2.7534, -1.4500, -3.3174,  0.0000, -0.4504,  1.4982],
-         [ 1.8570,  0.3510, -3.5804,  0.0000, -0.6622,  5.9292],
-         [ 5.2701,  0.1480, -2.2828,  0.0000, -0.6394,  3.5832],
-         [-0.7029,  0.2388,  0.8612,  0.0000, -2.8564, -1.9131],
-         [ 2.1717,  0.4642, -1.3156,  0.0000, -4.7748,  3.3843]]], dtype=torch.float32)
+          [-0.6578,  0.2321, -2.3874, -2.3874]]]], device='npu:0')
 ```
 ## voxelization
 ### 接口原型
