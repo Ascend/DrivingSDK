@@ -8,4 +8,4 @@ class BoxesOverlapBev(torch.autograd.Function):
         area_overlap = ads_c.npu_boxes_overlap_bev(boxes_a, boxes_b)
         return area_overlap
 
-boxes_overlap_bev = BoxesOverlapBev.apply
+npu_boxes_overlap_bev = BoxesOverlapBev.apply
