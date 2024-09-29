@@ -228,7 +228,7 @@ out = npu_points_in_box(boxes, points)
 print(out)
 ```
 ```text
-tensor([[0, 1]], dtype=torch.int32)
+tensor([[0, 1]], device='npu:0', dtype=torch.int32)
 ```
 ## npu_points_in_box_all
 ### 接口原型
@@ -257,7 +257,7 @@ print(out)
 ```
 ```text
 tensor([[[1, 0],
-         [0, 1]]], dtype=torch.int32)
+         [0, 1]]], device='npu:0', dtype=torch.int32)
 ```
 ## RoipointPool3d
 ### 接口原型
