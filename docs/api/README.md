@@ -665,7 +665,7 @@ out = npu_furthest_point_sampling(points, 2)
 print(out)
 ```
 ```text
-tensor([[0, 2]], dtype=torch.int32)
+tensor([[0, 2]], device='npu:0', dtype=torch.int32)
 ```
 ### 算子约束
 1. points输入shape[B, N, 3]的总大小(B x N x 3)不应该超过383166
