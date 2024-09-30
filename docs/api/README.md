@@ -444,7 +444,7 @@ out = npu_multi_scale_deformable_attn_function(value.npu(), shapes.npu(), level_
 mx_driving.fused.npu_max_pool2d(Tensor x, int kernel_size, int stride, int padding) -> Tensor
 ```
 ### 功能描述
-Performs max pooling on the input and outputs max values.
+对输入进行最大池化，并输出最大池化值。
 ### 参数说明
 - `x (Tensor)`：一组待池化对象，数据类型为`float32`，format为NCHW，输入数据量不超过10亿。
 ### 返回值
@@ -548,7 +548,7 @@ loss.backward()
 ## bev_pool_v2
 ### 接口原型
 ```python
-mx_driving.point.bev_pool_v2(Tensor depth, Tensor feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
+mx_driving.point.bev_pool_v2(Tensor depth, feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
                                  List[int] bev_feat_shape, Tensor interval_starts, Tensor interval_lengths) -> Tensor
 ```
 ### 功能描述
