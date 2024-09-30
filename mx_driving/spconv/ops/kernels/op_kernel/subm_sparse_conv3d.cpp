@@ -100,12 +100,12 @@ public:
         int weightnumber = (this->inchannel + data_each_block - 1) / data_each_block * data_each_block;
         int inchannelalign = AlignUp(this->inchannel, data_each_block);
         pipe->InitBuffer(inQueueIndices, 1, this->available_ub_size * 4 * sizeof(DTYPE_FEATURE));
-        pipe->InitBuffer(inQueueWeight, 1, this->out_channel * weightnumber * sizeof(DTYPE_FEATURE));
         pipe->InitBuffer(inQueueFeature, 1, inchannelalign * sizeof(DTYPE_FEATURE));
         pipe->InitBuffer(indicespairbuf, total_kernel_size * 4 * sizeof(int32_t));
         pipe->InitBuffer(dstbuf, this->available_ub_size * sizeof(DTYPE_FEATURE));
         pipe->InitBuffer(indicesoffsetbuf, total_kernel_size * sizeof(int32_t));
         pipe->InitBuffer(tempgmbuf, total_kernel_size * sizeof(int32_t));
+        pipe->InitBuffer(inQueueWeight, 1, this->out_channel * weightnumber * sizeof(DTYPE_FEATURE));
         copyParams_feature = {1, (uint16_t)(this->inchannel * sizeof(DTYPE_FEATURE)), 0, 0};
         copyParams_weight = {(uint16_t)(this->out_channel),
                                         (uint16_t)(this->inchannel * sizeof(DTYPE_FEATURE)), 0, 0};
@@ -151,6 +151,7 @@ private:
         dst_ub = dstbuf.Get<DTYPE_FEATURE>();
         indices_offset_ub = indicesoffsetbuf.Get<DTYPE_INDICES>();
         temp_gm_ub = tempgmbuf.Get<DTYPE_TEMP>();
+        result_temp  = indicespairbuf.Get<DTYPE_FEATURE>();
         int32_t point[5];
         int inchannelalign = AlignUp(this->inchannel, data_each_block);
         uint8_t inchannelalign_block = static_cast<uint8_t>((inchannelalign + data_each_block - 1) / data_each_block);
@@ -174,6 +175,8 @@ private:
         if (this->out_channel == 128) {
             copyParams_weight_ub = {(uint16_t)(this->out_channel),
                                     (uint16_t)(inchannelalign * sizeof(DTYPE_TEMP)), 0, 0};
+        } else if (this->out_channel > 128) {
+            copyParams_weight_ub = {1, (uint16_t)(inchannelalign * sizeof(DTYPE_TEMP)), 0, 0};
         } else {
             copyParams_weight_ub = {1, (uint16_t)(this->out_channel * inchannelalign * sizeof(DTYPE_TEMP)), 0, 0};
         }
@@ -211,42 +214,62 @@ private:
                                             copyParams_temp_gm_ub, padParams);
                                 auto feature_address = temp_gm_ub.GetValue(0);
                                 if (feature_address != -1) {
-                                    DataCopyPad(weight_ub,
-                                                weightGm[offset * inchannelalign * this->out_channel],
-                                                copyParams_weight_ub, padParams);
-                                    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-                                    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-                                    if (repeat_inchannel == 1) {
-                                        Mul(weight_ub, feature_ub, weight_ub, mask_inchannel,
-                                            this->out_channel,
-                                            { 1, 1, 1, inchannelalign_block, 0, inchannelalign_block});
-                                        WholeReduceSum(dst_ub, weight_ub, mask_inchannel,
-                                                       this->out_channel, 1, 1, inchannelalign_block);
-                                        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-                                        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-                                        SetAtomicAdd<DTYPE_FEATURE>();
-                                        DataCopyPad(outputGm[(int32_t)(feature_address) * this->out_channel],
-                                                    dst_ub, copyParams_output);
-                                        SetAtomicNone();
-                                        PipeBarrier<PIPE_ALL>();
-                                    } else {
-                                        for (int re = 0; re < repeat_inchannel; re++) {
-                                            Mul(weight_ub[re * mask_inchannel], feature_ub[re * mask_inchannel],
-                                                weight_ub[re * mask_inchannel], mask_inchannel,
-                                                this->out_channel, { 1, 1, 1, inchannelskip_block,
-                                                0, inchannelskip_block});
-                                            WholeReduceSum(dst_ub, weight_ub[re * mask_inchannel],
-                                                           mask_inchannel, this->out_channel,
-                                                           1, 1, inchannelskip_block);
-                                            PipeBarrier<PIPE_ALL>();
+                                    if (this->out_channel <= 128) {
+                                        DataCopyPad(weight_ub,
+                                                    weightGm[offset * inchannelalign * this->out_channel],
+                                                    copyParams_weight_ub, padParams);
+                                        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+                                        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+                                        if (repeat_inchannel == 1) {
+                                            Mul(weight_ub, feature_ub, weight_ub, mask_inchannel,
+                                                this->out_channel,
+                                                { 1, 1, 1, inchannelalign_block, 0, inchannelalign_block});
+                                            WholeReduceSum(dst_ub, weight_ub, mask_inchannel,
+                                                           this->out_channel, 1, 1, inchannelalign_block);
+                                            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+                                            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
                                             SetAtomicAdd<DTYPE_FEATURE>();
                                             DataCopyPad(outputGm[(int32_t)(feature_address) * this->out_channel],
                                                         dst_ub, copyParams_output);
                                             SetAtomicNone();
                                             PipeBarrier<PIPE_ALL>();
+                                        } else {
+                                            for (int re = 0; re < repeat_inchannel; re++) {
+                                                Mul(weight_ub[re * mask_inchannel], feature_ub[re * mask_inchannel],
+                                                    weight_ub[re * mask_inchannel], mask_inchannel,
+                                                    this->out_channel, { 1, 1, 1, inchannelskip_block,
+                                                    0, inchannelskip_block});
+                                                WholeReduceSum(dst_ub, weight_ub[re * mask_inchannel],
+                                                               mask_inchannel, this->out_channel,
+                                                               1, 1, inchannelskip_block);
+                                                PipeBarrier<PIPE_ALL>();
+                                                SetAtomicAdd<DTYPE_FEATURE>();
+                                                DataCopyPad(outputGm[(int32_t)(feature_address) * this->out_channel],
+                                                            dst_ub, copyParams_output);
+                                                SetAtomicNone();
+                                                PipeBarrier<PIPE_ALL>();
+                                            }
+                                            PipeBarrier<PIPE_ALL>();
+                                        }
+                                    } else {
+                                        for (int32_t mmi = 0; mmi < this->out_channel; mmi++) {
+                                            DataCopyPad(weight_ub,
+                                                        weightGm[offset * inchannelalign * this->out_channel + mmi * mask_inchannel],
+                                                        copyParams_weight_ub, padParams);
+                                            PipeBarrier<PIPE_ALL>();
+                                            Mul(weight_ub, feature_ub, weight_ub, this->inchannel);
+                                            ReduceSum<DTYPE_FEATURE>(weight_ub, weight_ub,
+                                                                    result_temp, this->inchannel);
+                                            dst_ub.SetValue(mmi, weight_ub.GetValue(0));
                                         }
                                         PipeBarrier<PIPE_ALL>();
+                                        SetAtomicAdd<DTYPE_FEATURE>();
+                                        DataCopyPad(outputGm[(int32_t)(feature_address) * this->out_channel],
+                                                    dst_ub, copyParams_output);
+                                        SetAtomicNone();
+                                        PipeBarrier<PIPE_ALL>();
                                     }
+                                    
                                     indices_offset_ub.SetValue(offset,  point_offset);
                                 }
                         }

@@ -50,10 +50,11 @@ class SparseBaseCovFunction(Function):
             temp, hh2 = ads_c.npu_prepare_subm_conv3d(hh, out_spatial_shape, batch_size)
             temp[hh] = hh2
             feature_align = features.shape[1] % 8
+            weight_pad = weight
             if feature_align != 0:
                 zero_tensor = torch.zeros((kernel_size[0], kernel_size[0], kernel_size[0], 8 - feature_align, out_channels)).npu()
-                weight = torch.cat((weight, zero_tensor), 3)
-            out_features, outidx_pair, ouidx_offset = indice_subm_conv(features, indices, weight,
+                weight_pad = torch.cat((weight, zero_tensor), 3)
+            out_features, outidx_pair, ouidx_offset = indice_subm_conv(features, indices, weight_pad,
                                                 kernel_size, out_channels,
                                                 out_spatial_shape, batch_size, temp)
             to_insert = torch.tensor(-1).to(device)
