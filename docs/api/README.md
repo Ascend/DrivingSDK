@@ -548,7 +548,7 @@ loss.backward()
 ## bev_pool_v2
 ### 接口原型
 ```python
-mx_driving.point.bev_pool_v2(Tensor depth, feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
+mx_driving.point.bev_pool_v2(Tensor depth, Tensor feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
                                  List[int] bev_feat_shape, Tensor interval_starts, Tensor interval_lengths) -> Tensor
 ```
 ### 功能描述
