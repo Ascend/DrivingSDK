@@ -61,23 +61,30 @@ public:
             uint64_t source_offset = current_batch * nsource * 3; // B 3 N
             uint64_t target_offset = current_task * 3; // B M 3
             uint64_t dist_offset = current_task * nsource; // B M N
-            set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+
+            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
             DataCopy(targetLocal, targetGm[target_offset], 8);
+
             set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
             wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
             Duplicate<T>(sourceBackupLocal, targetLocal.GetValue(0), (int32_t)comp_num);
             Duplicate<T>(sourceBackupLocal[comp_num], targetLocal.GetValue(1), (int32_t)comp_num);
             Duplicate<T>(sourceBackupLocal[comp_num * 2], targetLocal.GetValue(2), (int32_t)comp_num);
-            pipe_barrier(PIPE_ALL);
             for (uint64_t current_loop = 0; current_loop < loop_times; current_loop++) {
+                set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+                wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
                 DataCopy(sourceLocal, sourceGm[source_offset + current_loop * comp_num], comp_num);
                 DataCopy(sourceLocal[comp_num], sourceGm[source_offset + current_loop * comp_num + nsource], comp_num);
                 DataCopy(sourceLocal[comp_num * 2], sourceGm[source_offset + current_loop * comp_num + nsource * 2], comp_num);
+
                 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
                 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
                 Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, comp_num * 3);
                 Mul<T>(sourceLocal, sourceLocal, sourceLocal, comp_num * 3);
+
+                set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+                wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
                 Add<T>(distLocal, sourceLocal, sourceLocal[comp_num], comp_num);
                 Add<T>(distLocal, distLocal, sourceLocal[comp_num * 2], comp_num);
                 if (is_from_knn) {
@@ -88,17 +95,21 @@ public:
                 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
                 DataCopyPad(distGm[dist_offset + current_loop * comp_num], distLocal,
                     {1, static_cast<uint32_t>(comp_num * sizeof(T)), 0, 0, 0});
-                set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-                wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
             }
             if (tail_num > 0) {
+                set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+                wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
                 DataCopy(sourceLocal, sourceGm[source_offset + loop_times * comp_num], tail_num_align);
                 DataCopy(sourceLocal[comp_num], sourceGm[source_offset + loop_times * comp_num + nsource], tail_num_align);
                 DataCopy(sourceLocal[comp_num * 2], sourceGm[source_offset + loop_times * comp_num + nsource * 2], tail_num_align);
+                
                 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
                 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
                 Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, comp_num * 3);
                 Mul<T>(sourceLocal, sourceLocal, sourceLocal, comp_num * 3);
+
+                set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+                wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
                 Add<T>(distLocal, sourceLocal, sourceLocal[comp_num], comp_num);
                 Add<T>(distLocal, distLocal, sourceLocal[comp_num * 2], comp_num);
                 if (is_from_knn) {
@@ -109,8 +120,6 @@ public:
                 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
                 DataCopyPad(distGm[dist_offset + loop_times * comp_num], distLocal,
                     {1, static_cast<uint32_t>(tail_num * sizeof(T)), 0, 0, 0});
-                set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-                wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
             }
         }
     }
