@@ -136,26 +136,26 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 - [ ] 支持图模式
 
 ## 模型清单
-|  Model   | 链接  |
-|  :----:  |  :----  |
-| MatrixVT  | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/MatrixVT |
-| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |
-| YoloV5X  |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 |
-| swin-Transformer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/Swin-Transformer_for_PyTorch |
-| centerNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/detection/CenterNet |
-| CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |
-| BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |
-| SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |
-| UniAD  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/UniAD |
-| YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |
-| EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |
-| TPVFormer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/TPVFormer_for_PyTorch |
-| FCN-res18  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |
-| BEVDet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BEVDet_for_PyTorch |
-| SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 |
-| BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 |
-| GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner |
-| PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |
+|  Model   | 链接  | 认证 |
+|  :----:  |  :----  | :----  |
+| MatrixVT  | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/MatrixVT | 【Pass】 |
+| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet | 【Pass】|
+| YoloV5X  |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 | 【Pass】|
+| swin-Transformer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/Swin-Transformer_for_PyTorch | 【Pass】|
+| centerNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/detection/CenterNet |【Pass】|
+| CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Test】|
+| BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |【Test】|
+| SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |【Test】|
+| UniAD  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/UniAD | 【Test】|
+| YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |【Pass】|
+| EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |【Pass】|
+| TPVFormer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/TPVFormer_for_PyTorch |【Test】|
+| FCN-res18  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |【Test】|
+| BEVDet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BEVDet_for_PyTorch |【Test】|
+| SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 | 【Pass】|
+| BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Test】|
+| GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner | 【Test】|
+| PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
 
 
 
