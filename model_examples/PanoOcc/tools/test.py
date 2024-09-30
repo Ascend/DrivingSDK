@@ -1,3 +1,5 @@
+# Copyright (c) OpenMMLab. All rights reserved.
+# Copyright 2024 Huawei Technologies Co., Ltd
 import argparse
 import mmcv
 import os
@@ -22,6 +24,9 @@ from mmdet.datasets import replace_ImageToTensor
 import time
 import os.path as osp
 from tools.eval_metrics.lidar_seg import *
+
+torch.npu.config.allow_internal_format = False
+
 
 def parse_args():
     parser = argparse.ArgumentParser(

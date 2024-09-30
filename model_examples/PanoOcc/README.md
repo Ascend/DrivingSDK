@@ -86,7 +86,8 @@
     cp -f patch/mmcv/modulated_deform_conv.py mmcv/mmcv/ops/modulated_deform_conv.py
     cp -f patch/mmcv/optimizer.py mmcv/mmcv/runner/hooks/optimizer.py
     cd mmcv
-    MMCV_WITH_OPS=1 pip install -e . -v
+    MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
+    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
     ```
 
 2. 安装 mmdet
@@ -127,13 +128,6 @@
 5. 安装 mxDriving 加速库
 
     安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)，安装后手动 source 环境变量。
-
-6. 替换部分 torch 代码
-
-    在当前 python 环境下执行'pip show torch'，得到 torch 安装路径，记作 packages_path，在模型根目录下执行以下命令来替换部分 torch 代码。
-    ```
-    cp -f patch/torch/conv.py {packages_path}/torch/nn/modules/conv.py
-    ```
 
 ### 准备数据集
 
@@ -191,7 +185,7 @@
 | 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | mAP | NDS | 性能-单步迭代耗时(ms) |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :----: | :-------------------: |
 | 竞品A           |  8p  |         8         |   fp32    |  24   | 0.712 | 0.411 | 0.497 |         1322          |
-| Atlas 800T A2 |  8p  |         8         |   fp32    |  24   | 0.710 | 0.416 | 0.499 |         2675          |
+| Atlas 800T A2 |  8p  |         8         |   fp32    |  24   | 0.710 | 0.416 | 0.499 |         2211          |
 
 # 公网地址说明
 
