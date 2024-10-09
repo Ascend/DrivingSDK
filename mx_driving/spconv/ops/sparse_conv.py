@@ -124,18 +124,37 @@ class SparseConvolution(SparseModule):
         if self.inverse:
             out_spatial_shape = ops.get_inverse_conv_output_size(
                 input.spatial_shape, self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding)
+            out_spatial_shape = [int(i) for i in out_spatial_shape]
+            if not isinstance(out_spatial_shape, list):
+                out_spatial_shape = out_spatial_shape.tolist()
+            out_features, outidx = Fsp.indice_inverse_conv(input.features, input.indices, self.weight.data, out_spatial_shape,
+                                                           self.out_channels, input.batch_size,
+                                                           self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding,
+                                                           self.groups, self.bias)
         elif not self.subm:
             out_spatial_shape = ops.get_conv_output_size(
                 input.spatial_shape, self.kernel_size, self.stride, self.padding, self.dilation)
+            out_spatial_shape = [int(i) for i in out_spatial_shape]
+            if not isinstance(out_spatial_shape, list):
+                out_spatial_shape = out_spatial_shape.tolist()
+            out_features, outidx = Fsp.indice_conv(input.features, input.indices, self.weight.data, out_spatial_shape,
+                                                   self.out_channels, input.batch_size,
+                                                   self.kernel_size, self.stride, self.padding, self.dilation,
+                                                   self.groups, self.bias)
         else:
             out_spatial_shape = input.spatial_shape
-        out_features, outidx = Fsp.indices_conv_base(input.features, input.indices, self.weight.data, out_spatial_shape,
-                                                     self.out_channels, input.batch_size,
-                                                     self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding,
-                                                     self.groups, self.bias, self.subm, self.inverse)
+            out_spatial_shape = [int(i) for i in out_spatial_shape]
+            if not isinstance(out_spatial_shape, list):
+                out_spatial_shape = out_spatial_shape.tolist()
+            out_features, outidx = Fsp.indice_subm_conv(input.features, input.indices, self.weight.data, out_spatial_shape,
+                                                        self.out_channels, input.batch_size,
+                                                        self.kernel_size, self.stride, self.padding, self.dilation,
+                                                        self.groups, self.bias)
+
+
 
         out_tensor = SparseConvTensor(out_features, outidx, out_spatial_shape,
-                                      input.batch_size)
+                                        input.batch_size)
         return out_tensor
 
 

@@ -43,7 +43,7 @@ public:
         formerSortedIndicesGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INDICES_OFFSET *>(former_sorted_indices));
         featureGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_FEATURE *>(feature));
         weightGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_WEIGHT *>(weight));
-        gradGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_GRAD *>(grad));
+        gradGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_GRAD *>(grad) + beginOffset * kernelOC);
 
         featureGradGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_FEATURE *>(feature_grad));
         weightGradGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_WEIGHT *>(weight_grad));
@@ -177,6 +177,8 @@ private:
                 WaitFlag<HardEvent::MTE3_MTE2>(eventIDMTE3ToMTE2);
 
                 DataCopyPad(featureLocal, featureGm[featureOffset * kernelIC], featureCopyParams, featureCopyPadParams);
+                SetFlag<HardEvent::MTE2_V>(eventIDMTE2ToV);
+                WaitFlag<HardEvent::MTE2_V>(eventIDMTE2ToV);
                 BroadCast<DTYPE_FEATURE, 2, 1>(mulTemp, featureLocal, dstShape_, srcShapeFeature);
                 Mul(mulTemp, mulTemp, gradBroadTmp, kernelIC * kernelOC);
                 SetFlag<HardEvent::V_MTE3>(eventIDVToMTE3);
