@@ -18,6 +18,7 @@ import math
 import numpy as np
 import torch
 from torch.nn import init
+from torch.nn.init import calculate_gain
 from torch.nn.parameter import Parameter
 
 from . import sparse_functional as Fsp
@@ -65,7 +66,8 @@ class SparseConvolution(SparseModule):
                  transposed=False,
                  inverse=False,
                  indice_key=None,
-                 fused_bn=False):
+                 fused_bn=False,
+                 mode='mmcv'):
         super().__init__()
         if groups != 1:
             raise RuntimeError("do not support group == 1")
@@ -99,6 +101,7 @@ class SparseConvolution(SparseModule):
         self.subm = subm
         self.indice_key = indice_key
         self.fused_bn = fused_bn
+        self.mode = mode
 
         self.weight = Parameter(
             torch.Tensor(*kernel_size, in_channels, out_channels))
@@ -109,14 +112,37 @@ class SparseConvolution(SparseModule):
         self.reset_parameters()
 
     def reset_parameters(self):
-        init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        fan_in, fan_out = _calculate_fan_in_and_fan_out_hwio(self.weight)
+        if self.mode == 'mmcv':
+            init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        else:
+            self._custom_kaiming_uniform_(self.weight, a=math.sqrt(5), fan_in=fan_in, fan_out=fan_out)
         if self.bias is not None:
-            fan_in, _ = _calculate_fan_in_and_fan_out_hwio(self.weight)
             if fan_in == 0:
                 bound = 0
             else:
                 bound = 1 / math.sqrt(fan_in)
             init.uniform_(self.bias, -bound, bound)
+
+    def _custom_kaiming_uniform_(self,
+                                 tensor,
+                                 a=0,
+                                 fan_in=0,
+                                 fan_out=0,
+                                 mode='fan_in',
+                                 nonlinearity='leaky_relu'):
+        fan = 0.0
+        if mode == 'fan_in':
+            fan = float(fan_in)
+        elif mode == 'fan_out':
+            fan = float(fan_out)
+        gain = calculate_gain(nonlinearity, a)
+        std = gain / math.sqrt(fan)
+        bound = math.sqrt(3.0) * std
+        with torch.no_grad():
+            tensor.uniform_(-bound, bound)
+            tensor.data = tensor.data.reshape(self.out_channels, np.prod(self.kernel_size) * self.in_channels).transpose(-1, -2).contiguous()
+            tensor.data = tensor.data.reshape(*self.kernel_size, self.in_channels, self.out_channels)
 
     def forward(self, input):
         if not isinstance(input, SparseConvTensor):
@@ -169,7 +195,8 @@ class SparseConv3d(SparseConvolution):
                  dilation=1,
                  groups=1,
                  bias=True,
-                 indice_key=None):
+                 indice_key=None,
+                 mode='mmcv'):
         super().__init__(
             3,
             in_channels,
@@ -180,7 +207,8 @@ class SparseConv3d(SparseConvolution):
             dilation,
             groups,
             bias,
-            indice_key=indice_key)
+            indice_key=indice_key,
+            mode=mode)
 
 
 class SubMConv3d(SparseConvolution):
@@ -194,7 +222,8 @@ class SubMConv3d(SparseConvolution):
                  dilation=1,
                  groups=1,
                  bias=True,
-                 indice_key=None):
+                 indice_key=None,
+                 mode='mmcv'):
         super().__init__(
             3,
             in_channels,
@@ -206,7 +235,8 @@ class SubMConv3d(SparseConvolution):
             groups,
             bias,
             True,
-            indice_key=indice_key)
+            indice_key=indice_key,
+            mode=mode)
 
 
 class SparseInverseConv3d(SparseConvolution):
@@ -221,7 +251,8 @@ class SparseInverseConv3d(SparseConvolution):
                  groups=1,
                  bias=True,
                  inverse=True,
-                 indice_key=None):
+                 indice_key=None,
+                 mode='mmcv'):
         super().__init__(
             3,
             in_channels,
@@ -234,4 +265,5 @@ class SparseInverseConv3d(SparseConvolution):
             bias,
             True,
             True,
-            indice_key=indice_key)
+            indice_key=indice_key,
+            mode=mode)
