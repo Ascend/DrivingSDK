@@ -21,6 +21,7 @@
 #include <functional>
 #include <type_traits>
 #include <vector>
+#include <string>
 
 #include "common.h"
 #include "third_party/acl/inc/acl/acl_rt.h"
@@ -68,6 +69,7 @@ typedef int (*_aclDestroyFloatArray)(const aclFloatArray* array);
 typedef int (*_aclDestroyBoolArray)(const aclBoolArray* array);
 typedef int (*_aclDestroyTensorList)(const aclTensorList* array);
 
+extern std::string g_opApiSoPath;
 
 constexpr int kHashBufSize = 8192;
 constexpr int kHashBufMaxSize = kHashBufSize + 1024;
@@ -91,7 +93,7 @@ inline const char* GetOpApiLibName(void)
 
 inline const char* GetCustOpApiLibName(void)
 {
-    return "libcust_opapi.so";
+    return g_opApiSoPath.c_str();
 }
 
 inline void* GetOpApiFuncAddrInLib(void* handler, const char* libName, const char* apiName)
