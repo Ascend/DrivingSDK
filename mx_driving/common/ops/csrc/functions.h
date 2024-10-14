@@ -37,5 +37,5 @@ std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor&
                                                     c10::optional<at::Tensor> out, c10::optional<int> dim,
                                                     c10::optional<int> dim_size);
 std::tuple<at::Tensor, at::Tensor> npu_sort_pairs(const at::Tensor &keys_in, const at::Tensor &values_in, int64_t dim, bool descending);
-
+at::Tensor npu_hypot(const at::Tensor& input, const at::Tensor& other);
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_

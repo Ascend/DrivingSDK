@@ -5,3 +5,4 @@ from .ops.knn import knn
 from .ops.threeNN import three_nn
 from .ops.scatter_mean import scatter_mean
 from .ops.sort_pairs import sort_pairs
+from .ops.npu_hypot import npu_hypot

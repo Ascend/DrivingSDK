@@ -41,4 +41,7 @@ void init_common(pybind11::module& m)
 
     // npu_sort_pairs
     m.def("npu_sort_pairs", &npu_sort_pairs, "sort_pairs NPU version");
+
+    // npu_hypot
+    m.def("npu_hypot", &npu_hypot);
 }
