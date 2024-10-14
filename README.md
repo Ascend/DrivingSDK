@@ -155,7 +155,8 @@ out, argmax = scatter_max(updates, indices, out)
 | GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner | 【Test】|
 | PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
 
-
+# 支持的产品型号
+- Atlas A2 训练系列产品
 
 # 安全声明
 ## 系统安全加固
