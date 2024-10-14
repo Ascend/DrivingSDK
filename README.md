@@ -65,16 +65,14 @@ pip3 uninstall mx_driving
 ```
 
 # 快速上手
-1. source 环境变量。
-```shell
-# 查看mx_driving安装路径
-pip3 show mx_driving
-export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/
-export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
+```python
+import torch, torch_npu
+from mx_driving.common import scatter_max
+updates = torch.tensor([[2, 0, 1, 3, 1, 0, 0, 4], [0, 2, 1, 3, 0, 3, 4, 2], [1, 2, 3, 4, 4, 3, 2, 1]], dtype=torch.float32).npu()
+indices = torch.tensor([0, 2, 0], dtype=torch.int32).npu()
+out = updates.new_zeros((3, 8))
+out, argmax = scatter_max(updates, indices, out)
 ```
-2. 算子调用。
-
-请参见下文算子清单中的算子API调用示例。
 
 # 特性介绍
 ## 目录结构及说明
