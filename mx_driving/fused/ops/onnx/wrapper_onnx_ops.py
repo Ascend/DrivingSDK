@@ -2,13 +2,13 @@ from typing import Optional, List
 import torch
 from torch import Tensor
 import torch.onnx.symbolic_helper as sym_help
-import mx_driving.common
+import mx_driving.fused
 
 
 class NPUMultiScaleDeformableAttnOP(torch.autograd.Function):
     @staticmethod
     def forward(ctx, *args, **kwargs):
-        return mx_driving.common.npu_multi_scale_deformable_attn_function(*args, **kwargs)
+        return mx_driving.fused.npu_multi_scale_deformable_attn_function(*args, **kwargs)
 
     @staticmethod
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments

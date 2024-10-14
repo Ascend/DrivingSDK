@@ -7,7 +7,7 @@ import torch_npu.onnx
 
 from torch_npu.utils.path_manager import PathManager
 from torch_npu.testing.testcase import run_tests
-import mx_driving.common.ops.onnx as onnx_ads
+import mx_driving.fused.ops.onnx as onnx_ads
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
