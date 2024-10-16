@@ -10,19 +10,19 @@ namespace optiling {
 static ge::graphStatus TilingForKnn(gert::TilingContext *context)
 {
     uint32_t batch;
-    uint32_t npoint;
-    uint32_t nsource;
-    bool is_from_knn;
-    uint32_t core_num;
+    uint32_t nPoint;
+    uint32_t nSource;
+    bool isFromKnn;
+    uint32_t coreNum;
+    int32_t k;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const gert::StorageShape *xyz_shape = context->GetInputShape(0);
-    const gert::StorageShape *center_xyz_shape = context->GetInputShape(1);
+    const gert::StorageShape *xyzShape = context->GetInputShape(0);
+    const gert::StorageShape *centerXyzShape = context->GetInputShape(1);
     const gert::RuntimeAttrs *attr = context->GetAttrs();
     auto platformInfoPtr = context->GetPlatformInfo();
-    ge::DataType dtype_;
-    if ((xyz_shape == nullptr) || (center_xyz_shape == nullptr) || (attr == nullptr) || (platformInfoPtr == nullptr) ||
+    if ((xyzShape == nullptr) || (centerXyzShape == nullptr) || (attr == nullptr) || (platformInfoPtr == nullptr) ||
         (context->GetInputDesc(0) == nullptr)) {
         return ge::GRAPH_FAILED;
     }
@@ -30,12 +30,13 @@ static ge::graphStatus TilingForKnn(gert::TilingContext *context)
         return ge::GRAPH_FAILED;
     }
     auto platformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
-    batch = center_xyz_shape->GetStorageShape().GetDim(0);
-    npoint = center_xyz_shape->GetStorageShape().GetDim(1);
-    nsource = xyz_shape->GetStorageShape().GetDim(2);
-    is_from_knn = *attr->GetAttrPointer<bool>(0);
-    core_num = platformInfo.GetCoreNumAiv();
-    if (core_num == 0) {
+    batch = centerXyzShape->GetStorageShape().GetDim(0);
+    nPoint = centerXyzShape->GetStorageShape().GetDim(1);
+    nSource = xyzShape->GetStorageShape().GetDim(2);
+    isFromKnn = *attr->GetAttrPointer<bool>(0);
+    k = *attr->GetAttrPointer<int32_t>(1);
+    coreNum = platformInfo.GetCoreNumAiv();
+    if (coreNum == 0) {
         return ge::GRAPH_FAILED;
     }
 
@@ -48,11 +49,12 @@ static ge::graphStatus TilingForKnn(gert::TilingContext *context)
 
     KnnTilingData TilingData;
     TilingData.set_batch(batch);
-    TilingData.set_npoint(npoint);
-    TilingData.set_nsource(nsource);
-    TilingData.set_is_from_knn(is_from_knn);
-    TilingData.set_core_num(core_num);
-    context->SetBlockDim(core_num);
+    TilingData.set_nPoint(nPoint);
+    TilingData.set_nSource(nSource);
+    TilingData.set_isFromKnn(isFromKnn);
+    TilingData.set_coreNum(coreNum);
+    TilingData.set_k(k);
+    context->SetBlockDim(coreNum);
     TilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(TilingData.GetDataSize());
     return ge::GRAPH_SUCCESS;
@@ -62,36 +64,43 @@ static ge::graphStatus TilingForKnn(gert::TilingContext *context)
 namespace ge {
 static ge::graphStatus InfershapeForKnn(gert::InferShapeContext *context)
 {
-    const gert::Shape *xyz_shape = context->GetInputShape(0);
-    const gert::Shape *center_xyz_shape = context->GetInputShape(1);
-    gert::Shape *dist_shape = context->GetOutputShape(0);
+    const gert::Shape *xyzShape = context->GetInputShape(0);
+    const gert::Shape *centerXyzShape = context->GetInputShape(1);
+    gert::Shape *distShape = context->GetOutputShape(0);
+    gert::Shape *idxShape = context->GetOutputShape(1);
     const gert::RuntimeAttrs *attr = context->GetAttrs();
     uint32_t batch;
-    uint32_t npoint;
-    uint32_t nsource;
-    if ((xyz_shape == nullptr) || (center_xyz_shape == nullptr) || (dist_shape == nullptr) || (attr == nullptr)) {
+    uint32_t nPoint;
+    if ((xyzShape == nullptr) || (centerXyzShape == nullptr) || (distShape == nullptr) || (idxShape == nullptr) || (attr == nullptr)) {
             return ge::GRAPH_FAILED;
     }
-    const bool *is_from_knn = attr->GetAttrPointer<bool>(0);
-    if (is_from_knn == nullptr) {
+    const bool *isFromKnn = attr->GetAttrPointer<bool>(0);
+    if (isFromKnn == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    if ((xyz_shape->GetDimNum() != 3) || ((center_xyz_shape->GetDimNum() != 3))) { // 3 : input dim is 3
+    if ((xyzShape->GetDimNum() != 3) || ((centerXyzShape->GetDimNum() != 3))) { // 3 : input dim is 3
         return ge::GRAPH_FAILED;
     }
-    batch = center_xyz_shape->GetDim(0);
-    npoint = center_xyz_shape->GetDim(1);
-    nsource = xyz_shape->GetDim(2);
-    dist_shape->SetDimNum(3);
-    dist_shape->SetDim(0, batch);
-    dist_shape->SetDim(1, npoint);
-    dist_shape->SetDim(2, nsource);
+    batch = centerXyzShape->GetDim(0);
+    nPoint = centerXyzShape->GetDim(1);
+    const int32_t k = *attr->GetAttrPointer<int32_t>(1);
+
+    distShape->SetDimNum(3);
+    distShape->SetDim(0, batch);
+    distShape->SetDim(1, nPoint);
+    distShape->SetDim(2, k);
+    
+    idxShape->SetDimNum(3);
+    idxShape->SetDim(0, batch);
+    idxShape->SetDim(1, nPoint);
+    idxShape->SetDim(2, k);
     return GRAPH_SUCCESS;
 }
 
 static ge::graphStatus InferDataTypeForKnn(gert::InferDataTypeContext *context)
 {
     context->SetOutputDataType(0, ge::DT_FLOAT);
+    context->SetOutputDataType(1, ge::DT_INT32);
     return GRAPH_SUCCESS;
 }
 }
@@ -114,9 +123,17 @@ public:
         this->Attr("is_from_knn")
             .AttrType(REQUIRED)
             .Bool();
+        this->Attr("k")
+            .AttrType(REQUIRED)
+            .Int();
         this->Output("dist")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
+        this->Output("idx")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->SetInferShape(ge::InfershapeForKnn)

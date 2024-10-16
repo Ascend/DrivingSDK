@@ -8,11 +8,12 @@ extern "C" __global__ __aicore__ void knn(
     GM_ADDR xyz,
     GM_ADDR center_xyz,
     GM_ADDR dist,
+    GM_ADDR idx,
     GM_ADDR workspace,
     GM_ADDR tiling) {
     TPipe tmpPipe;
     GET_TILING_DATA(tiling_data, tiling);
 
-    KnnKernel<float, int32_t> op(xyz, center_xyz, dist, &tiling_data, &tmpPipe);
+    KnnKernel<float, int32_t> op(xyz, center_xyz, dist, idx, &tiling_data, &tmpPipe);
     op.Process();
 }

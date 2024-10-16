@@ -12,133 +12,188 @@ namespace AscendC {
 template<typename T, typename U>
 class KnnKernel {
 public:
-    __aicore__ inline KnnKernel(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR dist, const KnnTilingData* tiling_data, TPipe *tmpPipe)
+    __aicore__ inline KnnKernel(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR dist, GM_ADDR idx, const KnnTilingData* tiling_data, TPipe *tmpPipe)
     {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
-        batch = (uint64_t)tiling_data->batch;
-        npoint = (uint64_t)tiling_data->npoint;
-        nsource = (uint64_t)tiling_data->nsource;
-        core_num = (uint64_t)tiling_data->core_num;
-        is_from_knn = tiling_data->is_from_knn;
-        former_task_num = Ceil(batch * npoint, core_num);
+        batch = tiling_data->batch;
+        nPoint = tiling_data->nPoint;
+        nSource = tiling_data->nSource;
+        coreNum = tiling_data->coreNum;
+        isFromKnn = tiling_data->isFromKnn;
+        k = tiling_data->k;
+        formerTaskNum = Ceil(batch * nPoint, coreNum);
 
-        comp_num = 256; // 256 : In UB, we will calc comp_num once
-
-        core_id = GetBlockIdx();
-        InitGm(xyz, center_xyz, dist, tmpPipe);
-
-        pipe->InitBuffer(targetUb, 32);
-        pipe->InitBuffer(sourceBackupUb, comp_num * sizeof(T) * 3);
-        pipe->InitBuffer(sourceUb, comp_num * sizeof(T) * 3);
-        pipe->InitBuffer(distUb, comp_num * sizeof(T));
+        coreId = GetBlockIdx();
+        InitGm(xyz, center_xyz, dist, idx, tmpPipe);
+        InitBuffer();
     }
-    __aicore__ inline void InitGm(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR dist, TPipe *tmpPipe)
+    __aicore__ inline void InitGm(GM_ADDR xyz, GM_ADDR center_xyz, GM_ADDR dist, GM_ADDR idx, TPipe *tmpPipe)
     {
         pipe = tmpPipe;
-        start_task = core_id * former_task_num;
-        end_task = start_task + former_task_num;
-        if (end_task > (batch * npoint)) {
-            end_task = batch * npoint;
+        startTask = coreId * formerTaskNum;
+        endTask = startTask + formerTaskNum;
+        if (endTask > (batch * nPoint)) {
+            endTask = batch * nPoint;
         }
 
-        sourceGm.SetGlobalBuffer((__gm__ T *)xyz, batch * nsource * 3);
-        targetGm.SetGlobalBuffer((__gm__ T *)center_xyz, batch * npoint * 3);
-        distGm.SetGlobalBuffer((__gm__ T *)dist, batch * npoint * nsource);
+        sourceGm.SetGlobalBuffer((__gm__ T *)xyz, batch * nSource * 3);
+        targetGm.SetGlobalBuffer((__gm__ T *)center_xyz, batch * nPoint * 3);
+        distGm.SetGlobalBuffer((__gm__ T *)dist, batch * nPoint * k);
+        idxGm.SetGlobalBuffer((__gm__ int32_t*)idx, batch * nPoint * k);
+    }
+
+    __aicore__ inline void InitBuffer()
+    {
+        pipe->InitBuffer(targetUb, 32);
+        pipe->InitBuffer(sourceBackupUb, compNum * sizeof(T) * 3);
+        pipe->InitBuffer(sourceUb, compNum * sizeof(T) * 3);
+        pipe->InitBuffer(distUb, compNum * sizeof(T));
+        pipe->InitBuffer(idxUb, compNum * sizeof(int32_t));
+        pipe->InitBuffer(constIdxUb, compNum * sizeof(int32_t));
+
+        pipe->InitBuffer(bestDistUb, compNum * sizeof(T));
+        pipe->InitBuffer(bestIdxUb, compNum * sizeof(int32_t));
+
+        pipe->InitBuffer(sortSrcUb, compNum * sizeof(T) * 2);
+        pipe->InitBuffer(sortTmp1Ub, compNum * sizeof(T) * 4);
+        pipe->InitBuffer(sortTmp2Ub, compNum * sizeof(T) * 4);
     }
     __aicore__ inline void Process()
     {
         // 计算loop time
-        uint64_t loop_times = nsource / (uint64_t)comp_num;
-        uint64_t tail_num = nsource % (uint64_t)comp_num;
-        uint64_t tail_num_align = AlignUp(tail_num, 8);
+        uint32_t loopTimes = nSource / compNum;
+        uint32_t tailNum = nSource % compNum;
         sourceBackupLocal = sourceBackupUb.Get<T>();
         sourceLocal = sourceUb.Get<T>();
         targetLocal = targetUb.Get<T>();
         distLocal = distUb.Get<T>();
+        idxLocal = idxUb.Get<int32_t>();
+        bestDistLocal = bestDistUb.Get<T>();
+        bestIdxLocal = bestIdxUb.Get<int32_t>();
 
-        for (uint64_t current_task = start_task; current_task < end_task; current_task++) {
-            uint64_t current_batch = current_task / npoint;
-            uint64_t source_offset = current_batch * nsource * 3; // B 3 N
-            uint64_t target_offset = current_task * 3; // B M 3
-            uint64_t dist_offset = current_task * nsource; // B M N
+        constIdxLocal = constIdxUb.Get<int32_t>();
+        for (int32_t index = 0; index < compNum; index++) {
+            constIdxLocal.SetValue((uint32_t)index, index);
+        }
+
+        sortSrcLocal = sortSrcUb.Get<T>();
+        sortTmp1Local = sortTmp1Ub.Get<T>();
+        sortTmp2Local = sortTmp2Ub.Get<T>();
+
+        for (uint32_t currentTask = startTask; currentTask < endTask; currentTask++) {
+            uint32_t currentBatch = currentTask / nPoint;
+            uint32_t sourceOffset = currentBatch * nSource * 3; // B 3 N
+            uint32_t targetOffset = currentTask * 3; // B M 3
+            uint32_t copyOutOffset = currentTask * k; // B M N
 
             set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
             wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-            DataCopy(targetLocal, targetGm[target_offset], 8);
+            DataCopy(targetLocal, targetGm[targetOffset], 8);
 
             set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
             wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            Duplicate<T>(sourceBackupLocal, targetLocal.GetValue(0), (int32_t)comp_num);
-            Duplicate<T>(sourceBackupLocal[comp_num], targetLocal.GetValue(1), (int32_t)comp_num);
-            Duplicate<T>(sourceBackupLocal[comp_num * 2], targetLocal.GetValue(2), (int32_t)comp_num);
-            for (uint64_t current_loop = 0; current_loop < loop_times; current_loop++) {
-                set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
-                wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
-                DataCopy(sourceLocal, sourceGm[source_offset + current_loop * comp_num], comp_num);
-                DataCopy(sourceLocal[comp_num], sourceGm[source_offset + current_loop * comp_num + nsource], comp_num);
-                DataCopy(sourceLocal[comp_num * 2], sourceGm[source_offset + current_loop * comp_num + nsource * 2], comp_num);
+            Duplicate<T>(sourceBackupLocal, targetLocal.GetValue(0), (int32_t)compNum);
+            Duplicate<T>(sourceBackupLocal[compNum], targetLocal.GetValue(1), (int32_t)compNum);
+            Duplicate<T>(sourceBackupLocal[compNum * 2], targetLocal.GetValue(2), (int32_t)compNum);
+            Duplicate(sortTmp1Local, static_cast<T>(-1e10f), compNum * 4);
 
-                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
-                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
-                Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, comp_num * 3);
-                Mul<T>(sourceLocal, sourceLocal, sourceLocal, comp_num * 3);
-
-                set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-                wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-                Add<T>(distLocal, sourceLocal, sourceLocal[comp_num], comp_num);
-                Add<T>(distLocal, distLocal, sourceLocal[comp_num * 2], comp_num);
-                if (is_from_knn) {
-                    Mins<T>(distLocal, distLocal, static_cast<T>(1e10f), comp_num);
-                }
-
-                set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-                wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-                DataCopyPad(distGm[dist_offset + current_loop * comp_num], distLocal,
-                    {1, static_cast<uint32_t>(comp_num * sizeof(T)), 0, 0, 0});
+            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+            for (uint32_t currentLoop = 0; currentLoop < loopTimes; currentLoop++) {
+                Compute(currentLoop, compNum, sourceOffset);
             }
-            if (tail_num > 0) {
-                set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
-                wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
-                DataCopy(sourceLocal, sourceGm[source_offset + loop_times * comp_num], tail_num_align);
-                DataCopy(sourceLocal[comp_num], sourceGm[source_offset + loop_times * comp_num + nsource], tail_num_align);
-                DataCopy(sourceLocal[comp_num * 2], sourceGm[source_offset + loop_times * comp_num + nsource * 2], tail_num_align);
-                
-                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
-                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
-                Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, comp_num * 3);
-                Mul<T>(sourceLocal, sourceLocal, sourceLocal, comp_num * 3);
-
-                set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-                wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-                Add<T>(distLocal, sourceLocal, sourceLocal[comp_num], comp_num);
-                Add<T>(distLocal, distLocal, sourceLocal[comp_num * 2], comp_num);
-                if (is_from_knn) {
-                    Mins<T>(distLocal, distLocal, static_cast<T>(1e10f), comp_num);
-                }
-
-                set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-                wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-                DataCopyPad(distGm[dist_offset + loop_times * comp_num], distLocal,
-                    {1, static_cast<uint32_t>(tail_num * sizeof(T)), 0, 0, 0});
+            if (tailNum > 0) {
+                Compute(loopTimes, tailNum, sourceOffset);
             }
+            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+
+            CopyOut(copyOutOffset);
         }
     }
+
+    __aicore__ inline void Compute(uint32_t currentLoop, uint32_t copySize, uint32_t sourceOffset)
+    {
+        uint32_t copyInLength = static_cast<uint32_t>(copySize * sizeof(T));
+        uint32_t loopOffset = currentLoop * compNum;
+
+        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+        DataCopyPad(sourceLocal, sourceGm[sourceOffset + loopOffset], {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
+        DataCopyPad(sourceLocal[compNum], sourceGm[sourceOffset + loopOffset + nSource], {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
+        DataCopyPad(sourceLocal[compNum * 2], sourceGm[sourceOffset + loopOffset + nSource * 2], {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
+
+        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+        Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, compNum * 3);
+        Mul<T>(sourceLocal, sourceLocal, sourceLocal, compNum * 3);
+
+        Duplicate(distLocal, static_cast<T>(1e10f), compNum);
+        Add<T>(distLocal, sourceLocal, sourceLocal[compNum], copySize);
+        Add<T>(distLocal, distLocal, sourceLocal[compNum * 2], copySize);
+        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+
+        if (isFromKnn) {
+            Mins<T>(distLocal, distLocal, static_cast<T>(1e10f), compNum);
+        }
+
+        Adds(idxLocal, constIdxLocal, static_cast<int32_t>(loopOffset), compNum);
+        Muls(distLocal, distLocal, -1.0f, compNum);
+
+        AscendC::LocalTensor<uint32_t> interpreIdxInTensor = idxLocal.ReinterpretCast<uint32_t>();
+        Sort32(sortSrcLocal, distLocal, interpreIdxInTensor, 8);
+        AscendC::MrgSortSrcList sortList = AscendC::MrgSortSrcList(sortSrcLocal, sortSrcLocal[64], sortSrcLocal[128], sortSrcLocal[192]);
+        if ((currentLoop % 2) == 0) {
+            MrgSort<T>(sortTmp1Local[mergeOffset * 2], sortList, {sortCountList, false, 0b1111, 2});
+            AscendC::MrgSortSrcList mergeList = AscendC::MrgSortSrcList(sortTmp1Local, sortTmp1Local[mergeOffset], sortTmp1Local[mergeOffset * 2], sortTmp1Local[mergeOffset * 3]);
+            MrgSort<T>(sortTmp2Local, mergeList, {mergeCountList, false, 0b1111, 1});
+        } else {
+            MrgSort<T>(sortTmp2Local[mergeOffset * 2], sortList, {sortCountList, false, 0b1111, 2});
+            AscendC::MrgSortSrcList mergeList = AscendC::MrgSortSrcList(sortTmp2Local, sortTmp2Local[mergeOffset], sortTmp2Local[mergeOffset * 2], sortTmp2Local[mergeOffset * 3]);
+            MrgSort<T>(sortTmp1Local, mergeList, {mergeCountList, false, 0b1111, 1});
+        }
+    }
+
+    __aicore__ inline void CopyOut(uint32_t offset)
+    {
+        set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        AscendC::LocalTensor<uint32_t> interpreIdxOutTensor = bestIdxLocal.ReinterpretCast<uint32_t>();
+        if (((nSource + compNum - 1) / compNum) % 2 == 1) {
+            Extract(bestDistLocal, interpreIdxOutTensor, sortTmp2Local, compNum / 32);
+        } else {
+            Extract(bestDistLocal, interpreIdxOutTensor, sortTmp1Local, compNum / 32);
+        }
+        Muls(bestDistLocal, bestDistLocal, -1.0f, k);
+
+        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        DataCopyPad(distGm[offset], bestDistLocal,
+            {1, static_cast<uint32_t>(k * sizeof(T)), 0, 0, 0});
+        DataCopyPad(idxGm[offset], bestIdxLocal,
+            {1, static_cast<uint32_t>(k * sizeof(int32_t)), 0, 0, 0});
+    }
+
 public:
     TPipe *pipe;
     GlobalTensor<T> sourceGm, targetGm, distGm;
-    TBuf<TPosition::VECCALC> sourceUb, sourceBackupUb, targetUb, distUb;
-    LocalTensor<T> sourceLocal, sourceBackupLocal, targetLocal, distLocal;
-    uint32_t core_id;
-    uint32_t start_task, end_task;
-    uint32_t comp_num;
-    uint64_t former_task_num;
+    GlobalTensor<int32_t> idxGm;
+    TBuf<TPosition::VECCALC> sourceUb, sourceBackupUb, targetUb, distUb, idxUb, bestDistUb, bestIdxUb, constIdxUb, sortTmp1Ub, sortTmp2Ub, sortSrcUb;
+    LocalTensor<T> sourceLocal, sourceBackupLocal, targetLocal, distLocal, bestDistLocal, sortTmp1Local, sortTmp2Local, sortSrcLocal;
+    LocalTensor<int32_t> bestIdxLocal, idxLocal, constIdxLocal;
+    uint32_t coreId;
+    uint32_t startTask, endTask;
+    uint32_t formerTaskNum;
+
+    uint32_t compNum = 256;
+    uint32_t mergeOffset = 256;
+    const uint16_t sortCountList[4] = {(uint16_t)32, (uint16_t)32, (uint16_t)32, (uint16_t)32};
+    const uint16_t mergeCountList[4] = {(uint16_t)128, (uint16_t)128, (uint16_t)128, (uint16_t)128};
 public:
     // tiling
-    uint64_t batch;
-    uint64_t npoint;
-    uint64_t nsource;
-    uint64_t core_num;
-    bool is_from_knn;
+    uint32_t batch;
+    uint32_t nPoint;
+    uint32_t nSource;
+    uint32_t coreNum;
+    bool isFromKnn;
+    int32_t k;
 };
 } // namespace AscendC
 

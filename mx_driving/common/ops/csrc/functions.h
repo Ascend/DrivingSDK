@@ -16,7 +16,7 @@
 
 #include <ATen/ATen.h>
 
-at::Tensor knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample, bool is_from_knn);
+std::tuple<at::Tensor, at::Tensor> knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t k, bool is_from_knn);
 
 at::Tensor npu_three_interpolate(
     int b, int c, int m, int n, const at::Tensor& points, const at::Tensor& idx, const at::Tensor& weight);

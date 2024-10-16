@@ -13,10 +13,11 @@ namespace optiling {
 /****************TilingData definition*****************/
 BEGIN_TILING_DATA_DEF(KnnTilingData)
     TILING_DATA_FIELD_DEF(uint32_t, batch);
-    TILING_DATA_FIELD_DEF(uint32_t, npoint);
-    TILING_DATA_FIELD_DEF(uint32_t, nsource);
-    TILING_DATA_FIELD_DEF(uint32_t, core_num);
-    TILING_DATA_FIELD_DEF(bool, is_from_knn);
+    TILING_DATA_FIELD_DEF(uint32_t, nPoint);
+    TILING_DATA_FIELD_DEF(uint32_t, nSource);
+    TILING_DATA_FIELD_DEF(uint32_t, coreNum);
+    TILING_DATA_FIELD_DEF(bool, isFromKnn);
+    TILING_DATA_FIELD_DEF(int32_t, k);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(Knn, KnnTilingData)

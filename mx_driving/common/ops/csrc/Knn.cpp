@@ -17,14 +17,15 @@
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-at::Tensor knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t nsample, bool is_from_knn)
+std::tuple<at::Tensor, at::Tensor> knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t k, bool is_from_knn)
 {
     TORCH_CHECK_NPU(xyz);
     TORCH_CHECK_NPU(center_xyz);
     TORCH_CHECK(center_xyz.dim() == 3, "center_xyz.dim() must be 3, but got: ", center_xyz.dim());
 
-    at::Tensor dist = at::zeros({center_xyz.sizes()[0], center_xyz.sizes()[1], xyz.sizes()[2]}, center_xyz.options());
-    EXEC_NPU_CMD_SYNC(aclnnKnn, xyz, center_xyz, is_from_knn, dist);
+    at::Tensor dist = at::zeros({center_xyz.sizes()[0], center_xyz.sizes()[1], k}, center_xyz.options());
+    at::Tensor idx = at::zeros({center_xyz.sizes()[0], center_xyz.sizes()[1], k}, center_xyz.options().dtype(at::kInt));
+    EXEC_NPU_CMD_SYNC(aclnnKnn, xyz, center_xyz, is_from_knn, k, dist, idx);
 
-    return dist;
+    return std::tie(dist, idx);
 }
