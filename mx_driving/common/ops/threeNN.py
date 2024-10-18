@@ -27,8 +27,7 @@ class AdsThreeNN(Function):
             target = target.float()
             source = source.float()
 
-        dist = ads_c.knn(source, target, 3, False)
-        dist2, idx = torch.topk(dist, 3, dim=2, largest=False, sorted=True)
+        dist2, idx = ads_c.knn(source, target, 3, False)
         dist2 = torch.sqrt(dist2)
         if dtype_ == torch.float16:
             dist2 = dist2.half()

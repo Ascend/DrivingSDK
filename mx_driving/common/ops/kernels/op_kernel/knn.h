@@ -21,6 +21,7 @@ public:
         coreNum = tiling_data->coreNum;
         isFromKnn = tiling_data->isFromKnn;
         k = tiling_data->k;
+
         formerTaskNum = Ceil(batch * nPoint, coreNum);
 
         coreId = GetBlockIdx();
@@ -55,8 +56,8 @@ public:
         pipe->InitBuffer(bestIdxUb, compNum * sizeof(int32_t));
 
         pipe->InitBuffer(sortSrcUb, compNum * sizeof(T) * 2);
-        pipe->InitBuffer(sortTmp1Ub, compNum * sizeof(T) * 4);
-        pipe->InitBuffer(sortTmp2Ub, compNum * sizeof(T) * 4);
+        pipe->InitBuffer(sortTmp1Ub, mergeLength * sizeof(T) * 4);
+        pipe->InitBuffer(sortTmp2Ub, mergeLength * sizeof(T) * 4);
     }
     __aicore__ inline void Process()
     {
@@ -95,7 +96,9 @@ public:
             Duplicate<T>(sourceBackupLocal, targetLocal.GetValue(0), (int32_t)compNum);
             Duplicate<T>(sourceBackupLocal[compNum], targetLocal.GetValue(1), (int32_t)compNum);
             Duplicate<T>(sourceBackupLocal[compNum * 2], targetLocal.GetValue(2), (int32_t)compNum);
-            Duplicate(sortTmp1Local, static_cast<T>(-1e10f), compNum * 4);
+
+            Duplicate(sortTmp1Local, minFloatValue, mergeLength * 4);
+            Duplicate(sortTmp2Local, minFloatValue, mergeLength * 4);
 
             set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
             for (uint32_t currentLoop = 0; currentLoop < loopTimes; currentLoop++) {
@@ -125,7 +128,7 @@ public:
         Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, compNum * 3);
         Mul<T>(sourceLocal, sourceLocal, sourceLocal, compNum * 3);
 
-        Duplicate(distLocal, static_cast<T>(1e10f), compNum);
+        Duplicate(distLocal, maxFloatValue, compNum);
         Add<T>(distLocal, sourceLocal, sourceLocal[compNum], copySize);
         Add<T>(distLocal, distLocal, sourceLocal[compNum * 2], copySize);
         set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
@@ -137,16 +140,23 @@ public:
         Adds(idxLocal, constIdxLocal, static_cast<int32_t>(loopOffset), compNum);
         Muls(distLocal, distLocal, -1.0f, compNum);
 
+        SortDist(currentLoop);
+    }
+
+    __aicore__ inline void SortDist(uint32_t currentLoop)
+    {
+        const uint16_t sortCountList[4] = {(uint16_t)sort32Elements, (uint16_t)sort32Elements, (uint16_t)sort32Elements, (uint16_t)sort32Elements};
+        const uint16_t mergeCountList[4] = {(uint16_t)k, (uint16_t)k, (uint16_t)k, (uint16_t)k};
         AscendC::LocalTensor<uint32_t> interpreIdxInTensor = idxLocal.ReinterpretCast<uint32_t>();
-        Sort32(sortSrcLocal, distLocal, interpreIdxInTensor, 8);
-        AscendC::MrgSortSrcList sortList = AscendC::MrgSortSrcList(sortSrcLocal, sortSrcLocal[64], sortSrcLocal[128], sortSrcLocal[192]);
+        Sort32(sortSrcLocal, distLocal, interpreIdxInTensor, sort32RepeatTimes);
+        AscendC::MrgSortSrcList sortList = AscendC::MrgSortSrcList(sortSrcLocal, sortSrcLocal[sort32Offset], sortSrcLocal[sort32Offset * 2], sortSrcLocal[sort32Offset * 3]);
         if ((currentLoop % 2) == 0) {
-            MrgSort<T>(sortTmp1Local[mergeOffset * 2], sortList, {sortCountList, false, 0b1111, 2});
-            AscendC::MrgSortSrcList mergeList = AscendC::MrgSortSrcList(sortTmp1Local, sortTmp1Local[mergeOffset], sortTmp1Local[mergeOffset * 2], sortTmp1Local[mergeOffset * 3]);
+            MrgSort<T>(sortTmp1Local[mergeLength], sortList, {sortCountList, false, 0b1111, sort32MergeRepeatTimes});
+            AscendC::MrgSortSrcList mergeList = AscendC::MrgSortSrcList(sortTmp1Local, sortTmp1Local[mergeLength], sortTmp1Local[mergeLength * 2], sortTmp1Local[mergeLength * 3]);
             MrgSort<T>(sortTmp2Local, mergeList, {mergeCountList, false, 0b1111, 1});
         } else {
-            MrgSort<T>(sortTmp2Local[mergeOffset * 2], sortList, {sortCountList, false, 0b1111, 2});
-            AscendC::MrgSortSrcList mergeList = AscendC::MrgSortSrcList(sortTmp2Local, sortTmp2Local[mergeOffset], sortTmp2Local[mergeOffset * 2], sortTmp2Local[mergeOffset * 3]);
+            MrgSort<T>(sortTmp2Local[mergeLength], sortList, {sortCountList, false, 0b1111, sort32MergeRepeatTimes});
+            AscendC::MrgSortSrcList mergeList = AscendC::MrgSortSrcList(sortTmp2Local, sortTmp2Local[mergeLength], sortTmp2Local[mergeLength * 2], sortTmp2Local[mergeLength * 3]);
             MrgSort<T>(sortTmp1Local, mergeList, {mergeCountList, false, 0b1111, 1});
         }
     }
@@ -157,9 +167,9 @@ public:
         wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
         AscendC::LocalTensor<uint32_t> interpreIdxOutTensor = bestIdxLocal.ReinterpretCast<uint32_t>();
         if (((nSource + compNum - 1) / compNum) % 2 == 1) {
-            Extract(bestDistLocal, interpreIdxOutTensor, sortTmp2Local, compNum / 32);
+            Extract(bestDistLocal, interpreIdxOutTensor, sortTmp2Local, sort32RepeatTimes);
         } else {
-            Extract(bestDistLocal, interpreIdxOutTensor, sortTmp1Local, compNum / 32);
+            Extract(bestDistLocal, interpreIdxOutTensor, sortTmp1Local, sort32RepeatTimes);
         }
         Muls(bestDistLocal, bestDistLocal, -1.0f, k);
 
@@ -182,10 +192,15 @@ public:
     uint32_t startTask, endTask;
     uint32_t formerTaskNum;
 
-    uint32_t compNum = 256;
-    uint32_t mergeOffset = 256;
-    const uint16_t sortCountList[4] = {(uint16_t)32, (uint16_t)32, (uint16_t)32, (uint16_t)32};
-    const uint16_t mergeCountList[4] = {(uint16_t)128, (uint16_t)128, (uint16_t)128, (uint16_t)128};
+    uint32_t compNum = 384;
+    uint32_t mergeLength = 256;
+    uint32_t sort32Elements = 32;
+    uint32_t sort32Offset = sort32Elements * 2;
+    int32_t sort32RepeatTimes = compNum / 32;
+    uint16_t sort32MergeRepeatTimes = compNum / 128;
+
+    float minFloatValue = -3.40282347E+38;
+    float maxFloatValue = 3.40282347E+38;
 public:
     // tiling
     uint32_t batch;
