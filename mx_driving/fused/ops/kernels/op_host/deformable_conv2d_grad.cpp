@@ -40,8 +40,8 @@ ge::graphStatus TilingForDeformableConv2dGrad(gert::TilingContext* context)
     auto padding = attrsPtr->GetListInt(2)->GetData();
     auto dilation = attrsPtr->GetListInt(3)->GetData();
     auto modulated = attrsPtr->GetBool(6);
-    uint32_t kH = 3; // NOTE: kernelSize[0]
-    uint32_t kW = 3;
+    uint32_t kH = kernelSize[0]; // NOTE: kernelSize[0]
+    uint32_t kW = kernelSize[1];
 
     context->SetTilingKey(*modulated);
 

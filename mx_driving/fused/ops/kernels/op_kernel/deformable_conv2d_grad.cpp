@@ -49,7 +49,7 @@ protected:
     uint32_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_, usedBlkNum_;
     int32_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_;
 
-    uint32_t rowOut_, kwIn_, rowIn_, rowOffset_, alignedRowOffset_;
+    uint32_t rowOut_, kwIn_, rowIn_, rowOffset_, alignedRowOffset_, kernelSize_;
     uint16_t kwInBlk_, rowOffsetBlk_, doubleRowOffsetBlk_, cInBlk_;
     uint16_t rptTimes_, valRptTimes_;
     uint32_t blkIdx_;
@@ -91,14 +91,15 @@ private:
         cOut_ = tilingData->cOut;
         hOut_ = tilingData->hOut;
         wOut_ = tilingData->wOut;
-        kH_ = 3;
-        kW_ = 3;
-        padH_ = 1;
-        padW_ = 1;
-        strideH_ = 1;
-        strideW_ = 1;
-        dilationH_ = 1;
-        dilationW_ = 1;
+        kH_ = tilingData->kH;
+        kW_ = tilingData->kW;
+        kernelSize_ = kH_ * kW_;
+        padH_ = tilingData->padH;
+        padW_ = tilingData->padW;
+        strideH_ = tilingData->strideH;
+        strideW_ = tilingData->strideW;
+        dilationH_ = tilingData->dilationH;
+        dilationW_ = tilingData->dilationW;
         usedBlkNum_ = tilingData->usedBlkNum;
         rowOut_ = wOut_ * cOut_;
         kwIn_ = kH_ * kW_ * cIn_;
@@ -230,7 +231,10 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ProcessVector(uint
     LocalTensor<int32_t> offsetInt = offsetIntBuf_.Get<int32_t>();
     LocalTensor<float> weight = weightBuf_.Get<float>();
     LocalTensor<float> feature = featureBuf_.Get<float>();
-    LocalTensor<float> mask = maskBuf_.Get<float>();
+    LocalTensor<float> mask;
+    if (modulated) {
+        mask = maskBuf_.Get<float>();
+    }
 
     CopyInOffset(taskIdx, offset, mask);
     ComputeWeight(taskIdx, auxW, auxH, offset, offsetInt, weight, mask);
@@ -317,12 +321,12 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
     const LocalTensor<float>& feature, const LocalTensor<float>& weight, const LocalTensor<float>& gradOffsetOutput,
     const LocalTensor<float>& gradX, const LocalTensor<float>& gradOffset, const LocalTensor<float>& reducedValue)
 {
-    for (uint32_t kIdx = 0; kIdx < kH_ * kW_; ++kIdx) {
-        int32_t pw = kIdx + w * kW_ * kH_;
+    int32_t kernelOffset = w * kernelSize_;
+    for (uint32_t kIdx = 0; kIdx < kernelSize_; ++kIdx) {
+        int32_t pw = kIdx + kernelOffset;
         int32_t ph = pw + alignedRowOffset_;
         int32_t w0 = offsetInt.GetValue(pw);
         int32_t h0 = offsetInt.GetValue(ph);
-        float scale = mask.GetValue(pw);
         int32_t w1 = w0 + 1;
         int32_t h1 = h0 + 1;
         uint32_t outOffset = kIdx * cIn_;
@@ -429,6 +433,7 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
         float d = gradOffset.GetValue(35);
 
         if (modulated) {
+            float scale = mask.GetValue(pw);
             gradOffset.SetValue(0, (-a * hw - b * lw + c * hw + d * lw) * scale);
             gradOffset.SetValue(1, (-a * hh + b * hh - c * lh + d * lh) * scale);
             gradOffset.SetValue(8, (a * hh * hw + b * lw * hh + c * hw * lh + d * lw * lh));

@@ -27,6 +27,9 @@ std::tuple<at::Tensor, at::Tensor> deformable_conv2d(const at::Tensor& input, co
     TORCH_CHECK(input.dim() == 4, "input must to be a 4D Tensor, but got: ", input.dim());
     TORCH_CHECK(offset.dim() == 4, "offset has to be a 4D Tensor, but got: ", offset.dim());
     TORCH_CHECK(weight.dim() == 4, "weight has to be a 4D Tensor, but got: ", offset.dim());
+    TORCH_CHECK(stride[0] > 0 && stride[1] > 0, "stride must be greater than 0");
+    TORCH_CHECK(kernel_size[0] > 0 && kernel_size[1] > 0, "kernel_size must be greater than 0");
+    TORCH_CHECK(dilation[0] > 0 && dilation[1] > 0, "dilation must be greater than 0");
 
     const at::Tensor& bias = at::Tensor();
     const at::Tensor& mask = at::Tensor();
@@ -40,8 +43,9 @@ std::tuple<at::Tensor, at::Tensor> deformable_conv2d(const at::Tensor& input, co
     uint32_t c_out = weight.size(0);
     uint32_t kh = weight.size(1);
     uint32_t kw = weight.size(2);
+    TORCH_CHECK(kh == kernel_size[0] && kw == kernel_size[1], "kernel size mismatch");
 
-    bool modulated = true;
+    bool modulated = false;
     bool with_bias = false;
 
     at::Tensor output = at::empty({n, h_out, w_out, c_out}, input.options());

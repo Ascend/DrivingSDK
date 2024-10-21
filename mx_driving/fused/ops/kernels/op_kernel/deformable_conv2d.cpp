@@ -45,7 +45,7 @@ protected:
     uint32_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_, usedBlkNum_;
     int32_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_;
 
-    uint32_t rowOut_, kwIn_, rowIn_, rowOffset_, alignedRowOffset_, featureOffset_;
+    uint32_t rowOut_, kwIn_, rowIn_, rowOffset_, alignedRowOffset_, featureOffset_, kernelSize_;
     uint16_t kwInBlk_, rowOffsetBlk_, doubleRowOffsetBlk_, cInBlk_;
     uint16_t rptTimes_, valRptTimes_;
     uint32_t blkIdx_;
@@ -73,8 +73,8 @@ private:
         const LocalTensor<float>& weight, const LocalTensor<float>& mask);
 
     __aicore__ inline void ComputeBilinearInterpolation(uint32_t w, const LocalTensor<float>& offset,
-        const LocalTensor<int32_t>& offsetInt, const LocalTensor<float>& mask, const LocalTensor<float>& feature,
-        const LocalTensor<float>& weight, const LocalTensor<float>& offsetOutput);
+        const LocalTensor<int32_t>& offsetInt, const LocalTensor<float>& feature, const LocalTensor<float>& weight,
+        const LocalTensor<float>& offsetOutput);
 
     __aicore__ inline void InitTiling(const DeformableConv2dTilingData* tilingData)
     {
@@ -85,21 +85,22 @@ private:
         cOut_ = tilingData->cOut;
         hOut_ = tilingData->hOut;
         wOut_ = tilingData->wOut;
-        kH_ = 3;
-        kW_ = 3;
-        padH_ = 1;
-        padW_ = 1;
-        strideH_ = 1;
-        strideW_ = 1;
-        dilationH_ = 1;
-        dilationW_ = 1;
+        kH_ = tilingData->kH;
+        kW_ = tilingData->kW;
+        kernelSize_ = kH_ * kW_;
+        padH_ = tilingData->padH;
+        padW_ = tilingData->padW;
+        strideH_ = tilingData->strideH;
+        strideW_ = tilingData->strideW;
+        dilationH_ = tilingData->dilationH;
+        dilationW_ = tilingData->dilationW;
         usedBlkNum_ = tilingData->usedBlkNum;
         featureOffset_ = 4 * cIn_;
         rowOut_ = wOut_ * cOut_;
-        kwIn_ = kH_ * kW_ * cIn_;
+        kwIn_ = kernelSize_ * cIn_;
         kwInBlk_ = Ceil(kwIn_, B32_DATA_NUM_PER_BLOCK);
         rowIn_ = wOut_ * kwIn_;
-        rowOffset_ = wOut_ * kH_ * kW_;
+        rowOffset_ = wOut_ * kernelSize_;
         alignedRowOffset_ = AlignUp(rowOffset_, B32_DATA_NUM_PER_REPEAT);
         rowOffsetBlk_ = Ceil(rowOffset_, B32_DATA_NUM_PER_BLOCK);
         doubleRowOffsetBlk_ = Ceil(2 * rowOffset_, B32_DATA_NUM_PER_BLOCK);
@@ -185,10 +186,10 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::PreProcess()
             }
         }
     }
-    DataCopyPad(auxWGm_[auxStart_ * kH_ * kW_], auxW,
-        {1, static_cast<uint16_t>(B32_BYTE_SIZE * (auxEnd_ - auxStart_) * kH_ * kW_), 0, 0});
-    DataCopyPad(auxHGm_[auxStart_ * kH_ * kW_], auxH,
-        {1, static_cast<uint16_t>(B32_BYTE_SIZE * (auxEnd_ - auxStart_) * kH_ * kW_), 0, 0});
+    DataCopyPad(auxWGm_[auxStart_ * kernelSize_], auxW,
+        {1, static_cast<uint16_t>(B32_BYTE_SIZE * (auxEnd_ - auxStart_) * kernelSize_), 0, 0});
+    DataCopyPad(auxHGm_[auxStart_ * kernelSize_], auxH,
+        {1, static_cast<uint16_t>(B32_BYTE_SIZE * (auxEnd_ - auxStart_) * kernelSize_), 0, 0});
     SyncAll();
     DataCopy(auxW, auxWGm_, {1, rowOffsetBlk_, 0, 0});
     DataCopy(auxH, auxHGm_, {1, rowOffsetBlk_, 0, 0});
@@ -215,7 +216,10 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ProcessVector(uint32_t
     LocalTensor<int32_t> offsetInt = offsetIntBuf_.Get<int32_t>();
     LocalTensor<float> weight = weightBuf_.Get<float>();
     LocalTensor<float> feature = featureBuf_.Get<float>();
-    LocalTensor<float> mask = maskBuf_.Get<float>();
+    LocalTensor<float> mask;
+    if (modulated) {
+        mask = maskBuf_.Get<float>();
+    }
     LocalTensor<float> offsetOutput = offsetOutputBuf_.Get<float>();
 
     CopyInOffset(taskIdx, offset, mask);
@@ -229,7 +233,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ProcessVector(uint32_t
     uint8_t ping = 0;
     for (uint32_t w = 0; w < wOut_; ++w) {
         WaitFlag<HardEvent::MTE3_V>(ping);
-        ComputeBilinearInterpolation(w, offset, offsetInt, mask, feature, weight, offsetOutput[ping * kwIn_]);
+        ComputeBilinearInterpolation(w, offset, offsetInt, feature, weight, offsetOutput[ping * kwIn_]);
         SetFlag<HardEvent::MTE3_V>(ping);
         ping = 1 - ping;
     }
@@ -296,16 +300,17 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeWeight(uint32_t
 
 template<bool modulated>
 __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpolation(uint32_t w,
-    const LocalTensor<float>& offset, const LocalTensor<int32_t>& offsetInt, const LocalTensor<float>& mask,
-    const LocalTensor<float>& feature, const LocalTensor<float>& weight, const LocalTensor<float>& offsetOutput)
+    const LocalTensor<float>& offset, const LocalTensor<int32_t>& offsetInt, const LocalTensor<float>& feature,
+    const LocalTensor<float>& weight, const LocalTensor<float>& offsetOutput)
 {
-    Duplicate<float, false>(offsetOutput, 0.f, MASK_PLACEHOLDER, kH_ * kW_ * valRptTimes_, 1, 8);
+    Duplicate<float, false>(offsetOutput, 0.f, MASK_PLACEHOLDER, kernelSize_ * valRptTimes_, 1, 8);
     uint8_t ping = 0;
+    int32_t kernelOffset = w * kernelSize_;
     SetFlag<HardEvent::V_MTE2>(0);
     SetFlag<HardEvent::V_MTE2>(1);
 #pragma bisheng auto_sync parallel
-    for (uint32_t kIdx = 0; kIdx < kH_ * kW_; ++kIdx) {
-        int32_t pw = kIdx + w * kW_ * kH_;
+    for (uint32_t kIdx = 0; kIdx < kernelSize_; ++kIdx) {
+        int32_t pw = kIdx + kernelOffset;
         int32_t ph = pw + alignedRowOffset_;
         int32_t w0 = offsetInt.GetValue(pw);
         int32_t h0 = offsetInt.GetValue(ph);
@@ -460,4 +465,3 @@ extern "C" __global__ __aicore__ void deformable_conv2d(GM_ADDR x, GM_ADDR weigh
         op.Process();
     }
 }
-
