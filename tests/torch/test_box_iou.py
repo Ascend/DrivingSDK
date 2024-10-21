@@ -375,7 +375,7 @@ def gen_boxes_quadri(boxes_num):
 
 Inputs = namedtuple('Inputs', ['boxes_a', 'boxes_b', 'mode', 'aligned'])
 
-
+            
 class TestBoxIouRotated(TestCase):
     np.random.seed(2024)
 
@@ -454,7 +454,7 @@ class TestBoxIouRotated(TestCase):
         npu_boxes_b = npu_inputs.boxes_b
         mode = npu_inputs.mode
         aligned = npu_inputs.aligned
-        npu_ans_ious = mx_driving.detection.npu_box_iou_rotated(npu_boxes_a, npu_boxes_b, mode, aligned)
+        npu_ans_ious = mx_driving.detection.box_iou_rotated(npu_boxes_a, npu_boxes_b, mode, aligned)
         return npu_ans_ious.cpu().float().numpy()
 
     def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):
@@ -545,7 +545,7 @@ class TestBoxIouQuadri(TestCase):
         npu_boxes_b = npu_inputs.boxes_b
         mode = npu_inputs.mode
         aligned = npu_inputs.aligned
-        npu_ans_ious = mx_driving.detection.npu_box_iou_quadri(npu_boxes_a, npu_boxes_b, mode, aligned)
+        npu_ans_ious = mx_driving.detection.box_iou_quadri(npu_boxes_a, npu_boxes_b, mode, aligned)
         return npu_ans_ious.cpu().float().numpy()
 
     def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):

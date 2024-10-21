@@ -35,9 +35,9 @@ class BoxIouRotated(torch.autograd.Function):
         return ious
 
 
-def npu_box_iou_quadri(boxes_a, boxes_b, mode='iou', aligned=False):
+def box_iou_quadri(boxes_a, boxes_b, mode='iou', aligned=False):
     return BoxIouQuadri.apply(boxes_a, boxes_b, mode, aligned)
 
 
-def npu_box_iou_rotated(boxes_a, boxes_b, mode='iou', aligned=False, clockwise=True):
+def box_iou_rotated(boxes_a, boxes_b, mode='iou', aligned=False, clockwise=True):
     return BoxIouRotated.apply(boxes_a, boxes_b, mode, aligned, clockwise)
