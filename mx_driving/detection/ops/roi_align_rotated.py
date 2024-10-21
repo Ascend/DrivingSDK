@@ -11,7 +11,7 @@ from torch.autograd import Function
 import ads_c
 
 
-class RoIAlignRotatedV2Function(Function):
+class RoIAlignRotatedFunction(Function):
     @staticmethod
     def forward(ctx: Any, feature_map: torch.Tensor, rois: torch.Tensor, spatial_scale: float,
                 sampling_ratio: int, pooled_height: int, pooled_width: int, aligned: bool = True, clockwise: bool = False) -> torch.Tensor:
@@ -54,4 +54,4 @@ class RoIAlignRotatedV2Function(Function):
         
         return grad_feature_map, None, None, None, None, None, None, None
 
-roi_align_rotated_v2 = RoIAlignRotatedV2Function.apply
+roi_align_rotated = RoIAlignRotatedFunction.apply

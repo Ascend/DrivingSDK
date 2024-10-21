@@ -283,7 +283,7 @@ def bilinear_interpolate(feature_map, fm_batch, bilinear_args):
     return val
 
 
-class TestRoiAlignedRotatedV2(TestCase):
+class TestRoiAlignedRotated(TestCase):
     def cpu_to_exec(self, features, rois, grad_output, args_dict):
         output = cpu_roi_align_rotated(features.numpy(), rois.numpy(), args_dict)
         grad_feature_map = cpu_roi_align_rotated_grad(features, rois, grad_output, args_dict)
@@ -291,7 +291,7 @@ class TestRoiAlignedRotatedV2(TestCase):
 
     def npu_to_exec(self, features, rois, grad_output, args_dict):
         spatial_scale, sampling_ratio, ph, pw, aligned, clockwise = args_dict.values()
-        output = mx_driving.detection.roi_align_rotated_v2(features.npu(), rois.npu(), spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
+        output = mx_driving.detection.roi_align_rotated(features.npu(), rois.npu(), spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
         output.backward(grad_output.npu())
         return output.cpu(), features.grad.cpu()
 
@@ -318,7 +318,7 @@ class TestRoiAlignedRotatedV2(TestCase):
         return output_grad
 
     @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `RoiAlignedRotatedV2` is only supported on 910B, skip this ut!")
-    def test_RoiAlignedRotatedV2_Aligned(self):
+    def test_RoiAlignedRotated_Aligned(self):
         shape_format = [
             [[8, 32, 64, 64], [16, 6], 0.5, 2, 7, 7, True, False],
             [[8, 32, 64, 64], [32, 6], 0.5, 2, 7, 7, True, True],
@@ -350,7 +350,7 @@ class TestRoiAlignedRotatedV2(TestCase):
             self.assertRtolEqual(grad_cpu, grad_npu)
 
     @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `RoiAlignedRotatedV2` is only supported on 910B, skip this ut!")
-    def test_RoiAlignedRotatedV2_NonAligned(self):
+    def test_RoiAlignedRotated_NonAligned(self):
         shape_format = [
             [[8, 3, 64, 64], [16, 6], 0.5, 2, 7, 7, True, True],
             [[1, 32, 64, 64], [32, 6], 0.5, 2, 7, 7, True, True],

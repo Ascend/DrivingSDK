@@ -3,7 +3,7 @@ import onnx
 from onnx import helper, TensorProto
 
 
-def roi_align_rotated_v2():
+def roi_align_rotated():
     feature_map = helper.make_tensor_value_info('input', TensorProto.FLOAT, [1, 48, 5, 5])
     rois = helper.make_tensor_value_info('rois', TensorProto.FLOAT, [3, 6])
 
@@ -32,7 +32,7 @@ def roi_align_rotated_v2():
     current_path = os.path.abspath(__file__)
     idx = current_path.rfind('/')
     current_path = current_path[:idx]
-    onnx.save(model_def, os.path.join(current_path, "roi_align_rotated_v2.onnx"))
+    onnx.save(model_def, os.path.join(current_path, "roi_align_rotated.onnx"))
 
 if __name__ == "__main__":
-    roi_align_rotated_v2()
+    roi_align_rotated()
