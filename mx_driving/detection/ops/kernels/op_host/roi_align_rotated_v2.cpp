@@ -4,28 +4,62 @@
 #include "roi_align_rotated_v2_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
+#include "tiling/tiling_api.h"
 #include <cmath>
 
+using namespace ge;
 using namespace std;
+
+namespace {
+const uint32_t INPUT_INDEX = 0;
+const uint32_t ROIS_INDEX = 1;
+const uint32_t OUTPUT_INDEX = 0;
+const uint32_t ROIS_NUM_INDEX = 1;
+
+const uint32_t BS_INDEX = 0;
+const uint32_t H_INDEX = 1;
+const uint32_t W_INDEX = 2;
+const uint32_t CHANNEL_INDEX = 3;
+
+const uint32_t SPATIAL_INDEX = 0;
+const uint32_t SAMPLING_INDEX = 1;
+const uint32_t PH_INDEX = 2;
+const uint32_t PW_INDEX = 3;
+const uint32_t ALIGNED_INDEX = 4;
+const uint32_t CLOCKWISE_INDEX = 5;
+
+const uint32_t ALIGN_VALUE = 8;
+const uint32_t TILING_KEY = 1;
+}
+
 namespace optiling {
 const uint32_t TILE_NUM = 8;
 static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
 {
     RoiAlignRotatedV2TilingData tiling;
-    
-    auto input_shape = context->GetInputShape(0)->GetStorageShape(); // [N, C, H, W]
-    auto rois_shape = context->GetInputShape(1)->GetStorageShape(); // [n, 6]
-    auto output_shape = context->GetOutputShape(0)->GetStorageShape(); // [n, C, pooled_height, pooled_width]
 
-    uint32_t batch_size = input_shape.GetDim(0);
-    uint32_t input_h = input_shape.GetDim(1);
-    uint32_t input_w = input_shape.GetDim(2);
-    uint32_t channels = input_shape.GetDim(3);
+    auto inputTensorPtr = context->GetInputTensor(INPUT_INDEX);
+    auto RoisTensorPtr = context->GetInputTensor(ROIS_INDEX);
+    if (inputTensorPtr == nullptr || RoisTensorPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
+    auto input_shape = context->GetInputShape(INPUT_INDEX); // [N, C, H, W]
+    auto rois_shape = context->GetInputShape(ROIS_INDEX); // [n, 6]
+    auto output_shape = context->GetOutputShape(OUTPUT_INDEX); // [n, C, pooled_height, pooled_width]
+    if (input_shape == nullptr || rois_shape == nullptr || output_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
+    uint32_t batch_size = input_shape->GetStorageShape().GetDim(BS_INDEX);
+    uint32_t input_h = input_shape->GetStorageShape().GetDim(H_INDEX);
+    uint32_t input_w = input_shape->GetStorageShape().GetDim(W_INDEX);
+    uint32_t channels = input_shape->GetStorageShape().GetDim(CHANNEL_INDEX);
     uint32_t channels_aligned;
-    if (static_cast<uint32_t>(channels % 8) == 0) {
+    if (static_cast<uint32_t>(channels % ALIGN_VALUE) == 0) {
         channels_aligned = channels;
     } else {
-        channels_aligned = (static_cast<uint32_t>(channels / 8) + 1) * 8;
+        channels_aligned = (static_cast<uint32_t>(channels / ALIGN_VALUE) + 1) * ALIGN_VALUE;
     }
 
     auto attrsPtr = context->GetAttrs();
@@ -33,14 +67,14 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
-    float spatial_scale = *(attrsPtr->GetAttrPointer<float>(0));
-    int32_t sampling_ratio = *(attrsPtr->GetAttrPointer<uint32_t>(1));
-    int32_t pooled_height = *(attrsPtr->GetAttrPointer<uint32_t>(2));
-    int32_t pooled_width = *(attrsPtr->GetAttrPointer<uint32_t>(3));
-    bool aligned = *(attrsPtr->GetAttrPointer<bool>(4));
-    bool clockwise = *(attrsPtr->GetAttrPointer<bool>(5));
+    float spatial_scale = *(attrsPtr->GetAttrPointer<float>(SPATIAL_INDEX));
+    int32_t sampling_ratio = *(attrsPtr->GetAttrPointer<uint32_t>(SAMPLING_INDEX));
+    int32_t pooled_height = *(attrsPtr->GetAttrPointer<uint32_t>(PH_INDEX));
+    int32_t pooled_width = *(attrsPtr->GetAttrPointer<uint32_t>(PW_INDEX));
+    bool aligned = *(attrsPtr->GetAttrPointer<bool>(ALIGNED_INDEX));
+    bool clockwise = *(attrsPtr->GetAttrPointer<bool>(CLOCKWISE_INDEX));
 
-    uint32_t rois_num = rois_shape.GetDim(1);
+    uint32_t rois_num = rois_shape->GetStorageShape().GetDim(ROIS_NUM_INDEX);
     if (rois_num == 0) {
         return ge::GRAPH_FAILED;
     }
@@ -49,7 +83,7 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
     if (platform == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     auto platform_info = platform_ascendc::PlatformAscendC(platform);
     uint64_t ub_total_size;
     platform_info.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub_total_size);
@@ -59,16 +93,16 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
     }
 
     uint32_t rois_num_aligned;
-    if (static_cast<uint32_t>(rois_num % 8) == 0) {
+    if (static_cast<uint32_t>(rois_num % ALIGN_VALUE) == 0) {
         rois_num_aligned = rois_num;
     } else {
-        rois_num_aligned = (static_cast<uint32_t>(rois_num / 8) + 1) * 8;
+        rois_num_aligned = (static_cast<uint32_t>(rois_num / ALIGN_VALUE) + 1) * ALIGN_VALUE;
     }
 
     uint32_t tail_num = rois_num_aligned - rois_num; // 获取计算完成后需要丢弃的rois数目
-    uint32_t rois_num_per_Score = (rois_num_aligned / BLOCK_DIM / 8) * 8;
-    uint32_t rois_num_per_Lcore = rois_num_per_Score + 8;
-    uint32_t Score_num = (BLOCK_DIM * (8 + rois_num_per_Score) - rois_num_aligned) / 8;
+    uint32_t rois_num_per_Score = (rois_num_aligned / BLOCK_DIM / ALIGN_VALUE) * ALIGN_VALUE;
+    uint32_t rois_num_per_Lcore = rois_num_per_Score + ALIGN_VALUE;
+    uint32_t Score_num = (BLOCK_DIM * (ALIGN_VALUE + rois_num_per_Score) - rois_num_aligned) / ALIGN_VALUE;
     uint32_t Lcore_num = BLOCK_DIM - Score_num;
     
     if (rois_num_per_Score == 0) {
@@ -78,8 +112,8 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
         BLOCK_DIM = BLOCK_DIM - Lcore_num;
     }
 
-    float input_size = float(channels_aligned * sizeof(float)) / 32;
-    uint32_t input_buffer_size = ceil(input_size) * 32;
+    float input_size = float(channels_aligned) / ALIGN_VALUE;
+    uint32_t input_buffer_size = ceil(input_size) * ALIGN_VALUE * sizeof(float);
 
     tiling.set_blockDim(BLOCK_DIM);
     tiling.set_ub_total_size(ub_total_size);
@@ -106,7 +140,7 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
 
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     context->SetBlockDim(BLOCK_DIM);
-    context->SetTilingKey(1);
+    context->SetTilingKey(TILING_KEY);
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     currentWorkspace[0] = 0;
 
@@ -117,15 +151,24 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    const gert::Shape* input_shape = context->GetInputShape(0);
-    const gert::Shape* rois_shape = context->GetInputShape(1);
-    gert::Shape* output_shape = context->GetOutputShape(0);
+    const gert::Shape* input_shape = context->GetInputShape(INPUT_INDEX);
+    const gert::Shape* rois_shape = context->GetInputShape(ROIS_INDEX);
+    gert::Shape* output_shape = context->GetOutputShape(OUTPUT_INDEX);
 
-    int64_t rois_num = rois_shape->GetDim(0);
-    int64_t channels = input_shape->GetDim(3);
+    if (input_shape == nullptr || rois_shape == nullptr || output_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
+    int64_t rois_num = rois_shape->GetDim(ROIS_NUM_INDEX);
+    int64_t channels = input_shape->GetDim(CHANNEL_INDEX);
+
     auto attrsPtr = context->GetAttrs();
-    uint32_t pooled_height = *(attrsPtr->GetAttrPointer<uint32_t>(2));
-    uint32_t pooled_width = *(attrsPtr->GetAttrPointer<uint32_t>(3));
+    if (attrsPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
+    uint32_t pooled_height = *(attrsPtr->GetAttrPointer<uint32_t>(PH_INDEX));
+    uint32_t pooled_width = *(attrsPtr->GetAttrPointer<uint32_t>(PW_INDEX));
     
     *output_shape = {rois_num, pooled_height, pooled_width, channels};
 
@@ -133,8 +176,8 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 }
 static ge::graphStatus InferDataTypeRoiAlignRotatedV2(gert::InferDataTypeContext* context)
 {
-    const ge::DataType value_dtype = context->GetInputDataType(0);
-    context->SetOutputDataType(0, value_dtype);
+    const ge::DataType value_dtype = context->GetInputDataType(INPUT_INDEX);
+    context->SetOutputDataType(OUTPUT_INDEX, value_dtype);
     return GRAPH_SUCCESS;
 }
 }
