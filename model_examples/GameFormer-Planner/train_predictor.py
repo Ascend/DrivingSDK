@@ -144,9 +144,7 @@ def model_training(args_, local_rank_):
     os.makedirs(log_path, exist_ok=True)
     initLogging(log_file=log_path + 'train.log')
 
-    # ddp setup
-    os.environ["MASTER_ADDR"] = "localhost"    
-    os.environ["MASTER_PORT"] = "12345"    
+    # ddp setup  
     dist.init_process_group(backend='nccl')
     torch.cuda.set_device(local_rank_)
 
