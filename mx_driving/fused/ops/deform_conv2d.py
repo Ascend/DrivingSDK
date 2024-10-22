@@ -58,14 +58,15 @@ class DeformConv2dFunction(Function):
     @staticmethod
     @once_differentiable
     # pylint: disable=huawei-too-many-arguments,too-many-return-values
-    def backward(ctx, grad_out, grad_offset):
+    def backward(ctx, grad_out):
         nhwc_x, nhwc_offset, nhwc_weight, offset_output = ctx.saved_tensors
+        nhwc_grad_out = grad_out.permute(0, 2, 3, 1).contiguous()
         grad_x, grad_weight, grad_offset = ads_c.deformable_conv2d_backward(
             nhwc_x,
             nhwc_weight,
             nhwc_offset,
             offset_output,
-            grad_out,
+            nhwc_grad_out,
             ctx.kernel_size,
             ctx.stride,
             ctx.padding,

@@ -344,7 +344,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
                 PipeBarrier<PIPE_V>();
-                Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + cIn_], weight.GetValue(pw),
+                Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + cIn_], weight.GetValue(ph),
                     MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
                 PipeBarrier<PIPE_V>();
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + 3 * cIn_],
@@ -397,7 +397,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
                 PipeBarrier<PIPE_V>();
-                Axpy<float, float, false>(offsetOutput[outOffset], feature, weight.GetValue(pw), MASK_PLACEHOLDER,
+                Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset], weight.GetValue(pw), MASK_PLACEHOLDER,
                     valRptTimes_, {1, 1, 8, 8});
                 PipeBarrier<PIPE_V>();
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + cIn_], weight.GetValue(ph),
