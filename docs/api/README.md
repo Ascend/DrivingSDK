@@ -214,6 +214,7 @@ out = npu_points_in_box(boxes, points)
 ```
 
 ## npu_points_in_box_all
+Note: 该接口命名将于2025年改为`points_in_boxes_all`。
 ### 接口原型
 ```python
 mx_driving.preprocess.npu_points_in_box_all(Tensor boxes, Tensor points) -> Tensor

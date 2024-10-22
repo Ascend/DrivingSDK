@@ -6,6 +6,7 @@ Modification date: 2024-07-24
 Modification Description: 
 Modification 1. Add support for Ascend NPU
 """
+import warnings
 import torch
 from torch.autograd import Function
 from torch.nn import Module
@@ -25,4 +26,11 @@ class PointsInBoxAllFunction(Function):
     def backward(ctx, grad_output):
         return None
 
-npu_points_in_box_all = PointsInBoxAllFunction.apply
+
+def points_in_boxes_all(boxes, pts):
+    return PointsInBoxAllFunction.apply(boxes, pts)
+
+
+def npu_points_in_box_all(boxes, pts):
+    warnings.warn("`npu_points_in_box_all` will be deprecated in future. Please use `points_in_boxes_all` instead.", DeprecationWarning)
+    return PointsInBoxAllFunction.apply(boxes, pts)
