@@ -37,13 +37,12 @@ static ge::graphStatus TilingFuncForRoiAlignRotatedGradV2(gert::TilingContext* c
     RoiAlignRotatedGradV2TilingData tiling;
     auto inputTensorPtr = context->GetInputTensor(INPUT_INPUT);
     auto RoiTensorPtr = context->GetInputTensor(INPUT_ROIS);
-    auto gradOutputTensorPtr = context->GetInputTensor(INPUT_ROIS);
+    auto gradOutputTensorPtr = context->GetInputTensor(INPUT_GRAD_OUTPUT);
     if (inputTensorPtr == nullptr || RoiTensorPtr == nullptr || gradOutputTensorPtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto inputShape = inputTensorPtr->GetStorageShape();
     auto RoiShape = RoiTensorPtr->GetStorageShape();
-    auto gradOutputShape = gradOutputTensorPtr->GetStorageShape();
 
     auto platformInfoptr = context->GetPlatformInfo();
     if (platformInfoptr == nullptr) {
@@ -109,6 +108,9 @@ static ge::graphStatus InferShapeForRoiAlignRotatedGradV2(gert::InferShapeContex
         return ge::GRAPH_FAILED;
     }
     gert::Shape* grad_input_shape = context->GetOutputShape(OUTPUT_GRAD_INPUT);
+    if (grad_input_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     grad_input_shape->AppendDim(input_shape->GetDim(BATCH_SIZE_DIM));
     grad_input_shape->AppendDim(input_shape->GetDim(HEIGHT_DIM));
     grad_input_shape->AppendDim(input_shape->GetDim(WIDTH_DIM));
