@@ -7,7 +7,6 @@
 #include "tiling/platform/platform_ascendc.h"
 
 namespace optiling {
-constexpr uint32_t WORKSPACE_16MBYTE_SIZE = 16 * 1024 * 1024;
 
 /****************class impl*****************/
 static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
@@ -28,31 +27,31 @@ static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
         return ge::GRAPH_FAILED;
     }
 
-    constexpr size_t AGG_IDX = 0;
-    constexpr size_t BATCH_IDX = 1;
-    constexpr size_t NSOURCE_IDX = 2;
-    constexpr size_t NPOINT_IDX = 3;
-    constexpr size_t NWEIGHTS_IDX = 4;
-    constexpr size_t NNEIGHBORS_IDX = 5;
-    constexpr size_t NFEATURES_IDX = 6;
-    auto aggregatePtr = attr->GetAttrPointer<uint32_t>(AGG_IDX);
+    constexpr size_t BATCH_IDX = 0;
+    constexpr size_t NSOURCE_IDX = 1;
+    constexpr size_t NPOINT_IDX = 2;
+    constexpr size_t NWEIGHTS_IDX = 3;
+    constexpr size_t NNEIGHBORS_IDX = 4;
+    constexpr size_t NFEATURES_IDX = 5;
+    constexpr size_t AGG_IDX = 6;
     auto batchSizePtr = attr->GetAttrPointer<uint32_t>(BATCH_IDX);
     auto nsourcePtr = attr->GetAttrPointer<uint32_t>(NSOURCE_IDX);
     auto npointPtr = attr->GetAttrPointer<uint32_t>(NPOINT_IDX);
     auto numWeightsPtr = attr->GetAttrPointer<uint32_t>(NWEIGHTS_IDX);
     auto numNeighborsPtr = attr->GetAttrPointer<uint32_t>(NNEIGHBORS_IDX);
     auto numFeaturesPtr = attr->GetAttrPointer<uint32_t>(NFEATURES_IDX);
+    auto aggregatePtr = attr->GetAttrPointer<uint32_t>(AGG_IDX);
     if ((!aggregatePtr) || (!batchSizePtr) || (!nsourcePtr) || (!npointPtr) || (!numWeightsPtr) ||
         (!numNeighborsPtr) || (!numFeaturesPtr)) {
         return ge::GRAPH_FAILED;
     }
-    uint32_t aggregate = *aggregatePtr;
     uint32_t batchSize = *batchSizePtr;
     uint32_t nsource = *nsourcePtr;
     uint32_t npoint = *npointPtr;
     uint32_t numWeights = *numWeightsPtr;
     uint32_t numNeighbors = *numNeighborsPtr;
     uint32_t numFeatures = *numFeaturesPtr;
+    uint32_t aggregate = *aggregatePtr;
     uint32_t numCore = platformInfo.GetCoreNumAiv();
     if (numCore == 0) {
         return ge::GRAPH_FAILED;
@@ -65,8 +64,8 @@ static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
     }
     currentWorkSpace[0] = sysWorkspaceSize;
 
-    uint32_t npointPerCore = npoint / numCore;
-    uint32_t npointRemained = npoint % numCore;
+    uint32_t npointPerCore = (batchSize * numFeatures * npoint) / numCore;
+    uint32_t npointRemained = (batchSize * numFeatures * npoint) % numCore;
 
     AssignScoreWithkTilingData TilingData;
     TilingData.set_npoint_per_core(npointPerCore);
@@ -94,10 +93,10 @@ static ge::graphStatus AssignScoreWithkInferShape(gert::InferShapeContext *conte
     if ((attr == nullptr) || (outputShape == nullptr)) {
         return ge::GRAPH_FAILED;
     }
-    constexpr size_t BATCH_IDX = 1;
-    constexpr size_t NPOINT_IDX = 3;
-    constexpr size_t NNEIGHBORS_IDX = 5;
-    constexpr size_t NFEATURES_IDX = 6;
+    constexpr size_t BATCH_IDX = 0;
+    constexpr size_t NPOINT_IDX = 2;
+    constexpr size_t NNEIGHBORS_IDX = 4;
+    constexpr size_t NFEATURES_IDX = 5;
     auto batchSizePtr = attr->GetAttrPointer<uint32_t>(BATCH_IDX);
     auto npointPtr = attr->GetAttrPointer<uint32_t>(NPOINT_IDX);
     auto numNeighborsPtr = attr->GetAttrPointer<uint32_t>(NNEIGHBORS_IDX);
@@ -111,7 +110,7 @@ static ge::graphStatus AssignScoreWithkInferShape(gert::InferShapeContext *conte
     uint32_t numFeatures = *numFeaturesPtr;
 
     outputShape->SetDimNum(4);
-    *outputShape = {npoint, batchSize, numNeighbors, numFeatures};
+    *outputShape = {batchSize, numFeatures, npoint, numNeighbors};
 
     return GRAPH_SUCCESS;
 }
@@ -148,14 +147,11 @@ public:
             .AutoContiguous();
         this->Input("knn_idx")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
+            .DataType({ge::DT_INT64})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND})
             .AutoContiguous();
 
-        this->Attr("aggregate")
-            .AttrType(REQUIRED)
-            .Int(0);
         this->Attr("batch_size")
             .AttrType(REQUIRED)
             .Int();
@@ -172,6 +168,9 @@ public:
             .AttrType(REQUIRED)
             .Int();
         this->Attr("num_features")
+            .AttrType(REQUIRED)
+            .Int();
+        this->Attr("aggregate")
             .AttrType(REQUIRED)
             .Int();
 

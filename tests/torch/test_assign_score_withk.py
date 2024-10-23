@@ -34,7 +34,7 @@ class TestAssignScoreWithk(TestCase):
         points = np.random.rand(B, N, M, out_dim).astype(np.float32)
         centers = np.random.rand(B, N, M, out_dim).astype(np.float32)
         scores = np.random.rand(B, npoint, K, M).astype(np.float32)
-        knn_idx = np.random.randint(0, N, size=(B, npoint, K)).astype(np.int32)
+        knn_idx = np.random.randint(0, N, size=(B, npoint, K)).astype(np.int64)
         data = [points, centers, scores, knn_idx]
         return data
 
@@ -49,28 +49,30 @@ class TestAssignScoreWithk(TestCase):
         points, centers, scores, knn_idx = self.gen_data(attrs)
         expected_output = self.cpu_forward_op(scores, points, centers, knn_idx, "sum")
         output = mx_driving.common.assign_score_withk(torch.from_numpy(scores).npu(),
-                                                        torch.from_numpy(points).npu(),
-                                                        torch.from_numpy(centers).npu(),
-                                                        torch.from_numpy(knn_idx).npu(),
-                                                        "sum")
-        self.assertRtolEqual(expected_output, output.cpu().numpy())
+                                                      torch.from_numpy(points).npu(),
+                                                      torch.from_numpy(centers).npu(),
+                                                      torch.from_numpy(knn_idx).npu(),
+                                                      "sum")
+        output = output.cpu().numpy()
+        self.assertRtolEqual(expected_output, output)
     
     def test_assign_score_withk_case_2(self):
-        B = 32
+        B = 40
         N = 512
-        npoint = 256
+        npoint = 400
         M = 8
-        K = 32
-        out_dim = 32
+        K = 100
+        out_dim = 30
         attrs = [B, N, npoint, M, K, out_dim]
         points, centers, scores, knn_idx = self.gen_data(attrs)
         expected_output = self.cpu_forward_op(scores, points, centers, knn_idx, "sum")
         output = mx_driving.common.assign_score_withk(torch.from_numpy(scores).npu(),
-                                                        torch.from_numpy(points).npu(),
-                                                        torch.from_numpy(centers).npu(),
-                                                        torch.from_numpy(knn_idx).npu(),
-                                                        "sum")
-        self.assertRtolEqual(expected_output, output.cpu().numpy())
+                                                      torch.from_numpy(points).npu(),
+                                                      torch.from_numpy(centers).npu(),
+                                                      torch.from_numpy(knn_idx).npu(),
+                                                      "sum")
+        output = output.cpu().numpy()
+        self.assertRtolEqual(expected_output, output)
 
     
 

@@ -17,30 +17,32 @@
 #include "csrc/OpApiCommon.h"
 #include "functions.h"
 
-at::Tensor assign_score_withk(
+void assign_score_withk(
     const at::Tensor& points,
     const at::Tensor& centers,
     const at::Tensor& scores,
     const at::Tensor& knn_idx,
-    int32_t aggregate,
+    at::Tensor & output,
     int32_t B,
     int32_t N,
     int32_t npoint,
     int32_t M,
     int32_t K,
-    int32_t out_dim
+    int32_t out_dim,
+    int32_t aggregate
     )
 {
     TORCH_CHECK_NPU(points);
     TORCH_CHECK_NPU(centers);
     TORCH_CHECK_NPU(scores);
     TORCH_CHECK_NPU(knn_idx);
-    TORCH_CHECK(points.dim() == 5, "points.dim() must be 5, but got: ", points.dim());
+    TORCH_CHECK(points.dim() == 4, "points.dim() must be 4, but got: ", points.dim());
     TORCH_CHECK(centers.dim() == 4, "centers.dim() must be 4, but got: ", centers.dim());
-    TORCH_CHECK(scores.dim() == 5, "scores.dim() must be 5, but got: ", scores.dim());
+    TORCH_CHECK(scores.dim() == 4, "scores.dim() must be 4, but got: ", scores.dim());
+    TORCH_CHECK(knn_idx.dim() == 3, "knn_idx.dim() must be 3, but got: ", knn_idx.dim());
 
-    at::Tensor output = at::empty({npoint, B, K, out_dim}, points.options());
-    EXEC_NPU_CMD_SYNC(aclnnAssignScoreWithk, points, centers, scores, knn_idx, aggregate, B, N, npoint, M, K, out_dim, output);
+    at::Tensor points_trans = points.permute({0, 3, 1, 2});
+    at::Tensor centers_trans = centers.permute({0, 3, 1, 2});
 
-    return output;
+    EXEC_NPU_CMD_SYNC(aclnnAssignScoreWithk, points_trans, centers_trans, scores, knn_idx, B, N, npoint, M, K, out_dim, aggregate, output);
 }

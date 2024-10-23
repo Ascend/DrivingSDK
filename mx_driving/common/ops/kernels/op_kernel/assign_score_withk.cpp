@@ -1,10 +1,9 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
- */
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+*/
 #include "kernel_operator.h"
 #include "kernel_tiling/kernel_tiling.h"
 #include "kernel_utils.h"
-
 using namespace AscendC;
 constexpr uint32_t BUFFER_NUM = 1;
 
@@ -12,129 +11,147 @@ template <typename T>
 class AssignScoreWithk {
 public:
     __aicore__ inline AssignScoreWithk(GM_ADDR points, GM_ADDR centers, GM_ADDR scores, GM_ADDR knn_idx, GM_ADDR output,
-                                            GM_ADDR workspace, const AssignScoreWithkTilingData* __restrict tiling_data)
+                                       GM_ADDR workspace, const AssignScoreWithkTilingData* __restrict tiling_data)
     {
         ASSERT(GetBlockNum() != 0 && "block num can not be zero");
-
-        // points shape: npoint, B, K, O, M
-        // centers shape: npoint, B, O, M
-        // socres shape: npoint, B, K, O, M
-        // output shape: npoint, B, K, O
 
         batchSize = tiling_data->batch_size;
         nsource = tiling_data->nsource;
         npoint = tiling_data->npoint;
-        numWeights = tiling_data->num_weights;
+        numWeights= tiling_data->num_weights;
         numNeighbors = tiling_data->num_neighbors;
-        numFeatures = tiling_data->num_features;
+        numFeatures= tiling_data->num_features;
         aggregate = tiling_data->aggregate;
         dataAlign = ONE_BLK_SIZE / sizeof(T);
-        WeightAlign = AlignUp(numWeights, dataAlign);
-        weightFeatAlign = numFeatures *  WeightAlign;
+        weightsAlign= AlignUp(numWeights, dataAlign);
         inner = (numWeights * sizeof(T) + ONE_BLK_SIZE - 1) / ONE_BLK_SIZE * ONE_BLK_SIZE / sizeof(T);
+        ndataPerCore = tiling_data->npoint_per_core;
+        ndataRemained = tiling_data->npoint_remained;
 
-        numDataPoint = batchSize * numNeighbors * numWeights * numFeatures;
-        numDataPointBatch = numNeighbors * numWeights * numFeatures;
-        numDataCenter = batchSize * numWeights * numFeatures;
-        numDataCenterBatch = numWeights * numFeatures;
-        numDataScore = batchSize * numNeighbors * numWeights * numFeatures;
-        numDataScoreBatch = numNeighbors * numWeights * numFeatures;
-        numDataOutput = batchSize * numNeighbors * numFeatures;
-        numDataOutputBatch = numNeighbors * numFeatures;
-        
-        uint32_t npointPerCore = tiling_data->npoint_per_core;
-        uint32_t npointRemained = tiling_data->npoint_remained;
-        uint32_t coreId = GetBlockIdx();
-        if (coreId < npointRemained) {
-            npointInCore = npointPerCore + 1;
-            startPointIdx = coreId * npointInCore;
-            endPointIdx = startPointIdx + npointInCore;
+        coreId = GetBlockIdx();
+        if (coreId < ndataRemained) {
+            ndataInCore = ndataPerCore + 1;
+            startDataIdx = coreId * ndataInCore;
+            endDataIdx = startDataIdx + ndataInCore;
         } else {
-            npointInCore = npointPerCore;
-            startPointIdx = (npointPerCore + 1) * npointRemained + npointPerCore * (coreId - npointRemained);
-            endPointIdx = startPointIdx + npointInCore;
+            ndataInCore = ndataPerCore;
+            startDataIdx = (ndataPerCore + 1) * ndataRemained + ndataPerCore * (coreId - ndataRemained);
+            endDataIdx = startDataIdx + ndataInCore;
         }
 
-        pointsGm.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(points) + startPointIdx * numDataPoint,
-                                    npointInCore * numDataPoint);
-        centersGm.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(centers) + startPointIdx * numDataCenter,
-                                    npointInCore * numDataCenter);
-        scoresGm.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(scores) + startPointIdx * numDataScore,
-                                    npointInCore * numDataScore);
-        outputGm.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(output) + startPointIdx * numDataOutput,
-                                    npointInCore * numDataOutput);
+        startBatchIdx = startDataIdx / (numFeatures * npoint);
+        startFeatureIdx = (startDataIdx - startBatchIdx * numFeatures * npoint) / npoint;
+        startPointIdx = startDataIdx - startBatchIdx * numFeatures * npoint - startFeatureIdx *npoint;
+        numBatchInCore = (startFeatureIdx * npoint + startPointIdx + ndataInCore + numFeatures * npoint - 1) / (numFeatures * npoint);
+        numFeaturesInCore = (startPointIdx + ndataInCore + npoint - 1) / npoint;
 
-        pipe.InitBuffer(pointsQue, BUFFER_NUM, weightFeatAlign * sizeof(T));
-        pipe.InitBuffer(centersQue, BUFFER_NUM, weightFeatAlign * sizeof(T));
-        pipe.InitBuffer(scoresQue, BUFFER_NUM, weightFeatAlign * sizeof(T));
-        pipe.InitBuffer(outputQue, BUFFER_NUM, numFeatures * sizeof(T));
+        pointsGm.SetGlobalBuffer((__gm__ T *)points + startBatchIdx * numFeatures * nsource * numWeights + startFeatureIdx * nsource * numWeights,
+                                numFeaturesInCore * nsource * numWeights);
+        centersGm.SetGlobalBuffer((__gm__ T *)centers + startBatchIdx * numFeatures * nsource * numWeights + startFeatureIdx * nsource * numWeights,
+                                numFeaturesInCore * nsource * numWeights);
+        scoresGm.SetGlobalBuffer((__gm__ T *)scores + startBatchIdx * npoint * numNeighbors * numWeights,
+                                numBatchInCore * npoint * numNeighbors * numWeights);
+        knnIdxGm.SetGlobalBuffer((__gm__ int64_t *)knn_idx + startBatchIdx * npoint * numNeighbors,
+                                numBatchInCore * npoint * numNeighbors);
+        outputGm.SetGlobalBuffer((__gm__ T *)output + startDataIdx * numNeighbors,
+                                ndataInCore * numNeighbors);
+
+        pipe.InitBuffer(pointsQue, BUFFER_NUM, weightsAlign * sizeof(T));
+        pipe.InitBuffer(centersQue, BUFFER_NUM, weightsAlign * sizeof(T));
+        pipe.InitBuffer(scoresQue, BUFFER_NUM, numNeighbors * weightsAlign * sizeof(T));
+        pipe.InitBuffer(knnIdxQue, BUFFER_NUM, numNeighbors * sizeof(int64_t));
+        pipe.InitBuffer(outputQue, BUFFER_NUM, numNeighbors * sizeof(T));
+        pipe.InitBuffer(tempBuf, weightsAlign * sizeof(T));
     }
 
     __aicore__ inline void Process()
     {
-        for (uint32_t i = 0; i < npointInCore; i++) {
-            for (uint32_t j = 0; j < batchSize; j++) {
-                centersLocal = centersQue.AllocTensor<T>();
-                DataCopyPad(centersLocal, centersGm[i * numDataCenter + j * numDataCenterBatch],
-                            {static_cast<uint16_t>(numFeatures), static_cast<uint32_t>(numWeights * sizeof(T)), 0, 0, 0},
-                            {true, 0, static_cast<uint8_t>(WeightAlign - numWeights), 0});
-                centersQue.EnQue(centersLocal);
-                centersLocal = centersQue.DeQue<T>();
-                for (uint32_t k = 0; k < numNeighbors; k++) {
-                    pointsLocal = pointsQue.AllocTensor<T>();
-                    scoresLocal = scoresQue.AllocTensor<T>();
-                    outputLocal = outputQue.AllocTensor<T>();
-                    DataCopyPad(pointsLocal, pointsGm[i * numDataPoint + j * numDataPointBatch + k * numWeights * numFeatures],
-                                {static_cast<uint16_t>(numFeatures), static_cast<uint32_t>(numWeights * sizeof(T)), 0, 0, 0},
-                                {true, 0, static_cast<uint8_t>(WeightAlign - numWeights), 0});
-                    DataCopyPad(scoresLocal, scoresGm[i * numDataScore + j * numDataScoreBatch + k * numWeights * numFeatures],
-                                {static_cast<uint16_t>(numFeatures), static_cast<uint32_t>(numWeights * sizeof(T)), 0, 0, 0},
-                                {true, 0, static_cast<uint8_t>(WeightAlign - numWeights), 0});
-                    pointsQue.EnQue(pointsLocal);
-                    scoresQue.EnQue(scoresLocal);
-                    pointsLocal = pointsQue.DeQue<T>();
-                    scoresLocal = scoresQue.DeQue<T>();
-                    Sub(pointsLocal, pointsLocal, centersLocal, weightFeatAlign);
-                    Mul(pointsLocal, pointsLocal, scoresLocal, weightFeatAlign);
-                    Sum(outputLocal, pointsLocal, {numFeatures, inner, numWeights});
-                    outputQue.EnQue(outputLocal);
-                    outputLocal = outputQue.DeQue<T>();
-                    DataCopyPad(outputGm[i * numDataOutput+ j * numDataOutputBatch + k * numFeatures], outputLocal,
-                        {1, static_cast<uint32_t>(numFeatures * sizeof(T)), 0, 0, 0});
-                    pointsQue.FreeTensor<T>(pointsLocal);
-                    scoresQue.FreeTensor<T>(scoresLocal);
-                    outputQue.FreeTensor<T>(outputLocal);
-                }
-                centersQue.FreeTensor<T>(centersLocal);
+        for (uint32_t i = 0; i < ndataInCore; i++) {
+            uint32_t batchIdx = (startFeatureIdx * npoint + startPointIdx + i) / (numFeatures * npoint);
+            uint32_t featureIdx = (startPointIdx % npoint + i) / npoint;
+            uint32_t pointIdx = (startPointIdx + i) % npoint;
+
+            knnIdxLocal = knnIdxQue.AllocTensor<int64_t>();
+            centersLocal = centersQue.AllocTensor<T>();
+            pointsLocal = pointsQue.AllocTensor<T>();
+            scoresLocal = scoresQue.AllocTensor<T>();
+            outputLocal = outputQue.AllocTensor<T>();
+            tempLocal = tempBuf.Get<T>();
+
+            DataCopyPad(knnIdxLocal, knnIdxGm[batchIdx * npoint * numNeighbors + pointIdx * numNeighbors],
+                        {1, static_cast<uint32_t>(numNeighbors * sizeof(int64_t)), 0, 0, 0},
+                        {false, 0, 0, 0});
+            knnIdxQue.EnQue(knnIdxLocal);
+            knnIdxLocal = knnIdxQue.DeQue<int64_t>();
+
+            DataCopyPad(centersLocal, centersGm[featureIdx * nsource * numWeights + knnIdxLocal.GetValue(0) * numWeights],
+                        {1, static_cast<uint32_t>(numWeights * sizeof(T)), 0, 0, 0},
+                        {true, 0, static_cast<uint8_t>(weightsAlign - numWeights), 0});
+            centersQue.EnQue(centersLocal);
+            centersLocal = centersQue.DeQue<T>();
+
+            for (uint32_t k = 0; k < numNeighbors; k++) {
+                uint32_t idx = knnIdxLocal.GetValue(k);
+                DataCopyPad(pointsLocal, pointsGm[featureIdx * nsource * numWeights + idx * numWeights],
+                            {1, static_cast<uint32_t>(numWeights * sizeof(T)), 0, 0, 0},
+                            {true, 0, static_cast<uint8_t>(weightsAlign - numWeights), 0});
+                pointsQue.EnQue(pointsLocal);
+
+                DataCopyPad(scoresLocal, scoresGm[batchIdx * npoint * numNeighbors * numWeights + pointIdx * numNeighbors * numWeights + k * numWeights],
+                            {1, static_cast<uint32_t>(numWeights * sizeof(T)), 0, 0, 0},
+                            {true, 0, static_cast<uint8_t>(weightsAlign - numWeights), 0});
+                scoresQue.EnQue(scoresLocal);
+
+                pointsLocal = pointsQue.DeQue<T>();
+                scoresLocal = scoresQue.DeQue<T>();
+                Sub(pointsLocal, pointsLocal, centersLocal, weightsAlign);
+                Mul(pointsLocal, pointsLocal, scoresLocal, weightsAlign);
+                Sum(tempLocal, pointsLocal, {1, inner, numWeights});
+                outputLocal.SetValue(k, tempLocal.GetValue(0));
             }
+            outputQue.EnQue(outputLocal);
+            outputLocal = outputQue.DeQue<T>();
+            DataCopyPad(outputGm[i * numNeighbors], outputLocal,
+                {1, static_cast<uint32_t>(numNeighbors * sizeof(T)), 0, 0, 0});
+
+            centersQue.FreeTensor<T>(centersLocal);
+            knnIdxQue.FreeTensor<int64_t>(knnIdxLocal);
+            pointsQue.FreeTensor<T>(pointsLocal);
+            scoresQue.FreeTensor<T>(scoresLocal);
+            outputQue.FreeTensor<T>(outputLocal);
         }
     }
+
 private:
     TPipe pipe;
     GlobalTensor<T> pointsGm, centersGm, scoresGm, outputGm;
-    TQue<TPosition::VECIN, BUFFER_NUM> pointsQue, centersQue, scoresQue;
+    GlobalTensor<int64_t> knnIdxGm;
+    TQue<TPosition::VECIN, BUFFER_NUM> pointsQue, centersQue, scoresQue, knnIdxQue;
     TQue<TPosition::VECOUT, BUFFER_NUM> outputQue;
+    TBuf<TPosition::VECCALC> tempBuf;
     LocalTensor<T> pointsLocal, centersLocal, scoresLocal, outputLocal, tempLocal;
+    LocalTensor<int64_t> knnIdxLocal;
 
 private:
+    uint32_t aggregate;
     uint32_t batchSize;
     uint32_t nsource;
     uint32_t npoint;
     uint32_t numWeights;
     uint32_t numNeighbors;
     uint32_t numFeatures;
-    uint32_t npointInCore;
-    uint32_t aggregate;
-    uint32_t startPointIdx;
-    uint32_t endPointIdx;
-    uint32_t numDataPoint, numDataPointBatch, numDataPointBatchAlign;
-    uint32_t numDataCenter, numDataCenterBatch, numDataCenterBatchAlign;
-    uint32_t numDataScore, numDataScoreBatch, numDataScoreBatchAlign;
-    uint32_t numDataOutput, numDataOutputBatch, numDataOutputBatchAlign;
-    uint32_t dataAlign;
+    uint32_t ndataInCore;
+    uint32_t coreId;
+    uint32_t ndataPerCore, ndataRemained, startDataIdx, endDataIdx;
     uint32_t inner;
-    uint32_t weightFeatAlign;
-    uint32_t WeightAlign;
+    uint32_t dataAlign;
+    uint32_t weightsFeatsAlign;
+    uint32_t weightsAlign;
+    uint32_t startBatchIdx;
+    uint32_t startFeatureIdx;
+    uint32_t startPointIdx;
+    uint32_t numFeaturesInCore;
+    uint32_t numBatchInCore;
 };
 
 extern "C" __global__ __aicore__ void assign_score_withk(

@@ -40,7 +40,7 @@ std::tuple<at::Tensor, at::Tensor> npu_sort_pairs(const at::Tensor &keys_in, con
 
 at::Tensor npu_hypot(const at::Tensor& input, const at::Tensor& other);
 
-at::Tensor assign_score_withk(const at::Tensor& points, const at::Tensor& centers, const at::Tensor& scores, const at::Tensor& knn_idx,
-                              int32_t aggregate, int32_t B, int32_t N, int32_t npoint, int32_t M, int32_t K, int32_t out_dim);
+void assign_score_withk(const at::Tensor& points, const at::Tensor& centers, const at::Tensor& scores, const at::Tensor& knn_idx,
+                        at::Tensor& output, int32_t B, int32_t N, int32_t npoint, int32_t M, int32_t K, int32_t out_dim, int32_t aggregate);
 
 #endif // COMMON_OPS_CSRC_FUNCTIONS_H_
