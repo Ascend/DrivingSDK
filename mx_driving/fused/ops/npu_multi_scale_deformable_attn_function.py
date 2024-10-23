@@ -25,9 +25,9 @@ class MultiScaleDeformableAttnFunction(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        value, shape, offset, locations_trans, weight = ctx.saved_tensors
+        value, shape, offset, locations, weight = ctx.saved_tensors
         grad_value, grad_locations, grad_weight = ads_c.multi_scale_deformable_attn_grad(
-            value, shape, offset, locations_trans, weight, grad_output
+            value, shape, offset, locations, weight, grad_output
         )
         return grad_value, None, None, grad_locations, grad_weight
 

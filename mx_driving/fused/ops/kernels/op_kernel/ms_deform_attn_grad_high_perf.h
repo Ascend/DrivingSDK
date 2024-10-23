@@ -357,7 +357,7 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
     for (uint32_t head = 0; head < numHeads_; ++head) {
         uint32_t valueOffset = (baseSrcOffset_ + head) * embedDims_;
         uint32_t outOffset = head * alignedEmbedDims_;
-        uint32_t weightOffset = weightOffset_ + head * realLevels_ * num_points;
+        uint32_t weightOffset = weightOffset_ + head * realLevels_ * numPoints_;
 
         for (uint32_t level = 0; level < numLevels_; ++level) {
             SetVectorMask<float>(0, (1UL << embedDims_) - 1);
