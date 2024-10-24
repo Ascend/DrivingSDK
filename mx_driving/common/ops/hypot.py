@@ -15,4 +15,4 @@ class Hypot(Function):
         out = ads_c.npu_hypot(x_broadcasted.contiguous(), y_broadcasted.contiguous())
         return out
 
-npu_hypot = Hypot.apply
+hypot = Hypot.apply

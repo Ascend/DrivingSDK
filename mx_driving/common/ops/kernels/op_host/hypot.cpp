@@ -6,11 +6,13 @@
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/tiling_api.h"
+#include <algorithm>
 
 namespace optiling {
 constexpr uint32_t SIZE_OF_FLOAT = 4;
-constexpr uint32_t BLOCK_SIZE = 32;
-constexpr uint32_t ALIGN_NUM = BLOCK_SIZE / SIZE_OF_FLOAT;
+constexpr uint32_t BLOCK_SIZE = 4096;
+constexpr uint32_t BYTE_BLOCK = 32;
+constexpr uint32_t ALIGN_NUM = BYTE_BLOCK / SIZE_OF_FLOAT;
 constexpr uint32_t RESERVED_UB_SIZE = 16 * 1024;
 constexpr uint32_t BUFFER_NUM = 2;
 
@@ -28,13 +30,19 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
         return ge::GRAPH_FAILED;
     }
     uint32_t totalLength = context->GetInputTensor(0)->GetShapeSize();
-    context->SetBlockDim(coreNum);
 
     uint32_t totalLengthAligned = ((totalLength + ALIGN_NUM - 1) / ALIGN_NUM) * ALIGN_NUM;
-    uint32_t formerNum = (totalLengthAligned / ALIGN_NUM) % coreNum;
-    uint32_t tailNum = coreNum - formerNum;
+    uint32_t usedCoreNum = (totalLengthAligned - 1) / BLOCK_SIZE + 1;
+    usedCoreNum = std::min(usedCoreNum, coreNum);
+    if (usedCoreNum == 0) {
+        return ge::GRAPH_FAILED;
+    }
+    context->SetBlockDim(usedCoreNum);
 
-    uint32_t baseLength = totalLengthAligned / ALIGN_NUM / coreNum;
+    uint32_t formerNum = (totalLengthAligned / ALIGN_NUM) % usedCoreNum;
+    uint32_t tailNum = usedCoreNum - formerNum;
+
+    uint32_t baseLength = totalLengthAligned / ALIGN_NUM / usedCoreNum;
     uint32_t formerLength = (baseLength + (formerNum ? 1 : 0)) * ALIGN_NUM;
     uint32_t tailLength = baseLength * ALIGN_NUM;
 

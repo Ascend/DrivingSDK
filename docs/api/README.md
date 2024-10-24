@@ -187,6 +187,32 @@ dist, idx = three_nn(target, source)
 2. 距离相同时索引存在不稳定排序问题，遇到距离精度通过但索引精度错误时，复用不稳定排序的CCB结论
 
 
+## hypot
+### 接口原型
+```python
+mx_driving.common.hypot(Tensor input, Tensor other) -> Tensor
+```
+### 功能描述
+给出直角三角形的两边，返回它的斜边。
+### 参数说明
+- `input(Tensor)`：代表直角三角形第一条直角边的输入张量，数据类型为`float32`。
+- `other(Tensor)`：代表直角三角形第二条直角边的输入张量，数据类型为`float32`。
+### 返回值
+- `Tensor`：经过计算后的直角三角形斜边，数据类型为`float32`。
+### 支持的型号
+- Atlas A2 训练系列产品
+### 调用示例
+```python
+import torch, torch_npu
+from mx_driving.common import hypot
+input = torch.tensor([3,3,3], dtype=torch.float32).npu()
+other = torch.tensor([4,4,4], dtype=torch.float32).npu()
+out = hypot(input, other) # tensor([5.,5.,5.])
+```
+### 算子约束
+1. input和other的shape必须是可广播的。
+
+
 # 数据预处理算子
 ## npu_points_in_box
 ### 接口原型
