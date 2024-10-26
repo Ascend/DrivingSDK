@@ -1,4 +1,5 @@
 from .ops.group_points import npu_group_points
+from .ops.group_points import group_points
 from .ops.bev_pool import bev_pool
 from .ops.bev_pool_v2 import bev_pool_v2
 from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_dist

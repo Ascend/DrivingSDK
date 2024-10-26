@@ -4,7 +4,7 @@ import numpy as np
 
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-from mx_driving.point import npu_group_points
+from mx_driving.point import npu_group_points, group_points
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -53,8 +53,10 @@ class TestGroupPoints(TestCase):
 
                 cpu_out = self.cpu_group_points(np_points, np_indices, np_out)
                 npu_out = npu_group_points(th_points, th_indices)
-
+                out = group_points(th_points, th_indices)
+                
                 self.assertRtolEqual(cpu_out, npu_out.cpu().numpy())
+                self.assertRtolEqual(cpu_out, out.cpu().numpy())
 
 
 if __name__ == "__main__":

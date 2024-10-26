@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import warnings
 import torch
 import numpy as np
 from torch.autograd import Function
@@ -79,4 +80,11 @@ class AdsGroupPoints(Function):
             nsample)
         return grad_features, None
 
-npu_group_points = AdsGroupPoints.apply
+
+def group_points(features: torch.Tensor, indices: torch.Tensor):
+    return AdsGroupPoints.apply(features, indices)
+
+
+def npu_group_points(features: torch.Tensor, indices: torch.Tensor):
+    warnings.warn("`npu_group_points` will be deprecated in future. Please use `group_points` instead.", DeprecationWarning)
+    return AdsGroupPoints.apply(features, indices)

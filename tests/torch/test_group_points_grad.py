@@ -5,6 +5,7 @@ import numpy as np
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 import ads_c
+import mx_driving
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]

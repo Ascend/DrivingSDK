@@ -726,6 +726,7 @@ out = npu_furthest_point_sampling(points, 2)
 ### 算子约束
 1. points输入shape[B, N, 3]的总大小(B x N x 3)不应该超过383166
 ## npu_group_points
+Note：该接口命名将于2025年改为'group_points'。
 ### 接口原型
 ```python
 mx_driving.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
