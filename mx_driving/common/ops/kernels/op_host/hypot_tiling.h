@@ -21,6 +21,7 @@ BEGIN_TILING_DATA_DEF(HypotTilingData)
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(Hypot, HypotTilingData)
+REGISTER_TILING_DATA_CLASS(HypotGrad, HypotTilingData)
 }
 
 #endif // HYPOT_TILING_H

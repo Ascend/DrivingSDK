@@ -10,12 +10,12 @@
 
 namespace optiling {
 constexpr uint32_t SIZE_OF_FLOAT = 4;
-constexpr uint32_t BLOCK_SIZE = 4096;
+constexpr uint32_t BLOCK_SIZE = 2048;
 constexpr uint32_t BYTE_BLOCK = 32;
 constexpr uint32_t ALIGN_NUM = BYTE_BLOCK / SIZE_OF_FLOAT;
 constexpr uint32_t RESERVED_UB_SIZE = 16 * 1024;
 constexpr uint32_t BUFFER_NUM = 2;
-constexpr uint32_t QUEUE_NUM = 3;
+constexpr uint32_t QUEUE_NUM = 6;
 
 static ge::graphStatus TilingFunc(gert::TilingContext *context)
 {
@@ -79,8 +79,10 @@ namespace ge {
 static ge::graphStatus Infershape(gert::InferShapeContext *context)
 {
     const auto inputShape = context->GetInputShape(0);
-    auto outputShape = context->GetOutputShape(0);
-    *outputShape = *inputShape;
+    auto outputShape1 = context->GetOutputShape(0);
+    auto outputShape2 = context->GetOutputShape(1);
+    *outputShape1 = *inputShape;
+    *outputShape2 = *inputShape;
     return GRAPH_SUCCESS;
 }
 
@@ -88,14 +90,15 @@ static ge::graphStatus InferDtype(gert::InferDataTypeContext *context)
 {
     const auto out_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, out_dtype);
+    context->SetOutputDataType(1, out_dtype);
     return GRAPH_SUCCESS;
 }
 }
 
 namespace ops {
-class Hypot : public OpDef {
+class HypotGrad : public OpDef {
 public:
-    explicit Hypot(const char* name) : OpDef(name)
+    explicit HypotGrad(const char* name) : OpDef(name)
     {
         this->Input("x")
             .ParamType(REQUIRED)
@@ -107,7 +110,22 @@ public:
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
-        this->Output("out")
+        this->Input("z")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
+        this->Input("z_grad")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
+        this->Output("x_grad")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
+        this->Output("y_grad")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
@@ -120,5 +138,5 @@ public:
     }
 };
 
-OP_ADD(Hypot);
+OP_ADD(HypotGrad);
 }

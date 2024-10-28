@@ -44,6 +44,7 @@ void init_common(pybind11::module& m)
 
     // npu_hypot
     m.def("npu_hypot", &npu_hypot);
+    m.def("npu_hypot_grad", &npu_hypot_grad);
 
     // assign_score_withk
     m.def("assign_score_withk", &assign_score_withk);

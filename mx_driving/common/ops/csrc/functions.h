@@ -38,7 +38,9 @@ std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor&
                                                     c10::optional<int> dim_size);
 std::tuple<at::Tensor, at::Tensor> npu_sort_pairs(const at::Tensor &keys_in, const at::Tensor &values_in, int64_t dim, bool descending);
 
-at::Tensor npu_hypot(const at::Tensor& input, const at::Tensor& other);
+at::Tensor npu_hypot(const at::Tensor& x, const at::Tensor& y);
+
+std::tuple<at::Tensor, at::Tensor> npu_hypot_grad(const at::Tensor& x, const at::Tensor& y, const at::Tensor& out, const at::Tensor& out_grad);
 
 void assign_score_withk(const at::Tensor& points, const at::Tensor& centers, const at::Tensor& scores, const at::Tensor& knn_idx,
                         at::Tensor& output, int32_t B, int32_t N, int32_t npoint, int32_t M, int32_t K, int32_t out_dim, int32_t aggregate);
