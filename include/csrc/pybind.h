@@ -15,7 +15,7 @@
 // limitations under the License.
 #ifndef CSRC_PYBIND_H_
 #define CSRC_PYBIND_H_
-#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
 
 void init_common(pybind11::module& m);
 void init_fused(pybind11::module& m);

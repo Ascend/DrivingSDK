@@ -26,16 +26,16 @@ import mmcv
 import cv2 as cv
 from projects.mmdet3d_plugin.models.utils.visual import save_tensor
 import mx_driving.common
-import ads_c
+import mx_driving._C
 from mmdet.models.builder import build_loss
 
 
 def custom_unique_n3(coors, return_inverse, return_counts, dim):
     # assert dim == 0
 
-    voxels = ads_c.point_to_voxel(coors, [], [], "ZYX")
-    cnt, unq_voxels, unq_ind, argsort_ind, _ = ads_c.unique_voxel(voxels)
-    unq_coors = ads_c.voxel_to_point(unq_voxels, [], [], "ZYX")
+    voxels = mx_driving._C.point_to_voxel(coors, [], [], "ZYX")
+    cnt, unq_voxels, unq_ind, argsort_ind, _ = mx_driving._C.unique_voxel(voxels)
+    unq_coors = mx_driving._C.voxel_to_point(unq_voxels, [], [], "ZYX")
     
     if return_inverse:
         sorted_ind = torch.argsort(argsort_ind.to(torch.float32), dim=dim).to(torch.long)

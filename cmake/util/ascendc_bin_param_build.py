@@ -110,6 +110,8 @@ class BinParamBuilder(opdesc_parser.OpDesc):
             fd.write(chk)
             chk = const_var.CHK_CMD.format(res_file=bin_file + '.o')
             fd.write(chk)
+            chm = const_var.CHM_CMD
+            fd.write(chm)
             fd.write('echo "[{}] Generating {} Done"\n'.format(hard_soc, bin_file))
 
 

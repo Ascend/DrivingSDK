@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads_c
+import mx_driving._C
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -22,7 +22,7 @@ class TestHardVoxelize(TestCase):
 
     def npu_hard_voxelize(self, points):
         points_npu = torch.from_numpy(points.astype(np.float32)).npu()
-        cnt, pts, voxs, num_per_vox = ads_c.hard_voxelize(
+        cnt, pts, voxs, num_per_vox = mx_driving._C.hard_voxelize(
             points_npu, [0.075, 0.075, 0.2], [-54, -54, -5, 54, 54, 5], 10, 1000
         )
         return cnt, voxs.cpu().numpy()

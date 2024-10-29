@@ -1,9 +1,8 @@
 function(install_target)
   cmake_parse_arguments(INSTALL_TARGET "" "DST;TRG" "" ${ARGN})
   set_target_properties(
-    ${INSTALL_TARGET_TRG}
-    PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-               ${MX_DRIVING_PATH}/${INSTALL_TARGET_DST})
+    ${INSTALL_TARGET_TRG} PROPERTIES LIBRARY_OUTPUT_DIRECTORY
+                                     ${MX_DRIVING_PATH}/${INSTALL_TARGET_DST})
   install(TARGETS ${INSTALL_TARGET_TRG}
           LIBRARY DESTINATION ${INSTALL_TARGET_DST})
 endfunction()
@@ -41,33 +40,31 @@ function(opbuild)
                         "OPS_SRC" ${ARGN})
   set(CANN_INCLUDE_PATH "")
   set(CANN_LIB_PATH "")
-  ## if the CANN_PATHS not empty
+  # if the CANN_PATHS not empty
   if(CANN_PATHS)
-    ## if the arch is aarch64, add the include path
+    # if the arch is aarch64, add the include path
     if(${ARCH} STREQUAL "aarch64")
       set(CANN_INCLUDE_PATH ${CANN_PATHS}/aarch64-linux/include)
       set(CANN_LIB_PATH ${CANN_PATHS}/aarch64-linux/lib64)
-    else ()
+    else()
       set(CANN_INCLUDE_PATH ${CANN_PATHS}/x86_64-linux/include)
       set(CANN_LIB_PATH ${CANN_PATHS}/x86_64-linux/lib64)
     endif()
   endif()
   if(NOT EXISTS ${CANN_INCLUDE_PATH})
-      message(FATAL_ERROR "CANN include path not found: ${CANN_PATHS}")
+    message(FATAL_ERROR "CANN include path not found: ${CANN_PATHS}")
   endif()
-    if(NOT EXISTS ${CANN_LIB_PATH})
-        message(FATAL_ERROR "CANN lib path not found: ${CANN_PATHS}")
+  if(NOT EXISTS ${CANN_LIB_PATH})
+    message(FATAL_ERROR "CANN lib path not found: ${CANN_PATHS}")
   endif()
   message(STATUS "CANN include path: ${CANN_INCLUDE_PATH}")
   message(STATUS "CANN lib path: ${CANN_LIB_PATH}")
   # filter single op
-  if (NOT "${SINGLE_OP}x" STREQUAL "x")
-    list(FILTER OPBUILD_OPS_SRC INCLUDE REGEX ${SINGLE_OP})
-  endif()
   execute_process(
     COMMAND
       ${CMAKE_COMPILE} -g -fPIC -shared -std=c++11 ${OPBUILD_OPS_SRC}
-      -D_GLIBCXX_USE_CXX11_ABI=0 -I ${CANN_INCLUDE_PATH} -L ${CANN_LIB_PATH} -lexe_graph -lregister -ltiling_api -o
+      -D_GLIBCXX_USE_CXX11_ABI=0 -I ${CANN_INCLUDE_PATH} -L ${CANN_LIB_PATH}
+      -lexe_graph -lregister -ltiling_api -o
       ${OPBUILD_OUT_DIR}/libascend_all_ops.so
     RESULT_VARIABLE EXEC_RESULT
     OUTPUT_VARIABLE EXEC_INFO
@@ -180,61 +177,68 @@ function(add_bin_compile_target)
   endif()
   add_custom_target(${BINCMP_TARGET} COMMAND cp -r ${BINCMP_IMPL_DIR}/*.*
                                              ${BINCMP_OUT_DIR}/src)
-  add_custom_target(
-    ${BINCMP_TARGET}_gen_ops_config ALL
-    COMMAND
-      ${ASCEND_PYTHON_EXECUTABLE}
-      ${CMAKE_SOURCE_DIR}/cmake/util/insert_simplified_keys.py -p
-      ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}
-    COMMAND
-      ${ASCEND_PYTHON_EXECUTABLE}
-      ${CMAKE_SOURCE_DIR}/cmake/util/ascendc_ops_config.py -p
-      ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT} -s ${BINCMP_COMPUTE_UNIT})
-  file(GLOB bin_scripts ${BINCMP_OUT_DIR}/gen/*.sh)
-  foreach(bin_script ${bin_scripts})
-    get_filename_component(bin_file ${bin_script} NAME_WE)
-    string(REPLACE "-" ";" bin_sep ${bin_file})
-    list(GET bin_sep 0 op_type)
-    list(GET bin_sep 1 op_file)
-    list(GET bin_sep 2 op_index)
-    if(NOT TARGET ${BINCMP_TARGET}_${op_file}_copy)
-      add_custom_target(
-        ${BINCMP_TARGET}_${op_file}_copy
-        COMMAND cp ${BINCMP_ADP_DIR}/${op_file}.py
-                ${BINCMP_OUT_DIR}/src/${op_type}.py
-        DEPENDS ascendc_impl_gen)
-      install(
-        DIRECTORY ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/${op_file}
-        DESTINATION ${BINCMP_INSTALL_DIR}/${BINCMP_COMPUTE_UNIT}
-        OPTIONAL)
-      install(
-        FILES ${BINCMP_KERNEL_DIR}/config/${BINCMP_COMPUTE_UNIT}/${op_file}.json
-        DESTINATION ${BINCMP_INSTALL_DIR}/config/${BINCMP_COMPUTE_UNIT}
-        OPTIONAL)
-    endif()
+
+  file(GLOB bin_scripts ${BINCMP_OUT_DIR}/gen/*${KERNEL_NAME}*.sh)
+  # if bin_scripts not empty
+  if(bin_scripts)
     add_custom_target(
-      ${BINCMP_TARGET}_${op_file}_${op_index}
+      ${BINCMP_TARGET}_gen_ops_config ALL
       COMMAND
-        export HI_PYTHON=${ASCEND_PYTHON_EXECUTABLE} && export
-        ASCEND_CUSTOM_OPP_PATH=${MX_DRIVING_PATH}/packages/vendors/${vendor_name}
-        && bash ${CMAKE_SOURCE_DIR}/scripts/retry.sh \"bash ${bin_script} ${BINCMP_OUT_DIR}/src/${op_type}.py
-${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/${op_file}\"
-      WORKING_DIRECTORY ${BINCMP_OUT_DIR})
-    add_dependencies(${BINCMP_TARGET}_${op_file}_${op_index} ${BINCMP_TARGET}
-                     ${BINCMP_TARGET}_${op_file}_copy)
-    add_dependencies(${BINCMP_TARGET}_gen_ops_config
-                     ${BINCMP_TARGET}_${op_file}_${op_index})
-  endforeach()
-  add_custom_command(
-    TARGET ${BINCMP_TARGET}_gen_ops_config
-    POST_BUILD
-    COMMAND mv ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/*.json
-            ${BINCMP_KERNEL_DIR}/config/${BINCMP_COMPUTE_UNIT})
-  install(
-    FILES
-      ${BINCMP_KERNEL_DIR}/config/${BINCMP_COMPUTE_UNIT}/binary_info_config.json
-    DESTINATION ${BINCMP_INSTALL_DIR}/config/${BINCMP_COMPUTE_UNIT}
-    OPTIONAL)
+        ${ASCEND_PYTHON_EXECUTABLE}
+        ${CMAKE_SOURCE_DIR}/cmake/util/insert_simplified_keys.py -p
+        ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}
+      COMMAND
+        ${ASCEND_PYTHON_EXECUTABLE}
+        ${CMAKE_SOURCE_DIR}/cmake/util/ascendc_ops_config.py -p
+        ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT} -s ${BINCMP_COMPUTE_UNIT})
+
+    foreach(bin_script ${bin_scripts})
+      get_filename_component(bin_file ${bin_script} NAME_WE)
+      string(REPLACE "-" ";" bin_sep ${bin_file})
+      list(GET bin_sep 0 op_type)
+      list(GET bin_sep 1 op_file)
+      list(GET bin_sep 2 op_index)
+      if(NOT TARGET ${BINCMP_TARGET}_${op_file}_copy)
+        add_custom_target(
+          ${BINCMP_TARGET}_${op_file}_copy
+          COMMAND cp ${BINCMP_ADP_DIR}/${op_file}.py
+                  ${BINCMP_OUT_DIR}/src/${op_type}.py
+          DEPENDS ascendc_impl_gen)
+        install(
+          DIRECTORY ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/${op_file}
+          DESTINATION ${BINCMP_INSTALL_DIR}/${BINCMP_COMPUTE_UNIT}
+          OPTIONAL)
+        install(
+          FILES
+            ${BINCMP_KERNEL_DIR}/config/${BINCMP_COMPUTE_UNIT}/${op_file}.json
+          DESTINATION ${BINCMP_INSTALL_DIR}/config/${BINCMP_COMPUTE_UNIT}
+          OPTIONAL)
+      endif()
+      add_custom_target(
+        ${BINCMP_TARGET}_${op_file}_${op_index}
+        COMMAND
+          export HI_PYTHON=${ASCEND_PYTHON_EXECUTABLE} && export
+          ASCEND_CUSTOM_OPP_PATH=${MX_DRIVING_PATH}/packages/vendors/${vendor_name}
+          && bash ${CMAKE_SOURCE_DIR}/scripts/retry.sh \"bash ${bin_script}
+          ${BINCMP_OUT_DIR}/src/${op_type}.py
+          ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/${op_file}\"
+        WORKING_DIRECTORY ${BINCMP_OUT_DIR})
+      add_dependencies(${BINCMP_TARGET}_${op_file}_${op_index} ${BINCMP_TARGET}
+                       ${BINCMP_TARGET}_${op_file}_copy)
+      add_dependencies(${BINCMP_TARGET}_gen_ops_config
+                       ${BINCMP_TARGET}_${op_file}_${op_index})
+    endforeach()
+    add_custom_command(
+      TARGET ${BINCMP_TARGET}_gen_ops_config
+      POST_BUILD
+      COMMAND mv ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/*.json
+              ${BINCMP_KERNEL_DIR}/config/${BINCMP_COMPUTE_UNIT})
+    install(
+      FILES
+        ${BINCMP_KERNEL_DIR}/config/${BINCMP_COMPUTE_UNIT}/binary_info_config.json
+      DESTINATION ${BINCMP_INSTALL_DIR}/config/${BINCMP_COMPUTE_UNIT}
+      OPTIONAL)
+  endif()
 endfunction()
 
 function(protobuf_generate)

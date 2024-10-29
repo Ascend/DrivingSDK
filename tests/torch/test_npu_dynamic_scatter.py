@@ -6,7 +6,7 @@ import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 from torch_npu.testing.common_utils import create_common_tensor
 
-import ads_c
+import mx_driving._C
 import mx_driving.point
 
 
@@ -119,7 +119,7 @@ class TestDynamicScatter(TestCase):
 
         self.grad_cpu_op_exec([golden_result, grad_voxel_feats.contiguous().cpu(), prefix_sum_point_per_voxel.cpu(),
                               argsort_coor.cpu(), compare_mask.cpu()], reduce_type)
-        ads_c.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),
+        mx_driving._C.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),
                                        prefix_sum_point_per_voxel, argsort_coor, compare_mask, reduce_type)
         self.assertRtolEqual(golden_result.cpu().numpy(), grad_point_feats.cpu().numpy())
 
@@ -141,7 +141,7 @@ class TestDynamicScatter(TestCase):
 
         self.grad_cpu_op_exec([golden_result, grad_voxel_feats.contiguous().cpu(), prefix_sum_point_per_voxel.cpu(),
                               argsort_coor.cpu(), compare_mask.cpu()], reduce_type)
-        ads_c.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),
+        mx_driving._C.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),
                                        prefix_sum_point_per_voxel, argsort_coor, compare_mask, reduce_type)
         self.assertRtolEqual(golden_result.cpu().numpy(), grad_point_feats.cpu().numpy())
 
@@ -163,7 +163,7 @@ class TestDynamicScatter(TestCase):
 
         self.grad_cpu_op_exec([golden_result, grad_voxel_feats.contiguous().cpu(), prefix_sum_point_per_voxel.cpu(),
                               argsort_coor.cpu(), compare_mask.cpu()], reduce_type)
-        ads_c.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),
+        mx_driving._C.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(),
                                        prefix_sum_point_per_voxel, argsort_coor, compare_mask, reduce_type)
         self.assertRtolEqual(golden_result.cpu().numpy(), grad_point_feats.cpu().numpy())
 

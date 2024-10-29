@@ -8,7 +8,7 @@ import torch_npu
 import torch.nn as nn
 from torch.autograd import Function
 
-import ads_c
+import mx_driving._C
 
 
 class RoIAlignRotatedFunction(Function):
@@ -28,7 +28,7 @@ class RoIAlignRotatedFunction(Function):
 
         output = feature_map.new_zeros(num_rois, ctx.pooled_height, ctx.pooled_width, num_channels).to(feature_map.device)
 
-        ads_c.roi_align_rotated_v2_forward_npu(
+        mx_driving._C.roi_align_rotated_v2_forward_npu(
             feature_map,
             rois,
             output,
@@ -46,7 +46,7 @@ class RoIAlignRotatedFunction(Function):
         feature_map, rois = ctx.saved_tensors
         rois_trans = torch.permute(rois, (1, 0)).contiguous()
         grad_output_trans = torch.permute(grad_output, (0, 2, 3, 1)).contiguous()
-        grad_feature_map = ads_c.npu_roi_align_rotated_grad_v2(
+        grad_feature_map = mx_driving._C.npu_roi_align_rotated_grad_v2(
             feature_map, rois_trans, grad_output_trans,
             ctx.pooled_height, ctx.pooled_width, ctx.spatial_scale,
             ctx.sampling_ratio, ctx.aligned, ctx.clockwise)

@@ -12,7 +12,7 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class AdsKnn(Function):
@@ -43,7 +43,7 @@ class AdsKnn(Function):
             print('center_xyz and xyz should be on the same device.')
             return None
 
-        dist2, idx = ads_c.knn(xyz, center_xyz, k, True)
+        dist2, idx = mx_driving._C.knn(xyz, center_xyz, k, True)
         zeros_idx = torch.zeros(xyz.shape[0], center_xyz.shape[1], k, dtype=torch.int32).npu()
         idx.where(dist2 >= 1e10, zeros_idx)
         idx = idx.transpose(2, 1).contiguous() # [B, k, npoint]

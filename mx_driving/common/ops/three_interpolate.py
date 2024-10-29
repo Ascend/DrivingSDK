@@ -14,7 +14,7 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class ThreeInterpolateFunction(Function):
@@ -27,7 +27,7 @@ class ThreeInterpolateFunction(Function):
         n = indices.size(1)
         ctx.three_interpolate_for_backward = (indices, weight, m)
 
-        func = ads_c.npu_three_interpolate
+        func = mx_driving._C.npu_three_interpolate
         out = func(b, c, m, n, features, indices, weight)
 
         return out
@@ -42,7 +42,7 @@ class ThreeInterpolateFunction(Function):
         grad_out_data = grad_out.data.contiguous().to(torch.float)
         weight = weight.to(torch.float)
 
-        grad_features = ads_c.npu_three_interpolate_backward(b, c, n, m, grad_out_data, idx, weight)
+        grad_features = mx_driving._C.npu_three_interpolate_backward(b, c, n, m, grad_out_data, idx, weight)
 
         if grad_out_dtype == torch.half:
             grad_features = grad_features.to(torch.half)

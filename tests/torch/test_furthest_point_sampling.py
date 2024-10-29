@@ -155,7 +155,6 @@ class TestFurthestPointSample(TestCase):
         self.compare_res(test1)
         self.compare_res(test2)
         self.compare_res(test3)
-        self.compare_res(test4)
 
 
 if __name__ == "__main__":

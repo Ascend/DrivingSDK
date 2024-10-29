@@ -871,7 +871,7 @@ voxel_feats, voxel_coors = npu_dynamic_scatter(feats, coors, 'max')
 ## unique_voxel
 ### 接口原型
 ```python
-ads_c.unique_voxel(Tensor voxels) -> int, Tensor, Tensor, Tensor, Tensor
+mx_driving._C.unique_voxel(Tensor voxels) -> int, Tensor, Tensor, Tensor, Tensor
 ```
 ### 功能描述
 对输入的点云数据进行去重处理。
@@ -894,7 +894,7 @@ N的大小受限于内存大小，建议N小于等于2^32。
 import torch
 import torch_npu
 import numpy as np
-from ads_c import unique_voxel
+from mx_driving._C import unique_voxel
 voxels = np.random.randint(0, 1024, (100000,)).astype(np.int32)
 voxels_npu = torch.from_numpy(voxels).npu()
 num_voxels, uni_voxels, uni_indices, argsort_indices, uni_argsort_indices = unique_voxel(voxels_npu)

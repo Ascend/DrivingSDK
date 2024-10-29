@@ -2,7 +2,7 @@ import os
 
 import torch
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 def _set_env():
@@ -15,7 +15,7 @@ def _set_env():
     os.environ["ASCEND_CUSTOM_OPP_PATH"] = ascend_custom_opp_path
 
     mx_driving_op_api_so_path = os.path.join(mx_driving_opp_path, "op_api", "lib", "libcust_opapi.so")
-    ads_c._init_op_api_so_path(mx_driving_op_api_so_path)
+    mx_driving._C._init_op_api_so_path(mx_driving_op_api_so_path)
 
 
 _set_env()

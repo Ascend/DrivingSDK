@@ -29,7 +29,7 @@ if(EXISTS ${ASCEND_PATH}/latest/compiler)
 endif()
 
 if("${CANN_PATHS}x" STREQUAL "x")
-  # read vertion from `latest/version.cfg`
+  # read version from `latest/version.cfg`
   file(READ "${ASCEND_PATH}/latest/version.cfg" ASCEND_VERSION_CFG)
   string(REGEX MATCH "(CANN-[0-9]\.[0-9]+)\]\n$" _ ${ASCEND_VERSION_CFG})
   message(STATUS "ASCEND_VERSION: ${CMAKE_MATCH_1}")
@@ -59,7 +59,9 @@ set(ASCEND_TENSOR_COMPILER_PATH ${ASCEND_CANN_PACKAGE_PATH}/compiler)
 set(ASCEND_CCEC_COMPILER_PATH ${ASCEND_TENSOR_COMPILER_PATH}/ccec_compiler/bin)
 set(ASCEND_AUTOGEN_PATH ${CMAKE_BINARY_DIR}/autogen)
 set(ASCEND_KERNEL_PATH ${CMAKE_BINARY_DIR}/kernels)
-set(MX_DRIVING_PATH ${PROJECT_SOURCE_DIR}/mx_driving)
+set(ASCEND_CSRC_SRC
+    ""
+    CACHE STRING "csrc source files")
 set(ASCEND_HOST_SRC
     ""
     CACHE STRING "host source files")

@@ -14,7 +14,7 @@ from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class ModulatedDeformConv2dFunction(Function):
@@ -45,7 +45,7 @@ class ModulatedDeformConv2dFunction(Function):
         nhwc_weight = weight.permute(0, 2, 3, 1).contiguous()
         nhwc_mask = mask.permute(0, 2, 3, 1).contiguous()
 
-        out, offset_output = ads_c.modulated_deformable_conv2d(
+        out, offset_output = mx_driving._C.modulated_deformable_conv2d(
             nhwc_x,
             nhwc_offset,
             nhwc_mask,
@@ -68,7 +68,7 @@ class ModulatedDeformConv2dFunction(Function):
     def backward(ctx, grad_out):
         nhwc_x, nhwc_offset, nhwc_weight, nhwc_mask, offset_output = ctx.saved_tensors
         nhwc_grad_out = grad_out.permute(0, 2, 3, 1).contiguous()
-        grad_x, grad_weight, _, grad_offset, grad_mask = ads_c.modulated_deformable_conv2d_backward(
+        grad_x, grad_weight, _, grad_offset, grad_mask = mx_driving._C.modulated_deformable_conv2d_backward(
             nhwc_x,
             nhwc_offset,
             nhwc_mask,

@@ -20,7 +20,7 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class AdsGroupPoints(Function):
@@ -45,7 +45,7 @@ class AdsGroupPoints(Function):
         B, C, N = features.size()
         _, npoints, nsample = indices.size()
 
-        output = ads_c.group_points(
+        output = mx_driving._C.group_points(
             features,
             indices,
             B,
@@ -70,7 +70,7 @@ class AdsGroupPoints(Function):
         idx, N = ctx.for_backwards
 
         B, C, npoints, nsample = grad_out.size()
-        grad_features = ads_c.group_points_backward(
+        grad_features = mx_driving._C.group_points_backward(
             grad_out,
             idx,
             B,

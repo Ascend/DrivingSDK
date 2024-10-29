@@ -3,9 +3,9 @@ import unittest
 import numpy as np
 import torch
 import torch_npu
-from ads_c import npu_bev_pool_v2_backward
 from torch_npu.testing.testcase import TestCase, run_tests
 
+from mx_driving._C import npu_bev_pool_v2_backward
 from mx_driving.point import bev_pool_v2
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -13,7 +13,7 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 def golden_bev_pool_v2(
-        depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
+    depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
 ):
     output = np.zeros((b, d, h, w, c), dtype=np.float32)
     depth = depth.flatten()
@@ -29,7 +29,7 @@ def golden_bev_pool_v2(
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 def golden_bev_pool_v2_grad(
-        grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
+    grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
 ):
     grad_depth = np.zeros_like(depth).flatten()
     grad_feat = np.zeros_like(feat).reshape((-1, c))
@@ -63,10 +63,18 @@ class TestBEVPoolV2(TestCase):
 
     @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `bev_pool` is only supported on 910B, skip this ut!")
     def test_bev_pool_v2(self):
-        shapes = [[1, 1, 1, 1, 1, 1], [3, 3, 3, 3, 3, 3], [3, 3, 15, 15, 17, 33], [1, 5, 128, 128, 31, 777], [32, 4, 128, 128, 64, 9999]]
+        shapes = [
+            [1, 1, 1, 1, 1, 1],
+            [3, 3, 3, 3, 3, 3],
+            [3, 3, 15, 15, 17, 33],
+            [1, 5, 128, 128, 31, 777],
+            [32, 4, 128, 128, 64, 9999],
+        ]
         for shape in shapes:
             B, D, H, W, C, N_RANKS = shape
-            feat, depth, grad_out, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape = generate_bev_pool_data(B, D, H, W, C, N_RANKS)
+            feat, depth, grad_out, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape = generate_bev_pool_data(
+                B, D, H, W, C, N_RANKS
+            )
             kept = np.ones(ranks_bev.shape[0], dtype=bool)
             kept[1:] = ranks_feat[1:] != ranks_feat[:-1]
             interval_starts = np.where(kept)[0].astype(np.int32)
@@ -111,7 +119,19 @@ class TestBEVPoolV2(TestCase):
                 W,
             )
             grad_feat = golden_bev_pool_v2_grad(
-                grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, B, D, H, W, C
+                grad_out,
+                depth,
+                feat,
+                ranks_depth,
+                ranks_feat,
+                ranks_bev,
+                interval_starts,
+                interval_lengths,
+                B,
+                D,
+                H,
+                W,
+                C,
             )
             self.assertRtolEqual(bev_feat.detach().cpu().numpy(), bev_feat_cpu)
             self.assertRtolEqual(grad_feat_npu.cpu().numpy(), grad_feat)

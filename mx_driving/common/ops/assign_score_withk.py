@@ -6,24 +6,25 @@ Modification date: 2024-10-06
 Modification Description: 
 Modification 1. Add support for Ascend NPU
 """
+
 import torch
+import torch_npu
 from torch.autograd import Function
 from torch.nn import Module
 
-import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class AssignScoreWithkFunction(Function):
     @staticmethod
     def forward(ctx, *args):
         scores, point_features, center_features, knn_idx, aggregate = args
-        agg = {'sum': 0, 'avg': 1, 'max': 2}
+        agg = {"sum": 0, "avg": 1, "max": 2}
         B, N, M, out_dim = point_features.size()
         _, npoint, K, _ = scores.size()
         agg_idx = 0 if aggregate not in agg.keys() else agg[aggregate]
         output = point_features.new_zeros((B, out_dim, npoint, K))
-        ads_c.assign_score_withk(
+        mx_driving._C.assign_score_withk(
             point_features.contiguous(),
             center_features.contiguous(),
             scores.contiguous(),

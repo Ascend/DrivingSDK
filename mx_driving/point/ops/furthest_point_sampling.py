@@ -12,7 +12,7 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class AdsFurthestPointSampling(Function):
@@ -22,7 +22,7 @@ class AdsFurthestPointSampling(Function):
         point_xyz = point_xyz.permute(0, 2, 1).contiguous()
 
         nearest_dist = torch.tensor(np.ones((B, N)) * 1e10, dtype=torch.float32, device='npu').contiguous()
-        output = ads_c.npu_furthest_point_sampling(point_xyz, nearest_dist, num_points)
+        output = mx_driving._C.npu_furthest_point_sampling(point_xyz, nearest_dist, num_points)
 
         return output
 

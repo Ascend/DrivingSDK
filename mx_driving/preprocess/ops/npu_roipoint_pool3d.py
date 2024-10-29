@@ -10,7 +10,7 @@ import torch
 from torch.autograd import Function
 from torch.nn import Module
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class RoipointPool3dFunction(Function):
@@ -43,7 +43,7 @@ class RoipointPool3dFunction(Function):
         # pooled_features = points.new_zeros((batch_size, boxes_num, num_sampled_points, 3 + feature_len))
         # pooled_empty_flag = points.new_zeros((batch_size, boxes_num), dtype=torch.int)
         pooled_features, pooled_empty_flag = \
-            ads_c.npu_roipoint_pool3d_forward(num_sampled_points, points, point_features, boxes3d)
+            mx_driving._C.npu_roipoint_pool3d_forward(num_sampled_points, points, point_features, boxes3d)
         return pooled_features, pooled_empty_flag
 
 

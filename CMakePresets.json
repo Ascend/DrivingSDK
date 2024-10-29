@@ -11,7 +11,7 @@
             "displayName": "Default Config",
             "description": "Default build using Unix Makefiles generator",
             "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build_out",
+            "binaryDir": "${sourceDir}/build",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": {
                     "type": "STRING",
@@ -43,7 +43,7 @@
                 },
                 "CMAKE_INSTALL_PREFIX": {
                     "type": "PATH",
-                    "value": "${sourceDir}/build_out"
+                    "value": "${sourceDir}/build"
                 },
                 "ENABLE_ONNX": {
                     "type": "BOOL",

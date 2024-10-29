@@ -1,5 +1,6 @@
-import ads_c
 import torch
+
+import mx_driving._C
 
 
 class BEVPool(torch.autograd.Function):
@@ -14,7 +15,7 @@ class BEVPool(torch.autograd.Function):
         interval_lengths[-1] = feat.shape[0] - interval_starts[-1]
         geom_feat = geom_feat.int()
 
-        out = ads_c.npu_bev_pool(
+        out = mx_driving._C.npu_bev_pool(
             feat,
             geom_feat,
             interval_lengths,
@@ -36,7 +37,7 @@ class BEVPool(torch.autograd.Function):
         B, D, H, W = ctx.saved_shapes
 
         grad_out = grad_out.contiguous()
-        grad_feat = ads_c.npu_bev_pool_backward(
+        grad_feat = mx_driving._C.npu_bev_pool_backward(
             grad_out,
             geom_feat,
             interval_lengths,

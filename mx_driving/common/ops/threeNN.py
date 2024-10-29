@@ -12,7 +12,7 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class AdsThreeNN(Function):
@@ -27,7 +27,7 @@ class AdsThreeNN(Function):
             target = target.float()
             source = source.float()
 
-        dist2, idx = ads_c.knn(source, target, 3, False)
+        dist2, idx = mx_driving._C.knn(source, target, 3, False)
         dist2 = torch.sqrt(dist2)
         if dtype_ == torch.float16:
             dist2 = dist2.half()

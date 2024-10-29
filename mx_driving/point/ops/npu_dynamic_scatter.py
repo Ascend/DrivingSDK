@@ -13,7 +13,7 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class DynamicScatterFunction(Function):
@@ -24,10 +24,10 @@ class DynamicScatterFunction(Function):
         if reduce_type not in ('max', 'sum', 'mean'):
             raise ValueError("reduce_type should be 'max', 'sum' or 'mean', but now is %s." % reduce_type)
 
-        voxel_idx = ads_c.point_to_voxel(coors, [], [], "XYZ")
-        num_voxels, uniqued_voxel_idx, prefix_sum_point_per_voxel, argsort_coor, _ = ads_c.unique_voxel(voxel_idx)
-        voxel_coors = ads_c.voxel_to_point(uniqued_voxel_idx, [], [], "XYZ")
-        voxel_feats, compare_mask = ads_c.npu_dynamic_scatter(feats, coors, prefix_sum_point_per_voxel,
+        voxel_idx = mx_driving._C.point_to_voxel(coors, [], [], "XYZ")
+        num_voxels, uniqued_voxel_idx, prefix_sum_point_per_voxel, argsort_coor, _ = mx_driving._C.unique_voxel(voxel_idx)
+        voxel_coors = mx_driving._C.voxel_to_point(uniqued_voxel_idx, [], [], "XYZ")
+        voxel_feats, compare_mask = mx_driving._C.npu_dynamic_scatter(feats, coors, prefix_sum_point_per_voxel,
                                                               argsort_coor, num_voxels, reduce_type)
 
         ctx.reduce_type = reduce_type
@@ -44,7 +44,7 @@ class DynamicScatterFunction(Function):
                  grad_voxel_coors: Optional[torch.Tensor] = None) -> tuple:
         (prefix_sum_point_per_voxel, argsort_coor, compare_mask) = ctx.saved_tensors
         grad_point_feats = torch.zeros(ctx.feats_shape, dtype=grad_voxel_feats.dtype, device=grad_voxel_feats.device)
-        ads_c.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(), prefix_sum_point_per_voxel,
+        mx_driving._C.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(), prefix_sum_point_per_voxel,
                                        argsort_coor, compare_mask, ctx.reduce_type)
         return grad_point_feats, None, None
 

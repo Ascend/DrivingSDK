@@ -4,7 +4,7 @@ import numpy as np
 
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads_c
+import mx_driving._C
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -60,7 +60,7 @@ class TestVecPoolGrad(TestCase):
 
             golden_grad_support_features = self.golden_vec_pool_backward(
                 np_grad_new_features, np_point_cnt_of_grid, np_grouped_idxs, np_grad_support_features)
-            real_grad_support_features = ads_c.vec_pool_backward(
+            real_grad_support_features = mx_driving._C.vec_pool_backward(
                 torch_grad_new_features, torch_point_cnt_of_grid, torch_grouped_idxs, n, c_in)
 
             self.assertRtolEqual(golden_grad_support_features, real_grad_support_features.cpu().numpy())

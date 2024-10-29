@@ -11,13 +11,13 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class FusedBiasLeakyReluFunction(Function):
     @staticmethod
     def forward(ctx, x, bias, negative_slop=0.2, scale=2**0.5):
-        y = ads_c.fused_bias_leaky_relu(x, bias, negative_slop, scale)
+        y = mx_driving._C.fused_bias_leaky_relu(x, bias, negative_slop, scale)
         return y
 
 npu_fused_bias_leaky_relu = FusedBiasLeakyReluFunction.apply

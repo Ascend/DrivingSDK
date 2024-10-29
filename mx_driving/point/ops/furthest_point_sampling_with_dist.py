@@ -11,7 +11,7 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class AdsFurthestPointSamplingWithDistFunction(Function):
@@ -19,7 +19,7 @@ class AdsFurthestPointSamplingWithDistFunction(Function):
     def forward(ctx, points_dist, num_points): 
         B, N = points_dist.size()[:2]
         nearest_temp = points_dist.new_zeros([B, N]).fill_(1e10)
-        result = ads_c.furthest_point_sampling_with_dist(points_dist, nearest_temp, num_points)
+        result = mx_driving._C.furthest_point_sampling_with_dist(points_dist, nearest_temp, num_points)
         return result
 
 furthest_point_sample_with_dist = AdsFurthestPointSamplingWithDistFunction.apply

@@ -10,7 +10,7 @@ import torch
 from torch.autograd import Function
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class Nms3dFunction(Function):
@@ -21,7 +21,7 @@ class Nms3dFunction(Function):
         order = scores.sort(0, descending=True)[1]
         boxes = boxes[order].contiguous()
 
-        keep, num_out = ads_c.nms3d(boxes, iou_threshold)
+        keep, num_out = mx_driving._C.nms3d(boxes, iou_threshold)
         return order[keep[:num_out].long()].contiguous()
 
 

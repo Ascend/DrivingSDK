@@ -7,14 +7,14 @@ Modification Description:
 Modification 1. Add support for Ascend NPU
 """
 from torch.autograd import Function
-import ads_c
+import mx_driving._C
 
 
 class MaxPool2d(Function):
     @staticmethod
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(ctx, x, kernel_size, stride, padding):
-        y = ads_c.npu_max_pool2d(x, kernel_size, stride, padding)
+        y = mx_driving._C.npu_max_pool2d(x, kernel_size, stride, padding)
         return y
 
 npu_max_pool2d = MaxPool2d.apply

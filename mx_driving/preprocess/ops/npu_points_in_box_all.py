@@ -12,13 +12,13 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class PointsInBoxAllFunction(Function):
     @staticmethod
     def forward(ctx, boxes, pts):
-        result = ads_c.npu_points_in_box_all(boxes, pts)
+        result = mx_driving._C.npu_points_in_box_all(boxes, pts)
         ctx.save_for_backward(result)
         return result
 

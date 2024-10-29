@@ -9,7 +9,7 @@ Modification 1. Add support for Ascend NPU
 import torch
 from torch.autograd import Function
 from torch.nn import Module
-import ads_c
+import mx_driving._C
 
 
 class AdsVoxelPoolingFunction(Function):
@@ -25,7 +25,7 @@ class AdsVoxelPoolingFunction(Function):
         output_features = input_features.new_zeros(batch_size, voxel_num[1], 
                                                    voxel_num[0], num_channels)
         pos_memo = geom_xyz.new_ones(batch_size, num_points, 3) * -1
-        pos, result = ads_c.voxel_pooling_train(
+        pos, result = mx_driving._C.voxel_pooling_train(
             input_features,
             geom_xyz,
             output_features,
@@ -51,7 +51,7 @@ class AdsVoxelPoolingFunction(Function):
         H = grad_output_features.shape[2]
         W = grad_output_features.shape[3]
 
-        result = ads_c.voxel_pool_train_backward(
+        result = mx_driving._C.voxel_pool_train_backward(
             grad_output_features,
             pos_memo,
             batch_size,

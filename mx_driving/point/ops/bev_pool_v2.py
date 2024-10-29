@@ -13,15 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ads_c
 import torch
+
+import mx_driving._C
 
 
 class BEVPoolV2(torch.autograd.Function):
     @staticmethod
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def forward(ctx, depth, feat, ranks_depth, ranks_feat, ranks_bev,
-                bev_feat_shape, interval_starts, interval_lengths):
+    def forward(
+        ctx, depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths
+    ):
         ranks_bev = ranks_bev.int()
         depth = depth.contiguous().float()
         feat = feat.contiguous().float()
@@ -31,18 +33,8 @@ class BEVPoolV2(torch.autograd.Function):
         interval_starts = interval_starts.contiguous().int()
 
         (B, D, H, W, C) = bev_feat_shape
-        out = ads_c.npu_bev_pool_v2(
-            depth,
-            feat,
-            ranks_depth,
-            ranks_feat,
-            ranks_bev,
-            interval_lengths,
-            interval_starts,
-            B,
-            D,
-            H,
-            W
+        out = mx_driving._C.npu_bev_pool_v2(
+            depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_lengths, interval_starts, B, D, H, W
         )
 
         ctx.save_for_backward(ranks_bev, depth, feat, ranks_feat, ranks_depth)
@@ -56,15 +48,12 @@ class BEVPoolV2(torch.autograd.Function):
         B, D, H, W = ctx.saved_shapes
 
         order = ranks_feat.argsort()
-        ranks_feat, ranks_depth, ranks_bev = \
-            ranks_feat[order], ranks_depth[order], ranks_bev[order]
-        kept = torch.ones(
-            ranks_bev.shape[0], device=ranks_bev.device, dtype=torch.bool)
+        ranks_feat, ranks_depth, ranks_bev = ranks_feat[order], ranks_depth[order], ranks_bev[order]
+        kept = torch.ones(ranks_bev.shape[0], device=ranks_bev.device, dtype=torch.bool)
         kept[1:] = ranks_feat[1:] != ranks_feat[:-1]
         interval_starts_bp = torch.where(kept)[0].int()
         interval_lengths_bp = torch.zeros_like(interval_starts_bp)
-        interval_lengths_bp[:-1] = interval_starts_bp[
-                                   1:] - interval_starts_bp[:-1]
+        interval_lengths_bp[:-1] = interval_starts_bp[1:] - interval_starts_bp[:-1]
         interval_lengths_bp[-1] = ranks_bev.shape[0] - interval_starts_bp[-1]
 
         depth = depth.contiguous()
@@ -76,7 +65,7 @@ class BEVPoolV2(torch.autograd.Function):
         interval_starts_bp = interval_starts_bp.contiguous()
         grad_out = grad_out.contiguous()
 
-        grad_depth, grad_feat = ads_c.npu_bev_pool_v2_backward(
+        grad_depth, grad_feat = mx_driving._C.npu_bev_pool_v2_backward(
             grad_out,
             depth,
             feat,
@@ -88,14 +77,13 @@ class BEVPoolV2(torch.autograd.Function):
             B,
             D,
             H,
-            W
+            W,
         )
         return grad_depth, grad_feat, None, None, None, None, None, None
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
-def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
-                bev_feat_shape, interval_starts, interval_lengths):
+def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths):
     """
     bev_pool_v2 is a function that performs a pooling operation on the BEV.
     Please refer to the paper `BEVDet: High-performance Multi-camera 3D Object Detection in Bird-Eye-View`
@@ -132,8 +120,7 @@ def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
         >>> loss.backward()
     """
     x = BEVPoolV2.apply(
-        depth, feat, ranks_depth, ranks_feat, ranks_bev,
-        bev_feat_shape, interval_starts, interval_lengths
+        depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths
     )
     x = x.permute(0, 4, 1, 2, 3).contiguous()
     return x

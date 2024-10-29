@@ -4,8 +4,7 @@ import numpy as np
 
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import ads_c
-import mx_driving
+import mx_driving._C
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -50,7 +49,7 @@ class TestGroupPointsGrad(TestCase):
 
                             golden_grad_features = self.golden_group_points_grad(
                                 np_grad_out, np_indices, np_grad_features, B, npoints, nsample)
-                            npu_grad_features = ads_c.group_points_backward(torch_grad_out, torch_indices, B, C, N,
+                            npu_grad_features = mx_driving._C.group_points_backward(torch_grad_out, torch_indices, B, C, N,
                                                                             npoints, nsample)
 
                             self.assertRtolEqual(golden_grad_features, npu_grad_features.cpu().numpy())

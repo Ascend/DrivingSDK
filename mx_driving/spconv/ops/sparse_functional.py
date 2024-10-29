@@ -19,7 +19,7 @@ import torch
 import numpy as np
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
-import ads_c
+import mx_driving._C
 from . import sparse_ops as ops
 
 
@@ -34,7 +34,7 @@ class SparseConvFunction(Function):
 
         device = features.device
         # calculate the index pair
-        outidx_pair, ouidx_offset = ads_c.npu_sparse_conv3d(indices, kernel_size, stride, padding,
+        outidx_pair, ouidx_offset = mx_driving._C.npu_sparse_conv3d(indices, kernel_size, stride, padding,
                                                             out_channels, out_spatial_shape, batch_size)
         # sort and nonezero
         to_insert = torch.tensor(-1).to(device)
@@ -44,7 +44,7 @@ class SparseConvFunction(Function):
         sub_result = new_sorted_idx - new_sorted_idx_2
         unique_indices_offset = torch.nonzero(sub_result != 0)
         # index_put and matmul
-        out_features, outidx = ads_c.multi_to_sparse_v2(features, weight, unique_indices_offset.int(),
+        out_features, outidx = mx_driving._C.multi_to_sparse_v2(features, weight, unique_indices_offset.int(),
                                                   sorted_idx_to_former_indices.int(), outidx_pair.int())
         outidx, outidx_ = torch.chunk(outidx, 2, dim=1)
         if bias is not None:
@@ -57,7 +57,7 @@ class SparseConvFunction(Function):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        weight_grad, feature_grad = ads_c.npu_sparse_conv3d_grad(unique_indices_offset,
+        weight_grad, feature_grad = mx_driving._C.npu_sparse_conv3d_grad(unique_indices_offset,
                                                                  sorted_idx_to_former_indices,
                                                                  features, weight, grad_out_features)
 
@@ -75,7 +75,7 @@ class SparseInverseConvFunction(Function):
                 groups, bias) -> torch.Tensor:
         device = features.device
         # calculate the index pair
-        out_features, outidx_pair, ouidx_offset = ads_c.npu_sparse_inverse_conv3d(features, indices, weight,
+        out_features, outidx_pair, ouidx_offset = mx_driving._C.npu_sparse_inverse_conv3d(features, indices, weight,
                                         kernel_size, stride, padding, dilation, output_padding,
                                         out_channels, out_spatial_shape, batch_size)
         # sort and nonezero
@@ -86,7 +86,7 @@ class SparseInverseConvFunction(Function):
         sub_result = new_sorted_idx - new_sorted_idx_2
         unique_indices_offset = torch.nonzero(sub_result != 0)
         # matmul
-        out_features, outidx = ads_c.multi_to_sparse(out_features, unique_indices_offset.int(),
+        out_features, outidx = mx_driving._C.multi_to_sparse(out_features, unique_indices_offset.int(),
                                                      sorted_idx_to_former_indices.int(), outidx_pair.int())
         outidx, outidx_ = torch.chunk(outidx, 2, dim=1)
         if bias is not None:
@@ -99,7 +99,7 @@ class SparseInverseConvFunction(Function):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        weight_grad, feature_grad = ads_c.npu_sparse_conv3d_grad(unique_indices_offset,
+        weight_grad, feature_grad = mx_driving._C.npu_sparse_conv3d_grad(unique_indices_offset,
                                                                 sorted_idx_to_former_indices,
                                                                 features, weight, grad_out_features)
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None, None
@@ -119,7 +119,7 @@ class SubMConvFunction(Function):
         # calculate the index pair
         hh = indices[:, 0] * out_spatial_shape[0] * out_spatial_shape[1] * out_spatial_shape[2] + \
             indices[:, 1] * out_spatial_shape[1] * out_spatial_shape[2] + indices[:, 2] * out_spatial_shape[2] + indices[:, 3]
-        temp, hh2 = ads_c.npu_prepare_subm_conv3d(hh, out_spatial_shape, batch_size)
+        temp, hh2 = mx_driving._C.npu_prepare_subm_conv3d(hh, out_spatial_shape, batch_size)
         temp[hh] = hh2
         # pad the feature and weight become align
         feature_align = features.shape[1] % 8
@@ -128,7 +128,7 @@ class SubMConvFunction(Function):
             zero_tensor = torch.zeros((kernel_size[0], kernel_size[0], kernel_size[0], 8 - feature_align, out_channels)).to(device)
             weight_pad = torch.cat((weight, zero_tensor), 3)
         # calculate the out_feature
-        out_features, outidx_pair, ouidx_offset = ads_c.npu_subm_sparse_conv3d(features, indices, weight_pad,
+        out_features, outidx_pair, ouidx_offset = mx_driving._C.npu_subm_sparse_conv3d(features, indices, weight_pad,
                                                                                 kernel_size, out_channels,
                                                                                 out_spatial_shape, batch_size, temp)
 
@@ -148,7 +148,7 @@ class SubMConvFunction(Function):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        weight_grad, feature_grad = ads_c.npu_sparse_conv3d_grad(unique_indices_offset,
+        weight_grad, feature_grad = mx_driving._C.npu_sparse_conv3d_grad(unique_indices_offset,
                                                                 sorted_idx_to_former_indices,
                                                                 features, weight, grad_out_features)
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None

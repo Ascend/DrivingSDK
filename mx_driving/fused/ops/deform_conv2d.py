@@ -13,7 +13,7 @@ from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class DeformConv2dFunction(Function):
@@ -41,7 +41,7 @@ class DeformConv2dFunction(Function):
         nhwc_offset = offset.permute(0, 2, 3, 1).contiguous()
         nhwc_weight = weight.permute(0, 2, 3, 1).contiguous()
 
-        out, offset_output = ads_c.deformable_conv2d(
+        out, offset_output = mx_driving._C.deformable_conv2d(
             nhwc_x,
             nhwc_offset,
             nhwc_weight,
@@ -61,7 +61,7 @@ class DeformConv2dFunction(Function):
     def backward(ctx, grad_out):
         nhwc_x, nhwc_offset, nhwc_weight, offset_output = ctx.saved_tensors
         nhwc_grad_out = grad_out.permute(0, 2, 3, 1).contiguous()
-        grad_x, grad_weight, grad_offset = ads_c.deformable_conv2d_backward(
+        grad_x, grad_weight, grad_offset = mx_driving._C.deformable_conv2d_backward(
             nhwc_x,
             nhwc_weight,
             nhwc_offset,

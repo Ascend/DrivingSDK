@@ -4,7 +4,7 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class AdsDeformableAggregation(Function):
@@ -26,7 +26,7 @@ class AdsDeformableAggregation(Function):
         sampling_location = sampling_location.contiguous().float()
         weights = weights.contiguous().float()
 
-        output = ads_c.npu_deformable_aggregation(
+        output = mx_driving._C.npu_deformable_aggregation(
             mc_ms_feat,
             spatial_shape,
             scale_start_index,
@@ -60,7 +60,7 @@ class AdsDeformableAggregation(Function):
         grad_mc_ms_feat = torch.zeros_like(mc_ms_feat)
         grad_sampling_location = torch.zeros_like(sampling_location)
         grad_weights = torch.zeros_like(weights)
-        grad_mc_ms_feat, grad_sampling_location, grad_weights = ads_c.npu_deformable_aggregation_grad(
+        grad_mc_ms_feat, grad_sampling_location, grad_weights = mx_driving._C.npu_deformable_aggregation_grad(
             mc_ms_feat,
             spatial_shape,
             scale_start_index,

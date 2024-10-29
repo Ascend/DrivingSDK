@@ -15,8 +15,7 @@ function check_python_version() {
             return 0
         fi
     done
-    if [ "${matched_py_version}" = 'false' ]; then
-        echo "${PY_VERSION} is an unsupported python version, we suggest ${SUPPORTED_PY_VERSION[*]}"
+    if [ "${matched_py_version}" = 'false' ]; then echo "${PY_VERSION} is an unsupported python version, we suggest ${SUPPORTED_PY_VERSION[*]}"
         exit 1
     fi
 }
@@ -67,40 +66,7 @@ function main()
     export BUILD_PYTHON_VERSION=${PY_VERSION}
     rm -rf ${BUILD_PACKAGES_DIR}
 
-    if [ "x${SINGLE_OP}" != "x" ]; then
-      if [ -z "$ASCEND_CUSTOM_OPP_PATH" ]; then
-        echo "ASCEND_CUSTOM_OPP_PATH is not set. Please set the path of the custom op kernel code."
-        exit 1
-      fi
-      bash ${SCRIPTS_DIR}/build_kernel.sh --single_op=${SINGLE_OP} --build_type=${BUILD_TYPE}
-
-      if [ $? != 0 ]; then
-          echo "Failed to compile the wheel file. Please check the source code by yourself."
-          exit 1
-      fi
-
-      echo "Successfully compiled the single op: ${SINGLE_OP}"
-      echo "copying the custom op kernel code to the custom opp path: ${ASCEND_CUSTOM_OPP_PATH}"
-      cp -ruf ${BUILD_PACKAGES_DIR}/vendors/customize/op_impl/ai_core/tbe/kernel/* ${ASCEND_CUSTOM_OPP_PATH}/op_impl/ai_core/tbe/kernel/
-      exit 0
-    else
-      bash ${SCRIPTS_DIR}/build_kernel.sh --build_type=${BUILD_TYPE}
-    fi
-
-    if [ $? != 0 ]; then
-        echo "Failed to compile the wheel file. Please check the source code by yourself."
-        exit 1
-    fi
-    cd ${CUR_DIR}/..
-    rm -rf build
-    if [ -d "mx_driving.egg-info" ]; then
-        echo "mx_driving.egg-info exist"
-        rm -rf mx_driving.egg-info
-    else
-        echo "mx_driving.egg-info not exist"
-    fi
-
-    python"${PY_VERSION}" setup.py build bdist_wheel
+    python"${PY_VERSION}" setup.py bdist_wheel
     if [ $? != 0 ]; then
         echo "Failed to compile the wheel file. Please check the source code by yourself."
         exit 1

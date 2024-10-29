@@ -10,7 +10,7 @@ import torch
 import torch_npu
 from torch.autograd import Function
 from torch.nn import Module
-import ads_c
+import mx_driving._C
 
 
 class AdsNms3dNormalFunction(Function):
@@ -21,7 +21,7 @@ class AdsNms3dNormalFunction(Function):
         order = scores.sort(0, descending=True)[1]
         boxes = boxes[order].contiguous()
 
-        keep, num_out = ads_c.nms3d_normal(boxes, iou_threshold)
+        keep, num_out = mx_driving._C.nms3d_normal(boxes, iou_threshold)
         return order[keep[:num_out].long()].contiguous()
 
 npu_nms3d_normal = AdsNms3dNormalFunction.apply

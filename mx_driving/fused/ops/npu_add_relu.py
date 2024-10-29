@@ -11,20 +11,20 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
-import ads_c
+import mx_driving._C
 
 
 class AddReluFunction(Function):
     @staticmethod
     def forward(ctx, x, y):
-        x = ads_c.npu_add_relu(x, y)
+        x = mx_driving._C.npu_add_relu(x, y)
         ctx.save_for_backward(x)
         return x
 
     @staticmethod
     def backward(ctx, grad_output):
         x, = ctx.saved_tensors
-        result = ads_c.npu_add_relu_grad(x, grad_output)
+        result = mx_driving._C.npu_add_relu_grad(x, grad_output)
         return result, result
 
 npu_add_relu = AddReluFunction.apply

@@ -6,7 +6,7 @@ from typing import Union, Tuple
 import torch
 from torch.autograd import Function
 from torch.nn import Module
-import ads_c
+import mx_driving._C
 
 
 class _Voxelization(Function):
@@ -17,7 +17,7 @@ class _Voxelization(Function):
     ):
 
         if max_points != -1 and max_voxels != -1:
-            return ads_c.hard_voxelize(points, voxel_size, coors_range, max_points, max_voxels)
+            return mx_driving._C.hard_voxelize(points, voxel_size, coors_range, max_points, max_voxels)
 
         float_espolin = 1e-9
         if voxel_size[0] < float_espolin or voxel_size[1] < float_espolin or voxel_size[2] < float_espolin:
@@ -30,7 +30,7 @@ class _Voxelization(Function):
 
         # create coors
         coors = points.new_zeros(size=(3, points.size(0)), dtype=torch.int)
-        result = ads_c.dynamic_voxelization(
+        result = mx_driving._C.dynamic_voxelization(
             points,
             coors,
             grid_x,

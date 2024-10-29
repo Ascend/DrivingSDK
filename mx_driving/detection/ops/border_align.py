@@ -1,14 +1,15 @@
 """
 Copyright (c) OpenMMLab. All rights reserved.
 """
+
 from typing import Any, Optional, Tuple, Union
 
 import torch
-import torch_npu
 import torch.nn as nn
+import torch_npu
 from torch.autograd import Function
 
-import ads_c
+import mx_driving._C
 
 
 class BorderAlignFunction(Function):
@@ -17,19 +18,27 @@ class BorderAlignFunction(Function):
         ctx.pooled_size = pooled_size
         ctx.feature_size = feature_map.size()
         batch_size, num_channels, data_height, data_width = feature_map.size()
-        output = torch.zeros([batch_size, data_height * data_width, ctx.pooled_size + 1, num_channels]).to(feature_map.device)
+        output = torch.zeros([batch_size, data_height * data_width, ctx.pooled_size + 1, num_channels]).to(
+            feature_map.device
+        )
 
-        ads_c.border_align_forward_npu(
-            feature_map,
-            rois,
-            output,
-            ctx.pooled_size)
-        
+        mx_driving._C.border_align_forward_npu(feature_map, rois, output, ctx.pooled_size)
+
         npu_outputs, index = output.max(dim=-2)
-        npu_outputs = npu_outputs.reshape([batch_size, data_height * data_width, 4, num_channels // 4]).permute([0, 3, 1, 2]).contiguous()
-        index = index.int().reshape([batch_size, data_height * data_width, 4, num_channels // 4]).permute([0, 3, 1, 2]).contiguous()
+        npu_outputs = (
+            npu_outputs.reshape([batch_size, data_height * data_width, 4, num_channels // 4])
+            .permute([0, 3, 1, 2])
+            .contiguous()
+        )
+        index = (
+            index.int()
+            .reshape([batch_size, data_height * data_width, 4, num_channels // 4])
+            .permute([0, 3, 1, 2])
+            .contiguous()
+        )
         ctx.save_for_backward(rois, index)
 
         return npu_outputs
+
 
 border_align = BorderAlignFunction.apply
