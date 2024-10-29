@@ -41,4 +41,6 @@ at::Tensor npu_box_iou_quadri(const at::Tensor &boxes_a, const at::Tensor &boxes
 
 at::Tensor npu_box_iou_rotated(const at::Tensor &boxes_a, const at::Tensor &boxes_b,
     const int64_t mode_flag, const bool aligned);
+
+void border_align_forward_npu(const at::Tensor& input, const at::Tensor& rois, at::Tensor& output, const int32_t pooled_size);
 #endif // PERCEPTION_VISION_OPS_CSRC_FUNCTIONS_H_

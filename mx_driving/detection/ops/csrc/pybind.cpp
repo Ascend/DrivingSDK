@@ -30,4 +30,7 @@ void init_detection(pybind11::module& m)
 
     // npu_box_iou_rotated
     m.def("npu_box_iou_rotated", &npu_box_iou_rotated, "box_iou_rotated NPU version");
+
+    // border_align_forward_npu
+    m.def("border_align_forward_npu", &border_align_forward_npu);
 }
