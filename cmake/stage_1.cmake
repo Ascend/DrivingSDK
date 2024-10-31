@@ -8,6 +8,7 @@ target_link_libraries(
           exe_graph
           register
           tiling_api
+          ascendcl
           -Wl,--whole-archive
           rt2_registry
           -Wl,--no-whole-archive)
@@ -27,6 +28,7 @@ target_link_libraries(
           exe_graph
           register
           tiling_api
+          ascendcl
           -Wl,--whole-archive
           rt2_registry
           -Wl,--no-whole-archive)

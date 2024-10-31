@@ -3,6 +3,7 @@
  */
 #include <cstdint>
 
+#include "log/log.h"
 #include "multi_scale_deformable_attn_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -89,6 +90,11 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     tiling.set_coreNum(coreNum);
     tiling.set_pointLoops(pointLoops);
     tiling.set_realLevels(attnWeightShape.GetDim(REAL_LEVEL_DIM));
+    MX_DRIVING_LOGI(
+        "MultiScaleDeformableAttn's tiling: batchSize=%d, numKeys=%d, numHeads=%d, embedDims=%d, numLevels=%d,numQueries=%d, numPoints=%d, coreNum=%d, pointLoops=%d,realLevels=%d",
+        tiling.get_batchSize(), tiling.get_numKeys(), tiling.get_numHeads(), tiling.get_embedDims(),
+        tiling.get_numLevels(), tiling.get_numQueries(), tiling.get_numPoints(), tiling.get_coreNum(),
+        tiling.get_pointLoops(), tiling.get_realLevels());
 
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
