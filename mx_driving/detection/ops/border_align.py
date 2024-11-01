@@ -18,7 +18,7 @@ class BorderAlignFunction(Function):
         ctx.pooled_size = pooled_size
         ctx.feature_size = feature_map.size()
         batch_size, num_channels, data_height, data_width = feature_map.size()
-        output = torch.zeros([batch_size, data_height * data_width, ctx.pooled_size + 1, num_channels]).to(
+        output = torch.zeros(batch_size, data_height * data_width, ctx.pooled_size + 1, num_channels).to(
             feature_map.device
         )
 
@@ -40,5 +40,19 @@ class BorderAlignFunction(Function):
 
         return npu_outputs
 
+    @staticmethod
+    def backward(ctx, grad_output):
+        rois, argmax_idx = ctx.saved_tensors
+        _, _, height, width = ctx.feature_size
+        grad_output = grad_output.contiguous()
+
+        grad_input = mx_driving._C.border_align_backward(
+            grad_output,
+            rois,
+            argmax_idx,
+            ctx.pooled_size,
+            height,
+            width)
+        return grad_input, None, None
 
 border_align = BorderAlignFunction.apply

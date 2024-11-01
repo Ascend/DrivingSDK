@@ -5,7 +5,7 @@ import unittest
 import math
 from typing import List
 from functools import reduce
-
+import copy
 import numpy as np
 import torch
 import torch_npu
@@ -13,6 +13,7 @@ from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving
 
 from mx_driving.detection import border_align
+
 
 torch.npu.config.allow_internal_format = False
 torch_npu.npu.set_compile_mode(jit_compile=False)
@@ -23,6 +24,11 @@ EPS = 1e-8
 def generate_features(feature_shape):
     features = torch.rand(feature_shape)
     return features
+
+
+def generate_grad_outputs(output_shape):
+    grad_outputs = torch.rand(output_shape)
+    return grad_outputs
 
 
 def generate_rois(inputs):
@@ -69,7 +75,7 @@ def border_align_cpu_golden(inputs, rois, pooled_size_):
             outputs_features[pn, pc, ph * w + pw, i] = val
             outputs_index[pn, pc, ph * w + pw, i] = idx
 
-    return outputs_features
+    return outputs_features, outputs_index
 
 
 def bilinear_interpolate(offset_input, height, width, y, x):
@@ -108,14 +114,136 @@ def bilinear_interpolate(offset_input, height, width, y, x):
     return val
 
 
-class TestBorderAlign(TestCase):
-    def cpu_to_exec(self, features, rois, pooled_size):
-        output = border_align_cpu_golden(features.detach().cpu(), rois.detach().cpu(), pooled_size)
-        return output
+def bilinear_interpolate_backward(inputs, args_dict):
+    """
+    双线性插值
+    input--> [4C, H, W]
+    x or y [pool_size + 1] 个
+    output [C, 1]  argmax_idx [C, 1]
+    """
+    x, y, c_start, output, argmax_idx = args_dict.values()
+    C = output.shape[0]
+    x_floor, y_floor = np.floor(x).astype(int), np.floor(y).astype(int)
+    x_ceil, y_ceil = np.ceil(x).astype(int), np.ceil(y).astype(int)
 
-    def npu_to_exec(self, features, rois, pooled_size):
-        output = border_align(features.npu(), rois.npu(), pooled_size)
-        return output
+    x_floor = np.clip(x_floor, 0, inputs.shape[2] - 1)
+    y_floor = np.clip(y_floor, 0, inputs.shape[1] - 1)
+    x_ceil = np.clip(x_ceil, 0, inputs.shape[2] - 1)
+    y_ceil = np.clip(y_ceil, 0, inputs.shape[1] - 1)
+
+    u = x - x_floor
+    v = y - y_floor
+
+    w1 = (1 - u) * (1 - v)
+    w3 = (1 - u) * v
+    w2 = u * (1 - v)
+    w4 = u * v
+
+    for i in range(C):
+        x_ = x[argmax_idx[i]]
+        y_ = y[argmax_idx[i]]
+        if y_ < -1 or y_ > inputs.shape[1]:
+            continue
+        if x_ < -1 or x_ > inputs.shape[2]:
+            continue
+        
+        w1_ = w1[argmax_idx[i]]
+        w2_ = w2[argmax_idx[i]]
+        w3_ = w3[argmax_idx[i]]
+        w4_ = w4[argmax_idx[i]]
+
+        x_floor_ = x_floor[argmax_idx[i]]
+        y_floor_ = y_floor[argmax_idx[i]]
+        x_ceil_ = x_ceil[argmax_idx[i]]
+        y_ceil_ = y_ceil[argmax_idx[i]]
+
+        inputs[c_start + i, y_floor_, x_floor_] += output[i] * w1_
+        inputs[c_start + i, y_floor_, x_ceil_] += output[i] * w2_
+        inputs[c_start + i, y_ceil_, x_floor_] += output[i] * w3_
+        inputs[c_start + i, y_ceil_, x_ceil_] += output[i] * w4_
+
+    return inputs
+
+
+def border_align_box(box, pool_size, inputs, output, argmax_idx):
+    ## box为[4], input为[4C, H, W]
+    ## output [C, 4],  argmax_idx [C, 4]
+    # 解析 box
+    x1, y1, x2, y2 = box
+    
+    #计算对应channel
+    c_idx = inputs.shape[0] // 4
+
+    # 遍历四个边缘
+    #      shape (N, 4C, h, w) for input.
+    #  [0,C) for top feature, [C,2C) for left feature,
+    #  [2C,3C) for bottom feature, [3C,4C) for right feature
+    for i in range(4):
+        if i == 0:  # 上边边缘
+            x = np.linspace(x1, x2, num=pool_size + 1)
+            y = np.full_like(x, y1)
+
+        elif i == 1:  # 左边边缘
+            y = np.linspace(y1, y2, num=pool_size + 1)
+            x = np.full_like(y, x1)
+
+        elif i == 2:  # 下边边缘 --->生成x序列反向-->ascend C实现可以参照cuda的stride方式
+            x = np.linspace(x2, x1, num=pool_size + 1)
+            y = np.full_like(x, y2)
+
+        elif i == 3:  # 右边边缘---->生成y序列反向
+            y = np.linspace(y2, y1, num=pool_size + 1)
+            x = np.full_like(y, x2)  
+        
+        # 双线性插值并找到最大值   
+        args_dict = dict(x=x, 
+                         y=y, 
+                         c_start=c_idx * i, 
+                         output=output[:, i], 
+                         argmax_idx=argmax_idx[:, i])
+        
+        bilinear_interpolate_backward(inputs, args_dict) 
+
+    return inputs
+
+
+def border_align_grad_cpu_golden(boxes, pool_size, inputs, grad_output, argmax_idx):
+    grad_inputs = torch.zeros_like(inputs).detach().cpu().numpy()
+    grad_output = grad_output.transpose(1, 2).contiguous().detach().cpu().numpy()
+    argmax_idx = argmax_idx.transpose(1, 2).contiguous().detach().cpu().numpy()
+    boxes = boxes.detach().cpu().numpy()
+    inputs = inputs.detach().cpu().numpy()
+    B, C, H, W = inputs.shape
+    C = int(C / 4)
+
+    #对每个batch的每个box进行border_align
+    for b in range(B):
+        input_each_b = copy.deepcopy(grad_inputs[b])
+        output_each_b = grad_output[b] # [HW, C, 4]
+        argmax_idx_b = argmax_idx[b] # [HW, C, 4]
+        temp = np.zeros((C * 4, H, W)) # [4C, H, W]
+
+        for i, box in enumerate(boxes[b]):
+            temp = temp + border_align_box(box, pool_size, input_each_b, output_each_b[i], argmax_idx_b[i]) # [4C, H, W]
+            input_each_b.fill(0)
+
+        grad_inputs[b] = copy.deepcopy(temp)
+
+    return grad_inputs
+
+
+class TestBorderAlign(TestCase):
+    def cpu_to_exec(self, features, rois, grad_output, pooled_size):
+        output, index = border_align_cpu_golden(features.detach().cpu(), rois.detach().cpu(), pooled_size)
+        grad_features = border_align_grad_cpu_golden(rois, pooled_size, features, grad_output, index)
+        grad_features = torch.tensor(grad_features)
+        return output, grad_features
+   
+
+    def npu_to_exec(self, features, rois, grad_output, pooled_size):
+        npu_outputs = border_align(features.npu(), rois.npu(), pooled_size)
+        npu_outputs.backward(grad_output.npu())
+        return npu_outputs, features.grad
 
     @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `BorderAlign` is not supported, skip this ut!")
     def test_border_align(self):
@@ -138,13 +266,16 @@ class TestBorderAlign(TestCase):
             input_width = item[3]
             pooled_size = item[4]
 
-            features = generate_features([batch_size, input_channels, input_height, input_width])
+            features = generate_features([batch_size, input_channels, input_height, input_width]).npu()
+            features.requires_grad = True
             rois = generate_rois(features)
-            
-            out_cpu = self.cpu_to_exec(features, rois, pooled_size)
-            out_npu = self.npu_to_exec(features, rois, pooled_size)
-            error = out_cpu - out_npu.cpu()
-            self.assertRtolEqual(out_cpu, out_npu)
+            grad_output = generate_grad_outputs([batch_size, input_channels // 4, input_height * input_width, 4])
+
+            out_cpu, grad_cpu = self.cpu_to_exec(features, rois, grad_output, pooled_size)
+            out_npu, grad_npu = self.npu_to_exec(features, rois, grad_output, pooled_size)
+
+            self.assertRtolEqual(out_cpu, out_npu.cpu())
+            self.assertRtolEqual(grad_cpu, grad_npu.cpu())
 
 
 if __name__ == '__main__':

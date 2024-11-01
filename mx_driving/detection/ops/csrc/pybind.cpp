@@ -33,4 +33,7 @@ void init_detection(pybind11::module& m)
 
     // border_align_forward_npu
     m.def("border_align_forward_npu", &border_align_forward_npu);
+
+    // border_align_backward_npu
+    m.def("border_align_backward", &border_align_backward);
 }
