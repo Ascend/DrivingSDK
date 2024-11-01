@@ -46,4 +46,7 @@ void border_align_forward_npu(const at::Tensor& input, const at::Tensor& rois, a
 
 at::Tensor border_align_backward(const at::Tensor& grad_out, const at::Tensor& boxes, const at::Tensor& argmax_idx,
                                  int32_t pool_size, int32_t height, int32_t width);
+
+at::Tensor roiaware_pool3d_grad(const at::Tensor& pts_idx_of_voxels, const at::Tensor& argmax,
+    const at::Tensor& grad_out, int32_t npoints, int64_t pool_method);
 #endif // PERCEPTION_VISION_OPS_CSRC_FUNCTIONS_H_
