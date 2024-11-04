@@ -36,10 +36,14 @@ void assign_score_withk(
     TORCH_CHECK_NPU(centers);
     TORCH_CHECK_NPU(scores);
     TORCH_CHECK_NPU(knn_idx);
+    TORCH_CHECK_NPU(output);
     TORCH_CHECK(points.dim() == 4, "points.dim() must be 4, but got: ", points.dim());
     TORCH_CHECK(centers.dim() == 4, "centers.dim() must be 4, but got: ", centers.dim());
     TORCH_CHECK(scores.dim() == 4, "scores.dim() must be 4, but got: ", scores.dim());
     TORCH_CHECK(knn_idx.dim() == 3, "knn_idx.dim() must be 3, but got: ", knn_idx.dim());
+    TORCH_CHECK(N >= npoint, "The number of whole points must be larger than or equal to the number of sample points.");
+    TORCH_CHECK(N >= K, "The number of whole points must be larger than or equal to the number of neighbors.");
+    TORCH_CHECK(aggregate == 0, "Only support 'sum' method, other aggregate methods are not supported now.");
 
     at::Tensor points_trans = points.permute({0, 3, 1, 2});
     at::Tensor centers_trans = centers.permute({0, 3, 1, 2});

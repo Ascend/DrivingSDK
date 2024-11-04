@@ -213,6 +213,42 @@ out = hypot(input, other) # tensor([5.,5.,5.])
 1. input和other的shape必须是可广播的。
 
 
+## assign_score_withk
+### 接口原型
+```python
+mx_driving.common.assign_score_withk(Tensor scores, Tensor point_features, Tensor center_features, Tensor knn_idx, str aggregate='sum') -> Tensor
+```
+### 功能描述
+根据`knn_idx`得到采样点及其邻居点的索引，计算`point_features`和`center_features`的差，并与`scores`相乘后在特征维度进行聚合，返回采样点的特征。
+### 参数说明
+- `scores(Tensor)`：权重矩阵的重要系数，数据类型为`float32`。Shape为`[B, npoint, K, M]`，其中`B`为batch size，`npoint`为采样点的数量，`K`为一个样本点及其邻居点的数量之和，`M`为权重矩阵集合的规模。
+- `point_features(Tensor)`：所有点的特征，数据类型为`float32`。Shape为`[B, N, M, O]`，其中`N`为所有点的数量，`O`为特征数量。
+- `center_features(Tensor)`：所有点的中心特征，数据类型为`float32`。Shape为`[B, N, M, O]`。
+- `knn_idx[Tensor]`：采样点及其邻居点的索引，数据类型为`int64`。Shape为`[B, npoint, K]`。
+- `aggregate`：聚合方式，默认为`sum`，数据类型为`str`。
+### 返回值
+- `output`：聚合后采样点的特征，数据类型为`float32`。Shape为`[B, O, npoint, K]`。
+### 支持的型号
+- Atlas A2 训练系列产品
+### 调用示例
+
+```python
+import torch, torch_npu
+from mx_driving.common import assign_score_withk
+points = np.random.rand(4, 100, 8, 16).astype(np.float32)
+centers = np.random.rand(4, 100, 8, 16).astype(np.float32)
+scores = np.random.rand(4, 64, 10, 8).astype(np.float32)
+knn_idx = np.random.randint(0, N, size=(4, 64, 10)).astype(np.int64)
+output = assign_score_withk(torch.from_numpy(scores).npu(),
+                            torch.from_numpy(points).npu(),
+                            torch.from_numpy(centers).npu(),
+                            torch.from_numpy(knn_idx).npu(),
+                            "sum")
+```
+### 算子约束
+- `npoint`和`K`都不大于`N`。
+
+
 # 数据预处理算子
 ## npu_points_in_box
 ### 接口原型

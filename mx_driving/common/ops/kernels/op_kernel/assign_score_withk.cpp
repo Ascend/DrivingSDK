@@ -58,7 +58,7 @@ public:
 
         pipe.InitBuffer(pointsQue, BUFFER_NUM, weightsAlign * sizeof(T));
         pipe.InitBuffer(centersQue, BUFFER_NUM, weightsAlign * sizeof(T));
-        pipe.InitBuffer(scoresQue, BUFFER_NUM, numNeighbors * weightsAlign * sizeof(T));
+        pipe.InitBuffer(scoresQue, BUFFER_NUM,  weightsAlign * sizeof(T));
         pipe.InitBuffer(knnIdxQue, BUFFER_NUM, numNeighbors * sizeof(int64_t));
         pipe.InitBuffer(outputQue, BUFFER_NUM, numNeighbors * sizeof(T));
         pipe.InitBuffer(tempBuf, weightsAlign * sizeof(T));
