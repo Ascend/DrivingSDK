@@ -32,6 +32,11 @@ class RoIAwarePool3dFunction(Function):
         else:
             raise Exception("outsize attr Error!\n")
         
+        if mode not in ['max', 'avg']:
+            raise Exception("mode attr Error!\n")
+        pool_mapping = {'max': 0, 'avg': 1}
+        pool_method = pool_mapping[mode]
+        
         num_rois = rois.shape[0]
         num_channels = pts_feature.shape[-1]
         num_pts = pts.shape[0]
@@ -42,10 +47,19 @@ class RoIAwarePool3dFunction(Function):
             (num_rois, out_x, out_y, out_z, num_channels), dtype=torch.int32)
         pts_idx_of_voxels = pts_feature.new_zeros(
             (num_rois, out_x, out_y, out_z, max_pts_per_voxel), dtype=torch.int32)
-
-        ctx.roiaware_pool3d_for_backward = (pts_idx_of_voxels, argmax, mode, 
-                                            num_pts, num_channels)
-        return None
+        
+        mx_driving._C.npu_roiaware_pool3d_forward(
+            rois,
+            pts,
+            pts_feature,
+            argmax,
+            pts_idx_of_voxels,
+            pooled_features,
+            pool_method)
+        
+        ctx.save_for_backward(pts_idx_of_voxels, argmax, mode, num_pts, num_channels)
+        
+        return pooled_features
     
     @staticmethod
     def backward(ctx: Any, grad_out: torch.Tensor):
