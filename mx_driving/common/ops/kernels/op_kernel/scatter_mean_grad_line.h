@@ -14,113 +14,221 @@ template <typename T>
 class ScatterMeanGradLine : public ScatterMeanGradBase<T> {
 public:
     __aicore__ inline ScatterMeanGradLine() {}
-    __aicore__ inline void InitLine(GM_ADDR gradOut, GM_ADDR index, GM_ADDR gradIn, const ScatterMeanGradTilingData* tilingData)
+    __aicore__ inline void InitLine(GM_ADDR gradOut, GM_ADDR index, GM_ADDR count, GM_ADDR gradIn, const ScatterMeanGradTilingData* tilingData)
     {
         this->InitTiling(tilingData);
+        InitLocalTiling(tilingData);
         gradInGm.SetGlobalBuffer((__gm__ T *)gradIn, this->gradInNum);
         indexGm.SetGlobalBuffer((__gm__ int32_t *)index, this->indexNum);
         gradOutGm.SetGlobalBuffer((__gm__ T *)gradOut, this->gradOutNum);
+        countGm.SetGlobalBuffer((__gm__ T *)count, this->countNum);
 
-        pipe.InitBuffer(inGradOutUb, 1, this->gradOutUbSize * sizeof(T));
-        pipe.InitBuffer(inIndexUb, 1, this->indexUbSize * sizeof(int32_t));
-        pipe.InitBuffer(outGradInUb, 1, this->gradInUbSize * sizeof(T));
-        pipe.InitBuffer(indexSumUb, this->indexSumUbSize * sizeof(int32_t));
-        pipe.InitBuffer(maskUb, this->CeilValue((this->indexSumUbSize - 1) / this->indexNumPerBlock + 1, BLOCK_BYTES));
-        pipe.InitBuffer(duplicateUb, MASK_BYTES);
-        pipe.InitBuffer(compareUb, MASK_BYTES);
-        pipe.InitBuffer(indexDivUb, this->indexSumUbSize * sizeof(int32_t));
-        pipe.InitBuffer(allOneUb, this->indexSumUbSize * sizeof(int32_t));
-    }
-
-    __aicore__ inline void ComputeModeLastDimLine(int32_t curBlockIdx)
-    {
-        LocalTensor<T> gradInLocal = outGradInUb.DeQue<T>();
-        LocalTensor<int32_t> indexLocal = inIndexUb.DeQue<int32_t>();
-        LocalTensor<T> gradOutLocal = inGradOutUb.DeQue<T>();
-        LocalTensor<int32_t> indexSumLocal = indexSumUb.Get<int32_t>();
-        LocalTensor<uint8_t> maskLocal = maskUb.Get<uint8_t>();
-        LocalTensor<int32_t> compareLocal = compareUb.Get<int32_t>();
-        LocalTensor<float> duplicateLocal = duplicateUb.Get<float>();
-        LocalTensor<float> indexDivLocal = indexDivUb.Get<float>();
-        LocalTensor<float> allOneLocal = allOneUb.Get<float>();
-
-        uint32_t repeat = this->CeilValue(this->dimRangeOut, MASK) / MASK;
-        uint32_t copyInBytes = (uint32_t)(this->paramsPro * sizeof(T));
-        DataCopyExtParams copyParams{1, copyInBytes, 0, 0, 0};
-
-        Duplicate(compareLocal, (int32_t)0, MASK);
-        Duplicate(duplicateLocal, (float)1, MASK);
-        Duplicate(allOneLocal, (float)1, this->indexSumUbSize);
-        pipe_barrier(PIPE_V);
-
-        uint32_t lowerLimit = curBlockIdx < this->taskTailCore ? curBlockIdx * (this->taskPerCore + 1) : curBlockIdx * this->taskPerCore + this->taskTailCore;
-        uint32_t upperLimit = curBlockIdx < this->taskTailCore ? (curBlockIdx + 1) * (this->taskPerCore + 1) : (curBlockIdx + 1) * this->taskPerCore + this->taskTailCore;
-        for (uint32_t preId = 0; preId < this->paramsPre; preId++) {
-            // Zero operation for indexSum
-            Duplicate(indexSumLocal, (int32_t)0, this->indexSumUbSize);
-            DataCopy(indexLocal, indexGm[preId * this->dimRange],  this->CeilValue(this->dimRange, this->indexNumPerBlock));
-            pipe_barrier(PIPE_ALL);
-            // Count the occurrence of each index.
-            for (uint32_t indexId = 0; indexId < this->dimRange; indexId++) {
-                uint32_t indexValue = indexLocal.GetValue(indexId);
-                int32_t preValue = indexSumLocal.GetValue(indexValue);
-                indexSumLocal.SetValue(indexValue, preValue + 1);
-            }
-            set_flag(PIPE_S, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
-            // Fill with 1 and then divide by line.
-            Compare(maskLocal, indexSumLocal, compareLocal, CMPMODE::EQ, MASK, repeat, this->repeatParamsCompare);
-            Cast(indexDivLocal, indexSumLocal, RoundMode::CAST_NONE, this->dimRangeOut);
-            pipe_barrier(PIPE_V);
-            Select(indexDivLocal, maskLocal, duplicateLocal, indexDivLocal,
-                   SELMODE::VSEL_TENSOR_TENSOR_MODE, MASK, repeat, this->repeatParamsSelect);
-            pipe_barrier(PIPE_V);
-            Div(indexDivLocal, allOneLocal, indexDivLocal, this->indexSumUbSize);
-            set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
-            for (uint32_t indexId = 0; indexId < this->dimRange; indexId++) {
-                uint32_t indexValue = indexLocal.GetValue(indexId);
-                if (indexValue >= lowerLimit && indexValue < upperLimit) {
-                    T outIndexValue = (T)indexDivLocal.GetValue(indexValue);
-                    DataCopy(gradOutLocal,
-                             gradOutGm[preId * this->dimRangeOut * this->paramsPro + indexValue * this->paramsPro],
-                             this->CeilValue(this->paramsPro, this->paramsNumPerBlock));
-                    pipe_barrier(PIPE_ALL);
-                    Muls(gradInLocal, gradOutLocal, outIndexValue, this->paramsPro);
-                    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-                    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-                    DataCopyPad(gradInGm[preId * this->dimRange * this->paramsPro + indexId * this->paramsPro], gradInLocal, copyParams);
-                }
-            }
-        }
-        outGradInUb.FreeTensor(gradInLocal);
-        inIndexUb.FreeTensor(indexLocal);
-        inGradOutUb.FreeTensor(gradOutLocal);
-    }
-
-    __aicore__ inline void InitUb()
-    {
-        LocalTensor<T> gradInLocal = outGradInUb.AllocTensor<T>();
-        LocalTensor<T> gradOutLocal = inGradOutUb.AllocTensor<T>();
-        LocalTensor<int32_t> indexLocal = inIndexUb.AllocTensor<int32_t>();
-        inGradOutUb.EnQue(gradOutLocal);
-        inIndexUb.EnQue(indexLocal);
-        outGradInUb.EnQue(gradInLocal);
+        pipe.InitBuffer(inCountUb, this->paramsEachBlock * sizeof(T));
+        pipe.InitBuffer(inIndexUb, this->indexUbSize * sizeof(int32_t));
+        pipe.InitBuffer(outGradInUb, gradInUbSize * sizeof(T));
+        pipe.InitBuffer(inGradOutUb, gradOutUbSize * sizeof(T));
     }
 
     __aicore__ inline void Process()
     {
-        InitUb();
-        ComputeModeLastDimLine(this->curBlockIdx);
+        if (this->tilingMode == 1) {
+            for (int32_t i = 0; i < taskNum - 1; i++) {
+                ComputeSmallTail(i, taskEachLine);
+            }
+            if (taskLastLine != 0) {
+                ComputeSmallTail(taskNum - 1, taskLastLine);
+            }
+        } else {
+            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+            for (int32_t i = 0; i < taskNum - 1; i++) {
+                ComputeEachTask(i, taskEachLine);
+            }
+            if (taskLastLine != 0) {
+                ComputeEachTask(taskNum - 1, taskLastLine);
+            }
+            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+        }
     }
 
 private:
     TPipe pipe;
-    TQue<QuePosition::VECIN, 1> inGradOutUb, inIndexUb;
-    TQue<QuePosition::VECOUT, 1> outGradInUb;
-    TBuf<TPosition::VECCALC> indexSumUb, indexDivUb, maskUb, compareUb, duplicateUb, allOneUb;
-    GlobalTensor<T> gradInGm, gradOutGm;
+    TBuf<TPosition::VECCALC> inGradOutUb, inIndexUb, inCountUb, outGradInUb;
+    GlobalTensor<T> gradInGm, gradOutGm, countGm;
     GlobalTensor<int32_t> indexGm;
+
+    __aicore__ inline void InitLocalTiling(const ScatterMeanGradTilingData *tiling_data);
+    __aicore__ inline void ComputeTail(uint64_t idxTure, uint64_t dataInIndices, uint64_t gradInLocalOffset);
+    __aicore__ inline void ComputeEachTask(int32_t taskId, uint64_t taskLine);
+    __aicore__ inline void ComputeSmallTail(int32_t taskId, uint64_t taskLine);
+    __aicore__ inline int64_t getEventIdforDoublebuffer();
+
+    uint64_t ubTailNum;
+    uint64_t tailLoop;
+    uint64_t tailLast;
+    uint64_t gradInUbSize;
+    uint64_t gradOutUbSize;
+    uint64_t indicesBaseOffset;
+    uint64_t taskNum, taskEachLine, taskLastLine;
+    uint64_t gradInEachHead;
+    uint64_t outEachHead;
+    uint64_t eventId;
+    uint64_t countUb;
 };
+
+template <typename T>
+__aicore__ inline void ScatterMeanGradLine<T>::InitLocalTiling(const ScatterMeanGradTilingData *tiling_data)
+{
+    taskNum = tiling_data->taskNum;
+    taskEachLine = tiling_data->taskEachLine;
+    taskLastLine = tiling_data->taskLastLine;
+    ubTailNum = tiling_data->ubTailNum;
+    gradInUbSize = tiling_data->gradInUbSize;
+    gradOutUbSize = tiling_data->gradOutUbSize;
+
+    uint64_t coreDataLine = tiling_data->bacthSmallCore;
+    if (this->curBlockIdx < this->bigCoreNum) {
+        coreDataLine = coreDataLine + 1;
+        indicesBaseOffset = this->curBlockIdx * coreDataLine;
+    } else {
+        if (taskLastLine == 1) {
+            taskNum = taskNum - 1;
+        } else {
+            taskLastLine = taskLastLine - 1;
+        }
+        indicesBaseOffset = this->bigCoreNum * (coreDataLine + 1) + (this->curBlockIdx - this->bigCoreNum) * coreDataLine;
+    }
+    gradInEachHead = this->dimRange * this->body;
+    outEachHead = this->dimRangeOut * this->body;
+
+    tailLoop = this->tail / ubTailNum;
+    tailLast = this->tail - tailLoop * ubTailNum;
+
+    countUb = 0;
+    eventId = EVENT_ID0;
+
+    this->copyParamsOut.blockLen = static_cast<uint32_t>(tailLast * sizeof(float));
+}
+
+template <typename T>
+__aicore__ inline int64_t ScatterMeanGradLine<T>::getEventIdforDoublebuffer()
+{
+    uint64_t localOffset;
+    if (countUb % BUFFER_NUM == 0) {
+        localOffset = 0;
+        eventId = EVENT_ID0;
+    } else {
+        localOffset = ubTailNum;
+        eventId = EVENT_ID1;
+    }
+    countUb = countUb + 1;
+    return localOffset;
+}
+
+template <typename T>
+__aicore__ inline void ScatterMeanGradLine<T>::ComputeSmallTail(int32_t taskId, uint64_t taskLine)
+{
+    LocalTensor<int32_t> indicesLocal = inIndexUb.Get<int32_t>();
+    LocalTensor<T> gradInLocal = outGradInUb.Get<T>();
+    LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
+    LocalTensor<T> countLocal = inCountUb.Get<T>();
+
+    auto indicesOffset = indicesBaseOffset + taskEachLine * taskId;
+    auto gradInOffset = indicesOffset * this->tail;
+    DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(taskLine, this->indicesEachBlock));
+    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    Muls(indicesLocal, indicesLocal, (int32_t)this->body, AlignUp(taskLine, this->indicesEachBlock));
+
+    set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+#pragma bisheng auto_sync parallel
+    for (uint64_t idx = 0; idx < taskLine; idx++) {
+        DTYPE_INDEX dataInIndices = indicesLocal.GetValue(idx);
+        auto idxTure = indicesOffset + idx;
+        auto gradInLocalOffset = idx * this->tail;
+
+        auto idx1 = idxTure / gradInEachHead;
+        auto idx2 = (idxTure - idx1 * gradInEachHead) / this->body;
+        auto idx3 = idxTure - idx1 * gradInEachHead - idx2 * this->body;
+        auto outLineOffset = idx3 + dataInIndices + idx1 * outEachHead;
+
+        DataCopy(countLocal, countGm[outLineOffset], this->indicesEachBlock);
+        auto mulValue = 1 / countLocal.GetValue(0);
+
+        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        DataCopy(gradOutLocal, gradOutGm[outLineOffset * this->tail], ubTailNum);
+        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        Muls(gradInLocal[gradInLocalOffset], gradOutLocal, mulValue, ubTailNum);
+        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+    }
+    wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID2);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID2);
+    DataCopy(gradInGm[gradInOffset], gradInLocal, taskLine * this->tail);
+}
+
+template <typename T>
+__aicore__ inline void ScatterMeanGradLine<T>::ComputeTail(uint64_t idxTure, uint64_t dataInIndices, uint64_t gradInLocalOffset)
+{
+    LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
+    LocalTensor<T> countLocal = inCountUb.Get<T>();
+
+    auto idx1 = idxTure / gradInEachHead;
+    auto idx2 = (idxTure - idx1 * gradInEachHead) / this->body;
+    auto idx3 = idxTure - idx1 * gradInEachHead - idx2 * this->body;
+    auto outLineOffset = idx3 + dataInIndices * this->body + idx1 * outEachHead;
+    DataCopy(countLocal, countGm[outLineOffset], this->indicesEachBlock);
+    auto mulValue = 1 / countLocal.GetValue(0);
+    uint64_t offset = 0;
+
+#pragma bisheng auto_sync parallel
+    for (uint64_t loop = 0; loop < tailLoop; loop++) {
+        offset = loop * ubTailNum;
+        auto localOffset = getEventIdforDoublebuffer();
+        wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        DataCopy(gradOutLocal[localOffset], gradOutGm[outLineOffset * this->tail + offset], ubTailNum);
+        set_flag(PIPE_MTE2, PIPE_V, eventId);
+        wait_flag(PIPE_MTE2, PIPE_V, eventId);
+        Muls(gradOutLocal[localOffset], gradOutLocal[localOffset], mulValue, ubTailNum);
+        set_flag(PIPE_V, PIPE_MTE3, eventId);
+        wait_flag(PIPE_V, PIPE_MTE3, eventId);
+        DataCopy(gradInGm[gradInLocalOffset + offset], gradOutLocal[localOffset], ubTailNum);
+        set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+    }
+
+    offset = tailLoop * ubTailNum;
+    if (tailLast != 0) {
+        auto localOffset = getEventIdforDoublebuffer();
+        wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        DataCopy(gradOutLocal[localOffset], gradOutGm[outLineOffset * this->tail + offset], AlignUp(tailLast, this->paramsEachBlock));
+        set_flag(PIPE_MTE2, PIPE_V, eventId);
+        wait_flag(PIPE_MTE2, PIPE_V, eventId);
+        Muls(gradOutLocal[localOffset], gradOutLocal[localOffset], mulValue, AlignUp(tailLast, this->paramsEachBlock));
+        set_flag(PIPE_V, PIPE_MTE3, eventId);
+        wait_flag(PIPE_V, PIPE_MTE3, eventId);
+        DataCopyPad(gradInGm[gradInLocalOffset + offset], gradOutLocal[localOffset], this->copyParamsOut);
+        set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+    }
+}
+
+template <typename T>
+__aicore__ inline void ScatterMeanGradLine<T>::ComputeEachTask(int32_t taskId, uint64_t taskLine)
+{
+    LocalTensor<int32_t> indicesLocal = inIndexUb.Get<int32_t>();
+    auto indicesOffset = indicesBaseOffset + taskEachLine * taskId;
+    DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(this->indexUbSize, this->indicesEachBlock));
+
+#pragma bisheng auto_sync parallel
+    for (uint64_t idx = 0; idx < taskLine; idx++) {
+        DTYPE_INDEX dataInIndices = indicesLocal.GetValue(idx);
+        auto idxTure = indicesOffset + idx;
+        auto gradInLocalOffset = idxTure * this->tail;
+        ComputeTail(idxTure, dataInIndices, gradInLocalOffset);
+    }
+}
+
 }
 #endif

@@ -14,113 +14,181 @@ template <typename T>
 class ScatterMeanGrad : public ScatterMeanGradBase<T> {
 public:
     __aicore__ inline ScatterMeanGrad() {}
-    __aicore__ inline void ComputeModeSmallData(int32_t curBlockIdx)
-    {
-        LocalTensor<T> gradInLocal = outGradInUb.DeQue<T>();
-        LocalTensor<int32_t> indexLocal = inIndexUb.DeQue<int32_t>();
-        LocalTensor<T> gradOutLocal = inGradOutUb.DeQue<T>();
-        LocalTensor<int32_t> indexSumLocal = indexSumUb.Get<int32_t>();
-        LocalTensor<uint8_t> maskLocal = maskUb.Get<uint8_t>();
-        LocalTensor<int32_t> compareLocal = compareUb.Get<int32_t>();
-        LocalTensor<float> duplicateLocal = duplicateUb.Get<float>();
-        LocalTensor<float> indexDivLocal = indexDivUb.Get<float>();
-        
-        uint32_t copyInNum = this->dimRange * this->paramsPro;
-        uint32_t copyOutNum = this->dimRangeOut * this->paramsPro;
-        uint32_t repeat = this->CeilValue(copyOutNum, MASK) / MASK;
-        uint32_t indexInBlock = this->CeilValue(copyInNum, BLOCK_BYTES / sizeof(int32_t));
-        uint32_t gradOutBlock = this->CeilValue(copyOutNum, BLOCK_BYTES / sizeof(T));
-        uint32_t copyInBytes = (uint32_t)(copyInNum * sizeof(T));
-        DataCopyExtParams copyParams{1, copyInBytes, 0, 0, 0};
-
-        Duplicate(compareLocal, (int32_t)0, MASK);
-        Duplicate(duplicateLocal, (float)1, MASK);
-        pipe_barrier(PIPE_V);
-
-        uint32_t curCoreTaskNum = curBlockIdx < this->taskTailCore ? this->taskPerCore + 1 : this->taskPerCore;
-        uint32_t startTaskid = curBlockIdx < this->taskTailCore ? (this->taskPerCore + 1) * curBlockIdx : this->taskPerCore * curBlockIdx + this->taskTailCore;
-        for (uint32_t loopIndex = 0; loopIndex < curCoreTaskNum; loopIndex++) {
-            int32_t curTaskIdx = loopIndex + startTaskid;
-            // Zero operation for indexSum
-            Duplicate(indexSumLocal, (int32_t)0, this->gradOutUbSize);
-            DataCopy(indexLocal, indexGm[curTaskIdx * copyInNum], indexInBlock);
-            DataCopy(gradOutLocal, gradOutGm[curTaskIdx * copyOutNum], gradOutBlock);
-            pipe_barrier(PIPE_ALL);
-            // Count the occurrence of each index.
-            for (uint32_t indexId = 0; indexId < copyInNum; indexId++) {
-                uint32_t index1 = indexId % this->paramsPro;
-                int32_t indexValue = indexLocal.GetValue(indexId);
-                int32_t outOffset = indexValue * this->paramsPro + index1;
-                int32_t preValue = indexSumLocal.GetValue(outOffset);
-                indexSumLocal.SetValue(outOffset, preValue + 1);
-                indexLocal.SetValue(indexId, outOffset);
-            }
-            set_flag(PIPE_S, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
-            // Fill with 1 and then divide.
-            Compare(maskLocal, indexSumLocal, compareLocal, CMPMODE::EQ, MASK, repeat, this->repeatParamsCompare);
-            Cast(indexDivLocal, indexSumLocal, RoundMode::CAST_NONE, copyOutNum);
-            pipe_barrier(PIPE_V);
-            Select(indexDivLocal, maskLocal, duplicateLocal, indexDivLocal,
-                   SELMODE::VSEL_TENSOR_TENSOR_MODE, MASK, repeat, this->repeatParamsSelect);
-            pipe_barrier(PIPE_V);
-            Div(gradOutLocal, gradOutLocal, indexDivLocal, this->gradOutUbSize);
-            set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
-
-            for (uint32_t indexId = 0; indexId < copyInNum; indexId++) {
-                int32_t outOffset = indexLocal.GetValue(indexId);
-                T grad = gradOutLocal.GetValue(outOffset);
-                gradInLocal.SetValue(indexId, grad);
-            }
-            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-            DataCopyPad(gradInGm[curTaskIdx * copyInNum], gradInLocal, copyParams);
-        }
-        outGradInUb.FreeTensor(gradInLocal);
-        inIndexUb.FreeTensor(indexLocal);
-        inGradOutUb.FreeTensor(gradOutLocal);
-    }
-
-    __aicore__ inline void InitUb()
-    {
-        LocalTensor<T> gradInLocal = outGradInUb.AllocTensor<T>();
-        LocalTensor<T> gradOutLocal = inGradOutUb.AllocTensor<T>();
-        LocalTensor<int32_t> indexLocal = inIndexUb.AllocTensor<int32_t>();
-        inGradOutUb.EnQue(gradOutLocal);
-        inIndexUb.EnQue(indexLocal);
-        outGradInUb.EnQue(gradInLocal);
-    }
-
-    __aicore__ inline void Init(GM_ADDR gradOut, GM_ADDR index, GM_ADDR gradIn, const ScatterMeanGradTilingData* tilingData)
+    __aicore__ inline void Init(GM_ADDR gradOut, GM_ADDR index, GM_ADDR count, GM_ADDR gradIn, const ScatterMeanGradTilingData* tilingData)
     {
         this->InitTiling(tilingData);
+        InitNoTailTiling(tilingData);
         gradInGm.SetGlobalBuffer((__gm__ T *)gradIn, this->gradInNum);
         indexGm.SetGlobalBuffer((__gm__ int32_t *)index, this->indexNum);
         gradOutGm.SetGlobalBuffer((__gm__ T *)gradOut, this->gradOutNum);
+        countGm.SetGlobalBuffer((__gm__ T *)count, this->countNum);
 
-        pipe.InitBuffer(inGradOutUb, 1, this->gradOutUbSize * sizeof(T));
-        pipe.InitBuffer(inIndexUb, 1, this->indexUbSize * sizeof(int32_t));
-        pipe.InitBuffer(outGradInUb, 1, this->gradInUbSize * sizeof(T));
-        pipe.InitBuffer(indexSumUb, this->indexSumUbSize * sizeof(int32_t));
-        pipe.InitBuffer(maskUb, this->CeilValue((this->gradOutUbSize - 1) / this->indexNumPerBlock + 1, BLOCK_BYTES));
-        pipe.InitBuffer(duplicateUb, MASK_BYTES);
-        pipe.InitBuffer(compareUb, MASK_BYTES);
-        pipe.InitBuffer(indexDivUb, this->indexSumUbSize * sizeof(int32_t));
+        pipe.InitBuffer(inGradOutUb, this->gradOutUbSize * sizeof(T));
+        pipe.InitBuffer(inIndexUb, this->indexUbSize * sizeof(int32_t));
+        pipe.InitBuffer(outGradInUb, this->indexUbSize * sizeof(T));
+        pipe.InitBuffer(inCountUb, this->gradOutUbSize * sizeof(T));
     }
 
     __aicore__ inline void Process()
     {
-        InitUb();
-        ComputeModeSmallData(this->curBlockIdx);
+        if (this->tilingMode == 0) {
+            for (uint64_t taskId = 0; taskId < taskNum - 1; taskId++) {
+                ComputeModeSmallData(taskId, headTask);
+            }
+            if (headLastTask != 0) {
+                ComputeModeSmallData(taskNum - 1, headLastTask);
+            }
+        } else {
+            indexLoop = headIndexSize / this->indexUbSize;
+            indexLast = headIndexSize - indexLoop * this->indexUbSize;
+            this->copyParamsOut.blockLen = static_cast<int32_t>(indexLast * sizeof(float));
+            for (uint64_t taskId = 0; taskId < taskNum - 1; taskId++) {
+                ComputeModeLargeData(taskId, headTask);
+            }
+            if (headLastTask != 0) {
+                ComputeModeLargeData(taskNum - 1, headLastTask);
+            }
+        }
     }
+
+private:
+    __aicore__ inline void InitNoTailTiling(const ScatterMeanGradTilingData *tiling_data)
+    {
+        auto headTaskSmall = tiling_data->headTaskSmall;
+        auto taskNumSmall = tiling_data->taskNumSmall;
+        auto headLastTaskSmall = tiling_data->headLastTaskSmall;
+        auto headTaskBig = tiling_data->headTaskBig;
+        auto taskNumBig = tiling_data->taskNumBig;
+        auto headLastTaskBig = tiling_data->headLastTaskBig;
+
+        headOutSize = this->dimRangeOut * this->paramsPro;
+        headIndexSize = this->dimRange * this->paramsPro;
+
+        auto headBigCore = (taskNumBig - 1) * headTaskBig + headLastTaskBig;
+        auto headSmallCore = headBigCore - 1;
+
+        if (this->curBlockIdx < this->bigCoreNum) {
+            taskNum = taskNumBig;
+            headTask = headTaskBig;
+            headLastTask = headLastTaskBig;
+            headBaseId = this->curBlockIdx * headBigCore;
+        } else {
+            taskNum = taskNumSmall;
+            headTask = headTaskSmall;
+            headLastTask = headLastTaskSmall;
+            headBaseId = this->bigCoreNum * headBigCore + (this->curBlockIdx - this->bigCoreNum) * headSmallCore;
+        }
+
+        this->copyParamsOut.blockLen = static_cast<int32_t>(headTask * headIndexSize * sizeof(float));
+    }
+
+    __aicore__ inline void ComputeModeSmallData(uint64_t taskId, uint64_t headNum)
+    {
+        LocalTensor<int32_t> indexLocal = inIndexUb.Get<int32_t>();
+        LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
+        LocalTensor<T> countLocal = inCountUb.Get<T>();
+        LocalTensor<T> gradInLocal = outGradInUb.Get<T>();
+
+        uint64_t firstHeadId = headBaseId + headTask * taskId;
+        uint64_t indexOffset = firstHeadId * headIndexSize;
+        uint64_t outOffset = firstHeadId * headOutSize;
+
+        uint64_t indicesAlign = AlignUp(headNum * headIndexSize, this->indicesEachBlock);
+        uint64_t outAlign = AlignUp(headNum * headOutSize, this->paramsEachBlock);
+
+        DataCopy(indexLocal, indexGm[indexOffset], indicesAlign);
+        DataCopy(gradOutLocal, gradOutGm[outOffset], outAlign);
+        DataCopy(countLocal, countGm[outOffset], outAlign);
+
+        pipe_barrier(PIPE_ALL);
+        Div(gradOutLocal, gradOutLocal, countLocal, outAlign);
+
+        for (uint64_t head = 0; head < headNum; head++) {
+            uint64_t indexLocalOffset = head * headIndexSize;
+            uint64_t outLocalOffset = head * headOutSize;
+            for (uint64_t idx = 0; idx < headIndexSize; idx++) {
+                uint64_t indexTrueOffset = indexLocalOffset + idx;
+                auto indexValue = indexLocal.GetValue(indexTrueOffset);
+                auto offsetInOut = indexValue + outLocalOffset;
+                auto gradInValue = gradOutLocal.GetValue(offsetInOut);
+                gradInLocal.SetValue(indexTrueOffset, gradInValue);
+            }
+        }
+        this->copyParamsOut.blockLen = static_cast<int32_t>(headNum * headIndexSize * sizeof(float));
+        DataCopyPad(gradInGm[indexOffset], gradInLocal, this->copyParamsOut);
+    }
+
+    __aicore__ inline void ComputeModeLargeData(uint64_t taskId, uint64_t headNum)
+    {
+        LocalTensor<int32_t> indexLocal = inIndexUb.Get<int32_t>();
+        LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
+        LocalTensor<T> countLocal = inCountUb.Get<T>();
+        LocalTensor<T> gradInLocal = outGradInUb.Get<T>();
+
+        uint64_t firstHeadId = headBaseId + headTask * taskId;
+        uint64_t indexOffset = firstHeadId * headIndexSize;
+        uint64_t outOffset = firstHeadId * headOutSize;
+        uint64_t outAlign = AlignUp(headNum * headOutSize, this->paramsEachBlock);
+
+        DataCopy(gradOutLocal, gradOutGm[outOffset], outAlign);
+        DataCopy(countLocal, countGm[outOffset], outAlign);
+        pipe_barrier(PIPE_ALL);
+        Div(gradOutLocal, gradOutLocal, countLocal, outAlign);
+
+        for (uint64_t head = 0; head < headNum; head++) {
+            uint64_t indicesAlign = AlignUp(headIndexSize, this->indicesEachBlock);
+            auto headOutOffset = head * headOutSize;
+
+            uint64_t offset = 0;
+            for (uint64_t loop = 0; loop < indexLoop; loop++) {
+                offset = this->indexUbSize * loop;
+                DataCopy(indexLocal, indexGm[indexOffset + head * headIndexSize + offset], this->indexUbSize);
+                pipe_barrier(PIPE_ALL);
+                Adds(indexLocal, indexLocal, (int32_t)headOutOffset, this->indexUbSize);
+                Duplicate(gradInLocal, float(0), this->indexUbSize);
+                for (uint64_t idx = 0; idx < this->indexUbSize; idx++) {
+                    auto indexValue = indexLocal.GetValue(idx);
+                    auto gradInValue = gradOutLocal.GetValue(indexValue);
+                    gradInLocal.SetValue(idx, gradInValue);
+                }
+                SetAtomicAdd<T>();
+                DataCopy(gradInGm[indexOffset + head * headIndexSize + offset], gradInLocal, this->indexUbSize);
+                SetAtomicNone();
+            }
+            if (indexLast != 0) {
+                offset = this->indexUbSize * indexLoop;
+                uint64_t indicesAlign = AlignUp(indexLast, this->indicesEachBlock);
+                DataCopy(indexLocal, indexGm[indexOffset + head * headIndexSize + offset], indicesAlign);
+                pipe_barrier(PIPE_ALL);
+                Adds(indexLocal, indexLocal, (int32_t)headOutOffset, indicesAlign);
+                Duplicate(gradInLocal, float(0), indicesAlign);
+                for (uint64_t idx = 0; idx < indexLast; idx++) {
+                    auto indexValue = indexLocal.GetValue(idx);
+                    auto gradInValue = gradOutLocal.GetValue(indexValue);
+                    gradInLocal.SetValue(idx, gradInValue);
+                }
+                SetAtomicAdd<T>();
+                DataCopyPad(gradInGm[indexOffset + head * headIndexSize + offset], gradInLocal, this->copyParamsOut);
+                SetAtomicNone();
+            }
+        }
+    }
+
 private:
     TPipe pipe;
-    TQue<QuePosition::VECIN, 1> inGradOutUb, inIndexUb;
-    TQue<QuePosition::VECOUT, 1> outGradInUb;
-    TBuf<TPosition::VECCALC> indexSumUb, indexDivUb, maskUb, compareUb, duplicateUb;
-    GlobalTensor<T> gradInGm, gradOutGm;
+    TBuf<TPosition::VECCALC> inGradOutUb, inIndexUb, outGradInUb, inCountUb;
+
+    GlobalTensor<T> gradInGm, gradOutGm, countGm;
     GlobalTensor<int32_t> indexGm;
+
+    uint64_t headOutSize;
+    uint64_t headIndexSize;
+    uint64_t taskNum;
+    uint64_t headTask;
+    uint64_t headLastTask;
+    uint64_t headBaseId;
+    uint64_t indexLoop;
+    uint64_t indexLast;
 };
 }
 #endif

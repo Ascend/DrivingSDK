@@ -5,27 +5,33 @@
 
 namespace optiling {
 BEGIN_TILING_DATA_DEF(ScatterMeanGradTilingData)
-    TILING_DATA_FIELD_DEF(uint32_t, size);
-    TILING_DATA_FIELD_DEF(uint32_t, paramsPre);
-    TILING_DATA_FIELD_DEF(uint32_t, dimRange);
-    TILING_DATA_FIELD_DEF(uint32_t, dimRangeOut);
-    TILING_DATA_FIELD_DEF(uint32_t, paramsPro);
-    TILING_DATA_FIELD_DEF(int32_t, dim);
+    TILING_DATA_FIELD_DEF(uint64_t, dimRange);
+    TILING_DATA_FIELD_DEF(uint64_t, dimRangeOut);
+    TILING_DATA_FIELD_DEF(uint64_t, paramsPro);
+    TILING_DATA_FIELD_DEF(uint64_t, gradInUbSize);
+    TILING_DATA_FIELD_DEF(uint64_t, indexUbSize);
+    TILING_DATA_FIELD_DEF(uint64_t, gradOutUbSize);
+    TILING_DATA_FIELD_DEF(uint64_t, indexSumUbSize);
+    TILING_DATA_FIELD_DEF(uint64_t, gradInNum);
+    TILING_DATA_FIELD_DEF(uint64_t, indexNum);
+    TILING_DATA_FIELD_DEF(uint64_t, gradOutNum);
+    TILING_DATA_FIELD_DEF(uint64_t, countNum);
+    TILING_DATA_FIELD_DEF(uint64_t, tail);
+    TILING_DATA_FIELD_DEF(uint64_t, taskNum);
+    TILING_DATA_FIELD_DEF(uint64_t, taskEachLine);
+    TILING_DATA_FIELD_DEF(uint64_t, taskLastLine);
+    TILING_DATA_FIELD_DEF(uint64_t, bigCoreNum);
+    TILING_DATA_FIELD_DEF(uint64_t, ubTailNum);
+    TILING_DATA_FIELD_DEF(uint64_t, bacthSmallCore);
+    TILING_DATA_FIELD_DEF(uint64_t, tilingMode);
+    TILING_DATA_FIELD_DEF(uint64_t, headTaskSmall);
+    TILING_DATA_FIELD_DEF(uint64_t, taskNumSmall);
+    TILING_DATA_FIELD_DEF(uint64_t, headLastTaskSmall);
+    TILING_DATA_FIELD_DEF(uint64_t, headTaskBig);
+    TILING_DATA_FIELD_DEF(uint64_t, taskNumBig);
+    TILING_DATA_FIELD_DEF(uint64_t, headLastTaskBig);
+    TILING_DATA_FIELD_DEF(uint64_t, taskEachHead);
 
-    TILING_DATA_FIELD_DEF(uint32_t, taskPerCore);
-    TILING_DATA_FIELD_DEF(uint32_t, taskTailCore);
-
-    TILING_DATA_FIELD_DEF(uint64_t, ubSize);
-    TILING_DATA_FIELD_DEF(uint32_t, gradInUbSize);
-    TILING_DATA_FIELD_DEF(uint32_t, indexUbSize);
-    TILING_DATA_FIELD_DEF(uint32_t, gradOutUbSize);
-    TILING_DATA_FIELD_DEF(uint32_t, indexSumUbSize);
-
-    TILING_DATA_FIELD_DEF(uint32_t, gradInNum);
-    TILING_DATA_FIELD_DEF(uint32_t, indexNum);
-    TILING_DATA_FIELD_DEF(uint32_t, gradOutNum);
-
-    TILING_DATA_FIELD_DEF(uint32_t, paramsSliceLength);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(ScatterMeanGrad, ScatterMeanGradTilingData)

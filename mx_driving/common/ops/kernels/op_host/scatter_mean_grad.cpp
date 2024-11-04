@@ -14,10 +14,19 @@ namespace optiling {
 constexpr uint32_t WORKSPACE_16MBYTE_SIZE = 16 * 1024 * 1024;
 constexpr int64_t DATA_SMALL_MODE = 1;
 constexpr int64_t NOT_BROAD_LINE_MODE = 2;
+constexpr int64_t DATA_LARGE_MODE = 3;
 constexpr uint32_t BLOCK_BYTES = 32;
-constexpr uint32_t MASK_BYTES = 256;
-constexpr uint64_t RESERVE_SAPCE = 2 * 1024;
+constexpr uint64_t RESERVE_SAPCE = 4 * 1024;
 constexpr uint32_t FLOAT_DTYPE_BYTES = 4;
+
+constexpr uint64_t MAX_OUT_LINE =  16000;
+constexpr uint64_t MAX_DEAL_NUM =  2048;
+constexpr uint64_t LEAST_LINE_EACH_TASK = 4;
+constexpr uint64_t BUFFER_NUM = 2;
+
+constexpr uint64_t INDICES_ONCE_DATANUM = 2048;
+constexpr uint64_t GRADOUT_UB_NUM = 2;
+constexpr uint64_t INDICES_UB_NUM = 2;
 
 class ScatterMeanGradTiling {
 public:
@@ -26,36 +35,47 @@ public:
     ge::graphStatus RunKernelTiling();
     void TilingDataPrint();
 private:
-    void SetTilingKeyMode(int32_t axis, int32_t gradDims, int32_t indexDims, ge::DataType gradDtype, uint32_t coreNum);
+    void SetModeNoTail(int32_t gradDims, int32_t indexDims, uint32_t coreNum);
+    void SetModeLine(int32_t gradDims, int32_t indexDims, uint32_t coreNum);
+    void SetHeadNumForTask(uint64_t headMaxTask, uint32_t coreNum);
+    void SetUbSize(uint64_t headIndicesSize);
     ScatterMeanGradTilingData TilingData;
     gert::TilingContext* context = nullptr;
-    uint32_t paramsPre = 1;
-    uint32_t dimRange = 1;
-    uint32_t dimRangeOut = 1;
-    uint32_t paramsPro = 1;
+    uint64_t paramsPre = 1;
+    uint64_t dimRange = 1;
+    uint64_t dimRangeOut = 1;
+    uint64_t paramsPro = 1;
+    uint64_t tail = 1;
     int32_t dim = 0;
-    
-    uint32_t taskPerCore = 1;
     uint32_t coreUsed = 1;
-    uint32_t taskTailCore = 1;
 
     uint64_t ubSize = 192 * 1024;
-    uint32_t gradInUbSize = 1;
-    uint32_t indexUbSize = 1;
-    uint32_t gradOutUbSize = 1;
-    uint32_t indexSumUbSize = 1;
-    uint32_t gradInNum = 1;
-    uint32_t indexNum = 1;
-    uint32_t gradOutNum = 1;
+    uint64_t gradInUbSize = 1;
+    uint64_t indexUbSize = 1;
+    uint64_t gradOutUbSize = 1;
+    uint64_t indexSumUbSize = 1;
+    uint64_t gradInNum = 1;
+    uint64_t indexNum = 1;
+    uint64_t gradOutNum = 1;
+    uint64_t countNum = 1;
 
-    uint32_t gradDsize;
-    uint32_t paramsNumPerMask = 1;
+    uint64_t headTaskSmall = 1;
+    uint64_t taskNumSmall = 1;
+    uint64_t headLastTaskSmall = 1;
+    uint64_t headTaskBig = 1;
+    uint64_t taskNumBig = 1;
+    uint64_t headLastTaskBig = 1;
+    uint64_t bigCoreNum = 1;
+    uint64_t taskEachHead = 1;
+    uint64_t tilingMode = 0;
+
+    uint32_t gradDsize = 4;
     uint32_t paramsNumPerBlock = 1;
     uint32_t indexNumPerBlock = 8;
-    uint32_t indexNumPerMask = 64;
+    uint32_t indexDsize = 4;
 };
 
-uint32_t CeilValue(uint32_t a, uint32_t b)
+uint64_t CeilValue(uint64_t a, uint64_t b)
 {
     if (b == 0) {
         return 0;
@@ -63,32 +83,157 @@ uint32_t CeilValue(uint32_t a, uint32_t b)
     return ((a - 1) / b + 1) * b;
 }
 
-void ScatterMeanGradTiling::SetTilingKeyMode(int32_t axis, int32_t gradDims, int32_t indexDims,
-                                             ge::DataType gradDtype, uint32_t coreNum)
+static uint64_t GetCeilInt(uint64_t value1, uint64_t value2)
 {
-    uint32_t allDataSize = (dimRange + dimRangeOut) * paramsPro * sizeof(int32_t) + (2 * dimRangeOut + dimRange) * paramsPro * gradDsize;
-    uint32_t lineDataSize = (dimRange + dimRangeOut) * sizeof(int32_t) + (3 * dimRangeOut + dimRange) * gradDsize;
-    coreNum = coreNum == 0 ? 1 : coreNum;
-    uint32_t availableSize = ubSize - RESERVE_SAPCE;
-    if (gradDims == indexDims && allDataSize <= availableSize) {
-        context->SetTilingKey(DATA_SMALL_MODE);
-        gradInUbSize = CeilValue(dimRange * paramsPro, paramsNumPerBlock);
-        indexUbSize = CeilValue(dimRange * paramsPro, indexNumPerBlock);
-        uint32_t outputNum = CeilValue(dimRangeOut * paramsPro, paramsNumPerMask);
-        gradOutUbSize = outputNum;
-        indexSumUbSize = outputNum;
-        taskPerCore = paramsPre / coreNum;
-        coreUsed = paramsPre >= coreNum ? coreNum : paramsPre;
-        taskTailCore = paramsPre % coreNum;
-    } else if ((gradDims > indexDims) && (axis == indexDims - 1) && (lineDataSize <= availableSize)) {
-        context->SetTilingKey(NOT_BROAD_LINE_MODE);
-        gradInUbSize = gradOutUbSize = CeilValue(paramsPro, paramsNumPerBlock);
-        indexUbSize = CeilValue(dimRange, indexNumPerBlock);
-        taskPerCore = dimRangeOut / coreNum;
-        coreUsed = dimRangeOut >= coreNum ? coreNum : dimRangeOut;
-        taskTailCore = dimRangeOut % coreNum;
-        indexSumUbSize = CeilValue(dimRangeOut, indexNumPerMask);
+    if (value2 == 0) {
+        return value1;
     }
+    return (value1 + value2 - 1) / value2;
+}
+
+static void ComputeTaskNumForeLine(uint64_t ubOutNum, uint64_t outLineEachCore, uint64_t *taskNum, uint64_t *taskEachLine, uint64_t *taskLastLine)
+{
+    if (outLineEachCore <= ubOutNum) {
+        *taskNum = 1;
+        *taskEachLine = outLineEachCore;
+        *taskLastLine = outLineEachCore;
+    } else {
+        uint64_t taskNumTemp = GetCeilInt(outLineEachCore, ubOutNum);
+        *taskNum = taskNumTemp;
+        *taskEachLine = ubOutNum;
+        *taskLastLine = outLineEachCore - ubOutNum * (taskNumTemp - 1);
+    }
+}
+
+void ScatterMeanGradTiling::SetUbSize(uint64_t headIndicesSize)
+{
+    if (headIndicesSize > INDICES_ONCE_DATANUM) {
+        indexUbSize = INDICES_ONCE_DATANUM;
+    } else {
+        indexUbSize = CeilValue(headIndicesSize, indexNumPerBlock);
+    }
+    uint64_t ubAvailableSize = ubSize - indexUbSize * indexDsize * INDICES_UB_NUM;
+    gradOutUbSize = CeilValue(ubAvailableSize / GRADOUT_UB_NUM / gradDsize, paramsNumPerBlock);
+    return;
+}
+
+void ScatterMeanGradTiling::SetHeadNumForTask(uint64_t headMaxTask, uint32_t coreNum)
+{
+    uint64_t headBigCore = GetCeilInt(paramsPre, coreNum);
+    uint64_t headSmallCore = headBigCore - 1;
+    bigCoreNum = paramsPre - headSmallCore * coreNum;
+
+    headTaskSmall = std::min(headMaxTask, headSmallCore);
+    taskNumSmall = GetCeilInt(headSmallCore, headTaskSmall);
+    headLastTaskSmall = headSmallCore - (taskNumSmall - 1) * headTaskSmall;
+
+    headTaskBig = std::min(headMaxTask, headBigCore);
+    taskNumBig = GetCeilInt(headBigCore, headTaskBig);
+    headLastTaskBig = headBigCore - (taskNumBig - 1) * headTaskBig;
+}
+
+void ScatterMeanGradTiling::SetModeNoTail(int32_t gradDims, int32_t indexDims, uint32_t coreNum)
+{
+    if (coreNum == 0 || gradDims == 0 || indexDims == 0) {
+        return;
+    }
+    
+    uint64_t headOutSize = dimRangeOut * paramsPro;
+    uint64_t headIndicesSize = dimRange * paramsPro;
+
+    uint64_t ubBytesforHead = headOutSize * gradDsize * GRADOUT_UB_NUM + headIndicesSize * indexDsize * INDICES_UB_NUM;
+    if (ubBytesforHead < ubSize) {
+        context->SetTilingKey(DATA_SMALL_MODE);
+        tilingMode = 0;
+        auto headMaxTask = ubSize / ubBytesforHead;
+        SetHeadNumForTask(headMaxTask, coreNum);
+        gradOutUbSize = headTaskBig * headOutSize;
+        indexUbSize = headTaskBig * headIndicesSize;
+    } else {
+        SetUbSize(headIndicesSize);
+        if (gradOutUbSize > headOutSize)  {
+            context->SetTilingKey(DATA_SMALL_MODE);
+            tilingMode = 1;
+            auto headMaxTask = gradOutUbSize / headOutSize;
+            SetHeadNumForTask(headMaxTask, coreNum);
+            gradOutUbSize = headTaskBig * headOutSize;
+            indexUbSize = std::min((ubSize - gradOutUbSize * GRADOUT_UB_NUM * gradDsize) / INDICES_UB_NUM / indexDsize, headIndicesSize);
+            indexUbSize = CeilValue(indexUbSize, indexNumPerBlock);
+        } else {
+            context->SetTilingKey(DATA_LARGE_MODE);
+            tilingMode = DATA_LARGE_MODE;
+            taskEachHead = GetCeilInt(headOutSize, gradOutUbSize);
+            auto taskNum = paramsPre * taskEachHead;
+            taskNumSmall = taskNum / coreNum;
+            taskNumBig = taskNumSmall + 1;
+            bigCoreNum = taskNum - taskNumSmall * coreNum;
+        }
+    }
+    coreUsed = taskNumSmall == 0 ? bigCoreNum : coreNum;
+
+    TilingData.set_headTaskSmall(headTaskSmall);
+    TilingData.set_taskNumSmall(taskNumSmall);
+    TilingData.set_headLastTaskSmall(headLastTaskSmall);
+    TilingData.set_headTaskBig(headTaskBig);
+    TilingData.set_taskNumBig(taskNumBig);
+    TilingData.set_headLastTaskBig(headLastTaskBig);
+    TilingData.set_taskEachHead(taskEachHead);
+}
+
+void ScatterMeanGradTiling::SetModeLine(int32_t gradDims, int32_t indexDims, uint32_t coreNum)
+{
+    if (coreNum == 0 || gradDims == 0 || indexDims == 0) {
+        return;
+    }
+    context->SetTilingKey(NOT_BROAD_LINE_MODE);
+
+    uint64_t dataLineSmallCore = 1;
+    uint64_t dataLineBigCore = 1;
+
+    auto body = paramsPro / tail;
+    uint64_t dataLine = dimRange * paramsPre * (paramsPro / tail);
+    
+    if (dataLine <= 2 * LEAST_LINE_EACH_TASK) {
+        coreUsed = 1;
+        dataLineBigCore = dataLine;
+        bigCoreNum = 1;
+    } else {
+        dataLineBigCore = std::max(GetCeilInt(dataLine, coreNum), LEAST_LINE_EACH_TASK);
+        dataLineSmallCore = dataLineBigCore - 1;
+        coreUsed = GetCeilInt(dataLine, dataLineBigCore);
+        bigCoreNum = dataLine - dataLineSmallCore * coreUsed;
+    }
+    uint64_t ubTailNum;
+    uint64_t taskNum, taskEachLine, taskLastLine;
+    if (tail % paramsNumPerBlock == 0 && tail < MAX_DEAL_NUM / gradDsize) {
+        tilingMode = 1;
+        ubTailNum =  tail;
+        auto availSize = ubSize - ubTailNum * BUFFER_NUM * gradDsize;
+        taskEachLine = std::min(dataLineBigCore, availSize / gradDsize / (tail + 1));
+        taskNum = GetCeilInt(dataLineBigCore, taskEachLine);
+        taskLastLine = dataLineBigCore - taskEachLine * (taskNum - 1);
+
+        indexUbSize = CeilValue(taskEachLine, paramsNumPerBlock);
+        gradInUbSize = tail * taskEachLine;
+        gradOutUbSize = ubTailNum;
+    } else {
+        tilingMode = 0;
+        auto availIndicesSize = ubSize - std::min(CeilValue(tail, paramsNumPerBlock), MAX_DEAL_NUM) * BUFFER_NUM * gradDsize;
+        ComputeTaskNumForeLine(availIndicesSize / indexDsize, dataLineBigCore, &taskNum, &taskEachLine, &taskLastLine);
+
+        indexUbSize = std::min(availIndicesSize / indexDsize, dataLineBigCore);
+        ubTailNum = (ubSize - indexUbSize * indexDsize) / BUFFER_NUM / BLOCK_BYTES * indexNumPerBlock;
+        ubTailNum = std::min(ubTailNum, CeilValue(tail, paramsNumPerBlock));
+        gradInUbSize = 0;
+        gradOutUbSize = ubTailNum * BUFFER_NUM;
+    }
+    TilingData.set_taskNum(taskNum);
+    TilingData.set_taskEachLine(taskEachLine);
+    TilingData.set_taskLastLine(taskLastLine);
+    TilingData.set_ubTailNum(ubTailNum);
+    TilingData.set_bacthSmallCore(dataLineSmallCore);
+    TilingData.set_gradInUbSize(gradInUbSize);
+    TilingData.set_gradOutUbSize(gradOutUbSize);
 }
 
 ge::graphStatus ScatterMeanGradTiling::Init()
@@ -99,6 +244,9 @@ ge::graphStatus ScatterMeanGradTiling::Init()
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     uint32_t coreNum = ascendcPlatform.GetCoreNumAiv();
+    if (coreNum == 0) {
+        return ge::GRAPH_FAILED;
+    }
 
     uint64_t totalUbSize;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, totalUbSize);
@@ -106,6 +254,7 @@ ge::graphStatus ScatterMeanGradTiling::Init()
 
     auto gradOutShape = context->GetInputShape(0)->GetStorageShape();
     auto indexShape = context->GetInputShape(1)->GetStorageShape();
+    auto countShape = context->GetInputShape(2)->GetStorageShape();
     auto gradInShape = context->GetOutputShape(0)->GetStorageShape();
     auto attrs = context->GetAttrs();
     if (attrs == nullptr) {
@@ -120,41 +269,48 @@ ge::graphStatus ScatterMeanGradTiling::Init()
     indexDims = indexDims == 0 ? 1 : indexDims;
     axis = (axis + indexDims) % indexDims;
     dim = axis;
+
     for (int32_t i = 0; i < axis; i++) {
         paramsPre *= gradInShape.GetDim(i);
     }
     dimRange = gradInShape.GetDim(axis);
     dimRangeOut = gradOutShape.GetDim(axis);
+
     for (int32_t i = axis + 1; i < gradDims; i++) {
         paramsPro *= gradInShape.GetDim(i);
+    }
+    for (int32_t i = indexDims; i < gradDims; i++) {
+        tail *= gradInShape.GetDim(i);
     }
     gradInNum = paramsPre * dimRange * paramsPro;
     for (int32_t i = 0; i < indexDims; i++) {
         indexNum *= indexShape.GetDim(i);
     }
     gradOutNum = paramsPre * dimRangeOut * paramsPro;
+    countNum = countShape.GetShapeSize();
 
     auto gradDtype = context->GetInputDesc(0)->GetDataType();
     gradDsize = sizeof(gradDtype);
-    paramsNumPerMask = MASK_BYTES / sizeof(gradDtype);
     paramsNumPerBlock = BLOCK_BYTES / gradDsize;
-    SetTilingKeyMode(axis, gradDims, indexDims, gradDtype, coreNum);
+    auto indexDtype = context->GetInputDesc(1)->GetDataType();
+    indexDsize = sizeof(indexDtype);
+
+    if (tail == 1) {
+        SetModeNoTail(gradDims, indexDims, coreNum);
+    } else {
+        SetModeLine(gradDims, indexDims, coreNum);
+    }
     return ge::GRAPH_SUCCESS;
 }
 
 ge::graphStatus ScatterMeanGradTiling::RunKernelTiling()
 {
     context->SetBlockDim(coreUsed);
-    TilingData.set_paramsPre(paramsPre);
+    TilingData.set_tilingMode(tilingMode);
     TilingData.set_dimRange(dimRange);
     TilingData.set_dimRangeOut(dimRangeOut);
     TilingData.set_paramsPro(paramsPro);
-    TilingData.set_dim(dim);
-    
-    TilingData.set_taskPerCore(taskPerCore);
-    TilingData.set_taskTailCore(taskTailCore);
 
-    TilingData.set_ubSize(ubSize);
     TilingData.set_gradInUbSize(gradInUbSize);
     TilingData.set_indexUbSize(indexUbSize);
     TilingData.set_gradOutUbSize(gradOutUbSize);
@@ -163,6 +319,9 @@ ge::graphStatus ScatterMeanGradTiling::RunKernelTiling()
     TilingData.set_gradInNum(gradInNum);
     TilingData.set_indexNum(indexNum);
     TilingData.set_gradOutNum(gradOutNum);
+    TilingData.set_countNum(countNum);
+    TilingData.set_bigCoreNum(bigCoreNum);
+    TilingData.set_tail(tail);
 
     size_t sysWorkspaceSize = WORKSPACE_16MBYTE_SIZE;
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
@@ -234,6 +393,11 @@ public:
         this->Input("index")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
+        this->Input("count")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Output("grad_in")

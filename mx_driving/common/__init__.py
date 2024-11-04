@@ -1,6 +1,5 @@
 from .ops.three_interpolate import three_interpolate
 from .ops.scatter_max import scatter_max
-from .ops.npu_scatter_mean_grad import npu_scatter_mean_grad
 from .ops.knn import knn
 from .ops.threeNN import three_nn
 from .ops.scatter_mean import scatter_mean

@@ -31,7 +31,7 @@ at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segme
 
 at::Tensor npu_scatter(const at::Tensor& self, const at::Tensor& indices, const at::Tensor& updates, int64_t dim);
 
-at::Tensor npu_scatter_mean_grad(const at::Tensor& grad_out, const at::Tensor& index, int32_t dim);
+at::Tensor npu_scatter_mean_grad(at::Tensor& grad_out, at::Tensor& index, at::Tensor& count, int32_t dim);
 
 std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor& index,
                                                     c10::optional<at::Tensor> out, c10::optional<int> dim,
