@@ -140,6 +140,10 @@ private:
             yIdx = int((yLocal + yRoiSize / 2) / yRes);
             zIdx = int(zLocal / zRes);
 
+            xIdx = min(max(xIdx, static_cast<uint32_t>(0)), outx - 1);
+            yIdx = min(max(yIdx, static_cast<uint32_t>(0)), outy - 1);
+            zIdx = min(max(zIdx, static_cast<uint32_t>(0)), outz - 1);
+
             uint32_t idOffset = (boxIdx + startOffset) * outx * outy * outz *  maxPtsPerVoxel + xIdx * outy * outz * maxPtsPerVoxel + yIdx * outz * maxPtsPerVoxel + zIdx * maxPtsPerVoxel;
             DataCopy(ptsIdVoxelLocal, ptsIdxOfVoxelGM[idOffset], alignMaxPtsNum);
             PipeBarrier<PIPE_ALL>();
