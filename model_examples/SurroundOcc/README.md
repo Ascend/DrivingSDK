@@ -52,7 +52,7 @@
 
 | 三方库  | 支持版本 |
 | :-----: | :------: |
-| PyTorch |   1.11   |
+| PyTorch |   2.1   |
 
 ### 安装昇腾环境
 
@@ -62,10 +62,10 @@
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 6.0.RC2  |
-|       CANN        | 8.0.RC2  |
-|    昇腾NPU固件    | 24.1.RC2 |
-|    昇腾NPU驱动    | 24.1.RC2 |
+| FrameworkPTAdaper | 6.0.RC3  |
+|       CANN        | 8.0.RC3  |
+|    昇腾NPU固件    | 24.1.RC3 |
+|    昇腾NPU驱动    | 24.1.RC3 |
 
 - 安装mmdet3d
 
@@ -97,6 +97,7 @@
     cd mmcv
     MMCV_WITH_OPS=1 pip install -e . -v
     ```
+- 安装mxDriving加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/mxDriving)。
 
 - 在模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 
@@ -110,7 +111,6 @@
   bash replace_patch.sh --packages_path=location_path
   ```
 
-- 安装mxDriving加速库，安装方法参考[原仓](https://gitee.com/ascend/mxDriving)，安装后手动source环境变量或将其配置在test/env_npu.sh中。
 
 
 ### 准备数据集
@@ -163,7 +163,7 @@ SurroundOcc
 | 芯片          | 卡数 | global batch size | Precision | epoch |  IoU   |  mIoU  | 性能-单步迭代耗时(ms) |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :-------------------: |
 | 竞品A           |  8p  |         8         |   fp32    |  12   | 0.3163 | 0.1999 |         1028          |
-| Atlas 800T A2 |  8p  |         8         |   fp32    |  12   | 0.3169 | 0.1985 |         1654          |
+| Atlas 800T A2 |  8p  |         8         |   fp32    |  12   | 0.3114 | 0.1896 |         1054          |
 
 # 公网地址说明
 
@@ -171,7 +171,9 @@ SurroundOcc
 
 # 变更说明
 
-2024.05.30：首次发布。
+2024.05.30：首次发布
+
+2024.10.30：性能优化
 
 # FAQ
 

@@ -19,6 +19,12 @@ export ASCEND_SLOG_PRINT_TO_STDOUT=0
 export ASCEND_GLOBAL_LOG_LEVEL=3
 #设置Event日志开启标志,0-关闭/1-开启
 export ASCEND_GLOBAL_EVENT_ENABLE=0
+# 设置是否开启 taskque, 0-关闭/1-开启
+export TASK_QUEUE_ENABLE=2
+# 绑核
+export CPU_AFFINITY_CONF=1
+# 设置是否开启 combined 标志, 0-关闭/1-开启
+export COMBINED_ENABLE=1
 
 
 #设置device侧日志登记为error

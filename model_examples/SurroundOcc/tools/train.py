@@ -97,13 +97,14 @@ def parse_args():
         default='none',
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument('--local-rank', type=int, default=0)
     parser.add_argument(
         '--autoscale-lr',
         action='store_true',
         help='automatically scale lr with the number of gpus')
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
-        os.environ['LOCAL_RANK'] = str(args.local_rank)
+        os.environ['LOCAL_RANK'] = str(args.local-rank)
 
     if args.options and args.cfg_options:
         raise ValueError(
