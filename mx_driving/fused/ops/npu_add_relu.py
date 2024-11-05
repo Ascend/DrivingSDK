@@ -11,13 +11,17 @@ from torch.autograd import Function
 from torch.nn import Module
 
 import torch_npu
+import torch.nn.functional as F
 import mx_driving._C
 
 
 class AddReluFunction(Function):
     @staticmethod
     def forward(ctx, x, y):
-        x = mx_driving._C.npu_add_relu(x, y)
+        if x.numel() >= 2000000:
+            x = mx_driving._C.npu_add_relu(x, y)
+        else:
+            x = F.relu(x + y)
         ctx.save_for_backward(x)
         return x
 
