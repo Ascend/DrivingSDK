@@ -2,14 +2,17 @@
 #include "lib/matmul_intf.h"
 
 using namespace AscendC;
+
+constexpr MatmulConfig DEFORMABLE_CONV2D_CFG = GetMDLConfig(false, false, 2, false, false, false, true);
+
 template<bool modulated>
 class DeformableConv2dKernel {
 public:
     using AType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float>;
-    using BType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, true>;
+    using BType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, true, LayoutMode::NONE, true>;
     using CType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float>;
 
-    matmul::Matmul<AType, BType, CType> mm_;
+    matmul::Matmul<AType, BType, CType, CType, DEFORMABLE_CONV2D_CFG> mm_;
 
     __aicore__ inline DeformableConv2dKernel() = default;
 
@@ -397,8 +400,8 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
                 PipeBarrier<PIPE_V>();
-                Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset], weight.GetValue(pw), MASK_PLACEHOLDER,
-                    valRptTimes_, {1, 1, 8, 8});
+                Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset], weight.GetValue(pw),
+                    MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
                 PipeBarrier<PIPE_V>();
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + cIn_], weight.GetValue(ph),
                     MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
