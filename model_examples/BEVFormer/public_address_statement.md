@@ -56,6 +56,8 @@
 | 开源代码引入 | https://github.com/fundamentalvision/BEVFormer/blob/master/docs/install.md/fundamentalvision/BEVFormer | model_examples/BEVFormer/doc/install.md |  https://pytorch.org/ | BEVFormer 依赖安装参考|
 | 开源代码引入 | https://github.com/fundamentalvision/BEVFormer/blob/master/LICENSE | model_examples/BEVFormer/LICENSE |  http://www.apache.org/licenses/ | license |
 | 开源代码引入 | https://gitee.com/open-mmlab/mmdetection3d/blob/master/mmdet3d/datasets/nuscenes_dataset.py | model_examples/BEVFormer/mmdet3d_need/nuscenes_dataset.py |  https://www.nuscenes.org/download | 数据集 |
+| 自研 | 不涉及 | model_examples/BEVFormer/LICENSE | http://www.apache.org/licenses/ | apache license |
+| 自研 | 不涉及 | model_examples/BEVFormer/LICENSE | http://www.apache.org/licenses/LICENSE-2.0 | apache license 2.0 |
 
 
 

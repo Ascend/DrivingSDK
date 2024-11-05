@@ -36,5 +36,7 @@
 | 开源代码引入 | https://github.com/caizhongang/waymo_kitti_converter         | tools\data_converter\waymo_converter.py                      | https://github.com/weiyithu/SurroundOcc/blob/main/tools/data_converter/waymo_converter.py | 代码实现参考链接 |
 | 开源代码引入 | https://arxiv.org/abs/1706.02677                             | tools\fp16\train.py                                          | https://github.com/weiyithu/SurroundOcc/blob/main/tools/fp16/train.py | 代码实现参考链接 |
 | 开源代码引入 | https://mmdetection3d.readthedocs.io/en/latest/tutorials/customize_runtime.html#customize-workflow | tools\fp16\train.py                                          | https://github.com/weiyithu/SurroundOcc/blob/main/tools/fp16/train.py | 代码实现参考链接 |
+| 开源代码引入 | https://github.com/guochengqian/openpoints/tree/master/cpp/chamfer_dist | extensions/chamfer_dist/chamfer.cu | cshzxie@gmail.com | chamfer_dist 算子作者邮箱 |
+| 自研 | 不涉及 | LICENSE | cshzxie@gmail.com | apache license 2.0 |
 |              |                                                              |                                                              |                                                              |                  |
 

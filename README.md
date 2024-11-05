@@ -227,8 +227,16 @@ out, argmax = scatter_max(updates, indices, out)
 |   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |   https://makeself.io/   | makeself主页  |
 |   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |   http://www.gnu.org/copyleft/gpl.html   | license  |
 |   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |  https://www.etalabs.net/sh_tricks.html   | 接口文档  |
-|   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
-|   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建protobuf                  |
+|   自研   |   不涉及   | Third_Party_Open_Source__Software_Notice |  foss@huawei.com | license 请求邮箱 |
+|   自研   |   不涉及   | cmake/util/makeself/makeself.sh | megastep@megastep.org | makeself 作者联系邮箱 |
+|   自研   |   不涉及   | cmake/util/makeself/makeself.lsm | megastep@megastep.org | makeself 作者联系邮箱 |
+|   自研   |   不涉及   | cmake/util/makeself/makeself-header.sh | foss@huawei.com | license |
+|   自研   |   不涉及   | cmake/util/makeself/makeself.1 |  megastep@megastep.org | makeself 作者联系邮箱 |
+|   自研   |   不涉及   | cmake/util/makeself/makeself.1 |  fenio@o2.pl | makeself 主页原开发作者的邮箱 |
+|   自研   |   不涉及   | LICENSE | http://www.apache.org/licenses/ | apache license |
+|   自研   |   不涉及   | LICENSE | http://www.apache.org/licenses/LICENSE-2.0 | apache license 2.0 |
+|   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
+|   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
 
 
 ### 示例模型公网地址声明
