@@ -95,7 +95,10 @@ from mx_driving.common import scatter_mean
 src = torch.randn(4, 5, 6).to(torch.float)
 indices = torch.randint(5, (4, 5)).to(torch.int32)
 dim = 0
+src.requires_grad = True
 out = scatter_mean(src.npu(), indices.npu(), None, dim)
+grad_out_tensor = torch.ones_like(out)
+out.backward(grad_out_tensor)
 ```
 ### 其他说明
 - 该算子对尾块较大的场景较为亲和，对尾块很小的场景不亲和，其中，尾块表示`src`后`N`维的大小，`N = src.dim() - indices.dim()`。

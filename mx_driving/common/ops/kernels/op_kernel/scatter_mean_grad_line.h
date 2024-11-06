@@ -136,6 +136,7 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeSmallTail(int32_t taskId, 
 
     auto indicesOffset = indicesBaseOffset + taskEachLine * taskId;
     auto gradInOffset = indicesOffset * this->tail;
+    pipe_barrier(PIPE_ALL);
     DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(taskLine, this->indicesEachBlock));
     set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
     wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
