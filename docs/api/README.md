@@ -490,7 +490,7 @@ box1 = torch.from_numpy(a).npu()
 box2 = torch.from_numpy(b).npu()
 output = npu_rotated_overlaps(box1, box2, True)
 ```
-## roi_align_rotated
+## roi_align_rotated[beta]
 ### 接口原型
 ```python
 mx_driving.detection.roi_align_rotated(Tensor feature_map, Tensor rois, float: spatial_scale, 
@@ -529,6 +529,8 @@ rois[5].uniform_(0, math.pi)
 
 output = roi_align_rotated(feature_map.npu(), rois.npu(), 1, 1, 7, 7, True, True)
 ```
+### 其他说明
+在双线性插值采样过程中，当采样点`x`接近`-1`或`W`位置，`y`接近`-1`或`H`位置时，由于平台差异和计算误差，可能导致该采样点的精度无法与竞品精度完全对齐。
 
 ## border_align
 ### 接口原型
