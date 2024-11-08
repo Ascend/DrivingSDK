@@ -27,6 +27,7 @@ git clone https://gitee.com/ascend/mxDriving.git
 bash ci/build.sh --python=3.8
 ```
 生成的whl包在`mx_driving/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
+请参考[编译指导](docs/get_started/compile.md)获取更多编译细节。
 参数`--python`指定编译过程中使用的python版本，支持3.8及以上：
 
 | 参数   | 取值范围                                                     | 说明                           | 缺省值 | 备注                                           |

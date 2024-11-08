@@ -54,17 +54,6 @@ def get_cmake_command():
         raise RuntimeError("no cmake or cmake3 with version >= 3.19.0 found")
 
 
-def get_build_type():
-    build_type = "Release"
-    if os.getenv("DEBUG", default="0").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-        build_type = "Debug"
-
-    if os.getenv("REL_WITH_DEB_INFO", default="0").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-        build_type = "RelWithDebInfo"
-
-    return build_type
-
-
 class CPPLibBuild(build_clib):
     def initialize_options(self) -> None:
         super().initialize_options()
@@ -83,7 +72,7 @@ class CPPLibBuild(build_clib):
 
         cmake_args = [
             "--preset=default",
-            "-DCMAKE_BUILD_TYPE=Release",
+            f"-DCMAKE_BUILD_TYPE={'Debug' if self.debug else 'Release'}",
             "-B",
             self.build_temp,
             f"-DMX_DRIVING_PATH={mx_driving_dir}",
@@ -124,7 +113,7 @@ class ExtBuild(build_ext):
 
         cmake_args = [
             "--preset=default",
-            "-DCMAKE_BUILD_TYPE=Release",
+            f"-DCMAKE_BUILD_TYPE={'Debug' if self.debug else 'Release'}",
             "-B",
             self.build_temp,
             f"-DMX_DRIVING_PATH={mx_driving_dir}",
@@ -156,7 +145,8 @@ class DevelopBuild(develop):
 
     def install_for_development(self) -> None:
         self.reinitialize_command("build_py", build_lib="")
-        self.reinitialize_command("build_clib", kernel_name=self.kernel_name)
+        self.reinitialize_command("build_clib", kernel_name=self.kernel_name, debug=True)
+        self.reinitialize_command("build_ext", debug=True)
 
         if self.kernel_name:
             self.run_command("build_clib")

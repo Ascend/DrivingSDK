@@ -177,8 +177,13 @@ function(add_bin_compile_target)
   endif()
   add_custom_target(${BINCMP_TARGET} COMMAND cp -r ${BINCMP_IMPL_DIR}/*.*
                                              ${BINCMP_OUT_DIR}/src)
+  set(KERNELS "${KERNEL_NAME}")
+  set(bin_scripts)
+  foreach(KERNEL ${KERNELS})
+    file(GLOB scripts ${BINCMP_OUT_DIR}/gen/*${KERNEL}*.sh)
+    list(APPEND bin_scripts ${scripts})
+  endforeach()
 
-  file(GLOB bin_scripts ${BINCMP_OUT_DIR}/gen/*${KERNEL_NAME}*.sh)
   # if bin_scripts not empty
   if(bin_scripts)
     add_custom_target(

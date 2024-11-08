@@ -37,8 +37,9 @@ target_compile_options(
   PRIVATE -fprofile-arcs
           -ftest-coverage
           -fPIC
-          -g
-          -O3
+          $<$<CONFIG:Release>:-O3>
+          $<$<CONFIG:Debug>:-O0
+          -g>
           -fstack-protector-all
           -DTORCH_API_INCLUDE_EXTENSION_H
           -DTORCH_EXTENSION_NAME=_C
