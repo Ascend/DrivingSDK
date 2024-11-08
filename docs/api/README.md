@@ -60,10 +60,10 @@ center_xyz = torch.tensor([[[1, 2, 3]], [[1, 2, 3]]], dtype=torch.float32).npu()
 idx = knn(2, xyz, center_xyz, False)
 ```
 ### 算子约束
-1. k必须>0且<100
-2. xyz中的每个batch中的任意一个点到center_xyz对应batch中的任意一个点的距离必须在1e10f以内
-3. xyz和center_xyz的shape必须是3维，当Transposed=True时，xyz和center_xyz的shape的dim的第1维必须是3；当Transposed=False时，xyz和center_xyz的shape的dim的第2维必须是3
-4. 距离相同时索引存在不稳定排序问题，遇到距离精度通过但索引精度错误时，复用不稳定排序的CCB结论
+1. k必须>0且<100。
+2. xyz中的每个batch中的任意一个点到center_xyz对应batch中的任意一个点的距离必须在1e10f以内。
+3. xyz和center_xyz的shape必须是3维，当Transposed=True时，xyz和center_xyz的shape的dim的第1维必须是3；当Transposed=False时，xyz和center_xyz的shape的dim的第2维必须是3。
+4. 由于距离相同时排序为不稳定排序，存在距离精度通过但索引精度错误问题，与竞品无法完全对齐。
 
 ## scatter_mean
 ### 接口原型
@@ -186,8 +186,8 @@ target = torch.tensor([[[1, 2, 3]], [[1, 2, 3]]], dtype=torch.float32).npu()
 dist, idx = three_nn(target, source)
 ```
 ### 算子约束
-1. source和target的shape必须是3维，且source和target的shape的dim的第2维必须是3
-2. 距离相同时索引存在不稳定排序问题，遇到距离精度通过但索引精度错误时，复用不稳定排序的CCB结论
+1. source和target的shape必须是3维，且source和target的shape的dim的第2维必须是3。
+2. 距离相同时排序为不稳定排序，存在距离精度通过但索引精度错误问题，与竞品无法完全对齐。
 
 
 ## hypot
