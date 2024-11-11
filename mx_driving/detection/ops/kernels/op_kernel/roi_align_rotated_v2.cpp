@@ -314,10 +314,10 @@ private:
         float sin_theta = RoiSinTheta.GetValue(roi_idx);
         float cos_theta = RoiCosTheta.GetValue(roi_idx);
         float count = CountTensor.GetValue(roi_idx);
-        Duplicate(CountChannel, count, channels);
+        Duplicate(CountChannel, count, channels_aligned);
         
         for (int32_t index = output_index; index < (output_index + pooled_height * pooled_width); index++) {
-            Duplicate(OutputValue, (float)0., channels);
+            Duplicate(OutputValue, (float)0., channels_aligned);
 
             int32_t pw = index / pooled_width;
             int32_t ph = index / pooled_width / pooled_height;
@@ -370,7 +370,7 @@ private:
     __aicore__ inline void bilinear_interpolate(int32_t batch_idx, float x, float y, int32_t index)
     {
         if (y <  (float)-1.0 or y > input_h or x < (float)-1.0 or x > input_w) {
-            Duplicate(ValueTensor, (float)0., channels);
+            Duplicate(ValueTensor, (float)0., channels_aligned);
             PipeBarrier<PIPE_ALL>();
         } else {
             if (y <= static_cast<float>(0)) {
