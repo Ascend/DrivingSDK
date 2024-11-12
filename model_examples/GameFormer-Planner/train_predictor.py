@@ -83,6 +83,7 @@ def train_epoch(data_loader, model, optimizer):
     epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
     if dist.get_rank() == 0:
         logging.info("plannerADE: %.4f, plannerFDE: %.4f, plannerAHE: %.4f, plannerFHE: %.4f, predictorADE: %.4f, predictorFDE: %.4f\n", planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE)
+        epoch_metrics.append(avg_time)
     return np.mean(epoch_loss), epoch_metrics
 
 
@@ -133,6 +134,7 @@ def valid_epoch(data_loader, model):
         gathered_data = torch.cat(gathered_data, dim=1)
         gathered_data = gathered_data.mean(dim=-1).cpu().numpy().tolist()
         planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE = gathered_data
+        epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
         logging.info("val-plannerADE: %.4f, val-plannerFDE: %.4f, val-plannerAHE: %.4f, val-plannerFHE: %.4f, val-predictorADE: %.4f, val-predictorFDE: %.4f\n", planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE)
 
     return np.mean(epoch_loss), epoch_metrics
@@ -218,6 +220,10 @@ def model_training(args_, local_rank_):
             # save model at the end of epoch
             torch.save(model.state_dict(), f'training_log/{args_.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth')
             logging.info("Model saved in training_log/%s\n", args_.name)
+            
+            if epoch == train_epochs - 1:
+                logging.info("Model Performance (FPS): %.4f", 1 / train_metrics[-1])
+                logging.info("Model Metric (plannerADE): %.4f", val_metrics[0])
 
         # reduce learning rate
         scheduler.step()

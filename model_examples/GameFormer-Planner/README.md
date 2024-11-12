@@ -72,16 +72,19 @@
     ```
     source {cann_root_dir}/set_env.sh
     ```
-1. 安装theseus-ai和nuplan-devkit库：
 
+1. 安装torch2.1、torch_npu2.1 以及其他依赖项
     ```
-    pip install torch==2.1.0 torchvision
-    git clone https://github.com/facebookresearch/theseus.git && cd theseus
-    pip install -e .
-    cd ..
-    git clone https://github.com/motional/nuplan-devkit.git && cd nuplan-devkit
-    pip install -e .
+    pip install torch==2.1.0
+    pip install torch_npu==2.1.0
     pip install -r requirements.txt
+    ```
+
+2. 安装nuplan-devkit库（如果需要进行数据集预处理，可选）：
+    ```
+    git clone https://github.com/motional/nuplan-devkit.git && cd nuplan-devkit
+    pip install -r requirements.txt
+    pip install -e .
     cd ..
     ```
 
@@ -126,7 +129,7 @@
     --map_path nuplan/dataset/maps
     --save_path nuplan/processed_data
     ```
---scenarios_per_type和--total_scenarios可以用于控制生成数据点的数量。请根据[Issue#16](https://github.com/MCZhi/GameFormer-Planner/issues/16)中的指引，生成300K个数据点，并用其中的十分之一作为Validation Set，剩余的部分作为Training Set。
+--scenarios_per_type和--total_scenarios可以用于控制生成数据点的数量，请根据原仓库的指引，生成150万个数据点，并用其中的十分之一作为Validation Set，剩余的部分作为Training Set。
 
 ## 快速开始
 本任务主要提供**单机8卡**和**4卡**的训练脚本。
@@ -143,8 +146,8 @@
 ### 训练结果
 | 芯片           | 卡数 | batch size | Precision | epoch | plannerADE | plannerFDE | plannerAHE | plannerFHE | predictorADE | predictorFDE | 性能-单步迭代耗时(ms) |
 | ------------- | :--: | :------------: | :-------: | :---: | :----: | :----: | :----: | :----: | :----: | :----: | :-------------------: |
-| 竞品A         |  8p  |  512  |   fp32    |  30   | 1.66 | 4.17 | 0.13 | 0.10 | 1.63 | 2.77 |         790          |
-| Atlas 800T A2 |  8p  |   512 |   fp32    |  30   | 1.62 | 4.16 | 0.13 | 0.10 | 1.66 | 2.77 |         1034          |
+| 竞品A         |  8p  |  512  |   fp32    |  30   | 1.17 | 3.11 | 0.10 | 0.07 | 0.70 | 1.30 |         790          |
+| Atlas 800T A2 |  8p  |   512 |   fp32    |  30   | 1.16 | 3.10 | 0.10 | 0.07 | 0.69 | 1.29 |         1034          |
 | 竞品A         |  4p  |  256  |   fp32    |  30   | 1.23 | 3.24 | 0.11 | 0.07 | 0.75 | 1.39 |         448          |
 | Atlas 800T A2 |  4p  |   256 |   fp32    |  30   | 1.24 | 3.24 | 0.11 | 0.07 | 0.76 | 1.43 |         644          |
 
@@ -155,6 +158,8 @@
 # 变更说明
 
 2024.09.19：首次发布。
+
+2024.11.11：资料更新。
 
 # FAQ
 
