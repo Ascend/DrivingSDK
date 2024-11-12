@@ -59,27 +59,36 @@ set(ASCEND_TENSOR_COMPILER_PATH ${ASCEND_CANN_PACKAGE_PATH}/compiler)
 set(ASCEND_CCEC_COMPILER_PATH ${ASCEND_TENSOR_COMPILER_PATH}/ccec_compiler/bin)
 set(ASCEND_AUTOGEN_PATH ${CMAKE_BINARY_DIR}/autogen)
 set(ASCEND_KERNEL_PATH ${CMAKE_BINARY_DIR}/kernels)
+
+unset(ASCEND_CSRC_SRC CACHE)
+unset(ASCEND_HOST_SRC CACHE)
+unset(ASCEND_KERNEL_SRC CACHE)
+unset(ACLNN_SRC_CUSTOM CACHE)
+unset(ACLNN_INC_CUSTOM CACHE)
+unset(aclop_exclude CACHE)
+unset(ASCEND_ONNX_SRC CACHE)
 set(ASCEND_CSRC_SRC
-    ""
-    CACHE STRING "csrc source files")
+  ""
+  CACHE STRING "csrc source files")
 set(ASCEND_HOST_SRC
-    ""
-    CACHE STRING "host source files")
+  ""
+  CACHE STRING "host source files")
 set(ASCEND_KERNEL_SRC
-    ""
-    CACHE STRING "kernel source files")
+  ""
+  CACHE STRING "kernel source files")
 set(ACLNN_SRC_CUSTOM
-    ""
-    CACHE STRING "aclnn source files")
+  ""
+  CACHE STRING "aclnn source files")
 set(ACLNN_INC_CUSTOM
-    ""
-    CACHE STRING "aclnn include files")
+  ""
+  CACHE STRING "aclnn include files")
 set(aclop_exclude
-    ""
-    CACHE STRING "aclop exclude files")
+  ""
+  CACHE STRING "aclop exclude files")
 set(ASCEND_ONNX_SRC
-    ""
-    CACHE STRING "onnx source files")
+  ""
+  CACHE STRING "onnx source files")
+  
 set(ASCEND_FRAMEWORK_TYPE tensorflow)
 file(MAKE_DIRECTORY ${ASCEND_AUTOGEN_PATH})
 file(MAKE_DIRECTORY ${ASCEND_KERNEL_PATH})
