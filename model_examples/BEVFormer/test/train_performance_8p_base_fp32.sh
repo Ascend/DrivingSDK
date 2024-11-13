@@ -26,7 +26,7 @@ fi
 mkdir -p ${output_path}
 
 sed -i "s|log_config = dict(interval=50,|log_config = dict(interval=1,|g" projects/configs/bevformer/bevformer_base.py
-sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=1500)|g" projects/configs/bevformer/bevformer_base.py
+sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=500)|g" projects/configs/bevformer/bevformer_base.py
 
 
 #训练开始时间，不需要修改
@@ -37,7 +37,7 @@ bash ./tools/dist_train.sh ./projects/configs/bevformer/bevformer_base.py ${worl
 wait
 
 sed -i "s|log_config = dict(interval=1,|log_config = dict(interval=50,|g" projects/configs/bevformer/bevformer_base.py
-sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=1500)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|g" projects/configs/bevformer/bevformer_base.py
+sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=500)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|g" projects/configs/bevformer/bevformer_base.py
 
 #训练结束时间，不需要修改
 end_time=$(date +%s)
