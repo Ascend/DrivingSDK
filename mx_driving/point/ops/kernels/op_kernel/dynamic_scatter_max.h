@@ -48,7 +48,7 @@ public:
         copyMaskOutParams.dstStride = 1;
 
         if (curBlockIdx == 0) {
-            InitOutput<T>(this->voxelFeatsGm, this->totalVoxelNum * this->featsDim, static_cast<T>(-INFINITY));
+            InitOutput<T>(this->voxelFeatsGm, this->totalVoxelNum * this->featsDim, static_cast<T>(-3.4e38));
         }
         SyncAll();
     }
