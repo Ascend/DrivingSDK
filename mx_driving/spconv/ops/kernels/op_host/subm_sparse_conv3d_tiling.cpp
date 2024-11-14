@@ -43,7 +43,6 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_H(out_spatial_shape_data[1]);
     tiling.set_W(out_spatial_shape_data[2]);
     tiling.set_feature_map_size(out_spatial_shape_data[0] * out_spatial_shape_data[1]*out_spatial_shape_data[2]);
-    tiling.set_total_feature(out_spatial_shape_data[0] * out_spatial_shape_data[1]*out_spatial_shape_data[2]);
     auto out_channel = *(attrsPtr->GetAttrPointer<int32_t>(1));
     auto batch_size = *(attrsPtr->GetAttrPointer<int32_t>(3));
     int32_t core_data;
@@ -59,8 +58,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     if (totalresult % core_data != 0) { core_last = totalresult % core_data;}
     uint64_t available_ub_size;
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, available_ub_size);
-    int32_t number = 300 + feature_shape.GetDim(1);
-    available_ub_size = (available_ub_size - 20*1024) / number;
+    int32_t number = 20;
+    int32_t total_kernel = kernel_size_data[0] * kernel_size_data[1] * kernel_size_data[2];
+    available_ub_size = (available_ub_size - 20*1024 - total_kernel*6*4 - feature_shape.GetDim(1)*4) / number;
     available_ub_size = GetCeilInt(available_ub_size, 64) * 64;
     context->SetBlockDim(core_used);
     tiling.set_core_data(core_data);

@@ -73,10 +73,10 @@ def generate_sparse_data(shape,
 
 
 class Net(nn.Module):
-    def __init__(self, shape):
+    def __init__(self, shape, in_channel):
         super().__init__()
         self.net = SparseSequential(
-            SubMConv3d(3, 32, 3)
+            SubMConv3d(in_channel, 32, 3)
         )
         max_batch_size = 1
         self.shape = shape
@@ -105,7 +105,7 @@ def _test_single_impl(dtype: torch.dtype):
     net_cls = Net
     # npu 
     torch.manual_seed(50051)
-    net_native_npu = net_cls(spatial_shape).to(dtype).npu()
+    net_native_npu = net_cls(spatial_shape, 16).to(dtype).npu()
 
     out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
 
@@ -126,7 +126,7 @@ def _test_large_x_impl(dtype: torch.dtype):
     net_cls = Net
     # npu 
     torch.manual_seed(50051)
-    net_native_npu = net_cls(spatial_shape).to(dtype).npu()
+    net_native_npu = net_cls(spatial_shape, 16).to(dtype).npu()
 
     out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
 
@@ -147,7 +147,7 @@ def _test_large_indices_impl(dtype: torch.dtype):
     net_cls = Net
     # npu 
     torch.manual_seed(50051)
-    net_native_npu = net_cls(spatial_shape).to(dtype).npu()
+    net_native_npu = net_cls(spatial_shape, 16).to(dtype).npu()
 
     out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
 
@@ -168,7 +168,7 @@ def _test_disalign_impl(dtype: torch.dtype):
     net_cls = Net
     # npu 
     torch.manual_seed(50051)
-    net_native_npu = net_cls(spatial_shape).to(dtype).npu()
+    net_native_npu = net_cls(spatial_shape, 5).to(dtype).npu()
 
     out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
 

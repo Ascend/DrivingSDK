@@ -119,5 +119,5 @@ def test_multi_impl():
     _test_multi_impl([25, 25, 25], 400, torch.float32)
 
 
-if __name__ == "__main__":
-    test_multi_impl()
+# if __name__ == "__main__":
+#     test_multi_impl()

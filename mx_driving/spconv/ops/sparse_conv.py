@@ -263,7 +263,7 @@ class SparseInverseConv3d(SparseConvolution):
             dilation,
             groups,
             bias,
-            True,
-            True,
+            subm=False,
+            inverse=True,
             indice_key=indice_key,
             mode=mode)

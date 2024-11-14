@@ -113,44 +113,43 @@ class SubMConvFunction(Function):
                 out_channels, batch_size,
                 kernel_size, stride, padding, dilation,
                 groups, bias) -> torch.Tensor:
-
-
         device = features.device
         # calculate the index pair
-        hh = indices[:, 0] * out_spatial_shape[0] * out_spatial_shape[1] * out_spatial_shape[2] + \
-            indices[:, 1] * out_spatial_shape[1] * out_spatial_shape[2] + indices[:, 2] * out_spatial_shape[2] + indices[:, 3]
-        temp, hh2 = mx_driving._C.npu_prepare_subm_conv3d(hh, out_spatial_shape, batch_size)
-        temp[hh] = hh2
-        # pad the feature and weight become align
-        feature_align = features.shape[1] % 8
-        weight_pad = weight
-        if feature_align != 0:
-            zero_tensor = torch.zeros((kernel_size[0], kernel_size[0], kernel_size[0], 8 - feature_align, out_channels)).to(device)
-            weight_pad = torch.cat((weight, zero_tensor), 3)
-        # calculate the out_feature
-        out_features, outidx_pair, ouidx_offset = mx_driving._C.npu_subm_sparse_conv3d(features, indices, weight_pad,
-                                                                                kernel_size, out_channels,
-                                                                                out_spatial_shape, batch_size, temp)
-
-        to_insert = torch.tensor(-1).to(device)
-        sorted_idx, sorted_idx_to_former_indices = torch.sort(ouidx_offset.view(torch.float32))
-        new_sorted_idx = torch.cat((to_insert.view(1), sorted_idx.view(torch.int32)), 0)
-        new_sorted_idx_2 = torch.cat((sorted_idx.view(torch.int32), to_insert.view(1)), 0)
-        sub_result = new_sorted_idx - new_sorted_idx_2
-        unique_indices_offset = torch.nonzero(sub_result != 0)
+        indices_long = indices.long()
+        flatten_indices = indices_long[:, 0] * out_spatial_shape[0] * out_spatial_shape[1] * out_spatial_shape[2] + \
+                indices_long[:, 1] * out_spatial_shape[1] * out_spatial_shape[2] + indices_long[:, 2] * out_spatial_shape[2] + indices_long[:, 3]
+        temp, ordered_indices = mx_driving._C.npu_prepare_subm_conv3d(flatten_indices, out_spatial_shape, batch_size)
+        temp[flatten_indices] = ordered_indices
+        output_iml2col, outidx_pair, ouidx_offset = mx_driving._C.npu_subm_sparse_conv3d(features, indices, weight,
+                                                                          kernel_size, out_channels,
+                                                                          out_spatial_shape, batch_size, temp)
+        weight_flatten = weight.view(kernel_size[0] * kernel_size[1] * kernel_size[2] * features.shape[1], out_channels)
+        output_iml2col = output_iml2col.view(features.shape[0], -1)
+        out_features = output_iml2col @ weight_flatten
         if bias is not None:
             out_features += bias
-        ctx.save_for_backward(features, weight, sorted_idx_to_former_indices.int(), unique_indices_offset.int())
+        ctx.save_for_backward(features, weight, output_iml2col, ouidx_offset)
         return out_features, indices
 
     @staticmethod
     @once_differentiable
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
-        features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        weight_grad, feature_grad = mx_driving._C.npu_sparse_conv3d_grad(unique_indices_offset,
-                                                                sorted_idx_to_former_indices,
-                                                                features, weight, grad_out_features)
+        features, weight, output_iml2col, ouidx_offset = ctx.saved_tensors
+        weight_grad = output_iml2col.T @ grad_out_features
+        weight_shape = weight.shape
+        kernel_num = weight_shape[0] * weight_shape[1] * weight_shape[2]
+        weight_grad = weight_grad.view(weight_shape[0], weight_shape[1], weight_shape[2], weight_shape[3], weight_shape[4])
+        weight = weight.view(kernel_num * weight_shape[3], weight_shape[4])
+        feature_grad_iml2col = grad_out_features @ (weight.T)
+        feature_grad_iml2col = feature_grad_iml2col.view(features.shape[0], kernel_num, features.shape[1])
+        feature_grad_iml2col = feature_grad_iml2col.view(features.shape[0] * kernel_num, features.shape[1])
+        mask = ouidx_offset != -1
+        valid_indices = torch.nonzero(mask).view(-1)
+        ouidx_offset = torch.index_select(ouidx_offset, 0, valid_indices)
+        feature_grad_iml2col = torch.index_select(feature_grad_iml2col, 0, valid_indices)
+        feature_grad = torch.zeros_like(features)
+        feature_grad.index_put_((ouidx_offset,), feature_grad_iml2col, True)
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None
 
 indice_conv = SparseConvFunction.apply

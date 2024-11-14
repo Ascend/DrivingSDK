@@ -31,15 +31,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_subm_sparse_conv3d(const at::
         kernelsum  *= kernel_size[0];
     }
     int64_t outputsum = indices_size[0] * kernelsum;
-    c10::SmallVector<int64_t, 8> output_size = {indices_size[0], out_channel};
+    c10::SmallVector<int64_t, 8> output_size = {indices_size[0], kernelsum, feature_size[1]};
     c10::SmallVector<int64_t, 8> indices_out_size = {outputsum};
     c10::SmallVector<int64_t, 8> indices_pairs_size = {indices_size[0]};
     at::Tensor indices_trans = indices.transpose(0, 1).contiguous();
-    at::Tensor weight_trans = weight.transpose(weight_dim - 2, weight_dim - 1).contiguous();
     at::Tensor out = at::empty(output_size, feature.options()).fill_(0);
     at::Tensor indices_out = at::empty(indices_out_size, feature.options().dtype(at::kInt)).fill_(-1);
     at::Tensor indices_pairs = at::empty(indices_pairs_size, feature.options().dtype(at::kInt));
-    EXEC_NPU_CMD(aclnnSubmSparseConv3d, feature, indices_trans, weight_trans, temp, kernel_size,
+    EXEC_NPU_CMD(aclnnSubmSparseConv3d, feature, indices_trans, weight, temp, kernel_size,
                  out_channel, outSpatialShape, batch_size, out, indices_out, indices_pairs);
     return std::tie(out, indices_pairs, indices_out);
 }
