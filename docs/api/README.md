@@ -553,19 +553,19 @@ mx_driving.detection.roiaware_pool3d(Tensor rois, Tensor pts, Tensor pts_feature
 - Roi_num <= 100
 - Pts_num <= 1000
 - Channels <= 1024
-- 1 <= max_pts_per_voxel <=256，max_pts_per_voxel <= Pts_num 
+- 1 <= max_pts_per_voxel <=256，max_pts_per_voxel <= Pts_num
 - 反向具有相同约束。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
 ```python
-import torch 
-import math 
-import torch_npu 
+import torch
+import math
+import torch_npu
 import mx_driving.detection
 
 out_size = (5, 5, 5)
-max_pts_per_voxel = 128 
+max_pts_per_voxel = 128
 mode = 1
 
 N = 40
@@ -580,10 +580,10 @@ angle = np.radians(np.random.randint(0, 360, size = (N , 1))).astype(np.float32)
 rois = np.concatenate((xyz_coor, xyz_size), axis=1)
 rois = np.concatenate((rois, angle), axis=1)
 
-pts = np.random.uniform(-5, 5, size = (npoints, 3)).astype(np.float32) 
+pts = np.random.uniform(-5, 5, size = (npoints, 3)).astype(np.float32)
 pts_feature = np.random.uniform(-1, 1, size=(npoints, channels)).astype(np.float32)
 
-pooled_features_npu = mx_driving.detection.roiaware_pool3d(torch.tensor(rois).npu(), torch.tensor(pts).npu(), 
+pooled_features_npu = mx_driving.detection.roiaware_pool3d(torch.tensor(rois).npu(), torch.tensor(pts).npu(),
                                                             torch.tensor(pts_feature).npu(), out_size, max_pts_per_voxel, mode)
 ```
 
@@ -771,7 +771,7 @@ mx_driving.fused.deform_conv2d(Tensor x, Tensor offset, Tensor weight, Union[int
 2. `h_in`,`w_in`,`h_out`,`w_out`需满足
 $$
 w_{out}=(w_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1 \\
-h_{out}=(h_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1 
+h_{out}=(h_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1
 $$
 3. `c_in`需要为64的倍数。
 ### 调用示例
@@ -822,7 +822,7 @@ mx_driving.fused.modulated_deform_conv2d(Tensor x, Tensor offset, Tensor mask, T
 2. `h_in`,`w_in`,`h_out`,`w_out`需满足
 $$
 w_{out}=(w_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1 \\
-h_{out}=(h_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1 
+h_{out}=(h_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1
 $$
 3. `c_in`需要为64的倍数。
 ### 调用示例
@@ -845,9 +845,9 @@ dilation = 1
 groups = 1
 deformable_groups = 1
 
-output = modulated_deform_conv2d(x, offset, mask, weight, bias, 
+output = modulated_deform_conv2d(x, offset, mask, weight, bias,
   stride, padding, dilation, groups, deformable_groups)
-output = ModulatedDeformConv2dFunction.apply(x, offset, mask, weight, bias, 
+output = ModulatedDeformConv2dFunction.apply(x, offset, mask, weight, bias,
   stride, padding, dilation, groups, deformable_groups)
 ```
 
@@ -1219,10 +1219,10 @@ mx_driving.spconv.SparseConv3d(in_channels, out_channels, kernel_size, stride=1,
 ```python
 import torch,torch_npu
 import numpy as np
-import mx_driving.spconv import SparseConv3d, SparseConvTensor
+from mx_driving.spconv import SparseConv3d, SparseConvTensor
 
 def generate_indice(batch, height, width, depth, actual_num):
-    base_indices = np.random.permutation(np.arrange(batch * height * width * depth))[:actual_num]
+    base_indices = np.random.permutation(np.arange(batch * height * width * depth))[:actual_num]
     base_indices = np.sort(base_indices)
     b_indice = base_indices // (height * width * depth)
     base_indices = base_indices % (height * width * depth)
@@ -1236,8 +1236,8 @@ def generate_indice(batch, height, width, depth, actual_num):
 actual_num = 20
 batch = 4
 spatial_shape = [9, 9, 9]
-indices = torch.from_numpy(generate_indice(batch, spatial_shape[0], spatial_shape[1], spatial_shape[2], actual_num)).int().transpose(0, 1).contigous().npu()
-feature = tensor_uniform = torch.rand(actual_num, 4).npu()
+indices = torch.from_numpy(generate_indice(batch, spatial_shape[0], spatial_shape[1], spatial_shape[2], actual_num)).int().transpose(0, 1).contiguous().npu()
+feature = tensor_uniform = torch.rand(actual_num, 16).npu()
 feature.requires_grad = True
 x = SparseConvTensor(feature, indices, spatial_shape, batch)
 net = SparseConv3d(in_channels=16, out_channels=32, kernel_size=3).npu()
@@ -1277,10 +1277,10 @@ mx_driving.spconv.SparseInverseConv3d(in_channels, out_channels, kernel_size, st
 ```python
 import torch,torch_npu
 import numpy as np
-import mx_driving.spconv import SparseInverseConv3d, SparseConvTensor
+from mx_driving.spconv import SparseInverseConv3d, SparseConvTensor
 
 def generate_indice(batch, height, width, depth, actual_num):
-    base_indices = np.random.permutation(np.arrange(batch * height * width * depth))[:actual_num]
+    base_indices = np.random.permutation(np.arange(batch * height * width * depth))[:actual_num]
     base_indices = np.sort(base_indices)
     b_indice = base_indices // (height * width * depth)
     base_indices = base_indices % (height * width * depth)
@@ -1294,8 +1294,8 @@ def generate_indice(batch, height, width, depth, actual_num):
 actual_num = 20
 batch = 4
 spatial_shape = [9, 9, 9]
-indices = torch.from_numpy(generate_indice(batch, spatial_shape[0], spatial_shape[1], spatial_shape[2], actual_num)).int().transpose(0, 1).contigous().npu()
-feature = tensor_uniform = torch.rand(actual_num, 4).npu()
+indices = torch.from_numpy(generate_indice(batch, spatial_shape[0], spatial_shape[1], spatial_shape[2], actual_num)).int().transpose(0, 1).contiguous().npu()
+feature = tensor_uniform = torch.rand(actual_num, 16).npu()
 feature.requires_grad = True
 x = SparseConvTensor(feature, indices, spatial_shape, batch)
 net = SparseInverseConv3d(in_channels=16, out_channels=32, kernel_size=3).npu()
@@ -1335,10 +1335,10 @@ mx_driving.spconv.SubMConv3d(in_channels, out_channels, kernel_size, stride=1, p
 ```python
 import torch,torch_npu
 import numpy as np
-import mx_driving.spconv import SubMConv3d, SparseConvTensor
+from mx_driving.spconv import SubMConv3d, SparseConvTensor
 
 def generate_indice(batch, height, width, depth, actual_num):
-    base_indices = np.random.permutation(np.arrange(batch * height * width * depth))[:actual_num]
+    base_indices = np.random.permutation(np.arange(batch * height * width * depth))[:actual_num]
     base_indices = np.sort(base_indices)
     b_indice = base_indices // (height * width * depth)
     base_indices = base_indices % (height * width * depth)
@@ -1352,8 +1352,8 @@ def generate_indice(batch, height, width, depth, actual_num):
 actual_num = 20
 batch = 4
 spatial_shape = [9, 9, 9]
-indices = torch.from_numpy(generate_indice(batch, spatial_shape[0], spatial_shape[1], spatial_shape[2], actual_num)).int().transpose(0, 1).contigous().npu()
-feature = tensor_uniform = torch.rand(actual_num, 4).npu()
+indices = torch.from_numpy(generate_indice(batch, spatial_shape[0], spatial_shape[1], spatial_shape[2], actual_num)).int().transpose(0, 1).contiguous().npu()
+feature = tensor_uniform = torch.rand(actual_num, 16).npu()
 feature.requires_grad = True
 x = SparseConvTensor(feature, indices, spatial_shape, batch)
 net = SubMConv3d(in_channels=16, out_channels=32, kernel_size=3).npu()
