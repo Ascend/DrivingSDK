@@ -5,7 +5,7 @@ EPOCHS=$2                                              #
 # -------------------------------------------------- #
 GPUS_PER_NODE=$(($GPUS<8?$GPUS:8))
 
-export TASK_QUEUE_ENABLE=3
+export TASK_QUEUE_ENABLE=2
 export CPU_AFFINITY_CONF=1
 export HCCL_WHITELIST_DISABLE=1
 export HCCL_OP_BASE_FFTS_MODE_ENABLE=TRUE

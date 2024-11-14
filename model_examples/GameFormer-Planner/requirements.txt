@@ -1,1 +1,6 @@
-theseus-ai==0.1.3
+decorator
+attr
+attrs
+psutil
+scipy
+numpy==1.24.1
