@@ -153,7 +153,7 @@ class SparseConvolution(SparseModule):
             out_spatial_shape = [int(i) for i in out_spatial_shape]
             if not isinstance(out_spatial_shape, list):
                 out_spatial_shape = out_spatial_shape.tolist()
-            out_features, outidx = Fsp.indice_inverse_conv(input.features, input.indices, self.weight.data, out_spatial_shape,
+            out_features, outidx = Fsp.indice_inverse_conv(input.features, input.indices, self.weight, out_spatial_shape,
                                                            self.out_channels, input.batch_size,
                                                            self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding,
                                                            self.groups, self.bias)
@@ -163,7 +163,7 @@ class SparseConvolution(SparseModule):
             out_spatial_shape = [int(i) for i in out_spatial_shape]
             if not isinstance(out_spatial_shape, list):
                 out_spatial_shape = out_spatial_shape.tolist()
-            out_features, outidx = Fsp.indice_conv(input.features, input.indices, self.weight.data, out_spatial_shape,
+            out_features, outidx = Fsp.indice_conv(input.features, input.indices, self.weight, out_spatial_shape,
                                                    self.out_channels, input.batch_size,
                                                    self.kernel_size, self.stride, self.padding, self.dilation,
                                                    self.groups, self.bias)
@@ -172,12 +172,13 @@ class SparseConvolution(SparseModule):
             out_spatial_shape = [int(i) for i in out_spatial_shape]
             if not isinstance(out_spatial_shape, list):
                 out_spatial_shape = out_spatial_shape.tolist()
-            out_features, outidx = Fsp.indice_subm_conv(input.features, input.indices, self.weight.data, out_spatial_shape,
+            out_features, outidx = Fsp.indice_subm_conv(input.features, input.indices, self.weight, out_spatial_shape,
                                                         self.out_channels, input.batch_size,
                                                         self.kernel_size, self.stride, self.padding, self.dilation,
                                                         self.groups, self.bias)
 
-
+        if self.bias is not None:
+            out_features += self.bias
 
         out_tensor = SparseConvTensor(out_features, outidx, out_spatial_shape,
                                         input.batch_size)

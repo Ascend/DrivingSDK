@@ -31,12 +31,40 @@ std::tuple<at::Tensor, at::Tensor> multi_to_sparse(const at::Tensor& out_feature
         "indices_size zeros dim must be greater than 1 expected but got indices_size[0] value: ",
         indices_size[0]);
 
-    c10::SmallVector<int64_t, 8> out_size = {indices_size[0] - 1, features_size[1]};
-    c10::SmallVector<int64_t, 8> out_idx_size = {indices_size[0] - 1, 8};
+    c10::SmallVector<int64_t, 2> out_size = {indices_size[0] - 1, features_size[1]};
+    c10::SmallVector<int64_t, 2> out_idx_size = {indices_size[0] - 1, 8};
     at::Tensor sparse_value = at::empty(out_size, out_features.options());
     at::Tensor sparse_indices = at::empty(out_idx_size, unique_indices_offset.options());
 
     EXEC_NPU_CMD(aclnnToSparse, unique_indices_offset, out_features,
+                 sorted_idx_to_former_indices, outidx_pair, sparse_value, sparse_indices);
+    return std::tie(sparse_value, sparse_indices);
+}
+
+std::tuple<at::Tensor, at::Tensor> multi_to_sparse_v2(const at::Tensor& features, const at::Tensor& weight, const at::Tensor& unique_indices_offset,
+                                                      const at::Tensor& sorted_idx_to_former_indices, const at::Tensor& outidx_pair)
+{
+    TORCH_CHECK_NPU(features);
+    TORCH_CHECK_NPU(weight);
+    TORCH_CHECK_NPU(unique_indices_offset);
+    TORCH_CHECK_NPU(sorted_idx_to_former_indices);
+    TORCH_CHECK_NPU(outidx_pair);
+
+    auto features_size = features.sizes();
+    auto weight_size = weight.sizes();
+    auto indices_size = unique_indices_offset.sizes();
+
+    TORCH_CHECK(indices_size[0] > 1,
+        "indices_size zeros dim must be greater than 1 expected but got indices_size[0] value: ",
+        indices_size[0]);
+
+    c10::SmallVector<int64_t, 2> out_size = {indices_size[0] - 1, weight_size[4]};
+    c10::SmallVector<int64_t, 2> out_idx_size = {indices_size[0] - 1, 8};
+
+    at::Tensor sparse_value = at::empty(out_size, features.options());
+    at::Tensor sparse_indices = at::empty(out_idx_size, unique_indices_offset.options());
+
+    EXEC_NPU_CMD(aclnnToSparseV3, features, weight, unique_indices_offset,
                  sorted_idx_to_former_indices, outidx_pair, sparse_value, sparse_indices);
     return std::tie(sparse_value, sparse_indices);
 }

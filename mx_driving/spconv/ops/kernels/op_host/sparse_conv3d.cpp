@@ -1,25 +1,10 @@
-
+#include "ge/utils.h"
 #include "sparse_conv3d_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
 using namespace ge;
 namespace optiling {
-static uint32_t Ceil(uint32_t x, uint32_t y)
-{
-    if (y == 0) {
-        return x;
-    }
-    return (x - 1 + y) / y;
-}
-static uint32_t AlignUp(uint32_t x, uint32_t y)
-{
-    if (y == 0) {
-        return x;
-    }
-    return ((x - 1 + y) / y) * y;
-}
-
 static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
 {
     auto platformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());

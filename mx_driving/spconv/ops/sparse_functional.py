@@ -33,6 +33,7 @@ class SparseConvFunction(Function):
                 groups, bias) -> torch.Tensor:
 
         device = features.device
+        weight = weight.data
         # calculate the index pair
         outidx_pair, ouidx_offset = mx_driving._C.npu_sparse_conv3d(indices, kernel_size, stride, padding,
                                                             out_channels, out_spatial_shape, batch_size)
@@ -47,8 +48,7 @@ class SparseConvFunction(Function):
         out_features, outidx = mx_driving._C.multi_to_sparse_v2(features, weight, unique_indices_offset.int(),
                                                   sorted_idx_to_former_indices.int(), outidx_pair.int())
         outidx, outidx_ = torch.chunk(outidx, 2, dim=1)
-        if bias is not None:
-            out_features += bias
+
         ctx.save_for_backward(features, weight, sorted_idx_to_former_indices.int(), unique_indices_offset.int())
         return out_features, outidx
 
@@ -57,7 +57,7 @@ class SparseConvFunction(Function):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        weight_grad, feature_grad = mx_driving._C.npu_sparse_conv3d_grad(unique_indices_offset,
+        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(unique_indices_offset,
                                                                  sorted_idx_to_former_indices,
                                                                  features, weight, grad_out_features)
 
@@ -74,6 +74,7 @@ class SparseInverseConvFunction(Function):
                 kernel_size, stride, padding, dilation, output_padding,
                 groups, bias) -> torch.Tensor:
         device = features.device
+        weight = weight.data
         # calculate the index pair
         out_features, outidx_pair, ouidx_offset = mx_driving._C.npu_sparse_inverse_conv3d(features, indices, weight,
                                         kernel_size, stride, padding, dilation, output_padding,
@@ -89,8 +90,7 @@ class SparseInverseConvFunction(Function):
         out_features, outidx = mx_driving._C.multi_to_sparse(out_features, unique_indices_offset.int(),
                                                      sorted_idx_to_former_indices.int(), outidx_pair.int())
         outidx, outidx_ = torch.chunk(outidx, 2, dim=1)
-        if bias is not None:
-            out_features += bias
+
         ctx.save_for_backward(features, weight, sorted_idx_to_former_indices.int(), unique_indices_offset.int())
         return out_features, outidx
 
@@ -99,7 +99,7 @@ class SparseInverseConvFunction(Function):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        weight_grad, feature_grad = mx_driving._C.npu_sparse_conv3d_grad(unique_indices_offset,
+        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(unique_indices_offset,
                                                                 sorted_idx_to_former_indices,
                                                                 features, weight, grad_out_features)
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None, None
@@ -114,6 +114,7 @@ class SubMConvFunction(Function):
                 kernel_size, stride, padding, dilation,
                 groups, bias) -> torch.Tensor:
         device = features.device
+        weight = weight.data
         # calculate the index pair
         indices_long = indices.long()
         flatten_indices = indices_long[:, 0] * out_spatial_shape[0] * out_spatial_shape[1] * out_spatial_shape[2] + \
