@@ -519,6 +519,7 @@ import numpy as np
 from mx_driving.detection import roi_align_rotated
 
 feature_map = torch.rand([1, 3, 16, 16])
+feature_map.requires_grad = True
 rois = torch.Tensor(6, 8)
 rois[0] = torch.randint(0, 1, (8,))
 rois[1].uniform_(0, 16)
@@ -528,6 +529,7 @@ rois[4].uniform_(0, 16)
 rois[5].uniform_(0, math.pi)
 
 output = roi_align_rotated(feature_map.npu(), rois.npu(), 1, 1, 7, 7, True, True)
+output.backward(torch.ones_like(output))
 ```
 ### 其他说明
 在双线性插值采样过程中，当采样点`x`接近`-1`或`W`位置，`y`接近`-1`或`H`位置时，由于平台差异和计算误差，可能导致该采样点的精度无法与竞品精度完全对齐。

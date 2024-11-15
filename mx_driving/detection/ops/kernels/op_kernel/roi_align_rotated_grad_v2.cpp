@@ -102,9 +102,6 @@ public:
         pipe.InitBuffer(countUb, constComputeBatchSize * sizeof(DTYPE_INPUT));
         pipe.InitBuffer(tmpUb, constComputeBatchSize * sizeof(DTYPE_INPUT));
 
-        pipe.InitBuffer(binHUb, pooledHeight * sizeof(DTYPE_INPUT));
-        pipe.InitBuffer(binWUb, pooledWidth * sizeof(DTYPE_INPUT));
-
         pipe.InitBuffer(gradBinUb, alignChannelNum * sizeof(DTYPE_INPUT));
         pipe.InitBuffer(gradW1Ub, alignChannelNum * sizeof(DTYPE_INPUT));
         pipe.InitBuffer(gradW2Ub, alignChannelNum * sizeof(DTYPE_INPUT));
@@ -114,7 +111,6 @@ public:
         pipe.InitBuffer(gradOutUb, 4 * alignChannelNum * sizeof(DTYPE_INPUT));
 
         pipe.InitBuffer(tmpChannelUb, alignChannelNum * sizeof(DTYPE_INPUT));
-        pipe.InitBuffer(constValueUb, constComputeBatchSize * sizeof(DTYPE_INPUT));
     }
 
     __aicore__ inline void GetLocalTensor()
@@ -144,14 +140,6 @@ public:
         countTmpLocal = countTmpUb.Get<int32_t>();
         countLocal = countUb.Get<DTYPE_INPUT>();
         tmpLocal = tmpUb.Get<DTYPE_INPUT>();
-
-        constValueLocal = constValueUb.Get<DTYPE_INPUT>();
-        for (int32_t i = 0; i < constComputeBatchSize; i++) {
-            constValueLocal.SetValue(i, (DTYPE_INPUT)i);
-        }
-
-        binHLocal = binHUb.Get<DTYPE_INPUT>();
-        binWLocal = binWUb.Get<DTYPE_INPUT>();
 
         gradBinLocal = gradBinUb.Get<DTYPE_INPUT>();
         gradW1Local = gradW1Ub.Get<DTYPE_INPUT>();
@@ -199,8 +187,10 @@ private:
         Cos(cosLocal, angleLocal, computeBatchSize);
         Sin(sinLocal, angleLocal, computeBatchSize);
 
-        Muls(binSizeHLocal, hLocal, (DTYPE_INPUT)1.0 / (DTYPE_INPUT)pooledHeight, computeBatchSize);
-        Muls(binSizeWLocal, wLocal, (DTYPE_INPUT)1.0 / (DTYPE_INPUT)pooledWidth, computeBatchSize);
+        Duplicate(tmpLocal, (DTYPE_INPUT)pooledHeight, computeBatchSize);
+        Div(binSizeHLocal, hLocal, tmpLocal, computeBatchSize);
+        Duplicate(tmpLocal, (DTYPE_INPUT)pooledWidth, computeBatchSize);
+        Div(binSizeWLocal, wLocal, tmpLocal, computeBatchSize);
 
         if (samplingRatio > 0) {
             Duplicate(binGridHLocal, samplingRatio, computeBatchSize);
@@ -245,17 +235,9 @@ private:
 
         pCount = countLocal.GetValue(taskIdx);
 
-        Muls(binHLocal, constValueLocal, pBinSizeH, pooledHeight);
-        Muls(binWLocal, constValueLocal, pBinSizeW, pooledWidth);
-
-        Adds(binHLocal, binHLocal, pDeltaStartH, pooledHeight);
-        Adds(binWLocal, binWLocal, pDeltaStartW, pooledWidth);
-
         for (index = 0; index < pooledHeight * pooledWidth; index++) {
             pH = index / pooledWidth;
             pW = index - pH * pooledWidth;
-            tmpPH = binHLocal.GetValue(pH);
-            tmpPW = binWLocal.GetValue(pW);
             baseOffset = ((offset * pooledHeight + pH) * pooledWidth + pW) * channelNum;
 
             SetFlag<HardEvent::MTE3_MTE2>(eventIdMte3ToMte2);
@@ -272,12 +254,13 @@ private:
             Muls(gradBinLocal, gradBinLocal, (DTYPE_INPUT)1.0 / (DTYPE_INPUT)pCount, alignChannelNum);
 
             for (iy = 0; iy < pBinGridH; iy++) {
-                yy = tmpPH + (iy + DTYPE_INPUT(0.5)) * pBinGridSizeH;
+                yy = pDeltaStartH + pH * pBinSizeH + (iy + DTYPE_INPUT(0.5)) * pBinGridSizeH;
                 for (ix = 0; ix < pBinGridW; ix++) {
-                    xx = tmpPW + (ix + DTYPE_INPUT(0.5)) * pBinGridSizeW;
+                    xx = pDeltaStartW + pW * pBinSizeW + (ix + DTYPE_INPUT(0.5)) * pBinGridSizeW;
 
-                    x = pX + xx * pCos + yy * pSin;
-                    y = pY - xx * pSin + yy * pCos;
+                    x = yy * pSin + xx * pCos + pX;
+                    y = yy * pCos - xx * pSin + pY;
+
                     bilinearInterpolate();
 
                     if (xl >= 0 && xh >= 0 && yl >= 0 && yh >= 0) {
@@ -384,9 +367,7 @@ private:
     TBuf <TPosition::VECCALC> deltaStartWUb, deltaStartHUb;
     TBuf <TPosition::VECCALC> countTmpUb, countUb;
     TBuf <TPosition::VECCALC> tmpUb;
-    TBuf <TPosition::VECCALC> constValueUb;
 
-    TBuf <TPosition::VECCALC> binHUb, binWUb;
     TBuf <TPosition::VECCALC> gradBinUb;
     TBuf <TPosition::VECCALC> gradW1Ub, gradW2Ub, gradW3Ub, gradW4Ub;
     TBuf <TPosition::VECCALC> tmpChannelUb;
@@ -402,9 +383,7 @@ private:
     LocalTensor<int32_t> countTmpLocal;
     LocalTensor<DTYPE_INPUT> countLocal;
     LocalTensor<DTYPE_INPUT> tmpLocal;
-    LocalTensor<DTYPE_INPUT> constValueLocal;
 
-    LocalTensor<DTYPE_INPUT> binHLocal, binWLocal;
     LocalTensor<DTYPE_INPUT> gradBinLocal;
     LocalTensor<DTYPE_INPUT> gradW1Local, gradW2Local, gradW3Local, gradW4Local;
     LocalTensor<DTYPE_INPUT> tmpChannelLocal;
