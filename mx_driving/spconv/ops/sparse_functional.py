@@ -127,8 +127,6 @@ class SubMConvFunction(Function):
         weight_flatten = weight.view(kernel_size[0] * kernel_size[1] * kernel_size[2] * features.shape[1], out_channels)
         output_iml2col = output_iml2col.view(features.shape[0], -1)
         out_features = output_iml2col @ weight_flatten
-        if bias is not None:
-            out_features += bias
         ctx.save_for_backward(features, weight, output_iml2col, ouidx_offset)
         return out_features, indices
 
