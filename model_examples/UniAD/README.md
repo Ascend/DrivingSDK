@@ -1,4 +1,4 @@
-# UniAD for PyTorch[暂不支持，版本在研——当前存在精度问题，不推荐使用]
+# UniAD for PyTorch
 
 ## 目录
 
