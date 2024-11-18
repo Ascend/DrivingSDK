@@ -12,6 +12,8 @@ using namespace matmul_tiling;
 namespace optiling {
 BEGIN_TILING_DATA_DEF(SparseConv3dGradV2TilingData)
     TILING_DATA_FIELD_DEF(uint32_t, usedVectorCoreNum)
+    TILING_DATA_FIELD_DEF(uint32_t, featureCubeNum)
+    TILING_DATA_FIELD_DEF(uint32_t, weightCubeNum)
     TILING_DATA_FIELD_DEF(uint64_t, kernelIC)
     TILING_DATA_FIELD_DEF(uint64_t, kernelOC)
     TILING_DATA_FIELD_DEF(uint64_t, kernelSize)
@@ -45,7 +47,8 @@ private:
     gert::TilingContext* tilingContext = nullptr;
     SparseConv3dGradV2TilingData tilingData;
     uint32_t aivNum;
-    uint32_t aicNum;
+    uint32_t featureCubeNum;
+    uint32_t weightCubeNum;
     uint64_t availableUbSize;
 
     // TilingSet

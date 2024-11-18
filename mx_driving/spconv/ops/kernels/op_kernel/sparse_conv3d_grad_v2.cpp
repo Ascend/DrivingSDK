@@ -70,19 +70,22 @@ public:
         }
         CrossCoreSetFlag<0x0, PIPE_MTE3>(0x8);
         CrossCoreWaitFlag(0x8);
-        featureLeftGm = featureLeftGm[featureOffsetA];
-        weightGm = weightGm[featureOffsetB];
-        featureGradGm = featureGradGm[featureOffsetC];
-        featureMatmulObj.SetTensorA(featureLeftGm);
-        featureMatmulObj.SetTensorB(weightGm);
-        featureMatmulObj.IterateAll(featureGradGm);
-
-        weightLeftGm = weightLeftGm[weightOffsetA];
-        weightRightGm = weightRightGm[weightOffsetB];
-        weightGradGm = weightGradGm[weightOffsetC];
-        weightMatmulObj.SetTensorA(weightLeftGm, true);
-        weightMatmulObj.SetTensorB(weightRightGm);
-        weightMatmulObj.IterateAll(weightGradGm);
+        if (featureCubeNum < weightCubeNum) {
+            featureLeftGm = featureLeftGm[featureOffsetA];
+            weightGm = weightGm[featureOffsetB];
+            featureGradGm = featureGradGm[featureOffsetC];
+            featureMatmulObj.SetTensorA(featureLeftGm);
+            featureMatmulObj.SetTensorB(weightGm);
+            featureMatmulObj.IterateAll(featureGradGm);
+        }
+        if (curBlockIdx < weightCubeNum) {
+            weightLeftGm = weightLeftGm[weightOffsetA];
+            weightRightGm = weightRightGm[weightOffsetB];
+            weightGradGm = weightGradGm[weightOffsetC];
+            weightMatmulObj.SetTensorA(weightLeftGm, true);
+            weightMatmulObj.SetTensorB(weightRightGm);
+            weightMatmulObj.IterateAll(weightGradGm);
+        }
     }
 
     Matmul<MatmulType<TPosition::GM, CubeFormat::ND, DTYPE_FEATURE>, MatmulType<TPosition::GM, CubeFormat::ND, DTYPE_FEATURE>,
@@ -97,6 +100,8 @@ private:
     __aicore__ inline void initTilingData(SparseConv3dGradV2TilingData *tiling_data)
     {
         usedVectorCoreNum = tiling_data->usedVectorCoreNum;
+        featureCubeNum = tiling_data->featureCubeNum;
+        weightCubeNum = tiling_data->weightCubeNum;
         kernelIC = tiling_data->kernelIC;
         kernelOC = tiling_data->kernelOC;
         kernelSize = tiling_data->kernelSize;
@@ -246,6 +251,8 @@ private:
     TBuf<TPosition::VECCALC> featureUb;
 
     uint32_t usedVectorCoreNum;
+    uint32_t featureCubeNum;
+    uint32_t weightCubeNum;
     uint64_t kernelIC;
     uint64_t kernelOC;
     uint64_t kernelSize;

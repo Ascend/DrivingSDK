@@ -51,12 +51,16 @@ ge::graphStatus SparseConv3dGradV2Tiling::MatMulGetData(uint64_t M, uint64_t N, 
     MultiCoreMatmulTiling cubeTiling(ascendplatformInfo);
     uint64_t originSingleN = N;
     uint64_t originSingleM = Ceil(M, (uint64_t)aivNum);
+    if (originSingleM < 16) {
+        originSingleM = 16;
+    }
+    uint32_t usedCore = Ceil(M, originSingleM);
     uint64_t baseN = originSingleN;
     uint64_t baseM = AlignUp(originSingleM, 16);
     if (baseM > 64) {
         baseM = 64;
     }
-    cubeTiling.SetDim(aivNum);
+    cubeTiling.SetDim(usedCore);
     cubeTiling.SetBType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     cubeTiling.SetCType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     cubeTiling.SetOrgShape(M, N, K);
@@ -68,12 +72,14 @@ ge::graphStatus SparseConv3dGradV2Tiling::MatMulGetData(uint64_t M, uint64_t N, 
         if (cubeTiling.GetTiling(tilingData.featureCubeTilingData) == -1) {
             return ge::GRAPH_FAILED;
         }
+        featureCubeNum = usedCore;
     }
     if (mode == 1) {
         cubeTiling.SetAType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT, true);
         if (cubeTiling.GetTiling(tilingData.weightCubeTilingData) == -1) {
             return ge::GRAPH_FAILED;
         }
+        weightCubeNum = usedCore;
     }
     return ge::GRAPH_SUCCESS;
 }
@@ -111,6 +117,8 @@ ge::graphStatus SparseConv3dGradV2Tiling::GetVectorTilingData()
 ge::graphStatus SparseConv3dGradV2Tiling::SetTilingData()
 {
     tilingData.set_usedVectorCoreNum(usedVectorCoreNum);
+    tilingData.set_featureCubeNum(featureCubeNum);
+    tilingData.set_weightCubeNum(weightCubeNum);
     tilingData.set_kernelIC(kernelIC);
     tilingData.set_kernelOC(kernelOC);
     tilingData.set_kernelSize(kernelSize);
