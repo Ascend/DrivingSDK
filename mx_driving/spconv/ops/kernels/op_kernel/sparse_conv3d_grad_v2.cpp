@@ -70,7 +70,7 @@ public:
         }
         CrossCoreSetFlag<0x0, PIPE_MTE3>(0x8);
         CrossCoreWaitFlag(0x8);
-        if (featureCubeNum < weightCubeNum) {
+        if (curBlockIdx < featureCubeNum) {
             featureLeftGm = featureLeftGm[featureOffsetA];
             weightGm = weightGm[featureOffsetB];
             featureGradGm = featureGradGm[featureOffsetC];
