@@ -138,7 +138,7 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
         npu_sampling_locations = npu_inputs.sampling_locations
         npu_attention_weights = npu_inputs.attention_weights
         npu_grad_output = npu_inputs.grad_output
-        npu_output = mx_driving.fused.npu_multi_scale_deformable_attn_function(
+        npu_output = mx_driving.fused.multi_scale_deformable_attn(
             npu_value, npu_shapes, npu_offset, npu_sampling_locations, npu_attention_weights
         )
         npu_output.backward(npu_grad_output)

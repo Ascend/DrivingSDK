@@ -4,20 +4,24 @@
 #  Modified by Zhiqi Li
 # ---------------------------------------------
 
-from projects.mmdet3d_plugin.models.utils.bricks import run_time
-from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32
-from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
+import math
 import warnings
+
 import torch
 import torch.nn as nn
-from mmcv.cnn import xavier_init, constant_init
+from mmcv.cnn import constant_init, xavier_init
 from mmcv.cnn.bricks.registry import ATTENTION
-import math
+from mmcv.ops.multi_scale_deform_attn import \
+    multi_scale_deformable_attn_pytorch
 from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
 from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
                         to_2tuple)
+from projects.mmdet3d_plugin.models.utils.bricks import run_time
 
-from mx_driving.fused import npu_multi_scale_deformable_attn_function
+from mx_driving.fused import multi_scale_deformable_attn
+
+from .multi_scale_deformable_attn_function import \
+    MultiScaleDeformableAttnFunction_fp32
 
 
 @ATTENTION.register_module()
@@ -236,7 +240,7 @@ class TemporalSelfAttention(BaseModule):
                 f'Last dim of reference_points must be'
                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
         if torch.cuda.is_available() and value.is_cuda:
-            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index, 
+            output = multi_scale_deformable_attn(value, spatial_shapes, level_start_index, 
                 sampling_locations, attention_weights)
         else:
 

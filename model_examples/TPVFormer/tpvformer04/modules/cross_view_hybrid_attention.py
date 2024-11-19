@@ -227,7 +227,7 @@ class TPVCrossViewHybridAttention(BaseModule):
                 f'Last dim of reference_points must be'
                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
 
-        output = mx_driving.fused.npu_multi_scale_deformable_attn_function(
+        output = mx_driving.fused.multi_scale_deformable_attn(
             value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
 
         # output shape (bs*num_tpv_queue, num_query, embed_dims)

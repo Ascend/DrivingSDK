@@ -8,7 +8,7 @@ import mx_driving.fused
 class NPUMultiScaleDeformableAttnOP(torch.autograd.Function):
     @staticmethod
     def forward(ctx, *args, **kwargs):
-        return mx_driving.fused.npu_multi_scale_deformable_attn_function(*args, **kwargs)
+        return mx_driving.fused.multi_scale_deformable_attn(*args, **kwargs)
 
     @staticmethod
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments

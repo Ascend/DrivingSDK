@@ -19,13 +19,13 @@
 
 at::Tensor npu_max_pool2d(const at::Tensor& x, int kernel_size, int stride, int padding);
 
-at::Tensor npu_multi_scale_deformable_attn_function(const at::Tensor& value, const at::Tensor& value_spatial_shapes,
+at::Tensor multi_scale_deformable_attn(const at::Tensor& value, const at::Tensor& value_spatial_shapes,
     const at::Tensor& value_level_start_index, const at::Tensor& sampling_locations,
     const at::Tensor& attention_weights);
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad(const at::Tensor& value,
-    const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location_trans,
-    const at::Tensor& attn_weight_trans, const at::Tensor& grad_output);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_backward(const at::Tensor& value,
+    const at::Tensor& value_spatial_shapes, const at::Tensor& value_level_start_index,
+    const at::Tensor& sampling_locations, const at::Tensor& attention_weights, const at::Tensor& grad_output);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad_v2(const at::Tensor& value,
     const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location_trans,

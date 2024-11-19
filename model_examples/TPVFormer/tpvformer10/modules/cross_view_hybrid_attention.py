@@ -200,7 +200,7 @@ class TPVCrossViewHybridAttention(BaseModule):
                 f' 2, but get {reference_points.shape[-1]} instead.')
         
 
-        output = mx_driving.fused.npu_multi_scale_deformable_attn_function(
+        output = mx_driving.fused.multi_scale_deformable_attn(
             value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
 
         outputs = self.reshape_output(output, query_lens)

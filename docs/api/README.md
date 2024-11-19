@@ -641,29 +641,30 @@ output = border_align(features.npu(), rois.npu(), pooled_size)
 ```
 
 # 融合算子
-## npu_multi_scale_deformable_attn_function
+## multi_scale_deformable_attn(MultiScaleDeformableAttnFunction.Apply)
 ### 接口原型
 ```python
-mx_driving.fused.npu_multi_scale_deformable_attn_function(Tensor value, Tensor shape, Tensor offset, Tensor locations, Tensor weight) -> Tensor
+mx_driving.fused.multi_scale_deformable_attn(Tensor value, Tensor value_spatial_shapes, Tensor value_level_start_index, Tensor sampling_locations, Tensor attention_weights) -> Tensor
 ```
 ### 功能描述
 多尺度可变形注意力机制, 将多个视角的特征图进行融合。
 ### 参数说明
 - `value(Tensor)`：特征张量，数据类型为`float32, float16`。shape为`[bs, num_keys, num_heads, embed_dims]`。其中`bs`为batch size，`num_keys`为特征图的大小，`num_heads`为头的数量，`embed_dims`为特征图的维度，其中`embed_dims`需要为8的倍数。
-- `shape(Tensor)`：特征图的形状，数据类型为`int32, int64`。shape为`[num_levels, 2]`。其中`num_levels`为特征图的数量，`2`分别代表`H, W`。
-- `offset(Tensor)`：偏移量张量，数据类型为`int32, int64`。shape为`[num_levels]`。
-- `locations(Tensor)`：位置张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads, num_levels, num_points, 2]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量，`2`分别代表`y, x`。
-- `weight(Tensor)`：权重张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads, num_levels, num_points]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量。
+- `value_spatial_shapes(Tensor)`：特征图的形状，数据类型为`int32, int64`。shape为`[num_levels, 2]`。其中`num_levels`为特征图的数量，`2`分别代表`H, W`。
+- `value_level_start_index(Tensor)`：偏移量张量，数据类型为`int32, int64`。shape为`[num_levels]`。
+- `sampling_locations(Tensor)`：位置张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads, num_levels, num_points, 2]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量，`2`分别代表`y, x`。
+- `attention_weights(Tensor)`：权重张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads, num_levels, num_points]`。其中`bs`为batch size，`num_queries`为查询的数量，`num_heads`为头的数量，`num_levels`为特征图的数量，`num_points`为采样点的数量。
 ### 返回值
 - `output(Tensor)`：融合后的特征张量，数据类型为`float32, float16`。shape为`[bs, num_queries, num_heads*embed_dims]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 约束说明
 - `locations`的值在`[0, 1]`之间。
+- 当前版本只支持`num_keys` &le; 8，`num_heads` &le; 8，`embed_dims` == 16或32，`num_points` = 1或偶数。
 ### 调用示例
 ```python
 import torch, torch_npu
-from mx_driving.fused import npu_multi_scale_deformable_attn_function
+from mx_driving.fused import multi_scale_deformable_attn
 bs, num_levels, num_heads, num_points, num_queries, embed_dims = 1, 1, 4, 8, 16, 32
 
 shapes = torch.as_tensor([(100, 100)], dtype=torch.long)
@@ -674,7 +675,7 @@ sampling_locations = torch.ones(bs, num_queries, num_heads, num_levels, num_poin
 attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) + 1e-5
 level_start_index = torch.cat((shapes.new_zeros((1, )), shapes.prod(1).cumsum(0)[:-1]))
 
-out = npu_multi_scale_deformable_attn_function(value.npu(), shapes.npu(), level_start_index.npu(), sampling_locations.npu(), attention_weights.npu())
+out = multi_scale_deformable_attn(value.npu(), shapes.npu(), level_start_index.npu(), sampling_locations.npu(), attention_weights.npu())
 ```
 
 ## npu_max_pool2d

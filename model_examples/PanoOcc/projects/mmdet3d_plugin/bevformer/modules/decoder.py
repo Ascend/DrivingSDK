@@ -23,7 +23,7 @@ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
 from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
                         to_2tuple)
 
-from mx_driving.fused import npu_multi_scale_deformable_attn_function
+from mx_driving.fused import multi_scale_deformable_attn
 
 
 def inverse_sigmoid(x, eps=1e-5):
@@ -318,7 +318,7 @@ class CustomMSDeformableAttention(BaseModule):
                 f'Last dim of reference_points must be'
                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
         if torch.cuda.is_available() and value.is_cuda:
-            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index, 
+            output = multi_scale_deformable_attn(value, spatial_shapes, level_start_index, 
                 sampling_locations, attention_weights)
         else:
             output = multi_scale_deformable_attn_pytorch(

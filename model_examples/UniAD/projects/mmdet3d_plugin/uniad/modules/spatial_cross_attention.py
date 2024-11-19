@@ -384,7 +384,7 @@ class MSDeformableAttention3D(BaseModule):
         #
 
         if torch.cuda.is_available() and value.is_cuda:
-            output = mx_driving.fused.npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index,
+            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
                                                                          sampling_locations, attention_weights)
         else:
             output = multi_scale_deformable_attn_pytorch(

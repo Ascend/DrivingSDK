@@ -6,21 +6,22 @@
 #  Modified by Zhexu Liu
 # ---------------------------------------------
 
-import warnings
 import math
+import warnings
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
-from mmcv.cnn import xavier_init, constant_init
-from mmcv.cnn.bricks.registry import (ATTENTION,
-                                      TRANSFORMER_LAYER,
-                                      TRANSFORMER_LAYER_SEQUENCE)
+from mmcv.cnn import constant_init, xavier_init
+from mmcv.cnn.bricks.registry import ATTENTION, TRANSFORMER_LAYER, TRANSFORMER_LAYER_SEQUENCE
 from mmcv.cnn.bricks.transformer import build_attention
+from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
 from mmcv.runner import force_fp32
 from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
-from mx_driving.fused import npu_multi_scale_deformable_attn_function
+
+from mx_driving.fused import multi_scale_deformable_attn
+
 
 indexes_global = None
 max_len_global = None
@@ -394,7 +395,7 @@ class MSDeformableAttention3D(BaseModule):
                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
 
         if torch.cuda.is_available() and value.is_cuda:
-            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index,
+            output = multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
                                                                          sampling_locations, attention_weights)
         else:
             output = multi_scale_deformable_attn_pytorch(

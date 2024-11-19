@@ -7,10 +7,9 @@ void init_fused(pybind11::module& m)
 {
     // nnpu_max_pool2d
     m.def("npu_max_pool2d", &npu_max_pool2d);
-    // npu_multi_scale_deformable_attn_function
-    m.def("npu_multi_scale_deformable_attn_function", &npu_multi_scale_deformable_attn_function);
-    m.def("multi_scale_deformable_attn_grad", &multi_scale_deformable_attn_grad);
-    m.def("multi_scale_deformable_attn_grad_v2", &multi_scale_deformable_attn_grad_v2);
+    // mullti_scale_deformable_attn
+    m.def("multi_scale_deformable_attn", &multi_scale_deformable_attn);
+    m.def("multi_scale_deformable_attn_backward", &multi_scale_deformable_attn_backward);
 
     // npu_add_relu
     m.def("npu_add_relu", &npu_add_relu);

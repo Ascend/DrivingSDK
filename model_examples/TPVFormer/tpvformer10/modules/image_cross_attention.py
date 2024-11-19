@@ -422,7 +422,7 @@ class TPVMSDeformableAttention3D(BaseModule):
         #  sampling_locations.shape: bs, num_query, num_heads, num_levels, num_all_points, 2
         #  attention_weights.shape: bs, num_query, num_heads, num_levels, num_all_points
 
-        output = mx_driving.fused.npu_multi_scale_deformable_attn_function(
+        output = mx_driving.fused.multi_scale_deformable_attn(
             value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
 
         output = self.reshape_output(output, query_lens)
