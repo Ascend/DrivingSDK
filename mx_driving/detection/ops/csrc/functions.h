@@ -51,4 +51,8 @@ void npu_roiaware_pool3d_forward(const at::Tensor& rois, const at::Tensor& pts, 
     at::Tensor& argmax, at::Tensor& pts_idx_of_voxels, at::Tensor& pooled_features, int32_t mode);
 at::Tensor roiaware_pool3d_grad(const at::Tensor& pts_idx_of_voxels, const at::Tensor& argmax,
     const at::Tensor& grad_out, int32_t npoints, int64_t pool_method);
+
+std::vector<std::vector<float>> pixel_group(const at::Tensor& score, const at::Tensor& mask, const at::Tensor& embedding,
+                                            const at::Tensor& kernel_label, const at::Tensor& kernel_contour,
+                                            int kernel_region_num, double distance_threshold);
 #endif // PERCEPTION_VISION_OPS_CSRC_FUNCTIONS_H_
