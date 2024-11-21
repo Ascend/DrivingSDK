@@ -373,6 +373,29 @@ def dynamic_voxelization(
     coors_min_y: float,
     coorsMinZ: float,
 ) -> torch.Tensor: ...
+def npu_bev_pool_v3(
+    depth: torch.Tensor,
+    feat: torch.Tensor,
+    ranks_depth: torch.Tensor,
+    ranks_feat: torch.Tensor,
+    ranks_bev: torch.Tensor,
+    B: int,
+    D: int,
+    H: int,
+    W: int,
+) -> torch.Tensor: ...
+def npu_bev_pool_v3_backward(
+    grad_out: torch.Tensor,
+    depth: torch.Tensor,
+    feat: torch.Tensor,
+    ranks_depth: torch.Tensor,
+    ranks_feat: torch.Tensor,
+    ranks_bev: torch.Tensor,
+    B: int,
+    D: int,
+    H: int,
+    W: int,
+) -> Tuple[torch.Tensor, torch.Tensor]: ...
 
 __all__ = [
     "knn",
@@ -419,6 +442,6 @@ __all__ = [
     "npu_dynamic_scatter",
     "npu_dynamic_scatter_grad",
     "npu_furthest_point_sampling",
-    "npu_bve_pool_v3",
+    "npu_bev_pool_v3",
     "npu_bev_pool_v3_backward",
 ]

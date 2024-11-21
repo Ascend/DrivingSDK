@@ -26,6 +26,8 @@ void init_point(pybind11::module& m)
     m.def("npu_bev_pool_backward", &npu_bev_pool_backward, "npu_bev_pool_backward NPU version");
     m.def("npu_bev_pool_v2", &npu_bev_pool_v2, "npu_bev_pool_v2 NPU version");
     m.def("npu_bev_pool_v2_backward", &npu_bev_pool_v2_backward, "npu_bev_pool_v2_backward NPU version");
+    m.def("npu_bev_pool_v3", &npu_bev_pool_v3, "npu_bev_pool_v3 NPU version");
+    m.def("npu_bev_pool_v3_backward", &npu_bev_pool_v3_backward, "npu_bev_pool_v3_backward NPU version");
 
     // furthest_points_sampling_with_dist
     m.def("furthest_point_sampling_with_dist", &furthest_point_sampling_with_dist);

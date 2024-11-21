@@ -28,11 +28,11 @@ at::Tensor group_points_backward(const at::Tensor& grad_out, const at::Tensor& i
 at::Tensor vec_pool_backward(const at::Tensor& grad_new_features, const at::Tensor& point_cnt_of_grid,
     const at::Tensor& grouped_idxs, const int64_t n, const int64_t num_c_in);
 
-at::Tensor point_to_voxel(
-    const at::Tensor& points, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges, const char* layout);
+at::Tensor point_to_voxel(const at::Tensor& points, const std::vector<float> voxel_sizes,
+    const std::vector<float> coor_ranges, const char* layout);
 
-at::Tensor voxel_to_point(
-    const at::Tensor& voxels, const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges, const char* layout);
+at::Tensor voxel_to_point(const at::Tensor& voxels, const std::vector<float> voxel_sizes,
+    const std::vector<float> coor_ranges, const char* layout);
 
 std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor, at::Tensor> unique_voxel(const at::Tensor& voxels);
 
@@ -74,4 +74,8 @@ at::Tensor voxel_pool_train_backward(const at::Tensor& grad_out, const at::Tenso
 at::Tensor dynamic_voxelization(const at::Tensor& points, at::Tensor& coors, int grid_x, int grid_y, int grid_z,
     double voxel_x, double voxel_y, double voxel_z, double coors_min_x, double coors_min_y, double coorsMinZ);
 
+at::Tensor npu_bev_pool_v3(const at::Tensor& depth, const at::Tensor& feat, const at::Tensor& ranks_depth,
+    const at::Tensor& ranks_feat, const at::Tensor& ranks_bev, int64_t b, int64_t d, int64_t h, int64_t w);
+std::tuple<at::Tensor, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor& grad_out, const at::Tensor& depth,
+    const at::Tensor& feat, const at::Tensor& ranks_depth, const at::Tensor& ranks_feat, const at::Tensor& ranks_bev);
 #endif // PERCEPTION_POINT_OPS_CSRC_FUNCTIONS_H_

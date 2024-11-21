@@ -7,3 +7,4 @@ from .ops.furthest_point_sampling import npu_furthest_point_sampling
 from .ops.npu_dynamic_scatter import npu_dynamic_scatter
 from .ops.voxelization import voxelization, Voxelization
 from .ops.voxel_pooling_train import npu_voxel_pooling_train
+from .ops.bev_pool_v3 import bev_pool_v3
