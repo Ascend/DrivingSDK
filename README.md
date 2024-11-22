@@ -145,7 +145,6 @@ out, argmax = scatter_max(updates, indices, out)
 | CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Test】|
 | BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |【Test】|
 | SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |【Test】|
-| UniAD  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/UniAD | 【Test】|
 | YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |【Pass】|
 | EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |【Pass】|
 | TPVFormer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/TPVFormer_for_PyTorch |【Test】|
