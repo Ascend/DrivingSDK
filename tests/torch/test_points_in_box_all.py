@@ -143,5 +143,21 @@ class TestPointsInBoxAll(TestCase):
         point_indices_npu = mx_driving.preprocess.npu_points_in_box_all(boxes.npu(), points.npu())
         self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
 
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBoxAll` is only supported on 910B, skip this ut!")
+    def test_points_in_box_shape_random_shape(self, device="npu"):
+        boxes = np.random.uniform(-5, 5, [214, 192, 7]).astype(np.float32)
+        boxes = torch.from_numpy(boxes)
+        points = np.random.uniform(-5, 5, [214, 371, 3]).astype(np.float32)
+        points = torch.from_numpy(points)
+        shape1 = points.shape
+        batch_size = shape1[0]
+        num_points = shape1[1]
+        num_boxes = boxes.shape[1]
+        point_indices = points.new_zeros((batch_size, num_points, num_boxes), dtype=torch.int).fill_(0)
+        for b in range(batch_size):
+            point_indices[b] = points_in_boxes_all_cpu_forward(boxes[b].float(),
+                                                               points[b].float())
+        point_indices_npu = mx_driving.preprocess.npu_points_in_box_all(boxes.npu(), points.npu())
+        self.assertRtolEqual(point_indices.numpy(), point_indices_npu.cpu().numpy())
 if __name__ == "__main__":
     run_tests()
