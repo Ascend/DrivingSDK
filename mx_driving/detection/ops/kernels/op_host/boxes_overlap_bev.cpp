@@ -129,7 +129,7 @@ static ge::graphStatus Infershape4BoxesOverlapBev(gert::InferShapeContext *conte
     auto boxesAShape = context->GetInputShape(INPUT_BOXES_A);
     auto boxesBShape = context->GetInputShape(INPUT_BOXES_B);
     auto areaOverlapShape = context->GetOutputShape(OUTPUT_AREA_OVERLAP);
-    if (boxesAShape == nullptr || boxesBShape == nullptr || areaOverlapShape) {
+    if (boxesAShape == nullptr || boxesBShape == nullptr || areaOverlapShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto boxesANum = boxesAShape->GetDim(BOXES_NUM_DIM);
