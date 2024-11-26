@@ -19,12 +19,15 @@ class TestFusedBiasLeakyRelu(TestCase):
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FusedBiasLeakyRelu` is only supported on 910B, skip this ut!")
     def test_npu_fused_bias_leaky_relu_three_dim(self, device="npu"):
-        x = np.random.uniform(1, 1, [1, 100, 3]).astype(np.float32)
+        N, H, W = [1, 100, 3]
+        x = np.random.uniform(1, 1, [N, H, W]).astype(np.float32)
         x = torch.from_numpy(x)
-        bias = np.random.uniform(2.0, 2.0, [1, 100, 3]).astype(np.float32)
+        bias = np.random.uniform(-2.0, 2.0, H).astype(np.float32)
         bias = torch.from_numpy(bias)
+        bias_cpu = bias.reshape([-1 if i == 1 else 1 for i in range(x.ndim)])
+        bias_cpu = bias_cpu.repeat([1 if i == 1 else x.size(i) for i in range(x.ndim)])
         
-        cpu_result = F.leaky_relu(x + bias, negative_slop)
+        cpu_result = F.leaky_relu(x + bias_cpu, negative_slop)
         cpu_result = cpu_result * scale
 
         npu_result = mx_driving.fused.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
@@ -32,12 +35,15 @@ class TestFusedBiasLeakyRelu(TestCase):
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FusedBiasLeakyRelu` is only supported on 910B, skip this ut!")
     def test_npu_fused_bias_leaky_relu_large_number(self, device="npu"):
-        x = np.random.uniform(1, 1, [18, 256, 232, 400]).astype(np.float32)
+        B, N, H, W = [18, 256, 232, 400]
+        x = np.random.uniform(1, 1, [B, N, H, W]).astype(np.float32)
         x = torch.from_numpy(x)
-        bias = np.random.uniform(2.0, 2.0, [18, 256, 232, 400]).astype(np.float32)
+        bias = np.random.uniform(-2.0, 2.0, N).astype(np.float32)
         bias = torch.from_numpy(bias)
+        bias_cpu = bias.reshape([-1 if i == 1 else 1 for i in range(x.ndim)])
+        bias_cpu = bias_cpu.repeat([1 if i == 1 else x.size(i) for i in range(x.ndim)])
 
-        cpu_result = F.leaky_relu(x + bias, negative_slop)
+        cpu_result = F.leaky_relu(x + bias_cpu, negative_slop)
         cpu_result = cpu_result * scale
 
         npu_result = mx_driving.fused.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
@@ -45,12 +51,15 @@ class TestFusedBiasLeakyRelu(TestCase):
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FusedBiasLeakyRelu` is only supported on 910B, skip this ut!")
     def test_npu_fused_bias_leaky_relu_fp16_large_number(self, device="npu"):
-        x = np.random.uniform(1, 1, [18, 256, 232, 400]).astype(np.float16)
+        B, N, H, W = [18, 256, 232, 400]
+        x = np.random.uniform(1, 1, [B, N, H, W]).astype(np.float16)
         x = torch.from_numpy(x)
-        bias = np.random.uniform(2.0, 2.0, [18, 256, 232, 400]).astype(np.float16)
+        bias = np.random.uniform(-2.0, 2.0, N).astype(np.float32)
         bias = torch.from_numpy(bias)
+        bias_cpu = bias.reshape([-1 if i == 1 else 1 for i in range(x.ndim)])
+        bias_cpu = bias_cpu.repeat([1 if i == 1 else x.size(i) for i in range(x.ndim)])
 
-        cpu_result = F.leaky_relu(x.float() + bias.float(), negative_slop)
+        cpu_result = F.leaky_relu(x.float() + bias_cpu.float(), negative_slop)
         cpu_result = cpu_result * scale
 
         npu_result = mx_driving.fused.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
@@ -58,12 +67,15 @@ class TestFusedBiasLeakyRelu(TestCase):
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FusedBiasLeakyRelu` is only supported on 910B, skip this ut!")
     def test_npu_fused_bias_leaky_relu_fp16_small_case(self, device="npu"):
-        x = np.random.uniform(1, 1, [18]).astype(np.float16)
+        N, H, W = [18, 200, 6]
+        x = np.random.uniform(1, 1, [N, H, W]).astype(np.float16)
         x = torch.from_numpy(x)
-        bias = np.random.uniform(2.0, 2.0, [18]).astype(np.float16)
+        bias = np.random.uniform(-2.0, 2.0, H).astype(np.float32)
         bias = torch.from_numpy(bias)
+        bias_cpu = bias.reshape([-1 if i == 1 else 1 for i in range(x.ndim)])
+        bias_cpu = bias_cpu.repeat([1 if i == 1 else x.size(i) for i in range(x.ndim)])
 
-        cpu_result = F.leaky_relu(x.float() + bias.float(), negative_slop)
+        cpu_result = F.leaky_relu(x.float() + bias_cpu.float(), negative_slop)
         cpu_result = cpu_result * scale
 
         npu_result = mx_driving.fused.npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slop, scale).cpu().numpy()
