@@ -1,0 +1,5 @@
+cython
+pycocotools==2.0.7
+submitit
+torchvision==0.16.0
+scipy
