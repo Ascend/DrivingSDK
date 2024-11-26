@@ -8,16 +8,19 @@ Modification 1. Add support for Ascend NPU
 """  
 import torch
 from torch.autograd import Function
-from torch.nn import Module
 
 import torch_npu
 import mx_driving._C
 
 
-class FusedBiasLeakyReluFunction(Function):
-    @staticmethod
-    def forward(ctx, x, bias, negative_slop=0.2, scale=2**0.5):
-        y = mx_driving._C.fused_bias_leaky_relu(x, bias, negative_slop, scale)
-        return y
+class FusedBiasLeakyRelu(Function):
 
-npu_fused_bias_leaky_relu = FusedBiasLeakyReluFunction.apply
+    @staticmethod
+    def forward(ctx, x, bias, negative_slope=0.2, scale=2**0.5):
+        bias = torch.broadcast_to(bias.to(x.dtype).reshape([-1 if i == 1 else 1 for i in range(x.ndim)]), 
+                                  x.shape).contiguous()
+        out = mx_driving._C.fused_bias_leaky_relu(x, bias, negative_slope, scale)
+        return out
+
+
+npu_fused_bias_leaky_relu = FusedBiasLeakyRelu.apply
