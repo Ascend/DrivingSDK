@@ -98,7 +98,7 @@ private:
         int32_t computeBoxNum = boxNumber;
         uint32_t boxCopyAddress = 0;
         uint32_t copyOutStride = (computeBoxNum > boxNumLoop) ? (computeBoxNum - boxNumLoop) : 0;
-        uint32_t copyOutStrideTail = (computeBoxNum > boxNumLoop) ? (computeBoxNum - computeBoxNum % boxNumLoop) : 0;
+        uint32_t copyOutStrideTail = AlignUp(computeBoxNum, boxNumLoop) - boxNumLoop;
         uint32_t outAddressOffset = 0;
 
         while (computeBoxNum > boxNumLoop) {
@@ -281,7 +281,7 @@ private:
 
         // cmp_3 = Abs(zlocal) < z_size
         pipe_barrier(PIPE_V);
-        uint8temp = sina < cosa;
+        uint8temp = sina <= cosa;
         Duplicate<DTYPE_BOXES>(sina, zeronumber, mask, repeat, 1, 8);
         Select(sina, uint8temp, temp, shifty,
                SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
