@@ -15,7 +15,6 @@ public:
     __aicore__ inline void Init(GM_ADDR boxes, GM_ADDR pts, GM_ADDR boxes_idx_of_points,
                                 PointsInBoxTilingData *tiling_data)
     {
-        ASSERT(GetBlockNum() != 0 && "block dim can not be zeronumber!");
         this->core_used = tiling_data->core_used;
         this->core_data = tiling_data->core_data;
         this->copy_loop = tiling_data->copy_loop;
