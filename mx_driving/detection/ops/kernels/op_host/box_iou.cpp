@@ -128,7 +128,7 @@ static ge::graphStatus Infershape4BoxIou(gert::InferShapeContext *context)
     auto boxesAShape = context->GetInputShape(POS_INPUT_BOXES_A);
     auto boxesBShape = context->GetInputShape(POS_INPUT_BOXES_B);
     auto iousShape = context->GetOutputShape(POS_OUTPUT_IOUS);
-    if (boxesAShape == nullptr || boxesBShape == nullptr || iousShape) {
+    if (boxesAShape == nullptr || boxesBShape == nullptr || iousShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto boxesANum = boxesAShape->GetDim(BOXES_NUM_DIM);
