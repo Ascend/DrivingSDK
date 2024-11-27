@@ -27,4 +27,8 @@ void init_fused(pybind11::module& m)
     m.def("modulated_deformable_conv2d", &modulated_deformable_conv2d);
     m.def("deformable_conv2d_backward", &deformable_conv2d_backward);
     m.def("modulated_deformable_conv2d_backward", &modulated_deformable_conv2d_backward);
+
+    // npu_geometric_kernel_attention_func
+    m.def("npu_geometric_kernel_attention_func", &npu_geometric_kernel_attention_func);
+    m.def("npu_geometric_kernel_attention_backward", &npu_geometric_kernel_attention_backward);
 }

@@ -8,3 +8,4 @@ from .ops.multi_scale_deformable_attn import (
 from .ops.npu_add_relu import npu_add_relu
 from .ops.npu_deformable_aggregation import npu_deformable_aggregation
 from .ops.npu_max_pool2d import npu_max_pool2d
+from .ops.npu_geometric_kernel_attention_func import npu_geometric_kernel_attention_func

@@ -66,4 +66,11 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> modulated
     const c10::optional<at::Tensor>& bias_opt, const at::Tensor& offset_output, const at::Tensor& grad_y,
     at::IntArrayRef kernel_size, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation,
     int64_t groups, int64_t deformable_groups, int64_t with_bias);
+
+at::Tensor npu_geometric_kernel_attention_func(const at::Tensor& value, const at::Tensor& spatial_shapes,
+    const at::Tensor& level_start_index, const at::Tensor& sampling_locations, const at::Tensor& attn_weights);
+
+std::tuple<at::Tensor, at::Tensor> npu_geometric_kernel_attention_backward(const at::Tensor& value,
+    const at::Tensor& spatial_shapes, const at::Tensor& level_start_index, const at::Tensor& sampling_locations,
+    const at::Tensor& attn_weights, const at::Tensor& grad_output);
 #endif // PERCEPTION_FUSED_OPS_CSRC_FUNCTIONS_H_
