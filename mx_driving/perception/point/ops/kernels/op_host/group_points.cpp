@@ -162,7 +162,6 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForGroupPoints);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 

@@ -136,7 +136,6 @@ public:
         this->AICore()
             .SetTiling(optiling::TilingForFurthestPointSamplingWithDist);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 

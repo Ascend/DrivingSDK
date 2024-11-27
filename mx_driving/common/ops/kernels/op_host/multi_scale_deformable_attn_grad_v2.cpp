@@ -173,7 +173,6 @@ public:
         this->SetInferShape(ge::InferShapeForMultiScaleDeformableAttnGradV2);
         this->AICore().SetTiling(optiling::TilingFuncForMultiScaleDeformableAttnGradV2);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 

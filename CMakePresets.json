@@ -23,7 +23,7 @@
                 },
                 "ASCEND_COMPUTE_UNIT": {
                     "type": "STRING",
-                    "value": "ascend910b;ascend910;ascend310p;ascend910c"
+                    "value": "ascend910b;ascend910;ascend310p"
                 },
                 "ENABLE_TEST": {
                     "type": "BOOL",

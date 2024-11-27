@@ -254,7 +254,6 @@ public:
             .SetInferDataType(ge::InferDataTypeForPointToVoxel<true>);
         this->AICore().SetTiling(optiling::TilingForPointToVoxel<true>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 
@@ -283,7 +282,6 @@ public:
             .SetInferDataType(ge::InferDataTypeForPointToVoxel<false>);
         this->AICore().SetTiling(optiling::TilingForPointToVoxel<false>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 

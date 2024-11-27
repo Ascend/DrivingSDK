@@ -128,7 +128,6 @@ public:
         this->SetInferShape(ge::InferShapeForVoxelPoolingTrain);
         this->AICore().SetTiling(optiling::TilingForVoxelPooling);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 OP_ADD(VoxelPoolingTrain);

@@ -105,7 +105,6 @@ public:
         this->AICore()
             .SetTiling(optiling::Nms3dNormalTilingFunc);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 

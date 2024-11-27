@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
+ */
 #include <graph/types.h>
 #include <register/op_def.h>
 
@@ -196,7 +199,6 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForBEVPool<V1>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 
@@ -259,7 +261,6 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForBEVPool<V1>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 
@@ -319,7 +320,6 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForBEVPool<V2>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 
@@ -401,7 +401,6 @@ public:
 
         this->AICore().SetTiling(optiling::TilingForBEVPool<V2>);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 OP_ADD(BEVPool);

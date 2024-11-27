@@ -25,7 +25,7 @@ class TestGroupPoints(TestCase):
         output = output.transpose(0, 3, 1, 2)
         return output
 
-    @unittest.skipIf((DEVICE_NAME != 'Ascend910B' and DEVICE_NAME != 'Ascend910C'), "OP `GroupPoints` is only supported on 910B, skip this ut!")
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `GroupPoints` is only supported on 910B, skipping this ut!")
     def test_group_points(self):
         
         dtype = [torch.float, torch.half]

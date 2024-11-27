@@ -145,7 +145,6 @@ public:
         aiConfig.DynamicCompileStaticFlag(true);
         this->AICore().AddConfig("ascend310p", aiConfig);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 

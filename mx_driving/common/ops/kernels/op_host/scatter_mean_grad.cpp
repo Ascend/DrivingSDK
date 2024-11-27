@@ -239,7 +239,6 @@ public:
         this->AICore()
             .SetTiling(optiling::TilingFunc4ScatterMeanGrad);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 

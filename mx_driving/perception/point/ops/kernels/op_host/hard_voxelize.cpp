@@ -325,7 +325,6 @@ public:
         this->SetInferShape(ge::InferShapeForHardVoxelize).SetInferDataType(ge::InferDataTypeForHardVoxelize);
         this->AICore().SetTiling(optiling::TilingForHardVoxelize);
         this->AICore().AddConfig("ascend910b");
-        this->AICore().AddConfig("ascend910c");
     }
 };
 
