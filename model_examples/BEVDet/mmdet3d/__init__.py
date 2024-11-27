@@ -1,0 +1,56 @@
+# Copyright 2024 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Copyright (c) OpenMMLab. All rights reserved.
+import mmcv
+
+import mmdet
+from .version import __version__, short_version
+
+
+def digit_version(version_str):
+    digit_version = []
+    for x in version_str.split('.'):
+        if x.isdigit():
+            digit_version.append(int(x))
+        elif x.find('rc') != -1:
+            patch_version = x.split('rc')
+            digit_version.append(int(patch_version[0]) - 1)
+            digit_version.append(int(patch_version[1]))
+    return digit_version
+
+
+mmcv_minimum_version = '1.5.2'
+mmcv_maximum_version = '1.7.2'
+mmcv_version = digit_version(mmcv.__version__)
+
+
+assert (mmcv_version >= digit_version(mmcv_minimum_version)
+        and mmcv_version <= digit_version(mmcv_maximum_version)), \
+    f'MMCV=={mmcv.__version__} is used but incompatible. ' \
+    f'Please install mmcv>={mmcv_minimum_version}, <={mmcv_maximum_version}.'
+
+mmdet_minimum_version = '2.24.0'
+mmdet_maximum_version = '3.0.0'
+mmdet_version = digit_version(mmdet.__version__)
+assert (mmdet_version >= digit_version(mmdet_minimum_version)
+        and mmdet_version <= digit_version(mmdet_maximum_version)), \
+    f'MMDET=={mmdet.__version__} is used but incompatible. ' \
+    f'Please install mmdet>={mmdet_minimum_version}, ' \
+    f'<={mmdet_maximum_version}.'
+
+mmseg_minimum_version = '0.20.0'
+mmseg_maximum_version = '1.0.0'
+
+__all__ = ['__version__', 'short_version']
