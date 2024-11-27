@@ -19,7 +19,7 @@ mxDriving是基于昇腾NPU平台开发的适用于自动驾驶场景的算子�
 ## 从源码安装
 1. 克隆原始仓。
 ```shell
-git clone https://gitee.com/ascend/mxDriving.git
+git clone https://gitee.com/ascend/mxDriving.git -b branch_v6.0.0
 ```
 2. 编译mxDriving。
 > 注意：请在仓库根目录下执行编译命令
