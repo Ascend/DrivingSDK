@@ -60,6 +60,7 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
             [1, 188232, 32, 8, 5, 4],
             [1, 1890, 32, 8, 5, 4],
             [1, 1890, 32, 8, 5, 16],
+            [1, 1450, 64, 8, 1, 2],
         ]
 
         self.items = [[shape, dtype] for shape in self.shape_list for dtype in self.dtype_list]

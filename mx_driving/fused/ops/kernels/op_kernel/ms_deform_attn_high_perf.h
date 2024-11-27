@@ -367,7 +367,9 @@ __aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>
             Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[num_points * alignedEmbedDims_],
                 MASK_PLACEHOLDER, valRptTimes1_, {1, 1, 1, 8, 8, 8});
 
-            SetVectorMask<float>(0, (1UL << embedDims_) - 1);
+            if (embed_dims < 64) {
+                SetVectorMask<float>(0, (1UL << embedDims_) - 1);
+            }
             if (num_points == 8) {
                 PipeBarrier<PIPE_V>();
                 Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[4 * alignedEmbedDims_],

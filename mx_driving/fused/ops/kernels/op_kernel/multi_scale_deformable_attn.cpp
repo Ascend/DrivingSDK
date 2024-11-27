@@ -36,6 +36,18 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn(GM_ADDR value,
         KernelMultiScaleDeformableAttnOpt<8, 32> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
             attentionWeights, output, &tilingData, &pipe);
         op.Process();
+    } else if (TILING_KEY_IS(4002)) {
+        KernelMultiScaleDeformableAttnOpt<2, 64> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+            attentionWeights, output, &tilingData, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(4004)) {
+        KernelMultiScaleDeformableAttnOpt<4, 64> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+            attentionWeights, output, &tilingData, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(4008)) {
+        KernelMultiScaleDeformableAttnOpt<8, 64> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
+            attentionWeights, output, &tilingData, &pipe);
+        op.Process();
     } else if (TILING_KEY_IS(0)) {
         KernelMultiScaleDeformableAttn op;
         op.Init(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, output,
