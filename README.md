@@ -15,7 +15,7 @@ ADS-Accelerator是基于昇腾NPU平台开发的适用于自动驾驶场景的�
 ## 从源码安装
 1. 克隆原始仓
 ```shell
-git clone https://gitee.com/ascend/ads.git
+git clone https://gitee.com/ascend/ads.git -b branch_v6.0.0-RC1
 ```
 2. 编译ADS
 > 注意：请在仓库根目录下执行编译命令
