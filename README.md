@@ -20,7 +20,7 @@ mxDriving是基于昇腾NPU平台开发的适用于自动驾驶场景的算子�
 ## 从源码安装
 1. 克隆原始仓。
 ```shell
-git clone https://gitee.com/ascend/mxDriving.git
+git clone https://gitee.com/ascend/mxDriving.git -b branch_v6.0.0-RC2
 ```
 2. 编译mxDriving。
 > 注意：请在仓库根目录下执行编译命令
@@ -116,7 +116,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 ## 算子清单
 请参见[算子清单](./docs/api/README.md)。
 ## 支持特性
-- [x] 支持PyTorch 1.11.0，2.1.0，2.2.0，2.3.1
+- [x] 支持PyTorch 1.11.0，2.1.0，2.2.0，2.3.0
 - [x] 支持ONNX模型转换，训推一体
 - [ ] 支持图模式
 
