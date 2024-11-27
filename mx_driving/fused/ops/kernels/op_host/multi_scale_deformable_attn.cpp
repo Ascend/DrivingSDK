@@ -68,7 +68,7 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     uint32_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
     uint32_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
     uint32_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
-    uint32_t optPoint = numLevels <= 8 && numHeads <= 8 && (embedDims == 16 || embedDims == 32) &&
+    uint32_t optPoint = numLevels <= 8 && numHeads <= 8 && (embedDims == 16 || embedDims == 32 || embedDims == 64) &&
                         (numPoints % 2 == 0 || numPoints == 1);
     uint32_t pointLoops = 0;
     uint32_t point = 0;

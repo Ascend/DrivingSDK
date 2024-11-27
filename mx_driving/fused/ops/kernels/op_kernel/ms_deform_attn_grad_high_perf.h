@@ -360,7 +360,11 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
         uint32_t weightOffset = weightOffset_ + head * realLevels_ * numPoints_;
 
         for (uint32_t level = 0; level < numLevels_; ++level) {
-            SetVectorMask<float>(0, (1UL << embedDims_) - 1);
+            if (embed_dims < 64) {
+                SetVectorMask<float>(0, (1UL << embedDims_) - 1);
+            } else {
+                SetVectorMask<float>(FULL_MASK, FULL_MASK);
+            }
 
             int32_t h = shapes.GetValue(level * 2);
             int32_t w = shapes.GetValue(level * 2 + 1);
@@ -465,7 +469,11 @@ __aicore__ inline void KernelMultiScaleDeformableAttnGradOpt<num_points, embed_d
             Copy<float, false>(cornerWeight, production[sx], MASK_PLACEHOLDER, 1, {1, queryBlk_, 8, 8});
 
             WaitFlag<HardEvent::MTE2_V>(copyEvt_);
-            SetVectorMask<float>(0, (1UL << embedDims_) - 1);
+            if (embed_dims < 64) {
+                SetVectorMask<float>(0, (1UL << embedDims_) - 1);
+            } else {
+                SetVectorMask<float>(FULL_MASK, FULL_MASK);
+            }
             Mul<float, false>(value[pingOffset], value[pingOffset], gradOut[outOffset], MASK_PLACEHOLDER,
                 num_points * 4, {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_), 0});
             PipeBarrier<PIPE_V>();
