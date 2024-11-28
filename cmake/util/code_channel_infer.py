@@ -28,7 +28,7 @@ def _is_v220(op_product: str):
     Returns:
         res: True means V220
     """
-    if op_product in ["ascend910b", "ascend910c"]:
+    if op_product in ["ascend910b"]:
         return True
     return False
 
