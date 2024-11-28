@@ -1,6 +1,6 @@
 import os
-import onnx
-from onnx import helper, TensorProto
+import onnx_plugin
+from onnx_plugin import helper, TensorProto
 
 
 def roi_align_rotated():
@@ -9,7 +9,7 @@ def roi_align_rotated():
 
     output = helper.make_tensor_value_info('output', TensorProto.FLOAT, [3, 48, 2, 2])
 
-    node_def = onnx.helper.make_node('RoiAlignRotatedV2',
+    node_def = onnx_plugin.helper.make_node('RoiAlignRotatedV2',
                                       inputs=['input', 'rois'],
                                       outputs=['output'],
                                       spatial_scale=1.0,
@@ -32,7 +32,7 @@ def roi_align_rotated():
     current_path = os.path.abspath(__file__)
     idx = current_path.rfind('/')
     current_path = current_path[:idx]
-    onnx.save(model_def, os.path.join(current_path, "roi_align_rotated.onnx"))
+    onnx_plugin.save(model_def, os.path.join(current_path, "roi_align_rotated.onnx"))
 
 if __name__ == "__main__":
     roi_align_rotated()

@@ -14,35 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CSRC_UTILS_H_
-#define CSRC_UTILS_H_
+#include "csrc/OpApiCommon.h"
+#include "csrc/functions.h"
 
-#include <stdlib.h>
-
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
+std::tuple<at::Tensor, at::Tensor> knn(const at::Tensor& xyz, const at::Tensor& center_xyz, int32_t k, bool is_from_knn)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return (x + y - 1) / y;
-}
+    TORCH_CHECK_NPU(xyz);
+    TORCH_CHECK_NPU(center_xyz);
+    TORCH_CHECK(center_xyz.dim() == 3, "center_xyz.dim() must be 3, but got: ", center_xyz.dim());
 
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
-{
-    if (y == 0) {
-        return 0;
-    }
-    return ((x + y - 1) / y) * y;
-}
+    at::Tensor dist = at::zeros({center_xyz.sizes()[0], center_xyz.sizes()[1], k}, center_xyz.options());
+    at::Tensor idx = at::zeros({center_xyz.sizes()[0], center_xyz.sizes()[1], k}, center_xyz.options().dtype(at::kInt));
+    EXEC_NPU_CMD_SYNC(aclnnKnn, xyz, center_xyz, is_from_knn, k, dist, idx);
 
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
-    if (x == 0 || y == 0) {
-        return 0;
-    }
-    return (x - 1) % y + 1;
+    return std::tie(dist, idx);
 }
-#endif // CSRC_UTILS_H_

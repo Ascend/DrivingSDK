@@ -14,35 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CSRC_UTILS_H_
-#define CSRC_UTILS_H_
+#include "csrc/OpApiCommon.h"
+#include "csrc/functions.h"
 
-#include <stdlib.h>
-
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
+at::Tensor npu_add_relu(at::Tensor& x, const at::Tensor& y)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return (x + y - 1) / y;
+    EXEC_NPU_CMD(aclnnAddRelu, x, y);
+    return x;
 }
 
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
+at::Tensor npu_add_relu_grad(at::Tensor& self, at::Tensor& grad_output)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return ((x + y - 1) / y) * y;
+    auto result = at::empty_like(self, self.options());
+    at_npu::native::OpCommand cmd;
+    cmd.Name("ReluGrad").Input(grad_output).Input(self).Output(result).Run();
+    return result;
 }
-
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
-    if (x == 0 || y == 0) {
-        return 0;
-    }
-    return (x - 1) % y + 1;
-}
-#endif // CSRC_UTILS_H_

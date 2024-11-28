@@ -79,10 +79,6 @@ class TestGeometricKernelAttentionFunc(TestCase):
         self.test_results = self.gen_results()
 
     def gen_results(self):
-        if DEVICE_NAME != "Ascend910B":
-            self.skipTest(
-                "OP `MultiScaleDeformableAttnFunction` is only supported on 910B, skipping test data generation!"
-            )
         test_results = []
         for shape, dtype in self.items:
             cpu_inputs, npu_inputs = self.gen_inputs(shape, dtype)
@@ -157,7 +153,7 @@ class TestGeometricKernelAttentionFunc(TestCase):
         sampling_locations = npu_inputs.sampling_locations
         attn_weights = npu_inputs.attn_weights
         grad_output = npu_inputs.grad_output
-        npu_output = mx_driving.fused.npu_geometric_kernel_attention_func(
+        npu_output = mx_driving.fused.npu_geometric_kernel_attention(
             value, spatial_shapes, level_start_index, sampling_locations, attn_weights
         )
         npu_output.backward(grad_output)

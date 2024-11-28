@@ -14,35 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CSRC_UTILS_H_
-#define CSRC_UTILS_H_
+#include "csrc/OpApiCommon.h"
+#include "csrc/functions.h"
 
-#include <stdlib.h>
-
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
+at::Tensor dynamic_voxelization(const at::Tensor& points, at::Tensor& coors, int grid_x, int grid_y, int grid_z,
+    double voxel_x, double voxel_y, double voxel_z, double coors_min_x, double coors_min_y, double coorsMinZ)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return (x + y - 1) / y;
+    uint32_t ptsNum = points.size(0);
+    uint32_t ptsFeature = points.size(1);
+    at::Tensor ptsTrans = at::transpose(points, 0, 1);
+    EXEC_NPU_CMD(aclnnDynamicVoxelization, ptsTrans, coors_min_x, coors_min_y, coorsMinZ, voxel_x, voxel_y, voxel_z,
+        grid_x, grid_y, grid_z, coors);
+    coors.transpose_(0, 1);
+    return coors;
 }
-
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
-{
-    if (y == 0) {
-        return 0;
-    }
-    return ((x + y - 1) / y) * y;
-}
-
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
-    if (x == 0 || y == 0) {
-        return 0;
-    }
-    return (x - 1) % y + 1;
-}
-#endif // CSRC_UTILS_H_

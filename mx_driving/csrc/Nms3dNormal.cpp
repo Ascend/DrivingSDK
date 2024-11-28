@@ -14,35 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CSRC_UTILS_H_
-#define CSRC_UTILS_H_
+#include "csrc/OpApiCommon.h"
+#include "csrc/functions.h"
 
-#include <stdlib.h>
-
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
+std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor& boxes, double nms_overlap_thresh)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return (x + y - 1) / y;
-}
+    int32_t box_num = boxes.size(0);
+    int32_t data_align = 16;
+    int32_t mask_num = ((box_num - 1) / data_align + 1) * data_align;
+    at::Tensor mask = at::empty({box_num, mask_num}, boxes.options().dtype(at::kShort));
+    EXEC_NPU_CMD(aclnnNms3dNormal, boxes, nms_overlap_thresh, mask);
 
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
-{
-    if (y == 0) {
-        return 0;
-    }
-    return ((x + y - 1) / y) * y;
+    at::Tensor keep = at::zeros({box_num}, mask.options());
+    at::Tensor num_out = at::zeros(1, mask.options());
+    EXEC_NPU_CMD(aclnnGatherNms3dMask, mask, keep, num_out);
+    return std::tie(keep, num_out);
 }
-
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
-    if (x == 0 || y == 0) {
-        return 0;
-    }
-    return (x - 1) % y + 1;
-}
-#endif // CSRC_UTILS_H_

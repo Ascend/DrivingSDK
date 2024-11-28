@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Huawei Technologies Co., Ltd
+// Copyright (c) 2023-2024 Huawei Technologies Co., Ltd
 // Copyright (c) 2019, Facebook CORPORATION.
 // All rights reserved.
 //
@@ -14,35 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CSRC_UTILS_H_
-#define CSRC_UTILS_H_
+#include "csrc/OpApiCommon.h"
+#include "csrc/functions.h"
 
-#include <stdlib.h>
-
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
+at::Tensor fused_bias_leaky_relu(const at::Tensor& x, const at::Tensor& bias, double negative_slope, double scale)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return (x + y - 1) / y;
-}
+    TORCH_CHECK_NPU(x);
+    TORCH_CHECK_NPU(bias);
 
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
-{
-    if (y == 0) {
-        return 0;
-    }
-    return ((x + y - 1) / y) * y;
-}
+    auto output = at::ones_like(x);
 
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
-    if (x == 0 || y == 0) {
-        return 0;
-    }
-    return (x - 1) % y + 1;
+    EXEC_NPU_CMD(aclnnFusedBiasLeakyReluV2, x, bias, negative_slope, scale, output);
+    return output;
 }
-#endif // CSRC_UTILS_H_

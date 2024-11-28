@@ -14,35 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CSRC_UTILS_H_
-#define CSRC_UTILS_H_
+#include "csrc/OpApiCommon.h"
+#include "csrc/functions.h"
 
-#include <stdlib.h>
-
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
+at::Tensor npu_furthest_point_sampling(const at::Tensor& point_xyz, const at::Tensor& nearset_temp, int32_t num_points)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return (x + y - 1) / y;
+    at::Tensor output = at::empty({static_cast<int64_t>(point_xyz.sizes()[0]), static_cast<int64_t>(num_points)},
+        nearset_temp.options().dtype(at::kInt));
+    EXEC_NPU_CMD(aclnnFurthestPointSampling, point_xyz, nearset_temp, num_points, output);
+    return output;
 }
-
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
-{
-    if (y == 0) {
-        return 0;
-    }
-    return ((x + y - 1) / y) * y;
-}
-
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
-    if (x == 0 || y == 0) {
-        return 0;
-    }
-    return (x - 1) % y + 1;
-}
-#endif // CSRC_UTILS_H_

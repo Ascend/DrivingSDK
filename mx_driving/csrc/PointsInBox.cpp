@@ -14,35 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CSRC_UTILS_H_
-#define CSRC_UTILS_H_
+#include "csrc/OpApiCommon.h"
+#include "csrc/functions.h"
 
-#include <stdlib.h>
-
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
+at::Tensor npu_points_in_box(const at::Tensor& boxes, const at::Tensor& pts)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return (x + y - 1) / y;
+    TORCH_CHECK(pts.size(0) == 1 && boxes.size(0) == 1, "points_in_box npu only support batch size = 1");
+    TORCH_CHECK(boxes.size(1) <= 200, "boxes is larger than 200");
+    c10::SmallVector<int64_t, 8> output_size = {pts.size(0), pts.size(1)};
+    at::Tensor out = at::empty(output_size, pts.options().dtype(at::kInt));
+    auto boxes_trans = boxes.transpose(1, 2).contiguous();
+    EXEC_NPU_CMD(aclnnPointsInBox, boxes_trans, pts, out);
+    return out;
 }
-
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
-{
-    if (y == 0) {
-        return 0;
-    }
-    return ((x + y - 1) / y) * y;
-}
-
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
-    if (x == 0 || y == 0) {
-        return 0;
-    }
-    return (x - 1) % y + 1;
-}
-#endif // CSRC_UTILS_H_

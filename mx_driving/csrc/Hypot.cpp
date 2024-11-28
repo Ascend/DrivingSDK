@@ -14,35 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CSRC_UTILS_H_
-#define CSRC_UTILS_H_
 
-#include <stdlib.h>
+#include "csrc/OpApiCommon.h"
+#include "csrc/functions.h"
 
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
+at::Tensor npu_hypot(const at::Tensor& x, const at::Tensor& y)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return (x + y - 1) / y;
+    auto out = at::empty_like(x, x.options());
+    EXEC_NPU_CMD(aclnnHypot, x, y, out);
+    return out;
 }
 
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
+std::tuple<at::Tensor, at::Tensor> npu_hypot_grad(
+    const at::Tensor& x, const at::Tensor& y, const at::Tensor& out, const at::Tensor& out_grad)
 {
-    if (y == 0) {
-        return 0;
-    }
-    return ((x + y - 1) / y) * y;
+    auto x_grad = at::empty_like(x, x.options());
+    auto y_grad = at::empty_like(y, y.options());
+    EXEC_NPU_CMD(aclnnHypotGrad, x, y, out, out_grad, x_grad, y_grad);
+    return std::make_tuple(x_grad, y_grad);
 }
-
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
-    if (x == 0 || y == 0) {
-        return 0;
-    }
-    return (x - 1) % y + 1;
-}
-#endif // CSRC_UTILS_H_

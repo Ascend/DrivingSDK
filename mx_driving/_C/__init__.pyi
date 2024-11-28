@@ -76,7 +76,7 @@ def deformable_aggregation(
     sampling_location: torch.Tensor,
     weights: torch.Tensor,
 ) -> torch.Tensor: ...
-def deformable_aggregation_grad(
+def deformable_aggregation_backward(
     mc_ms_feat: torch.Tensor,
     spatial_shape: torch.Tensor,
     scale_start_index: torch.Tensor,
@@ -234,7 +234,7 @@ def npu_box_iou_quadri(boxes_a: torch.Tensor, boxes_b: torch.Tensor, mode_flag: 
 def npu_box_iou_rotated(
     boxes_a: torch.Tensor, boxes_b: torch.Tensor, mode_flag: int, aligned: bool
 ) -> torch.Tensor: ...
-def border_align_forward_npu(
+def border_align(
     input: torch.Tensor, rois: torch.Tensor, output: torch.Tensor, pooled_size: int
 ) -> None: ...
 def border_align_backward(
@@ -417,7 +417,7 @@ __all__ = [
     "npu_add_relu_grad",
     "fused_bias_leaky_relu",
     "deformable_aggregation",
-    "deformable_aggregation_grad",
+    "deformable_aggregation_backward",
     "deformable_conv2d",
     "modulated_deformable_conv2d",
     "deformable_conv2d_backward",

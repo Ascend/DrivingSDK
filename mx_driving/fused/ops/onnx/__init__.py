@@ -1,3 +1,0 @@
-from .wrapper_onnx_ops import NPUMultiScaleDeformableAttnOP
-
-onnx_msda = NPUMultiScaleDeformableAttnOP.apply
