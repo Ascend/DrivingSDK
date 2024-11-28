@@ -37,8 +37,8 @@
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/ModelZoo-PyTorch.git
-  code_path=PyTorch/contrib/autonoumous_driving
+  url=https://gitee.com/ascend/mxDriving.git
+  code_path=model_examples/BEVDet
   ```
 
 # 准备训练环境
@@ -49,10 +49,8 @@
 
   |        软件类型        |   支持版本   |
   |:------------------:|:--------:|
-  | FrameworkPTAdapter | 6.0.RC2  |
-  |       CANN         | 8.0.RC2  |
-  |      昇腾NPU固件       | 24.0.RC2 |
-  |      昇腾NPU驱动       | 24.0.RC2 |
+  | FrameworkPTAdapter | 6.0.0  |
+  |       CANN         | 8.0.0  |
 
 ## 安装模型环境
 
@@ -63,14 +61,14 @@
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
   |    PyTorch     |  2.1   |
-  |    Mx_Driving-Accelerator     | latest |
+  |    mxDriving   | latest |
   |      mmcv      |  1.x   |
   |     mmdet      | 2.28.2 |
   | mmsegmentation | 0.30.0 |
 
-- 安装Mx_Driving-Accelerator
+- 安装mxDriving
 
-  请参考昇腾[mxDriving](https://gitee.com/ascend/mxDriving)代码仓说明编译安装Mx_Driving-Accelerator
+  请参考昇腾[mxDriving](https://gitee.com/ascend/mxDriving)代码仓说明编译安装mxDriving
   <br>
  【注意】请使用最新版本mxDriving（包含bevpoolv3算子的版本）
 
@@ -78,21 +76,25 @@
 
   在模型源码包根目录下执行命令，安装模型需要的依赖。
   
-  ```
+  ```shell
   pip install opencv-python==4.9.0.80
-
   pip install -r requirements.txt
   ```
 
 - 安装mmcv
 
-  在mmcv官网获取[mmcv 1.x](https://github.com/open-mmlab/mmcv/tree/1.x)分支源码，解压至`$YOURMMCVPATH`。将`mmcv_replace`中的文件拷贝到`$YOURMMCVPATH/mmcv`覆盖原文件。运行以下命令
-  ```
-  cd $YOURMMCVPATH
-  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
-  ```
+  - 在mmcv官网获取[mmcv 1.x](https://github.com/open-mmlab/mmcv/tree/1.x)分支源码，解压至`$YOURMMCVPATH`。
+  - 通过git下载
+     ```shell
+        git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+     ```
+  将`mmcv_replace`中的文件拷贝到`$YOURMMCVPATH/mmcv`覆盖原文件。运行以下命令
+     ```shell
+     cd $YOURMMCVPATH
+     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+     ```
 - 安装mmdet和mmsegmentation
-  ```
+  ```shell
   pip install mmdet==2.28.2
   pip install mmsegmentation==0.30.0
   ```
@@ -103,9 +105,8 @@
 用户自行获取*nuscenes*数据集，在源码目录创建软连接`data/nuscenes`指向解压后的nuscenes数据目录
 
 运行数据预处理脚本生成BEVDet模型训练需要的pkl文件
-  ```
+  ```shell
   python tools/create_data_bevdet.py
-  
   ```
 
   整理好的数据集目录如下:
@@ -136,7 +137,7 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 
 1. 进入解压后的源码包根目录。
 
-   ```
+   ```shell
    cd /${模型文件夹名称} 
    ```
 
@@ -144,18 +145,16 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 
 - 单机单卡训练
 
-     ```
+     ```shell
      bash ./test/train_1p.sh --py_config=configs/bevdet/bevdet-r50.py # 单卡精度
-     
-     bash ./test/train_1p.sh --py_config=configs/bevdet/bevdet-r50.py --performance=1  # 单卡性能
+     bash ./test/train_1p.sh --py_config=configs/bevdet/bevdet-r50.py --performance=1  # 单卡性能(只运行一个Epoch)
      ```
    
 - 单机8卡训练
 
-     ```
+     ```shell
      bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py # 8卡精度
-
-     bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py --performance=1 # 8卡性能 
+     bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py --performance=1 # 8卡性能(只运行一个Epoch)
      ```
 
   模型训练脚本参数说明如下。
