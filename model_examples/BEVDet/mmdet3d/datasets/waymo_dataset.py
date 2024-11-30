@@ -298,10 +298,9 @@ class WaymoDataset(KittiDataset):
                 data_format='waymo')
             import subprocess
             ret_bytes = subprocess.check_output(
-                'mmdet3d/core/evaluation/waymo_utils/' +
-                f'compute_detection_metrics_main {pklfile_prefix}.bin ' +
-                f'{waymo_root}/gt.bin',
-                shell=True)
+                ['mmdet3d/core/evaluation/waymo_utils/compute_detection_metrics_main',
+                 f'{pklfile_prefix}.bin',
+                 f'{waymo_root}/gt.bin'])
             ret_texts = ret_bytes.decode('utf-8')
             print_log(ret_texts)
             # parse the text to get ap_dict
