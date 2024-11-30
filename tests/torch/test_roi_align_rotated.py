@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
+import mx_driving
 import mx_driving.detection
 
 torch.npu.config.allow_internal_format = False
@@ -291,9 +292,10 @@ class TestRoiAlignedRotated(TestCase):
 
     def npu_to_exec(self, features, rois, grad_output, args_dict):
         spatial_scale, sampling_ratio, ph, pw, aligned, clockwise = args_dict.values()
-        output = mx_driving.detection.roi_align_rotated(features.npu(), rois.npu(), spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
-        output.backward(grad_output.npu())
-        return output.cpu(), features.grad.cpu()
+        output_1 = mx_driving.roi_align_rotated(features.npu(), rois.npu(), spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
+        output_1.backward(grad_output.npu())
+        output_2 = mx_driving.detection.roi_align_rotated(features.npu(), rois.npu(), spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
+        return output_1.cpu(), output_2.cpu(), features.grad.cpu()
 
     def generate_features(self, feature_shape):
         features = torch.rand(feature_shape)
@@ -345,8 +347,9 @@ class TestRoiAlignedRotated(TestCase):
             features.requires_grad_()
             rois.requires_grad_()
             out_cpu, grad_cpu = self.cpu_to_exec(features.detach(), rois.detach(), grad_output, args_dict)
-            out_npu, grad_npu = self.npu_to_exec(features, rois, grad_output, args_dict)
-            self.assertRtolEqual(out_cpu, out_npu)
+            out_npu_1, out_npu_2, grad_npu = self.npu_to_exec(features, rois, grad_output, args_dict)
+            self.assertRtolEqual(out_cpu, out_npu_1)
+            self.assertRtolEqual(out_cpu, out_npu_2)
             self.assertRtolEqual(grad_cpu, grad_npu)
 
     @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `RoiAlignedRotatedV2` is only supported on 910B, skip this ut!")
@@ -377,8 +380,9 @@ class TestRoiAlignedRotated(TestCase):
             features.requires_grad_()
             rois.requires_grad_()
             out_cpu, grad_cpu = self.cpu_to_exec(features.detach(), rois.detach(), grad_output, args_dict)
-            out_npu, grad_npu = self.npu_to_exec(features, rois, grad_output, args_dict)
-            self.assertRtolEqual(out_cpu, out_npu)
+            out_npu_1, out_npu_2, grad_npu = self.npu_to_exec(features, rois, grad_output, args_dict)
+            self.assertRtolEqual(out_cpu, out_npu_1)
+            self.assertRtolEqual(out_cpu, out_npu_2)
             self.assertRtolEqual(grad_cpu, grad_npu)
 
 

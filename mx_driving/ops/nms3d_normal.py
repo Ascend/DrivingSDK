@@ -26,4 +26,5 @@ class AdsNms3dNormalFunction(Function):
         return order[keep[:num_out].long()].contiguous()
 
 
+nms3d_normal = AdsNms3dNormalFunction.apply
 npu_nms3d_normal = AdsNms3dNormalFunction.apply

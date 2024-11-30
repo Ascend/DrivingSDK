@@ -8,6 +8,7 @@ import torch_npu
 from torch_npu.testing.common_utils import create_common_tensor
 from torch_npu.testing.testcase import TestCase, run_tests
 
+import mx_driving
 import mx_driving.detection
 
 torch.npu.config.allow_internal_format = False
@@ -246,8 +247,10 @@ class TestNms3d(TestCase):
         return keep, num_out
 
     def npu_to_exec(self, boxes, scores, threshold=0.0):
-        keep = mx_driving.detection.npu_nms3d(boxes, scores, threshold)
-        return keep.cpu()
+        keep_1 = mx_driving.nms3d(boxes, scores, threshold)
+        keep_2 = mx_driving.detection.nms3d(boxes, scores, threshold)
+        keep_3 = mx_driving.detection.npu_nms3d(boxes, scores, threshold)
+        return keep_1.cpu(), keep_2.cpu(), keep_3.cpu()
 
     @unittest.skipIf(DEVICE_NAME != True, "OP `Nms3d` is only supported on 910B, skip this ut!")
     def test_nms3d_float32(self):
@@ -263,8 +266,10 @@ class TestNms3d(TestCase):
             scores_cpu, scores_npu = create_common_tensor(item[1], 0, 1)
             threshold = item[2]
             out_cpu = self.cpu_to_exec(boxes_cpu, scores_cpu, threshold)
-            out_npu = self.npu_to_exec(boxes_npu, scores_npu, threshold)
-            self.assertRtolEqual(out_cpu, out_npu)
+            out_npu_1, out_npu_2, out_npu_3 = self.npu_to_exec(boxes_npu, scores_npu, threshold)
+            self.assertRtolEqual(out_cpu, out_npu_1)
+            self.assertRtolEqual(out_cpu, out_npu_2)
+            self.assertRtolEqual(out_cpu, out_npu_3)
 
     @unittest.skipIf(DEVICE_NAME != True, "OP `Nms3d` is only supported on 910B, skip this ut!")
     def test_nms3d_float16(self):
@@ -280,8 +285,10 @@ class TestNms3d(TestCase):
             scores_cpu, scores_npu = create_common_tensor(item[1], 0, 1)
             threshold = item[2]
             out_cpu = self.cpu_to_exec(boxes_cpu, scores_cpu, threshold)
-            out_npu = self.npu_to_exec(boxes_npu, scores_npu, threshold)
-            self.assertRtolEqual(out_cpu, out_npu)
+            out_npu_1, out_npu_2, out_npu_3 = self.npu_to_exec(boxes_npu, scores_npu, threshold)
+            self.assertRtolEqual(out_cpu, out_npu_1)
+            self.assertRtolEqual(out_cpu, out_npu_2)
+            self.assertRtolEqual(out_cpu, out_npu_3)
 
 
 if __name__ == '__main__':

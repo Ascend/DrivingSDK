@@ -1,9 +1,12 @@
-## npu_nms3d_normal
+## nms3d_normal
 ### 接口原型
 ```python
-mx_driving.npu_nms3d_normal(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
+mx_driving.nms3d_normal(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
 ```
 兼容：
+```python
+mx_driving.detection.nms3d_normal(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
+```
 ```python
 mx_driving.detection.npu_nms3d_normal(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
 ```
@@ -20,8 +23,8 @@ mx_driving.detection.npu_nms3d_normal(Tensor boxes, Tensor scores, float: iou_th
 ### 调用示例
 ```python
 import torch, torch_npu
-from mx_driving import npu_nms3d_normal
+from mx_driving import nms3d_normal
 boxes = torch.tensor([[1, 2, 3, 4, 5, 6, 7], [3, 4, 5, 6, 7, 8, 9]], dtype=torch.float32).npu()
 scores = torch.tensor([1, 2], dtype=torch.float32).npu()
-out = npu_nms3d_normal(boxes, scores, 0.5)
+out = nms3d_normal(boxes, scores, 0.5)
 ```

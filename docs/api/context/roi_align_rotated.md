@@ -1,4 +1,4 @@
-## roi_align_rotated[beta]
+## roi_align_rotated
 ### 接口原型
 ```python
 mx_driving.roi_align_rotated(Tensor feature_map, Tensor rois, float: spatial_scale,

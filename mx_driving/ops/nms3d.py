@@ -25,4 +25,5 @@ class Nms3dFunction(Function):
         return order[keep[:num_out].long()].contiguous()
 
 
+nms3d = Nms3dFunction.apply
 npu_nms3d = Nms3dFunction.apply
