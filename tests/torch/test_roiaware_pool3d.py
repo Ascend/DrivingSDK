@@ -4,7 +4,7 @@ import torch
 import torch_npu
 import numpy as np
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving._C
+import mx_driving
 import mx_driving.detection
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -48,17 +48,10 @@ class TestRoIAwarePool3dGrad(TestCase):
         out_y = out_size[1]
         out_z = out_size[2]
         
-        if (dtype == np.float16):
-            pooled_features = pts_feature_input.new_zeros((num_rois, out_x, out_y, out_z, num_channels)).npu().half()
-        else:
-            pooled_features = pts_feature_input.new_zeros((num_rois, out_x, out_y, out_z, num_channels)).npu().float()
+        pooled_features_npu_old = mx_driving.detection.roiaware_pool3d(rois_input, pts_input, pts_feature_input, out_size, max_pts_per_voxel, pool_method)
+        pooled_features_npu = mx_driving.roiaware_pool3d(rois_input, pts_input, pts_feature_input, out_size, max_pts_per_voxel, pool_method)
         
-        argmax = pts_feature_input.new_zeros((num_rois, out_x, out_y, out_z, num_channels), dtype=torch.int)
-        pts_idx_of_voxels = pts_feature_input.new_zeros((num_rois, out_x, out_y, out_z, max_pts_per_voxel), dtype=torch.int)
-        
-        mx_driving._C.npu_roiaware_pool3d_forward(rois_input, pts_input, pts_feature_input, argmax, pts_idx_of_voxels, pooled_features, pool_method)
-        
-        return pooled_features
+        return pooled_features_npu, pooled_features_npu_old
     
     def lidar_to_local_coords(self, shift_x, shift_y, rz):
         cosa = math.cos(-rz)
@@ -194,10 +187,11 @@ class TestRoIAwarePool3dGrad(TestCase):
         rois, pts, pts_feature = self.gen_input_data(boxes_num, out_size, channels, npoints, dtype)
 
         pooled_features_cpu = self.roiaware_pool3d_cpu(rois, pts, pts_feature, out_size, max_pts_per_voxel, pool_method, dtype)
-        pooled_features_npu = self.roiaware_pool3d_npu(rois, pts, pts_feature, out_size, pool_method, max_pts_per_voxel, dtype)
+        pooled_features_npu, pooled_features_npu_old = self.roiaware_pool3d_npu(rois, pts, pts_feature, out_size, pool_method, max_pts_per_voxel, dtype)
         pooled_features_cpu_tensor = torch.tensor(pooled_features_cpu)
         
         self.assertRtolEqual(pooled_features_cpu_tensor, pooled_features_npu.detach().cpu())
+        self.assertRtolEqual(pooled_features_cpu_tensor, pooled_features_npu_old.detach().cpu())
         
     def test_roiaware_pool3d(self):
         out_size = (4, 4, 4)
