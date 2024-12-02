@@ -8,7 +8,7 @@ import numpy as np
 
 from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving
-from mx_driving.detection import pixel_group
+import mx_driving.detection
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -74,24 +74,26 @@ def pixel_group_cpu_golden(params: KernelParams):
 
 
 def pixel_group_npu_golden(params: KernelParams):
-    score = params.score.npu()
-    mask = params.mask.npu()
-    embedding = params.embedding.npu()
-    kernel_label = params.kernel_label.npu()
-    kernel_contour = params.kernel_contour.npu()
-    kernel_region_num = params.kernel_region_num
-    distance_threshold = params.distance_threshold
-
-    output = pixel_group(
-        score,
-        mask,
-        embedding,
-        kernel_label,
-        kernel_contour,
-        kernel_region_num,
-        distance_threshold,
+    output1 = mx_driving.pixel_group(
+        params.score.npu(),
+        params.mask.npu(),
+        params.embedding.npu(),
+        params.kernel_label.npu(),
+        params.kernel_contour.npu(),
+        params.kernel_region_num,
+        params.distance_threshold,
     )
-    return output
+
+    output2 = mx_driving.detection.pixel_group(
+        params.score.npu(),
+        params.mask.npu(),
+        params.embedding.npu(),
+        params.kernel_label.npu(),
+        params.kernel_contour.npu(),
+        params.kernel_region_num,
+        params.distance_threshold,
+    )
+    return output1, output2
 
 
 def generate_data(H, W, dim, num):
@@ -138,9 +140,10 @@ class TestNpuPixelGroup(TestCase):
             params = KernelParams(*data_input)
 
             cpu_output = pixel_group_cpu_golden(params)
-            npu_output = pixel_group_npu_golden(params)
+            npu_output1, npu_output2 = pixel_group_npu_golden(params)
 
-            self.assertRtolEqual(cpu_output, npu_output)
+            self.assertRtolEqual(cpu_output, npu_output1)
+            self.assertRtolEqual(cpu_output, npu_output2)
 
 
 if __name__ == "__main__":
