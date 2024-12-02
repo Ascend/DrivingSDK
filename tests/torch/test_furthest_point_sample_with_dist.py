@@ -18,6 +18,7 @@ import numpy as np
 
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
+import mx_driving
 import mx_driving.point
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -65,7 +66,11 @@ class TestFurthestPointSampleWithDist(TestCase):
 
     def custom_op_exec(self, point_dist, point_num, input_dtype):
         point_dist_npu = torch.tensor(point_dist, dtype=input_dtype).npu()
-        output = mx_driving.point.furthest_point_sample_with_dist(point_dist_npu, point_num)
+        output = mx_driving.furthest_point_sample_with_dist(point_dist_npu, point_num)
+
+        output_verify = mx_driving.point.furthest_point_sample_with_dist(point_dist_npu, point_num)
+        self.assertRtolEqual(output, output_verify)
+
         return output.cpu().numpy()
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampleWithDist` is only supported on 910B, skip this ut!")

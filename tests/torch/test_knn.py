@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from torch_npu.testing.testcase import TestCase, run_tests
+import mx_driving
 import mx_driving.common
 
 
@@ -45,8 +46,11 @@ class TestKnn(TestCase):
         center_xyz = np.zeros((b, m, 3)).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        idx_verify = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_knn_1(self):
         b = 30
@@ -57,8 +61,11 @@ class TestKnn(TestCase):
         center_xyz = np.zeros((b, m, 3)).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        idx_verify = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_knn_case2(self):
         b = 8
@@ -70,8 +77,11 @@ class TestKnn(TestCase):
         center_xyz = np.random.randn(b, m, 3).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        idx_verify = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_knn_case3(self):
         b = 32
@@ -83,8 +93,11 @@ class TestKnn(TestCase):
         center_xyz = np.random.randn(b, m, 3).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        idx_verify = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_knn_case4(self):
         b = 8
@@ -96,8 +109,11 @@ class TestKnn(TestCase):
         center_xyz = np.random.randn(b, m, 3).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        idx_verify = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_knn_case5(self):
         b = 8
@@ -109,8 +125,11 @@ class TestKnn(TestCase):
         center_xyz = np.random.randn(b, m, 3).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        idx_verify = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_knn_case6(self):
         b = 8
@@ -122,8 +141,11 @@ class TestKnn(TestCase):
         center_xyz = np.random.randn(b, m, 3).astype(np.float32)
 
         expected_idx, _ = self.cpu_op_exec([b, m, n, k, False], xyz, center_xyz)
-        idx = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        idx = mx_driving.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        idx_verify = mx_driving.common.knn(k, torch.from_numpy(xyz).npu(), torch.from_numpy(center_xyz).npu(), False)
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
 
 if __name__ == "__main__":

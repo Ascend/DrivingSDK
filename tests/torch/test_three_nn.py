@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from torch_npu.testing.testcase import TestCase, run_tests
+import mx_driving
 import mx_driving.common
 
 
@@ -38,10 +39,14 @@ class TestThreeNN(TestCase):
         target = np.zeros((batch, npoint, 3)).astype(np.float32)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
-        dist, idx = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        dist, idx = mx_driving.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
 
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        dist_verify, idx_verify = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        self.assertRtolEqual(expected_dist, dist_verify.cpu().numpy())
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_three_nn_1(self):
         source = np.array(
@@ -244,10 +249,14 @@ class TestThreeNN(TestCase):
         N = 19
         npoint = 7
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
-        dist, idx = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        dist, idx = mx_driving.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
 
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        dist_verify, idx_verify = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        self.assertRtolEqual(expected_dist, dist_verify.cpu().numpy())
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_three_nn_2(self):
         batch = 21
@@ -258,10 +267,14 @@ class TestThreeNN(TestCase):
         target = np.zeros((batch, npoint, 3)).astype(np.float32)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
-        dist, idx = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        dist, idx = mx_driving.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
 
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        dist_verify, idx_verify = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        self.assertRtolEqual(expected_dist, dist_verify.cpu().numpy())
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
     def test_three_nn_3(self):
         batch = 256
@@ -272,10 +285,14 @@ class TestThreeNN(TestCase):
         target = np.zeros((batch, npoint, 3)).astype(np.float32)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
-        dist, idx = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        dist, idx = mx_driving.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
 
         self.assertRtolEqual(expected_dist, dist.cpu().numpy())
         self.assertRtolEqual(expected_idx, idx.cpu().numpy())
+
+        dist_verify, idx_verify = mx_driving.common.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
+        self.assertRtolEqual(expected_dist, dist_verify.cpu().numpy())
+        self.assertRtolEqual(expected_idx, idx_verify.cpu().numpy())
 
 if __name__ == "__main__":
     run_tests()
