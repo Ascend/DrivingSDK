@@ -2,6 +2,7 @@
 
 
 #include <kernel_common.h>
+
 #include "kernel_operator.h"
 
 using namespace AscendC;
@@ -170,12 +171,15 @@ public:
         coreTasks_ = blkIdx_ < tailTasks_ ? avgTasks_ + 1 : avgTasks_;
         curVoxIdx_ = curTaskIdx_ * avgVoxs_;
         ptsStride_ = maxPoints_ * featNum_;
-        curPtsIdx_ = curVoxIdx_ * ptsStride_;
 
         cpVoxParam_.blockLen = static_cast<uint16_t>(avgVoxs_ / B32_DATA_NUM_PER_BLOCK);
         cpVoxTailParam_.blockLen = static_cast<uint16_t>(Ceil(tailVoxs_, B32_DATA_NUM_PER_BLOCK));
         cpExtParam_.blockLen = static_cast<uint32_t>(featNum_ * B32_BYTE_SIZE); // not aligned
-        cpPtParam_.blockLen = Ceil(featNum_, B32_DATA_NUM_PER_BLOCK);
+        featBlk_ = Ceil(static_cast<uint16_t>(featNum_), B32_DATA_NUM_PER_BLOCK);
+        cpPtParam_.blockLen = featBlk_;
+        alignedFeatNum_ = AlignUp(featNum_, B32_DATA_NUM_PER_BLOCK);
+        alignedMaxPointsNum_ = AlignUp(maxPoints_, B32_DATA_NUM_PER_BLOCK);
+        cpArgsortIdxParam_.blockLen = static_cast<uint16_t>(alignedMaxPointsNum_ / B32_DATA_NUM_PER_BLOCK);
 
         // init global memory
         ptsGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(points));
@@ -193,10 +197,12 @@ public:
         pipe_.InitBuffer(uniIdxBuf_, ONE_BLK_SIZE);
         pipe_.InitBuffer(uniLenBuf_, ONE_BLK_SIZE);
         pipe_.InitBuffer(uniVoxBuf_, ONE_BLK_SIZE);
-        pipe_.InitBuffer(ptsQue_, BUFFER_NUM, AlignUp(featNum_, B32_DATA_NUM_PER_BLOCK) * B32_BYTE_SIZE);
-        pipe_.InitBuffer(argsortVoxQue_, BUFFER_NUM, freeNum_ * B32_BYTE_SIZE);
+        pipe_.InitBuffer(ptsBuf_, maxPoints_ * alignedFeatNum_ * B32_BYTE_SIZE);
+        pipe_.InitBuffer(argsortVoxBuf_, alignedMaxPointsNum_ * B32_BYTE_SIZE);
 
-        cpId_ = pipe_.AllocEventID<HardEvent::MTE2_MTE3>();
+        cpInId_ = pipe_.AllocEventID<HardEvent::MTE2_MTE3>();
+        cpOutId_ = pipe_.AllocEventID<HardEvent::MTE3_MTE2>();
+        calcId_ = pipe_.AllocEventID<HardEvent::MTE2_V>();
     }
 
     __aicore__ inline void Process();
@@ -207,21 +213,23 @@ private:
     GlobalTensor<int32_t> uniVoxGm_, argsortVoxIdxGm_, uniArgsortIdxGm_, uniIdxGm_, uniLenGm_;
     GlobalTensor<int32_t> numPointsPerVoxelGm_, sortedUniVoxGm_;
     GlobalTensor<float> voxelsGm_;
-    TBuf<TPosition::LCM> uniIdxBuf_, uniLenBuf_, uniVoxBuf_;
-    TQue<TPosition::VECIN, BUFFER_NUM> uniArgsortIdxQue_, argsortVoxQue_, ptsQue_;
+    TBuf<TPosition::LCM> uniIdxBuf_, uniLenBuf_, uniVoxBuf_, ptsBuf_, argsortVoxBuf_;
+    TQue<TPosition::VECIN, BUFFER_NUM> uniArgsortIdxQue_;
 
     int32_t blkIdx_, usedBlkNum_;
-    int32_t curTaskIdx_, curVoxIdx_, curPtsIdx_;
+    int32_t curTaskIdx_, curVoxIdx_;
     int32_t avgTasks_, tailTasks_, totalTasks_, coreTasks_;
     int32_t avgVoxs_, tailVoxs_, totalVoxs_;
-    int32_t featNum_, freeNum_{FREE_NUM};
+    int32_t featNum_, alignedMaxPointsNum_, alignedFeatNum_;
     int32_t lenOffset_ {8};
     int32_t maxPoints_, ptsStride_;
+    uint16_t featBlk_;
 
-    DataCopyParams cpVoxParam_, cpVoxTailParam_, cpOneParam_ {1, 1, 0, 0}, cpArgsortIdxParam_, cpPtParam_;
+    DataCopyParams cpVoxParam_, cpVoxTailParam_, cpOneParam_ {1, 1, 0, 0}, cpArgsortIdxParam_, cpPtParam_,
+        cpOutParam_ {1, 0, 0, 0};
     DataCopyExtParams cpExtParam_, cp4BytesParam_ {1, 4, 0, 0, 0};
 
-    TEventID cpId_;
+    TEventID cpInId_, cpOutId_, calcId_;
 
 private:
     __aicore__ inline bool IsLastTask() const
@@ -292,12 +300,16 @@ __aicore__ inline void HardVoxelizeCopyKernel<is_aligned>::CopyOut()
     LocalTensor<int32_t> uniIdxT = uniIdxBuf_.Get<int32_t>();
     LocalTensor<int32_t> uniLenT = uniLenBuf_.Get<int32_t>();
     LocalTensor<int32_t> uniVoxT = uniVoxBuf_.Get<int32_t>();
+    LocalTensor<float> ptsT = ptsBuf_.Get<float>();
+    LocalTensor<int32_t> argsortVoxT = argsortVoxBuf_.Get<int32_t>();
+
+    SetFlag<HardEvent::MTE3_MTE2>(cpOutId_);
     for (int32_t i = 0; i < loops; ++i) {
         int32_t idx = uniArgsortIdxT.GetValue(i);
+        WaitFlag<HardEvent::MTE3_MTE2>(cpOutId_);
         DataCopy(uniIdxT, uniIdxGm_[idx], cpOneParam_);
         DataCopy(uniLenT, uniLenGm_[idx], cpOneParam_);
         DataCopy(uniVoxT, uniVoxGm_[idx], cpOneParam_);
-        PipeBarrier<PIPE_ALL>();
         auto uniIdx = uniIdxT.GetValue(0);
         auto uniLen = uniLenT.GetValue(0);
         auto uniVox = uniVoxT.GetValue(0);
@@ -306,32 +318,30 @@ __aicore__ inline void HardVoxelizeCopyKernel<is_aligned>::CopyOut()
             uniLenT.SetValue(0, maxPoints_);
         }
 
-        cpArgsortIdxParam_.blockLen = Ceil(uniLen, B32_DATA_NUM_PER_BLOCK);
-        LocalTensor<int32_t> argsortVoxT = argsortVoxQue_.AllocTensor<int32_t>();
         DataCopy(argsortVoxT, argsortVoxIdxGm_[uniIdx], cpArgsortIdxParam_);
-        argsortVoxQue_.EnQue(argsortVoxT);
-        LocalTensor<int32_t> argsortVoxTx = argsortVoxQue_.DeQue<int32_t>();
-        Muls(argsortVoxTx, argsortVoxTx, featNum_, uniLen);
+        SetFlag<HardEvent::MTE2_V>(calcId_);
+        WaitFlag<HardEvent::MTE2_V>(calcId_);
+        Muls(argsortVoxT, argsortVoxT, featNum_, alignedMaxPointsNum_);
         for (int32_t j = 0; j < uniLen; ++j) {
-            LocalTensor<float> ptsT = ptsQue_.AllocTensor<float>();
-            DataCopy(ptsT, ptsGm_[argsortVoxT.GetValue(j)], cpPtParam_);
-            ptsQue_.EnQue(ptsT);
-            LocalTensor<float> ptsTx = ptsQue_.DeQue<float>();
-            if (is_aligned) {
-                DataCopy(voxelsGm_[curPtsIdx_], ptsTx, cpPtParam_);
-            } else {
-                DataCopyPad(voxelsGm_[curPtsIdx_], ptsTx, cpExtParam_);
-            }
-            ptsQue_.FreeTensor(ptsTx);
-            curPtsIdx_ += featNum_;
+            DataCopy(ptsT[j * alignedFeatNum_], ptsGm_[argsortVoxT.GetValue(j)], cpPtParam_);
         }
-        argsortVoxQue_.FreeTensor(argsortVoxTx);
+        SetFlag<HardEvent::MTE2_MTE3>(cpInId_);
+        
+        WaitFlag<HardEvent::MTE2_MTE3>(cpInId_);
+        if (is_aligned) {
+            cpOutParam_.blockLen = uniLen * featBlk_;
+            DataCopy(voxelsGm_[curVoxIdx_ * ptsStride_], ptsT, cpOutParam_);
+        } else {
+            cpExtParam_.blockCount = static_cast<uint16_t>(uniLen);
+            DataCopyPad(voxelsGm_[curVoxIdx_ * ptsStride_], ptsT, cpExtParam_);
+        }
         DataCopyPad(numPointsPerVoxelGm_[curVoxIdx_], uniLenT, cp4BytesParam_);
         DataCopyPad(sortedUniVoxGm_[curVoxIdx_], uniVoxT, cp4BytesParam_);
-        PipeBarrier<PIPE_ALL>();
+        SetFlag<HardEvent::MTE3_MTE2>(cpOutId_);
+
         curVoxIdx_++;
-        curPtsIdx_ = curVoxIdx_ * ptsStride_;
     }
+    WaitFlag<HardEvent::MTE3_MTE2>(cpOutId_);
     uniArgsortIdxQue_.FreeTensor(uniArgsortIdxT);
 }
 
