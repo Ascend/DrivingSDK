@@ -137,16 +137,20 @@ class ExtBuild(build_ext):
 
 
 class DevelopBuild(develop):
-    user_options = develop.user_options + [("kernel-name=", None, "Build the single kernel with the specified name")]
+    user_options = develop.user_options + [
+        ("kernel-name=", None, "Build the single kernel with the specified name"),
+        ("release", None, "Build the release version"),
+    ]
 
     def initialize_options(self) -> None:
         super().initialize_options()
         self.kernel_name = None
+        self.release = False
 
     def install_for_development(self) -> None:
         self.reinitialize_command("build_py", build_lib="")
-        self.reinitialize_command("build_clib", kernel_name=self.kernel_name, debug=True)
-        self.reinitialize_command("build_ext", debug=True)
+        self.reinitialize_command("build_clib", kernel_name=self.kernel_name, debug=not self.release)
+        self.reinitialize_command("build_ext", debug=not self.release)
 
         if self.kernel_name:
             self.run_command("build_clib")
