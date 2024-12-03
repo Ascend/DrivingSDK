@@ -7,6 +7,7 @@ import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving.point
+from mx_driving import npu_voxel_pooling_train
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -69,11 +70,16 @@ class TestVoxelPoolingTrain(TestCase):
         return pos, result, grad_features_cpu
 
     def npu_to_exec(self, geom_xyz, input_features, voxel_num):
-        result = mx_driving.point.npu_voxel_pooling_train(geom_xyz, input_features, voxel_num)
+        result1 = npu_voxel_pooling_train(geom_xyz, input_features, voxel_num)
+        input_features2 = input_features.clone().detach().requires_grad_()
+        result2 = mx_driving.point.npu_voxel_pooling_train(geom_xyz, input_features2, voxel_num)
 
-        result.backward(result)
-        grad_features_npu = input_features.grad
-        return result, grad_features_npu
+        result1.backward(result1)
+        result2.backward(result2)
+        grad_features_npu1 = input_features.grad
+        grad_features_npu2 = input_features2.grad
+
+        return result1, result2, grad_features_npu1, grad_features_npu2
 
     def gen_data(self, geom_shape, feature_shape, coeff, batch_size, num_channels, dtype):
         geom_xyz = torch.rand(geom_shape) * coeff
@@ -112,16 +118,22 @@ class TestVoxelPoolingTrain(TestCase):
                             geom_shape, feature_shape, coeff, batch_size, num_channel, dtype
                         )
                         pos, cpu_result, cpu_grad_features = self.cpu_to_exec(geom_cpu, feature_cpu, voxel_num)
-                        npu_result, npu_grad_features = self.npu_to_exec(geom_npu, feature_npu, voxel_num)
+                        npu_result1, npu_result2, npu_grad_features1, npu_grad_features2 = self.npu_to_exec(geom_npu, feature_npu, voxel_num)
 
                         cpu_result = cpu_result.numpy()
-                        npu_result = npu_result.detach().cpu().numpy()
-                        self.assertRtolEqual(cpu_result, npu_result)
-
+                        npu_result1 = npu_result1.detach().cpu().numpy()
+                        npu_result2 = npu_result2.detach().cpu().numpy()
+                        
+                        self.assertRtolEqual(cpu_result, npu_result1)
+                        self.assertRtolEqual(cpu_result, npu_result2)
+                        
                         cpu_grad_features = cpu_grad_features.numpy()
-                        npu_grad_features = npu_grad_features.cpu().numpy()
-                        self.assertRtolEqual(cpu_grad_features, npu_grad_features)
-
+                        npu_grad_features1 = npu_grad_features1.cpu().numpy()
+                        npu_grad_features2 = npu_grad_features2.cpu().numpy()
+                        
+                        self.assertRtolEqual(cpu_grad_features, npu_grad_features1)
+                        self.assertRtolEqual(cpu_grad_features, npu_grad_features2)
+                        
 
 if __name__ == "__main__":
     run_tests()
