@@ -27,6 +27,7 @@ class TestScatterMaxWithArgmax(TestCase):
         updates.requires_grad = True
 
         output, output_argmax = mx_driving.common.scatter_max(updates, indices)
+        output, output_argmax = mx_driving.scatter_max(updates, indices)
         output.backward(torch.ones_like(output))
 
         output_grad = updates.grad.cpu()
@@ -85,6 +86,7 @@ class TestScatterMaxWithArgmax(TestCase):
         cpu_indices, npu_indices = create_common_tensor(["int32", 2, shape_indices], 0, 1000)
         cpu_out, npu_out = create_common_tensor(["float32", 2, shape_out], 0, 100)
         output_npu, output_argmax_npu = mx_driving.common.scatter_max(npu_updates, npu_indices, npu_out)
+        output_npu, output_argmax_npu = mx_driving.scatter_max(npu_updates, npu_indices, npu_out)
         output_cpu, output_argmax_cpu = torch_scatter.scatter_max(cpu_updates, cpu_indices.to(torch.int64), dim=0, out=cpu_out)
         self.assertRtolEqual(output_cpu, output_npu)
         self.assertRtolEqual(output_argmax_cpu.to(torch.int32), output_argmax_npu)
@@ -97,6 +99,7 @@ class TestScatterMaxWithArgmax(TestCase):
         cpu_indices, npu_indices = create_common_tensor(["int32", 2, shape_indices], 0, 20)
         cpu_out, npu_out = create_common_tensor(["float32", 2, shape_out], 0, 100)
         output_npu, output_argmax_npu = mx_driving.common.scatter_max(npu_updates, npu_indices, npu_out)
+        output_npu, output_argmax_npu = mx_driving.scatter_max(npu_updates, npu_indices, npu_out)
         output_cpu, output_argmax_cpu = torch_scatter.scatter_max(cpu_updates, cpu_indices.to(torch.int64), dim=0, out=cpu_out)
         self.assertRtolEqual(output_cpu, output_npu)
         self.assertRtolEqual(output_argmax_cpu.to(torch.int32), output_argmax_npu)

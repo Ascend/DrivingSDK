@@ -18,10 +18,15 @@ class TestScatterMeanWithArgmax(TestCase):
 
     def npu_op_exec(self, src, index, out=None, dim=0, dim_size=None):
         src.requires_grad = True
-        out = mx_driving.common.scatter_mean(src, index, out, dim, dim_size)
-        out.backward(out)
+        if out is not None:
+            out_in = out.clone()
+        else:
+            out_in = out
+        res = mx_driving.common.scatter_mean(src, index, out, dim, dim_size)
+        res = mx_driving.scatter_mean(src, index, out_in, dim, dim_size)
+        res.backward(res)
         grad_in = src.grad
-        return out.cpu(), grad_in.cpu()
+        return res.cpu(), grad_in.cpu()
 
 
     def test_scatter_mean_dim2(self):
