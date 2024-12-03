@@ -37,6 +37,7 @@ from .ops.npu_points_in_box_all import npu_points_in_box_all, points_in_boxes_al
 from .ops.pixel_group import pixel_group
 from .ops.roi_align_rotated import roi_align_rotated
 from .ops.roiaware_pool3d import roiaware_pool3d
+from .ops.roipoint_pool3d import roipoint_pool3d
 from .ops.rotated_iou import npu_rotated_iou
 from .ops.rotated_overlaps import npu_rotated_overlaps
 from .ops.scatter_max import scatter_max

@@ -19,7 +19,8 @@ import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 
-from mx_driving.preprocess import RoIPointPool3d
+from mx_driving import roipoint_pool3d
+from mx_driving.preprocess import RoIPointPool3d, roipoint_pool3d
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -148,9 +149,13 @@ class TestRoipointPool3d(TestCase):
             num_sampled_points, points, point_features, boxes3d
         )
 
-        roipoint_pool3d = RoIPointPool3d(num_sampled_points)
-        pooled_features, pooled_empty_flag = roipoint_pool3d(
+        roipoint_pool3d_tmp = RoIPointPool3d(num_sampled_points)
+        pooled_features, pooled_empty_flag = roipoint_pool3d_tmp(
             torch.from_numpy(points).npu(), torch.from_numpy(point_features).npu(), torch.from_numpy(boxes3d).npu()
+        )
+        
+        pooled_features, pooled_empty_flag = roipoint_pool3d(
+            num_sampled_points, torch.from_numpy(points).npu(), torch.from_numpy(point_features).npu(), torch.from_numpy(boxes3d).npu()
         )
 
         float_pooled_features = pooled_features.cpu().numpy()
@@ -176,9 +181,13 @@ class TestRoipointPool3d(TestCase):
             num_sampled_points, points.astype(np.float32), point_features.astype(np.float32), boxes3d.astype(np.float32)
         )
 
-        roipoint_pool3d = RoIPointPool3d(num_sampled_points)
-        pooled_features, pooled_empty_flag = roipoint_pool3d(
+        roipoint_pool3d_tmp = RoIPointPool3d(num_sampled_points)
+        pooled_features, pooled_empty_flag = roipoint_pool3d_tmp(
             torch.from_numpy(points).npu(), torch.from_numpy(point_features).npu(), torch.from_numpy(boxes3d).npu()
+        )
+        
+        pooled_features, pooled_empty_flag = roipoint_pool3d(
+            num_sampled_points, torch.from_numpy(points).npu(), torch.from_numpy(point_features).npu(), torch.from_numpy(boxes3d).npu()
         )
 
         half_pooled_features = pooled_features.cpu().numpy().astype(np.float32)

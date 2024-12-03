@@ -1,6 +1,6 @@
 from torch.nn import Module
 
-from ..ops.npu_roipoint_pool3d import roipoint_pool3d
+from ..ops.roipoint_pool3d import roipoint_pool3d
 
 
 class RoIPointPool3d(Module):
