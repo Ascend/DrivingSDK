@@ -7,6 +7,7 @@ import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving.detection
+from mx_driving import npu_rotated_iou
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -288,8 +289,11 @@ class TestNpuRotatedIou(TestCase):
     def npu_to_exec(self, npu_inputs):
         npu_boxes_a = npu_inputs.boxes_a
         npu_boxes_b = npu_inputs.boxes_b
-        npu_ans_overlap = mx_driving.detection.npu_rotated_iou(npu_boxes_a, npu_boxes_b, False, 0, True, 1e-5, 1e-5)
-        return npu_ans_overlap.cpu().float().numpy()
+        npu_ans_overlap1 = mx_driving.detection.npu_rotated_iou(npu_boxes_a, npu_boxes_b, False, 0, True, 1e-5, 1e-5)
+        npu_ans_overlap1 = npu_ans_overlap1.cpu().float().numpy()
+        npu_ans_overlap = npu_rotated_iou(npu_boxes_a, npu_boxes_b, False, 0, True, 1e-5, 1e-5)
+        npu_ans_overlap = npu_ans_overlap.cpu().float().numpy()
+        return npu_ans_overlap, npu_ans_overlap1
 
     def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):
         if not np.all(np.isclose(actual, expected, rtol=rtol, atol=atol)):
@@ -297,8 +301,9 @@ class TestNpuRotatedIou(TestCase):
             raise AssertionError(msg or standardMsg)
 
     def test_npu_rotated_iou(self):
-        for cpu_results, npu_results in self.test_results:
-            self.check_precision(cpu_results, npu_results, 1e-4, 1e-4)
+        for cpu_result, npu_results in self.test_results:
+            for npu_result in npu_results:
+                self.check_precision(cpu_result, npu_result, 1e-4, 1e-4)
  
 if __name__ == '__main__':
     run_tests()

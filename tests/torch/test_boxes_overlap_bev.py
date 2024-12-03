@@ -7,6 +7,7 @@ import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving.detection
+from mx_driving import boxes_overlap_bev
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -213,90 +214,6 @@ def cpu_boxes_overlap_bev(boxes_a: List[List[float]], boxes_b: List[List[float]]
 Inputs = namedtuple('Inputs', ['boxes_a', 'boxes_b'])
 
 
-class TestNpuBoxesOverlapBev(TestCase):
-    np.random.seed(2024)
-
-    def setUp(self):
-        self.dtype_list = [torch.float32]
-        self.shape_list = [
-            [200, 19],
-            [200, 60],
-            [200, 12],
-            [200, 10],
-            [10, 200],
-            [60, 200],
-            [12, 200],
-            [10, 200]
-        ]
-        self.items = [
-            [shape, dtype]
-            for shape in self.shape_list
-            for dtype in self.dtype_list
-        ]
-        self.test_results = self.gen_results()
-    
-    def gen_results(self):
-        if DEVICE_NAME != 'Ascend910B':
-            self.skipTest("OP `BoxesOverlapBev` is only supported on 910B, skipping test data generation!")
-        test_results = []
-        for shape, dtype in self.items:
-            cpu_inputs, npu_inputs = self.gen_inputs(shape, dtype)
-            cpu_results = self.cpu_to_exec(cpu_inputs)
-            npu_results = self.npu_to_exec(npu_inputs)
-            test_results.append((cpu_results, npu_results))
-        return test_results
-    
-    def gen_inputs(self, shape, dtype):
-        boxes_a_num, boxes_b_num = shape 
-        boxes_a = np.zeros((boxes_a_num, 5))
-        boxes_b = np.zeros((boxes_b_num, 5))
-        for i in range(boxes_a_num):
-            x1 = np.random.uniform(0, 50)
-            y1 = np.random.uniform(0, 50)
-            x2 = x1 + np.random.uniform(0, 50)
-            y2 = y1 + np.random.uniform(0, 50)
-            angle = np.random.uniform(0, 1)
-            boxes_a[i] = [x1, y1, x2, y2, angle]
-        
-        for i in range(boxes_b_num):
-            x1 = np.random.uniform(0, 50)
-            y1 = np.random.uniform(0, 50)
-            x2 = x1 + np.random.uniform(0, 50)
-            y2 = y1 + np.random.uniform(0, 50)
-            angle = np.random.uniform(0, 1)
-            boxes_b[i] = [x1, y1, x2, y2, angle]
-            
-        boxes_a_cpu = boxes_a.astype(np.float32)
-        boxes_b_cpu = boxes_b.astype(np.float32)
-        
-        boxes_a_npu = torch.from_numpy(boxes_a_cpu).npu()
-        boxes_b_npu = torch.from_numpy(boxes_b_cpu).npu()
-        
-        return Inputs(boxes_a_cpu, boxes_b_cpu), \
-               Inputs(boxes_a_npu, boxes_b_npu)
-
-    def cpu_to_exec(self, cpu_inputs):
-        cpu_boxes_a = cpu_inputs.boxes_a
-        cpu_boxes_b = cpu_inputs.boxes_b
-        cpu_ans_overlap = cpu_boxes_overlap_bev(cpu_boxes_a, cpu_boxes_b)
-        return cpu_ans_overlap.astype(np.float32)
-
-    def npu_to_exec(self, npu_inputs):
-        npu_boxes_a = npu_inputs.boxes_a
-        npu_boxes_b = npu_inputs.boxes_b
-        npu_ans_overlap = mx_driving.detection.npu_boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
-        return npu_ans_overlap.cpu().float().numpy()
-
-    def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):
-        if not np.all(np.isclose(actual, expected, rtol=rtol, atol=atol)):
-            standardMsg = f'{actual} != {expected} within relative tolerance {rtol}'
-            raise AssertionError(msg or standardMsg)
-
-    def test_boxes_overlap_bev(self):
-        for cpu_results, npu_results in self.test_results:
-            self.check_precision(cpu_results, npu_results, 1e-4, 1e-4)            
-
-
 class TestBoxesOverlapBev(TestCase):
     np.random.seed(2024)
 
@@ -368,8 +285,13 @@ class TestBoxesOverlapBev(TestCase):
     def npu_to_exec(self, npu_inputs):
         npu_boxes_a = npu_inputs.boxes_a
         npu_boxes_b = npu_inputs.boxes_b
-        npu_ans_overlap = mx_driving.detection.boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
-        return npu_ans_overlap.cpu().float().numpy()
+        npu_ans_overlap1 = mx_driving.detection.boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
+        npu_ans_overlap1 = npu_ans_overlap1.cpu().float().numpy()
+        npu_ans_overlap2 = mx_driving.detection.npu_boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
+        npu_ans_overlap2 = npu_ans_overlap2.cpu().float().numpy()
+        npu_ans_overlap = boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
+        npu_ans_overlap = npu_ans_overlap.cpu().float().numpy()
+        return npu_ans_overlap, npu_ans_overlap1, npu_ans_overlap2
 
     def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):
         if not np.all(np.isclose(actual, expected, rtol=rtol, atol=atol)):
@@ -377,8 +299,9 @@ class TestBoxesOverlapBev(TestCase):
             raise AssertionError(msg or standardMsg)
 
     def test_boxes_overlap_bev(self):
-        for cpu_results, npu_results in self.test_results:
-            self.check_precision(cpu_results, npu_results, 1e-4, 1e-4)
+        for cpu_result, npu_results in self.test_results:
+            for npu_result in npu_results:
+                self.check_precision(cpu_result, npu_result, 1e-4, 1e-4)
  
  
 if __name__ == '__main__':
