@@ -6,6 +6,8 @@ import torch_npu
 
 from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving.point
+from mx_driving import Voxelization
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -55,8 +57,10 @@ class TestDynVoxelization(TestCase):
     def npu_to_exec(self, points, coors_range, voxel_size):
         max_num_points = -1
         dynamic_voxelization_npu = mx_driving.point.Voxelization(voxel_size, coors_range, max_num_points)
-        coors = dynamic_voxelization_npu.forward(points)
-        return coors
+        dynamic_voxelization_npu1 = Voxelization(voxel_size, coors_range, max_num_points)
+        coors = dynamic_voxelization_npu(points)
+        coors1 = dynamic_voxelization_npu1(points)
+        return coors, coors1
 
     def gen_data(self, shape, dtype):
         points_cpu = torch.randint(-20, 100, shape, dtype=dtype)
@@ -84,8 +88,9 @@ class TestDynVoxelization(TestCase):
             for coors_range in points_cloud_range_list:
                 points_cpu, points_npu = self.gen_data(shape, dtype)
                 coors_cpu = self.cpu_to_exec(points_cpu, coors_range, voxel_size)
-                coors_npu = self.npu_to_exec(points_npu, coors_range, voxel_size)
+                coors_npu, coors_npu1 = self.npu_to_exec(points_npu, coors_range, voxel_size)
                 self.assertRtolEqual(coors_cpu, coors_npu)
+                self.assertRtolEqual(coors_cpu, coors_npu1)
                 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DynVoxelization` is only supported on 910B, skip this ut!")
     def test_dyn_voxelization_boundary(self):
@@ -95,8 +100,9 @@ class TestDynVoxelization(TestCase):
                        191.79477406132705, 677.45900318772, 248.5950831410758]
         points_npu = points_cpu.npu()
         coors_cpu = self.cpu_to_exec(points_cpu, coors_range, voxel_size)
-        coors_npu = self.npu_to_exec(points_npu, coors_range, voxel_size)
+        coors_npu, coors_npu1 = self.npu_to_exec(points_npu, coors_range, voxel_size)
         self.assertRtolEqual(coors_cpu, coors_npu)
+        self.assertRtolEqual(coors_cpu, coors_npu1)
 
 if __name__ == '__main__':
     run_tests()
