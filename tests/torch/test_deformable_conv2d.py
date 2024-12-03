@@ -1,9 +1,11 @@
-import unittest
-import torch
 import numpy as np
+import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
+
+import mx_driving
 import mx_driving.fused
+from mx_driving import deform_conv2d
 
 
 class TestDeformableConv2d(TestCase):
@@ -194,7 +196,8 @@ class TestDeformableConv2d(TestCase):
         npu_w = self.create_single_npu_tensor([np.float32, 0, (cOut, cIn, K, K)], -5, 5)
         npu_o = self.create_single_npu_tensor([np.float32, 0, (N, 2 * K * K, hOut, wOut)], -5, 5)
 
-        dcn_out = mx_driving.fused.deform_conv2d(npu_x, npu_o, npu_w, 1, 1, 1)
+        dcn_out = deform_conv2d(npu_x, npu_o, npu_w, 1, 1, 1)
+        dcn_out_fused = mx_driving.fused.deform_conv2d(npu_x, npu_o, npu_w, 1, 1, 1)
 
 
 if __name__ == "__main__":

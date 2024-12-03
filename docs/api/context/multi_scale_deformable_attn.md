@@ -1,7 +1,11 @@
 ## multi_scale_deformable_attn(MultiScaleDeformableAttnFunction.Apply)
 ### 接口原型
 ```python
-mx_driving.fused.multi_scale_deformable_attn(Tensor value, Tensor value_spatial_shapes, Tensor value_level_start_index, Tensor sampling_locations, Tensor attention_weights) -> Tensor
+mx_driving.multi_scale_deformable_attn(Tensor value, Tensor value_spatial_shapes, Tensor value_level_start_index, Tensor sampling_locations, Tensor attention_weights) -> Tensor
+```
+兼容：
+```
+mx_driving.point.npu_multi_scale_deformable_attn_function(Tensor value, Tensor value_spatial_shapes, Tensor value_level_start_index, Tensor sampling_locations, Tensor attention_weights) -> Tensor
 ```
 ### 功能描述
 多尺度可变形注意力机制, 将多个视角的特征图进行融合。
@@ -17,7 +21,7 @@ mx_driving.fused.multi_scale_deformable_attn(Tensor value, Tensor value_spatial_
 - Atlas A2 训练系列产品
 ### 约束说明
 - `locations`的值在`[0, 1]`之间。
-- 当前版本只支持`num_keys` &le; 8，`num_heads` &le; 8，`embed_dims` == 16或32，`num_points` = 1或偶数。
+- 当前版本只支持`num_keys` &le; 8，`num_heads` &le; 8，`embed_dims` == 16或32或64，`num_points` = 1或偶数。
 ### 调用示例
 ```python
 import torch, torch_npu
@@ -33,4 +37,5 @@ attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_point
 level_start_index = torch.cat((shapes.new_zeros((1, )), shapes.prod(1).cumsum(0)[:-1]))
 
 out = multi_scale_deformable_attn(value.npu(), shapes.npu(), level_start_index.npu(), sampling_locations.npu(), attention_weights.npu())
+out.backward(torch.ones_like(out))
 ```

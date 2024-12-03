@@ -1,12 +1,12 @@
-import unittest
-
 import numpy as np
 import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 
+import mx_driving.point
+from mx_driving import bev_pool_v2
 from mx_driving._C import npu_bev_pool_v2_backward
-from mx_driving.point import bev_pool_v2
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -61,7 +61,6 @@ class TestBEVPoolV2(TestCase):
     seed = 1024
     np.random.seed(seed)
 
-    @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `bev_pool` is only supported on 910B, skip this ut!")
     def test_bev_pool_v2(self):
         shapes = [
             [1, 1, 1, 1, 1, 1],
@@ -92,6 +91,16 @@ class TestBEVPoolV2(TestCase):
             interval_starts_npu = torch.from_numpy(interval_starts).npu()
 
             bev_feat = bev_pool_v2(
+                depth_npu,
+                feat_npu,
+                ranks_depth_npu,
+                ranks_feat_npu,
+                ranks_bev_npu,
+                (B, D, H, W, C),
+                interval_starts_npu,
+                interval_lengths_npu,
+            )
+            bev_feat_point = mx_driving.point.bev_pool_v2(
                 depth_npu,
                 feat_npu,
                 ranks_depth_npu,
