@@ -28,7 +28,7 @@ from .ops.multi_scale_deformable_attn import (
 )
 from .ops.nms3d_normal import nms3d_normal
 from .ops.npu_add_relu import npu_add_relu
-from .ops.npu_deformable_aggregation import npu_deformable_aggregation
+from .ops.npu_deformable_aggregation import npu_deformable_aggregation, deformable_aggregation
 from .ops.npu_dynamic_scatter import npu_dynamic_scatter
 from .ops.npu_max_pool2d import npu_max_pool2d
 from .ops.nms3d import nms3d
@@ -79,6 +79,7 @@ __all__ = [
     "npu_nms3d_normal",
     "npu_add_relu",
     "npu_deformable_aggregation",
+    "deformable_aggregation",
     "npu_dynamic_scatter",
     "npu_max_pool2d",
     "npu_nms3d",

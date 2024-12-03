@@ -5,6 +5,7 @@ import numpy as np
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving.fused
+import mx_driving
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -158,6 +159,14 @@ class TestDeformableAggregation(TestCase):
                                                                                    torch_weights)
 
                             self.assertRtolEqual(out_cpu, out_npu.cpu().numpy())
+
+                            out_npu_new = mx_driving.deformable_aggregation(torch_feature_maps,
+                                                                            torch_spatial_shape,
+                                                                            torch_scale_start_index,
+                                                                            torch_sample_location,
+                                                                            torch_weights)
+
+                            self.assertRtolEqual(out_cpu, out_npu_new.cpu().numpy())
 
 
 if __name__ == "__main__":

@@ -81,3 +81,4 @@ class AdsDeformableAggregation(Function):
 
 
 npu_deformable_aggregation = AdsDeformableAggregation.apply
+deformable_aggregation = AdsDeformableAggregation.apply

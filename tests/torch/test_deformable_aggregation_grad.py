@@ -6,6 +6,7 @@ import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving.fused
+import mx_driving
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -182,6 +183,15 @@ class TestDeformableAggregation(TestCase):
                             torch_weights = torch.from_numpy(weights).npu()
                             torch_weights.requires_grad = True
 
+                            torch_feature_maps_new = torch.from_numpy(feature_maps).npu()
+                            torch_feature_maps_new.requires_grad = True
+                            torch_spatial_shape_new = torch.from_numpy(spatial_shape).npu()
+                            torch_scale_start_index_new = torch.from_numpy(scale_start_index).npu()
+                            torch_sample_location_new = torch.from_numpy(sample_location).npu()
+                            torch_sample_location_new.requires_grad = True
+                            torch_weights_new = torch.from_numpy(weights).npu()
+                            torch_weights_new.requires_grad = True
+
                             batch_size = feature_maps.shape[0]
                             num_feat = feature_maps.shape[1]
                             num_embeds = feature_maps.shape[2]
@@ -227,6 +237,7 @@ class TestDeformableAggregation(TestCase):
                                 grad_weights,
                             )
 
+
                             out_npu = mx_driving.fused.npu_deformable_aggregation(
                                 torch_feature_maps,
                                 torch_spatial_shape,
@@ -256,6 +267,32 @@ class TestDeformableAggregation(TestCase):
                                 prec=0.00048828125,
                             )
                             self.assertRtolEqual(grad_weights, torch_grad_weights, prec=0.00048828125)
+
+                            out_npu_new = mx_driving.deformable_aggregation(
+                                torch_feature_maps_new,
+                                torch_spatial_shape_new,
+                                torch_scale_start_index_new,
+                                torch_sample_location_new,
+                                torch_weights_new,
+                            )
+
+                            out_npu_new.backward(torch.ones_like(out_npu_new))
+
+                            torch_grad_mc_ms_feat_new = torch_feature_maps_new.grad
+                            torch_grad_sampling_location_new = torch_sample_location_new.grad
+                            torch_grad_weights_new = torch_weights_new.grad
+
+                            torch_grad_mc_ms_feat_new = torch_grad_mc_ms_feat_new.cpu().numpy()
+                            torch_grad_sampling_location_new = torch_grad_sampling_location_new.cpu().numpy()
+                            torch_grad_weights_new = torch_grad_weights_new.cpu().numpy()
+
+                            self.assertRtolEqual(grad_mc_ms_feat, torch_grad_mc_ms_feat_new, prec=0.00048828125)
+                            self.assertRtolEqual(
+                                grad_sampling_location,
+                                torch_grad_sampling_location_new,
+                                prec=0.00048828125,
+                            )
+                            self.assertRtolEqual(grad_weights, torch_grad_weights_new, prec=0.00048828125)
 
 
 if __name__ == "__main__":
