@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving._C
+import mx_driving
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -24,7 +24,7 @@ class TestUniqueVoxel(TestCase):
 
     def npu_unique(self, voxels):
         voxels_npu = torch.from_numpy(voxels).npu()
-        cnt, uni_vox, _, _, _ = mx_driving._C.unique_voxel(voxels_npu)
+        cnt, uni_vox, _, _, _ = mx_driving.unique_voxel(voxels_npu)
         return cnt, uni_vox.cpu().numpy()
 
     def gen_integration(self, point_num):
@@ -56,7 +56,7 @@ class TestUniqueVoxel(TestCase):
     def npu_integration(self, coords):
         coords_npu = torch.from_numpy(coords.view(np.float32)).npu()
         voxels_npu = mx_driving._C.point_to_voxel(coords_npu, [], [], "XYZ")
-        cnt, uni_vox, _, _, _ = mx_driving._C.unique_voxel(voxels_npu)
+        cnt, uni_vox, _, _, _ = mx_driving.unique_voxel(voxels_npu)
         dec = mx_driving._C.voxel_to_point(uni_vox, [], [], "XYZ")
         return cnt, dec.cpu().numpy()
 

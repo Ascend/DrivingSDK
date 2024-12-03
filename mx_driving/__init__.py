@@ -46,6 +46,7 @@ from .ops.three_nn import three_nn
 from .ops.voxel_pooling_train import npu_voxel_pooling_train
 from .ops.voxelization import voxelization
 from .ops.npu_geometric_kernel_attention import npu_geometric_kernel_attention
+from .ops.unique_voxel import unique_voxel
 
 __all__ = [
     "RoIPointPool3d",
