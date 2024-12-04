@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.common
+import mx_driving
 
 
 class TestThreeinterpolate(TestCase):
@@ -35,7 +35,7 @@ class TestThreeinterpolate(TestCase):
     def npu_op_exec(self, feat, idx, wt):
         feat.requires_grad = True
         
-        out = mx_driving.common.three_interpolate(feat, idx, wt)
+        out = mx_driving.three_interpolate(feat, idx, wt)
         out.backward(torch.ones_like(out))
         grad_out = feat.grad
         grad_out = grad_out.detach().cpu().numpy()

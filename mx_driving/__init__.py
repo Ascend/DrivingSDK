@@ -17,7 +17,7 @@ from .ops.deform_conv2d import DeformConv2dFunction, deform_conv2d
 from .ops.furthest_point_sampling import npu_furthest_point_sampling
 from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_dist
 from .ops.fused_bias_leaky_relu import npu_fused_bias_leaky_relu
-from .ops.group_points import group_points, npu_group_points
+from .ops.group_points import group_points
 from .ops.hypot import hypot
 from .ops.knn import knn
 from .ops.modulated_deform_conv2d import ModulatedDeformConv2dFunction, modulated_deform_conv2d
@@ -71,7 +71,6 @@ __all__ = [
     "furthest_point_sample_with_dist",
     "npu_fused_bias_leaky_relu",
     "group_points",
-    "npu_group_points",
     "hypot",
     "knn",
     "modulated_deform_conv2d",
