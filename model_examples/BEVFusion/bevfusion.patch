@@ -1,0 +1,656 @@
+diff --git a/mmdet3d/datasets/transforms/dbsampler.py b/mmdet3d/datasets/transforms/dbsampler.py
+index 56e8440b..b3a6382a 100644
+--- a/mmdet3d/datasets/transforms/dbsampler.py
++++ b/mmdet3d/datasets/transforms/dbsampler.py
+@@ -280,7 +280,7 @@ class DataBaseSampler(object):
+                 s_points_list.append(s_points)
+ 
+             gt_labels = np.array([self.cat2label[s['name']] for s in sampled],
+-                                 dtype=np.long)
++                                 dtype=np.compat.long)
+ 
+             if ground_plane is not None:
+                 xyz = sampled_gt_bboxes[:, :3]
+diff --git a/mmdet3d/models/layers/sparse_block.py b/mmdet3d/models/layers/sparse_block.py
+index 6ed7c8f4..13f69b0d 100644
+--- a/mmdet3d/models/layers/sparse_block.py
++++ b/mmdet3d/models/layers/sparse_block.py
+@@ -2,17 +2,22 @@
+ from typing import Optional, Tuple, Union
+ 
+ from mmcv.cnn import build_conv_layer, build_norm_layer
+-from mmdet.models.backbones.resnet import BasicBlock, Bottleneck
++import inspect
++from mmengine.model import BaseModule
++import torch
+ from torch import nn
++import torch.utils.checkpoint as cp
+ 
+ from mmdet3d.utils import OptConfigType
+-from .spconv import IS_SPCONV2_AVAILABLE
++from mx_driving.spconv import SparseSequential, SubMConv3d, SparseConv3d, SparseModule
++from mmdet.models.backbones.resnet import BasicBlock, Bottleneck
++from mmengine.registry import Registry
++from mx_driving.spconv import SparseConvTensor
+ 
+-if IS_SPCONV2_AVAILABLE:
+-    from spconv.pytorch import SparseConvTensor, SparseModule, SparseSequential
+-else:
+-    from mmcv.ops import SparseConvTensor, SparseModule, SparseSequential
+ 
++MODELS = Registry('Sparse conv layer')
++MODELS.register_module('SubMConv3d', module=SubMConv3d)
++MODELS.register_module('SparseConv3d', module=SparseConv3d)
+ 
+ def replace_feature(out: SparseConvTensor,
+                     new_features: SparseConvTensor) -> SparseConvTensor:
+@@ -23,6 +28,87 @@ def replace_feature(out: SparseConvTensor,
+         out.features = new_features
+         return out
+ 
++class BasicBlock(BaseModule):
++    expansion = 1
++
++    def __init__(self,
++                 inplanes,
++                 planes,
++                 stride=1,
++                 dilation=1,
++                 downsample=None,
++                 style='pytorch',
++                 with_cp=False,
++                 conv_cfg=None,
++                 norm_cfg=dict(type='BN'),
++                 dcn=None,
++                 plugins=None,
++                 init_cfg=None):
++        super(BasicBlock, self).__init__(init_cfg)
++        assert dcn is None, 'Not implemented yet.'
++        assert plugins is None, 'Not implemented yet.'
++
++        self.norm1_name, norm1 = build_norm_layer(norm_cfg, planes, postfix=1)
++        self.norm2_name, norm2 = build_norm_layer(norm_cfg, planes, postfix=2)
++
++        self.conv1 = build_sparse_conv_layer(
++            conv_cfg,
++            inplanes,
++            planes,
++            3,
++            stride=stride,
++            padding=dilation,
++            dilation=dilation,
++            bias=False)
++        self.add_module(self.norm1_name, norm1)
++        self.conv2 = build_sparse_conv_layer(
++            conv_cfg, planes, planes, 3, padding=1, bias=False)
++        self.add_module(self.norm2_name, norm2)
++
++        self.relu = nn.ReLU(inplace=True)
++        self.downsample = downsample
++        self.stride = stride
++        self.dilation = dilation
++        self.with_cp = with_cp
++
++    @property
++    def norm1(self):
++        """nn.Module: normalization layer after the first convolution layer"""
++        return getattr(self, self.norm1_name)
++
++    @property
++    def norm2(self):
++        """nn.Module: normalization layer after the second convolution layer"""
++        return getattr(self, self.norm2_name)
++
++    def forward(self, x):
++        """Forward function."""
++
++        def _inner_forward(x):
++            identity = x
++
++            out = self.conv1(x)
++            out = self.norm1(out)
++            out = self.relu(out)
++
++            out = self.conv2(out)
++            out = self.norm2(out)
++
++            if self.downsample is not None:
++                identity = self.downsample(x)
++
++            out += identity
++
++            return out
++
++        if self.with_cp and x.requires_grad:
++            out = cp.checkpoint(_inner_forward, x)
++        else:
++            out = _inner_forward(x)
++
++        out = self.relu(out)
++
++        return out
+ 
+ class SparseBottleneck(Bottleneck, SparseModule):
+     """Sparse bottleneck block for PartA^2.
+@@ -199,7 +285,7 @@ def make_sparse_convmodule(in_channels: int,
+                     'SparseInverseConv1d'
+             ]:
+                 layers.append(
+-                    build_conv_layer(
++                    build_sparse_conv_layer(
+                         conv_cfg,
+                         in_channels,
+                         out_channels,
+@@ -209,7 +295,7 @@ def make_sparse_convmodule(in_channels: int,
+                         bias=False))
+             else:
+                 layers.append(
+-                    build_conv_layer(
++                    build_sparse_conv_layer(
+                         conv_cfg,
+                         in_channels,
+                         out_channels,
+@@ -222,3 +308,42 @@ def make_sparse_convmodule(in_channels: int,
+ 
+     layers = SparseSequential(*layers)
+     return layers
++
++
++def build_sparse_conv_layer(cfg, *args, **kwargs):
++    """Build convolution layer.
++
++    Args:
++        cfg (None or dict): The conv layer config, which should contain:
++            - type (str): Layer type.
++            - layer args: Args needed to instantiate an conv layer.
++        args (argument list): Arguments passed to the `__init__`
++            method of the corresponding conv layer.
++        kwargs (keyword arguments): Keyword arguments passed to the `__init__`
++            method of the corresponding conv layer.
++
++    Returns:
++        nn.Module: Created conv layer.
++    """
++    if cfg is None:
++        cfg_ = dict(type='SparseConv3d')
++    else:
++        if not isinstance(cfg, dict):
++            raise TypeError('cfg must be a dict')
++        if 'type' not in cfg:
++            raise KeyError('the cfg dict must contain the key "type"')
++        cfg_ = cfg.copy()
++
++    layer_type = cfg_.pop('type')
++    if inspect.isclass(layer_type):
++        return layer_type(*args, **kwargs, **cfg_)  # type: ignore
++
++    with MODELS.switch_scope_and_registry(None) as registry:
++        conv_layer = registry.get(layer_type)
++    if conv_layer is None:
++        raise KeyError(f'Cannot find {conv_layer} in registry under scope '
++                       f'name {registry.scope}')
++
++    layer = conv_layer(*args, **kwargs, **cfg_)
++
++    return layer
+\ No newline at end of file
+diff --git a/mmdet3d/models/middle_encoders/sparse_encoder.py b/mmdet3d/models/middle_encoders/sparse_encoder.py
+index ef141514..0e7a7998 100644
+--- a/mmdet3d/models/middle_encoders/sparse_encoder.py
++++ b/mmdet3d/models/middle_encoders/sparse_encoder.py
+@@ -16,7 +16,8 @@ from mmdet3d.structures import BaseInstance3DBoxes
+ if IS_SPCONV2_AVAILABLE:
+     from spconv.pytorch import SparseConvTensor, SparseSequential
+ else:
+-    from mmcv.ops import SparseConvTensor, SparseSequential
++    from mx_driving.spconv import SparseSequential, SparseConvTensor
++
+ 
+ TwoTupleIntType = Tuple[Tuple[int]]
+ 
+diff --git a/mmdet3d/models/middle_encoders/sparse_unet.py b/mmdet3d/models/middle_encoders/sparse_unet.py
+index a8e68aea..e063def9 100644
+--- a/mmdet3d/models/middle_encoders/sparse_unet.py
++++ b/mmdet3d/models/middle_encoders/sparse_unet.py
+@@ -9,7 +9,7 @@ from mmdet3d.models.layers.spconv import IS_SPCONV2_AVAILABLE
+ if IS_SPCONV2_AVAILABLE:
+     from spconv.pytorch import SparseConvTensor, SparseSequential
+ else:
+-    from mmcv.ops import SparseConvTensor, SparseSequential
++    from mx_driving.spconv import SparseSequential, SparseConvTensor
+ 
+ from mmengine.model import BaseModule
+ 
+diff --git a/mmdet3d/models/utils/gaussian.py b/mmdet3d/models/utils/gaussian.py
+index 3d094dcc..641a777f 100644
+--- a/mmdet3d/models/utils/gaussian.py
++++ b/mmdet3d/models/utils/gaussian.py
+@@ -4,6 +4,7 @@ from typing import List, Tuple
+ import numpy as np
+ import torch
+ from torch import Tensor
++import math
+ 
+ 
+ def gaussian_2d(shape: Tuple[int, int], sigma: float = 1) -> np.ndarray:
+@@ -76,19 +77,19 @@ def gaussian_radius(det_size: Tuple[Tensor, Tensor],
+     a1 = 1
+     b1 = (height + width)
+     c1 = width * height * (1 - min_overlap) / (1 + min_overlap)
+-    sq1 = torch.sqrt(b1**2 - 4 * a1 * c1)
++    sq1 = math.sqrt(b1**2 - 4 * a1 * c1)
+     r1 = (b1 + sq1) / 2
+ 
+     a2 = 4
+     b2 = 2 * (height + width)
+     c2 = (1 - min_overlap) * width * height
+-    sq2 = torch.sqrt(b2**2 - 4 * a2 * c2)
++    sq2 = math.sqrt(b2**2 - 4 * a2 * c2)
+     r2 = (b2 + sq2) / 2
+ 
+     a3 = 4 * min_overlap
+     b3 = -2 * min_overlap * (height + width)
+     c3 = (min_overlap - 1) * width * height
+-    sq3 = torch.sqrt(b3**2 - 4 * a3 * c3)
++    sq3 = math.sqrt(b3**2 - 4 * a3 * c3)
+     r3 = (b3 + sq3) / 2
+     return min(r1, r2, r3)
+ 
+diff --git a/projects/BEVFusion/bevfusion/bevfusion.py b/projects/BEVFusion/bevfusion/bevfusion.py
+index 9f56934e..12f579eb 100644
+--- a/projects/BEVFusion/bevfusion/bevfusion.py
++++ b/projects/BEVFusion/bevfusion/bevfusion.py
+@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Tuple
+ 
+ import numpy as np
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import torch.distributed as dist
+ from mmengine.utils import is_list_of
+ from torch import Tensor
+@@ -13,7 +15,7 @@ from mmdet3d.models import Base3DDetector
+ from mmdet3d.registry import MODELS
+ from mmdet3d.structures import Det3DDataSample
+ from mmdet3d.utils import OptConfigType, OptMultiConfig, OptSampleList
+-from .ops import Voxelization
++from mx_driving.point import Voxelization
+ 
+ 
+ @MODELS.register_module()
+@@ -176,7 +178,7 @@ class BEVFusion(Base3DDetector):
+     def voxelize(self, points):
+         feats, coords, sizes = [], [], []
+         for k, res in enumerate(points):
+-            ret = self.pts_voxel_layer(res)
++            ret = self.pts_voxel_layer(res)[1:]
+             if len(ret) == 3:
+                 # hard voxelize
+                 f, c, n = ret
+diff --git a/projects/BEVFusion/bevfusion/depth_lss.py b/projects/BEVFusion/bevfusion/depth_lss.py
+index 6cc0cc16..8ce15bc3 100644
+--- a/projects/BEVFusion/bevfusion/depth_lss.py
++++ b/projects/BEVFusion/bevfusion/depth_lss.py
+@@ -3,9 +3,11 @@ from typing import Tuple
+ 
+ import torch
+ from torch import nn
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ from mmdet3d.registry import MODELS
+-from .ops import bev_pool
++from mx_driving import bev_pool_v3
+ 
+ 
+ def gen_dx_bx(xbound, ybound, zbound):
+@@ -82,9 +84,10 @@ class BaseViewTransform(nn.Module):
+         # undo post-transformation
+         # B x N x D x H x W x 3
+         points = self.frustum - post_trans.view(B, N, 1, 1, 1, 3)
+-        points = (
+-            torch.inverse(post_rots).view(B, N, 1, 1, 1, 3,
+-                                          3).matmul(points.unsqueeze(-1)))
++        points = self.matmul_custom(
++            torch.inverse(post_rots).view(B * N, 1, 3, 3),
++            points.view(B * N, points.shape[2] * points.shape[3] * points.shape[4], 3, 1)
++        ).reshape(*points.shape, 1)
+         # cam_to_lidar
+         points = torch.cat(
+             (
+@@ -94,15 +97,20 @@ class BaseViewTransform(nn.Module):
+             5,
+         )
+         combine = camera2lidar_rots.matmul(torch.inverse(intrins))
+-        points = combine.view(B, N, 1, 1, 1, 3, 3).matmul(points).squeeze(-1)
++
++        points = self.matmul_custom(
++            combine.view(B * N, 1, 3, 3),
++            points.view(B * N, points.shape[2] * points.shape[3] * points.shape[4], 3, 1)
++        ).reshape(*points.shape[:-1])
++
+         points += camera2lidar_trans.view(B, N, 1, 1, 1, 3)
+ 
+         if 'extra_rots' in kwargs:
+             extra_rots = kwargs['extra_rots']
+-            points = (
+-                extra_rots.view(B, 1, 1, 1, 1, 3,
+-                                3).repeat(1, N, 1, 1, 1, 1, 1).matmul(
+-                                    points.unsqueeze(-1)).squeeze(-1))
++            points = self.matmul_custom(
++                extra_rots.view(B, 1, 1, 1, 1, 3, 3).repeat(1, N, 1, 1, 1, 1, 1).view(B * N, 1, 3, 3),
++                points.view(B * N, points.shape[2] * points.shape[3] * points.shape[4], 3, 1)
++            ).reshape(*points.shape)
+         if 'extra_trans' in kwargs:
+             extra_trans = kwargs['extra_trans']
+             points += extra_trans.view(B, 1, 1, 1, 1,
+@@ -110,6 +118,17 @@ class BaseViewTransform(nn.Module):
+ 
+         return points
+ 
++    def matmul_custom(self, b, a):
++        """A custom matmul function.
++
++        Args:
++            b: size([B, 1, 3, 3])
++            a: size([B, x, 3, 1])
++        """
++        b1 = b.permute(0, 3, 2, 1).squeeze(3)
++        a1 = a.squeeze(3)
++        return a1.matmul(b1).unsqueeze(-1)
++
+     def get_cam_feats(self, x):
+         raise NotImplementedError
+ 
+@@ -137,10 +156,11 @@ class BaseViewTransform(nn.Module):
+                 & (geom_feats[:, 1] < self.nx[1])
+                 & (geom_feats[:, 2] >= 0)
+                 & (geom_feats[:, 2] < self.nx[2]))
+-        x = x[kept]
+-        geom_feats = geom_feats[kept]
++        valid_indices = torch.nonzero(kept).view(-1)
++        x = torch.index_select(x, 0, valid_indices)
++        geom_feats = torch.index_select(geom_feats, 0, valid_indices)
+ 
+-        x = bev_pool(x, geom_feats, B, self.nx[2], self.nx[0], self.nx[1])
++        x = bev_pool_v3(None, x, None, None, geom_feats.to(torch.int32), [B, self.nx[2], self.nx[0], self.nx[1], C])
+ 
+         # collapse Z
+         final = torch.cat(x.unbind(dim=2), 1)
+diff --git a/projects/BEVFusion/bevfusion/sparse_encoder.py b/projects/BEVFusion/bevfusion/sparse_encoder.py
+index 68bf2bce..090363a9 100644
+--- a/projects/BEVFusion/bevfusion/sparse_encoder.py
++++ b/projects/BEVFusion/bevfusion/sparse_encoder.py
+@@ -1,17 +1,17 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++from typing import Dict, Optional
++from torch import nn as nn
++import torch
++
+ from mmdet3d.models.layers import make_sparse_convmodule
+-from mmdet3d.models.layers.spconv import IS_SPCONV2_AVAILABLE
+-from mmdet3d.models.middle_encoders import SparseEncoder
+-from mmdet3d.registry import MODELS
++from mmdet3d.models.layers.sparse_block import SparseBasicBlock
++from mx_driving.spconv import SparseSequential, SparseConvTensor
+ 
+-if IS_SPCONV2_AVAILABLE:
+-    from spconv.pytorch import SparseConvTensor
+-else:
+-    from mmcv.ops import SparseConvTensor
++from mmdet3d.registry import MODELS
+ 
+ 
+ @MODELS.register_module()
+-class BEVFusionSparseEncoder(SparseEncoder):
++class BEVFusionSparseEncoder(nn.Module):
+     r"""Sparse encoder for BEVFusion. The difference between this
+     implementation and that of ``SparseEncoder`` is that the shape order of 3D
+     conv is (H, W, D) in ``BEVFusionSparseEncoder`` rather than (D, H, W) in
+@@ -54,7 +54,7 @@ class BEVFusionSparseEncoder(SparseEncoder):
+                                                                  1)),
+                  block_type='conv_module',
+                  return_middle_feats=False):
+-        super(SparseEncoder, self).__init__()
++        super().__init__()
+         assert block_type in ['conv_module', 'basicblock']
+         self.sparse_shape = sparse_shape
+         self.in_channels = in_channels
+@@ -149,3 +149,90 @@ class BEVFusionSparseEncoder(SparseEncoder):
+             return spatial_features, encode_features
+         else:
+             return spatial_features
++
++
++    def make_encoder_layers(
++        self,
++        make_block: nn.Module,
++        norm_cfg: Dict,
++        in_channels: int,
++        block_type: Optional[str] = 'conv_module',
++        conv_cfg: Optional[dict] = dict(type='SubMConv3d')
++    ) -> int:
++
++        """make encoder layers using sparse convs.
++
++        Args:
++            make_block (method): A bounded function to build blocks.
++            norm_cfg (dict[str]): Config of normalization layer.
++            in_channels (int): The number of encoder input channels.
++            block_type (str, optional): Type of the block to use.
++                Defaults to 'conv_module'.
++            conv_cfg (dict, optional): Config of conv layer. Defaults to
++                dict(type='SubMConv3d').
++
++        Returns:
++            int: The number of encoder output channels.
++        """
++        assert block_type in ['conv_module', 'basicblock']
++        self.encoder_layers = SparseSequential()
++
++        for i, blocks in enumerate(self.encoder_channels):
++            blocks_list = []
++            for j, out_channels in enumerate(tuple(blocks)):
++                padding = tuple(self.encoder_paddings[i])[j]
++                # each stage started with a spconv layer
++                # except the first stage
++                if i != 0 and j == 0 and block_type == 'conv_module':
++                    blocks_list.append(
++                        make_block(
++                            in_channels,
++                            out_channels,
++                            3,
++                            norm_cfg=norm_cfg,
++                            stride=2,
++                            padding=padding,
++                            indice_key=f'spconv{i + 1}',
++                            conv_type='SparseConv3d',
++                        )
++                    )
++                elif block_type == 'basicblock':
++                    if j == len(blocks) - 1 and i != len(self.encoder_channels) - 1:
++                        blocks_list.append(
++                            make_block(
++                                in_channels,
++                                out_channels,
++                                3,
++                                norm_cfg=norm_cfg,
++                                stride=2,
++                                padding=padding,
++                                indice_key=f'spconv{i + 1}',
++                                conv_type='SparseConv3d',
++                            )
++                        )
++                    else:
++                        blocks_list.append(
++                            SparseBasicBlock(
++                                out_channels,
++                                out_channels,
++                                norm_cfg=norm_cfg,
++                                conv_cfg=conv_cfg,
++                            )
++                        )
++                else:
++                    blocks_list.append(
++                        make_block(
++                            in_channels,
++                            out_channels,
++                            3,
++                            norm_cfg=norm_cfg,
++                            padding=padding,
++                            indice_key=f'subm{i + 1}',
++                            conv_type='SubMConv3d',
++                        )
++                    )
++                in_channels = out_channels
++            stage_name = f'encoder_layer{i + 1}'
++            stage_layers = SparseSequential(*blocks_list)
++            self.encoder_layers.add_module(stage_name, stage_layers)
++        return out_channels
+diff --git a/projects/BEVFusion/bevfusion/transfusion_head.py b/projects/BEVFusion/bevfusion/transfusion_head.py
+index 8a3e1750..5dd9ab17 100644
+--- a/projects/BEVFusion/bevfusion/transfusion_head.py
++++ b/projects/BEVFusion/bevfusion/transfusion_head.py
+@@ -696,15 +696,16 @@ class TransFusionHead(nn.Module):
+             [gt_bboxes_3d.gravity_center, gt_bboxes_3d.tensor[:, 3:]],
+             dim=1).to(device)
+         grid_size = torch.tensor(self.train_cfg['grid_size'])
+-        pc_range = torch.tensor(self.train_cfg['point_cloud_range'])
+-        voxel_size = torch.tensor(self.train_cfg['voxel_size'])
++        pc_range = self.train_cfg['point_cloud_range']
++        voxel_size = self.train_cfg['voxel_size']
+         feature_map_size = (grid_size[:2] // self.train_cfg['out_size_factor']
+                             )  # [x_len, y_len]
+         heatmap = gt_bboxes_3d.new_zeros(self.num_classes, feature_map_size[1],
+                                          feature_map_size[0])
+         for idx in range(len(gt_bboxes_3d)):
+-            width = gt_bboxes_3d[idx][3]
+-            length = gt_bboxes_3d[idx][4]
++            gt_bboxes_3d_digital = gt_bboxes_3d[idx].tolist()
++            width = gt_bboxes_3d_digital[3]
++            length = gt_bboxes_3d_digital[4]
+             width = width / voxel_size[0] / self.train_cfg['out_size_factor']
+             length = length / voxel_size[1] / self.train_cfg['out_size_factor']
+             if width > 0 and length > 0:
+@@ -712,7 +713,7 @@ class TransFusionHead(nn.Module):
+                     (length, width),
+                     min_overlap=self.train_cfg['gaussian_overlap'])
+                 radius = max(self.train_cfg['min_radius'], int(radius))
+-                x, y = gt_bboxes_3d[idx][0], gt_bboxes_3d[idx][1]
++                x, y = gt_bboxes_3d_digital[0], gt_bboxes_3d_digital[1]
+ 
+                 coor_x = ((x - pc_range[0]) / voxel_size[0] /
+                           self.train_cfg['out_size_factor'])
+diff --git a/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py b/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
+index a08bb66a..04b6c0a2 100644
+--- a/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
++++ b/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
+@@ -220,7 +220,7 @@ test_cfg = dict()
+ 
+ optim_wrapper = dict(
+     type='OptimWrapper',
+-    optimizer=dict(type='AdamW', lr=0.0002, weight_decay=0.01),
++    optimizer=dict(type='NpuFusedAdamW', lr=0.0002, weight_decay=0.01),
+     clip_grad=dict(max_norm=35, norm_type=2))
+ 
+ # Default setting for scaling LR automatically
+@@ -230,6 +230,6 @@ optim_wrapper = dict(
+ auto_scale_lr = dict(enable=False, base_batch_size=32)
+ 
+ default_hooks = dict(
+-    logger=dict(type='LoggerHook', interval=50),
++    logger=dict(type='LoggerHook', interval=1),
+     checkpoint=dict(type='CheckpointHook', interval=1))
+ del _base_.custom_hooks
+diff --git a/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py b/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
+index 19dba1a5..bc57c6fa 100644
+--- a/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
++++ b/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
+@@ -362,13 +362,13 @@ param_scheduler = [
+ ]
+ 
+ # runtime settings
+-train_cfg = dict(by_epoch=True, max_epochs=20, val_interval=5)
++train_cfg = dict(by_epoch=True, max_epochs=20, val_interval=1)
+ val_cfg = dict()
+ test_cfg = dict()
+ 
+ optim_wrapper = dict(
+     type='OptimWrapper',
+-    optimizer=dict(type='AdamW', lr=lr, weight_decay=0.01),
++    optimizer=dict(type='NpuFusedAdamW', lr=lr, weight_decay=0.01),
+     clip_grad=dict(max_norm=35, norm_type=2))
+ 
+ # Default setting for scaling LR automatically
+@@ -379,6 +379,6 @@ auto_scale_lr = dict(enable=False, base_batch_size=32)
+ log_processor = dict(window_size=50)
+ 
+ default_hooks = dict(
+-    logger=dict(type='LoggerHook', interval=50),
+-    checkpoint=dict(type='CheckpointHook', interval=5))
++    logger=dict(type='LoggerHook', interval=1),
++    checkpoint=dict(type='CheckpointHook', interval=1))
+ custom_hooks = [dict(type='DisableObjectSampleHook', disable_after_epoch=15)]
+diff --git a/requirements/optional.txt b/requirements/optional.txt
+index 099ad8a2..ac361d65 100644
+--- a/requirements/optional.txt
++++ b/requirements/optional.txt
+@@ -1,3 +1,3 @@
+ black==20.8b1 # be compatible with typing-extensions 3.7.4
+ typing-extensions # required by tensorflow<=2.6
+-waymo-open-dataset-tf-2-6-0 # requires python>=3.7
++# waymo-open-dataset-tf-2-6-0 # requires python>=3.7
+diff --git a/tools/dist_train.sh b/tools/dist_train.sh
+index 3fca7641..88777e52 100755
+--- a/tools/dist_train.sh
++++ b/tools/dist_train.sh
+@@ -7,6 +7,27 @@ NODE_RANK=${NODE_RANK:-0}
+ PORT=${PORT:-29500}
+ MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
+ 
++export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
++export ACLNN_CACHE_LIMIT=100000
++#设置Shape数据缓存
++export HOST_CACHE_CAPACITY=20
++#将Host日志输出到串口,0-关闭/1-开启
++export ASCEND_SLOG_PRINT_TO_STDOUT=0
++#设置默认日志级别,0-debug/1-info/2-warning/3-error
++export ASCEND_GLOBAL_LOG_LEVEL=3
++#设置Event日志开启标志,0-关闭/1-开启
++export ASCEND_GLOBAL_EVENT_ENABLE=0
++#设置是否开启taskque,0-关闭/1-开启/2-流水优化
++export TASK_QUEUE_ENABLE=2
++#设置是否开启combined标志,0-关闭/1-开启
++export COMBINED_ENABLE=1
++#设置是否开启均匀绑核,0-关闭/1-开启
++export CPU_AFFINITY_CONF=0
++#HCCL白名单开关,1-关闭/0-开启
++export HCCL_WHITELIST_DISABLE=1
++export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
++export HCCL_CONNECT_TIMEOUT=1200
++
+ PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
+ python -m torch.distributed.launch \
+     --nnodes=$NNODES \
+diff --git a/tools/train.py b/tools/train.py
+index b2ced54b..67351f1a 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -8,6 +8,10 @@ from mmengine.config import Config, DictAction
+ from mmengine.logging import print_log
+ from mmengine.registry import RUNNERS
+ from mmengine.runner import Runner
++import torch
++
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ from mmdet3d.utils import replace_ceph_backend
+ 
+@@ -132,4 +136,6 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
++    torch_npu.npu.set_compile_mode(jit_compile=False)
++    torch_npu.npu.config.allow_internal_format = False
+     main()

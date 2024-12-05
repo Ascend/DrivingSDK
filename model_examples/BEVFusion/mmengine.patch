@@ -1,0 +1,22 @@
+diff --git a/mmengine/optim/optimizer/optimizer_wrapper.py b/mmengine/optim/optimizer/optimizer_wrapper.py
+index 6ef125a..9c0ef04 100644
+--- a/mmengine/optim/optimizer/optimizer_wrapper.py
++++ b/mmengine/optim/optimizer/optimizer_wrapper.py
+@@ -136,7 +136,7 @@ class OptimWrapper(BaseOptimWrapper):
+                 'or clip_grad_value_`.')
+             clip_type = clip_grad.pop('type', 'norm')
+             if clip_type == 'norm':
+-                self.clip_func = torch.nn.utils.clip_grad_norm_
++                self.clip_func = self.optimizer.clip_grad_norm_fused_
+                 self.grad_name = 'grad_norm'
+             elif clip_type == 'value':
+                 self.clip_func = torch.nn.utils.clip_grad_value_
+@@ -295,7 +295,7 @@ class OptimWrapper(BaseOptimWrapper):
+         params = list(
+             filter(lambda p: p.requires_grad and p.grad is not None, params))
+         if len(params) > 0:
+-            grad = self.clip_func(params, **self.clip_grad_kwargs)
++            grad = self.clip_func(**self.clip_grad_kwargs)
+             # `torch.nn.utils.clip_grad_value_` will return None.
+             if grad is not None:
+                 self.message_hub.update_scalar(f'train/{self.grad_name}',
