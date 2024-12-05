@@ -14,9 +14,13 @@
 namespace {
 constexpr size_t INPUT_FEAT = 1;
 constexpr size_t INPUT_FEAT_GRAD = 2;
-constexpr size_t INPUT_RANKS_DEPTH = 2;
-constexpr size_t INPUT_RANKS_DEPTH_GRAD = 3;
+constexpr size_t INPUT_RANKS_BEV = 4;
+constexpr size_t INPUT_RANKS_BEV_GRAD = 5;
 constexpr int32_t RANK_NUM_PER_TASK = 1024;
+constexpr int32_t ONE_BLK_SIZE = 8;
+constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
+constexpr int32_t CHANNEL_IDX = 1;
+constexpr int32_t CHANNEL_IDX_WITH_DEPTH = 4;
 } // namespace
 
 namespace optiling {
@@ -25,13 +29,28 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
 {
     BEVPoolV3TilingData tiling;
     auto platform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    uint64_t ubSize;
+    platform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
     auto coreNum = platform.GetCoreNum();
     auto featShape = context->GetInputShape(is_grad ? INPUT_FEAT_GRAD : INPUT_FEAT);
-    auto channel = featShape->GetOriginShape().GetDim(4);
-    auto ranksDepthShape = context->GetInputShape(is_grad ? INPUT_RANKS_DEPTH_GRAD : INPUT_RANKS_DEPTH);
-    int32_t ranks = ranksDepthShape->GetOriginShape().GetDim(0);
+    auto ranksBevShape = context->GetInputShape(is_grad ? INPUT_RANKS_BEV_GRAD : INPUT_RANKS_BEV);
+    auto attrsPtr = context->GetAttrs();
+    if (attrsPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    auto withDepthPtr = attrsPtr->GetBool(0);
+    if (withDepthPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    bool withDepth = *withDepthPtr;
+    context->SetTilingKey(withDepth);
 
-    int32_t avgRankNum = std::min(RANK_NUM_PER_TASK, ranks);
+    auto channel = featShape->GetOriginShape().GetDim(withDepth ? CHANNEL_IDX_WITH_DEPTH : CHANNEL_IDX);
+    int32_t ranks = ranksBevShape->GetOriginShape().GetDim(0);
+    int avgRankNum = withDepth ?
+                         RANK_NUM_PER_TASK :
+                         (ubSize - RESERVE_UB) / (sizeof(float) * (channel + 1) * 2) / ONE_BLK_SIZE * ONE_BLK_SIZE;
+    avgRankNum = std::min(avgRankNum, ranks);
     if (avgRankNum == 0) {
         return ge::GRAPH_FAILED;
     }
@@ -73,7 +92,7 @@ public:
     explicit BEVPoolV3(const char* name) : OpDef(name)
     {
         this->Input("depth")
-            .ParamType(REQUIRED)
+            .ParamType(OPTIONAL)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .AutoContiguous()
@@ -85,13 +104,13 @@ public:
             .AutoContiguous()
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("ranks_depth")
-            .ParamType(REQUIRED)
+            .ParamType(OPTIONAL)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .AutoContiguous()
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("ranks_feat")
-            .ParamType(REQUIRED)
+            .ParamType(OPTIONAL)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .AutoContiguous()
@@ -102,6 +121,8 @@ public:
             .Format({ge::FORMAT_ND})
             .AutoContiguous()
             .UnknownShapeFormat({ge::FORMAT_ND});
+
+        this->Attr("with_depth").Bool();
 
         this->Output("out")
             .ParamType(REQUIRED)
@@ -138,7 +159,7 @@ public:
             .AutoContiguous()
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("depth")
-            .ParamType(REQUIRED)
+            .ParamType(OPTIONAL)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .AutoContiguous()
@@ -150,13 +171,13 @@ public:
             .AutoContiguous()
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("ranks_depth")
-            .ParamType(REQUIRED)
+            .ParamType(OPTIONAL)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .AutoContiguous()
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("ranks_feat")
-            .ParamType(REQUIRED)
+            .ParamType(OPTIONAL)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .AutoContiguous()
@@ -168,8 +189,10 @@ public:
             .AutoContiguous()
             .UnknownShapeFormat({ge::FORMAT_ND});
 
+        this->Attr("with_depth").Bool();
+
         this->Output("grad_depth")
-            .ParamType(REQUIRED)
+            .ParamType(OPTIONAL)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});

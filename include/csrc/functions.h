@@ -151,10 +151,12 @@ at::Tensor voxel_pool_train_backward(const at::Tensor& grad_out, const at::Tenso
 at::Tensor dynamic_voxelization(const at::Tensor& points, at::Tensor& coors, int grid_x, int grid_y, int grid_z,
     double voxel_x, double voxel_y, double voxel_z, double coors_min_x, double coors_min_y, double coorsMinZ);
 
-at::Tensor npu_bev_pool_v3(const at::Tensor& depth, const at::Tensor& feat, const at::Tensor& ranks_depth,
-    const at::Tensor& ranks_feat, const at::Tensor& ranks_bev, int64_t b, int64_t d, int64_t h, int64_t w);
-std::tuple<at::Tensor, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor& grad_out, const at::Tensor& depth,
-    const at::Tensor& feat, const at::Tensor& ranks_depth, const at::Tensor& ranks_feat, const at::Tensor& ranks_bev);
+at::Tensor npu_bev_pool_v3(const c10::optional<at::Tensor>& depth, const at::Tensor& feat,
+    const c10::optional<at::Tensor>& ranks_depth, const c10::optional<at::Tensor>& ranks_feat,
+    const at::Tensor& ranks_bev, int64_t b, int64_t d, int64_t h, int64_t w);
+std::tuple<c10::optional<at::Tensor>, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor& grad_out,
+    const c10::optional<at::Tensor>& depth, const at::Tensor& feat, const c10::optional<at::Tensor>& ranks_depth,
+    const c10::optional<at::Tensor>& ranks_feat, const at::Tensor& ranks_bev);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_subm_sparse_conv3d(const at::Tensor& feature,
     const at::Tensor& indices, const at::Tensor& weight, at::IntArrayRef kernel_size, int out_channel,
     at::IntArrayRef outSpatialShape, int batch_size, const at::Tensor& temp);

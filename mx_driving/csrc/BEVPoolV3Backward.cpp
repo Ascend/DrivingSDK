@@ -17,30 +17,20 @@
 #include "csrc/OpApiCommon.h"
 #include "csrc/functions.h"
 
-namespace {
-constexpr int64_t C_IDX = 4;
 
-void check_npu(const at::Tensor& depth, const at::Tensor& feat, const at::Tensor& ranks_depth,
-    const at::Tensor& ranks_feat, const at::Tensor& ranks_bev, const at::Tensor& grad_out)
+std::tuple<c10::optional<at::Tensor>, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor& grad_out,
+    const c10::optional<at::Tensor>& depth, const at::Tensor& feat, const c10::optional<at::Tensor>& ranks_depth,
+    const c10::optional<at::Tensor>& ranks_feat, const at::Tensor& ranks_bev)
 {
-    TORCH_CHECK_NPU(depth);
     TORCH_CHECK_NPU(feat);
-    TORCH_CHECK_NPU(ranks_depth);
-    TORCH_CHECK_NPU(ranks_feat);
     TORCH_CHECK_NPU(ranks_bev);
-    TORCH_CHECK_NPU(grad_out);
-}
-} // namespace
-
-std::tuple<at::Tensor, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor& grad_out, const at::Tensor& depth,
-    const at::Tensor& feat, const at::Tensor& ranks_depth, const at::Tensor& ranks_feat, const at::Tensor& ranks_bev)
-{
-    check_npu(depth, feat, ranks_depth, ranks_feat, ranks_bev, grad_out);
-    auto depth_sizes = depth.sizes();
-    auto feat_sizes = feat.sizes();
-    auto grad_depth = at::zeros(depth_sizes, depth.options());
-    auto grad_feat = at::zeros(feat_sizes, depth.options());
-
-    EXEC_NPU_CMD(aclnnBEVPoolV3Grad, grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, grad_depth, grad_feat);
+    c10::optional<at::Tensor> grad_depth;
+    bool with_depth = depth.has_value();
+    if (with_depth) {
+        grad_depth = at::zeros_like(depth.value());
+    }
+    auto grad_feat = at::zeros_like(feat);
+    EXEC_NPU_CMD(aclnnBEVPoolV3Grad, grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, with_depth, grad_depth,
+        grad_feat);
     return std::make_tuple(grad_depth, grad_feat);
 }

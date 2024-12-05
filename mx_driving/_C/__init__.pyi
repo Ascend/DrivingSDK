@@ -374,10 +374,10 @@ def dynamic_voxelization(
     coorsMinZ: float,
 ) -> torch.Tensor: ...
 def npu_bev_pool_v3(
-    depth: torch.Tensor,
+    depth: Optional[torch.Tensor],
     feat: torch.Tensor,
-    ranks_depth: torch.Tensor,
-    ranks_feat: torch.Tensor,
+    ranks_depth: Optional[torch.Tensor],
+    ranks_feat: Optional[torch.Tensor],
     ranks_bev: torch.Tensor,
     B: int,
     D: int,
@@ -386,16 +386,16 @@ def npu_bev_pool_v3(
 ) -> torch.Tensor: ...
 def npu_bev_pool_v3_backward(
     grad_out: torch.Tensor,
-    depth: torch.Tensor,
+    depth: Optional[torch.Tensor],
     feat: torch.Tensor,
-    ranks_depth: torch.Tensor,
-    ranks_feat: torch.Tensor,
+    ranks_depth: Optional[torch.Tensor],
+    ranks_feat: Optional[torch.Tensor],
     ranks_bev: torch.Tensor,
     B: int,
     D: int,
     H: int,
     W: int,
-) -> Tuple[torch.Tensor, torch.Tensor]: ...
+) -> Tuple[Optional[torch.Tensor], torch.Tensor]: ...
 
 __all__ = [
     "knn",

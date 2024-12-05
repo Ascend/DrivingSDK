@@ -1,6 +1,7 @@
 #include "kernel_operator.h"
 using namespace AscendC;
 
+template<bool with_depth>
 class BEVPoolV3GradKernel {
 public:
     __aicore__ inline BEVPoolV3GradKernel() = delete;
@@ -15,6 +16,7 @@ public:
         InitOffset();
         InitGM(gradOut, depth, feat, ranksDepth, ranksFeat, ranksBev, gradDepth, gradFeat);
         InitBuffer();
+        InitEvent();
     }
 
     __aicore__ inline void Process();
@@ -39,31 +41,48 @@ private:
     __aicore__ inline void InitOffset()
     {
         rankSize_ = AlignUp(avgRankNum_, B32_DATA_NUM_PER_BLOCK);
-        rankDepthOffset_ = 0;
-        rankFeatOffset_ = rankDepthOffset_ + rankSize_;
-        rankBevOffset_ = rankFeatOffset_ + rankSize_;
-        inFeatOffset_ = B32_DATA_NUM_PER_BLOCK;
-        inBevOffset_ = inFeatOffset_ + channel_;
+        rankBevOffset_ = 0;
+        if (with_depth) {
+            rankFeatOffset_ = rankBevOffset_ + rankSize_;
+            rankDepthOffset_ = rankFeatOffset_ + rankSize_;
+            rankFeatOffset_ = rankBevOffset_ + rankSize_;
+            rankDepthOffset_ = rankFeatOffset_ + rankSize_;
+            inFeatOffset_ = B32_DATA_NUM_PER_BLOCK;
+            inBevOffset_ = inFeatOffset_ + channel_;
+        }
     }
 
     __aicore__ inline void InitGM(GM_ADDR gradOut, GM_ADDR depth, GM_ADDR feat, GM_ADDR ranksDepth, GM_ADDR ranksFeat,
         GM_ADDR ranksBev, GM_ADDR gradDepth, GM_ADDR gradFeat)
     {
         gradOutGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradOut));
-        depthGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(depth));
         featGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(feat));
-        ranksDepthGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ranksDepth));
-        ranksFeatGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ranksFeat));
         ranksBevGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ranksBev));
-        gradDepthGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradDepth));
         gradFeatGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradFeat));
+        if (with_depth) {
+            depthGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(depth));
+            ranksDepthGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ranksDepth));
+            ranksFeatGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ranksFeat));
+            gradDepthGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradDepth));
+        }
     }
 
     __aicore__ inline void InitBuffer()
     {
-        pipe_->InitBuffer(ranksQue_, 1, 3 * rankSize_ * sizeof(int32_t));
-        pipe_->InitBuffer(inQue_, 2, (B32_DATA_NUM_PER_BLOCK + channel_ * 2) * sizeof(int32_t));
-        pipe_->InitBuffer(outQue_, 2, channel_ * 3 * sizeof(float));
+        if (with_depth) {
+            pipe_->InitBuffer(ranksQue_, 1, 3 * rankSize_ * sizeof(int32_t));
+            pipe_->InitBuffer(inQue_, 2, (B32_DATA_NUM_PER_BLOCK + channel_ * 2) * sizeof(int32_t));
+            pipe_->InitBuffer(outQue_, 2, channel_ * 3 * sizeof(float));
+        } else {
+            pipe_->InitBuffer(ranksQue_, 2, rankSize_ * sizeof(int32_t));
+            pipe_->InitBuffer(inQue_, 2, rankSize_ * channel_ * sizeof(int32_t));
+        }
+    }
+
+    __aicore__ inline void InitEvent()
+    {
+        cpInEvtID_ = pipe_->FetchEventID(HardEvent::MTE2_MTE3);
+        cpOutEvtID_ = pipe_->FetchEventID(HardEvent::MTE3_MTE2);
     }
 
     __aicore__ inline void CopyIn(int32_t rd, int32_t rf, int32_t rb);
@@ -71,6 +90,8 @@ private:
     __aicore__ inline void Compute();
 
     __aicore__ inline void CopyOut(int32_t rd, int32_t rf);
+
+    __aicore__ inline void ProcessSingle(int32_t taskIdx, int32_t actualRankNum);
 
 private:
     TPipe* pipe_;
@@ -87,9 +108,12 @@ private:
     int32_t rankDepthOffset_, rankFeatOffset_, rankBevOffset_, inFeatOffset_, inBevOffset_;
 
     DataCopyParams cpSingleParams_ {1, B32_BYTE_SIZE, 0, 0};
+
+    TEventID cpInEvtID_, cpOutEvtID_;
 };
 
-__aicore__ inline void BEVPoolV3GradKernel::CopyIn(int32_t rd, int32_t rf, int32_t rb)
+template<bool with_depth>
+__aicore__ inline void BEVPoolV3GradKernel<with_depth>::CopyIn(int32_t rd, int32_t rf, int32_t rb)
 {
     LocalTensor<float> in = inQue_.AllocTensor<float>();
     DataCopy(in, depthGm_[rd], B32_DATA_NUM_PER_BLOCK);
@@ -97,7 +121,9 @@ __aicore__ inline void BEVPoolV3GradKernel::CopyIn(int32_t rd, int32_t rf, int32
     DataCopy(in[inBevOffset_], gradOutGm_[rb], channel_);
     inQue_.EnQue(in);
 }
-__aicore__ inline void BEVPoolV3GradKernel::Compute()
+
+template<bool with_depth>
+__aicore__ inline void BEVPoolV3GradKernel<with_depth>::Compute()
 {
     LocalTensor<float> in = inQue_.DeQue<float>();
     LocalTensor<float> out = outQue_.AllocTensor<float>();
@@ -108,7 +134,8 @@ __aicore__ inline void BEVPoolV3GradKernel::Compute()
     outQue_.EnQue(out);
 }
 
-__aicore__ inline void BEVPoolV3GradKernel::CopyOut(int32_t rd, int32_t rf)
+template<bool with_depth>
+__aicore__ inline void BEVPoolV3GradKernel<with_depth>::CopyOut(int32_t rd, int32_t rf)
 {
     LocalTensor<float> out = outQue_.DeQue<float>();
     SetAtomicAdd<float>();
@@ -118,36 +145,60 @@ __aicore__ inline void BEVPoolV3GradKernel::CopyOut(int32_t rd, int32_t rf)
     outQue_.FreeTensor(out);
 }
 
+template<bool with_depth>
+__aicore__ inline void BEVPoolV3GradKernel<with_depth>::ProcessSingle(int32_t taskIdx, int32_t actualRankNum)
+{
+    int32_t rankNum = AlignUp(actualRankNum, B32_DATA_NUM_PER_BLOCK);
+    LocalTensor<int32_t> ranks = ranksQue_.AllocTensor<int32_t>();
+    LocalTensor<int32_t> rankBev = ranks[rankBevOffset_];
+    DataCopy(rankBev, ranksBevGm_[taskIdx * avgRankNum_], rankNum);
 
-__aicore__ inline void BEVPoolV3GradKernel::Process()
+    if (with_depth) {
+        LocalTensor<int32_t> rankDepth = ranks[rankDepthOffset_];
+        LocalTensor<int32_t> rankFeat = ranks[rankFeatOffset_];
+        DataCopy(rankFeat, ranksFeatGm_[taskIdx * avgRankNum_], rankNum);
+        DataCopy(rankDepth, ranksDepthGm_[taskIdx * avgRankNum_], rankNum);
+
+        ranksQue_.EnQue(ranks);
+        ranksQue_.DeQue<int32_t>();
+        Muls(rankFeat, rankFeat, channel_, rankNum);
+        Muls(rankBev, rankBev, channel_, rankNum);
+        for (int32_t i = 0; i < actualRankNum; ++i) {
+            int32_t rd = rankDepth.GetValue(i);
+            int32_t rf = rankFeat.GetValue(i);
+            int32_t rb = rankBev.GetValue(i);
+            CopyIn(rd, rf, rb);
+            Compute();
+            CopyOut(rd, rf);
+        }
+    } else {
+        ranksQue_.EnQue(ranks);
+        ranksQue_.DeQue<int32_t>();
+        Muls(rankBev, rankBev, channel_, rankNum);
+        LocalTensor<float> in = inQue_.AllocTensor<float>();
+
+        for (int32_t i = 0; i < actualRankNum; ++i) {
+            DataCopy(in[i * channel_], gradOutGm_[rankBev.GetValue(i)], channel_);
+        }
+        SetFlag<HardEvent::MTE2_MTE3>(cpInEvtID_);
+        WaitFlag<HardEvent::MTE2_MTE3>(cpInEvtID_);
+        DataCopy(gradFeatGm_[taskIdx * avgRankNum_ * channel_], in, actualRankNum * channel_);
+        SetFlag<HardEvent::MTE3_MTE2>(cpOutEvtID_);
+        WaitFlag<HardEvent::MTE3_MTE2>(cpOutEvtID_);
+        inQue_.FreeTensor(in);
+    }
+    ranksQue_.FreeTensor(ranks);
+}
+
+template<bool with_depth>
+__aicore__ inline void BEVPoolV3GradKernel<with_depth>::Process()
 {
     for (int32_t i = taskStartIdx_; i < taskEndIdx_; ++i) {
         int32_t actualRankNum = avgRankNum_;
         if (unlikely(i == totalTaskNum_ - 1)) {
             actualRankNum = tailRankNum_;
         }
-        int32_t rankNum = AlignUp(actualRankNum, B32_DATA_NUM_PER_BLOCK);
-
-        LocalTensor<int32_t> ranks = ranksQue_.AllocTensor<int32_t>();
-        LocalTensor<int32_t> rankDepth = ranks[rankDepthOffset_];
-        LocalTensor<int32_t> rankFeat = ranks[rankFeatOffset_];
-        LocalTensor<int32_t> rankBev = ranks[rankBevOffset_];
-        DataCopy(rankDepth, ranksDepthGm_[i * avgRankNum_], rankNum);
-        DataCopy(rankFeat, ranksFeatGm_[i * avgRankNum_], rankNum);
-        DataCopy(rankBev, ranksBevGm_[i * avgRankNum_], rankNum);
-        ranksQue_.EnQue(ranks);
-        ranksQue_.DeQue<int32_t>();
-        Muls(rankFeat, rankFeat, channel_, rankNum);
-        Muls(rankBev, rankBev, channel_, rankNum);
-        for (int32_t j = 0; j < actualRankNum; ++j) {
-            int32_t rd = rankDepth.GetValue(j);
-            int32_t rf = rankFeat.GetValue(j);
-            int32_t rb = rankBev.GetValue(j);
-            CopyIn(rd, rf, rb);
-            Compute();
-            CopyOut(rd, rf);
-        }
-        ranksQue_.FreeTensor(ranks);
+        ProcessSingle(i, actualRankNum);
     }
 }
 
@@ -156,7 +207,13 @@ extern "C" __global__ __aicore__ void bev_pool_v3_grad(GM_ADDR gradOut, GM_ADDR 
 {
     GET_TILING_DATA(bevPoolTiling, tiling);
     TPipe pipe;
-    BEVPoolV3GradKernel kernel(
-        &pipe, gradOut, depth, feat, ranksDepth, ranksFeat, ranksBev, gradDepth, gradFeat, bevPoolTiling);
-    kernel.Process();
+    if (TILING_KEY_IS(0)) {
+        BEVPoolV3GradKernel<false> kernel(
+            &pipe, gradOut, depth, feat, ranksDepth, ranksFeat, ranksBev, gradDepth, gradFeat, bevPoolTiling);
+        kernel.Process();
+    } else if (TILING_KEY_IS(1)) {
+        BEVPoolV3GradKernel<true> kernel(
+            &pipe, gradOut, depth, feat, ranksDepth, ranksFeat, ranksBev, gradDepth, gradFeat, bevPoolTiling);
+        kernel.Process();
+    }
 }
