@@ -87,8 +87,10 @@ public:
         indicesGm.SetGlobalBuffer((__gm__ DTYPE_INDICES*)indices, this->indices_number * 4);
         weightGm.SetGlobalBuffer((__gm__ DTYPE_FEATURE*)weight,
                                  total_kernel_size * this->out_channel * this->inchannel);
-        featureGm.SetGlobalBuffer((__gm__ DTYPE_FEATURE*)feature, this->core_data * this->inchannel);
+        featureGm.SetGlobalBuffer((__gm__ DTYPE_FEATURE*)feature, this->indices_number * this->inchannel);
+        featureGm.SetL2CacheHint(CacheMode::CACHE_MODE_NORMAL);
         tempGm.SetGlobalBuffer((__gm__ DTYPE_TEMP*)temp, this->batch_size * this->feature_map_size);
+        tempGm.SetL2CacheHint(CacheMode::CACHE_MODE_NORMAL);
         outputGm.SetGlobalBuffer(
             (__gm__ DTYPE_FEATURE*)feature_out, this->indices_number * total_kernel_size * this->inchannel);
         indices_offsetGm.SetGlobalBuffer(
@@ -98,15 +100,13 @@ public:
         int weightnumber = (this->inchannel + data_each_block - 1) / data_each_block * data_each_block;
         int inchannelalign = AlignUp(this->inchannel, data_each_block);
         pipe->InitBuffer(inQueueIndices, 1, this->available_ub_size * 4 * sizeof(DTYPE_FEATURE));
-        pipe->InitBuffer(inQueueFeature, 1, inchannelalign * sizeof(DTYPE_FEATURE));
-        pipe->InitBuffer(indicespairbuf, total_kernel_size * 4 * sizeof(int32_t));
-        pipe->InitBuffer(dstbuf, this->available_ub_size * sizeof(DTYPE_FEATURE));
+        pipe->InitBuffer(inQueueFeature, 1, total_kernel_size * inchannelalign * sizeof(DTYPE_FEATURE));
         pipe->InitBuffer(indicesoffsetbuf, total_kernel_size * sizeof(int32_t));
         pipe->InitBuffer(tempgmbuf, total_kernel_size * sizeof(int32_t));
         copyParams_feature = {1, (uint16_t)(this->inchannel * sizeof(DTYPE_FEATURE)), 0, 0};
         copyParams_weight = {(uint16_t)(this->out_channel),
                                         (uint16_t)(this->inchannel * sizeof(DTYPE_FEATURE)), 0, 0};
-        copyParams_output = {1, (uint16_t)(this->out_channel * sizeof(DTYPE_FEATURE)), 0, 0};
+        copyParams_output = {1, (uint16_t)(this->inchannel * total_kernel_size * sizeof(DTYPE_FEATURE)), 0, 0};
         copyParams_count = {1, (uint16_t)(1 * sizeof(DTYPE_FEATURE)), 0, 0};
         copyParams_count_offset = {1, (uint16_t)(total_kernel_size * sizeof(DTYPE_FEATURE)), 0, 0};
     }
@@ -121,20 +121,37 @@ public:
         if (core_id != (this->core_used -1)) {
             for (uint32_t i = 0; i < this->copy_loop; i++) {
                 uint64_t address = start_address + i * this->available_ub_size;
-                IndicesCompute(i, this->available_ub_size, address);
+                if (this->inchannel % 8 == 0) {
+                    IndicesCompute(i, this->available_ub_size, address);
+                } else {
+                    IndicesCompute2(i, this->available_ub_size, address);
+                }
             }
             if (this->copy_tail != 0) {
                 uint64_t address = start_address + this->copy_loop * this->available_ub_size;
-                IndicesCompute(this->copy_loop, this->copy_tail, address);
+                if (this->inchannel % 8 == 0) {
+                    IndicesCompute(this->copy_loop, this->copy_tail, address);
+                } else {
+                    IndicesCompute2(this->copy_loop, this->copy_tail, address);
+                }
             }
         } else {
             for (uint32_t i = 0; i < this->last_copy_loop; i++) {
                 uint64_t address = start_address + i * this->available_ub_size;
-                IndicesCompute(i, this->available_ub_size, address);
+                if (this->inchannel % 8 == 0) {
+                    IndicesCompute(i, this->available_ub_size, address);
+                } else {
+                    IndicesCompute2(i, this->available_ub_size, address);
+                }
             }
             if (this->last_copy_tail != 0) {
                 uint64_t address = start_address + this->last_copy_loop * this->available_ub_size;
-                IndicesCompute(this->last_copy_loop, this->last_copy_tail, address);
+                
+                if (this->inchannel % 8 == 0) {
+                    IndicesCompute(this->last_copy_loop, this->last_copy_tail, address);
+                } else {
+                    IndicesCompute2(this->last_copy_loop, this->last_copy_tail, address);
+                }
             }
         }
     }
@@ -162,19 +179,19 @@ private:
         PipeBarrier<PIPE_ALL>();
         for (int32_t i = 0; i < tensor_size; i++) {
             Duplicate<int32_t>(indices_offset_ub, -1, total_kernel_size, 1, 1, 8);
+            Duplicate<DTYPE_FEATURE>(feature_ub, 0, total_kernel_size * this->inchannel);
             int64_t batch_id = indices_ub.GetValue(i);
             int64_t indice_z = indices_ub.GetValue(i + this->available_ub_size);
             int64_t indice_y = indices_ub.GetValue(i + this->available_ub_size * 2);
             int64_t indice_x = indices_ub.GetValue(i + this->available_ub_size * 3);
-            DataCopyPad(feature_ub, featureGm[(address +i) * this->inchannel],
-                        copyParams_feature, featurepadParams);
+            
             for (int64_t iz = 0; iz < this->K0; iz++) {
                 for (int64_t iy = 0; iy < this->K1; iy++) {
                     for (int64_t ix = 0; ix < this->K2; ix++) {
                         auto offset = iz * this->K1 * this->K0 + iy * this->K0 + ix;
-                        point[0] = indice_z - iz + K2 / 2;
-                        point[1] = indice_y - iy + K1 / 2;
-                        point[2] = indice_x - ix + K0 / 2;
+                        point[0] = indice_z + iz - K2 / 2;
+                        point[1] = indice_y + iy - K1 / 2;
+                        point[2] = indice_x + ix - K0 / 2;
                         if (point[1] >= 0 && point[1] < outSpatialShape[1] &&
                             point[2] >= 0 && point[2] < outSpatialShape[2] &&
                             point[0] >= 0 && point[0] < outSpatialShape[0]) {
@@ -186,14 +203,86 @@ private:
                                             copyParams_temp_gm_ub, padParams);
                                 auto feature_address = temp_gm_ub.GetValue(0);
                                 if (feature_address != -1) {
-                                    DataCopyPad(outputGm[(int32_t)(feature_address * total_kernel_size) * this->inchannel + offset * this->inchannel],
-                                                feature_ub, copyParams_feature);
-                                    indices_offset_ub.SetValue(offset, address + i);
+                                    DataCopyPad(feature_ub[offset * this->inchannel], featureGm[(int32_t)(feature_address) * this->inchannel],
+                                                copyParams_feature, padParams);
+                                    indices_offset_ub.SetValue(offset, (int32_t)(feature_address));
                                 }
                         }
                     }
                 }
             }
+            set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            DataCopyPad(outputGm[(int32_t)((address + i) * total_kernel_size) * this->inchannel],
+                        feature_ub, copyParams_output);
+            DataCopyPad(indices_offsetGm[(int32_t)(address + i)* total_kernel_size],
+                        indices_offset_ub, copyParams_count_offset);
+            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        }
+        inQueueIndices.FreeTensor(indices_ub);
+        inQueueFeature.FreeTensor(feature_ub);
+    }
+
+    __aicore__ inline void IndicesCompute2(int32_t progress, int32_t tensor_size, uint64_t address)
+    {
+        indices_ub = inQueueIndices.AllocTensor<DTYPE_INDICES>();
+        feature_ub = inQueueFeature.AllocTensor<DTYPE_FEATURE>();
+        indices_offset_ub = indicesoffsetbuf.Get<DTYPE_INDICES>();
+        temp_gm_ub = tempgmbuf.Get<DTYPE_TEMP>();
+        int32_t point[5];
+        // 计算indices的loop参数
+        auto inchannel_ailgn_32b = AlignUp(this->inchannel, 8);
+        featurepadParams = {true, 0, (uint8_t)(inchannel_ailgn_32b-this->inchannel), 0};
+        DataCopyParams copyParams_indices_large{1, (uint16_t)(tensor_size * sizeof(DTYPE_INDICES)), 0, 0};
+        DataCopyParams copyParams_temp_gm_ub{1, (uint16_t)(8 * sizeof(DTYPE_TEMP)), 0, 0};
+        DataCopyParams copyParams_feature_out{(uint16_t)(total_kernel_size), (uint16_t)(this->inchannel * sizeof(DTYPE_TEMP)), 0, 0};
+        DataCopyPad(indices_ub[0], indicesGm[address], copyParams_indices_large, padParams);
+        DataCopyPad(indices_ub[this->available_ub_size],
+                    indicesGm[address + this->indices_number], copyParams_indices_large, padParams);
+        DataCopyPad(indices_ub[this->available_ub_size*2],
+                    indicesGm[address + this->indices_number*2], copyParams_indices_large, padParams);
+        DataCopyPad(indices_ub[this->available_ub_size*3],
+                    indicesGm[address + this->indices_number*3], copyParams_indices_large, padParams);
+        PipeBarrier<PIPE_ALL>();
+        for (int32_t i = 0; i < tensor_size; i++) {
+            Duplicate<int32_t>(indices_offset_ub, -1, total_kernel_size, 1, 1, 8);
+            Duplicate<DTYPE_FEATURE>(feature_ub, 0, total_kernel_size * inchannel_ailgn_32b);
+            int64_t batch_id = indices_ub.GetValue(i);
+            int64_t indice_z = indices_ub.GetValue(i + this->available_ub_size);
+            int64_t indice_y = indices_ub.GetValue(i + this->available_ub_size * 2);
+            int64_t indice_x = indices_ub.GetValue(i + this->available_ub_size * 3);
+            for (int64_t iz = 0; iz < this->K0; iz++) {
+                for (int64_t iy = 0; iy < this->K1; iy++) {
+                    for (int64_t ix = 0; ix < this->K2; ix++) {
+                        auto offset = iz * this->K1 * this->K0 + iy * this->K0 + ix;
+                        point[0] = indice_z + iz - K2 / 2;
+                        point[1] = indice_y + iy - K1 / 2;
+                        point[2] = indice_x + ix - K0 / 2;
+                        if (point[1] >= 0 && point[1] < outSpatialShape[1] &&
+                            point[2] >= 0 && point[2] < outSpatialShape[2] &&
+                            point[0] >= 0 && point[0] < outSpatialShape[0]) {
+                                int64_t point_offset = point[0] * outSpatialShape[1] *
+                                                        this->outSpatialShape[2] +
+                                                        point[1] * this->outSpatialShape[2] + point[2] +
+                                                        this->feature_map_size * batch_id;
+                                DataCopyPad(temp_gm_ub, tempGm[point_offset],
+                                            copyParams_temp_gm_ub, padParams);
+                                auto feature_address = temp_gm_ub.GetValue(0);
+                                if (feature_address != -1) {
+                                    DataCopyPad(feature_ub[offset * inchannel_ailgn_32b],
+                                                featureGm[(int32_t)(feature_address) * this->inchannel],
+                                                copyParams_feature, featurepadParams);
+                                    indices_offset_ub.SetValue(offset, (int32_t)(feature_address));
+                                }
+                        }
+                    }
+                }
+            }
+            set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            DataCopyPad(outputGm[(int32_t)((address + i) * total_kernel_size) * this->inchannel],
+                        feature_ub, copyParams_feature_out);
             DataCopyPad(indices_offsetGm[(int32_t)(address + i)* total_kernel_size],
                         indices_offset_ub, copyParams_count_offset);
             set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
