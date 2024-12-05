@@ -6,6 +6,7 @@ Modification date: 2024-06-04
 Modification Description: 
 Modification 1. Add support for Ascend NPU
 """
+import warnings
 
 import numpy as np
 import torch
@@ -27,4 +28,13 @@ class AdsFurthestPointSampling(Function):
         return output
 
 
-npu_furthest_point_sampling = AdsFurthestPointSampling.apply
+def furthest_point_sampling(point_xyz, num_points):
+    return AdsFurthestPointSampling.apply(point_xyz, num_points)
+
+
+def npu_furthest_point_sampling(point_xyz, num_points):
+    warnings.warn(
+        "`npu_furthest_point_sampling` will be deprecated in future. Please use `furthest_point_sampling` instead.",
+        DeprecationWarning,
+    )
+    return AdsFurthestPointSampling.apply(point_xyz, num_points)

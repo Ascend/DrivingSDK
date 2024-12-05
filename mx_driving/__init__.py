@@ -14,7 +14,7 @@ from .ops.border_align import border_align
 from .ops.box_iou import box_iou_quadri
 from .ops.boxes_overlap_bev import boxes_overlap_bev, npu_boxes_overlap_bev
 from .ops.deform_conv2d import DeformConv2dFunction, deform_conv2d
-from .ops.furthest_point_sampling import npu_furthest_point_sampling
+from .ops.furthest_point_sampling import furthest_point_sampling
 from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_dist
 from .ops.fused_bias_leaky_relu import npu_fused_bias_leaky_relu
 from .ops.group_points import group_points

@@ -20,6 +20,7 @@ import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 from torch_npu.testing.common_utils import create_common_tensor
+import mx_driving
 import mx_driving.point
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -142,13 +143,18 @@ class TestFurthestPointSample(TestCase):
         return myTest.getCpuRes()
 
     def npu_op_exec(self, myTest):
-        return mx_driving.point.npu_furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
+        res1 = mx_driving.point.furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
+        res2 = mx_driving.point.npu_furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
+        res3 = mx_driving.furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
+        return res1, res2, res3
 
     def compare_res(self, myTest):
         myTest.createData()
         cpuOutput = torch.from_numpy(self.cpu_op_exec(myTest))
-        npuOutput = self.npu_op_exec(myTest)
-        self.assertRtolEqual(cpuOutput, npuOutput)
+        npuOutput1, npuOutput2, npuOutput3 = self.npu_op_exec(myTest)
+        self.assertRtolEqual(cpuOutput, npuOutput1)
+        self.assertRtolEqual(cpuOutput, npuOutput2)
+        self.assertRtolEqual(cpuOutput, npuOutput3)
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampling` is only for 910B, skip it.")
     def test_FurthestPointSample(self):
