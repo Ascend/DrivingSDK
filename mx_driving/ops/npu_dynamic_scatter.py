@@ -8,6 +8,7 @@ Modification 1. Add support for Ascend NPU
 """
 
 from typing import Any, Optional, Tuple
+import warnings
 
 import torch
 import torch_npu
@@ -57,4 +58,12 @@ class DynamicScatterFunction(Function):
         return grad_point_feats, None, None
 
 
-npu_dynamic_scatter = DynamicScatterFunction.apply
+dynamic_scatter = DynamicScatterFunction.apply
+
+
+def npu_dynamic_scatter(feats, coors, reduce_type):
+    warnings.warn(
+        "`npu_dynamic_scatter` will be deprecated in future. Please use `dynamic_scatter` instead.",
+        DeprecationWarning,
+    )
+    return DynamicScatterFunction.apply(feats, coors, reduce_type)

@@ -7,6 +7,8 @@ Modification Description:
 Modification 1. Add support for Ascend NPU
 """
 
+import warnings
+
 import torch
 import torch_npu
 from torch.autograd import Function
@@ -26,4 +28,12 @@ class PointsInBoxFunction(Function):
         return None
 
 
-npu_points_in_box = PointsInBoxFunction.apply
+points_in_box = PointsInBoxFunction.apply
+
+
+def npu_points_in_box(boxes, pt):
+    warnings.warn(
+        "`npu_points_in_box` will be deprecated in future. Please use `points_in_box` instead.",
+        DeprecationWarning,
+    )
+    return PointsInBoxFunction.apply(boxes, pt)

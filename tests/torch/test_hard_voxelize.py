@@ -57,8 +57,6 @@ class TestHardVoxelize(TestCase):
         return len(result), np.array(result)
 
 
-
-    @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
     def test_hard_voxelize(self):
         for point_num in self.point_nums:
             voxels = self.gen(point_num)

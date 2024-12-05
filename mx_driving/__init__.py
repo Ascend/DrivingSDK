@@ -29,10 +29,10 @@ from .ops.multi_scale_deformable_attn import (
 from .ops.nms3d_normal import nms3d_normal
 from .ops.npu_add_relu import npu_add_relu
 from .ops.npu_deformable_aggregation import npu_deformable_aggregation, deformable_aggregation
-from .ops.npu_dynamic_scatter import npu_dynamic_scatter
+from .ops.npu_dynamic_scatter import npu_dynamic_scatter, dynamic_scatter
 from .ops.npu_max_pool2d import npu_max_pool2d
 from .ops.nms3d import nms3d
-from .ops.npu_points_in_box import npu_points_in_box
+from .ops.npu_points_in_box import npu_points_in_box, points_in_box
 from .ops.npu_points_in_box_all import npu_points_in_box_all, points_in_boxes_all
 from .ops.pixel_group import pixel_group
 from .ops.roi_align_rotated import roi_align_rotated
@@ -67,6 +67,7 @@ __all__ = [
     "boxes_overlap_bev",
     "npu_boxes_overlap_bev",
     "deform_conv2d",
+    "dynamic_scatter",
     "furthest_point_sample_with_dist",
     "furthest_point_sample_with_dist",
     "npu_fused_bias_leaky_relu",
@@ -85,6 +86,7 @@ __all__ = [
     "npu_nms3d",
     "npu_points_in_box",
     "npu_points_in_box_all",
+    "points_in_box",
     "points_in_boxes_all",
     "pixel_group",
     "roi_align_rotated",
