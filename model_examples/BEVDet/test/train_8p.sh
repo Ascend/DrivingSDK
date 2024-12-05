@@ -90,7 +90,7 @@ echo "Device ID: $ASCEND_DEVICE_ID"
 export RANK_ID=$RANK_ID
 export WORLD_SIZE=8
 
-./tools/dist_train.sh ${py_config} ${WORLD_SIZE} \
+bash ./tools/dist_train.sh ${py_config} ${WORLD_SIZE} \
 --work-dir ${work_dir} \
 --cfg-options runner.max_epochs=$max_epochs
 

@@ -484,8 +484,8 @@ class CenterHead(BaseModule):
                 task_box.append(gt_bboxes_3d[m])
                 # 0 is background for each task, so we need to add 1 here.
                 task_class.append(gt_labels_3d[m] + 1 - flag2)
-            task_boxes.append(torch.cat(task_box, axis=0).to(device))
-            task_classes.append(torch.cat(task_class).long().to(device))
+            task_boxes.append(torch.cat(task_box, axis=0))
+            task_classes.append(torch.cat(task_class).long())
             flag2 += len(mask)
         draw_gaussian = draw_heatmap_gaussian
         heatmaps, anno_boxes, inds, masks = [], [], [], []
@@ -537,8 +537,7 @@ class CenterHead(BaseModule):
                     ) / voxel_size[1] / self.train_cfg['out_size_factor']
 
                     center = torch.tensor([coor_x, coor_y],
-                                          dtype=torch.float32,
-                                          device=device)
+                                          dtype=torch.float32)
                     center_int = center.to(torch.int32)
 
                     # throw out not in range objects to avoid out of array
@@ -565,7 +564,7 @@ class CenterHead(BaseModule):
                     if self.with_velocity:
                         vx, vy = temp_boxes[k][7:]
                         anno_box[k] = torch.cat([
-                            center - torch.tensor([x, y], device=device),
+                            center - torch.tensor([x, y]),
                             z.unsqueeze(0), box_dim,
                             torch.sin(rot).unsqueeze(0),
                             torch.cos(rot).unsqueeze(0),
@@ -574,7 +573,7 @@ class CenterHead(BaseModule):
                         ])
                     else:
                         anno_box[k] = torch.cat([
-                            center - torch.tensor([x, y], device=device),
+                            center - torch.tensor([x, y]),
                             z.unsqueeze(0), box_dim,
                             torch.sin(rot).unsqueeze(0),
                             torch.cos(rot).unsqueeze(0)
