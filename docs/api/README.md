@@ -103,7 +103,7 @@ out.backward(grad_out_tensor)
 - `dim_size`的取值必须为非负的有效长度值。
 - `src`和`out`不支持`inf`、`-inf`和`nan`。
 ### 其他说明
-- 该算子对尾块较大的场景较为亲和，对尾块很小的场景不亲和，其中，尾块表示`src`后`N`维的大小，`N = src.dim() - indices.dim()`。
+- 该算子的正反向均对尾块较大的场景较为亲和，对尾块很小的场景不亲和，其中，尾块表示`src`后`N`维的大小，`N = src.dim() - indices.dim()`。
 
 ## three_interpolate
 ### 接口原型
