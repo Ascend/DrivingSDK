@@ -19,6 +19,12 @@ $$argmax_i = argmax_j(updates_j)$$
 ### 返回值
 - `out`：更新后的张量，数据类型为`float32`。
 - `argmax`：最大值对应的索引张量，数据类型为`int32`。
+### 算子约束
+- `updates`的第0维外其余轴合轴后必须32字节对齐。
+- `indices`的维度必须为`1`，`indices`第0维的长度必须与`updates`第0维的长度相同。
+- `indices`的取值必须为非负的有效索引值，且`indices`的最大值必须小于`491520`。
+- `out`的维度必须与`updates`的维度相同，且除第0维外其余维的长度必须与`updates`相同。
+- 反向仅支持`updates`的维度为`2`，其余约束与正向相同。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
@@ -33,9 +39,3 @@ out, argmax = scatter_max(updates, indices, out)
 grad_out_tensor = torch.ones_like(out)
 out.backward(grad_out_tensor)
 ```
-### 算子约束
-- `updates`的第0维外其余轴合轴后必须32字节对齐。
-- `indices`的维度必须为`1`，`indices`第0维的长度必须与`updates`第0维的长度相同。
-- `indices`的取值必须为非负的有效索引值，且`indices`的最大值必须小于`491520`。
-- `out`的维度必须与`updates`的维度相同，且除第0维外其余维的长度必须与`updates`相同。
-- 反向仅支持`updates`的维度为`2`，其余约束与正向相同。
