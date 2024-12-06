@@ -143,6 +143,7 @@ out, argmax = scatter_max(updates, indices, out)
 | YoloV7  | https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov7_for_PyTorch  |【Pass】|
 | YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |【Pass】|
 | Stable-Diffusion|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/diffusion/diffusers0.18.1|【Pass】 |
+| Resnet18|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/ACL_PyTorch/built-in/cv/Resnet18_for_PyTorch|【Pass】 |
 | Resnet50|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/ResNet50_ID4149_for_PyTorch|【Pass】 |
 | Mobilenetv3|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV3-Large_ID1784_for_PyTorch|【Pass】 |
 | Faster-Mask-RCNN|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/detection/Faster_Mask_RCNN_for_PyTorch|【Pass】 |
