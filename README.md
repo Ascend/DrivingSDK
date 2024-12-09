@@ -138,11 +138,16 @@ out, argmax = scatter_max(updates, indices, out)
 |  Model   | 链接  | 认证 |
 |  :----:  |  :----  | :----  |
 | MatrixVT  | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/MatrixVT | 【Pass】 |
-| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet | 【Pass】|
+| MobileNetV1  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV1_ID0094_for_PyTorch| 【Pass】 |
+| MobileNetV2  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV2_for_PyTorch| 【Pass】 |
 | YoloV5  |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 | 【Pass】|
 | YoloV7  | https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov7_for_PyTorch  |【Pass】|
+| YoloV9  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/detection/YOLOV9_for_PyTorch |【Test】|
 | YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |【Pass】|
 | Stable-Diffusion|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/diffusion/diffusers0.18.1|【Pass】 |
+| RegNet  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/RegNetX_ID4127_for_PyTorch |【Pass】 |
+| RepVGG  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/RepVGG |【Pass】 |
+| ViT  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/vit_base_patch32_224|【Pass】 |
 | Resnet18|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/ACL_PyTorch/built-in/cv/Resnet18_for_PyTorch|【Pass】 |
 | Resnet50|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/ResNet50_ID4149_for_PyTorch|【Pass】 |
 | Mobilenetv3|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV3-Large_ID1784_for_PyTorch|【Pass】 |
@@ -152,20 +157,25 @@ out, argmax = scatter_max(updates, indices, out)
 | EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch |【Pass】|
 | EfficientNetV2 | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |【Pass】|
 | SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 | 【Pass】|
+| U-net |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/UNet_for_PyTorch|【Pass】 |
+| FCN |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch|【Pass】 |
+| BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Pass】|
+| PETR | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/PETR| 【Pass】|
+| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet | 【Pass】|
 | CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Pass】|
 | BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |【Pass】|
 | SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |【Pass】|
 | GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner | 【Pass】|
-|U-net|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/UNet_for_PyTorch|【Pass】 |
 | FCN-res18  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |【Test】|
-| BEVDet  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVDet |【Pass】|
-| BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Test】|
+| BEVDet  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVDet |【Test】|
 | PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
 | TPVFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/TPVFormer |【Test】|
-| UniAD | https://gitee.com/ascend/mxDriving/tree/master/model_examples/UniAD |【Test】|
 | DETR | https://gitee.com/ascend/mxDriving/tree/master/model_examples/DETR |【Test】|
 | LaneSegNet | https://gitee.com/ascend/mxDriving/tree/master/model_examples/LaneSegNet |【Test】|
 | BEVFusion | https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFusion |【Test】|
+| FCOS-resnet | https://gitee.com/ascend/mxDriving/tree/master/model_examples/FCOS | 【Test】|
+| MapTR |https://gitee.com/ascend/mxDriving/tree/master/model_examples/MapTR| 【Test】|
+| UniAD | https://gitee.com/ascend/mxDriving/tree/master/model_examples/UniAD |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
