@@ -27,7 +27,7 @@ const uint32_t ATTN_WEIGHTS_NUM_LEVELS_DIM = 0;
 const uint32_t ATTN_WEIGHTS_BATCH_SIZE_DIM = 1;
 const uint32_t ATTN_WEIGHTS_NUM_QUERIES_DIM = 2;
 const uint32_t ATTN_WEIGHTS_NUM_POINTS_DIM = 3;
-const uint64_t UB_RESERVE_BYTES = 1024;
+const uint64_t UB_RESERVE_BYTES = 10 * 1024;
 const uint32_t FLOAT32_BYTES = 4;
 const uint32_t BLOCK_BYTES = 32;
 } // namespace
@@ -64,27 +64,41 @@ static ge::graphStatus TilingFuncForGeometricKernelAttnGrad(gert::TilingContext*
     uint32_t numQueries = attnWeightShape.GetDim(ATTN_WEIGHTS_NUM_QUERIES_DIM);
     uint32_t numPoints = attnWeightShape.GetDim(ATTN_WEIGHTS_NUM_POINTS_DIM);
 
-    uint32_t dataAlign = BLOCK_BYTES / FLOAT32_BYTES;
-    uint32_t numLevelsAlign = AlignUp(numLevels, dataAlign);
-    uint32_t numKeysAlign = AlignUp(numKeys, dataAlign);
-    uint32_t numPointsAlign = AlignUp(numPoints, dataAlign);
+    uint32_t numItemsPerBlock = BLOCK_BYTES / FLOAT32_BYTES;
+    uint32_t numLevelsAligned = AlignUp(numLevels, numItemsPerBlock);
+    uint32_t numKeysAligned = AlignUp(numKeys, numItemsPerBlock);
+    uint32_t numPointsAligned = AlignUp(numPoints, numItemsPerBlock);
+
+    uint32_t numLargeCores = numQueries % aivNum;
+    if (numLargeCores == 0) {
+        numLargeCores = aivNum;
+    }
 
     uint64_t ubBytesTotal;
     ascendPlatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubBytesTotal);
     uint64_t ubBytes = ubBytesTotal - UB_RESERVE_BYTES;
     uint64_t ubSize = ubBytes / FLOAT32_BYTES;
-    uint32_t ubSize4Others = numLevelsAlign * 3 + numPointsAlign * embedDims * 2;
-    uint32_t ubSize4Bundle = ubSize - ubSize4Others;
+    uint32_t ubSize4Others = numLevelsAligned * 3 + numPointsAligned * embedDims * 2;
+    uint32_t ubSize4OthersOpt = ubSize4Others + numKeys * embedDims;
+    uint32_t oneQuerySizePerBundle = numKeysAligned + embedDims + numPointsAligned * 3;
 
-    uint32_t numQueriesPerBundle = (ubSize4Bundle - dataAlign) / (numKeysAlign + embedDims + numPointsAlign * 3);
-    uint32_t numQueriesPerCore = (numQueries + aivNum - 1) / aivNum;
+    uint32_t ubSize4Bundle = ubSize - ubSize4OthersOpt;
+    if (ubSize4OthersOpt + 2 * oneQuerySizePerBundle < ubSize) {
+        context->SetTilingKey(1);
+    } else {
+        context->SetTilingKey(0);
+        ubSize4Bundle = ubSize - ubSize4Others;
+    }
+
+    uint32_t numQueriesPerBundle = (ubSize4Bundle - numItemsPerBlock) / oneQuerySizePerBundle;
+    uint32_t numQueriesPerLargeCore = (numQueries + aivNum - 1) / aivNum;
 
     matmul_tiling::MatmulApiTiling mmTiling(ascendPlatformInfo);
     mmTiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mmTiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT, true);
     mmTiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND_ALIGN, matmul_tiling::DataType::DT_FLOAT);
-    mmTiling.SetShape(numQueriesPerCore, numKeys, embedDims);
-    mmTiling.SetOrgShape(numQueriesPerCore, numKeys, embedDims);
+    mmTiling.SetShape(numQueriesPerLargeCore, numKeys, embedDims);
+    mmTiling.SetOrgShape(numQueriesPerLargeCore, numKeys, embedDims);
     mmTiling.SetBias(false);
     mmTiling.SetBufferSpace(-1, -1, -1);
     if (mmTiling.GetTiling(tiling.mmTilingData) == -1) {
@@ -98,14 +112,15 @@ static ge::graphStatus TilingFuncForGeometricKernelAttnGrad(gert::TilingContext*
     tiling.set_numQueries(numQueries);
     tiling.set_numPoints(numPoints);
     tiling.set_coreNum(aivNum);
+    tiling.set_numLargeCores(numLargeCores);
     tiling.set_numQueriesPerBundle(numQueriesPerBundle);
-    tiling.set_numQueriesPerCore(numQueriesPerCore);
+    tiling.set_numQueriesPerLargeCore(numQueriesPerLargeCore);
 
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     size_t systemWorkspaceSize = ascendPlatformInfo.GetLibApiWorkSpaceSize();
-    size_t tmp4GradAttnWeightsSize = numLevels * batchSize * numQueries * numKeysAlign * sizeof(float);
+    size_t tmp4GradAttnWeightsSize = numQueries * numKeysAligned * sizeof(float);
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     currentWorkspace[0] = systemWorkspaceSize + tmp4GradAttnWeightsSize;
 

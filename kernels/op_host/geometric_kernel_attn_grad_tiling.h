@@ -15,8 +15,9 @@ TILING_DATA_FIELD_DEF(uint32_t, numQueries)
 TILING_DATA_FIELD_DEF(uint32_t, numLevels)
 TILING_DATA_FIELD_DEF(uint32_t, numPoints)
 TILING_DATA_FIELD_DEF(uint32_t, coreNum)
+TILING_DATA_FIELD_DEF(uint32_t, numLargeCores)
 TILING_DATA_FIELD_DEF(uint32_t, numQueriesPerBundle)
-TILING_DATA_FIELD_DEF(uint32_t, numQueriesPerCore)
+TILING_DATA_FIELD_DEF(uint32_t, numQueriesPerLargeCore)
 TILING_DATA_FIELD_DEF_STRUCT(TCubeTiling, mmTilingData)
 END_TILING_DATA_DEF;
 

@@ -5,7 +5,7 @@ import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 
-import mx_driving.fused
+import mx_driving
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -65,7 +65,7 @@ ExecResults = namedtuple('ExecResults', ['output', 'grad_value', 'grad_attn_weig
 Inputs = namedtuple('Inputs', ['value', 'spatial_shapes', 'level_start_index', 'sampling_locations', 'attn_weights', 'grad_output'])
 
 
-class TestGeometricKernelAttentionFunc(TestCase):
+class TestGeometricKernelAttention(TestCase):
     def setUp(self):
         self.dtype_list = [torch.float32]
         self.shape_list = [
@@ -127,7 +127,7 @@ class TestGeometricKernelAttentionFunc(TestCase):
         npu_attn_weights.requires_grad_()
         
         return Inputs(cpu_value, cpu_spatial_shapes, cpu_level_start_index, cpu_sampling_locations, cpu_attn_weights, cpu_grad_output), \
-            Inputs(npu_value, npu_spatial_shapes, npu_level_start_index, npu_sampling_locations, npu_attn_weights, npu_grad_output)
+               Inputs(npu_value, npu_spatial_shapes, npu_level_start_index, npu_sampling_locations, npu_attn_weights, npu_grad_output)
 
     def cpu_to_exec(self, cpu_inputs):
         value = cpu_inputs.value
@@ -153,7 +153,7 @@ class TestGeometricKernelAttentionFunc(TestCase):
         sampling_locations = npu_inputs.sampling_locations
         attn_weights = npu_inputs.attn_weights
         grad_output = npu_inputs.grad_output
-        npu_output = mx_driving.fused.npu_geometric_kernel_attention(
+        npu_output = mx_driving.geometric_kernel_attention(
             value, spatial_shapes, level_start_index, sampling_locations, attn_weights
         )
         npu_output.backward(grad_output)

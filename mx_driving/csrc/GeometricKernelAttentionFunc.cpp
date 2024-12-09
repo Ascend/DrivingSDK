@@ -30,7 +30,7 @@ constexpr size_t ATTN_WEIGHTS_NUM_POINTS_DIM = 4;
 constexpr size_t FLOAT32_BYTES = 4;
 constexpr size_t BLOCK_BYTES = 32;
 
-at::Tensor npu_geometric_kernel_attention(const at::Tensor& value, const at::Tensor& spatial_shapes,
+at::Tensor geometric_kernel_attention(const at::Tensor& value, const at::Tensor& spatial_shapes,
     const at::Tensor& level_start_index, const at::Tensor& sampling_locations, const at::Tensor& attn_weights)
 {
     TORCH_CHECK(value.scalar_type() == at::kHalf || value.scalar_type() == at::kFloat,
@@ -64,7 +64,7 @@ at::Tensor npu_geometric_kernel_attention(const at::Tensor& value, const at::Ten
     return output;
 }
 
-std::tuple<at::Tensor, at::Tensor> npu_geometric_kernel_attention_backward(const at::Tensor& value,
+std::tuple<at::Tensor, at::Tensor> geometric_kernel_attention_backward(const at::Tensor& value,
     const at::Tensor& spatial_shapes, const at::Tensor& level_start_index, const at::Tensor& sampling_locations,
     const at::Tensor& attn_weights, const at::Tensor& grad_output)
 {
@@ -97,9 +97,6 @@ std::tuple<at::Tensor, at::Tensor> npu_geometric_kernel_attention_backward(const
     auto num_queries = attn_weights_size[ATTN_WEIGHTS_NUM_QUERIES_DIM];
     auto num_levels = attn_weights_size[ATTN_WEIGHTS_NUM_LEVELS_DIM];
     auto num_points = attn_weights_size[ATTN_WEIGHTS_NUM_POINTS_DIM];
-
-    auto data_align = BLOCK_BYTES / FLOAT32_BYTES;
-    auto num_keys_align = AlignUp(num_keys, data_align);
 
     TORCH_CHECK(embed_dims % 8 == 0, "embed_dims must be a multiple of 8, but embed_dims is ", embed_dims, ".");
 

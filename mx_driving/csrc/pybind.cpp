@@ -121,9 +121,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     m.def("deformable_conv2d_backward", &deformable_conv2d_backward);
     m.def("modulated_deformable_conv2d_backward", &modulated_deformable_conv2d_backward);
 
-    // npu_geometric_kernel_attention_func
-    m.def("npu_geometric_kernel_attention", &npu_geometric_kernel_attention);
-    m.def("npu_geometric_kernel_attention_backward", &npu_geometric_kernel_attention_backward);
+    // geometric_kernel_attention
+    m.def("geometric_kernel_attention", &geometric_kernel_attention);
+    m.def("geometric_kernel_attention_backward", &geometric_kernel_attention_backward);
 
     // group_points
     m.def("group_points", &group_points);
