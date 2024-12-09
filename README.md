@@ -160,13 +160,13 @@ out, argmax = scatter_max(updates, indices, out)
 | U-net |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/UNet_for_PyTorch|【Pass】 |
 | FCN |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch|【Pass】 |
 | BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Pass】|
+| FCN |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |【Pass】|
 | PETR | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/PETR| 【Pass】|
 | PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet | 【Pass】|
 | CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Pass】|
 | BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |【Pass】|
 | SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |【Pass】|
 | GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner | 【Pass】|
-| FCN-res18  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |【Test】|
 | BEVDet  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVDet |【Test】|
 | PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
 | TPVFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/TPVFormer |【Test】|
