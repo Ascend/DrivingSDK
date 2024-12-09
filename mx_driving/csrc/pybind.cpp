@@ -56,6 +56,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // assign_score_withk
     m.def("assign_score_withk", &assign_score_withk);
+    m.def("assign_score_withk_grad", &assign_score_withk_grad);
     // nms3d_normal
     m.def("nms3d_normal", &nms3d_normal);
 

@@ -47,6 +47,11 @@ std::tuple<at::Tensor, at::Tensor> npu_hypot_grad(
 void assign_score_withk(const at::Tensor& points, const at::Tensor& centers, const at::Tensor& scores,
     const at::Tensor& knn_idx, at::Tensor& output, int32_t B, int32_t N, int32_t npoint, int32_t M, int32_t K,
     int32_t out_dim, int32_t aggregate);
+
+void assign_score_withk_grad(const at::Tensor& grad_out, const at::Tensor& points, const at::Tensor& centers, const at::Tensor& scores,
+    const at::Tensor& knn_idx, at::Tensor& grad_points, at::Tensor& grad_centers, at::Tensor& grad_scores,
+    int32_t B, int32_t N, int32_t npoint, int32_t M, int32_t K, int32_t out_dim, int32_t aggregate);
+
 at::Tensor npu_max_pool2d(const at::Tensor& x, int kernel_size, int stride, int padding);
 
 at::Tensor multi_scale_deformable_attn(const at::Tensor& value, const at::Tensor& value_spatial_shapes,

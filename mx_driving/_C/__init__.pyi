@@ -50,6 +50,23 @@ def assign_score_withk(
     out_dim: int,
     aggregate: int,
 ) -> None: ...
+def assign_score_withk_grad(
+    grad_out: torch.Tensor,
+    points: torch.Tensor,
+    centers: torch.Tensor,
+    scores: torch.Tensor,
+    knn_idx: torch.Tensor,
+    grad_points: torch.Tensor,
+    grad_centers: torch.Tensor,
+    grad_scores: torch.Tensor,
+    B: int,
+    N: int,
+    npoint: int,
+    M: int,
+    K: int,
+    out_dim: int,
+    aggregate: int,
+) -> None: ...
 def npu_max_pool2d(x: torch.Tensor, kernel_size: int, stride: int, padding: int) -> torch.Tensor: ...
 def multi_scale_deformable_attn(
     value: torch.Tensor,
@@ -410,6 +427,7 @@ __all__ = [
     "npu_hypot",
     "npu_hypot_grad",
     "assign_score_withk",
+    "assign_score_withk_grad",
     "npu_max_pool2d",
     "multi_scale_deformable_attn",
     "multi_scale_deformable_attn_backward",
