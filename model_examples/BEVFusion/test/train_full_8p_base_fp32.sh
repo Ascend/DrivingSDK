@@ -35,7 +35,7 @@ cd mmdetection3d
 start_time=$(date +%s)
 bash tools/dist_train.sh \
     projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${world_size} \
-    --cfg-options load_from=pretrained/epoch_20.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
+    --cfg-options load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
     > ${test_path_dir}/output/train_full_8p_base_fp32.log 2>&1 &
 
 wait
@@ -50,7 +50,7 @@ echo "------------------ Final result ------------------"
 
 #获取性能数据，不需要修改
 #单迭代训练时长，不需要修改
-TrainingTime=$(grep -v val ${test_path_dir}/output/train_full_8p_base_fp32.log | grep -o ", time: [0-9.]*"  | tail +n 200 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
+TrainingTime=$(grep -v val ${test_path_dir}/output/train_full_8p_base_fp32.log | grep -o " time: [0-9.]*"  | tail -n +200 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
 
 #吞吐量
 ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$TrainingTime'}')
@@ -62,10 +62,10 @@ echo "Final Performance images/sec : $ActualFPS"
 ActualLoss=$(grep -o "loss: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
 
 #NDS值
-NDS=$(grep -o "pts_bbox_NuScenes/NDS: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
+NDS=$(grep -o "pred_instances_3d_NuScenes/NDS: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
 
 #mAP值
-mAP=$(grep -o "pts_bbox_NuScenes/mAP: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
+mAP=$(grep -o "pred_instances_3d_NuScenes/mAP: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
 
 #打印，不需要修改
 echo "Final Train Loss : ${ActualLoss}"
