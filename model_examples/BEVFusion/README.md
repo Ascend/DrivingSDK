@@ -103,7 +103,7 @@ BEVFusion 是一个高效且通用的多任务多传感器融合框架，它在�
 
 ```
 pretrained/
-├── r101_dcn_fcos3d_pretrain.pth
+├── swint-nuimages-pretrained.pth
 ├── bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth
 ```
 
