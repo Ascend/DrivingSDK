@@ -871,7 +871,7 @@ scale * negative\_slope * (x + bias), \quad x + bias < 0 \\
 $$
 ### 参数说明
 - `x(Tensor)`：输入张量，数据类型为`float32`。
-- `bias(Tensor)`：与x要求一致。
+- `bias(Tensor)`：1维张量，维度大小与x的第2维度保持一致，数据类型为`float32`。
 - `negative_slope(float)`：标量，数据类型为`float32`。
 - `scale(float)`：标量，数据类型为`float32`。
 ### 返回值
@@ -879,8 +879,8 @@ $$
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 约束说明
-- x与bias必须同shape
-- 不要超过8维度
+- x维度为3-8维
+- bias为1维张量，维度大小与x的第2维度一致
 - 总数据规模不要超过10亿大小
 - negative_slope与scale不能为inf或-inf
 ### 调用示例
@@ -892,9 +892,10 @@ from mx_driving.fused import npu_fused_bias_leaky_relu
 negative_slope = -0.1
 scale = 0.25
 
-x = np.random.uniform(-1, 1, [18, 256, 232, 400]).astype(np.float32)
+B, N, H, W = [18, 256, 232, 400]
+x = np.random.uniform(1, 1, [B, N, H, W]).astype(np.float32)
 x = torch.from_numpy(x)
-bias = np.random.uniform(-2.0, 2.0, [18, 256, 232, 400]).astype(np.float32)
+bias = np.random.uniform(-2.0, 2.0, N).astype(np.float32)
 bias = torch.from_numpy(bias)
 
 out = npu_fused_bias_leaky_relu(x.npu(), bias.npu(), negative_slope, scale)
