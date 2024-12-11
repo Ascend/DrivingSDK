@@ -48,6 +48,7 @@ from .ops.voxel_pooling_train import npu_voxel_pooling_train
 from .ops.voxelization import voxelization
 from .ops.geometric_kernel_attention import geometric_kernel_attention
 from .ops.unique_voxel import unique_voxel
+from .ops.cal_anchors_heading import cal_anchors_heading
 
 __all__ = [
     "RoIPointPool3d",
@@ -99,6 +100,7 @@ __all__ = [
     "three_nn",
     "npu_voxel_pooling_train",
     "voxelization",
+    "cal_anchors_heading"
 ]
 
 

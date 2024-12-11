@@ -413,7 +413,10 @@ def npu_bev_pool_v3_backward(
     H: int,
     W: int,
 ) -> Tuple[Optional[torch.Tensor], torch.Tensor]: ...
-
+def cal_anchors_heading(
+    anchors: torch.Tensor,
+    origin_pos: Optional[torch.Tensor],
+) -> torch.Tensor: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
@@ -462,4 +465,5 @@ __all__ = [
     "npu_furthest_point_sampling",
     "npu_bev_pool_v3",
     "npu_bev_pool_v3_backward",
+    "cal_anchors_heading",
 ]

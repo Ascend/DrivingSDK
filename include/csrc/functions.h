@@ -240,4 +240,6 @@ at::Tensor geometric_kernel_attention(const at::Tensor& value, const at::Tensor&
 std::tuple<at::Tensor, at::Tensor> geometric_kernel_attention_backward(const at::Tensor& value,
     const at::Tensor& spatial_shapes, const at::Tensor& level_start_index, const at::Tensor& sampling_locations,
     const at::Tensor& attn_weights, const at::Tensor& grad_output);
+
+at::Tensor cal_anchors_heading(const at::Tensor& anchors, const at::Tensor& origin_pos);
 #endif // CSRC_FUNCTIONS_H_
