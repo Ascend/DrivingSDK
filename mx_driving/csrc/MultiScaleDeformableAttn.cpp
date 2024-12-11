@@ -53,6 +53,7 @@ at::Tensor multi_scale_deformable_attn(const at::Tensor& value, const at::Tensor
         at::Tensor attention_weights_fp32 = attention_weights.to(at::kFloat);
         EXEC_NPU_CMD(aclnnMultiScaleDeformableAttn, value_fp32, value_spatial_shapes, value_level_start_index,
             sampling_locations_fp32, attention_weights_fp32, output);
+        return output.to(at::kHalf);
     }
 
     EXEC_NPU_CMD(aclnnMultiScaleDeformableAttn, value, value_spatial_shapes, value_level_start_index,
