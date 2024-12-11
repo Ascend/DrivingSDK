@@ -31,7 +31,7 @@ class ProfilerHookNPU(Hook):
     def __init__(self,
                  by_epoch: bool = True,
                  profile_iters: int = 1,
-                 activities: tuple[str] = ('cpu', 'npu'),
+                 activities: Optional[list] = None,
                  schedule: Optional[dict] = None,
                  on_trace_ready: Optional[Union[str, dict]] = None,
                  record_shapes: bool = False,
@@ -54,9 +54,12 @@ class ProfilerHookNPU(Hook):
                              f'{profile_iters}')
         self.profile_iters = profile_iters
 
-        if not isinstance(activities, tuple):
-            raise ValueError(
-                f'activities should be tuple, but got {type(activities)}')
+        if activities is None:
+            activities = ['cpu', 'npu']
+        else:
+            if not isinstance(activities, list):
+                raise ValueError(
+                    f'activities should be list, but got {type(activities)}')
         self.activities = []
         for activity in activities:
             activity = activity.lower()

@@ -142,6 +142,7 @@ echo "E2ETrainingTime = ${e2e_time}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_
 # 性能任务控制
 if (($performance==0));then
   eval_log_file=`echo ${test_path_dir}/output/$ASCEND_DEVICE_ID/eval_${CaseName}.log`
+  chmod +x ./tools/dist_test.sh
   nohup ./tools/dist_test.sh ${py_config} ${work_dir}/epoch_${max_epochs}_ema.pth 8 --eval mAP >> ${eval_log_file} 2>&1 &
   wait
   #输出训练精度
