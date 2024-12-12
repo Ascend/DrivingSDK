@@ -8,7 +8,7 @@ import torch_npu
 import torch.nn as nn
 from torch.nn.modules.utils import _pair, _single
 from mmcv.utils import deprecated_api_warning
-from mx_driving.fused import modulated_deform_conv2d, ModulatedDeformConv2dFunction
+from mx_driving import modulated_deform_conv2d, ModulatedDeformConv2dFunction
 
 from ..cnn import CONV_LAYERS
 from ..utils import print_log

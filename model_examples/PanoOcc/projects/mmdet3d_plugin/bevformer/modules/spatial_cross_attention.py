@@ -20,7 +20,7 @@ from mmcv.runner import force_fp32
 from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
 
-from mx_driving.fused import multi_scale_deformable_attn
+from mx_driving import multi_scale_deformable_attn
 
 
 indexes_global = None

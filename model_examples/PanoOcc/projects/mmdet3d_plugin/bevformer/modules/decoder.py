@@ -23,7 +23,7 @@ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
 from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
                         to_2tuple)
 
-from mx_driving.fused import multi_scale_deformable_attn
+from mx_driving import multi_scale_deformable_attn
 
 
 def inverse_sigmoid(x, eps=1e-5):

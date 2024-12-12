@@ -1,9 +1,14 @@
-# ---------------------------------------------
-# Copyright (c) OpenMMLab. All rights reserved.
-# Copyright 2024 Huawei Technologies Co., Ltd
-# ---------------------------------------------
-#  Modified by Zhiqi Li
-# ---------------------------------------------
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import copy
 import torch
@@ -25,7 +30,7 @@ import numpy as np
 import mmcv
 import cv2 as cv
 from projects.mmdet3d_plugin.models.utils.visual import save_tensor
-import mx_driving.common
+import mx_driving
 import mx_driving._C
 from mmdet.models.builder import build_loss
 
@@ -653,7 +658,7 @@ class PanoSegOccHead(DETRHead):
 
         if pts_semantic_mask is not None:
             with torch.no_grad():
-                voxel_label_my, _ = mx_driving.common.scatter_max(pts_semantic_mask, unq_inv.to(torch.int32))
+                voxel_label_my, _ = mx_driving.scatter_max(pts_semantic_mask, unq_inv.to(torch.int32))
             return coors[:, [2, 1, 0]].long(), unq_coors.long(), voxel_label_my.squeeze(-1).long()
         return coors[:, [2, 1, 0]].long(), unq_coors.long()
 

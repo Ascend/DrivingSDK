@@ -18,7 +18,7 @@ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
                         to_2tuple)
 from projects.mmdet3d_plugin.models.utils.bricks import run_time
 
-from mx_driving.fused import multi_scale_deformable_attn
+from mx_driving import multi_scale_deformable_attn
 
 from .multi_scale_deformable_attn_function import \
     MultiScaleDeformableAttnFunction_fp32
