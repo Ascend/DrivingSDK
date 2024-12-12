@@ -26,6 +26,7 @@ bev_mask_global = torch.tensor([]).npu()
 indexes_global = None
 max_len_global = None
 bev_mask_id_global = -1
+count_global = None
 
 
 @ATTENTION.register_module()
