@@ -10,18 +10,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32
-from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
 import math
-import torch
-import torch_npu
-import mx_driving.fused
-import torch.nn as nn
-from mmcv.cnn import xavier_init, constant_init
-from mmcv.cnn.bricks.registry import ATTENTION
-from mmcv.runner.base_module import BaseModule
 
+import torch
+import torch.nn as nn
+import torch_npu
+from mmcv.cnn import constant_init, xavier_init
+from mmcv.cnn.bricks.registry import ATTENTION
+from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
+from mmcv.runner.base_module import BaseModule
 from mmcv.utils import ext_loader
+
+import mx_driving
+
+from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32
+
+
 ext_module = ext_loader.load_ext(
     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
 
@@ -200,7 +204,7 @@ class TPVCrossViewHybridAttention(BaseModule):
                 f' 2, but get {reference_points.shape[-1]} instead.')
         
 
-        output = mx_driving.fused.multi_scale_deformable_attn(
+        output = mx_driving.multi_scale_deformable_attn(
             value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
 
         outputs = self.reshape_output(output, query_lens)

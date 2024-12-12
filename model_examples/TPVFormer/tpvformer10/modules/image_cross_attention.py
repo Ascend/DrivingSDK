@@ -10,21 +10,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
+import math
 import warnings
+
 import torch
-import torch_npu
-import mx_driving.fused
 import torch.nn as nn
-from mmcv.cnn import xavier_init, constant_init
+import torch_npu
+from mmcv.cnn import constant_init, xavier_init
 from mmcv.cnn.bricks.registry import ATTENTION
 from mmcv.cnn.bricks.transformer import build_attention
-import math
+from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
 from mmcv.runner import force_fp32
 from mmcv.runner.base_module import BaseModule
-
 from mmcv.utils import ext_loader
+
+import mx_driving
+
 from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32
+
+
 ext_module = ext_loader.load_ext(
     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
 
@@ -422,7 +426,7 @@ class TPVMSDeformableAttention3D(BaseModule):
         #  sampling_locations.shape: bs, num_query, num_heads, num_levels, num_all_points, 2
         #  attention_weights.shape: bs, num_query, num_heads, num_levels, num_all_points
 
-        output = mx_driving.fused.multi_scale_deformable_attn(
+        output = mx_driving.multi_scale_deformable_attn(
             value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
 
         output = self.reshape_output(output, query_lens)
