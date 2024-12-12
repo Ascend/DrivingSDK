@@ -7,7 +7,9 @@ class BoxIouQuadri(torch.autograd.Function):
     @staticmethod
     def forward(ctx, boxes_a, boxes_b, mode, aligned):
         mode_dict = {"iou": 0, "iof": 1}
-        mode_flag = mode_dict[mode]
+        mode_flag = 0
+        if mode in mode_dict:
+            mode_flag = mode_dict[mode]
 
         boxes_a = boxes_a.contiguous()
         boxes_b = boxes_b.contiguous()
@@ -18,9 +20,12 @@ class BoxIouQuadri(torch.autograd.Function):
 
 class BoxIouRotated(torch.autograd.Function):
     @staticmethod
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(ctx, boxes_a, boxes_b, mode, aligned, clockwise):
         mode_dict = {"iou": 0, "iof": 1}
-        mode_flag = mode_dict[mode]
+        mode_flag = 0
+        if mode in mode_dict:
+            mode_flag = mode_dict[mode]
 
         if not clockwise:
             flip_mat = boxes_a.new_ones(boxes_a.shape[-1])
