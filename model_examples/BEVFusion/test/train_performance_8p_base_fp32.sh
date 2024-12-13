@@ -29,7 +29,7 @@ sed -i "s|max_epochs=6|max_epochs=1|g" projects/BEVFusion/configs/bevfusion_lida
 start_time=$(date +%s)
 bash tools/dist_train.sh \
     projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${world_size} \
-    --cfg-options load_from=pretrained/epoch_20.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
+    --cfg-options load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
     > ${test_path_dir}/output/train_performance_8p_base_fp32.log 2>&1 &
 
 wait
