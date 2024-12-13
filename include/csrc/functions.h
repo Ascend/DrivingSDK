@@ -234,8 +234,9 @@ at::Tensor npu_points_in_box_all(const at::Tensor& boxes, const at::Tensor& pts)
 std::tuple<at::Tensor, at::Tensor> npu_roipoint_pool3d_forward(const int32_t num_sampled_points,
     const at::Tensor& points, const at::Tensor& point_features, const at::Tensor& boxes3d);
 
-at::Tensor geometric_kernel_attention(const at::Tensor& value, const at::Tensor& spatial_shapes,
-    const at::Tensor& level_start_index, const at::Tensor& sampling_locations, const at::Tensor& attn_weights);
+void geometric_kernel_attention_forward(const at::Tensor& value_map, const at::Tensor& spatial_shapes,
+    const at::Tensor& level_start_index, const at::Tensor& sampling_locations,
+    const at::Tensor& attention_weights, at::Tensor& output);
 
 std::tuple<at::Tensor, at::Tensor> geometric_kernel_attention_backward(const at::Tensor& value,
     const at::Tensor& spatial_shapes, const at::Tensor& level_start_index, const at::Tensor& sampling_locations,

@@ -30,11 +30,11 @@ constexpr size_t ATTN_WEIGHTS_NUM_POINTS_DIM = 4;
 constexpr size_t FLOAT32_BYTES = 4;
 constexpr size_t BLOCK_BYTES = 32;
 
-at::Tensor geometric_kernel_attention(const at::Tensor& value, const at::Tensor& spatial_shapes,
-    const at::Tensor& level_start_index, const at::Tensor& sampling_locations, const at::Tensor& attn_weights)
+void geometric_kernel_attention_forward(const at::Tensor& value_map, const at::Tensor& spatial_shapes, const at::Tensor& level_start_index,
+                                        const at::Tensor& sampling_locations, const at::Tensor& attention_weights, at::Tensor& output)
 {
-    TORCH_CHECK(value.scalar_type() == at::kHalf || value.scalar_type() == at::kFloat,
-        "value: float16 or float32 tensor expected but got a tensor with dtype: ", value.scalar_type());
+    TORCH_CHECK(value_map.scalar_type() == at::kHalf || value_map.scalar_type() == at::kFloat,
+        "value_map: float16 or float32 tensor expected but got a tensor with dtype: ", value_map.scalar_type());
     TORCH_CHECK(spatial_shapes.scalar_type() == at::kInt || spatial_shapes.scalar_type() == at::kLong,
         "spatial_spatial_shapes: int32 or int64 tensor expected but got a tensor with dtype: ",
         spatial_shapes.scalar_type());
@@ -45,23 +45,12 @@ at::Tensor geometric_kernel_attention(const at::Tensor& value, const at::Tensor&
                 sampling_locations.scalar_type() == at::kInt || sampling_locations.scalar_type() == at::kLong,
         "sampling_locations: float16, float32, int32 or int64 tensor expected but got a tensor with dtype: ",
         sampling_locations.scalar_type());
-    TORCH_CHECK(attn_weights.scalar_type() == at::kHalf || attn_weights.scalar_type() == at::kFloat,
-        "attn_weights: float16 or float32 tensor expected but got a tensor with dtype: ",
-        attn_weights.scalar_type());
+    TORCH_CHECK(attention_weights.scalar_type() == at::kHalf || attention_weights.scalar_type() == at::kFloat,
+        "attention_weights: float16 or float32 tensor expected but got a tensor with dtype: ",
+        attention_weights.scalar_type());
 
-    auto ori_dtype = value.scalar_type();
-    auto value_size = value.sizes();
-    auto attn_weights_size = attn_weights.sizes();
-
-    auto bs = value_size[VALUE_BATCH_SIZE_DIM];
-    auto num_heads = value_size[VALUE_NUM_HEADS_DIM];
-    auto embed_dims = value_size[VALUE_EMBED_DIMS_DIM];
-    auto num_queries = attn_weights_size[ATTN_WEIGHTS_NUM_QUERIES_DIM];
-    
-    auto output_size = {bs, num_queries, num_heads * embed_dims};
-    at::Tensor output = at::ones(output_size, value.options().dtype(at::kFloat));
-
-    return output;
+    at::Tensor value = value_map.permute({0, 2, 1, 3}).contiguous();
+    EXEC_NPU_CMD(aclnnGeometricKernelAttention, value, spatial_shapes, level_start_index, sampling_locations, attention_weights, output);
 }
 
 std::tuple<at::Tensor, at::Tensor> geometric_kernel_attention_backward(const at::Tensor& value,

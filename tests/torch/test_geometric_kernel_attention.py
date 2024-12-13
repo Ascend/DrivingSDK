@@ -1,3 +1,8 @@
+"""
+Copyright (c) 2022 Hust Vision Lab. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+Licensed under the MIT License.
+"""
 import unittest
 from collections import namedtuple
 
@@ -113,12 +118,12 @@ class TestGeometricKernelAttention(TestCase):
         cpu_attn_weights = attn_weights.float()
         cpu_grad_output = grad_output.float()
 
-        npu_value = cpu_value.npu()
-        npu_spatial_shapes = cpu_spatial_shapes.npu()
-        npu_level_start_index = cpu_level_start_index.npu()
-        npu_sampling_locations = cpu_sampling_locations.npu()
-        npu_attn_weights = cpu_attn_weights.npu()
-        npu_grad_output = cpu_grad_output.npu()
+        npu_value = cpu_value.float().npu()
+        npu_spatial_shapes = cpu_spatial_shapes.int().npu()
+        npu_level_start_index = cpu_level_start_index.int().npu()
+        npu_sampling_locations = cpu_sampling_locations.float().npu()
+        npu_attn_weights = cpu_attn_weights.float().npu()
+        npu_grad_output = cpu_grad_output.float().npu()
         
         cpu_value.requires_grad_()
         cpu_attn_weights.requires_grad_()
@@ -163,6 +168,10 @@ class TestGeometricKernelAttention(TestCase):
             grad_attn_weights=attn_weights.grad.cpu().numpy()
         )
 
+    def test_geometric_kernel_attention_forward(self):
+        for cpu_results, npu_results in self.test_results:
+            self.assertRtolEqual(cpu_results.output, npu_results.output)
+            
     def test_geometric_kernel_attention_backward(self):
         for cpu_results, npu_results in self.test_results:
             self.assertRtolEqual(cpu_results.grad_value, npu_results.grad_value)

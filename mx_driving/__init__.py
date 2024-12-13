@@ -18,6 +18,7 @@ from .ops.furthest_point_sampling import furthest_point_sampling
 from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_dist
 from .ops.fused_bias_leaky_relu import npu_fused_bias_leaky_relu
 from .ops.group_points import group_points
+from .ops.geometric_kernel_attention import geometric_kernel_attention
 from .ops.hypot import hypot
 from .ops.knn import knn
 from .ops.modulated_deform_conv2d import ModulatedDeformConv2dFunction, modulated_deform_conv2d
@@ -46,7 +47,6 @@ from .ops.three_interpolate import three_interpolate
 from .ops.three_nn import three_nn
 from .ops.voxel_pooling_train import npu_voxel_pooling_train
 from .ops.voxelization import voxelization
-from .ops.geometric_kernel_attention import geometric_kernel_attention
 from .ops.unique_voxel import unique_voxel
 from .ops.cal_anchors_heading import cal_anchors_heading
 
@@ -72,6 +72,7 @@ __all__ = [
     "furthest_point_sample_with_dist",
     "furthest_point_sample_with_dist",
     "npu_fused_bias_leaky_relu",
+    "geometric_kernel_attention",
     "group_points",
     "hypot",
     "knn",
