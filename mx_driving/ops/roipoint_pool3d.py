@@ -41,8 +41,6 @@ class RoipointPool3dFunction(Function):
         batch_size = points.size(0)
         boxes_num = boxes3d.size(1)
         feature_len = point_features.size(2)
-        # pooled_features = points.new_zeros((batch_size, boxes_num, num_sampled_points, 3 + feature_len))
-        # pooled_empty_flag = points.new_zeros((batch_size, boxes_num), dtype=torch.int)
         pooled_features, pooled_empty_flag = mx_driving._C.npu_roipoint_pool3d_forward(
             num_sampled_points, points, point_features, boxes3d
         )
