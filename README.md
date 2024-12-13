@@ -153,7 +153,7 @@ out, argmax = scatter_max(updates, indices, out)
 | Mobilenetv3|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV3-Large_ID1784_for_PyTorch|【Pass】 |
 | Faster-Mask-RCNN|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/detection/Faster_Mask_RCNN_for_PyTorch|【Pass】 |
 | Swin-Transformer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/Swin-Transformer_for_PyTorch | 【Pass】|
-| centerNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/detection/CenterNet |【Pass】|
+| CenterNet  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/CenterNet |【Pass】|
 | EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch |【Pass】|
 | EfficientNetV2 | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |【Pass】|
 | SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 | 【Pass】|
