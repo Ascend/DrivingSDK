@@ -167,6 +167,13 @@ def npu_subm_sparse_conv3d(
     batch_size: int,
     temp: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: ...
+def npu_subm_sparse_conv3d_grad(
+    ouidx_offset: torch.Tensor,
+    valid_indices: torch.Tensor,
+    weight: torch.Tensor,
+    grad: torch.Tensor,
+    indices_number: int,
+    kernel_size: Tuple[int, int, int]) -> torch.Tensor: ...
 def multi_to_sparse(
     out_features: torch.Tensor,
     unique_indices_offset: torch.Tensor,
@@ -444,6 +451,7 @@ __all__ = [
     "deformable_conv2d_backward",
     "modulated_deformable_conv2d_backward",
     "npu_subm_sparse_conv3d",
+    "npu_subm_sparse_conv3d_grad",
     "nms3d_normal",
     "nms3d",
     "npu_rotated_overlaps",

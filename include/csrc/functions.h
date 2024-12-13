@@ -242,4 +242,7 @@ std::tuple<at::Tensor, at::Tensor> geometric_kernel_attention_backward(const at:
     const at::Tensor& attn_weights, const at::Tensor& grad_output);
 
 at::Tensor cal_anchors_heading(const at::Tensor& anchors, const at::Tensor& origin_pos);
+at::Tensor npu_subm_sparse_conv3d_grad(const at::Tensor& ouidx_offset, const at::Tensor& valid_indices,
+                                       const at::Tensor& weight, const at::Tensor& grad, int indices_number,
+                                       at::IntArrayRef kernel_size);
 #endif // CSRC_FUNCTIONS_H_

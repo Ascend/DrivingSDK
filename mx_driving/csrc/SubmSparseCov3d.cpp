@@ -26,7 +26,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_subm_sparse_conv3d(const at::
     auto weight_dim = weight.dim();
     int64_t kernelsum = 1;
     for (int32_t i = 0; i < kernel_size.size(); i++) {
-        kernelsum *= kernel_size[0];
+        kernelsum *= kernel_size[i];
     }
     int64_t outputsum = indices_size[0] * kernelsum;
     c10::SmallVector<int64_t, 8> output_size = {indices_size[0], kernelsum, feature_size[1]};

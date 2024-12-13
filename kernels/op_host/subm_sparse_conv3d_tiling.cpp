@@ -24,7 +24,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
-    auto core_number = 40;
+    auto core_number = ascendplatformInfo.GetCoreNumAiv();
     uint32_t totalresult = context->GetInputTensor(0)->GetStorageShape().GetDim(0);
     auto feature_shape = context->GetInputTensor(0)->GetStorageShape();
     auto indices_shape = context->GetInputTensor(1)->GetStorageShape();

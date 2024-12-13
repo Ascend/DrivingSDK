@@ -176,32 +176,32 @@ class SubMConvFunction(Function):
         weight_flatten = weight.view(kernel_size[0] * kernel_size[1] * kernel_size[2] * features.shape[1], out_channels)
         output_iml2col = output_iml2col.view(features.shape[0], -1)
         out_features = output_iml2col @ weight_flatten
+        ctx.kernel_size = kernel_size
         ctx.save_for_backward(features, weight, output_iml2col, ouidx_offset)
         return out_features, indices
+
 
     @staticmethod
     @once_differentiable
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
+    def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
         features, weight, output_iml2col, ouidx_offset = ctx.saved_tensors
         weight_grad = output_iml2col.T @ grad_out_features
         weight_shape = weight.shape
         kernel_num = weight_shape[0] * weight_shape[1] * weight_shape[2]
-        weight_grad = weight_grad.view(
-            weight_shape[0], weight_shape[1], weight_shape[2], weight_shape[3], weight_shape[4]
-        )
-        weight = weight.view(kernel_num * weight_shape[3], weight_shape[4])
-        feature_grad_iml2col = grad_out_features @ (weight.T)
-        feature_grad_iml2col = feature_grad_iml2col.view(features.shape[0], kernel_num, features.shape[1])
-        feature_grad_iml2col = feature_grad_iml2col.view(features.shape[0] * kernel_num, features.shape[1])
+        weight_grad = weight_grad.view(weight_shape[0], weight_shape[1], weight_shape[2], weight_shape[3], weight_shape[4])
         mask = ouidx_offset != -1
         valid_indices = torch.nonzero(mask).view(-1)
         ouidx_offset = torch.index_select(ouidx_offset, 0, valid_indices)
-        feature_grad_iml2col = torch.index_select(feature_grad_iml2col, 0, valid_indices)
-        feature_grad = torch.zeros_like(features)
-        feature_grad.index_put_((ouidx_offset,), feature_grad_iml2col, True)
+        grad_out_features_iml2col = mx_driving._C.npu_subm_sparse_conv3d_grad(ouidx_offset, valid_indices.int(), weight, grad_out_features,
+                                                                              features.shape[0], ctx.kernel_size)
+        grad_out_features_iml2col = grad_out_features_iml2col.view(features.shape[0],-1)
+        weight = weight.permute(0,1,2,4,3).contiguous()
+        weight_permute = weight.view(kernel_num*weight_shape[4], weight_shape[3])
+        feature_grad = grad_out_features_iml2col @ weight_permute
+        
+        
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None
-
 
 indice_conv = SparseConvFunction.apply
 indice_inverse_conv = SparseInverseConvFunction.apply
