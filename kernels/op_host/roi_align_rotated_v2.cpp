@@ -47,7 +47,7 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
     auto input_shape = context->GetInputShape(INPUT_INDEX); // [N, C, H, W]
     auto rois_shape = context->GetInputShape(ROIS_INDEX); // [n, 6]
     auto output_shape = context->GetOutputShape(OUTPUT_INDEX); // [n, C, pooled_height, pooled_width]
-    if (input_shape == nullptr || rois_shape == nullptr || output_shape == nullptr) {
+    if (input_shape == nullptr || rois_shape == nullptr || output_shape == nullptr || context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
