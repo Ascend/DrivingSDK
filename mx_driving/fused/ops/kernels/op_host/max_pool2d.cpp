@@ -22,6 +22,9 @@ namespace optiling {
 static ge::graphStatus TilingFuncForMaxPool2d(gert::TilingContext *context)
 {
     MaxPool2dTilingData tiling;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
     auto xTensorPtr = context->GetInputTensor(0);
     if (xTensorPtr == nullptr) {
@@ -46,6 +49,9 @@ static ge::graphStatus TilingFuncForMaxPool2d(gert::TilingContext *context)
     tiling.set_outWidth((xShape.GetDim(WIDTH_DIM) + 1)/2);
 
     tiling.set_coreNum(coreNum);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
