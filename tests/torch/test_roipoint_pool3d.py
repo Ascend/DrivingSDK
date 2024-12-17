@@ -17,6 +17,7 @@ import unittest
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 from mx_driving import roipoint_pool3d
@@ -29,6 +30,7 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 # float16[-14,16], float32[-126,128], float64[-1022,1024], int16[0,15], int32[0,31], int64[0,63]
 # random_value(-7, 8, (1, 2, 3), np.float32, True, True, False, False)
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
 def random_value(
     min_log, max_log, size, dtype=np.float32, nega_flag=True, zero_flag=True, inf_flag=False, nan_flag=False
 ):
@@ -78,6 +80,7 @@ def check_point_in_box3d(point, box3d):
     return in_flag
 
 
+@golden_data_cache(__file__)
 def roipoint_pool3d_forward(num_sampled_points, points, point_features, boxes3d, pooled_features):
     point_num = points.shape[0]  # N
     feature_len = point_features.shape[1]  # C
@@ -109,6 +112,7 @@ def roipoint_pool3d_forward(num_sampled_points, points, point_features, boxes3d,
     return 0
 
 
+@golden_data_cache(__file__)
 def cpu_roipoint_pool3d(num_sampled_points, points, point_features, boxes3d):
     # B=batch_size; N=point_num; M=boxes_num; C=feature_len; num = num_sampled_points
     batch_size = points.shape[0]  # B

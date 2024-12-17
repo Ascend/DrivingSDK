@@ -1,5 +1,5 @@
 import unittest
-from math import cos, sin, fabs, atan2
+from math import atan2, cos, fabs, sin
 from typing import List
 
 import numpy as np
@@ -10,6 +10,7 @@ from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving
 import mx_driving.detection
+
 
 torch.npu.config.allow_internal_format = False
 torch_npu.npu.set_compile_mode(jit_compile=False)

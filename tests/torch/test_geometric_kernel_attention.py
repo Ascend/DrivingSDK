@@ -8,13 +8,40 @@ from collections import namedtuple
 
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving
 
+
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
+# pylint: disable=too-many-return-values
+@golden_data_cache(__file__)
+def cpu_gen_inputs(shape):
+    bs, num_queries, embed_dims, num_heads, num_levels, num_points = shape
+    
+    sampling_locations = torch.rand(bs, num_queries, num_heads, num_levels, num_points, 2)
+    if bs == 24:
+        spatial_shapes = torch.tensor([15, 25] * num_levels).reshape(num_levels, 2)
+        sampling_locations[:, :, :, :, :, 0] = sampling_locations[:, :, :, :, :, 0] * 21 - 3 # -3 ~ 18
+        sampling_locations[:, :, :, :, :, 1] = sampling_locations[:, :, :, :, :, 1] * 31 - 3 # -3 ~ 28
+    else:
+        spatial_shapes = torch.tensor([6, 10] * num_levels).reshape(num_levels, 2)
+        sampling_locations[:, :, :, :, :, 0] = sampling_locations[:, :, :, :, :, 0] * 12 - 3 # -3 ~ 9
+        sampling_locations[:, :, :, :, :, 1] = sampling_locations[:, :, :, :, :, 1] * 16 - 3 # -3 ~ 13
+    num_keys = sum((H * W).item() for H, W in spatial_shapes)
+
+    value = torch.rand(bs, num_keys, num_heads, embed_dims) * 3
+    attn_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) * 1
+    level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))
+    grad_output = torch.rand(bs, num_queries, num_heads * embed_dims) * 10
+
+    return sampling_locations, spatial_shapes, value, attn_weights, level_start_index, grad_output
+
+
+@golden_data_cache(__file__)
 def cpu_geometric_kernel_attention(value, spatial_shapes, level_start_index, sampling_locations, attn_weights):
     """CPU version of geometric kernel attention.
 
@@ -66,6 +93,16 @@ def cpu_geometric_kernel_attention(value, spatial_shapes, level_start_index, sam
     return output.view(bs, num_queries, -1)
 
 
+@golden_data_cache(__file__)
+def cpu_geometric_kernel_attention_grad(cpu_output, grad_output, value, attn_weights):
+    cpu_output.backward(grad_output)
+
+    grad_value = value.grad.float().numpy()
+    grad_attn_weights = attn_weights.grad.float().numpy()
+
+    return grad_value, grad_attn_weights
+
+
 ExecResults = namedtuple('ExecResults', ['output', 'grad_value', 'grad_attn_weights'])
 Inputs = namedtuple('Inputs', ['value', 'spatial_shapes', 'level_start_index', 'sampling_locations', 'attn_weights', 'grad_output'])
 
@@ -93,23 +130,8 @@ class TestGeometricKernelAttention(TestCase):
         return test_results
 
     def gen_inputs(self, shape, dtype):
-        bs, num_queries, embed_dims, num_heads, num_levels, num_points = shape
-        
-        sampling_locations = torch.rand(bs, num_queries, num_heads, num_levels, num_points, 2)
-        if bs == 24:
-            spatial_shapes = torch.tensor([15, 25] * num_levels).reshape(num_levels, 2)
-            sampling_locations[:, :, :, :, :, 0] = sampling_locations[:, :, :, :, :, 0] * 21 - 3 # -3 ~ 18
-            sampling_locations[:, :, :, :, :, 1] = sampling_locations[:, :, :, :, :, 1] * 31 - 3 # -3 ~ 28
-        else:
-            spatial_shapes = torch.tensor([6, 10] * num_levels).reshape(num_levels, 2)
-            sampling_locations[:, :, :, :, :, 0] = sampling_locations[:, :, :, :, :, 0] * 12 - 3 # -3 ~ 9
-            sampling_locations[:, :, :, :, :, 1] = sampling_locations[:, :, :, :, :, 1] * 16 - 3 # -3 ~ 13
-        num_keys = sum((H * W).item() for H, W in spatial_shapes)
 
-        value = torch.rand(bs, num_keys, num_heads, embed_dims) * 3
-        attn_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) * 1
-        level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))
-        grad_output = torch.rand(bs, num_queries, num_heads * embed_dims) * 10
+        sampling_locations, spatial_shapes, value, attn_weights, level_start_index, grad_output = cpu_gen_inputs(shape)
         
         cpu_value = value.float()
         cpu_spatial_shapes = spatial_shapes.long()
@@ -144,11 +166,14 @@ class TestGeometricKernelAttention(TestCase):
         cpu_output = cpu_geometric_kernel_attention(
             value, spatial_shapes, level_start_index, sampling_locations, attn_weights
         )
-        cpu_output.backward(grad_output)
+        grad_value, grad_attn_weights = cpu_geometric_kernel_attention_grad(
+            cpu_output, grad_output, value, attn_weights
+        )
+        
         return ExecResults(
             output=cpu_output.detach().float().numpy(),
-            grad_value=value.grad.float().numpy(),
-            grad_attn_weights=attn_weights.grad.float().numpy()
+            grad_value=grad_value,
+            grad_attn_weights=grad_attn_weights
         )
 
     def npu_to_exec(self, npu_inputs):

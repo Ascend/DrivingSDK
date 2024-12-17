@@ -1,15 +1,14 @@
-import torch
 import numpy as np
-import torch_scatter
-
+import torch
 import torch_npu
-from torch_npu.testing.testcase import TestCase, run_tests
+import torch_scatter
 from torch_npu.testing.common_utils import create_common_tensor
+from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving.common
 
 
 class TestScatterMaxWithArgmax(TestCase):
-
     def cpu_op_exec(self, updates, indices):
         updates.requires_grad = True
 

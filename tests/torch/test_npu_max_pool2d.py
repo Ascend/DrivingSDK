@@ -1,15 +1,19 @@
 import torch
 import torch.nn as nn
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving.fused
 
 
+@golden_data_cache(__file__)
 def gen_inputs(shape, dtype):
     torch.manual_seed(123)
     x_data_cpu = torch.rand(shape, dtype=dtype)
     return x_data_cpu
 
 
+@golden_data_cache(__file__)
 def cpu_to_exec(x_data_cpu):
     f = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
     cpu_output = f(x_data_cpu.float())

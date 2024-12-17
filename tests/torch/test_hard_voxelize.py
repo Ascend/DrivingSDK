@@ -3,9 +3,12 @@ import unittest
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
-from mx_driving import Voxelization
+
 import mx_driving.point
+from mx_driving import Voxelization
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -15,6 +18,7 @@ class TestHardVoxelize(TestCase):
     point_nums = [1, 7, 6134, 99999]
     np.random.seed(seed)
 
+    @golden_data_cache(__file__)
     def gen(self, point_num):
         x = 108 * np.random.rand(point_num) - 54 
         y = 108 * np.random.rand(point_num) - 54 
@@ -33,6 +37,7 @@ class TestHardVoxelize(TestCase):
         cnt, pts, voxs, num_per_vox = vlz(points_npu)
         return cnt, voxs.cpu().numpy(), cnt1, voxs1.cpu().numpy()
 
+    @golden_data_cache(__file__)
     def golden_hard_voxelize(self, points):
         point_num = points.shape[0]
         gridx = 1440

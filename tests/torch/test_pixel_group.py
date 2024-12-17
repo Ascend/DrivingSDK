@@ -1,14 +1,16 @@
-from typing import List
-from dataclasses import dataclass
-
 import unittest
+from dataclasses import dataclass
+from typing import List
+
+import numpy as np
 import torch
 import torch_npu
-import numpy as np
-
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 import mx_driving.detection
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -24,6 +26,7 @@ class KernelParams:
     distance_threshold: float
 
 
+@golden_data_cache(__file__)
 def pixel_group_cpu_golden(params: KernelParams):
     score = params.score
     mask = params.mask
@@ -96,6 +99,7 @@ def pixel_group_npu_golden(params: KernelParams):
     return output1, output2
 
 
+@golden_data_cache(__file__)
 def generate_data(H, W, dim, num):
     score = np.random.uniform(0, 1, [H, W]).astype(np.float32)
     score = torch.from_numpy(score)

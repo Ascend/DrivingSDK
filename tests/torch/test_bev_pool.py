@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving.point
@@ -13,6 +14,7 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
 def golden_bev_pool(feat, geom_feat, b, d, h, w, c):
     output = np.zeros((b, d, h, w, c), dtype=np.float32)
     ranks = geom_feat[:, 0] * (w * d * b) + geom_feat[:, 1] * (d * b) + geom_feat[:, 2] * b + geom_feat[:, 3]
@@ -33,6 +35,7 @@ def golden_bev_pool(feat, geom_feat, b, d, h, w, c):
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
 def golden_bev_pool_grad(feat, geom_feat, interval_starts, interval_lengths, grad_output, b, d, h, w, c):
     grad_feat = np.zeros_like(feat)
     for start, length in zip(interval_starts, interval_lengths):
@@ -43,6 +46,7 @@ def golden_bev_pool_grad(feat, geom_feat, interval_starts, interval_lengths, gra
     return grad_feat
 
 
+@golden_data_cache(__file__)
 def generate_bev_pool_data(n, b, d, h, w, c):
     feat = np.random.rand(n, c).astype(np.float32)
     geom_feat_b = np.random.randint(0, b, (n,)).astype(np.int32)

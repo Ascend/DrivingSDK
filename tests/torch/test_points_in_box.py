@@ -12,14 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import unittest
-import torch  
-import numpy as np
-import torch_npu
 
+import numpy as np
+import torch
+import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving.preprocess
 
+
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
+
+
+@golden_data_cache(__file__)
+def cpu_gen_inputs(range_boxes, range_points, shape_boxes, shape_points):
+    boxes = np.random.uniform(range_boxes[0], range_boxes[1], shape_boxes).astype(np.float32)
+    boxes = torch.from_numpy(boxes)
+    points = np.random.uniform(range_points[0], range_points[1], shape_points).astype(np.float32)
+    points = torch.from_numpy(points)
+
+    return boxes, points
 
 
 def lidar_to_local_coords_cpu(shift_x, shift_y, rz):
@@ -53,6 +66,7 @@ def check_pt_in_box3d_cpu(pt, box3d, idx):
     return in_flag
 
 
+@golden_data_cache(__file__)
 def points_in_boxes_cpu_forward(boxes_tensor, pts_tensor, pts_indices_tensor):
     boxes_num = boxes_tensor.size(0)
     pts_num = pts_tensor.size(0)
@@ -84,10 +98,7 @@ class TestPointsInBox(TestCase):
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBox` is only supported on 910B, skip this ut!")
     def test_points_in_box_shape_randn(self, device="npu"):
-        boxes = np.random.uniform(0, 1, [1, 200, 7]).astype(np.float32)
-        boxes = torch.from_numpy(boxes)
-        points = np.random.uniform(0, 2.0, [1, 100, 3]).astype(np.float32)
-        points = torch.from_numpy(points)
+        boxes, points = cpu_gen_inputs([0, 1], [0, 2.0], [1, 200, 7], [1, 100, 3])
         shape1 = points.shape
         batch_size = shape1[0]
         num_points = shape1[1]
@@ -105,10 +116,7 @@ class TestPointsInBox(TestCase):
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBox` is only supported on 910B, skip this ut!")
     def test_points_in_box_shape_large_boxes(self, device="npu"):
-        boxes = np.random.uniform(0, 1, [1, 2000, 7]).astype(np.float32)
-        boxes = torch.from_numpy(boxes)
-        points = np.random.uniform(0, 2.0, [1, 100, 3]).astype(np.float32)
-        points = torch.from_numpy(points)
+        boxes, points = cpu_gen_inputs([0, 1], [0, 2.0], [1, 2000, 7], [1, 100, 3])
         shape1 = points.shape
         batch_size = shape1[0]
         num_points = shape1[1]
@@ -126,10 +134,7 @@ class TestPointsInBox(TestCase):
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBox` is only supported on 910B, skip this ut!")
     def test_points_in_box_shape_large_points(self, device="npu"):
-        boxes = np.random.uniform(0, 1, [1, 200, 7]).astype(np.float32)
-        boxes = torch.from_numpy(boxes)
-        points = np.random.uniform(0, 2.0, [1, 1500, 3]).astype(np.float32)
-        points = torch.from_numpy(points)
+        boxes, points = cpu_gen_inputs([0, 1], [0, 2.0], [1, 200, 7], [1, 1500, 3])
         shape1 = points.shape
         batch_size = shape1[0]
         num_points = shape1[1]
@@ -147,10 +152,7 @@ class TestPointsInBox(TestCase):
     
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `PointsInBox` is only supported on 910B, skip this ut!")
     def test_points_in_box_shape_large_batch(self, device="npu"):
-        boxes = np.random.uniform(0, 1, [2, 200, 7]).astype(np.float32)
-        boxes = torch.from_numpy(boxes)
-        points = np.random.uniform(0, 2.0, [2, 1500, 3]).astype(np.float32)
-        points = torch.from_numpy(points)
+        boxes, points = cpu_gen_inputs([0, 1], [0, 2.0], [2, 200, 7], [2, 1500, 3])
         shape1 = points.shape
         batch_size = shape1[0]
         num_points = shape1[1]

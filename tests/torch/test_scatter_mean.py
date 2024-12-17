@@ -1,14 +1,25 @@
-import torch
 import numpy as np
-import torch_scatter
-
+import torch
 import torch_npu
-from torch_npu.testing.testcase import TestCase, run_tests
+import torch_scatter
+from data_cache import golden_data_cache
 from torch_npu.testing.common_utils import create_common_tensor
+from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving.common
 
 
+@golden_data_cache(__file__)
+def cpu_gen_inputs(src_shape, index_shape, index_max):
+    cpu_src = np.random.uniform(0, 100, size=src_shape).astype(np.float32)
+    cpu_index = np.random.uniform(0, index_max, size=index_shape).astype(np.int32)
+    cpu_src = torch.from_numpy(cpu_src)
+    cpu_index = torch.from_numpy(cpu_index)
+    return cpu_src, cpu_index
+
+
 class TestScatterMeanWithArgmax(TestCase):
+    @golden_data_cache(__file__)
     def cpu_op_exec(self, src, index, out=None, dim=0, dim_size=None):
         src.requires_grad = True
         out = torch_scatter.scatter_mean(src, index.long(), out=out, dim=dim, dim_size=dim_size)
@@ -40,8 +51,9 @@ class TestScatterMeanWithArgmax(TestCase):
             index_shape = input_info[1]
             index_max = input_info[2]
             for dim in range(len(index_shape)):
-                cpu_src, npu_src = create_common_tensor(["float32", 2, src_shape], 0, 100)
-                cpu_index, npu_index = create_common_tensor(["int32", 2, index_shape], 0, index_max)
+                cpu_src, cpu_index = cpu_gen_inputs(src_shape, index_shape, index_max)
+                npu_src, npu_index = cpu_src.npu(), cpu_index.npu()
+
                 cpu_output, cpu_grad_in = self.cpu_op_exec(cpu_src, cpu_index.long(), dim=dim)
                 npu_output, npu_grad_in = self.npu_op_exec(npu_src, npu_index, None, dim)
 
@@ -60,8 +72,8 @@ class TestScatterMeanWithArgmax(TestCase):
             index_shape = input_info[1]
             index_max = input_info[2]
             for dim in range(len(index_shape)):
-                cpu_src, npu_src = create_common_tensor(["float32", 2, src_shape], 0, 100)
-                cpu_index, npu_index = create_common_tensor(["int32", 2, index_shape], 0, index_max)
+                cpu_src, cpu_index = cpu_gen_inputs(src_shape, index_shape, index_max)
+                npu_src, npu_index = cpu_src.npu(), cpu_index.npu()
                 cpu_output, cpu_grad_in = self.cpu_op_exec(cpu_src, cpu_index.long(), dim=dim)
                 npu_output, npu_grad_in = self.npu_op_exec(npu_src, npu_index, None, dim)
 
@@ -81,8 +93,8 @@ class TestScatterMeanWithArgmax(TestCase):
             out_shape = input_info[2]
             index_max = input_info[3]
             for dim in range(len(index_shape)):
-                cpu_src, npu_src = create_common_tensor(["float32", 2, src_shape], 0, 100)
-                cpu_index, npu_index = create_common_tensor(["int32", 2, index_shape], 0, index_max)
+                cpu_src, cpu_index = cpu_gen_inputs(src_shape, index_shape, index_max)
+                npu_src, npu_index = cpu_src.npu(), cpu_index.npu()
                 cpu_output, cpu_grad_in = self.cpu_op_exec(cpu_src, cpu_index.long(), dim=dim)
                 npu_output, npu_grad_in = self.npu_op_exec(npu_src, npu_index, None, dim)
 
@@ -104,8 +116,8 @@ class TestScatterMeanWithArgmax(TestCase):
             out_shape = input_info[2]
             dim = input_info[3]
 
-            cpu_src, npu_src = create_common_tensor(["float32", 2, src_shape], 0, 100)
-            cpu_index, npu_index = create_common_tensor(["int32", 2, index_shape], 0, out_shape[dim])
+            cpu_src, cpu_index = cpu_gen_inputs(src_shape, index_shape, out_shape[dim])
+            npu_src, npu_index = cpu_src.npu(), cpu_index.npu()
             cpu_out, npu_out = create_common_tensor(["float32", 2, out_shape], 0, 100)
             cpu_output, cpu_grad_in = self.cpu_op_exec(cpu_src, cpu_index.long(), out=cpu_out, dim=dim)
             npu_output, npu_grad_in = self.npu_op_exec(npu_src, npu_index, out=npu_out, dim=dim)
@@ -126,8 +138,8 @@ class TestScatterMeanWithArgmax(TestCase):
             out_shape = input_info[2]
             dim_size = input_info[3]
             for dim in range(len(index_shape)):
-                cpu_src, npu_src = create_common_tensor(["float32", 2, src_shape], 0, 100)
-                cpu_index, npu_index = create_common_tensor(["int32", 2, index_shape], 0, dim_size)
+                cpu_src, cpu_index = cpu_gen_inputs(src_shape, index_shape, dim_size)
+                npu_src, npu_index = cpu_src.npu(), cpu_index.npu()
                 cpu_out, npu_out = create_common_tensor(["float32", 2, out_shape], 0, 100)
                 cpu_output, cpu_grad_in = self.cpu_op_exec(cpu_src, cpu_index.long(), out=None, dim=dim, dim_size=dim_size)
                 npu_output, npu_grad_in = self.npu_op_exec(npu_src, npu_index, out=None, dim=dim, dim_size=dim_size)

@@ -1,22 +1,38 @@
 import unittest
-import torch
-import numpy as np
 
+import numpy as np
+import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving.fused
+
 import mx_driving
+import mx_driving.fused
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
+@golden_data_cache(__file__)
+def cpu_gen_inputs(B, C, anchor, pts, numGroups):
+    feature_maps = np.random.rand(B, 2816, C).astype(np.float32)
+    spatial_shape = torch.tensor([[[32, 88]]], dtype=torch.int32).numpy()
+    scale_start_index = torch.tensor([[0]], dtype=torch.int32).numpy()
+    sample_location = np.random.rand(B, anchor, pts, 1, 2).astype(np.float32)
+    weights = np.random.rand(B, anchor, pts, 1, 1, numGroups).astype(np.float32)
+
+    return feature_maps, spatial_shape, scale_start_index, sample_location, weights
+
+
 class TestDeformableAggregation(TestCase):
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def golden_deformable_aggregation(self, out, batch_size, num_anchors, num_pts, num_cams, num_scale, num_embeds,
+    @golden_data_cache(__file__)
+    def golden_deformable_aggregation(self, batch_size, num_anchors, num_pts, num_cams, num_scale, num_embeds,
                                       num_groups, num_feat, feature_maps, spatial_shape, scale_start_index,
                                       sample_location, weights):
-        
+
+        out = np.zeros((batch_size, num_anchors, num_embeds)).astype(np.float32)
+
         num_kernels = batch_size * num_anchors * num_pts * num_cams * num_scale
         for idx in range(num_kernels):
             chanenl_offset = 0
@@ -106,6 +122,8 @@ class TestDeformableAggregation(TestCase):
 
                 chanenl_offset += num_embeds // num_groups
 
+        return out
+
 
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DeformableAggregation` is only supported on 910B, skip this ut!")
     def test_deformable_aggregation(self):
@@ -121,12 +139,7 @@ class TestDeformableAggregation(TestCase):
                 for pts in ptsList:
                     for anchor in anchorList:
                         for numGroups in numGroupsList:
-
-                            feature_maps = np.random.rand(B, 2816, C).astype(np.float32)
-                            spatial_shape = torch.tensor([[[32, 88]]], dtype=torch.int32).numpy()
-                            scale_start_index = torch.tensor([[0]], dtype=torch.int32).numpy()
-                            sample_location = np.random.rand(B, anchor, pts, 1, 2).astype(np.float32)
-                            weights = np.random.rand(B, anchor, pts, 1, 1, numGroups).astype(np.float32)
+                            feature_maps, spatial_shape, scale_start_index, sample_location, weights = cpu_gen_inputs(B, C, anchor, pts, numGroups)
 
                             torch_feature_maps = torch.from_numpy(feature_maps).npu()
                             torch_spatial_shape = torch.from_numpy(spatial_shape).npu()
@@ -146,9 +159,8 @@ class TestDeformableAggregation(TestCase):
                             weights = weights.flatten()
                             feature_maps = feature_maps.flatten()
 
-                            out_cpu = np.zeros((batch_size, num_anchors, num_embeds)).astype(np.float32)
 
-                            self.golden_deformable_aggregation(out_cpu, batch_size, num_anchors, num_pts, num_cams,
+                            out_cpu = self.golden_deformable_aggregation(batch_size, num_anchors, num_pts, num_cams,
                                                                num_scale, num_embeds, num_groups, num_feat,
                                                                feature_maps, spatial_shape, scale_start_index,
                                                                sample_location, weights)

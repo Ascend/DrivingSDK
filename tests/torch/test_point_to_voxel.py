@@ -3,8 +3,11 @@ import unittest
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving._C
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -14,12 +17,14 @@ class TestPointToVoxel(TestCase):
     np.random.seed(seed)
     point_nums = [1, 7, 6134, 99999]
 
+    @golden_data_cache(__file__)
     def gen(self, point_num):
         x = np.random.randint(-1, 256, (point_num,))
         y = np.random.randint(-1, 256, (point_num,))
         z = np.random.randint(-1, 256, (point_num,))
         return np.stack([x, y, z], axis=-1).astype(np.int32)
 
+    @golden_data_cache(__file__)
     def golden_encode(self, coords):
         point_num = coords.shape[0]
         res = np.zeros((point_num,), dtype=np.int32)

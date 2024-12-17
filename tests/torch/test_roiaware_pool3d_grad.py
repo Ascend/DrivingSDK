@@ -1,15 +1,20 @@
 import unittest
-import torch
+
 import numpy as np
+import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving._C
 import mx_driving.detection
+
+
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 class TestRoIAwarePool3dGrad(TestCase):
-    
+    @golden_data_cache(__file__)
     def roiaware_pool3d_grad_cpu(self, pts_idx_of_voxels, argmax, grad_out,
                                         npoints, pool_method):
         channels = grad_out.shape[-1]
@@ -70,6 +75,7 @@ class TestRoIAwarePool3dGrad(TestCase):
                             pts_idx = pts_idx_of_voxels[b, ox, oy, oz, i]
                             grad_in[pts_idx, :] += grad_out[b, ox, oy, oz, :] / max(total_pts, 1.0)
 
+    @golden_data_cache(__file__)
     def gen_input_data(self, pts_idx_of_voxels_shape, channels, npoints, dtype):
         boxes_num, out_x, out_y, out_z, max_pts_per_voxel = pts_idx_of_voxels_shape
         grad_out = np.random.uniform(-5, 5, (boxes_num, out_x, out_y, out_z, channels)).astype(dtype)
@@ -81,6 +87,7 @@ class TestRoIAwarePool3dGrad(TestCase):
         pts_idx_of_voxels = torch.from_numpy(pts_idx_of_voxels)
         return argmax, grad_out, pts_idx_of_voxels
 
+    @golden_data_cache(__file__)
     def gen_pts_idx_of_voxels(self, pts_idx_of_voxels_shape, npoints):
         boxes_num, out_x, out_y, out_z, max_pts_per_voxel = pts_idx_of_voxels_shape
         pts_idx_of_voxels = np.zeros((boxes_num, out_x, out_y, out_z, max_pts_per_voxel - 1)).astype("int32")

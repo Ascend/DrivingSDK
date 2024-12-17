@@ -1,9 +1,11 @@
 import unittest
-import torch
-import numpy as np
 
+import numpy as np
+import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 import mx_driving.point
 
@@ -11,7 +13,18 @@ import mx_driving.point
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
+# 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
+def cpu_gen_inputs(B, C, N, mean, std_dev, npoints, nsample, dtype):
+    np_points = np.random.normal(mean, std_dev, (B, C, N)).astype(dtype)
+    np_indices = np.random.randint(0, N, (B, npoints, nsample)).astype(np.int32)
+    np_out = np.zeros((B, C, npoints, nsample)).astype(dtype)
+
+    return np_points, np_indices, np_out
+
+
 class TestGroupPoints(TestCase):
+    @golden_data_cache(__file__)
     def cpu_group_points(self, points, indices, out):
         
         B, npoints, nsample = indices.shape
@@ -44,10 +57,7 @@ class TestGroupPoints(TestCase):
             std_dev = np.random.uniform(0, 25)
 
             for j in range(2):
-                
-                np_points = np.random.normal(mean, std_dev, (B, C, N)).astype(astype[j])
-                np_indices = np.random.randint(0, N, (B, npoints, nsample)).astype(np.int32)
-                np_out = np.zeros((B, C, npoints, nsample)).astype(astype[j])
+                np_points, np_indices, np_out = cpu_gen_inputs(B, C, N, mean, std_dev, npoints, nsample, astype[j])
                 
                 th_points = torch.from_numpy(np_points).npu().to(dtype[j])
                 th_indices = torch.from_numpy(np_indices).int().npu()

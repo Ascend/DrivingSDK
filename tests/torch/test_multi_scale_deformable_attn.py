@@ -3,13 +3,32 @@ from collections import namedtuple
 
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving.fused
 
+
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
+# pylint: disable=too-many-return-values
+@golden_data_cache(__file__)
+def cpu_gen_inputs(shape):
+    bs, num_queries, embed_dims, num_heads, num_levels, num_points = shape
+    shapes = torch.tensor([60, 40] * num_levels).reshape(num_levels, 2)
+    num_keys = sum((H * W).item() for H, W in shapes)
+
+    value = torch.rand(bs, num_keys, num_heads, embed_dims) * 0.01
+    sampling_locations = torch.rand(bs, num_queries, num_heads, num_levels, num_points, 2)
+    attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) + 1e-5
+    offset = torch.cat((shapes.new_zeros((1,)), shapes.prod(1).cumsum(0)[:-1]))
+    grad_output = torch.rand(bs, num_queries, num_heads * embed_dims) * 1e-3
+
+    return shapes, num_keys, value, sampling_locations, attention_weights, offset, grad_output
+
+
+@golden_data_cache(__file__)
 def multi_scale_deformable_attn_pytorch(
     value: torch.Tensor,
     value_spatial_shapes: torch.Tensor,
@@ -40,6 +59,17 @@ def multi_scale_deformable_attn_pytorch(
         .view(bs, num_heads * embed_dims, num_queries)
     )
     return output.transpose(1, 2).contiguous()
+
+
+@golden_data_cache(__file__)
+def multi_scale_deformable_attn_pytorch_grad(cpu_output, cpu_grad_output, cpu_value, cpu_sampling_locations, cpu_attention_weights):
+    cpu_output.backward(cpu_grad_output)
+    grad_value = cpu_value.grad.float().numpy()
+    grad_sampling_locations = cpu_sampling_locations.grad.float().numpy()
+    grad_attention_weights = cpu_attention_weights.grad.float().numpy()
+
+    return grad_value, grad_sampling_locations, grad_attention_weights
+
 
 
 ExecResults = namedtuple("ExecResults", ["output", "grad_value", "grad_sampling_locations", "grad_attention_weights"])
@@ -81,14 +111,7 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
 
     def gen_inputs(self, shape, dtype):
         bs, num_queries, embed_dims, num_heads, num_levels, num_points = shape
-        shapes = torch.tensor([60, 40] * num_levels).reshape(num_levels, 2)
-        num_keys = sum((H * W).item() for H, W in shapes)
-
-        value = torch.rand(bs, num_keys, num_heads, embed_dims) * 0.01
-        sampling_locations = torch.rand(bs, num_queries, num_heads, num_levels, num_points, 2)
-        attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) + 1e-5
-        offset = torch.cat((shapes.new_zeros((1,)), shapes.prod(1).cumsum(0)[:-1]))
-        grad_output = torch.rand(bs, num_queries, num_heads * embed_dims) * 1e-3
+        shapes, num_keys, value, sampling_locations, attention_weights, offset, grad_output = cpu_gen_inputs(shape)
 
         cpu_value = value.double()
         cpu_shapes = shapes.long()
@@ -124,12 +147,12 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
         cpu_output = multi_scale_deformable_attn_pytorch(
             cpu_value, cpu_shapes, cpu_sampling_locations, cpu_attention_weights
         )
-        cpu_output.backward(cpu_grad_output)
+        grad_value, grad_sampling_locations, grad_attention_weights = multi_scale_deformable_attn_pytorch_grad(cpu_output, cpu_grad_output, cpu_value, cpu_sampling_locations, cpu_attention_weights)
         return ExecResults(
             output=cpu_output.detach().float().numpy(),
-            grad_value=cpu_value.grad.float().numpy(),
-            grad_sampling_locations=cpu_sampling_locations.grad.float().numpy(),
-            grad_attention_weights=cpu_attention_weights.grad.float().numpy(),
+            grad_value=grad_value,
+            grad_sampling_locations=grad_sampling_locations,
+            grad_attention_weights=grad_attention_weights,
         )
 
     def npu_to_exec(self, npu_inputs):

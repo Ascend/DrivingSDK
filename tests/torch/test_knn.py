@@ -1,18 +1,29 @@
-import torch
 import numpy as np
+import torch
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 import mx_driving.common
 
 
+@golden_data_cache(__file__)
+def cpu_gen_inputs(attrs):
+    batch, npoint, N, nsample, transposed = attrs
+    idx = np.zeros((batch, npoint, nsample), dtype=np.int32)
+    dist2 = np.zeros((batch, npoint, nsample), dtype=np.float32)
+
+    return idx, dist2
+
+
 class TestKnn(TestCase):
+    @golden_data_cache(__file__)
     def cpu_op_exec(self,
         attrs,
         xyz,
         center_xyz):
         batch, npoint, N, nsample, transposed = attrs
-        idx = np.zeros((batch, npoint, nsample), dtype=np.int32)
-        dist2 = np.zeros((batch, npoint, nsample), dtype=np.float32)
+        idx, dist2 = cpu_gen_inputs(attrs)
         if transposed:
             xyz = np.transpose(xyz, axes=(0, 2, 1))
             center_xyz = np.transpose(center_xyz, axes=(0, 2, 1))

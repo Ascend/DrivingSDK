@@ -2,6 +2,7 @@ import unittest
 
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 from mx_driving import bev_pool_v3
@@ -11,11 +12,13 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
 def golden_bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape):
     B, D, H, W, C = bev_feat_shape
     N_RANKS = ranks_depth.shape[0]
     depth = depth.view([-1])
     feat = feat.view([-1, C])
+    
     out = torch.zeros([B * D * H * W, C])
     for i in range(N_RANKS):
         d = depth[ranks_depth[i]]
@@ -23,11 +26,20 @@ def golden_bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat
         b = ranks_bev[i]
         out[b] += d * f
     out = out.view(bev_feat_shape)
+    
     out = torch.permute(out, [0, 4, 1, 2, 3])
     return out
 
 
+@golden_data_cache(__file__)
+def golden_bev_pool_v3_grad(bev_feat_cpu, grad_out, feat, depth):
+    bev_feat_cpu.backward(grad_out)
+    
+    return feat.grad, depth.grad
+
+
 # pylint: disable=too-many-return-values
+@golden_data_cache(__file__)
 def generate_bev_pool_data(B, D, H, W, C, N_RANKS):
     depth = torch.rand([B, 1, D, H, W])
     feat = torch.rand([B, 1, H, W, C])
@@ -56,6 +68,7 @@ class TestBEVPoolV2(TestCase):
             feat, depth, grad_out, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape = generate_bev_pool_data(
                 B, D, H, W, C, N_RANKS
             )
+            
             feat_npu = feat.clone().to("npu")
             depth_npu = depth.clone().to("npu")
             grad_out_npu = grad_out.clone().to("npu")
@@ -68,15 +81,16 @@ class TestBEVPoolV2(TestCase):
             depth_npu.requires_grad_()
 
             bev_feat_cpu = golden_bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape)
+            bev_feat_grad_cpu, bev_depth_grad_cpu = golden_bev_pool_v3_grad(bev_feat_cpu, grad_out, feat, depth)
+
             bev_feat_npu = bev_pool_v3(
                 depth_npu, feat_npu, ranks_depth_npu, ranks_feat_npu, ranks_bev_npu, bev_feat_shape
             )
-            bev_feat_cpu.backward(grad_out)
             bev_feat_npu.backward(grad_out_npu)
 
             self.assertRtolEqual(bev_feat_npu.detach().cpu().numpy(), bev_feat_cpu.detach().cpu().numpy())
-            self.assertRtolEqual(feat_npu.grad.cpu().numpy(), feat.grad.cpu().numpy())
-            self.assertRtolEqual(depth_npu.grad.cpu().numpy(), depth.grad.cpu().numpy())
+            self.assertRtolEqual(feat_npu.grad.cpu().numpy(), bev_feat_grad_cpu.cpu().numpy())
+            self.assertRtolEqual(depth_npu.grad.cpu().numpy(), bev_depth_grad_cpu.cpu().numpy())
 
 
 if __name__ == "__main__":

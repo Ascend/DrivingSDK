@@ -1,10 +1,13 @@
-import torch
 import numpy as np
+import torch
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 
 
 # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
 def gen_data(B, N, npoint, M, K, out_dim):
     points = np.random.rand(B, N, M, out_dim).astype(np.float32)
     centers = np.random.rand(B, N, M, out_dim).astype(np.float32)
@@ -148,6 +151,7 @@ class TestAssignScoreWithk(TestCase):
 
 class TestAssignScoreWithkGrad(TestCase):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+    @golden_data_cache(__file__)
     def cpu_backward_op(self,
         grad_out,
         scores,

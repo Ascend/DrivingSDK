@@ -13,19 +13,22 @@
 # limitations under the License.
 
 import unittest
-import torch
-import numpy as np
 
+import numpy as np
+import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 import mx_driving.point
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 class TestFurthestPointSampleWithDist(TestCase):
-
+    @golden_data_cache(__file__)
     def create_input_data(self, shape):
         b, n = shape
         point_xyz = np.random.uniform(0, 10, [b, n, 3]).astype(np.float32)
@@ -45,6 +48,7 @@ class TestFurthestPointSampleWithDist(TestCase):
         else:
             return a
 
+    @golden_data_cache(__file__)
     def supported_op_exec(self, point_dist, point_num):
         b, n, _ = point_dist.shape
         tmp = np.zeros([b, n]).astype(np.float32)

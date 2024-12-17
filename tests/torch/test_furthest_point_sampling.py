@@ -14,14 +14,17 @@
 
 import unittest
 from abc import ABC, abstractmethod
+
 import numpy as np
 import torch
-
 import torch_npu
-from torch_npu.testing.testcase import TestCase, run_tests
+from data_cache import golden_data_cache
 from torch_npu.testing.common_utils import create_common_tensor
+from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 import mx_driving.point
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -45,6 +48,7 @@ class CreateBenchMarkTest(ABC):
         else :
             return a[0]
 
+    @golden_data_cache(__file__)
     def getCpuRes(self):
         cpuRes = np.zeros([self.batch, self.numPoints], dtype=np.int32)
         nearestDistCopy = self.nearestDist.copy()

@@ -1,11 +1,21 @@
-import torch
 import numpy as np
+import torch
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 import mx_driving.common
 
 
+@golden_data_cache(__file__)
+def cpu_gen_inputs(batch, N, npoint):
+    source = np.ones((batch, N, 3)).astype(np.float32)
+    target = np.zeros((batch, npoint, 3)).astype(np.float32)
+    return source, target
+
+
 class TestThreeNN(TestCase):
+    @golden_data_cache(__file__)
     def cpu_op_exec(self,
         batch,
         npoint,
@@ -35,8 +45,7 @@ class TestThreeNN(TestCase):
         batch = 1
         npoint = 1
         N = 200
-        source = np.ones((batch, N, 3)).astype(np.float32)
-        target = np.zeros((batch, npoint, 3)).astype(np.float32)
+        source, target = cpu_gen_inputs(batch, N, npoint)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
         dist, idx = mx_driving.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
@@ -263,8 +272,7 @@ class TestThreeNN(TestCase):
         N = 3
         npoint = 1
 
-        source = np.ones((batch, N, 3)).astype(np.float32)
-        target = np.zeros((batch, npoint, 3)).astype(np.float32)
+        source, target = cpu_gen_inputs(batch, N, npoint)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
         dist, idx = mx_driving.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())
@@ -281,8 +289,7 @@ class TestThreeNN(TestCase):
         N = 12
         npoint = 21
 
-        source = np.ones((batch, N, 3)).astype(np.float32)
-        target = np.zeros((batch, npoint, 3)).astype(np.float32)
+        source, target = cpu_gen_inputs(batch, N, npoint)
 
         expected_dist, expected_idx = self.cpu_op_exec(batch, npoint, source, target)
         dist, idx = mx_driving.three_nn(torch.from_numpy(target).npu(), torch.from_numpy(source).npu())

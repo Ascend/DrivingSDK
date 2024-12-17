@@ -1,10 +1,12 @@
-import unittest
-import random
 import math
+import random
+import unittest
+
 import torch
 import torch_npu
-
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving.point
 from mx_driving import Voxelization
 
@@ -12,6 +14,7 @@ from mx_driving import Voxelization
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
+@golden_data_cache(__file__)
 def dyn_voxelization_cpu(points, voxel_size, coors_range):
     num_points = points.size(0)
 
@@ -62,6 +65,7 @@ class TestDynVoxelization(TestCase):
         coors1 = dynamic_voxelization_npu1(points)
         return coors, coors1
 
+    @golden_data_cache(__file__)
     def gen_data(self, shape, dtype):
         points_cpu = torch.randint(-20, 100, shape, dtype=dtype)
         points_cpu = points_cpu + torch.rand(shape, dtype=dtype)

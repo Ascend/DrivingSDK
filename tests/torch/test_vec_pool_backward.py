@@ -1,18 +1,36 @@
 import unittest
-import torch
-import numpy as np
 
+import numpy as np
+import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving._C
 
 
+np.random.seed(2024)
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
-class TestVecPoolGrad(TestCase):
-    np.random.seed(2024)
+@golden_data_cache(__file__)
+def cpu_gen_inputs(args):
+    m, c_out, n, c_in, num_total_grids, num_max_sum_points = args
 
+    np_grad_new_features = np.random.rand(m, c_out).astype(np.float32)
+    np_point_cnt_of_grid = np.random.randint(1, 8, (m, num_total_grids)).astype(np.int32)
+    np_grouped_idxs = np.column_stack((
+        np.random.randint(0, n, num_max_sum_points),
+        np.random.randint(0, m, num_max_sum_points),
+        np.random.randint(0, num_total_grids, num_max_sum_points)
+    )).astype(np.int32)
+    np_grad_support_features = np.zeros((n, c_in)).astype(np.float32)
+
+    return np_grad_new_features, np_point_cnt_of_grid, np_grouped_idxs, np_grad_support_features
+
+
+class TestVecPoolGrad(TestCase):
+    @golden_data_cache(__file__)
     def golden_vec_pool_backward(self, grad_new_features, point_cnt_of_grid, grouped_idxs, grad_support_features):
         num_c_out = grad_new_features.shape[1]
         num_total_grids = point_cnt_of_grid.shape[1]
@@ -44,15 +62,7 @@ class TestVecPoolGrad(TestCase):
 
         for args in args_list: 
             m, c_out, n, c_in, num_total_grids, num_max_sum_points = args
-
-            np_grad_new_features = np.random.rand(m, c_out).astype(np.float32)
-            np_point_cnt_of_grid = np.random.randint(1, 8, (m, num_total_grids)).astype(np.int32)
-            np_grouped_idxs = np.column_stack((
-                np.random.randint(0, n, num_max_sum_points),
-                np.random.randint(0, m, num_max_sum_points),
-                np.random.randint(0, num_total_grids, num_max_sum_points)
-            )).astype(np.int32)
-            np_grad_support_features = np.zeros((n, c_in)).astype(np.float32)
+            np_grad_new_features, np_point_cnt_of_grid, np_grouped_idxs, np_grad_support_features = cpu_gen_inputs(args)
 
             torch_grad_new_features = torch.from_numpy(np_grad_new_features).npu()
             torch_point_cnt_of_grid = torch.from_numpy(np_point_cnt_of_grid).npu()

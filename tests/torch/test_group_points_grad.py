@@ -1,17 +1,29 @@
 import unittest
-import torch
-import numpy as np
 
+import numpy as np
+import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving._C
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
+@golden_data_cache(__file__)
+def cpu_gen_inputs(B, C, N, npoints, nsample):
+    np_grad_out = np.random.rand(B, C, npoints, nsample).astype(np.float32)
+    np_indices = np.random.randint(0, N, (B, npoints, nsample)).astype(np.int32)
+    np_grad_features = np.zeros((B, C, N)).astype(np.float32)
+
+    return np_grad_out, np_indices, np_grad_features
+
+
 class TestGroupPointsGrad(TestCase):
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    @golden_data_cache(__file__)
     def golden_group_points_grad(self, np_grad_out, np_indices, np_grad_features, B, npoints, nsample):
 
         np_grad_out = np_grad_out.transpose(0, 2, 3, 1)
@@ -40,9 +52,7 @@ class TestGroupPointsGrad(TestCase):
                 for N in N_list:
                     for npoints in npoints_list:
                         for nsample in nsample_list:
-                            np_grad_out = np.random.rand(B, C, npoints, nsample).astype(np.float32)
-                            np_indices = np.random.randint(0, N, (B, npoints, nsample)).astype(np.int32)
-                            np_grad_features = np.zeros((B, C, N)).astype(np.float32)
+                            np_grad_out, np_indices, np_grad_features = cpu_gen_inputs(B, C, N, npoints, nsample)
 
                             torch_grad_out = torch.from_numpy(np_grad_out).npu()
                             torch_indices = torch.from_numpy(np_indices).npu()

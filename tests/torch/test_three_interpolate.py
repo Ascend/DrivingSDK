@@ -1,12 +1,13 @@
-import torch
 import numpy as np
-
+import torch
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 
 
 class TestThreeinterpolate(TestCase):
-    
+    @golden_data_cache(__file__)
     def cpu_op_exec(self, feat, idx, wt):
         bs, cs, ms = feat.shape
         ns = idx.shape[1]

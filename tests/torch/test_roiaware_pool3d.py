@@ -1,15 +1,21 @@
 import math
 import unittest
+
+import numpy as np
 import torch
 import torch_npu
-import numpy as np
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 import mx_driving.detection
+
+
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 class TestRoIAwarePool3dGrad(TestCase):
+    @golden_data_cache(__file__)
     def roiaware_pool3d_cpu(self, rois, pts, pts_feature, out, max_pts_per_voxel, pool_method, dtype):
         # cast
         if (dtype == np.float16):
@@ -84,7 +90,8 @@ class TestRoIAwarePool3dGrad(TestCase):
             return 1, local_x, local_y
         else:
             return 0, local_x, local_y
-        
+    
+    @golden_data_cache(__file__)
     def roiaware_pool3d_golden(self, rois, pts, pts_feature, out, max_pts_per_voxel, mode):
         num_rois = rois.shape[0]
         num_channels = pts_feature.shape[-1]
@@ -168,6 +175,7 @@ class TestRoIAwarePool3dGrad(TestCase):
         
         return pooled_features
     
+    @golden_data_cache(__file__)
     def gen_input_data(self, boxes_num, out_size, channels, npoints, dtype):
         xyz_coor = np.random.uniform(-1, 1, size=(boxes_num, 3)).astype(dtype)
         xyz_size_num = np.random.uniform(1, 50, size=(1, 3)).astype(dtype)

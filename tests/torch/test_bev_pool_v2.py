@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving.point
@@ -12,6 +13,7 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
 def golden_bev_pool_v2(
     depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
 ):
@@ -28,6 +30,7 @@ def golden_bev_pool_v2(
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
 def golden_bev_pool_v2_grad(
     grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_starts, interval_lengths, b, d, h, w, c
 ):
@@ -46,6 +49,7 @@ def golden_bev_pool_v2_grad(
 
 
 # pylint: disable=too-many-return-values
+@golden_data_cache(__file__)
 def generate_bev_pool_data(B, D, H, W, C, N_RANKS):
     feat = np.random.rand(B, 1, H, W, C).astype(np.float32)
     depth = np.random.rand(B, 1, D, H, W).astype(np.float32)

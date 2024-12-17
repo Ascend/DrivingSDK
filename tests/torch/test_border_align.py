@@ -1,18 +1,20 @@
 """
 Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 """
-import unittest
-import math
-from typing import List
-from functools import reduce
 import copy
+import math
+import unittest
+from functools import reduce
+from typing import List
+
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
-import mx_driving
 
-from mx_driving.detection import border_align
+import mx_driving
+from mx_driving import border_align
 
 
 torch.npu.config.allow_internal_format = False
@@ -21,16 +23,19 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 EPS = 1e-8
 
 
+@golden_data_cache(__file__)
 def generate_features(feature_shape):
     features = torch.rand(feature_shape)
     return features
 
 
+@golden_data_cache(__file__)
 def generate_grad_outputs(output_shape):
     grad_outputs = torch.rand(output_shape)
     return grad_outputs
 
 
+@golden_data_cache(__file__)
 def generate_rois(inputs):
     num_boxes = inputs.shape[0] * inputs.shape[2] * inputs.shape[3]
     xyxy = torch.rand(num_boxes, 4)
@@ -41,6 +46,7 @@ def generate_rois(inputs):
     return rois
 
 
+@golden_data_cache(__file__)
 def border_align_cpu_golden(inputs, rois, pooled_size_):
     n, c4, h, w = inputs.shape
     c = c4 // 4
@@ -207,6 +213,7 @@ def border_align_box(box, pool_size, inputs, output, argmax_idx):
     return inputs
 
 
+@golden_data_cache(__file__)
 def border_align_grad_cpu_golden(boxes, pool_size, inputs, grad_output, argmax_idx):
     grad_inputs = torch.zeros_like(inputs).detach().cpu().numpy()
     grad_output = grad_output.transpose(1, 2).contiguous().detach().cpu().numpy()

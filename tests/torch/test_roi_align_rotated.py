@@ -1,18 +1,21 @@
 """
 Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 """
-import unittest
-import math
-from typing import List
-from functools import reduce
-
 import copy
+import math
+import unittest
+from functools import reduce
+from typing import List
+
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 import mx_driving.detection
+
 
 torch.npu.config.allow_internal_format = False
 torch_npu.npu.set_compile_mode(jit_compile=False)
@@ -20,6 +23,7 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 EPS = 1e-8
 
 
+@golden_data_cache(__file__)
 def cpu_roi_align_rotated_grad(input_array, rois, grad_outputs, args_dict):
     spatial_scale, sampling_ratio, pooled_height, pooled_width, aligned, clockwise = args_dict.values()
     bs, c, h, w = input_array.shape
@@ -147,6 +151,7 @@ def bilinear_interpolate_grad(height, width, y, x):
     return bilinear_args
 
 
+@golden_data_cache(__file__)
 def cpu_roi_align_rotated(input_array, rois, args_dict):
     spatial_scale, sampling_ratio, pooled_height, pooled_width, aligned, clockwise = args_dict.values()
     N, C, H, W = input_array.shape
@@ -304,10 +309,12 @@ class TestRoiAlignedRotated(TestCase):
 
         return output_1.cpu(), output_2.cpu(), grad_1.cpu(), grad_2.cpu()
 
+    @golden_data_cache(__file__)
     def generate_features(self, feature_shape):
         features = torch.rand(feature_shape)
         return features
 
+    @golden_data_cache(__file__)
     def generate_rois(self, roi_shape, feature_shape, spatial_scale):
         num_boxes = roi_shape[0]
         rois = torch.Tensor(6, num_boxes)
@@ -320,6 +327,7 @@ class TestRoiAlignedRotated(TestCase):
 
         return rois.transpose(0, 1).contiguous()
 
+    @golden_data_cache(__file__)
     def generate_grad(self, roi_shape, feature_shape, pooled_height, pooled_width):
         num_boxes = roi_shape[0]
         channels = feature_shape[1]

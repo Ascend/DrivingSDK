@@ -1,12 +1,15 @@
+import unittest
 from collections import namedtuple
 
-import unittest
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving.detection
 from mx_driving import box_iou_quadri
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -323,6 +326,7 @@ def cpu_box_iou_quadri_aligned(boxes1, boxes2, mode="iou"):
     return ious
 
 
+@golden_data_cache(__file__)
 def cpu_box_iou_quadri(boxes1, boxes2, mode="iou", aligned=False):
     if aligned:
         return cpu_box_iou_quadri_aligned(boxes1, boxes2, mode)
@@ -368,6 +372,7 @@ def boxes_to_pts(boxes):
     return np.array(pts)
 
 
+@golden_data_cache(__file__)
 def gen_boxes_quadri(boxes_num):
     boxes = gen_boxes_rotated(boxes_num)
     boxes = boxes_to_pts(boxes)

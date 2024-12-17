@@ -24,6 +24,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 
+NUM_DEVICE = 8
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))  # project root
 TEST_DIR = os.path.join(BASE_DIR, "tests", "torch")
 
@@ -195,9 +196,8 @@ def exec_ut(files):
         stdout_queue = queue.Queue()
         event_timer = threading.Event()
 
-        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
         start_thread(wait_thread, p, event_timer)
-        start_thread(enqueue_output, p.stdout, stdout_queue)
 
         try:
             event_timer.wait(2000)
@@ -220,6 +220,8 @@ def exec_ut(files):
         has_failed = 0
         for ut_type, ut_files in files.items():
             for ut_file in ut_files:
+                if not os.path.basename(ut_file).startswith("test_"):
+                    continue
                 cmd = get_ut_cmd(ut_type, ut_file)
                 ut_info = " ".join(cmd[4:]).replace(" -- -k", "")
                 ret = run_cmd_with_timeout(cmd)

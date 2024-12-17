@@ -1,10 +1,13 @@
-import torch
 import numpy as np
+import torch
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving
 
 
 class TestCalAnchorsHeading(TestCase):
+    @golden_data_cache(__file__)
     def cal_anchors_heading_cpu(self, anchors, origin_pos=None):
         if origin_pos is None:
             input_add_start = torch.cat((torch.zeros_like(anchors[:, :, 0:1, :]), anchors), dim=-2)
@@ -31,6 +34,7 @@ class TestCalAnchorsHeading(TestCase):
         heading = mx_driving.cal_anchors_heading(anchors, origin_pos)
         return heading.cpu().numpy()
 
+    @golden_data_cache(__file__)
     def gen_data(self, batch_size, anchors_num, seq_length):
         anchors = np.random.uniform(-5, 5, (batch_size, anchors_num, seq_length, 2))
         origin_pos = np.random.uniform(-5, 5, (batch_size, 2))

@@ -1,13 +1,17 @@
 import unittest
-from math import cos, sin, fabs, atan2, pi
-from typing import List
 from collections import namedtuple
+from math import atan2, cos, fabs, pi, sin
+from typing import List
+
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
+
 import mx_driving.detection
 from mx_driving import npu_rotated_iou
+
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
@@ -204,6 +208,7 @@ def box_overlap(box_a: List[float], box_b: List[float]):
     return inter / union
 
 
+@golden_data_cache(__file__)
 def cpu_rotated_iou(boxes_a: List[List[float]], boxes_b: List[List[float]]):
     boxes_a_num = boxes_a.shape[0]
     boxes_b_num = boxes_b.shape[0]
@@ -251,7 +256,8 @@ class TestNpuRotatedIou(TestCase):
             test_results.append((cpu_results, npu_results))
         return test_results
     
-    def gen_inputs(self, shape, dtype):
+    @golden_data_cache(__file__)
+    def cpu_gen_inputs(self, shape, dtype):
         boxes_a_num, boxes_b_num = shape 
         boxes_a = np.zeros((boxes_a_num, 5))
         boxes_b = np.zeros((boxes_b_num, 5))
@@ -273,6 +279,11 @@ class TestNpuRotatedIou(TestCase):
             
         boxes_a_cpu = boxes_a.astype(np.float32)
         boxes_b_cpu = boxes_b.astype(np.float32)
+
+        return boxes_a_cpu, boxes_b_cpu
+
+    def gen_inputs(self, shape, dtype):
+        boxes_a_cpu, boxes_b_cpu = self.cpu_gen_inputs(shape, dtype)
         
         boxes_a_npu = torch.from_numpy(boxes_a_cpu).npu().unsqueeze(0)
         boxes_b_npu = torch.from_numpy(boxes_b_cpu).npu().unsqueeze(0)

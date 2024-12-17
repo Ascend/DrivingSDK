@@ -4,15 +4,18 @@ import unittest
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving.point
 from mx_driving import npu_voxel_pooling_train
 
+
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
 def voxel_pooling_train_cpu_forward(
     batch_size, num_points, num_channels, num_voxel_x, num_voxel_y, num_voxel_z, geom_xyz, input_features
 ):
@@ -42,6 +45,7 @@ def voxel_pooling_train_cpu_forward(
     return pos_memo, output_features.permute(0, 3, 1, 2)
 
 
+@golden_data_cache(__file__)
 def voxel_pooling_train_cpu_backward(pos, result_cpu, grad_features):
     features_shape = grad_features.shape
     mask = (pos != -1)[..., 0]
@@ -81,6 +85,7 @@ class TestVoxelPoolingTrain(TestCase):
 
         return result1, result2, grad_features_npu1, grad_features_npu2
 
+    @golden_data_cache(__file__)
     def gen_data(self, geom_shape, feature_shape, coeff, batch_size, num_channels, dtype):
         geom_xyz = torch.rand(geom_shape) * coeff
         geom_xyz = geom_xyz.reshape(batch_size, -1, 3)

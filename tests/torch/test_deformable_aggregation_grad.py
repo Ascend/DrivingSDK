@@ -3,17 +3,31 @@ import unittest
 import numpy as np
 import torch
 import torch_npu
+from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
-import mx_driving.fused
 import mx_driving
+import mx_driving.fused
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
+# 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
+def gen_inputs(B, C, input_h, input_w, anchor, pts, numGroups):
+    feature_maps = np.random.rand(B, input_h * input_w, C).astype(np.float32)
+    spatial_shape = torch.tensor([[[input_h, input_w]]], dtype=torch.int32).numpy()
+    scale_start_index = torch.tensor([[0]], dtype=torch.int32).numpy()
+    sample_location = np.random.rand(B, anchor, pts, 1, 2).astype(np.float32)
+    weights = np.random.rand(B, anchor, pts, 1, 1, numGroups).astype(np.float32)
+
+    return feature_maps, spatial_shape, scale_start_index, sample_location, weights
+
+
 class TestDeformableAggregation(TestCase):
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    @golden_data_cache(__file__)
     def golden_deformable_aggregation_grad(
         self,
         batch_size,
@@ -28,12 +42,25 @@ class TestDeformableAggregation(TestCase):
         spatial_shape,
         scale_start_index,
         sample_location,
-        weights,
-        grad_output,
-        grad_mc_ms_feat,
-        grad_sampling_location,
-        grad_weights,
+        weights
     ):
+
+        out_cpu = np.zeros((batch_size, num_anchors, num_embeds)).astype(np.float32)
+        grad_mc_ms_feat = np.zeros_like(feature_maps)
+        grad_sampling_location = np.zeros_like(sample_location)
+        grad_weights = np.zeros_like(weights)
+        grad_output = np.ones_like(out_cpu)
+
+        feature_maps = feature_maps.flatten()
+        spatial_shape = spatial_shape.flatten()
+        scale_start_index = scale_start_index.flatten()
+        sample_location = sample_location.flatten()
+        weights = weights.flatten()
+        grad_mc_ms_feat = grad_mc_ms_feat.flatten()
+        grad_sampling_location = grad_sampling_location.flatten()
+        grad_weights = grad_weights.flatten()
+        grad_output = grad_output.flatten()
+
         num_kernels = batch_size * num_pts * num_embeds * num_anchors * num_cams * num_scale
         for idx in range(num_kernels):
 
@@ -147,6 +174,8 @@ class TestDeformableAggregation(TestCase):
             grad_sampling_location[loc_offset] += w * grad_w_weight * top_grad_mc_ms_feat
             grad_sampling_location[loc_offset + 1] += h * grad_h_weight * top_grad_mc_ms_feat
 
+        return grad_mc_ms_feat, grad_sampling_location, grad_weights
+
     @unittest.skipIf(
         DEVICE_NAME != 'Ascend910B',
         "OP `DeformableAggregationGrad` is only supported on 910B, skip this ut!",
@@ -167,11 +196,8 @@ class TestDeformableAggregation(TestCase):
                         for numGroups in numGroupsList:
                             input_h = 16
                             input_w = 22
-                            feature_maps = np.random.rand(B, input_h * input_w, C).astype(np.float32)
-                            spatial_shape = torch.tensor([[[input_h, input_w]]], dtype=torch.int32).numpy()
-                            scale_start_index = torch.tensor([[0]], dtype=torch.int32).numpy()
-                            sample_location = np.random.rand(B, anchor, pts, 1, 2).astype(np.float32)
-                            weights = np.random.rand(B, anchor, pts, 1, 1, numGroups).astype(np.float32)
+
+                            feature_maps, spatial_shape, scale_start_index, sample_location, weights = gen_inputs(B, C, input_h, input_w, anchor, pts, numGroups)
                             feature_maps_shape = feature_maps.shape
 
                             torch_feature_maps = torch.from_numpy(feature_maps).npu()
@@ -201,23 +227,8 @@ class TestDeformableAggregation(TestCase):
                             num_pts = sample_location.shape[2]
                             num_groups = weights.shape[5]
 
-                            out_cpu = np.zeros((batch_size, num_anchors, num_embeds)).astype(np.float32)
-                            grad_mc_ms_feat = np.zeros_like(feature_maps)
-                            grad_sampling_location = np.zeros_like(sample_location)
-                            grad_weights = np.zeros_like(weights)
-                            grad_output = np.ones_like(out_cpu)
 
-                            feature_maps = feature_maps.flatten()
-                            spatial_shape = spatial_shape.flatten()
-                            scale_start_index = scale_start_index.flatten()
-                            sample_location = sample_location.flatten()
-                            weights = weights.flatten()
-                            grad_mc_ms_feat = grad_mc_ms_feat.flatten()
-                            grad_sampling_location = grad_sampling_location.flatten()
-                            grad_weights = grad_weights.flatten()
-                            grad_output = grad_output.flatten()
-
-                            self.golden_deformable_aggregation_grad(
+                            grad_mc_ms_feat, grad_sampling_location, grad_weights = self.golden_deformable_aggregation_grad(
                                 batch_size,
                                 num_anchors,
                                 num_pts,
@@ -230,11 +241,7 @@ class TestDeformableAggregation(TestCase):
                                 spatial_shape,
                                 scale_start_index,
                                 sample_location,
-                                weights,
-                                grad_output,
-                                grad_mc_ms_feat,
-                                grad_sampling_location,
-                                grad_weights,
+                                weights
                             )
 
 
