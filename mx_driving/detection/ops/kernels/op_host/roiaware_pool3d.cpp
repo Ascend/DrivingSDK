@@ -34,6 +34,11 @@ namespace optiling {
 static ge::graphStatus TilingFuncForRoiawarePool3d(gert::TilingContext* context)
 {
     RoiawarePool3dTilingData tiling;
+
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     auto roisTensorPtr = context->GetInputTensor(INPUT_ROIS);
     auto ptsTensorPtr = context->GetInputTensor(INPUT_PTS);
     auto ptsFeaturePtr = context->GetInputTensor(INPUT_PTS_FEATRUE);
@@ -86,6 +91,11 @@ static ge::graphStatus TilingFuncForRoiawarePool3d(gert::TilingContext* context)
     tiling.set_outz(outz);
     tiling.set_mode(mode);
     tiling.set_coreNum(coreNum);
+
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
