@@ -50,12 +50,12 @@ public:
             startOffset = coreRoiNums * coreId + coreRoiTail;
         }
 
-        roisGM.SetGlobalBuffer((__gm__ DTYPE_ROIS *)rois, boxNum * roisLen);
-        ptsGM.SetGlobalBuffer((__gm__ DTYPE_PTS *)pts, ptsNum * ptsLen);
-        ptsFeatureGM.SetGlobalBuffer((__gm__ DTYPE_PTS_FEATURE *)pts_feature, ptsNum * channelNum);
-        argmaxGM.SetGlobalBuffer((__gm__ DTYPE_ARGMAX *)argmax, boxNum * outx * outy * outz * channelNum);
-        ptsIdxOfVoxelGM.SetGlobalBuffer((__gm__ DTYPE_PTS_IDX_OF_VOXELS *)pts_idx_of_voxels, boxNum * outx * outy * outz * maxPtsPerVoxel);
-        pooledFeatureGM.SetGlobalBuffer((__gm__ DTYPE_POOLED_FEATURES *)pooled_features, boxNum * outx * outy * outz * channelNum);
+        roisGM.SetGlobalBuffer((__gm__ DTYPE_ROIS *)rois, static_cast<uint64_t>(boxNum) * roisLen);
+        ptsGM.SetGlobalBuffer((__gm__ DTYPE_PTS *)pts, static_cast<uint64_t>(ptsNum) * ptsLen);
+        ptsFeatureGM.SetGlobalBuffer((__gm__ DTYPE_PTS_FEATURE *)pts_feature, static_cast<uint64_t>(ptsNum) * channelNum);
+        argmaxGM.SetGlobalBuffer((__gm__ DTYPE_ARGMAX *)argmax, static_cast<uint64_t>(boxNum) * outx * outy * outz * channelNum);
+        ptsIdxOfVoxelGM.SetGlobalBuffer((__gm__ DTYPE_PTS_IDX_OF_VOXELS *)pts_idx_of_voxels, static_cast<uint64_t>(boxNum) * outx * outy * outz * maxPtsPerVoxel);
+        pooledFeatureGM.SetGlobalBuffer((__gm__ DTYPE_POOLED_FEATURES *)pooled_features, static_cast<uint64_t>(boxNum) * outx * outy * outz * channelNum);
         InitBuffer();
     }
 
@@ -144,7 +144,7 @@ private:
             yIdx = min(max(yIdx, static_cast<uint32_t>(0)), outy - 1);
             zIdx = min(max(zIdx, static_cast<uint32_t>(0)), outz - 1);
 
-            uint32_t idOffset = (boxIdx + startOffset) * outx * outy * outz *  maxPtsPerVoxel + xIdx * outy * outz * maxPtsPerVoxel + yIdx * outz * maxPtsPerVoxel + zIdx * maxPtsPerVoxel;
+            uint64_t idOffset = (boxIdx + startOffset) * outx * outy * outz *  maxPtsPerVoxel + xIdx * outy * outz * maxPtsPerVoxel + yIdx * outz * maxPtsPerVoxel + zIdx * maxPtsPerVoxel;
             DataCopy(ptsIdVoxelLocal, ptsIdxOfVoxelGM[idOffset], alignMaxPtsNum);
             PipeBarrier<PIPE_ALL>();
             uint32_t cnt = ptsIdVoxelLocal.GetValue(0);
@@ -160,7 +160,7 @@ private:
 
     __aicore__ inline void compute_featrue(uint32_t xCurIdx, uint32_t yCurIdx, uint32_t zCurIdx, uint32_t boxIdx)
     {
-        uint32_t idOffset = (boxIdx + startOffset) * outx * outy * outz *  maxPtsPerVoxel + xCurIdx * outy * outz * maxPtsPerVoxel + yCurIdx * outz * maxPtsPerVoxel + zCurIdx * maxPtsPerVoxel;
+        uint64_t idOffset = (boxIdx + startOffset) * outx * outy * outz *  maxPtsPerVoxel + xCurIdx * outy * outz * maxPtsPerVoxel + yCurIdx * outz * maxPtsPerVoxel + zCurIdx * maxPtsPerVoxel;
         PipeBarrier<PIPE_ALL>();
         DataCopy(ptsIdVoxelLocal, ptsIdxOfVoxelGM[idOffset], alignMaxPtsNum);
         PipeBarrier<PIPE_ALL>();
@@ -198,7 +198,7 @@ private:
             }
         }
 
-        uint32_t channelOffset = (boxIdx + startOffset) * outx * outy * outz * channelNum + xCurIdx * outy * outz * channelNum + yCurIdx * outz * channelNum + zCurIdx * channelNum;
+        uint64_t channelOffset = (boxIdx + startOffset) * outx * outy * outz * channelNum + xCurIdx * outy * outz * channelNum + yCurIdx * outz * channelNum + zCurIdx * channelNum;
         DataCopyExtParams copyParams{1, static_cast<uint32_t>(channelNum * sizeof(DTYPE_ARGMAX)), 0, 0, 0};
         DataCopyPad(argmaxGM[channelOffset], argmaxLocal, copyParams);
         PipeBarrier<PIPE_ALL>();
@@ -273,7 +273,7 @@ private:
     LocalTensor<DTYPE_POOLED_FEATURES> avgPoolNum;
 
     uint32_t coreNum;
-    uint32_t startOffset;
+    uint64_t startOffset;
     uint32_t coreRoiNums, coreRoiTail;
     uint32_t boxNum, ptsNum, channelNum;
     uint32_t maxPtsPerVoxel;
