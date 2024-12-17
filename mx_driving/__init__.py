@@ -12,7 +12,7 @@ from .ops.bev_pool_v2 import bev_pool_v2
 from .ops.bev_pool_v3 import bev_pool_v3
 from .ops.border_align import border_align
 from .ops.box_iou import box_iou_quadri
-from .ops.boxes_overlap_bev import boxes_overlap_bev, npu_boxes_overlap_bev
+from .ops.boxes_overlap_bev import boxes_overlap_bev, npu_boxes_overlap_bev, boxes_iou_bev
 from .ops.deform_conv2d import DeformConv2dFunction, deform_conv2d
 from .ops.furthest_point_sampling import furthest_point_sampling
 from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_dist
@@ -67,6 +67,7 @@ __all__ = [
     "box_iou_quadri",
     "boxes_overlap_bev",
     "npu_boxes_overlap_bev",
+    "boxes_iou_bev",
     "deform_conv2d",
     "dynamic_scatter",
     "furthest_point_sample_with_dist",

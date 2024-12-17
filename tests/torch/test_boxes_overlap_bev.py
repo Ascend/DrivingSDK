@@ -1,4 +1,3 @@
-import unittest
 from collections import namedtuple
 from math import atan2, cos, fabs, sin
 from typing import List
@@ -8,14 +7,25 @@ import torch
 import torch_npu
 from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
-
+import mx_driving
+import mx_driving._C
 import mx_driving.detection
-from mx_driving import boxes_overlap_bev
 
-
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 EPS = 1e-8
+
+
+class Box:
+    def __init__(self):
+        self.x1 = 0
+        self.y1 = 0
+        self.x2 = 0
+        self.y2 = 0
+        self.x_center = 0
+        self.y_center = 0
+        self.dx = 0
+        self.dy = 0
+        self.angle = 0
 
 
 class Point:
@@ -51,22 +61,6 @@ def check_rect_cross(p1: Point, p2: Point, q1: Point, q2: Point) -> bool:
           min(q1.y, q2.y) <= max(p1.y, p2.y)
 
     return ret
-
-
-def check_in_box2d(box: List[float], p: Point):
-    # params: box (5) [x1, y1, x2, x2, angle]
-    MARGIN = 1e-5
-
-    center_x = (box[0] + box[2]) / 2
-    center_y = (box[1] + box[3]) / 2
-    # rotate the point in the opposite direction of box
-    angle_cos = cos(-box[4])
-    angle_sin = sin(-box[4])
-    rot_x = (p.x - center_x) * angle_cos + (p.y - center_y) * angle_sin + center_x
-    rot_y = -(p.x - center_x) * angle_sin + (p.y - center_y) * angle_cos + center_y
-
-    return ((rot_x > box[0] - MARGIN) and (rot_x < box[2] + MARGIN) and
-            (rot_y > box[1] - MARGIN) and (rot_y < box[3] + MARGIN))
 
 
 def intersection(p1: Point, p0: Point, q1: Point, q0: Point):
@@ -107,76 +101,86 @@ def intersection(p1: Point, p0: Point, q1: Point, q0: Point):
     return 1, ans_point
 
 
-def rotate_around_center(center: Point, angle_cos: float, angle_sin: float, p: Point) -> Point:
-    new_x = (p.x - center.x) * angle_cos + (p.y - center.y) * angle_sin + center.x
-    new_y = -(p.x - center.x) * angle_sin + (p.y - center.y) * angle_cos + center.y
-    p.set(new_x, new_y)
-    return p
-
-
 def point_cmp(a: Point, b: Point, center: Point):
     return atan2(a.y - center.y, a.x - center.x) > atan2(b.y - center.y, b.x - center.x)
 
 
-def box_overlap(box_a: List[float], box_b: List[float]):
-    a_x1 = box_a[0]
-    a_y1 = box_a[1]
-    a_x2 = box_a[2]
-    a_y2 = box_a[3]
-    a_angle = box_a[4]
-    b_x1 = box_b[0]
-    b_y1 = box_b[1]
-    b_x2 = box_b[2]
-    b_y2 = box_b[3]
-    b_angle = box_b[4]
+def check_in_box2d(box, p, clockwise, margin):
+    # rotate the point in the opposite direction of box
+    center_point = Point(box.x_center, box.y_center)
+    angle_cos = cos(-box.angle)
+    angle_sin = sin(-box.angle)
+    
+    rot_point = Point(p.x, p.y)
+    rotate_around_center(center_point, angle_cos, angle_sin, rot_point, clockwise)
 
-    center_a = Point((a_x1 + a_x2) / 2, (a_y1 + a_y2) / 2)
-    center_b = Point((b_x1 + b_x2) / 2, (b_y1 + b_y2) / 2)
+    return ((rot_point.x > box.x1 - margin) and (rot_point.x < box.x2 + margin) and
+            (rot_point.y > box.y1 - margin) and (rot_point.y < box.y2 + margin))
+
+
+def rotate_around_center(center, angle_cos, angle_sin, p, clockwise):
+    if clockwise:
+        new_x = (p.x - center.x) * angle_cos - (p.y - center.y) * angle_sin + center.x
+        new_y = (p.x - center.x) * angle_sin + (p.y - center.y) * angle_cos + center.y
+    else:
+        new_x = (p.x - center.x) * angle_cos + (p.y - center.y) * angle_sin + center.x
+        new_y = -(p.x - center.x) * angle_sin + (p.y - center.y) * angle_cos + center.y
+    p.set(new_x, new_y)
+
+
+def box_overlap(box_a, box_b, clockwise, margin):
+    a_angle = box_a.angle
+    b_angle = box_b.angle
+
+    center_a = Point(box_a.x_center, box_a.y_center)
+    center_b = Point(box_b.x_center, box_b.y_center)
 
     box_a_corners = [Point()] * 5
-    box_a_corners[0] = Point(a_x1, a_y1)
-    box_a_corners[1] = Point(a_x2, a_y1)
-    box_a_corners[2] = Point(a_x2, a_y2)
-    box_a_corners[3] = Point(a_x1, a_y2)
+    box_a_corners[0] = Point(box_a.x1, box_a.y1)
+    box_a_corners[1] = Point(box_a.x2, box_a.y1)
+    box_a_corners[2] = Point(box_a.x2, box_a.y2)
+    box_a_corners[3] = Point(box_a.x1, box_a.y2)
 
     box_b_corners = [Point()] * 5
-    box_b_corners[0] = Point(b_x1, b_y1)
-    box_b_corners[1] = Point(b_x2, b_y1)
-    box_b_corners[2] = Point(b_x2, b_y2)
-    box_b_corners[3] = Point(b_x1, b_y2)
+    box_b_corners[0] = Point(box_b.x1, box_b.y1)
+    box_b_corners[1] = Point(box_b.x2, box_b.y1)
+    box_b_corners[2] = Point(box_b.x2, box_b.y2)
+    box_b_corners[3] = Point(box_b.x1, box_b.y2)
+
     # get oriented corners
     a_angle_cos = cos(a_angle)
     a_angle_sin = sin(a_angle)
-
     b_angle_cos = cos(b_angle)
     b_angle_sin = sin(b_angle)
+
     for k in range(4):
-        rotate_point_a = rotate_around_center(center_a, a_angle_cos, a_angle_sin, box_a_corners[k])
-        box_a_corners[k] = rotate_point_a
-        rotate_point_b = rotate_around_center(center_b, b_angle_cos, b_angle_sin, box_b_corners[k])
-        box_b_corners[k] = rotate_point_b
+        rotate_around_center(center_a, a_angle_cos, a_angle_sin, box_a_corners[k], clockwise)
+        rotate_around_center(center_b, b_angle_cos, b_angle_sin, box_b_corners[k], clockwise)
     box_a_corners[4] = box_a_corners[0]
     box_b_corners[4] = box_b_corners[0]
+
+    # get intersection points of line segments
     cross_points = [Point()] * 16
     poly_center = Point(0, 0)
     cnt = 0
     flag = 0
+
     for i in range(4):
         for j in range(4):
             flag, ans_point = intersection(box_a_corners[i + 1], box_a_corners[i],
                                            box_b_corners[j + 1], box_b_corners[j])
             cross_points[cnt] = ans_point
-
             if flag:
                 poly_center = poly_center + cross_points[cnt]
                 cnt += 1
+
     # check corners
     for k in range(4):
-        if check_in_box2d(box_a, box_b_corners[k]):
+        if check_in_box2d(box_a, box_b_corners[k], clockwise, margin):
             poly_center = poly_center + box_b_corners[k]
             cross_points[cnt] = box_b_corners[k]
             cnt += 1
-        if check_in_box2d(box_b, box_a_corners[k]):
+        if check_in_box2d(box_b, box_a_corners[k], clockwise, margin):
             poly_center = poly_center + box_a_corners[k]
             cross_points[cnt] = box_a_corners[k]
             cnt += 1
@@ -184,8 +188,8 @@ def box_overlap(box_a: List[float], box_b: List[float]):
     if cnt != 0:
         poly_center.x /= cnt
         poly_center.y /= cnt
-    # sort the points of polygon
 
+    # sort the points of polygon
     for j in range(cnt - 1):
         for i in range(cnt - j - 1):
             flag1 = point_cmp(cross_points[i], cross_points[i + 1], poly_center)
@@ -201,47 +205,191 @@ def box_overlap(box_a: List[float], box_b: List[float]):
         v2 = cross_points[k + 1] - cross_points[0]
         val = cross(v1, v2, None)
         area += val
+
     return fabs(area) / 2.0
 
 
+def parse_box(box, inp_format, r_unit):
+    new_box = Box()
+
+    if inp_format == "xyxyr":
+        new_box.x1 = box[0]
+        new_box.y1 = box[1]
+        new_box.x2 = box[2]
+        new_box.y2 = box[3]
+        new_box.angle = box[4]
+        new_box.x_center = (new_box.x1 + new_box.x2) / 2
+        new_box.y_center = (new_box.y1 + new_box.y2) / 2
+        new_box.dx = abs(new_box.x2 - new_box.x1)
+        new_box.dy = abs(new_box.y2 - new_box.y1)
+    elif inp_format == "xywhr":
+        new_box.x_center = box[0]
+        new_box.y_center = box[1]
+        new_box.dx = box[2]
+        new_box.dy = box[3]
+        new_box.angle = box[4]
+        new_box.x1 = new_box.x_center - new_box.dx / 2
+        new_box.y1 = new_box.y_center - new_box.dy / 2
+        new_box.x2 = new_box.x_center + new_box.dx / 2
+        new_box.y2 = new_box.y_center + new_box.dy / 2
+    elif inp_format == "xyzxyzr":
+        new_box.x1 = box[0]
+        new_box.y1 = box[1]
+        new_box.x2 = box[3]
+        new_box.y2 = box[4]
+        new_box.angle = box[6]
+        new_box.x_center = (new_box.x1 + new_box.x2) / 2
+        new_box.y_center = (new_box.y1 + new_box.y2) / 2
+        new_box.dx = abs(new_box.x2 - new_box.x1)
+        new_box.dy = abs(new_box.y2 - new_box.y1)
+    elif inp_format == "xyzwhdr":
+        new_box.x_center = box[0]
+        new_box.y_center = box[1]
+        new_box.dx = box[3]
+        new_box.dy = box[4]
+        new_box.angle = box[6]
+        new_box.x1 = new_box.x_center - new_box.dx / 2
+        new_box.y1 = new_box.y_center - new_box.dy / 2
+        new_box.x2 = new_box.x_center + new_box.dx / 2
+        new_box.y2 = new_box.y_center + new_box.dy / 2
+
+    if r_unit == "degree":
+        new_box.angle = new_box.angle * np.pi / 180
+
+    return new_box
+
+
+def single_compute(box_a, box_b, attrs):
+    inp_format, r_unit, clockwise, mode, margin = attrs
+    box_a = parse_box(box_a, inp_format, r_unit)
+    box_b = parse_box(box_b, inp_format, r_unit)
+    
+    overlap = box_overlap(box_a, box_b, clockwise, margin)
+    if mode == "iou":
+        area_a = box_a.dx * box_a.dy
+        area_b = box_b.dx * box_b.dy
+        iou = overlap / max(area_a + area_b - overlap, EPS)
+        return iou
+    if mode == "iof":
+        area_a = box_a.dx * box_a.dy
+        iof = overlap / max(area_a, EPS)
+        return iof
+    return overlap
+
+
 @golden_data_cache(__file__)
-def cpu_boxes_overlap_bev(boxes_a: List[List[float]], boxes_b: List[List[float]]):
+def cpu_boxes_overlap_bev(boxes_a, boxes_b, attrs):
+    aligned = attrs[0]
     boxes_a_num = boxes_a.shape[0]
     boxes_b_num = boxes_b.shape[0]
-    ans = np.zeros((boxes_a_num, boxes_b_num))
-    for i in range(boxes_a_num):
-        for j in range(boxes_b_num):
-            area = box_overlap(boxes_a[i], boxes_b[j])
-            ans[i, j] = area
-            
+    boxes_min_num = min(boxes_a_num, boxes_b_num)
+    
+    if aligned:
+        ans = np.zeros((boxes_a_num))
+        for i in range(boxes_min_num):
+            ans[i] = single_compute(boxes_a[i], boxes_b[i], attrs[1:])
+    else:
+        ans = np.zeros((boxes_a_num, boxes_b_num))
+        for i in range(boxes_a_num):
+            for j in range(boxes_b_num):
+                ans[i, j] = single_compute(boxes_a[i], boxes_b[j], attrs[1:])
     return ans
 
 
 @golden_data_cache(__file__)
-def cpu_gen_boxes(shape):
-    boxes_a_num, boxes_b_num = shape 
-    boxes_a = np.zeros((boxes_a_num, 5))
-    boxes_b = np.zeros((boxes_b_num, 5))
-    for i in range(boxes_a_num):
-        x1 = np.random.uniform(0, 50)
-        y1 = np.random.uniform(0, 50)
-        x2 = x1 + np.random.uniform(0, 50)
-        y2 = y1 + np.random.uniform(0, 50)
-        angle = np.random.uniform(0, 1)
-        boxes_a[i] = [x1, y1, x2, y2, angle]
-    
-    for i in range(boxes_b_num):
-        x1 = np.random.uniform(0, 50)
-        y1 = np.random.uniform(0, 50)
-        x2 = x1 + np.random.uniform(0, 50)
-        y2 = y1 + np.random.uniform(0, 50)
-        angle = np.random.uniform(0, 1)
-        boxes_b[i] = [x1, y1, x2, y2, angle]
+def cpu_gen_boxes(shape, inp_format, r_unit):
+    boxes_a_num, boxes_b_num = shape
+
+    if inp_format == "xyxyr":
+        boxes_a = np.zeros((boxes_a_num, 5))
+        boxes_b = np.zeros((boxes_b_num, 5))
+        for i in range(boxes_a_num):
+            x1 = np.random.uniform(-5, 5)
+            y1 = np.random.uniform(-5, 5)
+            x2 = np.random.uniform(-5, 5)
+            y2 = np.random.uniform(-5, 5)
+            angle = np.random.uniform(-np.pi, np.pi)
+            angle = angle if r_unit == "radian" else angle * 180 / np.pi
+            boxes_a[i] = [x1, y1, x2, y2, angle]
+        for i in range(boxes_b_num):
+            x1 = np.random.uniform(-5, 5)
+            y1 = np.random.uniform(-5, 5)
+            x2 = np.random.uniform(-5, 5)
+            y2 = np.random.uniform(-5, 5)
+            angle = np.random.uniform(-np.pi, np.pi)
+            angle = angle if r_unit == "radian" else angle * 180 / np.pi
+            boxes_b[i] = [x1, y1, x2, y2, angle]
+    elif inp_format == "xywhr":
+        boxes_a = np.zeros((boxes_a_num, 5))
+        boxes_b = np.zeros((boxes_b_num, 5))
+        for i in range(boxes_a_num):
+            x_center = np.random.uniform(-5, 5)
+            y_center = np.random.uniform(-5, 5)
+            dx = np.random.uniform(0, 5)
+            dy = np.random.uniform(0, 5)
+            angle = np.random.uniform(-np.pi, np.pi)
+            angle = angle if r_unit == "radian" else angle * 180 / np.pi
+            boxes_a[i] = [x_center, y_center, dx, dy, angle]
+        for i in range(boxes_b_num):
+            x_center = np.random.uniform(-5, 5)
+            y_center = np.random.uniform(-5, 5)
+            dx = np.random.uniform(0, 5)
+            dy = np.random.uniform(0, 5)
+            angle = np.random.uniform(-np.pi, np.pi)
+            angle = angle if r_unit == "radian" else angle * 180 / np.pi
+            boxes_b[i] = [x_center, y_center, dx, dy, angle]
+    elif inp_format == "xyzxyzr":
+        boxes_a = np.zeros((boxes_a_num, 7))
+        boxes_b = np.zeros((boxes_b_num, 7))
+        for i in range(boxes_a_num):
+            x1 = np.random.uniform(-5, 5)
+            y1 = np.random.uniform(-5, 5)
+            z1 = np.random.uniform(-5, 5)
+            x2 = np.random.uniform(-5, 5)
+            y2 = np.random.uniform(-5, 5)
+            z2 = np.random.uniform(-5, 5)
+            angle = np.random.uniform(-np.pi, np.pi)
+            angle = angle if r_unit == "radian" else angle * 180 / np.pi
+            boxes_a[i] = [x1, y1, z1, x2, y2, z2, angle]
+        for i in range(boxes_b_num):
+            x1 = np.random.uniform(-5, 5)
+            y1 = np.random.uniform(-5, 5)
+            z1 = np.random.uniform(-5, 5)
+            x2 = np.random.uniform(-5, 5)
+            y2 = np.random.uniform(-5, 5)
+            z2 = np.random.uniform(-5, 5)
+            angle = np.random.uniform(-np.pi, np.pi)
+            angle = angle if r_unit == "radian" else angle * 180 / np.pi
+            boxes_b[i] = [x1, y1, z1, x2, y2, z2, angle]
+    elif inp_format == "xyzwhdr":
+        boxes_a = np.zeros((boxes_a_num, 7))
+        boxes_b = np.zeros((boxes_b_num, 7))
+        for i in range(boxes_a_num):
+            x_center = np.random.uniform(-5, 5)
+            y_center = np.random.uniform(-5, 5)
+            z_center = np.random.uniform(-5, 5)
+            dx = np.random.uniform(0, 5)
+            dy = np.random.uniform(0, 5)
+            dz = np.random.uniform(0, 5)
+            angle = np.random.uniform(-np.pi, np.pi)
+            angle = angle if r_unit == "radian" else angle * 180 / np.pi
+            boxes_a[i] = [x_center, y_center, z_center, dx, dy, dz, angle]
+        for i in range(boxes_b_num):
+            x_center = np.random.uniform(-5, 5)
+            y_center = np.random.uniform(-5, 5)
+            z_center = np.random.uniform(-5, 5)
+            dx = np.random.uniform(0, 5)
+            dy = np.random.uniform(0, 5)
+            dz = np.random.uniform(0, 5)
+            angle = np.random.uniform(-np.pi, np.pi)
+            angle = angle if r_unit == "radian" else angle * 180 / np.pi
+            boxes_b[i] = [x_center, y_center, z_center, dx, dy, dz, angle]
 
     boxes_a_cpu = boxes_a.astype(np.float32)
     boxes_b_cpu = boxes_b.astype(np.float32)
 
     return boxes_a_cpu, boxes_b_cpu
+
 
 Inputs = namedtuple('Inputs', ['boxes_a', 'boxes_b'])
 
@@ -250,8 +398,104 @@ class TestBoxesOverlapBev(TestCase):
     np.random.seed(2024)
 
     def setUp(self):
-        self.dtype_list = [torch.float32]
-        self.shape_list = [
+        self.format_dict = {
+            "xyxyr": 0,
+            "xywhr": 1,
+            "xyzxyzr": 2,
+            "xyzwhdr": 3
+        }
+        self.unit_dict = {
+            "radian": 0,
+            "degree": 1
+        }
+        self.mode_dict = {
+            "overlap": 0,
+            "iou": 1,
+            "iof": 2
+        }
+    
+    def gen_results(self, cases, ut_name):
+        test_results = []
+        for shape, inp_format, r_unit, clockwise, mode, aligned, margin in cases:
+            cpu_inputs, npu_inputs = self.gen_inputs(shape, inp_format, r_unit)
+            attrs = [aligned, inp_format, r_unit, clockwise, mode, margin]
+            cpu_results = self.cpu_to_exec(cpu_inputs, attrs)
+            npu_results = self.npu_to_exec(npu_inputs, attrs, ut_name)
+            test_results.append((cpu_results, npu_results))
+        return test_results
+    
+    def gen_inputs(self, shape, inp_format, r_unit):
+        boxes_a_cpu, boxes_b_cpu = cpu_gen_boxes(shape, inp_format, r_unit)
+        
+        boxes_a_npu = torch.from_numpy(boxes_a_cpu).npu()
+        boxes_b_npu = torch.from_numpy(boxes_b_cpu).npu()
+        
+        return Inputs(boxes_a_cpu, boxes_b_cpu), Inputs(boxes_a_npu, boxes_b_npu)
+
+    def cpu_to_exec(self, cpu_inputs, attrs):
+        cpu_boxes_a = cpu_inputs.boxes_a
+        cpu_boxes_b = cpu_inputs.boxes_b
+        cpu_res = cpu_boxes_overlap_bev(cpu_boxes_a, cpu_boxes_b, attrs)
+        return cpu_res.astype(np.float32)
+
+    def npu_to_exec(self, npu_inputs, attrs, ut_name):
+        aligned, inp_format, r_unit, clockwise, mode, margin = attrs
+        attrs = [self.format_dict[inp_format], self.unit_dict[r_unit], clockwise, self.mode_dict[mode], aligned, margin]
+        npu_boxes_a = npu_inputs.boxes_a
+        npu_boxes_b = npu_inputs.boxes_b
+        
+        if ut_name == "test_boxes_overlap_bev_full":
+            npu_res = mx_driving._C.npu_boxes_overlap_bev(npu_boxes_a, npu_boxes_b, *attrs)
+            npu_res = npu_res.cpu().float().numpy()
+            return npu_res
+        elif ut_name == "test_boxes_overlap_bev_bevfusion":
+            npu_res1 = mx_driving.detection.boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
+            npu_res1 = npu_res1.cpu().float().numpy()
+            npu_res2 = mx_driving.detection.npu_boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
+            npu_res2 = npu_res2.cpu().float().numpy()
+            npu_res = mx_driving.boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
+            npu_res = npu_res.cpu().float().numpy()
+            return npu_res, npu_res1, npu_res2
+        elif ut_name == "test_boxes_overlap_bev_mmcv":
+            npu_res = mx_driving._C.npu_boxes_overlap_bev(npu_boxes_a, npu_boxes_b, *attrs)
+            npu_res = npu_res.cpu().float().numpy()
+            return npu_res
+        elif ut_name == "test_boxes_iou_bev_openpcdet":
+            npu_res = mx_driving.boxes_iou_bev(npu_boxes_a, npu_boxes_b)
+            npu_res = npu_res.cpu().float().numpy()
+            return npu_res
+        return None
+
+    def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):
+        if not np.all(np.isclose(actual, expected, rtol=rtol, atol=atol)):
+            standardMsg = f'{actual} != {expected} within relative tolerance {rtol}'
+            raise AssertionError(msg or standardMsg)
+
+    def test_boxes_overlap_bev_full(self):
+        shape_list = [[12, 19], [19, 12]]
+        format_list = ["xyxyr", "xywhr", "xyzxyzr", "xyzwhdr"]
+        unit_list = ["radian", "degree"]
+        clockwise_list = [False, True]
+        mode_list = ["overlap", "iou", "iof"]
+        aligned_list = [False, True]
+        margin_list = [1e-5, 1e-2]
+
+        cases = []
+        for shape in shape_list:
+            for inp_format in format_list:
+                for r_unit in unit_list:
+                    for clockwise in clockwise_list:
+                        for mode in mode_list:
+                            for aligned in aligned_list:
+                                for margin in margin_list:
+                                    cases.append([shape, inp_format, r_unit, clockwise, mode, aligned, margin])
+        test_results = self.gen_results(cases, "test_boxes_overlap_bev_full")
+
+        for cpu_result, npu_result in test_results:
+            self.check_precision(cpu_result, npu_result, 1e-4, 1e-4)
+
+    def test_boxes_overlap_bev_bevfusion(self):
+        shape_list = [
             [200, 19],
             [200, 60],
             [200, 12],
@@ -261,59 +505,76 @@ class TestBoxesOverlapBev(TestCase):
             [12, 200],
             [10, 200]
         ]
-        self.items = [
-            [shape, dtype]
-            for shape in self.shape_list
-            for dtype in self.dtype_list
+        inp_format = "xyxyr"
+        r_unit = "radian"
+        clockwise = False
+        mode = "overlap"
+        aligned = False
+        margin = 1e-5
+        
+        cases = [
+            [shape, inp_format, r_unit, clockwise, mode, aligned, margin]
+            for shape in shape_list
         ]
-        self.test_results = self.gen_results()
-    
-    def gen_results(self):
-        if DEVICE_NAME != 'Ascend910B':
-            self.skipTest("OP `BoxesOverlapBev` is only supported on 910B, skipping test data generation!")
-        test_results = []
-        for shape, dtype in self.items:
-            cpu_inputs, npu_inputs = self.gen_inputs(shape, dtype)
-            cpu_results = self.cpu_to_exec(cpu_inputs)
-            npu_results = self.npu_to_exec(npu_inputs)
-            test_results.append((cpu_results, npu_results))
-        return test_results
-    
-    def gen_inputs(self, shape, dtype):
-        boxes_a_cpu, boxes_b_cpu = cpu_gen_boxes(shape)
-        
-        boxes_a_npu = torch.from_numpy(boxes_a_cpu).npu()
-        boxes_b_npu = torch.from_numpy(boxes_b_cpu).npu()
-        
-        return Inputs(boxes_a_cpu, boxes_b_cpu), \
-               Inputs(boxes_a_npu, boxes_b_npu)
+        test_results = self.gen_results(cases, "test_boxes_overlap_bev_bevfusion")
 
-    def cpu_to_exec(self, cpu_inputs):
-        cpu_boxes_a = cpu_inputs.boxes_a
-        cpu_boxes_b = cpu_inputs.boxes_b
-        cpu_ans_overlap = cpu_boxes_overlap_bev(cpu_boxes_a, cpu_boxes_b)
-        return cpu_ans_overlap.astype(np.float32)
-
-    def npu_to_exec(self, npu_inputs):
-        npu_boxes_a = npu_inputs.boxes_a
-        npu_boxes_b = npu_inputs.boxes_b
-        npu_ans_overlap1 = mx_driving.detection.boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
-        npu_ans_overlap1 = npu_ans_overlap1.cpu().float().numpy()
-        npu_ans_overlap2 = mx_driving.detection.npu_boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
-        npu_ans_overlap2 = npu_ans_overlap2.cpu().float().numpy()
-        npu_ans_overlap = boxes_overlap_bev(npu_boxes_a, npu_boxes_b)
-        npu_ans_overlap = npu_ans_overlap.cpu().float().numpy()
-        return npu_ans_overlap, npu_ans_overlap1, npu_ans_overlap2
-
-    def check_precision(self, actual, expected, rtol=1e-4, atol=1e-4, msg=None):
-        if not np.all(np.isclose(actual, expected, rtol=rtol, atol=atol)):
-            standardMsg = f'{actual} != {expected} within relative tolerance {rtol}'
-            raise AssertionError(msg or standardMsg)
-
-    def test_boxes_overlap_bev(self):
-        for cpu_result, npu_results in self.test_results:
+        for cpu_result, npu_results in test_results:
             for npu_result in npu_results:
                 self.check_precision(cpu_result, npu_result, 1e-4, 1e-4)
+
+    def test_boxes_overlap_bev_mmcv(self):
+        shape_list = [
+            [200, 19],
+            [200, 60],
+            [200, 12],
+            [200, 10],
+            [10, 200],
+            [60, 200],
+            [12, 200],
+            [10, 200]
+        ]
+        inp_format = "xyzwhdr"
+        r_unit = "radian"
+        clockwise = True
+        mode = "overlap"
+        aligned = False
+        margin = 1e-2
+        
+        cases = [
+            [shape, inp_format, r_unit, clockwise, mode, aligned, margin]
+            for shape in shape_list
+        ]
+        test_results = self.gen_results(cases, "test_boxes_overlap_bev_mmcv")
+
+        for cpu_result, npu_result in test_results:
+            self.check_precision(cpu_result, npu_result, 1e-4, 1e-4)
+
+    def test_boxes_iou_bev_openpcdet(self):
+        shape_list = [
+            [200, 19],
+            [200, 60],
+            [200, 12],
+            [200, 10],
+            [10, 200],
+            [60, 200],
+            [12, 200],
+            [10, 200]
+        ]
+        inp_format = "xyzwhdr"
+        r_unit = "radian"
+        clockwise = True
+        mode = "iou"
+        aligned = False
+        margin = 1e-2
+        
+        cases = [
+            [shape, inp_format, r_unit, clockwise, mode, aligned, margin]
+            for shape in shape_list
+        ]
+        test_results = self.gen_results(cases, "test_boxes_iou_bev_openpcdet")
+
+        for cpu_result, npu_result in test_results:
+            self.check_precision(cpu_result, npu_result, 1e-4, 1e-4)
  
  
 if __name__ == '__main__':

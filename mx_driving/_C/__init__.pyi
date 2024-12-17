@@ -231,7 +231,16 @@ def npu_rotated_iou(
     v_threshold: float,
     e_threshold: float,
 ) -> torch.Tensor: ...
-def npu_boxes_overlap_bev(boxes_a: torch.Tensor, boxes_b: torch.Tensor) -> torch.Tensor: ...
+def npu_boxes_overlap_bev(
+    boxes_a: torch.Tensor,
+    boxes_b: torch.Tensor,
+    format_flag: int,
+    unit_flag: int,
+    clockwise: bool,
+    mode_flag: int,
+    aligned: bool,
+    margin: float,
+) -> torch.Tensor: ...
 def roi_align_rotated_v2_forward_npu(
     input: torch.Tensor,
     rois_map: torch.Tensor,

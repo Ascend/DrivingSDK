@@ -198,7 +198,8 @@ at::Tensor npu_rotated_overlaps(const at::Tensor& self, const at::Tensor& query_
 at::Tensor npu_rotated_iou(const at::Tensor& boxes, const at::Tensor& query_boxes, bool trans, int64_t mode,
     bool is_cross, double v_threshold, double e_threshold);
 
-at::Tensor npu_boxes_overlap_bev(const at::Tensor& boxes_a, const at::Tensor& boxes_b);
+at::Tensor npu_boxes_overlap_bev(const at::Tensor& boxes_a, const at::Tensor& boxes_b,
+    int32_t format_flag, int32_t unit_flag, bool clockwise, int32_t mode_flag, bool aligned, double margin);
 
 void roi_align_rotated_v2_forward_npu(const at::Tensor& input, const at::Tensor& rois_map, at::Tensor& output,
     double spatial_scale, int32_t sampling_ratio, int32_t pooled_height, int32_t pooled_width, bool aligned,
