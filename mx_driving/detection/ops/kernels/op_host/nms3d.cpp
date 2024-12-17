@@ -10,6 +10,10 @@ using namespace std;
 namespace optiling {
 static ge::graphStatus Nms3dTilingFunc(gert::TilingContext *context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    
     Nms3dTilingData tiling;
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
@@ -17,6 +21,10 @@ static ge::graphStatus Nms3dTilingFunc(gert::TilingContext *context)
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     static uint32_t coreNum = ascendcPlatform.GetCoreNumAiv();
+
+    if (context->GetInputShape(0) == nullptr || context->GetOutputShape(0) == nullptr || context->GetInputDesc(0) == nullptr || context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
     auto boxShape = context->GetInputShape(0)->GetStorageShape();
     auto maskShape = context->GetOutputShape(0)->GetStorageShape();

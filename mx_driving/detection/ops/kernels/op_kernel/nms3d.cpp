@@ -9,8 +9,7 @@
 #define M_PI 3.14159265358979323846 /* pi */
 
 using namespace AscendC;
-constexpr int32_t
-BUFFER_NUM = 2;
+constexpr int32_t BUFFER_NUM = 2;
 constexpr float EPS = 1e-8;
 constexpr float ATAN2_DEFAULT_VALUE = 1000.0;
 
@@ -32,16 +31,12 @@ struct Point {
         y = _y;
     }
 
-    __aicore__ Point
-
-    operator+(const Point &b) const
+    __aicore__ Point operator+(const Point& b) const
     {
         return Point(x + b.x, y + b.y);
     }
 
-    __aicore__ Point
-
-    operator-(const Point &b) const
+    __aicore__ Point operator-(const Point& b) const
     {
         return Point(x - b.x, y - b.y);
     }
@@ -52,8 +47,7 @@ class KernelNms3d {
 public:
     __aicore__ inline KernelNms3d() {}
 
-    __aicore__ inline void Init(GM_ADDR boxes, GM_ADDR mask,
-                                const Nms3dTilingData *__restrict tiling_data)
+    __aicore__ inline void Init(GM_ADDR boxes, GM_ADDR mask, const Nms3dTilingData* __restrict tiling_data)
     {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
         usedCoreNum = tiling_data->usedCoreNum;
@@ -68,9 +62,8 @@ public:
         uint32_t core_id = GetBlockIdx();
         isLastCore = (core_id == (tiling_data->usedCoreNum - 1));
 
-        boxGm.SetGlobalBuffer(reinterpret_cast<__gm__ T * > (boxes), boxNum * 7);
-        maskGm.SetGlobalBuffer(reinterpret_cast<__gm__ int16_t * > (mask),
-                maskNum * boxNum);
+        boxGm.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(boxes), static_cast<uint64_t>(boxNum) * 7);
+        maskGm.SetGlobalBuffer(reinterpret_cast<__gm__ int16_t*>(mask), static_cast<uint64_t>(maskNum) * boxNum);
 
         pipe.InitBuffer(inQueueCur, BUFFER_NUM, dataAlign * sizeof(T));
         pipe.InitBuffer(inQueueBox, BUFFER_NUM, dataAlign * 7 * sizeof(T));
@@ -90,7 +83,7 @@ public:
         pipe.InitBuffer(min2Buf, dataAlign * sizeof(T));
         pipe.InitBuffer(max1Buf, dataAlign * sizeof(T));
         pipe.InitBuffer(max2Buf, dataAlign * sizeof(T));
-        if constexpr(sizeof(T) == sizeof(half)) {
+        if constexpr (sizeof(T) == sizeof(half)) {
             pipe.InitBuffer(calcBuf, dataAlign * 2 * 7 * sizeof(float));
             curTemp = calcBuf.Get<float>(dataAlign * 2 * 7);
             boxTemp = curTemp[8];
@@ -100,7 +93,7 @@ public:
     __aicore__ inline void Process()
     {
         uint32_t core_id = GetBlockIdx();
-        LocalTensor <int16_t> oneLocal = oneMask.AllocTensor<int16_t>();
+        LocalTensor<int16_t> oneLocal = oneMask.AllocTensor<int16_t>();
         Duplicate(oneLocal, static_cast<int16_t>(1), dataAlign);
         for (size_t i = 0; i < boxNum; ++i) {
             for (size_t j = 0; j < loopTime; ++j) {
@@ -119,24 +112,22 @@ public:
     }
 
 private:
-    __aicore__ inline void CopyIn(int32_t cur_box, int32_t com_box,
-                                  bool is_last)
+    __aicore__ inline void CopyIn(int32_t cur_box, int32_t com_box, bool is_last)
     {
-        LocalTensor <T> curLocal = inQueueCur.AllocTensor<T>();
-        LocalTensor <T> boxLocal = inQueueBox.AllocTensor<T>();
-        DataCopy(curLocal, boxGm[cur_box * 7], dataAlign);
-        DataCopy(boxLocal, boxGm[com_box * 7], dataAlign * 7);
+        LocalTensor<T> curLocal = inQueueCur.AllocTensor<T>();
+        LocalTensor<T> boxLocal = inQueueBox.AllocTensor<T>();
+        DataCopy(curLocal, boxGm[static_cast<uint64_t>(cur_box) * 7], dataAlign);
+        DataCopy(boxLocal, boxGm[static_cast<uint64_t>(com_box) * 7], dataAlign * 7);
         inQueueCur.EnQue(curLocal);
         inQueueBox.EnQue(boxLocal);
     }
 
-    __aicore__ inline void Compute(int32_t cur_box, int32_t com_box,
-                                   bool is_last)
+    __aicore__ inline void Compute(int32_t cur_box, int32_t com_box, bool is_last)
     {
         uint32_t cmpNum = is_last ? tailNum : dataAlign;
-        if constexpr(sizeof(T) == sizeof(half)) {
-            LocalTensor <T> curLocal = inQueueCur.DeQue<T>();
-            LocalTensor <T> boxLocal = inQueueBox.DeQue<T>();
+        if constexpr (sizeof(T) == sizeof(half)) {
+            LocalTensor<T> curLocal = inQueueCur.DeQue<T>();
+            LocalTensor<T> boxLocal = inQueueBox.DeQue<T>();
             Cast(curTemp, curLocal, RoundMode::CAST_NONE, dataAlign);
             Cast(boxTemp, boxLocal, RoundMode::CAST_NONE, 7 * dataAlign);
             inQueueCur.FreeTensor(curLocal);
@@ -147,7 +138,7 @@ private:
         }
 
         PipeBarrier<PIPE_ALL>();
-        LocalTensor <int16_t> outLocal = outQueueMask.AllocTensor<int16_t>();
+        LocalTensor<int16_t> outLocal = outQueueMask.AllocTensor<int16_t>();
         for (size_t i = 0; i < cmpNum; i++) {
             if (cur_box >= com_box + i) {
                 outLocal.SetValue(i, 1);
@@ -166,7 +157,7 @@ private:
         }
         PipeBarrier<PIPE_ALL>();
         outQueueMask.EnQue<int16_t>(outLocal);
-        if constexpr(sizeof(T) != sizeof(half)) {
+        if constexpr (sizeof(T) != sizeof(half)) {
             inQueueCur.FreeTensor(curTemp);
             inQueueBox.FreeTensor(boxTemp);
         }
@@ -174,35 +165,30 @@ private:
 
     __aicore__ inline void CopyOut(int32_t cur_box, int32_t com_box)
     {
-        LocalTensor <int16_t> outLocal = outQueueMask.DeQue<int16_t>();
-        DataCopy(maskGm[cur_box * maskNum + com_box], outLocal, dataAlign);
+        LocalTensor<int16_t> outLocal = outQueueMask.DeQue<int16_t>();
+        DataCopy(maskGm[static_cast<uint64_t>(cur_box) * maskNum + static_cast<uint64_t>(com_box)], outLocal, dataAlign);
         outQueueMask.FreeTensor(outLocal);
     }
 
 private:
-    __aicore__ inline float cross(const Point &a, const Point &b)
+    __aicore__ inline float cross(const Point& a, const Point& b)
     {
         return a.x * b.y - a.y * b.x;
     }
 
-    __aicore__ inline float cross(const Point &p1, const Point &p2,
-                                  const Point &p0)
+    __aicore__ inline float cross(const Point& p1, const Point& p2, const Point& p0)
     {
         return (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y);
     }
 
-    __aicore__ int check_rect_cross(const Point &p1, const Point &p2,
-                                    const Point &q1, const Point &q2)
+    __aicore__ int check_rect_cross(const Point& p1, const Point& p2, const Point& q1, const Point& q2)
     {
-        int ret = min(p1.x, p2.x) <= max(q1.x, q2.x) &&
-                  min(q1.x, q2.x) <= max(p1.x, p2.x) &&
-                  min(p1.y, p2.y) <= max(q1.y, q2.y) &&
-                  min(q1.y, q2.y) <= max(p1.y, p2.y);
+        int ret = min(p1.x, p2.x) <= max(q1.x, q2.x) && min(q1.x, q2.x) <= max(p1.x, p2.x) &&
+                  min(p1.y, p2.y) <= max(q1.y, q2.y) && min(q1.y, q2.y) <= max(p1.y, p2.y);
         return ret;
     }
 
-    __aicore__ inline int check_in_box2d(const LocalTensor<float> &box,
-                                         const Point &p)
+    __aicore__ inline int check_in_box2d(const LocalTensor<float>& box, const Point& p)
     {
         const float MARGIN = 1e-2;
         float center_x = box.GetValue(0);
@@ -215,17 +201,14 @@ private:
         Cos(cosLocal, angleLocal);
         float angle_cos = cosLocal.GetValue(0);
         float angle_sin = sinLocal.GetValue(0);
-        float rot_x =
-                (p.x - center_x) * angle_cos + (p.y - center_y) * (-angle_sin);
+        float rot_x = (p.x - center_x) * angle_cos + (p.y - center_y) * (-angle_sin);
         float rot_y = (p.x - center_x) * angle_sin + (p.y - center_y) * angle_cos;
 
-        return (abs(rot_x) < box.GetValue(3) / 2 + MARGIN &&
-                abs(rot_y) < box.GetValue(4) / 2 + MARGIN);
+        return (abs(rot_x) < box.GetValue(3) / 2 + MARGIN && abs(rot_y) < box.GetValue(4) / 2 + MARGIN);
     }
 
-    __aicore__ inline int intersection(const Point &p1, const Point &p0,
-                                       const Point &q1, const Point &q0,
-                                       Point &ans_point)
+    __aicore__ inline int intersection(
+        const Point& p1, const Point& p0, const Point& q1, const Point& q0, Point& ans_point)
     {
         if (check_rect_cross(p0, p1, q0, q1) == 0) {
             return 0;
@@ -234,8 +217,7 @@ private:
         float s2 = cross(p1, q1, p0);
         float s3 = cross(p0, q1, q0);
         float s4 = cross(q1, p1, q0);
-        if (!(s1 * s2 > static_cast<float>(0.0) &&
-              s3 * s4 > static_cast<float>(0.0))) {
+        if (!(s1 * s2 > static_cast<float>(0.0) && s3 * s4 > static_cast<float>(0.0))) {
             return 0;
         }
         float s5 = cross(q1, p1, p0);
@@ -259,22 +241,17 @@ private:
         return 1;
     }
 
-    __aicore__ inline void rotate_around_center(const Point &center,
-                                                const float angle_cos,
-                                                const float angle_sin, Point &p)
+    __aicore__ inline void rotate_around_center(
+        const Point& center, const float angle_cos, const float angle_sin, Point& p)
     {
-        float new_x =
-                (p.x - center.x) * angle_cos - (p.y - center.y) * angle_sin + center.x;
-        float new_y =
-                (p.x - center.x) * angle_sin + (p.y - center.y) * angle_cos + center.y;
+        float new_x = (p.x - center.x) * angle_cos - (p.y - center.y) * angle_sin + center.x;
+        float new_y = (p.x - center.x) * angle_sin + (p.y - center.y) * angle_cos + center.y;
         p.set(new_x, new_y);
     }
 
-    __aicore__ inline int point_cmp(const Point &a, const Point &b,
-                                    const Point &center)
+    __aicore__ inline int point_cmp(const Point& a, const Point& b, const Point& center)
     {
-        return math_atan2(a.y - center.y, a.x - center.x) >
-               math_atan2(b.y - center.y, b.x - center.x);
+        return math_atan2(a.y - center.y, a.x - center.x) > math_atan2(b.y - center.y, b.x - center.x);
     }
 
     __aicore__ inline float math_atan2(float a, float b)
@@ -305,8 +282,7 @@ private:
         return atanLocal.GetValue(0);
     }
 
-    __aicore__ inline float box_overlap(const LocalTensor<float> &boxATensor,
-                                        const LocalTensor<float> &boxBTensor)
+    __aicore__ inline float box_overlap(const LocalTensor<float>& boxATensor, const LocalTensor<float>& boxBTensor)
     {
         // params box_a: [x, y, z, dx, dy, dz, heading]
         // params box_b: [x, y, z, dx, dy, dz, heading]
@@ -329,16 +305,8 @@ private:
         Point center_a(boxATensor.GetValue(0), boxATensor.GetValue(1));
         Point center_b(boxBTensor.GetValue(0), boxBTensor.GetValue(1));
 
-        Point box_a_corners[5] = {{a_x1, a_y1},
-                                  {a_x2, a_y1},
-                                  {a_x2, a_y2},
-                                  {a_x1, a_y2},
-                                  {a_x1, a_y1}};
-        Point box_b_corners[5] = {{b_x1, b_y1},
-                                  {b_x2, b_y1},
-                                  {b_x2, b_y2},
-                                  {b_x1, b_y2},
-                                  {b_x1, b_y1}};
+        Point box_a_corners[5] = {{a_x1, a_y1}, {a_x2, a_y1}, {a_x2, a_y2}, {a_x1, a_y2}, {a_x1, a_y1}};
+        Point box_b_corners[5] = {{b_x1, b_y1}, {b_x2, b_y1}, {b_x2, b_y2}, {b_x1, b_y2}, {b_x1, b_y1}};
 
         // get oriented corners
         LocalTensor<float> angleLocal = angleBuf.Get<float>();
@@ -354,10 +322,8 @@ private:
         float b_angle_sin = sinLocal.GetValue(1);
 
         for (int k = 0; k < 4; k++) {
-            rotate_around_center(center_a, a_angle_cos, a_angle_sin,
-                                 box_a_corners[k]);
-            rotate_around_center(center_b, b_angle_cos, b_angle_sin,
-                                 box_b_corners[k]);
+            rotate_around_center(center_a, a_angle_cos, a_angle_sin, box_a_corners[k]);
+            rotate_around_center(center_b, b_angle_cos, b_angle_sin, box_b_corners[k]);
         }
 
         box_a_corners[4] = box_a_corners[0];
@@ -372,9 +338,8 @@ private:
         poly_center.set(0, 0);
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                flag = intersection(box_a_corners[i + 1], box_a_corners[i],
-                                    box_b_corners[j + 1], box_b_corners[j],
-                                    cross_points[count]);
+                flag = intersection(box_a_corners[i + 1], box_a_corners[i], box_b_corners[j + 1], box_b_corners[j],
+                    cross_points[count]);
                 if (flag) {
                     poly_center = poly_center + cross_points[count];
                     count++;
@@ -412,15 +377,13 @@ private:
 
         float cross_area = 0;
         for (int k = 0; k < count - 1; k++) {
-            cross_area += cross(cross_points[k] - cross_points[0],
-                cross_points[k + 1] - cross_points[0]);
+            cross_area += cross(cross_points[k] - cross_points[0], cross_points[k + 1] - cross_points[0]);
         }
 
         return abs(cross_area) / static_cast<float>(2.0);
     }
 
-    __aicore__ inline float iou_bev(const LocalTensor<float> &boxATensor,
-                                    const LocalTensor<float> &boxBTensor)
+    __aicore__ inline float iou_bev(const LocalTensor<float>& boxATensor, const LocalTensor<float>& boxBTensor)
     {
         // params box_a: [x, y, z, dx, dy, dz, heading]
         // params box_b: [x, y, z, dx, dy, dz, heading]
@@ -432,17 +395,17 @@ private:
 
 private:
     TPipe pipe;
-    TQue <QuePosition::VECIN, BUFFER_NUM> inQueueCur, inQueueBox;
-    TQue <QuePosition::VECOUT, BUFFER_NUM> outQueueMask, oneMask;
-    TBuf <TPosition::VECCALC> calcBuf;
-    TBuf <TPosition::VECCALC> comBuf;
+    TQue<QuePosition::VECIN, BUFFER_NUM> inQueueCur, inQueueBox;
+    TQue<QuePosition::VECOUT, BUFFER_NUM> outQueueMask, oneMask;
+    TBuf<TPosition::VECCALC> calcBuf;
+    TBuf<TPosition::VECCALC> comBuf;
 
-    TBuf <TPosition::VECCALC> p1Buf, p2Buf, q1Buf, q2Buf;
-    TBuf <TPosition::VECCALC> angleBuf, sinBuf, cosBuf, pointBuf;
-    TBuf <TPosition::VECCALC> min1Buf, min2Buf, max1Buf, max2Buf;
+    TBuf<TPosition::VECCALC> p1Buf, p2Buf, q1Buf, q2Buf;
+    TBuf<TPosition::VECCALC> angleBuf, sinBuf, cosBuf, pointBuf;
+    TBuf<TPosition::VECCALC> min1Buf, min2Buf, max1Buf, max2Buf;
 
-    GlobalTensor <T> boxGm;
-    GlobalTensor <int16_t> maskGm;
+    GlobalTensor<T> boxGm;
+    GlobalTensor<int16_t> maskGm;
     LocalTensor<float> curTemp, boxTemp;
     uint32_t usedCoreNum;
     uint32_t loopTime;
@@ -456,13 +419,10 @@ private:
     bool isLastCore;
 };
 
-extern "C" __global__ __aicore__
-
-void nms3d(GM_ADDR boxes, GM_ADDR mask,
-           GM_ADDR workspace, GM_ADDR tiling)
+extern "C" __global__ __aicore__ void nms3d(GM_ADDR boxes, GM_ADDR mask, GM_ADDR workspace, GM_ADDR tiling)
 {
     GET_TILING_DATA(tilingData, tiling);
-    const Nms3dTilingData *__restrict tilingDevice = &tilingData;
+    const Nms3dTilingData* __restrict tilingDevice = &tilingData;
     if (TILING_KEY_IS(1)) {
         KernelNms3d<float> op;
         op.Init(boxes, mask, tilingDevice);
