@@ -112,6 +112,9 @@ static ge::graphStatus TilingForUniqueVoxel(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
 
@@ -129,6 +132,9 @@ static ge::graphStatus InferShapeForUniqueVoxel(gert::InferShapeContext* context
     gert::Shape* uniArgsortIdxShape = context->GetOutputShape(2);
     gert::Shape* voxNumShape = context->GetOutputShape(3);
     if (!pointShape || !uniVoxShape || !uniArgsortIdxShape || !uniIdxShape || !voxNumShape) {
+        return ge::GRAPH_FAILED;
+    }
+    if (context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
         return ge::GRAPH_FAILED;
     }
     *uniVoxShape = *pointShape;
