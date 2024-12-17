@@ -10,6 +10,10 @@ using namespace std;
 namespace optiling {
 static ge::graphStatus Nms3dTilingFunc(gert::TilingContext *context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    
     Nms3dTilingData tiling;
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {

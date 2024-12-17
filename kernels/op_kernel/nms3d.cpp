@@ -62,8 +62,8 @@ public:
         uint32_t core_id = GetBlockIdx();
         isLastCore = (core_id == (tiling_data->usedCoreNum - 1));
 
-        boxGm.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(boxes), boxNum * 7);
-        maskGm.SetGlobalBuffer(reinterpret_cast<__gm__ int16_t*>(mask), maskNum * boxNum);
+        boxGm.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(boxes), static_cast<uint64_t>(boxNum) * 7);
+        maskGm.SetGlobalBuffer(reinterpret_cast<__gm__ int16_t*>(mask), static_cast<uint64_t>(maskNum) * boxNum);
 
         pipe.InitBuffer(inQueueCur, BUFFER_NUM, dataAlign * sizeof(T));
         pipe.InitBuffer(inQueueBox, BUFFER_NUM, dataAlign * 7 * sizeof(T));
@@ -116,8 +116,8 @@ private:
     {
         LocalTensor<T> curLocal = inQueueCur.AllocTensor<T>();
         LocalTensor<T> boxLocal = inQueueBox.AllocTensor<T>();
-        DataCopy(curLocal, boxGm[cur_box * 7], dataAlign);
-        DataCopy(boxLocal, boxGm[com_box * 7], dataAlign * 7);
+        DataCopy(curLocal, boxGm[static_cast<uint64_t>(cur_box) * 7], dataAlign);
+        DataCopy(boxLocal, boxGm[static_cast<uint64_t>(com_box) * 7], dataAlign * 7);
         inQueueCur.EnQue(curLocal);
         inQueueBox.EnQue(boxLocal);
     }
@@ -166,7 +166,7 @@ private:
     __aicore__ inline void CopyOut(int32_t cur_box, int32_t com_box)
     {
         LocalTensor<int16_t> outLocal = outQueueMask.DeQue<int16_t>();
-        DataCopy(maskGm[cur_box * maskNum + com_box], outLocal, dataAlign);
+        DataCopy(maskGm[static_cast<uint64_t>(cur_box) * maskNum + static_cast<uint64_t>(com_box)], outLocal, dataAlign);
         outQueueMask.FreeTensor(outLocal);
     }
 

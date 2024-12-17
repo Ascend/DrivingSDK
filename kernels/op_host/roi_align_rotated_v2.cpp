@@ -37,6 +37,9 @@ const uint32_t TILE_NUM = 8;
 static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
 {
     RoiAlignRotatedV2TilingData tiling;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
     auto inputTensorPtr = context->GetInputTensor(INPUT_INDEX);
     auto RoisTensorPtr = context->GetInputTensor(ROIS_INDEX);

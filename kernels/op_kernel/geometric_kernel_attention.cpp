@@ -53,12 +53,14 @@ public:
         taskNumPerLoop = taskNumPerCore;
         loopCount = 1;
 
-        valueGM.SetGlobalBuffer((__gm__ DTYPE_VALUE *)value, batchSize * numKeys * numHeads * dim);
-        spatialshapesGM.SetGlobalBuffer((__gm__ DTYPE_SPATIAL_SHAPES *)spatial_shapes, numLevels * DOUBLE_NUM);
-        levelindexGM.SetGlobalBuffer((__gm__ DTYPE_LEVEL_START_INDEX *)level_start_index, numLevels);
-        samplingGM.SetGlobalBuffer((__gm__ DTYPE_SAMPLING_LOCATIONS *)sampling_locations, batchSize * numQueries * numHeads * numLevels * numPoints * DOUBLE_NUM);
-        attentionGM.SetGlobalBuffer((__gm__ DTYPE_ATTENTION_WEIGHTS *)attention_weights, batchSize * numQueries * numHeads * numLevels * numPoints);
-        outputGM.SetGlobalBuffer((__gm__ DTYPE_OUTPUT *)output, batchSize * numQueries * numHeads * dim);
+        uint64_t castBatchSize = static_cast<uint64_t>(batchSize);
+        uint64_t castNumLevel = static_cast<uint64_t>(numLevels);
+        valueGM.SetGlobalBuffer((__gm__ DTYPE_VALUE *)value, castBatchSize * numKeys * numHeads * dim);
+        spatialshapesGM.SetGlobalBuffer((__gm__ DTYPE_SPATIAL_SHAPES *)spatial_shapes, castNumLevel * DOUBLE_NUM);
+        levelindexGM.SetGlobalBuffer((__gm__ DTYPE_LEVEL_START_INDEX *)level_start_index, castNumLevel);
+        samplingGM.SetGlobalBuffer((__gm__ DTYPE_SAMPLING_LOCATIONS *)sampling_locations, castBatchSize * numQueries * numHeads * numLevels * numPoints * DOUBLE_NUM);
+        attentionGM.SetGlobalBuffer((__gm__ DTYPE_ATTENTION_WEIGHTS *)attention_weights, castBatchSize * numQueries * numHeads * numLevels * numPoints);
+        outputGM.SetGlobalBuffer((__gm__ DTYPE_OUTPUT *)output, castBatchSize * numQueries * numHeads * dim);
 
         this->_pipe->InitBuffer(ValueBuffer, alignDim * FLOAT_SIZE);
         this->_pipe->InitBuffer(AtomicAddBuffer, alignDim * FLOAT_SIZE);
@@ -154,7 +156,7 @@ private:
 
     __aicore__ inline void SamplingLocationsCopyIn(int32_t index)
     {
-        DataCopy(TmpSamplingLocationTensor, samplingGM[index], alignLevels * numPoints * DOUBLE_NUM);
+        DataCopy(TmpSamplingLocationTensor, samplingGM[static_cast<uint64_t>(index)], alignLevels * numPoints * DOUBLE_NUM);
         PipeBarrier<PIPE_ALL>();
         if (TmpSamplingLocationTensor.GetSize() >= 32) {
             GatherMaskLocations();
@@ -193,7 +195,7 @@ private:
 
     __aicore__ inline void AttentionWeightCopyIn(int32_t index)
     {
-        DataCopy(AttentionWeightTensor, attentionGM[index], alignLevels * numPoints);
+        DataCopy(AttentionWeightTensor, attentionGM[static_cast<uint64_t>(index)], alignLevels * numPoints);
         PipeBarrier<PIPE_ALL>();
     }
 
@@ -217,7 +219,7 @@ private:
 
     __aicore__ inline void SingleValueCopyIn(int32_t copyIndex)
     {
-        DataCopy(ValueTensor, valueGM[copyIndex], alignDim);
+        DataCopy(ValueTensor, valueGM[static_cast<uint64_t>(copyIndex)], alignDim);
         PipeBarrier<PIPE_ALL>();
     }
 
@@ -227,7 +229,7 @@ private:
         PipeBarrier<PIPE_ALL>();
 
         SetAtomicAdd<float>();
-        DataCopy(outputGM[copyIndex], OutputTensor, alignDim);
+        DataCopy(outputGM[static_cast<uint64_t>(copyIndex)], OutputTensor, alignDim);
         SetAtomicNone();
     }
 

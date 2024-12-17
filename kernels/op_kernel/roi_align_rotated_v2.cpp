@@ -42,6 +42,7 @@ public:
         Lcore_num = tiling_data->Lcore_num;
         Score_num = tiling_data->Score_num;
         input_buffer_size = tiling_data->input_buffer_size;
+        blockIndex = GetBlockIdx();
 
         if (aligned == true) {
             offset_scalar = -0.5;
@@ -52,7 +53,7 @@ public:
         total_rois_num = rois_num_aligned - tail_num;
         output_shape = pooled_height * pooled_width;
 
-        if (GetBlockIdx() < Lcore_num) {
+        if (blockIndex < Lcore_num) {
             rois_num_per_core = rois_num_per_Lcore;
         } else {
             rois_num_per_core = rois_num_per_Score;
@@ -61,7 +62,10 @@ public:
         uint32_t ub_size_for_loop = (static_cast<uint32_t>(ub_total_size)) / 8;
         uint32_t roi_size = rois_info_num * sizeof(float);
         rois_num_per_loop_limit = ((ub_size_for_loop / roi_size) / aligned_byte_num) * aligned_byte_num;
-        if (rois_num_per_core <= rois_num_per_loop_limit) {
+        if (rois_num_per_loop_limit == 0) {
+            loopCount = 0;
+            rois_num_per_loop = 0;
+        } else if (rois_num_per_core <= rois_num_per_loop_limit) {
             loopCount = 1;
             rois_num_per_loop = rois_num_per_core;
         } else {
@@ -73,9 +77,9 @@ public:
 
         ASSERT(tileNum != 0 && "tile num can not be zero!");
 
-        inputGM.SetGlobalBuffer((__gm__ DTYPE_INPUT *)input, batch_size * channels * input_h * input_w);
-        roisGM.SetGlobalBuffer((__gm__ DTYPE_ROIS *)rois, (rois_num_aligned * rois_info_num));
-        outputGM.SetGlobalBuffer((__gm__ DTYPE_OUTPUT *)output, (total_rois_num * channels * pooled_height * pooled_width));
+        inputGM.SetGlobalBuffer((__gm__ DTYPE_INPUT *)input, static_cast<uint64_t>(batch_size) * channels * input_h * input_w);
+        roisGM.SetGlobalBuffer((__gm__ DTYPE_ROIS *)rois, static_cast<uint64_t>(rois_num_aligned) * rois_info_num);
+        outputGM.SetGlobalBuffer((__gm__ DTYPE_OUTPUT *)output, static_cast<uint64_t>(total_rois_num) * channels * pooled_height * pooled_width);
 
         pipe.InitBuffer(RoisQueueBatchIdx, BUFFER_NUM, rois_buffer_size);
         pipe.InitBuffer(RoisQueueCenterX, BUFFER_NUM, rois_buffer_size);
@@ -187,23 +191,25 @@ private:
         LocalTensor<DTYPE_ROIS> RoisTheta = RoisQueueTheta.AllocTensor<DTYPE_ROIS>();
         PipeBarrier<PIPE_ALL>();
 
-        if (GetBlockIdx() < Lcore_num) {
-            int32_t pre_idx = GetBlockIdx() * rois_num_per_core + progress * rois_num_per_loop;
+        if (blockIndex < Lcore_num) {
+            uint64_t pre_idx = blockIndex * rois_num_per_core + progress * rois_num_per_loop;
+            uint64_t cast_total_rois_num = static_cast<uint64_t>(total_rois_num);
             DataCopy(RoisBatchIdx, roisGM[pre_idx], rois_num);
-            DataCopy(RoisCenterX, roisGM[pre_idx + total_rois_num], rois_num);
-            DataCopy(RoisCenterY, roisGM[pre_idx + total_rois_num * 2], rois_num);
-            DataCopy(RoisWidth, roisGM[pre_idx + total_rois_num * 3], rois_num);
-            DataCopy(RoisHeight, roisGM[pre_idx + total_rois_num * 4], rois_num);
-            DataCopy(RoisTheta, roisGM[pre_idx + total_rois_num * 5], rois_num);
+            DataCopy(RoisCenterX, roisGM[pre_idx + cast_total_rois_num], rois_num);
+            DataCopy(RoisCenterY, roisGM[pre_idx + cast_total_rois_num * 2], rois_num);
+            DataCopy(RoisWidth, roisGM[pre_idx + cast_total_rois_num * 3], rois_num);
+            DataCopy(RoisHeight, roisGM[pre_idx + cast_total_rois_num * 4], rois_num);
+            DataCopy(RoisTheta, roisGM[pre_idx + cast_total_rois_num * 5], rois_num);
             PipeBarrier<PIPE_ALL>();
         } else {
-            int32_t pre_idx = Lcore_num * rois_num_per_Lcore + (GetBlockIdx() - Lcore_num) * rois_num_per_core + progress * rois_num_per_loop;
+            uint64_t pre_idx = static_cast<uint64_t>(Lcore_num) * rois_num_per_Lcore + (blockIndex - Lcore_num) * rois_num_per_core + progress * rois_num_per_loop;
+            uint64_t cast_total_rois_num = static_cast<uint64_t>(total_rois_num);
             DataCopy(RoisBatchIdx, roisGM[pre_idx], rois_num);
-            DataCopy(RoisCenterX, roisGM[pre_idx + total_rois_num], rois_num);
-            DataCopy(RoisCenterY, roisGM[pre_idx + total_rois_num * 2], rois_num);
-            DataCopy(RoisWidth, roisGM[pre_idx + total_rois_num * 3], rois_num);
-            DataCopy(RoisHeight, roisGM[pre_idx + total_rois_num * 4], rois_num);
-            DataCopy(RoisTheta, roisGM[pre_idx + total_rois_num * 5], rois_num);
+            DataCopy(RoisCenterX, roisGM[pre_idx + cast_total_rois_num], rois_num);
+            DataCopy(RoisCenterY, roisGM[pre_idx + cast_total_rois_num * 2], rois_num);
+            DataCopy(RoisWidth, roisGM[pre_idx + cast_total_rois_num * 3], rois_num);
+            DataCopy(RoisHeight, roisGM[pre_idx + cast_total_rois_num * 4], rois_num);
+            DataCopy(RoisTheta, roisGM[pre_idx + cast_total_rois_num * 5], rois_num);
             PipeBarrier<PIPE_ALL>();
         }
         
@@ -290,13 +296,13 @@ private:
         PipeBarrier<PIPE_ALL>();
     }
 
-    __aicore__ inline float ComputeOutputIndex(uint32_t progress)
+    __aicore__ inline int32_t ComputeOutputIndex(uint32_t progress)
     {
         int32_t output_index;
-        if (GetBlockIdx() < Lcore_num) {
-            output_index = pooled_height * pooled_width * (GetBlockIdx() * rois_num_per_core + progress * rois_num_per_loop);
+        if (blockIndex < Lcore_num) {
+            output_index = pooled_height * pooled_width * (blockIndex * rois_num_per_core + progress * rois_num_per_loop);
         } else {
-            output_index = pooled_height * pooled_width * (Lcore_num * rois_num_per_Lcore + (GetBlockIdx() - Lcore_num) * rois_num_per_core + progress * rois_num_per_loop);
+            output_index = pooled_height * pooled_width * (Lcore_num * rois_num_per_Lcore + (blockIndex - Lcore_num) * rois_num_per_core + progress * rois_num_per_loop);
         }
         return output_index;
     }
@@ -496,7 +502,7 @@ private:
             (uint16_t)0
         };
         
-        DataCopy(FeatureMap, inputGM[datacopy_idx], DataCopyParam);
+        DataCopy(FeatureMap, inputGM[static_cast<uint64_t>(datacopy_idx)], DataCopyParam);
         PipeBarrier<PIPE_ALL>();
         inQueueInput.EnQue<float>(FeatureMap);
         PipeBarrier<PIPE_ALL>();
@@ -504,7 +510,7 @@ private:
 
     __aicore__ void NonAlignedSingleFeatureCopyIn(int32_t datacopy_idx, int32_t datacopy_len, LocalTensor<float> FeatureMap)
     {
-        DataCopy(FeatureMap, inputGM[datacopy_idx], datacopy_len);
+        DataCopy(FeatureMap, inputGM[static_cast<uint64_t>(datacopy_idx)], datacopy_len);
         PipeBarrier<PIPE_ALL>();
         inQueueInput.EnQue<float>(FeatureMap);
         PipeBarrier<PIPE_ALL>();
@@ -514,7 +520,7 @@ private:
     {
         OutputValue = OutputValueBuffer.DeQue<float>();
         PipeBarrier<PIPE_ALL>();
-        DataCopy(outputGM[index * channels], OutputValue, channels_aligned);
+        DataCopy(outputGM[static_cast<uint64_t>(index) * channels], OutputValue, channels_aligned);
         PipeBarrier<PIPE_ALL>();
     }
 
@@ -540,7 +546,7 @@ private:
     uint32_t rois_num_per_Lcore, rois_num_per_Score, Lcore_num, Score_num, input_buffer_size;
     int32_t sampling_ratio, pooled_height, pooled_width, output_shape;
     float spatial_scale, offset_scalar;
-    uint64_t ub_total_size;
+    uint64_t ub_total_size, blockIndex;
 };
 
 extern "C" __global__ __aicore__ void roi_align_rotated_v2(GM_ADDR input, GM_ADDR rois, GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling) {

@@ -25,6 +25,9 @@ namespace optiling {
 static ge::graphStatus TilingForGeometricKernelAttention(gert::TilingContext* context)
 {
     GeometricKernelAttentionTilingData tiling;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
     auto valueTensorPtr = context->GetInputTensor(VALUE_PTR_INDEX);
     auto spatialshapeTensorPtr = context->GetInputTensor(SPATIAL_PTR_INDEX);
@@ -38,7 +41,7 @@ static ge::graphStatus TilingForGeometricKernelAttention(gert::TilingContext* co
     auto ValueShape = context->GetInputShape(VALUE_PTR_INDEX);
     auto SpatialShape = context->GetInputShape(SPATIAL_PTR_INDEX);
     auto SamplingShape = context->GetInputShape(SAMPLING_PTR_INDEX);
-    if (ValueShape == nullptr || SpatialShape == nullptr || SamplingShape == nullptr) {
+    if (ValueShape == nullptr || SpatialShape == nullptr || SamplingShape == nullptr || context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -120,12 +123,11 @@ static ge::graphStatus InferShapeGeometricKernelAttention(gert::InferShapeContex
     const gert::Shape* LevelShape = context->GetInputShape(LEVEL_PTR_INDEX);
     const gert::Shape* SamplingShape = context->GetInputShape(SAMPLING_PTR_INDEX);
     const gert::Shape* AttentionShape = context->GetInputShape(WEIGHT_PTR_INDEX);
+    gert::Shape* OutputShape = context->GetOutputShape(OUTPUT_PTR_INDEX);
 
-    if (ValueShape == nullptr || SpatialShape == nullptr || LevelShape == nullptr || SamplingShape == nullptr || AttentionShape == nullptr) {
+    if (ValueShape == nullptr || SpatialShape == nullptr || LevelShape == nullptr || SamplingShape == nullptr || AttentionShape == nullptr || OutputShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-
-    gert::Shape* OutputShape = context->GetOutputShape(OUTPUT_PTR_INDEX);
 
     int32_t batchSize, numQueries, numHeads, dim;
     batchSize = ValueShape->GetDim(BS_INDEX);
