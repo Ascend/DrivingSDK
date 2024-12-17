@@ -31,7 +31,7 @@ public:
         coreId = GetBlockIdx();
         if (coreId < ndataRemained) {
             ndataInCore = ndataPerCore + 1;
-            startDataIdx = coreId * ndataInCore;
+            startDataIdx = ndataInCore * coreId;
             endDataIdx = startDataIdx + ndataInCore;
         } else {
             ndataInCore = ndataPerCore;
@@ -140,18 +140,18 @@ private:
     uint32_t numWeights;
     uint32_t numNeighbors;
     uint32_t numFeatures;
-    uint32_t ndataInCore;
+    uint64_t ndataInCore;
     uint32_t coreId;
-    uint32_t ndataPerCore, ndataRemained, startDataIdx, endDataIdx;
+    uint64_t ndataPerCore, ndataRemained, startDataIdx, endDataIdx;
     uint32_t inner;
     uint32_t dataAlign;
     uint32_t weightsFeatsAlign;
     uint32_t weightsAlign;
-    uint32_t startBatchIdx;
-    uint32_t startFeatureIdx;
-    uint32_t startPointIdx;
-    uint32_t numFeaturesInCore;
-    uint32_t numBatchInCore;
+    uint64_t startBatchIdx;
+    uint64_t startFeatureIdx;
+    uint64_t startPointIdx;
+    uint64_t numFeaturesInCore;
+    uint64_t numBatchInCore;
 };
 
 extern "C" __global__ __aicore__ void assign_score_withk(

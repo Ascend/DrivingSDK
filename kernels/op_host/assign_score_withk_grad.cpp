@@ -75,8 +75,8 @@ static ge::graphStatus AssignScoreWithkGradTilingFunc(gert::TilingContext *conte
     }
     currentWorkSpace[0] = sysWorkspaceSize;
 
-    uint32_t npointPerCore = (batchSize * npoint) / numCore;
-    uint32_t npointRemained = (batchSize * npoint) % numCore;
+    uint64_t npointPerCore = (static_cast<uint64_t>(batchSize) * npoint) / numCore;
+    uint64_t npointRemained = (static_cast<uint64_t>(batchSize) * npoint) % numCore;
 
     AssignScoreWithkTilingData TilingData;
     TilingData.set_npoint_per_core(npointPerCore);
@@ -101,6 +101,9 @@ static ge::graphStatus AssignScoreWithkGradTilingFunc(gert::TilingContext *conte
     const uint32_t localWorkSpaceSize = minValue;
     AscendC::UnPadTilingFunc(srcShape, localWorkSpaceSize, sizeof(float), TilingData.unpadTilingData);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     TilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(TilingData.GetDataSize());
     return ge::GRAPH_SUCCESS;

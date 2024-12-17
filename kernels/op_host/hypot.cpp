@@ -19,6 +19,9 @@ constexpr uint32_t QUEUE_NUM = 3;
 
 static ge::graphStatus TilingFunc(gert::TilingContext *context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
         return ge::GRAPH_FAILED;
@@ -28,6 +31,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     uint64_t ubSizePlatform;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatform);
     if (coreNum == 0) {
+        return ge::GRAPH_FAILED;
+    }
+    if (context->GetInputTensor(0) == nullptr) {
         return ge::GRAPH_FAILED;
     }
     uint32_t totalLength = context->GetInputTensor(0)->GetShapeSize();
@@ -60,7 +66,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     HypotTilingData tiling;
     tiling.set_formerNum(formerNum);
     tiling.set_tailNum(tailNum);
-    tiling.set_formerLength(formerLength);
+    tiling.set_formerLength(static_cast<uint64_t>(formerLength));
     tiling.set_tailLength(tailLength);
     tiling.set_formerTileLength(formerTileLength);
     tiling.set_tailTileLength(tailTileLength);
@@ -69,6 +75,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     tiling.set_formerRemainTileLength(formerRemainTileLength);
     tiling.set_tailRemainTileLength(tailRemainTileLength);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     return ge::GRAPH_SUCCESS;
@@ -80,6 +89,9 @@ static ge::graphStatus Infershape(gert::InferShapeContext *context)
 {
     const auto inputShape = context->GetInputShape(0);
     auto outputShape = context->GetOutputShape(0);
+    if (inputShape == nullptr || outputShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     *outputShape = *inputShape;
     return GRAPH_SUCCESS;
 }

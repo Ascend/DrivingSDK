@@ -29,7 +29,6 @@ public:
         numFeatures= tilingData->num_features;
         aggregate = tilingData->aggregate;
         dataAlign = ONE_BLK_SIZE / sizeof(T);
-        weightsAlign= AlignUp(numWeights, dataAlign);
         featureAlign = AlignUp(numFeatures, dataAlign);
 
         ndataPerCore = tilingData->npoint_per_core;
@@ -39,11 +38,9 @@ public:
         if (coreId < ndataRemained) {
             ndataInCore = ndataPerCore + 1;
             startDataIdx = coreId * ndataInCore;
-            endDataIdx = startDataIdx + ndataInCore;
         } else {
             ndataInCore = ndataPerCore;
             startDataIdx = (ndataPerCore + 1) * ndataRemained + ndataPerCore * (coreId - ndataRemained);
-            endDataIdx = startDataIdx + ndataInCore;
         }
 
         startBatchIdx = startDataIdx / npoint;
@@ -238,19 +235,14 @@ private:
     uint32_t numWeights;
     uint32_t numNeighbors;
     uint32_t numFeatures;
-    uint32_t ndataInCore;
+    uint64_t ndataInCore;
     uint32_t coreId;
-    uint32_t ndataPerCore, ndataRemained, startDataIdx, endDataIdx;
-    uint32_t inner;
+    uint64_t ndataPerCore, ndataRemained, startDataIdx;
     uint32_t dataAlign;
     uint32_t weightsFeatsAlign;
-    uint32_t weightsAlign;
     uint32_t featureAlign;
-    uint32_t startBatchIdx;
-    uint32_t startFeatureIdx;
-    uint32_t startPointIdx;
-    uint32_t numFeaturesInCore;
-    uint32_t numBatchInCore;
+    uint64_t startBatchIdx;
+    uint64_t numBatchInCore;
     uint32_t dstShape[2][2];
     uint32_t srcShape[2][2];
 };

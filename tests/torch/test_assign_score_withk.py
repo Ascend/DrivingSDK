@@ -147,6 +147,24 @@ class TestAssignScoreWithk(TestCase):
                                                     "sum")
         except Exception as e:
             assert "The number of whole points must be larger than or equal to the number of neighbors." in str(e)
+    
+    def test_assign_score_withk_should_raise_error_value_when_npoint_is_zero(self):
+        B = 3
+        N = 23
+        npoint = 0
+        M = 8
+        K = 24
+        out_dim = 11
+        points, centers, scores, knn_idx, _ = gen_data(B, N, npoint, M, K, out_dim)
+        points.reshape(N, B, M * out_dim)
+        try:
+            output = mx_driving.assign_score_withk(torch.from_numpy(scores).npu(),
+                                                    torch.from_numpy(points).npu(),
+                                                    torch.from_numpy(centers).npu(),
+                                                    torch.from_numpy(knn_idx).npu(),
+                                                    "sum")
+        except Exception as e:
+            assert "Error! Input shape can not contain zero!" in str(e)
 
 
 class TestAssignScoreWithkGrad(TestCase):

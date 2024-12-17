@@ -22,6 +22,9 @@ class AssignScoreWithkFunction(Function):
         agg = {"sum": 0, "avg": 1, "max": 2}
         B, N, M, out_dim = point_features.size()
         _, npoint, K, _ = scores.size()
+        # pylint: disable=too-many-boolean-expressions
+        if (B == 0 or N == 0 or M == 0 or K == 0 or npoint == 0 or out_dim == 0):
+            raise Exception("Error! Input shape can not contain zero! \n")
         agg_idx = 0 if aggregate not in agg.keys() else agg[aggregate]
         output = point_features.new_zeros((B, out_dim, npoint, K))
         mx_driving._C.assign_score_withk(
@@ -45,12 +48,12 @@ class AssignScoreWithkFunction(Function):
     @staticmethod
     def backward(ctx, grad_out):
         _, point_features, center_features, scores, knn_idx = ctx.saved_tensors
-
         agg = ctx.agg
-
         B, N, M, out_dim = point_features.size()
         _, npoint, K, _ = scores.size()
-
+        # pylint: disable=too-many-boolean-expressions
+        if (B == 0 or N == 0 or M == 0 or K == 0 or npoint == 0 or out_dim == 0):
+            raise Exception("Error! Input shape can not contain zero! \n")
         grad_point_features = point_features.new_zeros(point_features.shape)
         grad_center_features = center_features.new_zeros(center_features.shape)
         grad_scores = scores.new_zeros(scores.shape)
