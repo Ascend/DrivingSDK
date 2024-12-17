@@ -10,8 +10,8 @@ namespace optiling {
 /****************TilingData definition*****************/
 BEGIN_TILING_DATA_DEF(AssignScoreWithkTilingData)
     TILING_DATA_FIELD_DEF(uint32_t, num_core);
-    TILING_DATA_FIELD_DEF(uint32_t, npoint_per_core);
-    TILING_DATA_FIELD_DEF(uint32_t, npoint_remained);
+    TILING_DATA_FIELD_DEF(uint64_t, npoint_per_core);
+    TILING_DATA_FIELD_DEF(uint64_t, npoint_remained);
     TILING_DATA_FIELD_DEF(uint32_t, aggregate);
     TILING_DATA_FIELD_DEF(uint32_t, batch_size);
     TILING_DATA_FIELD_DEF(uint32_t, nsource);

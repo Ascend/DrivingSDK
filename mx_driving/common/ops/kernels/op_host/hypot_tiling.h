@@ -10,7 +10,7 @@ namespace optiling {
 BEGIN_TILING_DATA_DEF(HypotTilingData)
     TILING_DATA_FIELD_DEF(uint32_t, formerNum);
     TILING_DATA_FIELD_DEF(uint32_t, tailNum);
-    TILING_DATA_FIELD_DEF(uint32_t, formerLength);
+    TILING_DATA_FIELD_DEF(uint64_t, formerLength);
     TILING_DATA_FIELD_DEF(uint32_t, tailLength);
     TILING_DATA_FIELD_DEF(uint32_t, formerTileLength);
     TILING_DATA_FIELD_DEF(uint32_t, tailTileLength);

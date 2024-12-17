@@ -13,7 +13,7 @@ public:
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR z, GM_ADDR z_grad, GM_ADDR x_grad, GM_ADDR y_grad, HypotTilingData * tiling_data)
     {
         uint32_t formerNum = tiling_data->formerNum;
-        uint32_t formerLength = tiling_data->formerLength;
+        uint64_t formerLength = tiling_data->formerLength;
         uint32_t tailLength = tiling_data->tailLength;
 
         if (GetBlockIdx() < formerNum) {
