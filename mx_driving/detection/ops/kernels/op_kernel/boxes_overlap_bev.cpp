@@ -121,19 +121,19 @@ public:
     __aicore__ inline void Process()
     {
         if (aligned_) {
-            for (uint32_t outerId = startOffset_; outerId < endOffset_; ++outerId) {
-                uint32_t offsetBoxes = outerId * boxesDescDimNum_;
-                uint32_t offsetAreaOverlap = outerId;
+            for (uint64_t outerId = startOffset_; outerId < endOffset_; ++outerId) {
+                uint64_t offsetBoxes = outerId * boxesDescDimNum_;
+                uint64_t offsetAreaOverlap = outerId;
                 ProcessMain(offsetBoxes, offsetBoxes, offsetAreaOverlap);
             }
         } else {
-            for (uint32_t outerId = startOffset_; outerId < endOffset_; ++outerId) {
-                for (uint32_t innerId = 0; innerId < innerLoopCnt_; ++innerId) {
-                    uint32_t offsetBoxesA =
+            for (uint64_t outerId = startOffset_; outerId < endOffset_; ++outerId) {
+                for (uint64_t innerId = 0; innerId < innerLoopCnt_; ++innerId) {
+                    uint64_t offsetBoxesA =
                         boxesANum_ > boxesBNum_ ? outerId * boxesDescDimNum_ : innerId * boxesDescDimNum_;
-                    uint32_t offsetBoxesB =
+                    uint64_t offsetBoxesB =
                         boxesANum_ > boxesBNum_ ? innerId * boxesDescDimNum_ : outerId * boxesDescDimNum_;
-                    uint32_t offsetAreaOverlap =
+                    uint64_t offsetAreaOverlap =
                         boxesANum_ > boxesBNum_ ? outerId * innerLoopCnt_ + innerId : innerId * outerLoopCnt_ + outerId;
                     ProcessMain(offsetBoxesA, offsetBoxesB, offsetAreaOverlap);
                 }
@@ -141,7 +141,7 @@ public:
         }
     }
 
-    __aicore__ inline void ProcessMain(uint32_t offsetBoxesA, uint32_t offsetBoxesB, uint32_t offsetAreaOverlap)
+    __aicore__ inline void ProcessMain(uint64_t offsetBoxesA, uint64_t offsetBoxesB, uint64_t offsetAreaOverlap)
     {
         DataCopyPad(boxesALocalT_, boxesAGm_[offsetBoxesA], cpInPadParams_, cpInPadExtParams_);
         DataCopyPad(boxesBLocalT_, boxesBGm_[offsetBoxesB], cpInPadParams_, cpInPadExtParams_);

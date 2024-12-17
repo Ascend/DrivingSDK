@@ -95,6 +95,10 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
     tiling.set_boxesDescDimNum(boxesDescDimNum);
     tiling.set_trans(trans);
     tiling.set_isClockwise(isClockwise);
+
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
