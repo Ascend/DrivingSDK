@@ -159,33 +159,6 @@ def keep_arrays_by_name(gt_names, used_classes):
     return inds
 
 
-def init_dist_slurm(tcp_port, local_rank, backend='nccl'):
-    """
-    modified from https://github.com/open-mmlab/mmdetection
-    Args:
-        tcp_port:
-        backend:
-
-    Returns:
-
-    """
-    proc_id = int(os.environ['SLURM_PROCID'])
-    ntasks = int(os.environ['SLURM_NTASKS'])
-    node_list = os.environ['SLURM_NODELIST']
-    num_gpus = torch.cuda.device_count()
-    torch.cuda.set_device(proc_id % num_gpus)
-    addr = subprocess.getoutput('scontrol show hostname {} | head -n1'.format(node_list))
-    os.environ['MASTER_PORT'] = str(tcp_port)
-    os.environ['MASTER_ADDR'] = addr
-    os.environ['WORLD_SIZE'] = str(ntasks)
-    os.environ['RANK'] = str(proc_id)
-    dist.init_process_group(backend=backend)
-
-    total_gpus = dist.get_world_size()
-    rank = dist.get_rank()
-    return total_gpus, rank
-
-
 def init_dist_pytorch(tcp_port, local_rank, backend='nccl'):
     if mp.get_start_method(allow_none=True) is None:
         mp.set_start_method('spawn')
