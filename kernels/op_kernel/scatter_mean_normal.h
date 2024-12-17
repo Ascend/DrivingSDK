@@ -98,11 +98,11 @@ private:
     {
         uint64_t offset = 0;
 
-        auto srcLineEachHead = dimSize * body;
+        uint64_t srcLineEachHead = dimSize * body;
         auto idx1 = idxTure / srcLineEachHead;
         auto idx2 = (idxTure - idx1 * srcLineEachHead) / body;
         auto idx3 = idxTure - idx1 * srcLineEachHead - idx2 * body;
-        auto outLineOffset = idx3 + dataInIndices * body + idx1 * (outDimSize * body);
+        uint64_t outLineOffset = idx3 + dataInIndices * body + idx1 * (outDimSize * body);
         pipe_barrier(PIPE_ALL);
         for (uint64_t loop = 0; loop < tailLoop; loop++) {
             pipe_barrier(PIPE_ALL);
@@ -133,7 +133,7 @@ private:
         srcLocal = inQueueSrc.Get<DTYPE_SRC>();
         Duplicate(onesTensor, (float)1, dataEachBlock); // one Block
 
-        auto indices_offset = indicesBaseOffset + taskEachLine * taskId;
+        uint64_t indices_offset = indicesBaseOffset + taskEachLine * taskId;
         DataCopy(indicesLocal, indicesGm[indices_offset], AlignUp(ubIndicesNum, indicesEachBlock));
         pipe_barrier(PIPE_ALL);
         for (uint64_t idx = 0; idx < taskLine; idx++) {

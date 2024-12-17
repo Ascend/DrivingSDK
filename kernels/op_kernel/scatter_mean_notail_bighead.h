@@ -102,10 +102,10 @@ private:
 
     __aicore__ inline void ComputeEachHeadNoTail(uint64_t headId, uint64_t dataNum, uint64_t outBaseOffset, int64_t indicesStart)
     {
-        auto basdIndicesOffset = headId * indicesHeadNum;
-        auto thisOutOffset = headId * outHeadNum;
+        uint64_t basdIndicesOffset = headId * indicesHeadNum;
+        uint64_t thisOutOffset = headId * outHeadNum;
         for (uint64_t loop = 0; loop < indicesLoop; loop++) {
-            auto indicesOffset = basdIndicesOffset + loop * ubIndicesNum;
+            uint64_t indicesOffset = basdIndicesOffset + loop * ubIndicesNum;
             pipe_barrier(PIPE_ALL);
             DataCopy(indicesLocal, indicesGm[indicesOffset], ubIndicesNumAlign);
             DataCopy(srcLocal, srcGm[indicesOffset], ubIndicesNumAlign);
@@ -121,7 +121,7 @@ private:
             }
         }
         if (indicesLastNum != 0) {
-            auto indicesOffset = basdIndicesOffset + indicesLoop * ubIndicesNum;
+            uint64_t indicesOffset = basdIndicesOffset + indicesLoop * ubIndicesNum;
             DataCopy(indicesLocal, indicesGm[indicesOffset], indicesLastNumAlign);
             DataCopy(srcLocal, srcGm[indicesOffset], indicesLastNumAlign);
 

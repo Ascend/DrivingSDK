@@ -89,6 +89,9 @@ static ge::graphStatus ScatterMeanGetUBNumMulitHead(gert::TilingContext* context
     uint64_t UB_size;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
 
+    if (context->GetInputDesc(0) == nullptr || context->GetInputDesc(1) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto dataDtype = context->GetInputDesc(0)->GetDataType();
     auto indicesDtype = context->GetInputDesc(1)->GetDataType();
     uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
@@ -129,6 +132,9 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     }
 
     uint64_t outTailNum = 1;
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto srcShape = context->GetInputShape(0)->GetStorageShape();
     auto indicesShape = context->GetInputShape(1)->GetStorageShape();
     auto varShape = context->GetInputShape(2)->GetStorageShape();
@@ -146,6 +152,10 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     uint64_t head = 1;
     for (uint64_t i = 0; i < dim; i++) {
         head *= srcShape.GetDim(i);
+    }
+
+    if (outNum == 0 || indicesNum == 0 || srcNum == 0) {
+        return ge::GRAPH_FAILED;
     }
 
     uint64_t ubIndicesNum;
@@ -234,6 +244,9 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     tiling.set_indicesLastNum(indicesLastNum);
     tiling.set_ubIndicesNum(ubIndicesNum);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -276,6 +289,9 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
 
     uint64_t outTailNum = 1;
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto srcShape = context->GetInputShape(0)->GetStorageShape();
     auto indicesShape = context->GetInputShape(1)->GetStorageShape();
     auto varShape = context->GetInputShape(2)->GetStorageShape();
@@ -323,6 +339,10 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
         usedCoreNum = GetCeilInt(dataLine, bacthBigCore);
         bigCoreNum = dataLine - bacthSmallCore * usedCoreNum;
     }
+
+    if (context->GetInputDesc(0) == nullptr || context->GetInputDesc(1) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto dataDtype = context->GetInputDesc(0)->GetDataType();
     auto indicesDtype = context->GetInputDesc(1)->GetDataType();
     uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
@@ -364,6 +384,9 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
     tiling.set_dimSize(dimShape);
     tiling.set_ubTailNum(ubTailNum);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -379,6 +402,9 @@ static ge::graphStatus ScatterMeanTilingFunc(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto srcShape = context->GetInputShape(0)->GetStorageShape();
     auto indicesShape = context->GetInputShape(1)->GetStorageShape();
     uint64_t srcDim = srcShape.GetDimNum();
@@ -562,6 +588,9 @@ static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext* context)
     tiling.set_ubCountNum(ubCountNum);
     tiling.set_ubTailNum(ubTailNum);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 

@@ -41,15 +41,15 @@ public:
 
 protected:
     uint32_t curBlockIdx;
-    uint32_t indexUbSize;
-    uint32_t gradOutUbSize;
-    uint32_t dimRange;
-    uint32_t dimRangeOut;
-    uint32_t paramsPro;
-    uint32_t gradInNum;
-    uint32_t indexNum;
-    uint32_t gradOutNum;
-    uint32_t countNum;
+    uint64_t indexUbSize;
+    uint64_t gradOutUbSize;
+    uint64_t dimRange;
+    uint64_t dimRangeOut;
+    uint64_t paramsPro;
+    uint64_t gradInNum;
+    uint64_t indexNum;
+    uint64_t gradOutNum;
+    uint64_t countNum;
     int32_t dim;
 
     uint64_t tilingMode;

@@ -134,8 +134,8 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeSmallTail(int32_t taskId, 
     LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
     LocalTensor<T> countLocal = inCountUb.Get<T>();
 
-    auto indicesOffset = indicesBaseOffset + taskEachLine * taskId;
-    auto gradInOffset = indicesOffset * this->tail;
+    uint64_t indicesOffset = indicesBaseOffset + taskEachLine * taskId;
+    uint64_t gradInOffset = indicesOffset * this->tail;
     pipe_barrier(PIPE_ALL);
     DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(taskLine, this->indicesEachBlock));
     set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
