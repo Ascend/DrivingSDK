@@ -195,7 +195,7 @@ class SubMConvFunction(Function):
         ouidx_offset = torch.index_select(ouidx_offset, 0, valid_indices)
         grad_out_features_iml2col = mx_driving._C.npu_subm_sparse_conv3d_grad(ouidx_offset, valid_indices.int(), weight, grad_out_features,
                                                                               features.shape[0], ctx.kernel_size)
-        grad_out_features_iml2col = grad_out_features_iml2col.view(features.shape[0],-1)
+        grad_out_features_iml2col = grad_out_features_iml2col.view(features.shape[0], -1)
         weight = weight.permute(0,1,2,4,3).contiguous()
         weight_permute = weight.view(kernel_num*weight_shape[4], weight_shape[3])
         feature_grad = grad_out_features_iml2col @ weight_permute

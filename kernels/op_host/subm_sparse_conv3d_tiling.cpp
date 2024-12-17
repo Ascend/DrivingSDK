@@ -19,6 +19,9 @@ static int32_t GetCeilInt(int32_t value1, int32_t value2)
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     SubmSparseConv3dTilingData tiling;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfoptr = context->GetPlatformInfo();
     if (platformInfoptr == nullptr) {
         return ge::GRAPH_FAILED;
@@ -74,6 +77,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_indices_number(indices_shape.GetDim(1));
     tiling.set_available_ub_size(available_ub_size);
     tiling.set_batch_size(batch_size);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
