@@ -23,13 +23,18 @@ static int32_t GetCeilInt(int32_t value1, int32_t value2)
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     PointsInBoxAllTilingData tiling;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfoptr = context->GetPlatformInfo();
     if (platformInfoptr == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
     auto coreNumber = ascendplatformInfo.GetCoreNumAiv();
-
+    if (context->GetInputTensor(0) == nullptr || context->GetInputTensor(1) == nullptr || context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     uint32_t totalResult = context->GetInputTensor(1)->GetShapeSize() / 3;
     auto boxShape = context->GetInputTensor(0)->GetStorageShape();
     auto pointShape = context->GetInputTensor(1)->GetStorageShape();
