@@ -26,6 +26,8 @@ class RoIAlignRotatedFunction(Function):
         aligned: bool = True,
         clockwise: bool = False,
     ) -> torch.Tensor:
+        if pooled_height == 0 or pooled_width == 0:
+            raise Exception("Error! The pooled_height or pooled_width can not be zero.\n")
         ctx.pooled_height = pooled_height
         ctx.pooled_width = pooled_width
         ctx.spatial_scale = spatial_scale
@@ -58,6 +60,8 @@ class RoIAlignRotatedFunction(Function):
     @staticmethod
     # pylint: disable=too-many-return-values
     def backward(ctx: Any, grad_output: torch.Tensor):
+        if ctx.pooled_height == 0 or ctx.pooled_width == 0:
+            raise Exception("Error! The pooled_height or pooled_width can not be zero.\n")
         feature_map, rois = ctx.saved_tensors
         rois_trans = torch.permute(rois, (1, 0)).contiguous()
         grad_output_trans = torch.permute(grad_output, (0, 2, 3, 1)).contiguous()

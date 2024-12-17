@@ -55,6 +55,9 @@ static ge::graphStatus TilingForKnn(gert::TilingContext *context)
     TilingData.set_coreNum(coreNum);
     TilingData.set_k(k);
     context->SetBlockDim(coreNum);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     TilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(TilingData.GetDataSize());
     return ge::GRAPH_SUCCESS;
@@ -73,10 +76,6 @@ static ge::graphStatus InfershapeForKnn(gert::InferShapeContext *context)
     uint32_t nPoint;
     if ((xyzShape == nullptr) || (centerXyzShape == nullptr) || (distShape == nullptr) || (idxShape == nullptr) || (attr == nullptr)) {
             return ge::GRAPH_FAILED;
-    }
-    const bool *isFromKnn = attr->GetAttrPointer<bool>(0);
-    if (isFromKnn == nullptr) {
-        return ge::GRAPH_FAILED;
     }
     if ((xyzShape->GetDimNum() != 3) || ((centerXyzShape->GetDimNum() != 3))) { // 3 : input dim is 3
         return ge::GRAPH_FAILED;

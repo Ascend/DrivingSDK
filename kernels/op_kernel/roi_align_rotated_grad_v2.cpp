@@ -46,12 +46,17 @@ public:
         eventIdVToMte3 = static_cast<event_t>(pipe.AllocEventID<HardEvent::V_MTE3>());
         eventIdMte3ToMte2 = static_cast<event_t>(pipe.AllocEventID<HardEvent::MTE3_MTE2>());
 
-        copyParams = {2, static_cast<uint16_t>(channelNum * 2 / dataSize), 0, static_cast<uint16_t>((width - 2) * channelNum / dataSize)};
+        copyParams = {2, static_cast<uint16_t>(channelNum * 2 / dataSize), 0,
+                      static_cast<uint16_t>((width - 2) * channelNum / dataSize)};
 
-        inputGM.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(input), batchSize * channelNum * height * width);
-        roisGM.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(rois), boxLength * boxSize);
-        gradOutputsGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(grad_output), boxLength * channelNum * pooledHeight * pooledWidth);
-        gradInputGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(grad_input), batchSize * channelNum * height * width);
+        inputGM.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(input),
+                                static_cast<uint64_t>(batchSize) * channelNum * height * width);
+        roisGM.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(rois),
+                               static_cast<uint64_t>(boxLength) * boxSize);
+        gradOutputsGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(grad_output),
+                                      static_cast<uint64_t>(boxLength) * channelNum * pooledHeight * pooledWidth);
+        gradInputGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(grad_input),
+                                    static_cast<uint64_t>(batchSize) * channelNum * height * width);
         InitBuffer();
     }
 
@@ -154,14 +159,14 @@ public:
         Duplicate(tmpChannelLocal, (DTYPE_INPUT)1.0, channelNum);
     }
 private:
-    __aicore__ inline void CopyIn(uint32_t offset, uint32_t computeBatchSize)
+    __aicore__ inline void CopyIn(uint64_t offset, uint32_t computeBatchSize)
     {
-        DataCopy(tmpLocal, roisGM[offset + boxSize * 0], computeBatchSize);
-        DataCopy(xLocal, roisGM[offset + boxSize * 1], computeBatchSize);
-        DataCopy(yLocal, roisGM[offset + boxSize * 2], computeBatchSize);
-        DataCopy(wLocal, roisGM[offset + boxSize * 3], computeBatchSize);
-        DataCopy(hLocal, roisGM[offset + boxSize * 4], computeBatchSize);
-        DataCopy(angleLocal, roisGM[offset + boxSize * 5], computeBatchSize);
+        DataCopy(tmpLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 0], computeBatchSize);
+        DataCopy(xLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 1], computeBatchSize);
+        DataCopy(yLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 2], computeBatchSize);
+        DataCopy(wLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 3], computeBatchSize);
+        DataCopy(hLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 4], computeBatchSize);
+        DataCopy(angleLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 5], computeBatchSize);
 
         SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
         WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
@@ -214,7 +219,7 @@ private:
         Maxs(countLocal, countLocal, (DTYPE_INPUT)1.0, computeBatchSize);
     }
 
-    __aicore__ inline void Compute(uint32_t taskIdx, uint32_t offset)
+    __aicore__ inline void Compute(uint32_t taskIdx, uint64_t offset)
     {
         pIdx = idxLocal.GetValue(taskIdx);
         pX = xLocal.GetValue(taskIdx);
@@ -312,10 +317,10 @@ private:
 
     __aicore__ inline void CopyOut()
     {
-        w1Offset = ((pIdx * height+ yl)* width + xl) * channelNum;
-        w2Offset = ((pIdx * height+ yl)* width + xh) * channelNum;
-        w3Offset = ((pIdx * height+ yh)* width + xl) * channelNum;
-        w4Offset = ((pIdx * height+ yh)* width + xh) * channelNum;
+        w1Offset = ((static_cast<uint64_t>(pIdx) * height+ yl)* width + xl) * channelNum;
+        w2Offset = ((static_cast<uint64_t>(pIdx) * height+ yl)* width + xh) * channelNum;
+        w3Offset = ((static_cast<uint64_t>(pIdx) * height+ yh)* width + xl) * channelNum;
+        w4Offset = ((static_cast<uint64_t>(pIdx) * height+ yh)* width + xh) * channelNum;
 
         SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
         WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
@@ -407,7 +412,7 @@ private:
     uint32_t alignChannelNum;
 
     uint32_t startOffset;
-    uint32_t baseOffset, w1Offset, w2Offset, w3Offset, w4Offset;
+    uint64_t baseOffset, w1Offset, w2Offset, w3Offset, w4Offset;
     uint32_t constComputeBatchSize = 256;
 
     int32_t pIdx;
