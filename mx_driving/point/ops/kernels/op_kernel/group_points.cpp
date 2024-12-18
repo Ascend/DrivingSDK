@@ -6,7 +6,7 @@
 using namespace AscendC;
 
 
-constexpr int32_t BUFFER_NUM = 2;
+constexpr uint32_t BUFFER_NUM = 2;
 
 class KernelGroupPoints {
 public:
@@ -26,9 +26,9 @@ public:
 
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
-        pointsLength = b * n * c;
-        indicesLength = b * npoints * nsample;
-        outLength = b * npoints * nsample * c;
+        pointsLength = static_cast<uint64_t>(b) * n * c;
+        indicesLength = static_cast<uint64_t>(b) * npoints * nsample;
+        outLength = static_cast<uint64_t>(b) * npoints * nsample * c;
 
         pointsGm.SetGlobalBuffer((__gm__ DTYPE_POINTS*)points, pointsLength);
         indicesGm.SetGlobalBuffer((__gm__ DTYPE_INDICES*)indices, indicesLength);
@@ -40,29 +40,29 @@ public:
 
     __aicore__ inline void Process()
     {
-        int32_t tmp = average;
-        int32_t offset = tmp * GetBlockIdx() + taskLast;
+        uint64_t tmp = average;
+        uint64_t offset = tmp * GetBlockIdx() + taskLast;
         if (GetBlockIdx() < taskLast) {
             tmp = tmp + 1;
             offset = tmp * GetBlockIdx();
         }
-        for (int32_t i = 0; i < tmp; i++) {
+        for (uint64_t i = 0; i < tmp; i++) {
             CopyInAndCopyOut(i, offset);
         }
     }
 
 private:
-    __aicore__ inline void CopyInAndCopyOut(int32_t progress, int32_t offset)
+    __aicore__ inline void CopyInAndCopyOut(uint64_t progress, uint64_t offset)
     {
         LocalTensor<DTYPE_POINTS> points_local = pointsBuffer.Get<DTYPE_POINTS>();
         LocalTensor<DTYPE_INDICES> indices_local = indicesBuffer.Get<DTYPE_INDICES>();
         pipe_barrier(PIPE_ALL);
         DataCopy(indices_local, indicesGm[offset + progress], indicesAligned);
         
-        int32_t b_idx = (offset + progress) / (npoints * nsample);
-        int32_t idx = indices_local.GetValue(0);
-        int32_t src_idx = b_idx * n * c + idx * c;
-        int32_t dst_idx = (offset + progress) * c;
+        uint64_t b_idx = (offset + progress) / (npoints * nsample);
+        uint64_t idx = indices_local.GetValue(0);
+        uint64_t src_idx = b_idx * n * c + idx * c;
+        uint64_t dst_idx = (offset + progress) * c;
         pipe_barrier(PIPE_ALL);
         DataCopy(points_local, pointsGm[src_idx], cAligned);
         set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
@@ -79,9 +79,9 @@ private:
     GlobalTensor<DTYPE_INDICES> indicesGm;
     GlobalTensor<DTYPE_OUT> outGm;
 
-    uint32_t pointsLength;
-    uint32_t indicesLength;
-    uint32_t outLength;
+    uint64_t pointsLength;
+    uint64_t indicesLength;
+    uint64_t outLength;
     uint32_t b;
     uint32_t c;
     uint32_t n;

@@ -71,7 +71,7 @@ static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
     auto dtype = inputInf->GetDataType();
-    uint32_t alignNum = (dtype == ge::DT_FLOAT) ? BLOCK_SIZE / SIZE_OF_FP32: BLOCK_SIZE / SIZE_OF_FP16;
+    uint32_t alignNum = (dtype == ge::DT_FLOAT) ? BLOCK_SIZE / SIZE_OF_FP32 : BLOCK_SIZE / SIZE_OF_FP16;
     uint32_t cAligned = (c + alignNum - 1) / alignNum * alignNum;
     uint32_t indicesAligned = (SINGLE_INDICES + BLOCK_INT32 - 1) / BLOCK_INT32 * BLOCK_INT32;
     uint32_t average = b * npoints * nsample / core_num;
@@ -92,11 +92,10 @@ static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
     tiling.set_average(average);
     tiling.set_taskLast(taskLast);
     tiling.set_usedCoreNum(usedCoreNum);
-
+    
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
-
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -135,6 +134,9 @@ static ge::graphStatus InferShapeForGroupPoints(gert::InferShapeContext* context
 static ge::graphStatus InferDataTypeForGroupPoints(gert::InferDataTypeContext* context)
 {
     const auto inputDataType = context->GetInputDataType(0);
+    if (inputDataType == DT_UNDEFINED) {
+        return ge::GRAPH_FAILED;
+    }
     context->SetOutputDataType(0, inputDataType);
     return GRAPH_SUCCESS;
 }
