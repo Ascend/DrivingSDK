@@ -21,6 +21,9 @@ class AdsVoxelPoolingFunction(Function):
         
         batch_size = input_features.shape[0]
         num_points = input_features.shape[1]
+        if (num_points == 0):
+            raise Exception("Error! Number of points can not be zero.\n")
+        
         num_channels = input_features.shape[2]
         output_features = input_features.new_zeros(batch_size, voxel_num[1], 
                                                    voxel_num[0], num_channels)

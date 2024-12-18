@@ -32,9 +32,9 @@ public:
 
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
-        posMemoLength = batch_size * num_points * INDICES_NUM;
-        gradOutLength = batch_size * h * w * num_channels;
-        gradFeaturesLength = batch_size * num_points * num_channels;
+        posMemoLength = static_cast<uint64_t>(batch_size) * num_points * INDICES_NUM;
+        gradOutLength = static_cast<uint64_t>(batch_size) * h * w * num_channels;
+        gradFeaturesLength = static_cast<uint64_t>(batch_size) * num_points * num_channels;
 
         posMemoGm.SetGlobalBuffer((__gm__ DTYPE_I*)posMemo, posMemoLength);
         gradOutGm.SetGlobalBuffer((__gm__ DTYPE_G*)gradOut, gradOutLength);
@@ -69,9 +69,9 @@ public:
         LocalTensor<DTYPE_G> gradOutLocal = inQueueGradOut.AllocTensor<DTYPE_G>();
         LocalTensor<DTYPE_I> posMemoLocal = inQueuePosMemo.AllocTensor<DTYPE_I>();
 
-        int32_t offset = average * GetBlockIdx() + taskLast;
+        int64_t offset = static_cast<int64_t>(average) * GetBlockIdx() + taskLast;
         if (GetBlockIdx() < taskLast) {
-            offset = (average + 1) * GetBlockIdx();
+            offset = (static_cast<int64_t>(average) + 1) * GetBlockIdx();
         }
 
         DataCopy(posMemoLocal, posMemoGm[(offset + i) * INDICES_NUM], indicesAligned);
@@ -80,7 +80,7 @@ public:
         if (idx0 != -1) {
             int32_t idx1 = posMemoLocal.GetValue(1);
             int32_t idx2 = posMemoLocal.GetValue(2);
-            int32_t offset_grad_out = idx0 * h * w * num_channels + idx1 * w * num_channels + idx2 * num_channels;
+            int64_t offset_grad_out = static_cast<int64_t>(idx0) * h * w * num_channels + idx1 * w * num_channels + idx2 * num_channels;
             DataCopy(gradOutLocal, gradOutGm[offset_grad_out], numChannelsAligned);
 
             pipe_barrier(PIPE_ALL);
@@ -99,9 +99,9 @@ private:
     GlobalTensor<DTYPE_I> posMemoGm;
     GlobalTensor<DTYPE_G> gradFeaturesGm;
 
-    uint32_t gradOutLength;
-    uint32_t posMemoLength;
-    uint32_t gradFeaturesLength;
+    uint64_t gradOutLength;
+    uint64_t posMemoLength;
+    uint64_t gradFeaturesLength;
     uint32_t batch_size;
     uint32_t num_points;
     uint32_t num_channels;

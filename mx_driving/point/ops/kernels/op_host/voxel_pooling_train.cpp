@@ -28,8 +28,14 @@ namespace optiling {
 static ge::graphStatus TilingForVoxelPooling(gert::TilingContext* context)
 {
     VoxelPoolingTilingData tiling;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     // get core num
     auto platformInfoPtr = context->GetPlatformInfo();
+    if (platformInfoPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendPlatformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
     uint32_t coreNum = ascendPlatformInfo.GetCoreNumAiv();
     if (coreNum == 0) {
@@ -74,6 +80,9 @@ static ge::graphStatus TilingForVoxelPooling(gert::TilingContext* context)
     tiling.set_taskLast(taskLast);
     tiling.set_usedCoreNum(usedCoreNum);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
