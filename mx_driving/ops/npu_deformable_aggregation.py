@@ -18,6 +18,8 @@ class AdsDeformableAggregation(Function):
         sampling_location: torch.Tensor,
         weights: torch.Tensor,
     ):
+        if (torch.numel(mc_ms_feat) == 0 or torch.numel(weights) == 0):
+            raise Exception("Erorr! Input Tensor can not be a empty Tensor.\n")
 
         mc_ms_feat = mc_ms_feat.contiguous().float()
         spatial_shape = spatial_shape.contiguous().int()
@@ -50,6 +52,10 @@ class AdsDeformableAggregation(Function):
             sampling_location,
             weights,
         ) = ctx.saved_tensors
+
+        if (torch.numel(mc_ms_feat) == 0 or torch.numel(spatial_shape) == 0 or torch.numel(sampling_location) == 0):
+            raise Exception("Erorr! Input Tensor can not be a empty Tensor.\n")
+
         mc_ms_feat = mc_ms_feat.contiguous().float()
         spatial_shape = spatial_shape.contiguous().int()
         scale_start_index = scale_start_index.contiguous().int()

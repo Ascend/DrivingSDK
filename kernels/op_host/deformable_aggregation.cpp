@@ -104,6 +104,9 @@ static ge::graphStatus TilingForDeformableAggregation(gert::TilingContext* conte
     tiling.set_usedCoreNum(usedCoreNum);
     tiling.set_groupAligned(groupAligned);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 

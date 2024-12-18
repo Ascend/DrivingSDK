@@ -45,15 +45,15 @@ public:
 
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
-        mcMsFeatGmLength = batchSize * numFeat * numEmbeds;
-        spatialShapeGmLength = numCams * numScale * 2;
-        scaleStartIndexLength = numCams * numScale;
-        samplingLocationGmLength = batchSize * numAnchors * numPoints * numCams * 2;
-        weightsGmLength = batchSize * numAnchors * numPoints * numCams * numScale * numGroups;
-        gradOutputGmLength = batchSize * numAnchors * numEmbeds;
-        gradMcMsFeatGmLength = mcMsFeatGmLength;
-        gradSamplingLocationGmLength = samplingLocationGmLength;
-        gradWeightsGmLength = weightsGmLength;
+        mcMsFeatGmLength = static_cast<uint64_t>(batchSize) * numFeat * numEmbeds;
+        spatialShapeGmLength = static_cast<uint64_t>(numCams) * numScale * 2;
+        scaleStartIndexLength = static_cast<uint64_t>(numCams) * numScale;
+        samplingLocationGmLength = static_cast<uint64_t>(batchSize) * numAnchors * numPoints * numCams * 2;
+        weightsGmLength = static_cast<uint64_t>(batchSize) * numAnchors * numPoints * numCams * numScale * numGroups;
+        gradOutputGmLength = static_cast<uint64_t>(batchSize) * numAnchors * numEmbeds;
+        gradMcMsFeatGmLength = static_cast<uint64_t>(mcMsFeatGmLength);
+        gradSamplingLocationGmLength = static_cast<uint64_t>(samplingLocationGmLength);
+        gradWeightsGmLength = static_cast<uint64_t>(weightsGmLength);
 
         mcMsFeatGm.SetGlobalBuffer((__gm__ DTYPE_F*)mc_ms_feat, mcMsFeatGmLength);
         spatialShapeGm.SetGlobalBuffer((__gm__ DTYPE_I*)spatial_shape, spatialShapeGmLength);
@@ -161,7 +161,7 @@ public:
 
         int32_t batchIndex = idx % batchSize;
 
-        int32_t locationOffset = batchIndex * numAnchors * numPoints * numCams * 2 + anchorIndex * numPoints * numCams * 2 + ptsIndex * numCams * 2 + camIndex * 2;
+        uint64_t locationOffset = static_cast<uint64_t>(batchIndex) * numAnchors * numPoints * numCams * 2 + anchorIndex * numPoints * numCams * 2 + ptsIndex * numCams * 2 + camIndex * 2;
 
         DataCopy(locationLocal, samplingLocationGm[locationOffset], singleAligned);
 
@@ -174,13 +174,13 @@ public:
             return ;
         }
 
-        int32_t scaleStartOffset = camIndex * numScale + scaleIndex;
+        uint64_t scaleStartOffset = static_cast<uint64_t>(camIndex) * numScale + scaleIndex;
         DataCopy(scaleStartLocal, scaleStartIndexGm[scaleStartOffset], singleAligned);
 
         int32_t scaleStartIdx = scaleStartLocal.GetValue(0);
         int32_t valueOffset = batchIndex * numFeat * numEmbeds + scaleStartIdx * numEmbeds;
 
-        int32_t spatialShapeOffset = camIndex * numScale * 2 + scaleIndex * 2;
+        uint64_t spatialShapeOffset = static_cast<uint64_t>(camIndex) * numScale * 2 + scaleIndex * 2;
         DataCopy(spatialShapeLocal, spatialShapeGm[spatialShapeOffset], singleAligned);
 
         int32_t h = spatialShapeLocal.GetValue(0);
@@ -216,12 +216,12 @@ public:
         float w4 = lh * lw;
 
         for (int32_t groupIdx = 0; groupIdx < numGroups; groupIdx++) {
-            int32_t weightIdx = weightsOffset * numGroups + groupIdx;
+            uint64_t weightIdx = static_cast<uint64_t>(weightsOffset) * numGroups + groupIdx;
 
             DataCopy(weightLocal, weightsGm[weightIdx], singleAligned);
             float weight = weightLocal.GetValue(0);
 
-            int32_t gradOutputOffset = batchIndex * numAnchors * numEmbeds +  anchorIndex * numEmbeds + chanenlOffset;
+            uint64_t gradOutputOffset = static_cast<uint64_t>(batchIndex) * numAnchors * numEmbeds +  anchorIndex * numEmbeds + chanenlOffset;
 
             DataCopy(gradOutputLocal, gradOutputGm[gradOutputOffset], cAligned);
             pipe_barrier(PIPE_ALL);
@@ -233,7 +233,7 @@ public:
 
             Duplicate(v1Local, (DTYPE_F)0, cAligned);
             if (hLow >= 0 && wLow >=0) {
-                int32_t ptr1 = valueOffset + hLowPtrOffset + wLowPtrOffset + chanenlOffset;
+                uint64_t ptr1 = static_cast<uint64_t>(valueOffset) + hLowPtrOffset + wLowPtrOffset + chanenlOffset;
                 DataCopy(v1Local, mcMsFeatGm[ptr1], cAligned);
                 pipe_barrier(PIPE_ALL);
 
@@ -250,7 +250,7 @@ public:
 
             Duplicate(v2Local, (DTYPE_F)0, cAligned);
             if (hLow >= 0 && wHigh <= w - 1) {
-                int32_t ptr2 = valueOffset + hLowPtrOffset + wHighPtrOffset + chanenlOffset;
+                uint64_t ptr2 = static_cast<uint64_t>(valueOffset) + hLowPtrOffset + wHighPtrOffset + chanenlOffset;
                 DataCopy(v2Local, mcMsFeatGm[ptr2], cAligned);
                 pipe_barrier(PIPE_ALL);
 
@@ -267,7 +267,7 @@ public:
 
             Duplicate(v3Local, (DTYPE_F)0, cAligned);
             if (hHigh <= h - 1 && wLow >= 0) {
-                int32_t ptr3 = valueOffset + hHighPtrOffset + wLowPtrOffset + chanenlOffset;
+                uint64_t ptr3 = static_cast<uint64_t>(valueOffset) + hHighPtrOffset + wLowPtrOffset + chanenlOffset;
                 DataCopy(v3Local, mcMsFeatGm[ptr3], cAligned);
                 pipe_barrier(PIPE_ALL);
 
@@ -284,7 +284,7 @@ public:
 
             Duplicate(v4Local, (DTYPE_F)0, cAligned);
             if (hHigh <= h - 1 && wHigh <= w - 1) {
-                int32_t ptr4 = valueOffset + hHighPtrOffset + wHighPtrOffset + chanenlOffset;
+                uint64_t ptr4 = static_cast<uint64_t>(valueOffset) + hHighPtrOffset + wHighPtrOffset + chanenlOffset;
                 DataCopy(v4Local, mcMsFeatGm[ptr4], cAligned);
                 pipe_barrier(PIPE_ALL);
 
@@ -375,16 +375,16 @@ private:
     GlobalTensor<DTYPE_I> spatialShapeGm;
     GlobalTensor<DTYPE_I> scaleStartIndexGm;
 
-    uint32_t mcMsFeatGmLength;
-    uint32_t spatialShapeGmLength;
-    uint32_t scaleStartIndexLength;
-    uint32_t samplingLocationGmLength;
-    uint32_t weightsGmLength;
-    uint32_t gradOutputGmLength;
+    uint64_t mcMsFeatGmLength;
+    uint64_t spatialShapeGmLength;
+    uint64_t scaleStartIndexLength;
+    uint64_t samplingLocationGmLength;
+    uint64_t weightsGmLength;
+    uint64_t gradOutputGmLength;
 
-    uint32_t gradMcMsFeatGmLength;
-    uint32_t gradSamplingLocationGmLength;
-    uint32_t gradWeightsGmLength;
+    uint64_t gradMcMsFeatGmLength;
+    uint64_t gradSamplingLocationGmLength;
+    uint64_t gradWeightsGmLength;
 
     uint32_t batchSize;
     uint32_t numFeat;

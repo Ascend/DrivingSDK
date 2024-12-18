@@ -35,12 +35,12 @@ public:
 
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
-        mcMsFeatGmLength = bs * numFeats * numEmbeds;
-        spatialShapeGmLength = numCams * numScale * 2;
-        scaleStartIndexLength = numCams * numScale;
-        samplingLocationGmLength = bs * numAnchor * numPoints * numCams * 2;
-        weightsGmLength = bs * numAnchor * numPoints * numCams * numScale * numGroups;
-        outGmLength = bs * numAnchor * numEmbeds;
+        mcMsFeatGmLength = static_cast<uint64_t>(bs) * numFeats * numEmbeds;
+        spatialShapeGmLength = static_cast<uint64_t>(numCams) * numScale * 2;
+        scaleStartIndexLength = static_cast<uint64_t>(numCams) * numScale;
+        samplingLocationGmLength = static_cast<uint64_t>(bs) * numAnchor * numPoints * numCams * 2;
+        weightsGmLength = static_cast<uint64_t>(bs) * numAnchor * numPoints * numCams * numScale * numGroups;
+        outGmLength = static_cast<uint64_t>(bs) * numAnchor * numEmbeds;
 
         mcMsFeatGm.SetGlobalBuffer((__gm__ DTYPE_F*)mc_ms_feat, mcMsFeatGmLength);
         samplingLocationGm.SetGlobalBuffer((__gm__ DTYPE_F*)sampling_location, samplingLocationGmLength);
@@ -122,7 +122,7 @@ public:
         int32_t batchIndex = idx % bs;
         idx = idx / batchIndex;
 
-        int32_t loactionOffset = batchIndex * numAnchor * numPoints * numCams * 2 +
+        uint64_t loactionOffset = static_cast<uint64_t>(batchIndex) * numAnchor * numPoints * numCams * 2 +
                                  anchorIndex * numPoints * numCams * 2 + ptsIndex * numCams * 2 + camIndex * 2;
 
         DataCopy(loactionLocal, samplingLocationGm[loactionOffset], singleAligned);
@@ -137,13 +137,13 @@ public:
             return;
         }
 
-        int32_t scaleStartOffset = camIndex * numScale + scaleIndex;
+        uint64_t scaleStartOffset = static_cast<uint64_t>(camIndex) * numScale + scaleIndex;
 
         DataCopy(scaleStartLocal, scaleStartIndexGm[scaleStartOffset], singleAligned);
         int32_t scaleStartIdx = scaleStartLocal.GetValue(0);
         int32_t valueOffset = batchIndex * numFeats * numEmbeds + scaleStartIdx * numEmbeds;
 
-        int32_t spatialShapeOffset = camIndex * numScale * 2 + scaleIndex * 2;
+        uint64_t spatialShapeOffset = static_cast<uint64_t>(camIndex) * numScale * 2 + scaleIndex * 2;
         DataCopy(spatialShapeLocal, spatialShapesGm[spatialShapeOffset], singleAligned);
 
         int32_t h = spatialShapeLocal.GetValue(0);
@@ -181,25 +181,25 @@ public:
 
         Duplicate(v1Local, static_cast<DTYPE_F>(0), cAligned);
         if (hLow >= 0 && wLow >= 0) {
-            int32_t ptr1 = valueOffset + hLowPtrOffset + wLowPtrOffset + chanenlOffset;
+            uint64_t ptr1 = static_cast<uint64_t>(valueOffset) + hLowPtrOffset + wLowPtrOffset + chanenlOffset;
             DataCopy(v1Local, mcMsFeatGm[ptr1], cAligned);
         }
 
         Duplicate(v2Local, static_cast<DTYPE_F>(0), cAligned);
         if (hLow >= 0 && wHigh <= w - 1) {
-            int32_t ptr2 = valueOffset + hLowPtrOffset + wHighPtrOffset + chanenlOffset;
+            uint64_t ptr2 = static_cast<uint64_t>(valueOffset) + hLowPtrOffset + wHighPtrOffset + chanenlOffset;
             DataCopy(v2Local, mcMsFeatGm[ptr2], cAligned);
         }
 
         Duplicate(v3Local, static_cast<DTYPE_F>(0), cAligned);
         if (hHigh <= h - 1 && wLow >= 0) {
-            int32_t ptr3 = valueOffset + hHighPtrOffset + wLowPtrOffset + chanenlOffset;
+            uint64_t ptr3 = static_cast<uint64_t>(valueOffset) + hHighPtrOffset + wLowPtrOffset + chanenlOffset;
             DataCopy(v3Local, mcMsFeatGm[ptr3], cAligned);
         }
 
         Duplicate(v4Local, static_cast<DTYPE_F>(0), cAligned);
         if (hHigh <= h - 1 && wHigh <= w - 1) {
-            int32_t ptr4 = valueOffset + hHighPtrOffset + wHighPtrOffset + chanenlOffset;
+            uint64_t ptr4 = static_cast<uint64_t>(valueOffset) + hHighPtrOffset + wHighPtrOffset + chanenlOffset;
             DataCopy(v4Local, mcMsFeatGm[ptr4], cAligned);
         }
 
@@ -213,7 +213,7 @@ public:
         Add(v1Local, v1Local, v3Local, cAligned);
         Add(v1Local, v1Local, v4Local, cAligned);
 
-        int32_t weightIdx = weightsOffset * numGroups;
+        uint64_t weightIdx = static_cast<uint64_t>(weightsOffset) * numGroups;
         DataCopy(weightLocal, weightsGm[weightIdx], groupAligned);
 
         Duplicate(weightMulLocal, static_cast<DTYPE_F>(0), cAligned);
@@ -234,7 +234,7 @@ public:
         pipe_barrier(PIPE_ALL);
 
         SetAtomicAdd<DTYPE_F>();
-        DataCopyPad(outGm[batchIndex * numAnchor * numEmbeds + anchorIndex * numEmbeds], v1Local, copyParamsOut);
+        DataCopyPad(outGm[static_cast<uint64_t>(batchIndex) * numAnchor * numEmbeds + anchorIndex * numEmbeds], v1Local, copyParamsOut);
         pipe_barrier(PIPE_ALL);
         SetAtomicNone();
     }
@@ -249,12 +249,12 @@ private:
     GlobalTensor<DTYPE_F> mcMsFeatGm, samplingLocationGm, weightsGm, outGm;
     GlobalTensor<DTYPE_I> spatialShapesGm, scaleStartIndexGm;
 
-    uint32_t mcMsFeatGmLength;
-    uint32_t spatialShapeGmLength;
-    uint32_t scaleStartIndexLength;
-    uint32_t samplingLocationGmLength;
-    uint32_t weightsGmLength;
-    uint32_t outGmLength;
+    uint64_t mcMsFeatGmLength;
+    uint64_t spatialShapeGmLength;
+    uint64_t scaleStartIndexLength;
+    uint64_t samplingLocationGmLength;
+    uint64_t weightsGmLength;
+    uint64_t outGmLength;
     uint32_t bs;
     uint32_t numFeats;
     uint32_t numEmbeds;
