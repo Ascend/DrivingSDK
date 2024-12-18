@@ -49,6 +49,9 @@ static ge::graphStatus TilingForGroupPointsGrad(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
+    if (context->GetInputDesc(0) == nullptr || context->GetAttrs() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto dtype = context->GetInputDesc(0)->GetDataType();
     if (ge::DT_FLOAT == dtype) {
         context->SetTilingKey(1);
@@ -98,6 +101,10 @@ static ge::graphStatus TilingForGroupPointsGrad(gert::TilingContext* context)
     tiling.set_taskLast(taskLast);
     tiling.set_usedCoreNum(usedCoreNum);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -109,6 +116,9 @@ static ge::graphStatus TilingForGroupPointsGrad(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShapeForGroupPointsGrad(gert::InferShapeContext* context)
 {
+    if (context->GetOutputShape(0) == nullptr|| context->GetAttrs() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto attrs = context->GetAttrs();
     auto getAttr = [attrs](size_t idx) -> int32_t {
         auto ptr = attrs->GetInt(idx);
