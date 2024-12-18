@@ -34,6 +34,9 @@ const uint32_t WORKSAPCE_16MBYTE_SIZE = 16 * 1024 * 1024;
 namespace optiling {
 static ge::graphStatus TilingFuncForRoiAlignRotatedGradV2(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     RoiAlignRotatedGradV2TilingData tiling;
     auto inputTensorPtr = context->GetInputTensor(INPUT_INPUT);
     auto RoiTensorPtr = context->GetInputTensor(INPUT_ROIS);
@@ -89,8 +92,11 @@ static ge::graphStatus TilingFuncForRoiAlignRotatedGradV2(gert::TilingContext* c
     tiling.set_clockwise(clockwise);
     tiling.set_samplingRatio(samplingRatio);
     tiling.set_spatialScale(spatialScale);
-
     tiling.set_coreNum(coreNum);
+
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -103,24 +109,24 @@ static ge::graphStatus TilingFuncForRoiAlignRotatedGradV2(gert::TilingContext* c
 namespace ge {
 static ge::graphStatus InferShapeForRoiAlignRotatedGradV2(gert::InferShapeContext* context)
 {
-    const gert::Shape* input_shape = context->GetInputShape(INPUT_INPUT);
-    if (input_shape == nullptr) {
+    const gert::Shape* inputShape = context->GetInputShape(INPUT_INPUT);
+    if (inputShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* grad_input_shape = context->GetOutputShape(OUTPUT_GRAD_INPUT);
-    if (grad_input_shape == nullptr) {
+    gert::Shape* gradInputShape = context->GetOutputShape(OUTPUT_GRAD_INPUT);
+    if (gradInputShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    grad_input_shape->AppendDim(input_shape->GetDim(BATCH_SIZE_DIM));
-    grad_input_shape->AppendDim(input_shape->GetDim(HEIGHT_DIM));
-    grad_input_shape->AppendDim(input_shape->GetDim(WIDTH_DIM));
-    grad_input_shape->AppendDim(input_shape->GetDim(CHANNEL_DIM));
+    gradInputShape->AppendDim(inputShape->GetDim(BATCH_SIZE_DIM));
+    gradInputShape->AppendDim(inputShape->GetDim(HEIGHT_DIM));
+    gradInputShape->AppendDim(inputShape->GetDim(WIDTH_DIM));
+    gradInputShape->AppendDim(inputShape->GetDim(CHANNEL_DIM));
     return GRAPH_SUCCESS;
 }
 static ge::graphStatus InferDataTypeForRoiAlignRotatedGradV2(gert::InferDataTypeContext* context)
 {
-    auto input_dtype = context->GetInputDataType(INPUT_INPUT);
-    context->SetOutputDataType(OUTPUT_GRAD_INPUT, input_dtype);
+    auto inputDtype = context->GetInputDataType(INPUT_INPUT);
+    context->SetOutputDataType(OUTPUT_GRAD_INPUT, inputDtype);
     return GRAPH_SUCCESS;
 }
 }

@@ -8,6 +8,9 @@
 namespace optiling {
 static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     FurthestPointSamplingWithDistTilingData tiling;
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
@@ -18,7 +21,11 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
     uint64_t UB_size;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
     
-    auto dist_shape = context->GetInputShape(0)->GetStorageShape();
+    auto dist_shape_ptr = context->GetInputShape(0);
+    if (dist_shape_ptr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    auto dist_shape = dist_shape_ptr->GetStorageShape();
     auto attrs = context->GetAttrs();
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
@@ -30,13 +37,14 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
     uint32_t points_num = *(attrs->GetAttrPointer<int32_t>(0));
     uint32_t b = dist_shape.GetDim(0);
     uint32_t n = dist_shape.GetDim(1);
-    
-    auto dtype_str = context->GetInputDesc(0)->GetDataType();
 
     uint32_t dtype_bytes = 4;
     uint32_t ele_per_block = 8;
 
     uint32_t task_num = (b - 1) / core_num + 1;
+    if (task_num == 0) {
+        return ge::GRAPH_FAILED;
+    }
     uint32_t used_core_num = (b - 1) / task_num + 1;
     uint32_t task_num_tail = b % task_num;
     if (task_num_tail == 0) {
@@ -48,6 +56,9 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
 
     uint32_t part = 5 * dtype_bytes + 1;
     uint32_t part_ub = (UB_size - 20 * 1024) / part / 32 * 32;
+    if (part_ub == 0) {
+        return ge::GRAPH_FAILED;
+    }
 
     uint32_t move_n_times = (n - 1) / part_ub + 1;
     uint32_t n_tail = n % part_ub;
@@ -77,6 +88,10 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
     tiling.set_repeat_id_times(repeat_id_times);
     tiling.set_id_tail(id_tail);
     tiling.set_work_size(work_size);
+
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -96,14 +111,14 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const int32_t* points_num = attrs->GetAttrPointer<int32_t>(0);
+    uint32_t points_num = *(attrs->GetAttrPointer<int32_t>(0));
 
     gert::Shape* idx_shape = context->GetOutputShape(0);
     if (idx_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
     idx_shape->AppendDim(points_dist_shape->GetDim(0));
-    idx_shape->AppendDim(*points_num);
+    idx_shape->AppendDim(points_num);
     return GRAPH_SUCCESS;
 }
 static ge::graphStatus InferDataType(gert::InferDataTypeContext* context)

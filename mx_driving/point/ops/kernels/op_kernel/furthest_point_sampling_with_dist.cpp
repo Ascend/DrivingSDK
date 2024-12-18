@@ -21,7 +21,7 @@ public:
     __aicore__ inline void Process();
 private:
     __aicore__ inline void init_tiling_value();
-    __aicore__ inline void ProcessEachBatch(uint32_t batch_id);
+    __aicore__ inline void ProcessEachBatch(uint64_t batch_id);
     __aicore__ inline void PointSampling(uint32_t id_times, uint32_t id_len);
     __aicore__ inline void CalculatePartUb(uint32_t n_times, uint32_t n_len);
     __aicore__ inline void CopyIn(uint32_t n_times, uint32_t n_len);
@@ -65,9 +65,9 @@ private:
     uint32_t data_type_size {0};
     uint32_t idx_type_size {0};
     uint32_t mask_type_size {0};
-    uint32_t dist_begin_offset {0};
-    uint32_t temp_begin_offset {0};
-    uint32_t idx_begin_offset {0};
+    uint64_t dist_begin_offset {0};
+    uint64_t temp_begin_offset {0};
+    uint64_t idx_begin_offset {0};
     uint32_t now_max_dim {0};
     uint32_t block_size {32};
     uint32_t block_per_size {0};
@@ -96,14 +96,14 @@ __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::I
     }
 
     // calculate begin offset
-    int32_t gm_dist_begin_offset = batch_begin_offset * batch_dist_offset;
-    int32_t gm_temp_begin_offset = batch_begin_offset * n;
-    int32_t gm_idx_begin_offset = batch_begin_offset * batch_idx_offset;
+    uint64_t gm_dist_begin_offset = batch_begin_offset * batch_dist_offset;
+    uint64_t gm_temp_begin_offset = batch_begin_offset * n;
+    uint64_t gm_idx_begin_offset = batch_begin_offset * batch_idx_offset;
     
     // set LocalTensor base addr
-    this->points_dist_gm.SetGlobalBuffer((__gm__ dataType *)points_dist + gm_dist_begin_offset, batch_size * batch_dist_offset);
-    this->temp_gm.SetGlobalBuffer((__gm__ dataType *)nearest_temp + gm_temp_begin_offset, batch_size * n);
-    this->idx_gm.SetGlobalBuffer((__gm__ idxType *)idx + gm_idx_begin_offset, batch_size * batch_idx_offset);
+    this->points_dist_gm.SetGlobalBuffer((__gm__ dataType *)points_dist + gm_dist_begin_offset, static_cast<uint64_t>(batch_size) * batch_dist_offset);
+    this->temp_gm.SetGlobalBuffer((__gm__ dataType *)nearest_temp + gm_temp_begin_offset, static_cast<uint64_t>(batch_size) * n);
+    this->idx_gm.SetGlobalBuffer((__gm__ idxType *)idx + gm_idx_begin_offset, static_cast<uint64_t>(batch_size) * batch_idx_offset);
 
     data_type_size = sizeof(dataType);
     idx_type_size = sizeof(idxType);
@@ -122,7 +122,7 @@ __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::I
 
 template<typename dataType, typename idxType>
 __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::Process() {
-    for (uint32_t batch_id = 0; batch_id < batch_size; ++batch_id) {
+    for (uint64_t batch_id = 0; batch_id < batch_size; ++batch_id) {
         last_idx = -1;
         ProcessEachBatch(batch_id);
     }
@@ -147,7 +147,7 @@ __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::i
 }
 
 template<typename dataType, typename idxType>
-__aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::ProcessEachBatch(uint32_t batch_id) {
+__aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::ProcessEachBatch(uint64_t batch_id) {
     dist_begin_offset = batch_id * batch_dist_offset;
     temp_begin_offset = batch_id * n;
     idx_begin_offset = batch_id * batch_idx_offset;
@@ -191,8 +191,8 @@ __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::C
     LocalTensor<dataType> dist1_local = temp_queue.AllocTensor<dataType>();
     LocalTensor<dataType> dist2_local = points_dist_queue.AllocTensor<dataType>();
     // calculate offset
-    uint32_t dist1_offset = temp_begin_offset + n_times * part_ub;
-    uint32_t dist2_offset = dist_begin_offset + last_idx * n + n_times * part_ub;
+    uint64_t dist1_offset = temp_begin_offset + static_cast<uint64_t>(n_times) * part_ub;
+    uint64_t dist2_offset = dist_begin_offset + static_cast<uint64_t>(last_idx) * n + static_cast<uint64_t>(n_times) * part_ub;
     uint32_t move_len = CeilDiv(n_len, block_per_size) * block_per_size;
     // data copy
     DataCopy(dist1_local, temp_gm[dist1_offset], move_len);
@@ -238,7 +238,7 @@ template<typename dataType, typename idxType>
 __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::CopyOutDist(uint32_t n_times, uint32_t n_len) {
     LocalTensor<dataType> temp_local = temp_out_queue.DeQue<dataType>();
 
-    uint32_t dist1_offset = temp_begin_offset + n_times * part_ub;
+    uint64_t dist1_offset = temp_begin_offset + static_cast<uint64_t>(n_times) * part_ub;
 
     DataCopyParams copyParams{1, (uint16_t)(n_len * sizeof(dataType)), 0, 0};
     DataCopyPad(temp_gm[dist1_offset], temp_local, copyParams);
@@ -250,7 +250,7 @@ template<typename dataType, typename idxType>
 __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::CopyOut(uint32_t id_times, uint32_t id_len) {
     LocalTensor<idxType> idx_local = idx_queue.DeQue<idxType>();
 
-    uint32_t idx_offset = idx_begin_offset + id_times * id_move_len;
+    uint64_t idx_offset = idx_begin_offset + static_cast<uint64_t>(id_times) * id_move_len;
 
     DataCopyParams copyParams{1, (uint16_t)(id_len * sizeof(idxType)), 0, 0};
     DataCopyPad(idx_gm[idx_offset], idx_local, copyParams);

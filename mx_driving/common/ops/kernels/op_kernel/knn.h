@@ -37,10 +37,10 @@ public:
             endTask = batch * nPoint;
         }
 
-        sourceGm.SetGlobalBuffer((__gm__ T *)xyz, batch * nSource * 3);
-        targetGm.SetGlobalBuffer((__gm__ T *)center_xyz, batch * nPoint * 3);
-        distGm.SetGlobalBuffer((__gm__ T *)dist, batch * nPoint * k);
-        idxGm.SetGlobalBuffer((__gm__ int32_t*)idx, batch * nPoint * k);
+        sourceGm.SetGlobalBuffer((__gm__ T *)xyz, static_cast<uint64_t>(batch) * nSource * 3);
+        targetGm.SetGlobalBuffer((__gm__ T *)center_xyz, static_cast<uint64_t>(batch) * nPoint * 3);
+        distGm.SetGlobalBuffer((__gm__ T *)dist, static_cast<uint64_t>(batch) * nPoint * k);
+        idxGm.SetGlobalBuffer((__gm__ int32_t*)idx, static_cast<uint64_t>(batch) * nPoint * k);
     }
 
     __aicore__ inline void InitBuffer()
@@ -82,10 +82,10 @@ public:
         sortTmp2Local = sortTmp2Ub.Get<T>();
 
         for (uint32_t currentTask = startTask; currentTask < endTask; currentTask++) {
-            uint32_t currentBatch = currentTask / nPoint;
-            uint32_t sourceOffset = currentBatch * nSource * 3; // B 3 N
-            uint32_t targetOffset = currentTask * 3; // B M 3
-            uint32_t copyOutOffset = currentTask * k; // B M N
+            uint64_t currentBatch = currentTask / nPoint;
+            uint64_t sourceOffset = currentBatch * nSource * 3; // B 3 N
+            uint64_t targetOffset = currentTask * 3; // B M 3
+            uint64_t copyOutOffset = currentTask * k; // B M N
 
             set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
             wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
@@ -113,15 +113,18 @@ public:
         }
     }
 
-    __aicore__ inline void Compute(uint32_t currentLoop, uint32_t copySize, uint32_t sourceOffset)
+    __aicore__ inline void Compute(uint32_t currentLoop, uint32_t copySize, uint64_t sourceOffset)
     {
         uint32_t copyInLength = static_cast<uint32_t>(copySize * sizeof(T));
         uint32_t loopOffset = currentLoop * compNum;
 
         wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
-        DataCopyPad(sourceLocal, sourceGm[sourceOffset + loopOffset], {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
-        DataCopyPad(sourceLocal[compNum], sourceGm[sourceOffset + loopOffset + nSource], {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
-        DataCopyPad(sourceLocal[compNum * 2], sourceGm[sourceOffset + loopOffset + nSource * 2], {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
+        DataCopyPad(sourceLocal, sourceGm[sourceOffset + loopOffset],
+                    {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
+        DataCopyPad(sourceLocal[compNum], sourceGm[sourceOffset + loopOffset + nSource],
+                    {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
+        DataCopyPad(sourceLocal[compNum * 2], sourceGm[sourceOffset + loopOffset + nSource * 2],
+                    {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
 
         set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
         wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
@@ -161,7 +164,7 @@ public:
         }
     }
 
-    __aicore__ inline void CopyOut(uint32_t offset)
+    __aicore__ inline void CopyOut(uint64_t offset)
     {
         set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
         wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
