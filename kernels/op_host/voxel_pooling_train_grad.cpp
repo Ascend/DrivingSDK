@@ -49,6 +49,9 @@ static ge::graphStatus TilingForVoxelPoolingTrainGrad(gert::TilingContext* conte
     }
 
     auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto getAttr = [attrs](size_t idx) -> int32_t {
         auto ptr = attrs->GetInt(idx);
         if (!ptr) {
@@ -87,6 +90,9 @@ static ge::graphStatus TilingForVoxelPoolingTrainGrad(gert::TilingContext* conte
     tiling.set_taskLast(taskLast);
     tiling.set_usedCoreNum(usedCoreNum);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -99,6 +105,9 @@ namespace ge {
 static ge::graphStatus InferShapeForVoxelPoolingTrainGrad(gert::InferShapeContext* context)
 {
     auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto getAttr = [attrs](size_t idx) -> int32_t {
         auto ptr = attrs->GetInt(idx);
         if (!ptr) {
@@ -110,6 +119,9 @@ static ge::graphStatus InferShapeForVoxelPoolingTrainGrad(gert::InferShapeContex
     auto numPoints = getAttr(N_IDX);
     auto numChannels = getAttr(C_IDX);
 
+    if (context->GetOutputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* grad_features = context->GetOutputShape(0);
     grad_features->SetDimNum(0);
     grad_features->AppendDim(batchSize);

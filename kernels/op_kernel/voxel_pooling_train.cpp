@@ -33,10 +33,10 @@ public:
 
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
-        geomLength = batchSize * numPoints * INDICES_NUM;
-        featuresLength = batchSize * numPoints * numChannels;
-        outLength = batchSize * numVoxelY * numVoxelX * numChannels;
-        posLength = batchSize * numPoints * INDICES_NUM;
+        geomLength = static_cast<uint64_t>(batchSize) * numPoints * INDICES_NUM;
+        featuresLength = static_cast<uint64_t>(batchSize) * numPoints * numChannels;
+        outLength = static_cast<uint64_t>(batchSize) * numVoxelY * numVoxelX * numChannels;
+        posLength = static_cast<uint64_t>(batchSize) * numPoints * INDICES_NUM;
 
         geomGm.SetGlobalBuffer((__gm__ DTYPE_I*)geom, geomLength);
         featuresGm.SetGlobalBuffer((__gm__ DTYPE_G*)featuresIn, featuresLength);
@@ -80,9 +80,9 @@ public:
         LocalTensor<DTYPE_I> geomLocal = inQueueGeom.AllocTensor<DTYPE_I>();
         LocalTensor<DTYPE_I> posLocal = inQueuePos.AllocTensor<DTYPE_I>();
 
-        int32_t offset = average * GetBlockIdx() + taskLast;
+        int64_t offset = static_cast<int64_t>(average) * GetBlockIdx() + taskLast;
         if (GetBlockIdx() < taskLast) {
-            offset = (average + 1) * GetBlockIdx();
+            offset = (static_cast<int64_t>(average) + 1) * GetBlockIdx();
         }
 
         DataCopy(geomLocal, geomGm[(offset + i) * INDICES_NUM], indicesAligned);
@@ -101,8 +101,8 @@ public:
             pipe_barrier(PIPE_ALL);
             DataCopyPad(posGm[(offset + i) * INDICES_NUM], posLocal, copyParamsPos);
 
-            int32_t offset_out =
-                b_idx * numVoxelY * numVoxelX * numChannels + sampleY * numVoxelX * numChannels + sampleX * numChannels;
+            int64_t offset_out =
+                static_cast<int64_t>(b_idx) * numVoxelY * numVoxelX * numChannels + sampleY * numVoxelX * numChannels + sampleX * numChannels;
             SetAtomicAdd<DTYPE_G>();
             DataCopyPad(outGm[offset_out], outLocal, copyParamsOut);
             pipe_barrier(PIPE_ALL);
@@ -125,10 +125,10 @@ private:
     GlobalTensor<DTYPE_G> outGm;
     GlobalTensor<DTYPE_I> posGm;
 
-    uint32_t geomLength;
-    uint32_t featuresLength;
-    uint32_t outLength;
-    uint32_t posLength;
+    uint64_t geomLength;
+    uint64_t featuresLength;
+    uint64_t outLength;
+    uint64_t posLength;
     uint32_t batchSize;
     uint32_t numPoints;
     uint32_t numChannels;
