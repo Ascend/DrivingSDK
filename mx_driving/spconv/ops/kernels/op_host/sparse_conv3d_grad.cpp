@@ -16,12 +16,15 @@ static uint32_t AlignUp(uint32_t x, uint32_t y)
 static ge::graphStatus TilingForSparseConv3dGrad(gert::TilingContext* context)
 {
     SparseConv3dGradTilingData tiling;
-    auto indices_offset_shape = context->GetInputShape(0)->GetStorageShape();
-    auto weight_shape = context->GetInputShape(3)->GetStorageShape();
     auto platformInfoptr = context->GetPlatformInfo();
     if (platformInfoptr == nullptr) {
         return ge::GRAPH_FAILED;
     }
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(3) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    auto indices_offset_shape = context->GetInputShape(0)->GetStorageShape();
+    auto weight_shape = context->GetInputShape(3)->GetStorageShape();
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
     uint32_t coreNum = ascendplatformInfo.GetCoreNumAiv();
     uint32_t actualNum = indices_offset_shape.GetDim(0) - 1;
@@ -71,6 +74,9 @@ static ge::graphStatus TilingForSparseConv3dGrad(gert::TilingContext* context)
     tiling.set_kernelSize(kernelSize);
     tiling.set_kernelIC(kernelIC);
     tiling.set_kernelOC(kernelOC);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
 
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());

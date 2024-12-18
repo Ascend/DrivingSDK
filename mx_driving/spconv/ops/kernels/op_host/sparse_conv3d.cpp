@@ -24,12 +24,11 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
 {
     auto platformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
 
-    auto indices_shape = context->GetInputShape(0)->GetStorageShape();
-
     auto attrsPtr = context->GetAttrs();
-    if (attrsPtr == nullptr) {
+    if (attrsPtr == nullptr || context->GetInputShape(0) == nullptr) {
         return ge::GRAPH_FAILED;
     }
+    auto indices_shape = context->GetInputShape(0)->GetStorageShape();
     uint32_t coreNum = platformInfo.GetCoreNumAiv();
     uint32_t actualNum = indices_shape.GetDim(0);
 
@@ -97,6 +96,9 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
     tiling.set_paddingDepth(paddingData[0]);
     tiling.set_paddingHeight(paddingData[1]);
     tiling.set_paddingWidth(paddingData[2]);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
