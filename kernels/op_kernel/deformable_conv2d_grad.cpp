@@ -46,15 +46,16 @@ protected:
     TBuf<TPosition::VECCALC> gradXBuf_, gradOffsetBuf_;
 
     // from tiling
-    uint32_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_, usedBlkNum_;
-    int32_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_;
+    uint64_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_;
+    uint32_t usedBlkNum_;
+    int64_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_;
 
-    uint32_t rowOut_, kwIn_, rowIn_, rowOffset_, alignedRowOffset_, kernelSize_;
+    uint64_t rowOut_, kwIn_, rowIn_, rowOffset_, alignedRowOffset_, kernelSize_;
     uint16_t kwInBlk_, rowOffsetBlk_, doubleRowOffsetBlk_, cInBlk_;
     uint16_t rptTimes_, valRptTimes_;
     uint32_t blkIdx_;
     uint32_t auxStart_, auxEnd_, start_, end_;
-    uint32_t srcOffset_, dstOffset_;
+    uint64_t srcOffset_, dstOffset_;
 
     uint64_t reduceMask_;
 
@@ -130,14 +131,14 @@ private:
 
     __aicore__ inline void InitTask()
     {
-        uint32_t auxAvgTasks = wOut_ / usedBlkNum_;
-        uint32_t auxRemainTasks = wOut_ % usedBlkNum_;
+        uint64_t auxAvgTasks = wOut_ / usedBlkNum_;
+        uint64_t auxRemainTasks = wOut_ % usedBlkNum_;
         auxStart_ = auxAvgTasks * blkIdx_ + (blkIdx_ < auxRemainTasks ? blkIdx_ : auxRemainTasks);
         auxEnd_ = auxStart_ + auxAvgTasks + (blkIdx_ < auxRemainTasks ? 1 : 0);
 
-        uint32_t totalTasks = n_ * hOut_;
-        uint32_t avgTasks = totalTasks / usedBlkNum_;
-        uint32_t remainTasks = totalTasks % usedBlkNum_;
+        uint64_t totalTasks = n_ * hOut_;
+        uint64_t avgTasks = totalTasks / usedBlkNum_;
+        uint64_t remainTasks = totalTasks % usedBlkNum_;
         start_ = avgTasks * blkIdx_ + (blkIdx_ < remainTasks ? blkIdx_ : remainTasks);
         end_ = start_ + avgTasks + (blkIdx_ < remainTasks ? 1 : 0);
     }
@@ -191,8 +192,8 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::PreProcess()
     for (int32_t w = auxStart_; w < auxEnd_; ++w) {
         for (int32_t i = 0; i < kH_; ++i) {
             for (int32_t j = 0; j < kW_; ++j) {
-                auxW.SetValue(idx, float(w * strideW_ - padW_ + j * dilationW_));
-                auxH.SetValue(idx, float(-padH_ + i * dilationH_));
+                auxW.SetValue(idx, static_cast<float>(w * strideW_ - padW_ + j * dilationW_));
+                auxH.SetValue(idx, static_cast<float>(-padH_ + i * dilationH_));
                 ++idx;
             }
         }
@@ -262,7 +263,7 @@ template<bool modulated>
 __aicore__ inline void DeformableConv2dGradKernel<modulated>::CopyInOffset(
     uint32_t taskIdx, const LocalTensor<float>& offset, const LocalTensor<float>& mask)
 {
-    uint32_t offsetIdx = taskIdx * rowOffset_ * 2;
+    uint64_t offsetIdx = taskIdx * rowOffset_ * 2;
     DataCopy(offset, offsetGm_[offsetIdx], {1, doubleRowOffsetBlk_, 0, 0});
     if (modulated) {
         DataCopy(mask, maskGm_[taskIdx * rowOffset_], {1, rowOffsetBlk_, 0, 0});
@@ -321,10 +322,10 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
     const LocalTensor<float>& feature, const LocalTensor<float>& weight, const LocalTensor<float>& gradOffsetOutput,
     const LocalTensor<float>& gradX, const LocalTensor<float>& gradOffset, const LocalTensor<float>& reducedValue)
 {
-    int32_t kernelOffset = w * kernelSize_;
+    uint32_t kernelOffset = w * kernelSize_;
     for (uint32_t kIdx = 0; kIdx < kernelSize_; ++kIdx) {
-        int32_t pw = kIdx + kernelOffset;
-        int32_t ph = pw + alignedRowOffset_;
+        uint32_t pw = kIdx + kernelOffset;
+        uint32_t ph = pw + alignedRowOffset_;
         int32_t w0 = offsetInt.GetValue(pw);
         int32_t h0 = offsetInt.GetValue(ph);
         int32_t w1 = w0 + 1;
@@ -335,7 +336,7 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
         if (0 <= h0 && h0 < hIn_) {
             if (0 < w1 && w1 < wIn_) {
                 uint32_t ubOffset = 0;
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
                 DataCopy(feature[ubOffset], xGm_[gmOffset], cpDoubleValParams_);
                 Muls<float, false>(gradX[ubOffset], gradOffsetOutput[outOffset], weight.GetValue(pw), MASK_PLACEHOLDER,
                     valRptTimes_, {1, 1, 8, 8});
@@ -348,7 +349,7 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
                 SetAtomicNone();
             } else if (0 <= w0 && w0 < wIn_) {
                 uint32_t ubOffset = 0;
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
                 DataCopy(feature[ubOffset], xGm_[gmOffset], cpOneValParams_);
                 Muls<float, false>(gradX[ubOffset], gradOffsetOutput[outOffset], weight.GetValue(pw), MASK_PLACEHOLDER,
                     valRptTimes_, {1, 1, 8, 8});
@@ -359,7 +360,7 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
                 SetAtomicNone();
             } else if (0 <= w1 && w1 < wIn_) {
                 uint32_t ubOffset = cIn_;
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_ + w1) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_ + w1) * cIn_;
                 DataCopy(feature[ubOffset], xGm_[gmOffset], cpOneValParams_);
                 Muls<float, false>(gradX[ubOffset], gradOffsetOutput[outOffset], weight.GetValue(ph), MASK_PLACEHOLDER,
                     valRptTimes_, {1, 1, 8, 8});
@@ -373,7 +374,7 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
         if (0 <= h1 && h1 < hIn_) {
             if (0 < w1 && w1 < wIn_) {
                 uint32_t ubOffset = 2 * cIn_;
-                uint32_t gmOffset = srcOffset_ + (h1 * wIn_ + w0) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h1 * wIn_ + w0) * cIn_;
                 DataCopy(feature[ubOffset], xGm_[gmOffset], cpDoubleValParams_);
                 Muls<float, false>(gradX[ubOffset], gradOffsetOutput[outOffset],
                     weight.GetValue(pw + 2 * alignedRowOffset_), MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
@@ -386,7 +387,7 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
                 SetAtomicNone();
             } else if (0 <= w0 && w0 < wIn_) {
                 uint32_t ubOffset = 2 * cIn_;
-                uint32_t gmOffset = srcOffset_ + (h1 * wIn_ + w0) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h1 * wIn_ + w0) * cIn_;
                 DataCopy(feature[ubOffset], xGm_[gmOffset], cpOneValParams_);
                 Muls<float, false>(gradX[ubOffset], gradOffsetOutput[outOffset],
                     weight.GetValue(pw + 2 * alignedRowOffset_), MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
@@ -397,7 +398,7 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ComputeBilinearInt
                 SetAtomicNone();
             } else if (0 <= w1 && w1 < wIn_) {
                 uint32_t ubOffset = 3 * cIn_;
-                uint32_t gmOffset = srcOffset_ + (h1 * wIn_ + w1) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h1 * wIn_ + w1) * cIn_;
                 DataCopy(feature[ubOffset], xGm_[gmOffset], cpOneValParams_);
                 Muls<float, false>(gradX[ubOffset], gradOffsetOutput[outOffset],
                     weight.GetValue(ph + 2 * alignedRowOffset_), MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});

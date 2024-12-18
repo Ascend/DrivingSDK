@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "bev_pool_v3_tiling.h"
+#include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
@@ -16,7 +17,7 @@ constexpr size_t INPUT_FEAT = 1;
 constexpr size_t INPUT_FEAT_GRAD = 2;
 constexpr size_t INPUT_RANKS_BEV = 4;
 constexpr size_t INPUT_RANKS_BEV_GRAD = 5;
-constexpr int32_t RANK_NUM_PER_TASK = 1024;
+constexpr uint64_t RANK_NUM_PER_TASK = 1024;
 constexpr int32_t ONE_BLK_SIZE = 8;
 constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
 constexpr int32_t CHANNEL_IDX = 1;
@@ -27,6 +28,7 @@ namespace optiling {
 template<bool is_grad>
 static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
 {
+    CHECK_NULLPTR(context);
     BEVPoolV3TilingData tiling;
     auto platform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     uint64_t ubSize;
@@ -35,19 +37,17 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
     auto featShape = context->GetInputShape(is_grad ? INPUT_FEAT_GRAD : INPUT_FEAT);
     auto ranksBevShape = context->GetInputShape(is_grad ? INPUT_RANKS_BEV_GRAD : INPUT_RANKS_BEV);
     auto attrsPtr = context->GetAttrs();
-    if (attrsPtr == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(attrsPtr);
+
     auto withDepthPtr = attrsPtr->GetBool(0);
-    if (withDepthPtr == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(withDepthPtr);
+
     bool withDepth = *withDepthPtr;
     context->SetTilingKey(withDepth);
 
     auto channel = featShape->GetOriginShape().GetDim(withDepth ? CHANNEL_IDX_WITH_DEPTH : CHANNEL_IDX);
-    int32_t ranks = ranksBevShape->GetOriginShape().GetDim(0);
-    int avgRankNum = withDepth ?
+    uint64_t ranks = ranksBevShape->GetOriginShape().GetDim(0);
+    uint64_t avgRankNum = withDepth ?
                          RANK_NUM_PER_TASK :
                          (ubSize - RESERVE_UB) / (sizeof(float) * (channel + 1) * 2) / ONE_BLK_SIZE * ONE_BLK_SIZE;
     avgRankNum = std::min(avgRankNum, ranks);
@@ -56,7 +56,7 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
     }
 
     auto totalTaskNum = (ranks + avgRankNum - 1) / avgRankNum;
-    int32_t usedCoreNum = std::min(static_cast<int32_t>(coreNum), totalTaskNum);
+    uint64_t usedCoreNum = std::min(static_cast<uint64_t>(coreNum), totalTaskNum);
     if (usedCoreNum == 0) {
         return ge::GRAPH_FAILED;
     }
@@ -76,11 +76,11 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
                     "tailRankNum=%d, channel=%d",
         usedCoreNum, totalTaskNum, avgTaskNum, tailTaskNum, avgRankNum, tailRankNum, channel);
 
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+    ADD_TILING_DATA(context, tiling);
 
     uint32_t sysWorkspaceSize = platform.GetLibApiWorkSpaceSize();
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    CHECK_NULLPTR(currentWorkspace);
     currentWorkspace[0] = sysWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

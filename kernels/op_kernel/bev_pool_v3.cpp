@@ -79,13 +79,13 @@ private:
         cpOutEvtID_ = pipe_->FetchEventID(HardEvent::MTE3_MTE2);
     }
 
-    __aicore__ inline void CopyIn(int32_t rd, int32_t rf);
+    __aicore__ inline void CopyIn(uint64_t rd, uint64_t rf);
 
     __aicore__ inline void Compute();
 
-    __aicore__ inline void CopyOut(int32_t rb);
+    __aicore__ inline void CopyOut(uint64_t rb);
 
-    __aicore__ inline void ProcessSingle(int32_t taskIdx, int32_t rankNum);
+    __aicore__ inline void ProcessSingle(uint64_t taskIdx, uint32_t rankNum);
 
 private:
     TPipe* pipe_;
@@ -96,16 +96,16 @@ private:
     TQue<TPosition::VECIN, 2> inQue_;
     TQue<TPosition::VECOUT, 2> outQue_;
 
-    int32_t taskStartIdx_, taskEndIdx_, totalTaskNum_, avgRankNum_, tailRankNum_;
+    uint32_t taskStartIdx_, taskEndIdx_, totalTaskNum_;
     int32_t channel_;
-    int32_t rankSize_;
-    int32_t rankDepthOffset_, rankFeatOffset_, rankBevOffset_;
+    uint32_t rankSize_, avgRankNum_, tailRankNum_;
+    uint64_t rankDepthOffset_, rankFeatOffset_, rankBevOffset_;
 
     TEventID cpInEvtID_, cpOutEvtID_;
 };
 
 template<bool with_depth>
-__aicore__ inline void BEVPoolV3Kernel<with_depth>::CopyIn(int32_t rd, int32_t rf)
+__aicore__ inline void BEVPoolV3Kernel<with_depth>::CopyIn(uint64_t rd, uint64_t rf)
 {
     LocalTensor<float> in = inQue_.AllocTensor<float>();
     DataCopy(in, depthGm_[rd], B32_DATA_NUM_PER_BLOCK);
@@ -124,7 +124,7 @@ __aicore__ inline void BEVPoolV3Kernel<with_depth>::Compute()
 }
 
 template<bool with_depth>
-__aicore__ inline void BEVPoolV3Kernel<with_depth>::CopyOut(int32_t rb)
+__aicore__ inline void BEVPoolV3Kernel<with_depth>::CopyOut(uint64_t rb)
 {
     LocalTensor<float> out = outQue_.DeQue<float>();
     SetAtomicAdd<float>();
@@ -134,7 +134,7 @@ __aicore__ inline void BEVPoolV3Kernel<with_depth>::CopyOut(int32_t rb)
 }
 
 template<bool with_depth>
-__aicore__ inline void BEVPoolV3Kernel<with_depth>::ProcessSingle(int32_t taskIdx, int32_t actualRankNum)
+__aicore__ inline void BEVPoolV3Kernel<with_depth>::ProcessSingle(uint64_t taskIdx, uint32_t actualRankNum)
 {
     int32_t rankNum = AlignUp(actualRankNum, B32_DATA_NUM_PER_BLOCK);
 
@@ -151,9 +151,9 @@ __aicore__ inline void BEVPoolV3Kernel<with_depth>::ProcessSingle(int32_t taskId
         Muls(rankBev, rankBev, channel_, rankNum);
         Muls(rankFeat, rankFeat, channel_, rankNum);
         for (int32_t i = 0; i < actualRankNum; ++i) {
-            int32_t rd = rankDepth.GetValue(i);
-            int32_t rf = rankFeat.GetValue(i);
-            int32_t rb = rankBev.GetValue(i);
+            uint64_t rd = rankDepth.GetValue(i);
+            uint64_t rf = rankFeat.GetValue(i);
+            uint64_t rb = rankBev.GetValue(i);
             CopyIn(rd, rf);
             Compute();
             CopyOut(rb);
@@ -181,8 +181,8 @@ __aicore__ inline void BEVPoolV3Kernel<with_depth>::ProcessSingle(int32_t taskId
 template<bool with_depth>
 __aicore__ inline void BEVPoolV3Kernel<with_depth>::Process()
 {
-    for (int32_t i = taskStartIdx_; i < taskEndIdx_; ++i) {
-        int32_t actualRankNum = avgRankNum_;
+    for (uint32_t i = taskStartIdx_; i < taskEndIdx_; ++i) {
+        uint32_t actualRankNum = avgRankNum_;
         if (unlikely(i == totalTaskNum_ - 1)) {
             actualRankNum = tailRankNum_;
         }

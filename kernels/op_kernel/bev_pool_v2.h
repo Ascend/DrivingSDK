@@ -41,13 +41,14 @@ protected:
     AscendC::GlobalTensor<int32_t> rDGm_, rFGm_, rBGm_, sGm_, lGm_;
     AscendC::GlobalTensor<T> dGm_, fGm_;
 
-    int32_t stride0_, stride1_, stride2_, stride3_;
+    uint32_t stride0_, stride1_, stride2_, stride3_;
     int32_t alignUpCCount_;
     TaskIterator it_;
 
     AscendC::DataCopyParams cpFeatParams_, cpOneParams_;
     AscendC::DataCopyExtParams cpPadParams_;
-    int32_t start_, length_, outOffset_, featOffset_, depthOffset_;
+    int32_t start_, length_;
+    uint64_t outOffset_, featOffset_, depthOffset_;
 
     __aicore__ inline void PreProcess(int32_t idx)
     {

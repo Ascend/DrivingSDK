@@ -45,15 +45,16 @@ protected:
     TBuf<TPosition::VECCALC> offsetBuf_, offsetIntBuf_, weightBuf_, maskBuf_, featureBuf_, offsetOutputBuf_;
 
     // from tiling
-    uint32_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_, usedBlkNum_;
-    int32_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_;
-
-    uint32_t rowOut_, kwIn_, rowIn_, rowOffset_, alignedRowOffset_, featureOffset_, kernelSize_;
+    uint64_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_;
+    uint32_t usedBlkNum_;
+    int64_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_;
+    uint64_t rowOut_, kwIn_, rowIn_, kernelSize_;
+    uint64_t rowOffset_, alignedRowOffset_, featureOffset_;
     uint16_t kwInBlk_, rowOffsetBlk_, doubleRowOffsetBlk_, cInBlk_;
     uint16_t rptTimes_, valRptTimes_;
     uint32_t blkIdx_;
     uint32_t auxStart_, auxEnd_, start_, end_;
-    uint32_t srcOffset_, dstOffset_;
+    uint64_t srcOffset_, dstOffset_;
 
     TEventID calEvt_, copyEvt_;
 
@@ -130,14 +131,14 @@ private:
 
     __aicore__ inline void InitTask()
     {
-        uint32_t auxAvgTasks = wOut_ / usedBlkNum_;
-        uint32_t auxRemainTasks = wOut_ % usedBlkNum_;
+        uint64_t auxAvgTasks = wOut_ / usedBlkNum_;
+        uint64_t auxRemainTasks = wOut_ % usedBlkNum_;
         auxStart_ = auxAvgTasks * blkIdx_ + (blkIdx_ < auxRemainTasks ? blkIdx_ : auxRemainTasks);
         auxEnd_ = auxStart_ + auxAvgTasks + (blkIdx_ < auxRemainTasks ? 1 : 0);
 
-        uint32_t totalTasks = n_ * hOut_;
-        uint32_t avgTasks = totalTasks / usedBlkNum_;
-        uint32_t remainTasks = totalTasks % usedBlkNum_;
+        uint64_t totalTasks = n_ * hOut_;
+        uint64_t avgTasks = totalTasks / usedBlkNum_;
+        uint64_t remainTasks = totalTasks % usedBlkNum_;
         start_ = avgTasks * blkIdx_ + (blkIdx_ < remainTasks ? blkIdx_ : remainTasks);
         end_ = start_ + avgTasks + (blkIdx_ < remainTasks ? 1 : 0);
     }
@@ -183,8 +184,8 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::PreProcess()
     for (int32_t w = auxStart_; w < auxEnd_; ++w) {
         for (int32_t i = 0; i < kH_; ++i) {
             for (int32_t j = 0; j < kW_; ++j) {
-                auxW.SetValue(idx, float(w * strideW_ - padW_ + j * dilationW_));
-                auxH.SetValue(idx, float(-padH_ + i * dilationH_));
+                auxW.SetValue(idx, static_cast<float>(w * strideW_ - padW_ + j * dilationW_));
+                auxH.SetValue(idx, static_cast<float>(-padH_ + i * dilationH_));
                 ++idx;
             }
         }
@@ -308,13 +309,13 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
 {
     Duplicate<float, false>(offsetOutput, 0.f, MASK_PLACEHOLDER, kernelSize_ * valRptTimes_, 1, 8);
     uint8_t ping = 0;
-    int32_t kernelOffset = w * kernelSize_;
+    uint32_t kernelOffset = w * kernelSize_;
     SetFlag<HardEvent::V_MTE2>(0);
     SetFlag<HardEvent::V_MTE2>(1);
 #pragma bisheng auto_sync parallel
     for (uint32_t kIdx = 0; kIdx < kernelSize_; ++kIdx) {
-        int32_t pw = kIdx + kernelOffset;
-        int32_t ph = pw + alignedRowOffset_;
+        uint32_t pw = kIdx + kernelOffset;
+        uint32_t ph = pw + alignedRowOffset_;
         int32_t w0 = offsetInt.GetValue(pw);
         int32_t h0 = offsetInt.GetValue(ph);
         int32_t w1 = w0 + 1;
@@ -325,7 +326,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
 
         if (0 < h1 && h1 < hIn_) {
             if (0 < w1 && w1 < wIn_) {
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
                 DataCopy(feature[ftOffset], xGm_[gmOffset], cpQuadValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
@@ -342,7 +343,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + 3 * cIn_],
                     weight.GetValue(ph + 2 * alignedRowOffset_), MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
             } else if (w1 == 0) {
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_) * cIn_;
                 DataCopy(feature[ftOffset + cIn_], xGm_[gmOffset], cpColDoubleValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
@@ -353,7 +354,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + 3 * cIn_],
                     weight.GetValue(ph + 2 * alignedRowOffset_), MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
             } else if (w1 == wIn_) {
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
                 DataCopy(feature[ftOffset], xGm_[gmOffset], cpColDoubleValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
@@ -366,7 +367,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
             }
         } else if (h1 == 0) {
             if (0 < w1 && w1 < wIn_) {
-                uint32_t gmOffset = srcOffset_ + w0 * cIn_;
+                uint64_t gmOffset = srcOffset_ + w0 * cIn_;
                 DataCopy(feature[ftOffset + 2 * cIn_], xGm_[gmOffset], cpRowDoubleValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
@@ -377,7 +378,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + 3 * cIn_],
                     weight.GetValue(ph + 2 * alignedRowOffset_), MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
             } else if (w1 == 0) {
-                uint32_t gmOffset = srcOffset_;
+                uint64_t gmOffset = srcOffset_;
                 DataCopy(feature[ftOffset + 3 * cIn_], xGm_[gmOffset], cpOneValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
@@ -385,7 +386,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + 3 * cIn_],
                     weight.GetValue(ph + 2 * alignedRowOffset_), MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
             } else if (w1 == wIn_) {
-                uint32_t gmOffset = srcOffset_ + w0 * cIn_;
+                uint64_t gmOffset = srcOffset_ + w0 * cIn_;
                 DataCopy(feature[ftOffset + 2 * cIn_], xGm_[gmOffset], cpOneValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
@@ -395,7 +396,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
             }
         } else if (h1 == hIn_) {
             if (0 < w1 && w1 < wIn_) {
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
                 DataCopy(feature[ftOffset], xGm_[gmOffset], cpRowDoubleValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
@@ -406,7 +407,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + cIn_], weight.GetValue(ph),
                     MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
             } else if (w1 == 0) {
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_) * cIn_;
                 DataCopy(feature[ftOffset + cIn_], xGm_[gmOffset], cpOneValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);
@@ -414,7 +415,7 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
                 Axpy<float, float, false>(offsetOutput[outOffset], feature[ftOffset + cIn_], weight.GetValue(ph),
                     MASK_PLACEHOLDER, valRptTimes_, {1, 1, 8, 8});
             } else if (w1 == wIn_) {
-                uint32_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
+                uint64_t gmOffset = srcOffset_ + (h0 * wIn_ + w0) * cIn_;
                 DataCopy(feature[ftOffset], xGm_[gmOffset], cpOneValParams_);
                 SetFlag<HardEvent::MTE2_V>(copyEvt_);
                 WaitFlag<HardEvent::MTE2_V>(copyEvt_);

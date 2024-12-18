@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "bev_pool_tiling.h"
+#include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
@@ -54,15 +55,16 @@ namespace optiling {
 template<Version version>
 static ge::graphStatus TilingForBEVPool(gert::TilingContext* context)
 {
+    CHECK_NULLPTR(context);
     BEVPoolTilingData tiling;
     auto platform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     auto coreNum = platform.GetCoreNum();
 
     auto intervalShape =
         version == V1 ? context->GetInputShape(INTERVAL_IDX_V1) : context->GetInputShape(INTERVAL_IDX_V2);
-    int32_t nInterval = intervalShape->GetStorageShape().GetDim(0);
+    uint64_t nInterval = intervalShape->GetStorageShape().GetDim(0);
 
-    int32_t usedCoreNum = std::min(static_cast<int32_t>(coreNum), nInterval);
+    uint64_t usedCoreNum = std::min(static_cast<uint64_t>(coreNum), nInterval);
     tiling.set_usedCoreNum(usedCoreNum);
     if (usedCoreNum == 0) {
         return ge::GRAPH_FAILED;
@@ -77,12 +79,12 @@ static ge::graphStatus TilingForBEVPool(gert::TilingContext* context)
     if (!attrs) {
         return ge::GRAPH_FAILED;
     }
-    auto getAttr = [attrs](size_t idx) -> int32_t {
+    auto getAttr = [attrs](size_t idx) -> uint64_t {
         auto ptr = attrs->GetInt(idx);
         if (!ptr) {
             return -1;
         }
-        return static_cast<int32_t>(*ptr);
+        return static_cast<uint64_t>(*ptr);
     };
     auto b = getAttr(B_IDX);
     auto d = getAttr(D_IDX);
@@ -101,8 +103,7 @@ static ge::graphStatus TilingForBEVPool(gert::TilingContext* context)
     context->SetTilingKey(GetTilingKey(dtype, tiling));
     context->SetBlockDim(usedCoreNum);
 
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+    ADD_TILING_DATA(context, tiling)
     return ge::GRAPH_SUCCESS;
 }
 } // namespace optiling
@@ -111,12 +112,12 @@ namespace ge {
 static graphStatus InferShapeForBEVPool(gert::InferShapeContext* context)
 {
     auto attrs = context->GetAttrs();
-    auto getAttr = [attrs](size_t idx) -> int32_t {
+    auto getAttr = [attrs](size_t idx) -> int64_t {
         auto ptr = attrs->GetInt(idx);
         if (!ptr) {
             return -1;
         }
-        return static_cast<int32_t>(*ptr);
+        return static_cast<int64_t>(*ptr);
     };
     auto b = getAttr(B_IDX);
     auto d = getAttr(D_IDX);
@@ -134,11 +135,12 @@ static graphStatus InferShapeForBEVPool(gert::InferShapeContext* context)
 static graphStatus InferShapeForBEVPoolGrad(gert::InferShapeContext* context)
 {
     const gert::Shape* GeomFeatShape = context->GetInputShape(GEOM_FEAT_IDX);
-    const auto n = static_cast<int32_t>(GeomFeatShape->GetDim(0));
+    const auto n = GeomFeatShape->GetDim(0);
     auto attrs = context->GetAttrs();
-    auto c = static_cast<int32_t>(*attrs->GetInt(C_IDX));
-    gert::Shape* gradfeatShape = context->GetOutputShape(0);
-    *gradfeatShape = {n, c};
+    CHECK_NULLPTR(attrs)
+    auto c = *attrs->GetInt(C_IDX);
+    gert::Shape* gradFeatShape = context->GetOutputShape(0);
+    *gradFeatShape = {n, c};
     return GRAPH_SUCCESS;
 }
 

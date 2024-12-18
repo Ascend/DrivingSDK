@@ -7,16 +7,16 @@
 
 namespace optiling {
 BEGIN_TILING_DATA_DEF(MultiScaleDeformableAttnTilingData)
-TILING_DATA_FIELD_DEF(uint32_t, batchSize)
-TILING_DATA_FIELD_DEF(uint32_t, numKeys)
-TILING_DATA_FIELD_DEF(uint32_t, numHeads)
-TILING_DATA_FIELD_DEF(uint32_t, embedDims)
-TILING_DATA_FIELD_DEF(uint32_t, numLevels)
-TILING_DATA_FIELD_DEF(uint32_t, numQueries)
-TILING_DATA_FIELD_DEF(uint32_t, numPoints)
+TILING_DATA_FIELD_DEF(uint64_t, batchSize)
+TILING_DATA_FIELD_DEF(uint64_t, numKeys)
+TILING_DATA_FIELD_DEF(uint64_t, numHeads)
+TILING_DATA_FIELD_DEF(uint64_t, embedDims)
+TILING_DATA_FIELD_DEF(uint64_t, numLevels)
+TILING_DATA_FIELD_DEF(uint64_t, numQueries)
+TILING_DATA_FIELD_DEF(uint64_t, numPoints)
 TILING_DATA_FIELD_DEF(uint32_t, coreNum)
 TILING_DATA_FIELD_DEF(uint32_t, pointLoops)
-TILING_DATA_FIELD_DEF(uint32_t, realLevels)
+TILING_DATA_FIELD_DEF(uint64_t, realLevels)
 
 END_TILING_DATA_DEF;
 

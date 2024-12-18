@@ -49,17 +49,18 @@ protected:
     AscendC::GlobalTensor<T> fGm_, oGm_;
     AscendC::GlobalTensor<int32_t> sGm_, lGm_, gGm_;
 
-    int32_t stride0_, stride1_, stride2_, stride3_;
+    uint64_t stride0_, stride1_, stride2_, stride3_;
     int32_t alignUpCCount_;
     TaskIterator it_;
 
     AscendC::DataCopyParams cpFeatParams_, cpOneParams_;
     AscendC::DataCopyExtParams cpPadParams_;
-    int32_t length_, featOffset_, outOffset_;
+    int32_t length_;
+    uint64_t featOffset_, outOffset_;
 
     __aicore__ inline void PreProcess(int32_t idx)
     {
-        int32_t start = sGm_.GetValue(idx);
+        uint64_t start = sGm_.GetValue(idx);
         featOffset_ = start * stride0_;
         length_ = lGm_.GetValue(idx);
 
