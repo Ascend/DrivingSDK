@@ -24,6 +24,9 @@ static ge::graphStatus TilingForRoipointPool3dForward(gert::TilingContext* conte
     RoipointPool3dForwardTilingData tiling;
 
     int32_t numSampledPoints = NUM_SAMPLED_POINTS;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto attrs = context->GetAttrs();
     if (attrs != nullptr) {
         auto gap = attrs->GetAttrPointer<int32_t>(0);

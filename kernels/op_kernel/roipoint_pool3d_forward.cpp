@@ -76,18 +76,18 @@ public:
         }
 
         // gm，32字节对齐
-        uint32_t pointsOffset = this->batchStart * this->pointNum * 3;
-        uint32_t pointsBufferSize = (this->batchEnd - this->batchStart + 1) * this->pointNum * 3;
+        uint64_t pointsOffset = static_cast<uint64_t>(this->batchStart) * this->pointNum * 3;
+        uint64_t pointsBufferSize = static_cast<uint64_t>(this->batchEnd - this->batchStart + 1) * this->pointNum * 3;
         pointsGm.SetGlobalBuffer((__gm__ T*)points + pointsOffset, CEIL_BASE(pointsBufferSize, 32 / sizeof(T)));
-        uint32_t pointFeaturesOffset = this->batchStart * this->pointNum * this->featureLen;
-        uint32_t pointFeaturesBufferSize = (this->batchEnd - this->batchStart + 1) * this->pointNum * this->featureLen;
+        uint64_t pointFeaturesOffset = static_cast<uint64_t>(this->batchStart) * this->pointNum * this->featureLen;
+        uint64_t pointFeaturesBufferSize = static_cast<uint64_t>(this->batchEnd - this->batchStart + 1) * this->pointNum * this->featureLen;
         pointFeatureGm.SetGlobalBuffer((__gm__ T*)point_features + pointFeaturesOffset,
             CEIL_BASE(pointFeaturesBufferSize, 32 / sizeof(T)));
-        uint32_t boxes3dBufferSize = eachCoreBoxes * 7;
+        uint64_t boxes3dBufferSize = static_cast<uint64_t>(eachCoreBoxes) * 7;
         boxes3dGm.SetGlobalBuffer(
             (__gm__ DTYPE_BOXES3D*)boxes3d + boxes3dBufferSize * GetBlockIdx(),
             CEIL_BASE(boxes3dBufferSize, 32 / sizeof(DTYPE_BOXES3D)));
-        uint32_t pooledEachCore = eachCoreBoxes * this->numSampledPoints * (this->featureLen + 3);
+        uint64_t pooledEachCore = static_cast<uint64_t>(eachCoreBoxes) * this->numSampledPoints * (this->featureLen + 3);
         pooledFeaturesGm.SetGlobalBuffer(
             (__gm__ T*)pooled_features + pooledEachCore * GetBlockIdx(),
             CEIL_BASE(pooledEachCore, 32 / sizeof(T)));
