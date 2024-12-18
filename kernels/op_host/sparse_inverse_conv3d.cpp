@@ -67,10 +67,7 @@ ge::graphStatus SparseInverseConv3dTiling::Init()
 {
     auto platformInfo = tilingContext->GetPlatformInfo();
     auto attrsPtr = tilingContext->GetAttrs();
-    if (platformInfo == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
-    if (attrsPtr == nullptr) {
+    if (platformInfo == nullptr || attrsPtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
@@ -79,22 +76,20 @@ ge::graphStatus SparseInverseConv3dTiling::Init()
     if (coreNum == 0) {
         return ge::GRAPH_FAILED;
     }
-
+    if (tilingContext->GetInputShape(0) == nullptr ||  tilingContext->GetInputShape(2) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto feature_shape = tilingContext->GetInputShape(0)->GetStorageShape();
     auto weight_shape = tilingContext->GetInputShape(2)->GetStorageShape();
     actualNum = feature_shape.GetDim(0);
-
     CalUsedCoreNumAndCoreTask();
-
     kernelD = weight_shape.GetDim(0);
     kernelH = weight_shape.GetDim(1);
     kernelW = weight_shape.GetDim(2);
     kernelOC = weight_shape.GetDim(3);
     kernelIC = weight_shape.GetDim(4);
     kernelSize = kernelD * kernelH * kernelW;
-
     CalAvailableUbTiling();
-
     GetIntArrayList();
 }
 
@@ -115,7 +110,12 @@ ge::graphStatus SparseInverseConv3dTiling::RunKernelTiling()
     tilingData.set_kernelIC(kernelIC);
     tilingData.set_kernelOC(kernelOC);
     tilingData.set_kernelSize(kernelSize);
+    if (tilingContext->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
+    tilingData.SaveToBuffer(tilingContext->GetRawTilingData()->GetData(), tilingContext->GetRawTilingData()->GetCapacity());
+    tilingContext->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
     uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
     currentWorkspace[0] = sysWorkspaceSize;
@@ -124,6 +124,9 @@ ge::graphStatus SparseInverseConv3dTiling::RunKernelTiling()
 
 ge::graphStatus TilingForSparseInverseConv3d(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     SparseInverseConv3dTiling tilingObject(context);
     tilingObject.Init();
     return tilingObject.RunKernelTiling();

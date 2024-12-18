@@ -16,6 +16,9 @@ static uint32_t AlignUp(uint32_t x, uint32_t y)
 static ge::graphStatus TilingForToSparse(gert::TilingContext* context)
 {
     auto platformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto indices_offset_shape = context->GetInputShape(0)->GetStorageShape();
     auto value_shape = context->GetInputShape(1)->GetStorageShape();
 
@@ -57,6 +60,9 @@ static ge::graphStatus TilingForToSparse(gert::TilingContext* context)
     tiling.set_lastRepeatTimes(lastRepeatTimes);
     tiling.set_lastMoveTail(lastMoveTail);
     tiling.set_outChannels(outChannels);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     return ge::GRAPH_SUCCESS;

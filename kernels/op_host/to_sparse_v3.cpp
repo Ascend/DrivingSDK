@@ -103,6 +103,9 @@ ge::graphStatus ToSparseV3Tiling::SetTilingData()
     tilingData.set_lastCoreRepeatTimes(lastCoreRepeatTimes);
     tilingData.set_lastCoreMoveLenTail(lastCoreMoveLenTail);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
+    if (tilingContext->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tilingData.SaveToBuffer(tilingContext->GetRawTilingData()->GetData(), tilingContext->GetRawTilingData()->GetCapacity());
     tilingContext->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
     size_t userWorkspaceSize = actualNum * kernelSize * kernelIC * sizeof(float);
@@ -114,6 +117,9 @@ ge::graphStatus ToSparseV3Tiling::SetTilingData()
 
 ge::graphStatus TilingForToSparseV3(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     ToSparseV3Tiling tilingObject(context);
     tilingObject.Init();
     return tilingObject.RunKernelTiling();

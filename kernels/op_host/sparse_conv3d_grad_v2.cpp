@@ -130,6 +130,9 @@ ge::graphStatus SparseConv3dGradV2Tiling::SetTilingData()
     tilingData.set_coreMoveLenTail(coreMoveLenTail);
     tilingData.set_lastCoreRepeatTimes(lastCoreRepeatTimes);
     tilingData.set_lastCoreMoveLenTail(lastCoreMoveLenTail);
+    if (tilingContext->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
     tilingData.SaveToBuffer(tilingContext->GetRawTilingData()->GetData(), tilingContext->GetRawTilingData()->GetCapacity());
     tilingContext->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
@@ -142,6 +145,9 @@ ge::graphStatus SparseConv3dGradV2Tiling::SetTilingData()
 
 ge::graphStatus TilingForSparseConv3dGradV2(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     SparseConv3dGradV2Tiling tilingObject(context);
     tilingObject.Init();
     return tilingObject.RunKernelTiling();
@@ -154,7 +160,7 @@ static ge::graphStatus InferShapeForSparseConv3dGradV2(gert::InferShapeContext* 
     const gert::Shape* indiceOffsetShape = context->GetInputShape(0);
     const gert::Shape* featureShape = context->GetInputShape(2);
     const gert::Shape* weightShape = context->GetInputShape(3);
-    if (featureShape == nullptr || weightShape == nullptr) {
+    if (indiceOffsetShape == nullptr || featureShape == nullptr || weightShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
     uint64_t featureNum = featureShape->GetDim(0);
