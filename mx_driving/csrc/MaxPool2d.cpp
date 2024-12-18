@@ -17,6 +17,9 @@
 #include "csrc/OpApiCommon.h"
 #include "csrc/functions.h"
 
+constexpr size_t C_LIMIT = 64;
+constexpr size_t X_NUM_LIMIT = 1000000000;
+
 at::Tensor npu_max_pool2d(const at::Tensor& x, int kernel_size, int stride, int padding)
 {
     TORCH_CHECK_NPU(x);
@@ -35,7 +38,7 @@ at::Tensor npu_max_pool2d(const at::Tensor& x, int kernel_size, int stride, int 
 
     auto output_height = (height + 1) / 2;
     auto output_width = (width + 1) / 2;
-    if (channel < 64 || height == 1 || width == 1) {
+    if (channel < C_LIMIT || height == 1 || width == 1 || x.numel() > X_NUM_LIMIT) {
         auto output_size = {batch, channel, output_height, output_width};
         at::Tensor y = at::empty(output_size, x.options());
 
