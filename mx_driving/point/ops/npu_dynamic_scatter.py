@@ -21,6 +21,10 @@ class DynamicScatterFunction(Function):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(ctx: Any, feats: torch.Tensor, coors: torch.Tensor,
                 reduce_type: str = 'max') -> Tuple[torch.Tensor, torch.Tensor]:
+        
+        if (torch.numel(feats) == 0 or torch.numel(coors) == 0):
+            raise Exception("Error! Input Tensor cannot be an empty tensor.\n")
+        
         if reduce_type not in ('max', 'sum', 'mean'):
             raise ValueError("reduce_type should be 'max', 'sum' or 'mean', but now is %s." % reduce_type)
 
@@ -42,6 +46,8 @@ class DynamicScatterFunction(Function):
     def backward(ctx: Any,
                  grad_voxel_feats: torch.Tensor,
                  grad_voxel_coors: Optional[torch.Tensor] = None) -> tuple:
+        if (torch.numel(grad_voxel_feats) == 0 or torch.numel(grad_voxel_coors) == 0):
+            raise Exception("Error! Input Tensor cannot be an empty tensor.\n")
         (prefix_sum_point_per_voxel, argsort_coor, compare_mask) = ctx.saved_tensors
         grad_point_feats = torch.zeros(ctx.feats_shape, dtype=grad_voxel_feats.dtype, device=grad_voxel_feats.device)
         mx_driving._C.npu_dynamic_scatter_grad(grad_point_feats, grad_voxel_feats.contiguous(), prefix_sum_point_per_voxel,

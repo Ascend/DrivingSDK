@@ -84,7 +84,7 @@ private:
 private:
     DataCopyParams copyMaskParams;
     GlobalTensor<uint8_t> compareMaskGm;
-    uint32_t maskNum, maskDim, maskDimAligned, blockLenMask;
+    uint64_t maskNum, maskDim, maskDimAligned, blockLenMask;
     TBuf<TPosition::VECCALC> compareMaskBuf, zeroBuf, pointGradBuf;
 };
 } // namespace DynamicScatterGrad

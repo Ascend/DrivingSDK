@@ -21,7 +21,7 @@ TILING_DATA_FIELD_DEF(uint32_t, voxelFeatsNumLastCore);
 TILING_DATA_FIELD_DEF(uint32_t, alignedNum);
 TILING_DATA_FIELD_DEF(uint32_t, featsDimAligned);
 TILING_DATA_FIELD_DEF(uint32_t, availablePointNum);
-TILING_DATA_FIELD_DEF(uint32_t, maskNum);
+TILING_DATA_FIELD_DEF(uint64_t, maskNum);
 TILING_DATA_FIELD_DEF(uint32_t, maskDim);
 TILING_DATA_FIELD_DEF(uint32_t, maskDimAligned);
 TILING_DATA_FIELD_DEF(uint32_t, maskDimAlignedB16);
@@ -43,7 +43,7 @@ public:
 
 private:
     void CalUsedCoreNum();
-    void CalTilingAligned();
+    bool CalTilingAligned();
     void CalMaskTiling();
     void CalAvailableUbTiling();
 
@@ -63,7 +63,7 @@ private:
     uint32_t alignedNum;
     uint32_t featsDimAligned;
     uint32_t availablePointNum = 1;
-    uint32_t maskNum = 0;
+    uint64_t maskNum = 0;
     uint32_t maskDim = 0;
     uint32_t maskDimAligned = 0;
     uint32_t maskDimAlignedB16 = 0;

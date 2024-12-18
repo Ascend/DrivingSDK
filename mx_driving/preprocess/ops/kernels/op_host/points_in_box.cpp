@@ -21,6 +21,9 @@ static int32_t GetCeilInt(int32_t value1, int32_t value2)
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     PointsInBoxTilingData tiling;
     auto platformInfoptr = context->GetPlatformInfo();
     if (platformInfoptr == nullptr) {
@@ -28,6 +31,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
     auto core_number = ascendplatformInfo.GetCoreNumAiv();
+    if (context->GetInputTensor(0) == nullptr || context->GetInputTensor(1) ==nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     uint32_t totalresult = context->GetInputTensor(1)->GetShapeSize() / 3;
     auto boxes_shape = context->GetInputTensor(0)->GetStorageShape();
     auto points_shape = context->GetInputTensor(1)->GetStorageShape();
@@ -41,11 +47,16 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     if (core_data == 0) {
         return ge::GRAPH_FAILED;
     }
-    if (totalresult % core_data != 0) { core_last = totalresult % core_data;}
+    if (totalresult % core_data != 0) {
+        core_last = totalresult % core_data;
+    }
     uint64_t available_ub_size;
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, available_ub_size);
     available_ub_size = (available_ub_size - 20*1024) / 50 / 4;
     available_ub_size = GetCeilInt(available_ub_size, 32) * 32;
+    if (available_ub_size == 0) {
+        return ge::GRAPH_FAILED;
+    }
     context->SetBlockDim(core_used);
     tiling.set_core_data(core_data);
     tiling.set_core_used(core_used);

@@ -35,7 +35,7 @@ void DynamicScatterGradTiling::CalUsedCoreNum(const uint32_t coreNumPlatform)
     eleNumLastCore = voxelNumLastCore * featDim;
 }
 
-void DynamicScatterGradTiling::CalTilingAligned()
+bool DynamicScatterGradTiling::CalTilingAligned()
 {
     alignedNum = BYTE_BLOCK / SIZE_OF_B32;
     featDimAligned = (featDim + alignedNum - 1) / alignedNum * alignedNum;
@@ -47,7 +47,11 @@ void DynamicScatterGradTiling::CalTilingAligned()
     }
     uint32_t sizePerPoint = featDimAligned * SIZE_OF_B32;
     uint32_t availableUbSize = ubSizePlatForm - sizePerPoint - RESERVED_UB_SIZE;
+    if (sizePerPoint == 0) {
+        return false;
+    }
     maxPointNum = availableUbSize / 2 / sizePerPoint;
+    return true;
 }
 
 void DynamicScatterGradTiling::CalMaskTiling()
@@ -61,6 +65,9 @@ void DynamicScatterGradTiling::CalMaskTiling()
 
 ge::graphStatus DynamicScatterGradTiling::Init()
 {
+    if (tilingContext == nullptr || tilingContext->GetInputShape(0) == nullptr || tilingContext->GetOutputShape(0) == nullptr || tilingContext->GetPlatformInfo() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto voxelShape = tilingContext->GetInputShape(0)->GetStorageShape();
     totalVoxelNum = voxelShape.GetDim(DIM_INDEX0);
     featDim = voxelShape.GetDim(DIM_INDEX1);
@@ -91,7 +98,11 @@ ge::graphStatus DynamicScatterGradTiling::Init()
     }
     tilingContext->SetTilingKey(TILING_KEY_COE + REDUCE_TYPE_MAP[reduceType]);
 
-    CalTilingAligned();
+    bool flag = CalTilingAligned();
+    if (flag == false) {
+        // division by zero
+        return ge::GRAPH_FAILED;
+    }
     if (reduceType == "max") {
         CalMaskTiling();
     }
@@ -121,6 +132,9 @@ ge::graphStatus DynamicScatterGradTiling::RunKernelTiling()
     tilingData.set_blockLenMask(blockLenMask);
     tilingData.set_usedCoreNum(usedCoreNum);
     tilingData.set_isFeatsAligned(isFeatsAligned);
+    if (tilingContext->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tilingData.SaveToBuffer(
         tilingContext->GetRawTilingData()->GetData(), tilingContext->GetRawTilingData()->GetCapacity());
     tilingContext->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
@@ -129,6 +143,9 @@ ge::graphStatus DynamicScatterGradTiling::RunKernelTiling()
 
 ge::graphStatus TilingForDynamicScatterGrad(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     DynamicScatterGradTiling tilingObject(context);
     tilingObject.Init();
     return tilingObject.RunKernelTiling();
