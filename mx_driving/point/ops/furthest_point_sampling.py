@@ -18,6 +18,12 @@ import mx_driving._C
 class AdsFurthestPointSampling(Function):
     @staticmethod
     def forward(ctx, point_xyz, num_points):
+        if (torch.numel(point_xyz) == 0):
+            raise Exception("Error! Input Tensor can not be a empty Tensor.\n")
+        
+        if (num_points == 0):
+            raise Exception("Error! num_points can not zero.\n")
+        
         B, N = point_xyz.size()[:2]
         point_xyz = point_xyz.permute(0, 2, 1).contiguous()
 

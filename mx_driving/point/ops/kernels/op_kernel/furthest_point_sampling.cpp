@@ -269,7 +269,7 @@ template<typename dataType, typename idxType>
 __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInPointAxis(PointAxis pointAxis,
     uint32_t loopSplit)
 {
-    uint32_t offset;
+    uint64_t offset;
     DataCopyParams data_copy_param = {1, 0, 0, 0};
     DataCopyPadParams pad_param = {false, 0, 0, 0};
 
@@ -319,7 +319,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInPoi
 template<typename dataType, typename idxType>
 __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInNearestDist(uint32_t loopSplit)
 {
-    uint32_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
+    uint64_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
     DataCopyParams data_copy_param = {1, 0, 0, 0};
     DataCopyPadParams pad_param = {false, 0, 0, 0};
 
@@ -340,7 +340,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInNea
 template<typename dataType, typename idxType>
 __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInNearestDistTemp(uint32_t loopSplit)
 {
-    uint32_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
+    uint64_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
     DataCopyParams data_copy_param = {1, 0, 0, 0};
     DataCopyPadParams pad_param = {false, 0, 0, 0};
 
@@ -500,7 +500,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyOut(u
         return ;
     }
 
-    uint32_t offset = this->core_batch * this->TA->numPoints;
+    uint64_t offset = this->core_batch * this->TA->numPoints;
     DataCopyExtParams data_copy_param = {1, sizeof(dataType), 0, 0, 0};
     if (((loopNum + 1) & (elemNum - 1)) == 0) {
         data_copy_param.blockLen = 1024;
@@ -522,7 +522,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyOut(u
 template<typename dataType, typename idxType>
 __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyOutNearestDistTemp(uint32_t loopSplit)
 {
-    uint32_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
+    uint64_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
     DataCopyExtParams data_copy_param = {1, 0, 0, 0, 0};
 
     if (loopSplit == (this->TA->pieces - 1)) {
@@ -545,9 +545,9 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::InitGm(GM
 {
     GM_ADDR usrWorkspace = AscendC::GetUserWorkspace(workspace);
     uint32_t coreId = GetBlockIdx();
-    uint32_t skipData, numData, skipIdx, numIdx;
-    uint32_t numDataBigCore = this->TA->bigCoreBatch * this->TA->N;
-    uint32_t numIdxBigCore = this->TA->bigCoreBatch * this->TA->numPoints;
+    uint64_t skipData, numData, skipIdx, numIdx;
+    uint64_t numDataBigCore = this->TA->bigCoreBatch * this->TA->N;
+    uint64_t numIdxBigCore = this->TA->bigCoreBatch * this->TA->numPoints;
 
     if (coreId < this->TA->bigCoreNum) {
         numData = numDataBigCore;

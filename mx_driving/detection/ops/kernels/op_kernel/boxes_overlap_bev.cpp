@@ -92,10 +92,12 @@ public:
             endOffset_ = taskNum;
         }
 
-        boxesAGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_AREA_OVERLAP *>(boxesA), boxesANum_ * boxesDescDimNum_);
-        boxesBGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_AREA_OVERLAP *>(boxesB), boxesBNum_ * boxesDescDimNum_);
+        boxesAGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_AREA_OVERLAP *>(boxesA),
+            static_cast<uint64_t>(boxesANum_) * boxesDescDimNum_);
+        boxesBGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_AREA_OVERLAP *>(boxesB),
+            static_cast<uint64_t>(boxesBNum_) * boxesDescDimNum_);
         areaOverlapGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_AREA_OVERLAP *>(areaOverlap),
-                                       boxesANum_ * boxesBNum_);
+            static_cast<uint64_t>(boxesANum_) * boxesBNum_);
     }
 
     __aicore__ inline void InitBuf()

@@ -67,6 +67,9 @@ class AdsGroupPoints(Function):
         Returns:
             Tensor: (B, C, N) gradient of the features.
         """
+        if (torch.numel(grad_out) == 0):
+            raise Exception("Error! Input Tensor can not be a empty Tensor.\n")
+        
         idx, N = ctx.for_backwards
 
         B, C, npoints, nsample = grad_out.size()

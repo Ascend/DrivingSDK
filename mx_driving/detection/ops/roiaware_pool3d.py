@@ -25,6 +25,12 @@ class RoIAwarePool3dFunction(Function):
     @staticmethod
     def forward(ctx: Any, rois: torch.Tensor, pts: torch.Tensor, pts_feature: torch.Tensor,
                     out_size: Union[int, tuple], max_pts_per_voxel: int, mode: int):
+        if (out_size == 0):
+            raise Exception("Error! out_size can not be 0.\n")
+        
+        if (max_pts_per_voxel == 0):
+            raise Exception("Error! max_pts_per_voxel can not be 0.\n")
+        
         if isinstance(out_size, int):
             out_x = out_y = out_z = out_size
         elif (len(out_size) == 3 or is_tuple_of(out_size, int)):
@@ -58,6 +64,9 @@ class RoIAwarePool3dFunction(Function):
     
     @staticmethod
     def backward(ctx: Any, grad_out: torch.Tensor):
+        if (torch.numel(grad_out) == 0):
+            raise Exception("Error! Input Tensor can not be a empty Tensor.\n")
+        
         ret = ctx.roiaware_pool3d_for_backward
         pts_idx_of_voxels, argmax, mode, num_pts, num_channels = ret
 

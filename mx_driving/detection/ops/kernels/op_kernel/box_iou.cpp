@@ -92,10 +92,12 @@ public:
             endOffset_ = taskNum;
         }
 
-        boxesAGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_IOUS *>(boxesA), boxesANum_ * boxesDescDimNum_);
-        boxesBGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_IOUS *>(boxesB), boxesBNum_ * boxesDescDimNum_);
+        boxesAGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_IOUS *>(boxesA),
+            static_cast<uint64_t>(boxesANum_) * boxesDescDimNum_);
+        boxesBGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_IOUS *>(boxesB),
+            static_cast<uint64_t>(boxesBNum_)* boxesDescDimNum_);
         iousGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_IOUS *>(ious),
-                                       boxesANum_ * boxesBNum_);
+            static_cast<uint64_t>(boxesANum_) * boxesBNum_);
     }
 
     __aicore__ inline void InitBuf()

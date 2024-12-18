@@ -111,6 +111,10 @@ ge::graphStatus FurthestPointSamplingTiling::Init()
 
     auto platformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
 
+    if (TilingContext->GetInputDesc(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    
     // Set Tiling Key
     SetTilingKeyMode(TilingContext->GetInputDesc(0)->GetDataType());
 
@@ -184,6 +188,10 @@ ge::graphStatus FurthestPointSamplingTiling::RunKernelTiling()
     }
     TilingData.set_repeats(this->repeats);
 
+    if (TilingContext->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    
     TilingData.SaveToBuffer(TilingContext->GetRawTilingData()->GetData(), TilingContext->GetRawTilingData()->GetCapacity());
     TilingContext->GetRawTilingData()->SetDataSize(TilingData.GetDataSize());
 
