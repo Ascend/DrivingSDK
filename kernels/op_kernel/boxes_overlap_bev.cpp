@@ -112,9 +112,9 @@ public:
 
     __aicore__ inline void SetGlobalBuffer(GM_ADDR boxesA, GM_ADDR boxesB, GM_ADDR res)
     {
-        boxesAGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(boxesA), boxesANum_ * boxesFormatSize_);
-        boxesBGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(boxesB), boxesBNum_ * boxesFormatSize_);
-        resGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(res), boxesANum_ * boxesBNum_);
+        boxesAGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(boxesA), static_cast<uint64_t>(boxesANum_) * boxesFormatSize_);
+        boxesBGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(boxesB), static_cast<uint64_t>(boxesBNum_) * boxesFormatSize_);
+        resGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(res), static_cast<uint64_t>(boxesANum_) * boxesBNum_);
     }
 
     __aicore__ inline void InitBuffer()

@@ -75,7 +75,7 @@ private:
         numQueryLoops = (numQueriesCurCore + numQueriesPerBundle - 1) / numQueriesPerBundle;
         numQueriesLastBundle = numQueriesCurCore - (numQueryLoops - 1) * numQueriesPerBundle;
 
-        mmTmp4GradAttnWeightsIdx = startOffset * numKeysAligned;
+        mmTmp4GradAttnWeightsIdx = static_cast<uint64_t>(startOffset) * numKeysAligned;
 
         dstShape[0] = numPointsAligned;
         dstShape[1] = embedDims;
@@ -123,21 +123,21 @@ private:
 
     __aicore__ inline void InitBuffer()
     {
-        pipe->InitBuffer(spatialShapesUb, 2 * numLevelsAligned * sizeof(DTYPE_SPATIAL_SHAPES));
-        pipe->InitBuffer(levelStartIdxUb, numLevelsAligned * sizeof(DTYPE_SPATIAL_SHAPES));
+        pipe->InitBuffer(spatialShapesUb, static_cast<uint64_t>(2) * numLevelsAligned * sizeof(DTYPE_SPATIAL_SHAPES));
+        pipe->InitBuffer(levelStartIdxUb, static_cast<uint64_t>(numLevelsAligned) * sizeof(DTYPE_SPATIAL_SHAPES));
 
-        pipe->InitBuffer(curGradAttnWeightsUb, numQueriesPerBundle * numPointsAligned * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(keyIdxsUb, numQueriesPerBundle * numPointsAligned * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(curGradAttnWeightsUb, static_cast<uint64_t>(numQueriesPerBundle) * numPointsAligned * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(keyIdxsUb, static_cast<uint64_t>(numQueriesPerBundle) * numPointsAligned * sizeof(DTYPE_VALUE));
         
-        pipe->InitBuffer(curGradOutputUb, numQueriesPerBundle * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(curAttnWeightUb, numQueriesPerBundle * numPointsAligned * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(curTmp4GradAttnWeightsUb, numQueriesPerBundle * numKeysAligned * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(curGradOutputUb, static_cast<uint64_t>(numQueriesPerBundle) * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(curAttnWeightUb, static_cast<uint64_t>(numQueriesPerBundle) * numPointsAligned * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(curTmp4GradAttnWeightsUb, static_cast<uint64_t>(numQueriesPerBundle) * numKeysAligned * sizeof(DTYPE_VALUE));
         
-        pipe->InitBuffer(curAttnWeightBrcbUb, numPointsAligned * embedDims * sizeof(DTYPE_VALUE));
-        pipe->InitBuffer(tmp4GradValueUb, numPointsAligned * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(curAttnWeightBrcbUb, static_cast<uint64_t>(numPointsAligned) * embedDims * sizeof(DTYPE_VALUE));
+        pipe->InitBuffer(tmp4GradValueUb, static_cast<uint64_t>(numPointsAligned) * embedDims * sizeof(DTYPE_VALUE));
 
         if (useOpt) {
-            pipe->InitBuffer(curGradValueUb, numKeys * embedDims * sizeof(DTYPE_VALUE));
+            pipe->InitBuffer(curGradValueUb, static_cast<uint64_t>(numKeys) * embedDims * sizeof(DTYPE_VALUE));
         }
     }
 
@@ -206,10 +206,10 @@ private:
     uint32_t numQueriesPerLargeCore, numQueriesCurCore, numQueriesPerBundle, numQueriesLastBundle, numQueriesCurBundle;
     uint32_t loopIdx, numQueryLoops;
     uint32_t startOffset, queryIdxStart, queryIdxEnd, queryOffsetBundle;
-    uint32_t samplingLocationXIdx, samplingLocationYIdx;
-    uint32_t gradOutputIdx, curGradOutputIdx, gradValueIdx, tmp4GradValueIdx, curGradValueIdx;
-    uint32_t attnWeightsIdx, curAttnWeightsIdx, gradAttnWeightsIdx, tmp4GradAttnWeightsIdx, curTmp4GradAttnWeightIdx;
-    uint32_t mmTmp4GradAttnWeightsIdx, mmGradOutputIdx, mmValueIdx;
+    uint64_t samplingLocationXIdx, samplingLocationYIdx;
+    uint64_t gradOutputIdx, curGradOutputIdx, gradValueIdx, tmp4GradValueIdx, curGradValueIdx;
+    uint64_t attnWeightsIdx, curAttnWeightsIdx, gradAttnWeightsIdx, tmp4GradAttnWeightsIdx, curTmp4GradAttnWeightIdx;
+    uint64_t mmTmp4GradAttnWeightsIdx, mmGradOutputIdx, mmValueIdx;
 
     DataCopyParams copyParams {1, 0, 0, 0};
 
@@ -229,10 +229,10 @@ __aicore__ inline void GeometricKernelAttnGrad<useOpt>::ComputeCurLevel()
 template<bool useOpt>
 __aicore__ inline void GeometricKernelAttnGrad<useOpt>::ComputeCurBatch()
 {
-    mmGradOutputIdx = batchIdx * numQueries * embedDims + startOffset * embedDims;
+    mmGradOutputIdx = static_cast<uint64_t>(batchIdx) * numQueries * embedDims + startOffset * embedDims;
     mmObj.SetTensorA(gradOutputGm[mmGradOutputIdx]);
 
-    mmValueIdx = batchIdx * numKeys * embedDims;
+    mmValueIdx = static_cast<uint64_t>(batchIdx) * numKeys * embedDims;
     mmObj.SetTensorB(valueGm[mmValueIdx], true);
 
     mmObj.IterateAll(tmp4GradAttnWeightsGM[mmTmp4GradAttnWeightsIdx]);
@@ -247,9 +247,9 @@ __aicore__ inline void GeometricKernelAttnGrad<useOpt>::ComputeCurLoopFront()
 
     queryIdxStart = startOffset + loopIdx * numQueriesPerBundle;
 
-    samplingLocationXIdx = levelIdx * batchSize * 2 * numQueries * numPoints + \
-                        batchIdx * 2 * numQueries * numPoints + \
-                        queryIdxStart * numPoints;
+    samplingLocationXIdx = static_cast<uint64_t>(levelIdx) * batchSize * 2 * numQueries * numPoints + \
+                           batchIdx * 2 * numQueries * numPoints + \
+                           queryIdxStart * numPoints;
     DataCopyPad(curGradAttnWeightsLocal, samplingLocationsGm[samplingLocationXIdx], copyParams, {});
 
     samplingLocationYIdx = samplingLocationXIdx + numQueries * numPoints;
@@ -257,11 +257,11 @@ __aicore__ inline void GeometricKernelAttnGrad<useOpt>::ComputeCurLoopFront()
 
     SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
-    gradOutputIdx = batchIdx * numQueries * embedDims + queryIdxStart * embedDims;
-    attnWeightsIdx = levelIdx * batchSize * numQueries * numPoints + \
-                    batchIdx * numQueries * numPoints + \
-                    queryIdxStart * numPoints;
-    tmp4GradAttnWeightsIdx = queryIdxStart * numKeysAligned;
+    gradOutputIdx = static_cast<uint64_t>(batchIdx) * numQueries * embedDims + queryIdxStart * embedDims;
+    attnWeightsIdx = static_cast<uint64_t>(levelIdx) * batchSize * numQueries * numPoints + \
+                     batchIdx * numQueries * numPoints + \
+                     queryIdxStart * numPoints;
+    tmp4GradAttnWeightsIdx = static_cast<uint64_t>(queryIdxStart) * numKeysAligned;
 
     WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV);
 
@@ -281,7 +281,7 @@ __aicore__ inline void GeometricKernelAttnGrad<useOpt>::ComputeCurLoopFront()
 
     if (useOpt) {
         Duplicate(curGradValueLocal, static_cast<DTYPE_VALUE>(0), numKeys * embedDims);
-        gradValueIdx = batchIdx * numKeys * embedDims;
+        gradValueIdx = static_cast<uint64_t>(batchIdx) * numKeys * embedDims;
     }
 
     queryIdxEnd = queryIdxStart + numQueriesCurBundle;
@@ -297,14 +297,14 @@ __aicore__ inline void GeometricKernelAttnGrad<useOpt>::ComputeCurQueryPoints()
 
     SetAtomicAdd<DTYPE_VALUE>();
     for (pointIdx = 0; pointIdx < numPoints; pointIdx++) {
-        gradAttnWeightsIdx = queryOffsetBundle * numPointsAligned + pointIdx;
+        gradAttnWeightsIdx = static_cast<uint64_t>(queryOffsetBundle) * numPointsAligned + pointIdx;
         keyIdx = static_cast<DTYPE_SPATIAL_SHAPES>(keyIdxsLocal.GetValue(gradAttnWeightsIdx));
 
-        gradValueIdx = batchIdx * numKeys * embedDims + keyIdx * embedDims;
-        tmp4GradValueIdx = pointIdx * embedDims;
+        gradValueIdx = static_cast<uint64_t>(batchIdx) * numKeys * embedDims + keyIdx * embedDims;
+        tmp4GradValueIdx = static_cast<uint64_t>(pointIdx) * embedDims;
         DataCopy(gradValueGm[gradValueIdx], tmp4GradValueLocal[tmp4GradValueIdx], embedDims);
 
-        curTmp4GradAttnWeightIdx = queryOffsetBundle * numKeysAligned + keyIdx;
+        curTmp4GradAttnWeightIdx = static_cast<uint64_t>(queryOffsetBundle) * numKeysAligned + keyIdx;
         curTmp4GradAttnWeight = curTmp4GradAttnWeightsLocal.GetValue(curTmp4GradAttnWeightIdx);
         curGradAttnWeightsLocal.SetValue(gradAttnWeightsIdx, curTmp4GradAttnWeight);
     }
@@ -318,15 +318,15 @@ template<bool useOpt>
 __aicore__ inline void GeometricKernelAttnGrad<useOpt>::ComputeCurQueryPointsOpt()
 {
     for (pointIdx = 0; pointIdx < numPoints; pointIdx++) {
-        gradAttnWeightsIdx = queryOffsetBundle * numPointsAligned + pointIdx;
+        gradAttnWeightsIdx = static_cast<uint64_t>(queryOffsetBundle) * numPointsAligned + pointIdx;
         keyIdx = static_cast<DTYPE_SPATIAL_SHAPES>(keyIdxsLocal.GetValue(gradAttnWeightsIdx));
 
-        curGradValueIdx = keyIdx * embedDims;
-        tmp4GradValueIdx = pointIdx * embedDims;
+        curGradValueIdx = static_cast<uint64_t>(embedDims) * keyIdx;
+        tmp4GradValueIdx = static_cast<uint64_t>(embedDims) * pointIdx;
         PipeBarrier<PIPE_V>();
         Add(curGradValueLocal[curGradValueIdx], curGradValueLocal[curGradValueIdx], tmp4GradValueLocal[tmp4GradValueIdx], embedDims);
 
-        curTmp4GradAttnWeightIdx = queryOffsetBundle * numKeysAligned + keyIdx;
+        curTmp4GradAttnWeightIdx = static_cast<uint64_t>(queryOffsetBundle) * numKeysAligned + keyIdx;
         curTmp4GradAttnWeight = curTmp4GradAttnWeightsLocal.GetValue(curTmp4GradAttnWeightIdx);
         curGradAttnWeightsLocal.SetValue(gradAttnWeightsIdx, curTmp4GradAttnWeight);
     }
@@ -339,11 +339,11 @@ __aicore__ inline void GeometricKernelAttnGrad<useOpt>::ComputeCurLoopMiddle()
     for (queryIdx = queryIdxStart; queryIdx < queryIdxEnd; queryIdx++) {
         queryOffsetBundle = queryIdx - queryIdxStart;
 
-        curGradOutputIdx = queryOffsetBundle * embedDims;
+        curGradOutputIdx = static_cast<uint64_t>(queryOffsetBundle) * embedDims;
         PipeBarrier<PIPE_V>();
         BroadCast<DTYPE_VALUE, 2, 0>(tmp4GradValueLocal, curGradOutputLocal[curGradOutputIdx], dstShape, srcShapeCGO);
 
-        curAttnWeightsIdx = queryOffsetBundle * numPointsAligned;
+        curAttnWeightsIdx = static_cast<uint64_t>(queryOffsetBundle) * numPointsAligned;
         BroadCast<DTYPE_VALUE, 2, 1>(curAttnWeightBrcbLocal, curAttnWeightLocal[curAttnWeightsIdx], dstShape, srcShapeCAW);
         
         PipeBarrier<PIPE_V>();

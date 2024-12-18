@@ -116,6 +116,9 @@ static ge::graphStatus TilingFuncForGeometricKernelAttnGrad(gert::TilingContext*
     tiling.set_numQueriesPerBundle(numQueriesPerBundle);
     tiling.set_numQueriesPerLargeCore(numQueriesPerLargeCore);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 

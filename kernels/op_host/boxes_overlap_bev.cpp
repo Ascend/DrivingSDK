@@ -83,7 +83,7 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
     uint32_t boxesFormatSize = boxesAShape.GetDim(BOXES_FORMAT_SIZE_DIM);
 
     uint32_t boxesMinNum = boxesANum < boxesBNum ? boxesANum : boxesBNum;
-    uint64_t taskNum = aligned ? boxesMinNum : boxesANum * boxesBNum;
+    uint64_t taskNum = aligned ? boxesMinNum : static_cast<uint64_t>(boxesANum) * boxesBNum;
 
     uint32_t numLargeCores = static_cast<uint32_t>(taskNum % coreNum);
     if (numLargeCores == 0) {

@@ -88,6 +88,10 @@ static ge::graphStatus TilingFunc4BoxIou(gert::TilingContext *context)
     tiling.set_outerLoopCnt(outerLoopCnt);
     tiling.set_innerLoopCnt(innerLoopCnt);
     tiling.set_boxesDescDimNum(boxesDescDimNum);
+
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
