@@ -15,6 +15,8 @@ import mx_driving._C
 class BorderAlignFunction(Function):
     @staticmethod
     def forward(ctx: Any, feature_map: torch.Tensor, rois: torch.Tensor, pooled_size: int) -> torch.Tensor:
+        if (torch.numel(feature_map) == 0 or torch.numel(rois) == 0 or pooled_size == 0):
+            raise Exception("Error! Input Tensor can not be a empty Tensor! \n")
         ctx.pooled_size = pooled_size
         ctx.feature_size = feature_map.size()
         batch_size, num_channels, data_height, data_width = feature_map.size()
