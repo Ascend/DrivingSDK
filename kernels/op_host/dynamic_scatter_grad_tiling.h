@@ -20,7 +20,7 @@ TILING_DATA_FIELD_DEF(uint32_t, eleNumLastCore);
 TILING_DATA_FIELD_DEF(uint32_t, alignedNum);
 TILING_DATA_FIELD_DEF(uint32_t, featDim);
 TILING_DATA_FIELD_DEF(uint32_t, featDimAligned);
-TILING_DATA_FIELD_DEF(uint32_t, maskNum);
+TILING_DATA_FIELD_DEF(uint64_t, maskNum);
 TILING_DATA_FIELD_DEF(uint32_t, maskDim);
 TILING_DATA_FIELD_DEF(uint32_t, maskDimAligned);
 TILING_DATA_FIELD_DEF(uint32_t, maxPointNum);
@@ -42,7 +42,7 @@ public:
 private:
     void SetTilingKeyMode(uint32_t reduceTypeNum) const;
     void CalUsedCoreNum(const uint32_t coreNumPlatform);
-    void CalTilingAligned();
+    ge::graphStatus CalTilingAligned();
     void CalMaskTiling();
 
 private:
@@ -62,7 +62,7 @@ private:
     uint32_t featDimAligned;
     uint32_t maskDim;
     uint32_t maskDimAligned;
-    uint32_t maskNum = 0;
+    uint64_t maskNum = 0;
     uint32_t maxPointNum = 0;
     uint32_t blockLen;
     uint32_t blockLenPad = 0;

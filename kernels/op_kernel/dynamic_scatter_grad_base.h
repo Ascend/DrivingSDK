@@ -153,8 +153,8 @@ protected:
     TBuf<TPosition::VECCALC> voxelGradBuf, prefixSumBuf, argsortCoorBuf;
 
     uint32_t voxelNumPerCore, voxelNumLastCore, eleNumPerCore, eleNumLastCore, usedCoreNum;
-    uint32_t totalPointNum, totalVoxelNum, alignedNum, blockLen, blockLenPad;
-    uint32_t pointGradNum, featDim, featDimAligned, voxelFeatNum, voxelNum, voxelOffset, voxelfeatsOffset;
+    uint64_t totalPointNum, totalVoxelNum, alignedNum, blockLen, blockLenPad;
+    uint64_t pointGradNum, featDim, featDimAligned, voxelFeatNum, voxelNum, voxelOffset, voxelfeatsOffset;
     uint32_t point_idx, pointNum, startPoint;
     bool isFeatsAligned;
 

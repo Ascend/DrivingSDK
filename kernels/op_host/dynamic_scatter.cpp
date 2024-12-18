@@ -33,16 +33,20 @@ void DynamicScatterTiling::CalUsedCoreNum()
     voxelFeatsNumLastCore = voxelNumLastCore * featsDim;
 }
 
-void DynamicScatterTiling::CalTilingAligned()
+ge::graphStatus DynamicScatterTiling::CalTilingAligned()
 {
     alignedNum = BYTE_BLOCK / SIZE_OF_B32;
     featsDimAligned = (featsDim + alignedNum - 1) / alignedNum * alignedNum;
     blockLen = featsDimAligned / alignedNum;
+    if (featsDimAligned == 0) {
+        return ge::GRAPH_FAILED;
+    }
     if (featsDim == featsDimAligned) {
         isFeatsAligned = true;
     } else {
         blockLenPad = featsDim * SIZE_OF_B32;
     }
+    return ge::GRAPH_SUCCESS;
 }
 
 void DynamicScatterTiling::CalMaskTiling()
@@ -69,6 +73,9 @@ void DynamicScatterTiling::CalAvailableUbTiling()
 
 ge::graphStatus DynamicScatterTiling::Init()
 {
+    if (tilingContext == nullptr || tilingContext->GetInputShape(0) == nullptr || tilingContext->GetOutputShape(0) == nullptr || tilingContext->GetPlatformInfo() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto pointFeatsShape = tilingContext->GetInputShape(0)->GetStorageShape();
     totalPointNum = pointFeatsShape.GetDim(DIM_INDEX0);
     featsDim = pointFeatsShape.GetDim(DIM_INDEX1);
@@ -99,7 +106,11 @@ ge::graphStatus DynamicScatterTiling::Init()
     }
     tilingContext->SetTilingKey(TILING_KEY_COE + REDUCE_TYPE_MAP[reduceType]);
 
-    CalTilingAligned();
+    ge::graphStatus flag = CalTilingAligned();
+    if (flag == ge::GRAPH_FAILED) {
+        // division by zero
+        return ge::GRAPH_FAILED;
+    }
     if (reduceType == "max") {
         CalMaskTiling();
     }
@@ -133,11 +144,17 @@ ge::graphStatus DynamicScatterTiling::RunKernelTiling()
     tilingData.set_usedCoreNum(usedCoreNum);
     tilingContext->SetBlockDim(usedCoreNum);
 
+    if (tilingContext == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
     uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
     currentWorkspace[0] = sysWorkspaceSize;
-
+    
+    if (tilingContext->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tilingData.SaveToBuffer(
         tilingContext->GetRawTilingData()->GetData(), tilingContext->GetRawTilingData()->GetCapacity());
     tilingContext->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
@@ -146,6 +163,9 @@ ge::graphStatus DynamicScatterTiling::RunKernelTiling()
 
 ge::graphStatus TilingForDynamicScatter(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     DynamicScatterTiling tilingObject(context);
     tilingObject.Init();
     return tilingObject.RunKernelTiling();
@@ -187,6 +207,9 @@ static ge::graphStatus InferShapeForDynamicScatter(gert::InferShapeContext* cont
 
 static ge::graphStatus InferDataTypeForDynamicScatter(gert::InferDataTypeContext *context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     context->SetOutputDataType(0, ge::DT_FLOAT);
     context->SetOutputDataType(1, ge::DT_UINT8);
     return GRAPH_SUCCESS;

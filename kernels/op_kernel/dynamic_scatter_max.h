@@ -123,7 +123,7 @@ private:
     }
 
 private:
-    uint32_t maskNum, maskDim, maskDimAligned, maskDimAlignedB16, blockLenMask, repeatTimes, curBlockIdx, maskOffset;
+    uint64_t maskNum, maskDim, maskDimAligned, maskDimAlignedB16, blockLenMask, repeatTimes, curBlockIdx, maskOffset;
     uint64_t mask = 64;
     GlobalTensor<uint8_t> compareMaskGm;
     TBuf<TPosition::VECCALC> voxelFeatsBuf, bitMaskBuf, bitMaskTmpBuf, recordMaskBuf;
