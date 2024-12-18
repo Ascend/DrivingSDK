@@ -41,6 +41,14 @@ static ge::graphStatus TilingForBorderAlignGrad(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
+    if (context->GetOutputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
         return ge::GRAPH_FAILED;
@@ -75,8 +83,8 @@ static ge::graphStatus TilingForBorderAlignGrad(gert::TilingContext* context)
     }
     auto dtype = inputInf->GetDataType();
 
-    uint32_t coreCompNum = batchSize * channels * boxSize / coreNum;
-    uint32_t taskLast = batchSize * channels * boxSize % coreNum;
+    int64_t coreCompNum = batchSize * channels * boxSize / coreNum;
+    int64_t taskLast = batchSize * channels * boxSize % coreNum;
 
     context->SetBlockDim(coreNum);
     tiling.set_channels(channels);
@@ -88,6 +96,9 @@ static ge::graphStatus TilingForBorderAlignGrad(gert::TilingContext* context)
     tiling.set_coreCompNum(coreCompNum);
     tiling.set_taskLast(taskLast);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -99,6 +110,14 @@ static ge::graphStatus TilingForBorderAlignGrad(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShapeForBorderAlignGrad(gert::InferShapeContext* context)
 {
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
+    if (context->GetOutputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     auto attrs = context->GetAttrs();
     auto getAttr = [attrs](size_t idx) -> int32_t {
         auto ptr = attrs->GetInt(idx);

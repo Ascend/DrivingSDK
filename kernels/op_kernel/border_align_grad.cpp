@@ -28,7 +28,7 @@ public:
 
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
-        gradOutLength =  batchSize * channels * boxSize * 4;
+        gradOutLength = batchSize * channels * boxSize * 4;
         argmaxIdxLength = batchSize * channels * boxSize * 4;
         boxesLength = batchSize * boxSize * 4;
         gradInputLength = batchSize * 4 * channels * boxSize;
@@ -46,16 +46,16 @@ public:
 
     __aicore__ inline void Process()
     {
-        int32_t offset = coreCompNum * GetBlockIdx() + taskLast;
+        int64_t offset = coreCompNum * GetBlockIdx() + taskLast;
 
         if (GetBlockIdx() < taskLast) {
             coreCompNum = coreCompNum + 1;
             offset = coreCompNum * GetBlockIdx();
         }
 
-        int32_t lastNum = coreCompNum % compNum;
-        int32_t loopTimes = coreCompNum / compNum;
-        for (int32_t currentLoop = 0; currentLoop < loopTimes; currentLoop++) {
+        int64_t lastNum = coreCompNum % compNum;
+        int64_t loopTimes = coreCompNum / compNum;
+        for (int64_t currentLoop = 0; currentLoop < loopTimes; currentLoop++) {
             ComputeAndCopyOut(currentLoop * compNum, offset, compNum);
         }
         if (lastNum != 0) {
@@ -63,24 +63,24 @@ public:
         }
     }
 
-    __aicore__ inline void ComputeAndCopyOut(int32_t index, int32_t offset, int32_t taskNum)
+    __aicore__ inline void ComputeAndCopyOut(int64_t index, int64_t offset, int64_t taskNum)
     {
         LocalTensor<float> gradOutLocal = inQueueGradOut.AllocTensor<float>();
         LocalTensor<int32_t> argmaxIdxLocal = inQueueArgmaxIdx.AllocTensor<int32_t>();
         LocalTensor<float> boxesLocal = inQueueBoxes.AllocTensor<float>();
         LocalTensor<float> gradInputLocal = outQueueGradInput.AllocTensor<float>();
         
-        DataCopy(gradOutLocal, gradOutGm[(offset + index) * 4], 4 * compNum);
-        DataCopy(argmaxIdxLocal, argmaxIdxGm[(offset + index) * 4], 4 * compNum);
+        DataCopy(gradOutLocal, gradOutGm[(static_cast<int64_t>(offset) + index) * 4], 4 * compNum);
+        DataCopy(argmaxIdxLocal, argmaxIdxGm[(static_cast<int64_t>(offset) + index) * 4], 4 * compNum);
         pipe_barrier(PIPE_ALL);
 
-        for (int currentTask = 0; currentTask < taskNum; currentTask++) {
-            int32_t batchIdx = (offset + index + currentTask) / (channels * boxSize);
-            int32_t boxIdx = (offset + index + currentTask) % boxSize + batchIdx * boxSize;
+        for (int64_t currentTask = 0; currentTask < taskNum; currentTask++) {
+            int64_t batchIdx = (offset + index + currentTask) / (channels * boxSize);
+            int64_t boxIdx = (offset + index + currentTask) % boxSize + batchIdx * boxSize;
             DataCopy(boxesLocal, boxesGm[boxIdx * 4], 8);
             pipe_barrier(PIPE_ALL);
 
-            int32_t channelsIdx = (offset + index + currentTask) / boxSize % channels;
+            int64_t channelsIdx = (offset + index + currentTask) / boxSize % channels;
             float boxWidth, boxHeight, stride, xStride, yStride, x, y;
             float w1, w2, w3, w4;
             int32_t xLow, xHigh, yLow, yHigh;
@@ -167,16 +167,16 @@ public:
                 w3 = ly * hx;
                 w4 = ly * lx;
 
-                int32_t dstIdx1 = (batchIdx * channels * 4 + i * channels + channelsIdx) * height * width + yLow * width + xLow;
+                int64_t dstIdx1 = (batchIdx * channels * 4 + i * channels + channelsIdx) * height * width + yLow * width + xLow;
                 float values1 = w1 * gradOutput;
 
-                int32_t dstIdx2 = (batchIdx * channels * 4 + i * channels + channelsIdx) * height * width + yLow * width + xHigh;
+                int64_t dstIdx2 = (batchIdx * channels * 4 + i * channels + channelsIdx) * height * width + yLow * width + xHigh;
                 float values2 = w2 * gradOutput;
 
-                int32_t dstIdx3 = (batchIdx * channels * 4 + i * channels + channelsIdx) * height * width + yHigh * width + xLow;
+                int64_t dstIdx3 = (batchIdx * channels * 4 + i * channels + channelsIdx) * height * width + yHigh * width + xLow;
                 float values3 = w3 * gradOutput;
 
-                int32_t dstIdx4 = (batchIdx * channels * 4 + i * channels + channelsIdx) * height * width + yHigh * width + xHigh;
+                int64_t dstIdx4 = (batchIdx * channels * 4 + i * channels + channelsIdx) * height * width + yHigh * width + xHigh;
                 float values4 = w4 * gradOutput;
                 
                 AscendC::SetAtomicAdd<float>();
@@ -217,21 +217,21 @@ private:
     GlobalTensor<float> boxesGm;
     GlobalTensor<float> gradInputGm;
 
-    int32_t gradOutLength;
-    int32_t argmaxIdxLength;
-    int32_t boxesLength;
-    int32_t gradInputLength;
+    int64_t gradOutLength;
+    int64_t argmaxIdxLength;
+    int64_t boxesLength;
+    int64_t gradInputLength;
 
     int32_t channels;
     int32_t boxSize;
     int32_t height;
     int32_t width;
 
-    int32_t compNum = 128;
+    int64_t compNum = 128;
     int32_t poolSize;
-    int32_t batchSize;
-    int32_t coreCompNum;
-    int32_t taskLast;
+    int64_t batchSize;
+    int64_t coreCompNum;
+    int64_t taskLast;
 
     DataCopyExtParams outCopyParams;
 };
