@@ -12,6 +12,9 @@ static ge::graphStatus TilingForDynamicVox(gert::TilingContext* context)
 {
     DynamicVoxTilingData tiling;
     // get core num
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfoPtr = context->GetPlatformInfo();
     if (platformInfoPtr == nullptr) {
         return ge::GRAPH_FAILED;
@@ -23,6 +26,9 @@ static ge::graphStatus TilingForDynamicVox(gert::TilingContext* context)
     }
 
     // get tiling param
+    if (context->GetInputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ptsShape = context->GetInputShape(0)->GetStorageShape();
     auto attrsPtr = context->GetAttrs();
     if (attrsPtr == nullptr) {
@@ -61,6 +67,9 @@ static ge::graphStatus TilingForDynamicVox(gert::TilingContext* context)
     tiling.set_voxel_x(voxelX);
     tiling.set_voxel_y(voxelY);
     tiling.set_voxel_z(voxelZ);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
                         context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
@@ -72,6 +81,9 @@ static ge::graphStatus TilingForDynamicVox(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShapeForDynamicVoxel(gert::InferShapeContext* context)
 {
+    if (context->GetInputShape(0) == nullptr || context->GetOutputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape* ptsShape = context->GetInputShape(0);
     if (ptsShape == nullptr) {
         return ge::GRAPH_FAILED;
