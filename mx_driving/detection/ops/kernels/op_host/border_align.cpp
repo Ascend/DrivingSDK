@@ -12,6 +12,9 @@ const uint32_t TILE_NUM = 8;
 const uint32_t BOX_INFO = 4; // 每个box有四个坐标
 static ge::graphStatus TilingForBorderAlign(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     BorderAlignTilingData tiling;
 
     if (context->GetInputShape(0) == nullptr) {
@@ -110,8 +113,10 @@ static ge::graphStatus TilingForBorderAlign(gert::TilingContext* context)
     tiling.set_scoreNum(scoreNum);
     tiling.set_inputBufferSize(inputBufferSize);
     tiling.set_roisBufferSize(roisBufferSize);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     context->SetBlockDim(BLOCK_DIM);
 
@@ -122,6 +127,9 @@ static ge::graphStatus TilingForBorderAlign(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     const gert::Shape* inputShape = context->GetInputShape(0);
     const gert::Shape* roisShape = context->GetInputShape(1);
     gert::Shape* outputShape = context->GetOutputShape(0);

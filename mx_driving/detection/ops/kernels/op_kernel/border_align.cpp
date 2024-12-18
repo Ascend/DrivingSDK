@@ -30,8 +30,8 @@ public:
         inputBufferSize = tiling_data->inputBufferSize; // 搬运特征向量的Tque Buffer大小
         roisBufferSize = tiling_data->roisBufferSize; // 搬运RoI的Tque Buffer大小
         roisNumPerLoop = tiling_data->roisNumPerLoop; // 每次搬运到UB的RoI数量
-        totalOutputLength = batchSize * inputH * inputW * (pooledSize + 1) * channels; // 输出的Feature Map长度
-        totalInputLength = batchSize * inputH * inputW * channels; // 输入的Feature Map长度
+        totalOutputLength = static_cast<uint64_t>(batchSize) * inputH * inputW * (pooledSize + 1) * channels; // 输出的Feature Map长度
+        totalInputLength = static_cast<uint64_t>(batchSize) * inputH * inputW * channels; // 输入的Feature Map长度
         moveInLength = tiling_data->moveInLength; // 每次搬入的Feature长度
         moveOutLength = tiling_data->moveOutLength; // 每次搬出的Feature长度
         roisNum = roisNumAligned - tailNum;
@@ -121,8 +121,8 @@ private:
         int32_t batchIdx = boxIdx_ / (inputH * inputW);
         int32_t xBox = boxIdx_ % inputW;
         int32_t yBox = boxIdx_ / inputW % inputH;
-        int32_t baseAddrCopyIn = batchIdx * channels * inputH * inputW;
-        int32_t baseAddrCopyOut = batchIdx * inputH * inputW * (pooledSize + 1) * channels + yBox * inputW * (pooledSize + 1) * channels + xBox * (pooledSize + 1) * channels;
+        uint64_t baseAddrCopyIn = static_cast<uint64_t>(batchIdx) * channels * inputH * inputW;
+        uint64_t baseAddrCopyOut = static_cast<uint64_t>(batchIdx) * inputH * inputW * (pooledSize + 1) * channels + yBox * inputW * (pooledSize + 1) * channels + xBox * (pooledSize + 1) * channels;
         // 遍历上边缘， 起始点为（x1, y1），对应特征的通道为[0, channels / 4]
         xLoc = x1;
         yLoc = y1;
@@ -161,7 +161,7 @@ private:
         }
     }
 
-    __aicore__ inline void BilinearInterpolate(float xLoc, float yLoc, int32_t baseAddrCopyIn, int32_t channelIdx)
+    __aicore__ inline void BilinearInterpolate(float xLoc, float yLoc, uint64_t baseAddrCopyIn, int32_t channelIdx)
     {
         if (yLoc < -1 || yLoc > inputH || xLoc < -1 || xLoc > inputW) {
             float zero_factor = 0;
@@ -190,7 +190,7 @@ private:
             float weightP2 = static_cast<float>(hy * lx);
             float weightP3 = static_cast<float>(ly * hx);
             float weightP4 = static_cast<float>(ly * lx);
-            int32_t baseAddrCopyIn_ = baseAddrCopyIn + channelIdx * channels / 4;
+            uint64_t baseAddrCopyIn_ = baseAddrCopyIn + channelIdx * channels / 4;
 
             set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
             wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
@@ -240,10 +240,12 @@ private:
     LocalTensor<float> featureFloorFloor, featureFloorCeil, featureCeilFloor, featureCeilCeil;
     LocalTensor<float> tmpValue, outFeature, boxLocal;
 
+    // 使用64位整数避免上溢出
+    uint64_t totalOutputLength, totalInputLength;
+
     uint32_t batchSize, inputH, inputW, channels, roisNumAligned, tailNum, roisNum;
-    uint32_t roisNumPerCore, roisNumPerLoop, roisStartAddr, totalInputLength, moveInLength;
-    uint32_t roisNumPerLcore, roisNumPerScore, lcoreNum, scoreNum, inputBufferSize, roisBufferSize;
-    uint32_t totalOutputLength, moveOutLength, totalLoop;
+    uint32_t roisNumPerCore, roisNumPerLoop, roisStartAddr, moveInLength, totalLoop;
+    uint32_t roisNumPerLcore, roisNumPerScore, lcoreNum, scoreNum, inputBufferSize, roisBufferSize, moveOutLength;
     int32_t pooledSize;
 };
 
