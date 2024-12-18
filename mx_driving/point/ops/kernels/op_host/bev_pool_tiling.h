@@ -7,14 +7,14 @@
 
 namespace optiling {
 BEGIN_TILING_DATA_DEF(BEVPoolTilingData)
-TILING_DATA_FIELD_DEF(int32_t, usedCoreNum)
-TILING_DATA_FIELD_DEF(int32_t, avgTaskNum)
-TILING_DATA_FIELD_DEF(int32_t, tailTaskNum)
-TILING_DATA_FIELD_DEF(int32_t, totalTaskNum)
-TILING_DATA_FIELD_DEF(int32_t, stride0)
-TILING_DATA_FIELD_DEF(int32_t, stride1)
-TILING_DATA_FIELD_DEF(int32_t, stride2)
-TILING_DATA_FIELD_DEF(int32_t, stride3)
+TILING_DATA_FIELD_DEF(uint64_t, usedCoreNum)
+TILING_DATA_FIELD_DEF(uint64_t, avgTaskNum)
+TILING_DATA_FIELD_DEF(uint64_t, tailTaskNum)
+TILING_DATA_FIELD_DEF(uint64_t, totalTaskNum)
+TILING_DATA_FIELD_DEF(uint64_t, stride0)
+TILING_DATA_FIELD_DEF(uint64_t, stride1)
+TILING_DATA_FIELD_DEF(uint64_t, stride2)
+TILING_DATA_FIELD_DEF(uint64_t, stride3)
 END_TILING_DATA_DEF
 
 REGISTER_TILING_DATA_CLASS(BEVPool, BEVPoolTilingData)

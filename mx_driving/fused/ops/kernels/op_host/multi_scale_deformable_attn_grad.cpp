@@ -1,11 +1,11 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
  */
+#include "ge/utils.h"
 #include "multi_scale_deformable_attn_grad_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/tiling_api.h"
-
 using namespace ge;
 using namespace std;
 
@@ -47,34 +47,32 @@ std::tuple<uint32_t, uint32_t> GroupPoints(uint32_t numPoints)
 namespace optiling {
 static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingContext* context)
 {
+    CHECK_NULLPTR(context);
     MultiScaleDeformableAttnGradTilingData tiling;
 
     auto valueTensorPtr = context->GetInputTensor(INPUT_VALUE);
     auto spatialTensorPtr = context->GetInputTensor(INPUT_SPATIAL_SHAPE);
     auto attnWeightTensorPtr = context->GetInputTensor(INPUT_ATTN_WEIGHT);
-    if (valueTensorPtr == nullptr || spatialTensorPtr == nullptr || attnWeightTensorPtr == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(valueTensorPtr);
+    CHECK_NULLPTR(spatialTensorPtr);
+    CHECK_NULLPTR(attnWeightTensorPtr);
+
     auto valueShape = valueTensorPtr->GetStorageShape();
     auto spatialShape = spatialTensorPtr->GetStorageShape();
     auto attnWeightShape = attnWeightTensorPtr->GetStorageShape();
 
-    auto platformInfoPtr = context->GetPlatformInfo();
-    if (platformInfoPtr == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
-    auto ascendPlatformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
+    auto ascendPlatformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     uint32_t coreNum = ascendPlatformInfo.GetCoreNumAiv();
     context->SetBlockDim(coreNum);
 
-    uint32_t batchSize = valueShape.GetDim(BATCH_SIZE_DIM);
-    uint32_t numKeys = valueShape.GetDim(NUM_KEYS_DIM);
-    uint32_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
-    uint32_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
-    uint32_t numQueries = attnWeightShape.GetDim(NUM_QUERIES_DIM);
-    uint32_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
-    uint32_t numLevels = spatialShape.GetDim(NUM_LEVEL_DIM);
-    uint32_t optPoint = numLevels <= 8 && numHeads <= 8 && (embedDims == 16 || embedDims == 32 || embedDims == 64) &&
+    uint64_t batchSize = valueShape.GetDim(BATCH_SIZE_DIM);
+    uint64_t numKeys = valueShape.GetDim(NUM_KEYS_DIM);
+    uint64_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
+    uint64_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
+    uint64_t numQueries = attnWeightShape.GetDim(NUM_QUERIES_DIM);
+    uint64_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
+    uint64_t numLevels = spatialShape.GetDim(NUM_LEVEL_DIM);
+    bool optPoint = numLevels <= 8 && numHeads <= 8 && (embedDims == 16 || embedDims == 32 || embedDims == 64) &&
                         (numPoints % 2 == 0 || numPoints == 1);
     uint32_t pointLoops = 0;
     uint32_t point = 0;
@@ -84,7 +82,7 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingCon
         point = std::get<0>(groups);
     }
 
-    context->SetTilingKey(optPoint == 1 ? (embedDims / 16) * 1000 + point : 0);
+    context->SetTilingKey(optPoint ? (embedDims / 16) * 1000 + point : 0);
 
     tiling.set_batchSize(batchSize);
     tiling.set_numKeys(numKeys);
@@ -97,10 +95,10 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingCon
     tiling.set_pointLoops(pointLoops);
     tiling.set_realLevels(attnWeightShape.GetDim(REAL_LEVEL_DIM));
 
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+    ADD_TILING_DATA(context, tiling);
 
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    CHECK_NULLPTR(currentWorkspace);
     currentWorkspace[0] = 16 * 1024 * 1024;
     return ge::GRAPH_SUCCESS;
 }
@@ -109,24 +107,20 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingCon
 namespace ge {
 static ge::graphStatus InferShapeForMultiScaleDeformableAttnGrad(gert::InferShapeContext* context)
 {
+    CHECK_NULLPTR(context);
     const gert::Shape* valueShape = context->GetInputShape(INPUT_VALUE);
-    if (valueShape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
     const gert::Shape* weightShape = context->GetInputShape(INPUT_ATTN_WEIGHT);
-    if (weightShape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
     const gert::Shape* spatialShape = context->GetInputShape(INPUT_SPATIAL_SHAPE);
-    if (spatialShape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
     gert::Shape* gradValueShape = context->GetOutputShape(OUTPUT_GRAD_VALUE);
     gert::Shape* gradLocationShape = context->GetOutputShape(OUTPUT_GRAD_LOCATION);
     gert::Shape* gradWeightShape = context->GetOutputShape(OUTPUT_GRAD_WEIGHT);
-    if ((gradValueShape == nullptr) || (gradLocationShape == nullptr)) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(valueShape);
+    CHECK_NULLPTR(weightShape);
+    CHECK_NULLPTR(spatialShape);
+    CHECK_NULLPTR(gradValueShape);
+    CHECK_NULLPTR(gradLocationShape);
+    CHECK_NULLPTR(gradWeightShape);
+
     int64_t batchSize = valueShape->GetDim(BATCH_SIZE_DIM);
     int64_t numKeys = valueShape->GetDim(NUM_KEYS_DIM);
     int64_t embedDims = valueShape->GetDim(EMBED_DIMS_DIM);
@@ -143,12 +137,13 @@ static ge::graphStatus InferShapeForMultiScaleDeformableAttnGrad(gert::InferShap
 
 static ge::graphStatus InferDataTypeForMultiScaleDeformableAttnGrad(gert::InferDataTypeContext* context)
 {
-    const ge::DataType value_dtype = context->GetInputDataType(0);
-    const ge::DataType sampling_loc_dtype = context->GetInputDataType(3);
-    const ge::DataType attn_weight_dtype = context->GetInputDataType(4);
-    context->SetOutputDataType(0, value_dtype);
-    context->SetOutputDataType(1, sampling_loc_dtype);
-    context->SetOutputDataType(2, attn_weight_dtype);
+    CHECK_NULLPTR(context);
+    const ge::DataType valueDtype = context->GetInputDataType(0);
+    const ge::DataType samplingLocDtype = context->GetInputDataType(3);
+    const ge::DataType attnWeightDtype = context->GetInputDataType(4);
+    context->SetOutputDataType(0, valueDtype);
+    context->SetOutputDataType(1, samplingLocDtype);
+    context->SetOutputDataType(2, attnWeightDtype);
     return GRAPH_SUCCESS;
 }
 } // namespace ge

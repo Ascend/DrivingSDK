@@ -1,12 +1,13 @@
 #include "deformable_conv2d_tiling.h"
+#include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-
 using namespace matmul_tiling;
 
 namespace optiling {
 static ge::graphStatus TilingForDeformableConv2d(gert::TilingContext* context)
 {
+    CHECK_NULLPTR(context);
     auto platformInfoPtr = context->GetPlatformInfo();
     if (platformInfoPtr == nullptr) {
         return ge::GRAPH_FAILED;
@@ -20,32 +21,45 @@ static ge::graphStatus TilingForDeformableConv2d(gert::TilingContext* context)
 
     context->SetBlockDim(aicNum);
 
-    auto xShape = context->GetInputShape(0)->GetStorageShape();      // n, cIn, hIn, wIn
-    auto offsetShape = context->GetInputShape(3)->GetStorageShape(); // n, hOut, wOut, 2*kH*kW
-    auto weightShape = context->GetInputShape(1)->GetStorageShape(); // kH, kW, cIn, cOut
+    const gert::StorageShape* xShapePtr = context->GetInputShape(0);
+    const gert::StorageShape* offsetShapePtr = context->GetInputShape(3);
+    const gert::StorageShape* weightShapePtr = context->GetInputShape(1);
+    CHECK_NULLPTR(xShapePtr);
+    CHECK_NULLPTR(offsetShapePtr);
+    CHECK_NULLPTR(weightShapePtr);
+    auto xShape = xShapePtr->GetStorageShape();           // n, cIn, hIn, wIn
+    auto offsetShape = offsetShapePtr->GetStorageShape(); // n, hOut, wOut, 2*kH*kW
+    auto weightShape = weightShapePtr->GetStorageShape(); // kH, kW, cIn, cOut
 
-    uint32_t n = xShape.GetDim(0);
-    uint32_t cIn = xShape.GetDim(3);
-    uint32_t hIn = xShape.GetDim(1);
-    uint32_t wIn = xShape.GetDim(2);
-    uint32_t cOut = weightShape.GetDim(0);
-    uint32_t hOut = offsetShape.GetDim(1);
-    uint32_t wOut = offsetShape.GetDim(2);
+    uint64_t n = xShape.GetDim(0);
+    uint64_t cIn = xShape.GetDim(3);
+    uint64_t hIn = xShape.GetDim(1);
+    uint64_t wIn = xShape.GetDim(2);
+    uint64_t cOut = weightShape.GetDim(0);
+    uint64_t hOut = offsetShape.GetDim(1);
+    uint64_t wOut = offsetShape.GetDim(2);
 
     auto attrsPtr = context->GetAttrs();
-    if (attrsPtr == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(attrsPtr)
 
-    auto kernelSize = attrsPtr->GetListInt(0)->GetData();
-    auto stride = attrsPtr->GetListInt(1)->GetData();
-    auto padding = attrsPtr->GetListInt(2)->GetData();
-    auto dilation = attrsPtr->GetListInt(3)->GetData();
-    auto modulated = attrsPtr->GetBool(6);
-    uint32_t kH = kernelSize[0];
-    uint32_t kW = kernelSize[1];
+    const auto* kernelSizePtr = attrsPtr->GetListInt(0);
+    const auto* stridePtr = attrsPtr->GetListInt(1);
+    const auto* paddingPtr = attrsPtr->GetListInt(2);
+    const auto* dilationPtr = attrsPtr->GetListInt(3);
+    const auto* modulatedPtr = attrsPtr->GetBool(6);
+    CHECK_NULLPTR(kernelSizePtr)
+    CHECK_NULLPTR(stridePtr)
+    CHECK_NULLPTR(paddingPtr)
+    CHECK_NULLPTR(dilationPtr)
+    CHECK_NULLPTR(modulatedPtr)
+    auto kernelSize = kernelSizePtr->GetData();
+    auto stride = stridePtr->GetData();
+    auto padding = paddingPtr->GetData();
+    auto dilation = dilationPtr->GetData();
+    uint64_t kH = kernelSize[0];
+    uint64_t kW = kernelSize[1];
 
-    context->SetTilingKey(*modulated);
+    context->SetTilingKey(*modulatedPtr);
 
     DeformableConv2dTilingData tilingData;
     matmul_tiling::MatmulApiTiling mmTiling(ascendPlatformInfo);
@@ -78,12 +92,12 @@ static ge::graphStatus TilingForDeformableConv2d(gert::TilingContext* context)
     tilingData.set_dilationW(dilation[1]);
     tilingData.set_usedBlkNum(aivNum);
 
-    tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
+    ADD_TILING_DATA(context, tilingData);
 
     size_t systemWorkspaceSize = ascendPlatformInfo.GetLibApiWorkSpaceSize();
     size_t auxSize = 2 * kH * kW * wOut * sizeof(float);
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    CHECK_NULLPTR(currentWorkspace);
     currentWorkspace[0] = systemWorkspaceSize + auxSize;
 
     return ge::GRAPH_SUCCESS;
@@ -92,6 +106,7 @@ static ge::graphStatus TilingForDeformableConv2d(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShapeForDeformableConv2d(gert::InferShapeContext* context)
 {
+    CHECK_NULLPTR(context);
     const gert::Shape* xShape = context->GetInputShape(0);
     const gert::Shape* offsetShape = context->GetInputShape(1);
     const gert::Shape* weightShape = context->GetInputShape(2);
@@ -119,6 +134,7 @@ static ge::graphStatus InferShapeForDeformableConv2d(gert::InferShapeContext* co
 }
 static ge::graphStatus InferDataTypeForDeformableConv2d(gert::InferDataTypeContext* context)
 {
+    CHECK_NULLPTR(context)
     const ge::DataType value_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, value_dtype);
     context->SetOutputDataType(1, value_dtype);
