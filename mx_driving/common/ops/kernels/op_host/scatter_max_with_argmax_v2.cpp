@@ -140,6 +140,10 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
 
     GetTaskTilingData(context, &tiling, coreNum);
 
+    if (context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     auto updatesShape = context->GetInputShape(2)->GetStorageShape();
     auto indicesShape = context->GetInputShape(1)->GetStorageShape();
 
@@ -148,6 +152,9 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
     auto indicesNum = indicesShape.GetShapeSize();
     auto updatesNum = updatesShape.GetShapeSize();
 
+    if (context->GetInputDesc(0) == nullptr || context->GetInputDesc(1) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto dataDtype = context->GetInputDesc(0)->GetDataType();
     auto indicesDtype = context->GetInputDesc(1)->GetDataType();
     uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
@@ -209,6 +216,9 @@ static ge::graphStatus ScatterMaxWithArgmaxV2TilingFunc(gert::TilingContext* con
     tiling.set_updatesTail(updatesTail);
     tiling.set_isOneDeal(isOneDeal);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 

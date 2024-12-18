@@ -252,6 +252,12 @@ ge::graphStatus ScatterMeanGradTiling::Init()
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, totalUbSize);
     ubSize = totalUbSize - RESERVE_SAPCE;
 
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    if (context->GetOutputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto gradOutShape = context->GetInputShape(0)->GetStorageShape();
     auto indexShape = context->GetInputShape(1)->GetStorageShape();
     auto countShape = context->GetInputShape(2)->GetStorageShape();
@@ -275,7 +281,9 @@ ge::graphStatus ScatterMeanGradTiling::Init()
     }
     dimRange = gradInShape.GetDim(axis);
     dimRangeOut = gradOutShape.GetDim(axis);
-
+    if (dimRange == 0 || dimRangeOut == 0 || paramsPre == 0) {
+        return ge::GRAPH_FAILED;
+    }
     for (int32_t i = axis + 1; i < gradDims; i++) {
         paramsPro *= gradInShape.GetDim(i);
     }
@@ -289,6 +297,9 @@ ge::graphStatus ScatterMeanGradTiling::Init()
     gradOutNum = paramsPre * dimRangeOut * paramsPro;
     countNum = countShape.GetShapeSize();
 
+    if (context->GetInputDesc(0) == nullptr || context->GetInputDesc(1) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto gradDtype = context->GetInputDesc(0)->GetDataType();
     gradDsize = sizeof(gradDtype);
     paramsNumPerBlock = BLOCK_BYTES / gradDsize;
@@ -326,6 +337,9 @@ ge::graphStatus ScatterMeanGradTiling::RunKernelTiling()
     size_t sysWorkspaceSize = WORKSPACE_16MBYTE_SIZE;
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     currentWorkspace[0] = sysWorkspaceSize;
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     TilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(TilingData.GetDataSize());
     return ge::GRAPH_SUCCESS;
@@ -333,6 +347,9 @@ ge::graphStatus ScatterMeanGradTiling::RunKernelTiling()
 
 static ge::graphStatus TilingFunc4ScatterMeanGrad(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     ScatterMeanGradTiling tilingObject(context);
     tilingObject.Init();
 
