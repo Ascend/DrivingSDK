@@ -67,10 +67,10 @@ private:
     __aicore__ inline void SetCopyGmAddr(GM_ADDR points, GM_ADDR coors)
     {
         // points
-        int ptsNum = blockIdx_ == lastCoreIdx_ ? ptsNumInLastCore_ : ptsNumInCore_;
-        int ptsAllNum = ptsNum * N_DIM;
+        uint64_t ptsNum = blockIdx_ == lastCoreIdx_ ? static_cast<uint64_t>(ptsNumInLastCore_) : static_cast<uint64_t>(ptsNumInCore_);
+        uint64_t ptsAllNum = ptsNum * N_DIM;
         // coors: coors num equal to points num
-        int coorsAllNum = ptsNum * N_DIM;
+        uint64_t coorsAllNum = ptsNum * N_DIM;
 
         ptsGm_.SetGlobalBuffer((__gm__ float *)points + blockIdx_ * ptsNumInCore_, ptsAllNum);
         coorsGm_.SetGlobalBuffer((__gm__ int *)coors + blockIdx_ * ptsNumInCore_, coorsAllNum);
@@ -128,7 +128,7 @@ private:
         LocalTensor<float> ptsLocal = ptsQue_.AllocTensor<float>();
         uint32_t copyNum = 0;
         uint32_t copyNumAlign = 0;
-        uint32_t ptsAddrOffset = 0;
+        uint64_t ptsAddrOffset = 0;
         if (formerFlag) {
             copyNum = ptsInUBParam_[2];
             copyNumAlign = ptsInUBParam_[4];
@@ -159,7 +159,7 @@ private:
         LocalTensor<int> coorsLocal = coorsQue_.DeQue<int>();
         uint32_t copyNum = 0;
         uint32_t copyNumAlign = 0;
-        uint32_t coorsAddrOffset = 0;
+        uint64_t coorsAddrOffset = 0;
         if (formerFlag) {
             copyNum = ptsInUBParam_[2];
             copyNumAlign = ptsInUBParam_[4];

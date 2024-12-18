@@ -14,7 +14,13 @@ class _Voxelization(Function):
     def forward(
         ctx, points, voxel_size, coors_range, max_points: int = -1, max_voxels: int = -1, deterministic: bool = True
     ):
-
+        empty_tensor = (
+            len(points) == 0,
+            len(voxel_size) == 0,
+            len(coors_range) == 0,
+        )
+        if any(empty_tensor):
+            raise Exception("Error! Input Tensor can not be a empty Tensor.\n")
         if max_points != -1 and max_voxels != -1:
             return mx_driving._C.hard_voxelize(points, voxel_size, coors_range, max_points, max_voxels)
 
