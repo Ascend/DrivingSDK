@@ -19,6 +19,10 @@ constexpr uint32_t MEMORY_DIVIDED = 200;
 namespace optiling {
 static ge::graphStatus TilingFuncForPixelGroup(gert::TilingContext *context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    
     PixelGroupTilingData tiling;
 
     const gert::StorageShape *scoreShape = context->GetInputShape(0);
@@ -80,6 +84,9 @@ static ge::graphStatus TilingFuncForPixelGroup(gert::TilingContext *context)
     tiling.set_last_loop_front((averagePixels + 1) % availableUbSize);
     tiling.set_loop_time_rear(averagePixels / availableUbSize);
     tiling.set_last_loop_rear(averagePixels % availableUbSize);
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -107,6 +114,9 @@ static ge::graphStatus InferShapeForPixelGroup(gert::InferShapeContext *context)
         return ge::GRAPH_FAILED;
     }
     int32_t kernelRegionNum = *kernelRegionNumPtr;
+    if (context->GetOutputShape(0) == nullptr || context->GetOutputShape(1) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape *pointVectorShape = context->GetOutputShape(0);
     gert::Shape *labelUpdatedShape = context->GetOutputShape(1);
     *pointVectorShape = {kernelRegionNum, 2};
@@ -117,6 +127,9 @@ static ge::graphStatus InferShapeForPixelGroup(gert::InferShapeContext *context)
 
 static ge::graphStatus InferDataTypeForPixelGroup(gert::InferDataTypeContext *context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     context->SetOutputDataType(0, ge::DT_FLOAT);
     context->SetOutputDataType(1, ge::DT_INT32);
     return GRAPH_SUCCESS;
