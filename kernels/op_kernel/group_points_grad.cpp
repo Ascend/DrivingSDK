@@ -31,9 +31,9 @@ public:
 
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
-        indicesLength = b * npoints * nsample;
-        gradOutLength = b * npoints * nsample * c;
-        gradPointsLength = b * n * c;
+        indicesLength = static_cast<uint64_t>(b)* npoints * nsample;
+        gradOutLength = static_cast<uint64_t>(b) * npoints * nsample * c;
+        gradPointsLength = static_cast<uint64_t>(b) * n * c;
 
         indicesGm.SetGlobalBuffer((__gm__ DTYPE_I*)indices, indicesLength);
         gradOutGm.SetGlobalBuffer((__gm__ DTYPE_G*)gradOut, gradOutLength);
@@ -71,7 +71,7 @@ public:
         DataCopyExtParams copyGradOutParams {1, static_cast<uint32_t>(c * sizeof(DTYPE_G)), 0, 0, 0};
         DataCopyPadExtParams<DTYPE_G> gradOutPadParams {false, 0, 0, 0};
 
-        int32_t offset = average * GetBlockIdx() + taskLast;
+        int64_t offset = average * GetBlockIdx() + taskLast;
         if (GetBlockIdx() < taskLast) {
             offset = (average + 1) * GetBlockIdx();
         }
@@ -82,9 +82,10 @@ public:
 
         int32_t b_idx = (offset + i) / (npoints * nsample);
         int32_t idx = indicesLocal.GetValue(0);
+        int64_t gradPointOffset = static_cast<int64_t>(b_idx) * n * c + idx * c;
 
         SetAtomicAdd<DTYPE_G>();
-        DataCopyPad(gradPointsGm[b_idx * n * c + idx * c], gradOutLocal, copyParamsOut);
+        DataCopyPad(gradPointsGm[gradPointOffset], gradOutLocal, copyParamsOut);
         SetAtomicNone();
 
         inQueueGradOut.FreeTensor(gradOutLocal);
@@ -99,9 +100,9 @@ private:
     GlobalTensor<DTYPE_I> indicesGm;
     GlobalTensor<DTYPE_G> gradPointsGm;
 
-    uint32_t gradOutLength;
-    uint32_t indicesLength;
-    uint32_t gradPointsLength;
+    uint64_t gradOutLength;
+    uint64_t indicesLength;
+    uint64_t gradPointsLength;
     uint32_t b;
     uint32_t c;
     uint32_t n;

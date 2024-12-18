@@ -5,6 +5,10 @@
 namespace optiling {
 static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     auto platformInfoptr = context->GetPlatformInfo();
     if (platformInfoptr == nullptr) {
         return ge::GRAPH_FAILED;
@@ -24,6 +28,13 @@ static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext* conte
 
     uint64_t ubSize;
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
+
+    if (context->GetInputShape(0) == nullptr ||
+        context->GetInputShape(1) == nullptr ||
+        context->GetOutputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     // 0 : argmax, 1: gradOut, 2: gradIn
     auto ptsIdxShape = context->GetInputShape(0)->GetStorageShape();
     auto gradOutShape = context->GetInputShape(1)->GetStorageShape();
@@ -59,6 +70,10 @@ static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext* conte
     tilingData.set_totalTask(totalTask);
     tilingData.set_npoints(npoints);
     
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
 

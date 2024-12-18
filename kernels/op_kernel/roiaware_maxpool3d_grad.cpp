@@ -74,9 +74,13 @@ private:
     __aicore__ inline void InitGlobalBuffer(const GM_ADDR argmax, const GM_ADDR gradOut, const GM_ADDR gradIn,
         const RoiawareMaxpool3dGradTilingData* tiling_data)
     {
-        this->argmaxGm_.SetGlobalBuffer((__gm__ int32_t*) argmax, tiling_data->totalTask * channels_ * sizeof(int32_t));
-        this->goutGm_.SetGlobalBuffer((__gm__ dataType*) gradOut, tiling_data->totalTask * channels_ * sizeof(dataType));
-        this->ginGm_.SetGlobalBuffer((__gm__ dataType*) gradIn, nPoints_ * channels_ * sizeof(dataType));
+        uint64_t argmaxLength = static_cast<uint64_t>(tiling_data->totalTask) * channels_ * sizeof(int32_t);
+        uint64_t gradOutLength = static_cast<uint64_t>(tiling_data->totalTask) * channels_ * sizeof(dataType);
+        uint64_t gradInLength = static_cast<uint64_t>(nPoints_) * channels_ * sizeof(dataType);
+
+        this->argmaxGm_.SetGlobalBuffer((__gm__ int32_t*) argmax, argmaxLength);
+        this->goutGm_.SetGlobalBuffer((__gm__ dataType*) gradOut, gradOutLength);
+        this->ginGm_.SetGlobalBuffer((__gm__ dataType*) gradIn, gradInLength);
     }
 
     __aicore__ inline void InitUBBuffer()
@@ -91,22 +95,24 @@ private:
         this->pipe_->InitBuffer(this->tmpSelectedBuf_, singleLoopTask_ * channelAligned_ * sizeof(dataType));
     }
     
-    __aicore__ inline void CopyInNTask(int inputIdx, int curLoopTaskCount)
+    __aicore__ inline void CopyInNTask(int64_t inputIdx, int32_t curLoopTaskCount)
     {
         LocalTensor<dataType> goutLocal = goutQue_.AllocTensor<dataType>();
         LocalTensor<int32_t> argmaxLocal = argmaxQue_.AllocTensor<int32_t>();
 
+        int64_t goutLocalOffset = inputIdx * channels_;
         goutCopyParams_ = {static_cast<uint16_t>(curLoopTaskCount), static_cast<uint32_t>(channels_ * sizeof(dataType)), 0, 0, 0};
-        DataCopyPad(goutLocal, goutGm_[inputIdx * channels_], goutCopyParams_, goutPadParams_);
+        DataCopyPad(goutLocal, goutGm_[goutLocalOffset], goutCopyParams_, goutPadParams_);
         
+        int64_t argmaxLocalOffset = inputIdx * channels_;
         argmaxCopyParams_ = {static_cast<uint16_t>(curLoopTaskCount), static_cast<uint32_t>(channels_ * sizeof(int32_t)), 0, 0, 0};
-        DataCopyPad(argmaxLocal, argmaxGm_[inputIdx * channels_], argmaxCopyParams_, argmaxPadParams_);
+        DataCopyPad(argmaxLocal, argmaxGm_[argmaxLocalOffset], argmaxCopyParams_, argmaxPadParams_);
 
         goutQue_.EnQue<dataType>(goutLocal);
         argmaxQue_.EnQue<int32_t>(argmaxLocal);
     }
 
-    __aicore__ inline void ProcessNTask(const uint32_t& taskCount)
+    __aicore__ inline void ProcessNTask(const uint32_t &taskCount)
     {
         bool free_data = false;
         for (int32_t outputIdx = 0; outputIdx < nPoints_; outputIdx += singleLoopOutput_) {
@@ -117,7 +123,7 @@ private:
         }
     }
 
-    __aicore__ inline void GinLocalReduceSum(const uint32_t& oi, const uint32_t& curLoopTaskCount, LocalTensor<dataType>& ginLocal, LocalTensor<dataType>& selectLocal)
+    __aicore__ inline void GinLocalReduceSum(const uint32_t &oi, const uint32_t &curLoopTaskCount, LocalTensor<dataType> &ginLocal, LocalTensor<dataType> &selectLocal)
     {
         uint32_t selectRepStride = (channelAligned_ * sizeof(dataType)) / (BUFFER_ALIGN_BYTE);
         uint64_t maxElementsCount = 256 / sizeof(dataType);
@@ -136,8 +142,8 @@ private:
         }
     }
 
-    __aicore__ inline void Compute(const uint32_t& curLoopTaskCount, const uint32_t& curLoopOutputCount,
-                                   const uint32_t& outputIdx, const bool& freeTensor)
+    __aicore__ inline void Compute(const uint32_t &curLoopTaskCount, const uint32_t &curLoopOutputCount,
+                                   const uint64_t &outputIdx, const bool &freeTensor)
     {
         LocalTensor<dataType> goutLocal = goutQue_.DeQue<dataType>();
         LocalTensor<int32_t> argmaxLocal = argmaxQue_.DeQue<int32_t>();
@@ -167,7 +173,7 @@ private:
         WaitFlag<HardEvent::V_MTE3>(eventId2);
         
         SetAtomicAdd<dataType>();
-        DataCopyPad(ginGm_[(outputIdx) * channels_], ginLocal, {static_cast<uint16_t>(curLoopOutputCount), static_cast<uint32_t>(channels_ * sizeof(dataType)), 0, 0, 0});
+        DataCopyPad(ginGm_[outputIdx * channels_], ginLocal, {static_cast<uint16_t>(curLoopOutputCount), static_cast<uint32_t>(channels_ * sizeof(dataType)), 0, 0, 0});
         SetAtomicNone();
 
         if (!freeTensor) {

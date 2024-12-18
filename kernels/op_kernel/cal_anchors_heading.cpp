@@ -9,8 +9,8 @@ constexpr uint32_t LAST_DIM_SIZE = 2;
 class CalAnchorsHeading {
 public:
     __aicore__ inline CalAnchorsHeading() {}
-    __aicore__ inline void Init(TPipe* pipe, const GM_ADDR anchors, const GM_ADDR originPos, GM_ADDR heading,
-        const CalAnchorsHeadingTilingData* tiling)
+    __aicore__ inline void Init(TPipe *pipe, const GM_ADDR anchors, const GM_ADDR originPos, GM_ADDR heading,
+        const CalAnchorsHeadingTilingData *tiling)
     {
         this->pipe_ = pipe;
         this->blkIdx_ = GetBlockIdx();
@@ -31,7 +31,7 @@ public:
                 coreAnchorNumTask_ - taskIdx);
             uint32_t batchSizeIdx = taskOffset / (anchorsNum_);
 
-            uint32_t originPosOffset = batchSizeIdx * LAST_DIM_SIZE;
+            uint64_t originPosOffset = static_cast<uint64_t>(batchSizeIdx) * LAST_DIM_SIZE;
             if (taskOffset % anchorsNum_ == 0 || (originXPos == -1)) {
                 originXPos = originPosGm_.GetValue(originPosOffset);
                 originYPos = originPosGm_.GetValue(originPosOffset + 1);
@@ -52,7 +52,7 @@ public:
     }
 
 private:
-    __aicore__ inline void InitTiling(const CalAnchorsHeadingTilingData* tiling)
+    __aicore__ inline void InitTiling(const CalAnchorsHeadingTilingData *tiling)
     {
         this->batchSize_ = tiling->batchSize;
         this->anchorsNum_ = tiling->anchorsNum;
@@ -83,11 +83,11 @@ private:
     __aicore__ inline void InitGM(const GM_ADDR anchors, const GM_ADDR originPos, GM_ADDR heading)
     {
         this->anchorsGm_.SetGlobalBuffer((__gm__ float*) anchors,
-            batchSize_ * anchorsNum_ * seqLength_ * LAST_DIM_SIZE * ELEM_BYTE_SIZE);
+            static_cast<uint64_t>(batchSize_) * anchorsNum_ * seqLength_ * LAST_DIM_SIZE * ELEM_BYTE_SIZE);
         this->originPosGm_.SetGlobalBuffer((__gm__ float*) originPos,
-            batchSize_ * LAST_DIM_SIZE * ELEM_BYTE_SIZE);
+            static_cast<uint64_t>(batchSize_) * LAST_DIM_SIZE * ELEM_BYTE_SIZE);
         this->headingGm_.SetGlobalBuffer((__gm__ float*) heading,
-            batchSize_ * anchorsNum_ * seqLength_ * ELEM_BYTE_SIZE);
+            static_cast<uint64_t>(batchSize_)* anchorsNum_ * seqLength_ * ELEM_BYTE_SIZE);
     }
 
     __aicore__ inline void InitUB()
@@ -101,33 +101,33 @@ private:
         this->pipe_->InitBuffer(tmpMaskBuf_, tmpMaskBufferByteLength);
     }
 
-    __aicore__ inline void CopyIn(const uint32_t& taskCount, const uint32_t& taskOffset,
-        LocalTensor<float>& anchorsLocal, LocalTensor<float>& anchorsLocalLeftShift,
-        const float& originXPos, const float& originYPos);
+    __aicore__ inline void CopyIn(const uint32_t &taskCount, const uint64_t &taskOffset,
+        LocalTensor<float> &anchorsLocal, LocalTensor<float> &anchorsLocalLeftShift,
+        const float &originXPos, const float &originYPos);
     
-    __aicore__ inline LocalTensor<float> Compute(LocalTensor<float>& anchorsLocal,
-        LocalTensor<float>& anchorsLocalLeftShift, const uint32_t& taskCount);
+    __aicore__ inline LocalTensor<float> Compute(LocalTensor<float> &anchorsLocal,
+        LocalTensor<float> &anchorsLocalLeftShift, const uint32_t &taskCount);
     
-    __aicore__ inline void CopyOut(LocalTensor<float>& outputLocal, const uint32_t& taskCount,
-        const uint32_t& taskOffset);
+    __aicore__ inline void CopyOut(LocalTensor<float> &outputLocal, const uint32_t &taskCount,
+        const uint64_t &taskOffset);
 
-    __aicore__ inline void FillOriginPos(LocalTensor<float>& anchorsLocal, const float& originPos,
+    __aicore__ inline void FillOriginPos(LocalTensor<float> &anchorsLocal, const float &originPos,
         const uint32_t taskCount, bool isY);
 
-    __aicore__ inline LocalTensor<float> ComputeXYDiff(LocalTensor<float>& anchorsLocal,
-        LocalTensor<float>& anchorsLocalLeftShift, const uint32_t taskCount);
+    __aicore__ inline LocalTensor<float> ComputeXYDiff(LocalTensor<float> &anchorsLocal,
+        LocalTensor<float> &anchorsLocalLeftShift, const uint32_t taskCount);
 
-    __aicore__ inline LocalTensor<float> ComputeGatheredXYDiff(LocalTensor<float>& xyDiffLocal,
-        LocalTensor<float>& xyDiffGatheredLocal, const uint32_t taskCount);
+    __aicore__ inline LocalTensor<float> ComputeGatheredXYDiff(LocalTensor<float> &xyDiffLocal,
+        LocalTensor<float> &xyDiffGatheredLocal, const uint32_t taskCount);
 
     __aicore__ inline void GeneralDiv(LocalTensor<float> destLocal, const LocalTensor<float> src1Local,
         const LocalTensor<float> src2Local, const uint32_t elementCount);
     
-    __aicore__ inline LocalTensor<float> ComputeHeading(LocalTensor<float>& xyDiffGatheredLocal,
-        LocalTensor<float>& headingLocal, const uint32_t taskCount);
+    __aicore__ inline LocalTensor<float> ComputeHeading(LocalTensor<float> &xyDiffGatheredLocal,
+        LocalTensor<float> &headingLocal, const uint32_t taskCount);
     
-    __aicore__ inline LocalTensor<float> ComputeOutput(LocalTensor<float>& headingLocal,
-        LocalTensor<float>& xyDiffGatheredLocal, const uint32_t& taskCount);
+    __aicore__ inline LocalTensor<float> ComputeOutput(LocalTensor<float> &headingLocal,
+        LocalTensor<float> &xyDiffGatheredLocal, const uint32_t &taskCount);
 
 private:
     uint64_t blkIdx_;
@@ -145,10 +145,10 @@ private:
     DataCopyPadExtParams<float> anchorsLeftShiftCopyInPadParams_{false, 0, 0, 0};
 };
 
-__aicore__ inline void CalAnchorsHeading::CopyIn(const uint32_t& taskCount, const uint32_t& taskOffset,
-    LocalTensor<float>& anchorsLocal, LocalTensor<float>& anchorsLocalLeftShift, const float& originXPos, const float& originYPos)
+__aicore__ inline void CalAnchorsHeading::CopyIn(const uint32_t &taskCount, const uint64_t &taskOffset,
+    LocalTensor<float> &anchorsLocal, LocalTensor<float> &anchorsLocalLeftShift, const float &originXPos, const float &originYPos)
 {
-    uint32_t anchorGlobalOffset = taskOffset * LAST_DIM_SIZE * seqLength_;
+    uint64_t anchorGlobalOffset = taskOffset * LAST_DIM_SIZE * seqLength_;
 
     anchorsCopyInParams_ = {static_cast<uint16_t>(taskCount), LAST_DIM_SIZE * (seqLength_ - 1) * ELEM_BYTE_SIZE,
         static_cast<uint16_t>(LAST_DIM_SIZE * ELEM_BYTE_SIZE), copyInLocalStride_, 0};
@@ -165,8 +165,8 @@ __aicore__ inline void CalAnchorsHeading::CopyIn(const uint32_t& taskCount, cons
         FillOriginPos(anchorsLocal, originYPos, taskCount, true);
 }
 
-__aicore__ inline LocalTensor<float> CalAnchorsHeading::Compute(LocalTensor<float>& anchorsLocal,
-    LocalTensor<float>& anchorsLocalLeftShift, const uint32_t& taskCount)
+__aicore__ inline LocalTensor<float> CalAnchorsHeading::Compute(LocalTensor<float> &anchorsLocal,
+    LocalTensor<float> &anchorsLocalLeftShift, const uint32_t &taskCount)
 {
     // reused buffer anchorsBuf_
     LocalTensor<float> xyDiffLocal = ComputeXYDiff(anchorsLocal, anchorsLocalLeftShift, taskCount);
@@ -185,14 +185,14 @@ __aicore__ inline LocalTensor<float> CalAnchorsHeading::Compute(LocalTensor<floa
     return outputLocal;
 }
 
-__aicore__ inline void CalAnchorsHeading::CopyOut(LocalTensor<float>& outputLocal, const uint32_t& taskCount,
-    const uint32_t& taskOffset)
+__aicore__ inline void CalAnchorsHeading::CopyOut(LocalTensor<float> &outputLocal, const uint32_t &taskCount,
+    const uint64_t &taskOffset)
 {
     DataCopyExtParams CopyOutParams = {static_cast<uint16_t>(taskCount), seqLength_ * ELEM_BYTE_SIZE, 0, 0, 0};
     DataCopyPad(headingGm_[taskOffset * seqLength_], outputLocal, CopyOutParams);
 }
 
-__aicore__ inline void CalAnchorsHeading::FillOriginPos(LocalTensor<float>& anchorsLocal, const float& originPos,
+__aicore__ inline void CalAnchorsHeading::FillOriginPos(LocalTensor<float> &anchorsLocal, const float &originPos,
     const uint32_t taskCount, bool isY = true)
 {
     uint32_t offset = 0;
@@ -202,15 +202,15 @@ __aicore__ inline void CalAnchorsHeading::FillOriginPos(LocalTensor<float>& anch
     }
 }
 
-__aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeXYDiff(LocalTensor<float>& anchorsLocal,
-    LocalTensor<float>& anchorsLocalLeftShift, const uint32_t taskCount)
+__aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeXYDiff(LocalTensor<float> &anchorsLocal,
+    LocalTensor<float> &anchorsLocalLeftShift, const uint32_t taskCount)
 {
     Sub(anchorsLocal, anchorsLocalLeftShift, anchorsLocal, copyInDataBlockElemCountAligned_ * taskCount);
     return anchorsLocal;
 }
 
-__aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeGatheredXYDiff(LocalTensor<float>& xyDiffLocal,
-    LocalTensor<float>& xyDiffGatheredLocal, const uint32_t taskCount)
+__aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeGatheredXYDiff(LocalTensor<float> &xyDiffLocal,
+    LocalTensor<float> &xyDiffGatheredLocal, const uint32_t taskCount)
 {
     uint32_t mask = 0;
     uint64_t rsvdCnt = taskCount * taskElemCountAligned_;
@@ -239,8 +239,8 @@ __aicore__ inline void CalAnchorsHeading::GeneralDiv(LocalTensor<float> destLoca
             static_cast<float>(0.0), SELMODE::VSEL_TENSOR_SCALAR_MODE, elementCount);
 }
 
-__aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeHeading(LocalTensor<float>& xyDiffGatheredLocal,
-    LocalTensor<float>& headingLocal, const uint32_t taskCount)
+__aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeHeading(LocalTensor<float> &xyDiffGatheredLocal,
+    LocalTensor<float> &headingLocal, const uint32_t taskCount)
 {
     uint32_t calCount = taskCount * taskElemCountAligned_;
     LocalTensor<float> tmpLocal = tmpBuf_.Get<float>();
@@ -276,8 +276,8 @@ __aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeHeading(LocalTens
     return headingLocal;
 }
 
-__aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeOutput(LocalTensor<float>& headingLocal,
-    LocalTensor<float>& xyDiffGatheredLocal, const uint32_t& taskCount)
+__aicore__ inline LocalTensor<float> CalAnchorsHeading::ComputeOutput(LocalTensor<float> &headingLocal,
+    LocalTensor<float> &xyDiffGatheredLocal, const uint32_t &taskCount)
 {
     LocalTensor<float> tmpLocal = tmpBuf_.Get<float>();
 

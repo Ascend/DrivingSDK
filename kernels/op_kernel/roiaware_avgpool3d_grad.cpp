@@ -77,9 +77,11 @@ private:
     __aicore__ inline void InitGM(const GM_ADDR pts_idx_of_voxels, const GM_ADDR grad_out, const GM_ADDR grad_in)
     {
         ptsIdxOfsVoxelsGm_.SetGlobalBuffer((__gm__ int32_t*) pts_idx_of_voxels,
-            totalTask_ * maxPtsPerVoxelAligned_ * sizeof(int32_t));
-        goutGm_.SetGlobalBuffer((__gm__ dataType*) grad_out, totalTask_ * channelAligned_ * sizeof(dataType));
-        ginGm_.SetGlobalBuffer((__gm__ dataType*) grad_in, npoints_ * channelAligned_ * sizeof(dataType));
+            static_cast<uint64_t>(totalTask_) * maxPtsPerVoxelAligned_ * sizeof(int32_t));
+        goutGm_.SetGlobalBuffer((__gm__ dataType*) grad_out,
+            static_cast<uint64_t>(totalTask_) * channelAligned_ * sizeof(dataType));
+        ginGm_.SetGlobalBuffer((__gm__ dataType*) grad_in,
+            static_cast<uint64_t>(npoints_) * channelAligned_ * sizeof(dataType));
     }
 
     __aicore__ inline void InitUB()
@@ -91,13 +93,13 @@ private:
         iterIdxLocal_ = iterIdxBuf_.AllocTensor<int32_t>();
     }
 
-    __aicore__ inline void CopyInNTask(const uint32_t& taskCount, const uint32_t& globalTaskIdx)
+    __aicore__ inline void CopyInNTask(const uint32_t &taskCount, const uint64_t &globalTaskIdx)
     {
         LocalTensor<dataType> goutLocal = goutQue_.AllocTensor<dataType>();
         LocalTensor<int32_t> ptsIdxLocal = ptsIdxQue_.AllocTensor<int32_t>();
 
-        uint32_t globalGradOutIdx = globalTaskIdx * channels_;
-        uint32_t globalPtsIdxOutIdx = globalTaskIdx * (maxPtsPerVoxel_ + 1);
+        uint64_t globalGradOutIdx = globalTaskIdx * channels_;
+        uint64_t globalPtsIdxOutIdx = globalTaskIdx * (maxPtsPerVoxel_ + 1);
 
         gradOutCopyInParams = {static_cast<uint16_t>(taskCount), channels_ * sizeof(dataType), 0, 0, 0};
         DataCopyPad(goutLocal, goutGm_[globalGradOutIdx], gradOutCopyInParams, gradOutCopyInPadParams);
@@ -110,7 +112,7 @@ private:
         ptsIdxQue_.EnQue<int32_t>(ptsIdxLocal);
     }
 
-    __aicore__ inline void ComputeNTask(const uint32_t& taskCount, const uint32_t& globalTaskIdx)
+    __aicore__ inline void ComputeNTask(const uint32_t &taskCount, const uint64_t &globalTaskIdx)
     {
         LocalTensor<dataType> goutLocal = goutQue_.DeQue<dataType>();
         LocalTensor<int32_t> ptsIdxLocal = ptsIdxQue_.DeQue<int32_t>();
@@ -144,7 +146,7 @@ private:
 
             ginCopyOutParams = {static_cast<uint16_t>(curLoopOutputTaskCount), static_cast<uint32_t>(channels_ * sizeof(dataType)), 0, 0, 0};
             SetAtomicAdd<dataType>();
-            DataCopyPad(ginGm_[gradInChannelsIdx * channels_], ginLocal, ginCopyOutParams);
+            DataCopyPad(ginGm_[static_cast<uint64_t>(gradInChannelsIdx) * channels_], ginLocal, ginCopyOutParams);
             SetAtomicNone();
         }
         
@@ -152,9 +154,9 @@ private:
         ptsIdxQue_.FreeTensor(ptsIdxLocal);
     }
 
-    __aicore__ inline void ComputeOneTask(const int32_t& goutLocalTaskIdx, const int32_t& curPtsIdxCount, const int32_t& gradInChannelsIdx,
-        int32_t& curPtsIdx, const uint32_t& curLoopOutputTaskCount, const LocalTensor<int32_t>& ptsIdxLocal,
-        const LocalTensor<dataType>& goutLocal, LocalTensor<dataType>& ginLocal)
+    __aicore__ inline void ComputeOneTask(const int32_t &goutLocalTaskIdx, const int32_t &curPtsIdxCount, const int32_t &gradInChannelsIdx,
+        int32_t &curPtsIdx, const uint32_t &curLoopOutputTaskCount, const LocalTensor<int32_t> &ptsIdxLocal,
+        const LocalTensor<dataType> &goutLocal, LocalTensor<dataType> &ginLocal)
     {
         uint32_t offset = goutLocalTaskIdx * maxPtsPerVoxelAligned_;
         while (curPtsIdx < curPtsIdxCount) {

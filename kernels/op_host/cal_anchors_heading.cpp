@@ -87,6 +87,10 @@ static ge::graphStatus TilingForCalAnchorsHeading(gert::TilingContext* context)
     tilingData.set_copyInLocalStride(copyInLocalStride);
     tilingData.set_copyInDataBlockElemCountAligned(copyInDataBlockElemCountAligned);
 
+    if (context->GetRawTilingData() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
 
