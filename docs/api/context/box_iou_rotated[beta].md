@@ -14,6 +14,7 @@ mx_driving.box_iou_rotated(Tensor boxes_a, Tensor boxes_b, str mode='iou', bool 
 - `ious(Tensor)`：包含两组bounding boxes的IoU（`mode="iou"`）或IoF（`mode="iof"`）的张量，数据类型为`float32`。shape为`[M]`（`aligned=True`）或`[M, N]`（`aligned=False`）。
 ### 约束说明
 - `mode`的取值范围为`{'iou', 'iof'}`。
+- 当`aligned=False`时，`boxes_a`数量`M`与`boxes_b`数量`N`的乘积不超过9亿。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例

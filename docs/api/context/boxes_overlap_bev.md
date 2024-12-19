@@ -19,6 +19,7 @@ mx_driving.detection.npu_boxes_overlap_bev(Tensor boxes_a, Tensor boxes_b) -> Te
 - `area_overlap(Tensor)`：包含两组bounding boxes交叠面积的张量，数据类型为`float32`。shape为`[M, N]`。
 ### 约束说明
 - `angle`的值在`[-pi, pi]`之间。
+- `boxes_a`数量`M`与`boxes_b`数量`N`的乘积不超过9亿。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
