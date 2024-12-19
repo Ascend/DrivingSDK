@@ -247,4 +247,9 @@ at::Tensor cal_anchors_heading(const at::Tensor& anchors, const at::Tensor& orig
 at::Tensor npu_subm_sparse_conv3d_grad(const at::Tensor& ouidx_offset, const at::Tensor& valid_indices,
                                        const at::Tensor& weight, const at::Tensor& grad, int indices_number,
                                        at::IntArrayRef kernel_size);
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_gaussian(const at::Tensor& boxes,
+    int32_t out_size_factor, float gaussian_overlap, int32_t min_radius, float voxel_size_x, float voxel_size_y,
+    float pc_range_x, float pc_range_y, int32_t feature_map_size_x, int32_t feature_map_size_y, bool norm_bbox,
+    bool with_velocity);
 #endif // CSRC_FUNCTIONS_H_

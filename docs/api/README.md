@@ -4,6 +4,7 @@
 - 通用
     - [hypot](./context/hypot.md)
 - 感知
+    - [pixel_group](./context/pixel_group.md)
 - 点云
 - 预处理
     - [points_in_boxes_all](./context/points_in_boxes_all.md)

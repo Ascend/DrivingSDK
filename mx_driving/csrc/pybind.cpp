@@ -200,4 +200,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     m.def("cal_anchors_heading", &cal_anchors_heading);
     // npu_subm_sparse_conv3d_grad
     m.def("npu_subm_sparse_conv3d_grad", &npu_subm_sparse_conv3d_grad);
+
+    // npu_gaussian
+    m.def("npu_gaussian", &npu_gaussian);
 }
