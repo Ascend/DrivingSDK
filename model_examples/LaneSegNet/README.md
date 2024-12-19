@@ -72,12 +72,10 @@
 
   5. 安装mxDriving加速库
 
-  6. 非兼容修改
+  6. 非兼容修改[可选]
     ```
     vi ../python3.9/site-packages/networkx/algorithms/dag.py
     将 from fractions import gcd 改为 from math import gcd
-    
-
     ```
 
 ## 准备数据集
