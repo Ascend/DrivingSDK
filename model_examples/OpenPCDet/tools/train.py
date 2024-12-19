@@ -110,7 +110,7 @@ def main():
     for key, val in vars(args).items():
         logger.info('{:16} {}'.format(key, val))
     log_config_to_file(cfg, logger=logger)
-    if cfg.LOCAL_RANK == 0:
+    if cfg.LOCAL_RANK == 0 and os.path.exists(args.cfg_file) and os.path.exists(output_dir):
         os.system('cp %s %s' % (args.cfg_file, output_dir))
 
     tb_log = SummaryWriter(log_dir=str(output_dir / 'tensorboard')) if cfg.LOCAL_RANK == 0 else None

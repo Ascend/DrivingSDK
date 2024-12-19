@@ -251,8 +251,6 @@ class SurroundOcc(MVXTwoStageDetector):
 
             o3d.io.write_point_cloud(os.path.join(save_dir, 'pred.ply'), pcd)
             np.save(os.path.join(save_dir, 'pred.npy'), vertices)
-            for cam_id, cam_path in enumerate(img_metas[i]['filename']):
-                os.system('cp {} {}/{}.jpg'.format(cam_path, save_dir, cam_id))
 
 
     
