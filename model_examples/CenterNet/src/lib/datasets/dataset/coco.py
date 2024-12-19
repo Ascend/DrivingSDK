@@ -68,6 +68,8 @@ class COCO(data.Dataset):
                 self.annot_path = os.path.join(
                     self.data_dir, 'annotations',
                     'instances_{}2017.json').format(split)
+        if not os.path.exists(self.annot_path):
+            raise FileNotFoundError(f"{self.annot_path} not exists!")
         self.max_objs = 128
         self.class_name = [
             '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane',
@@ -151,9 +153,6 @@ class COCO(data.Dataset):
                   open('{}/results.json'.format(save_dir), 'w'))
 
     def run_eval(self, results, save_dir):
-        # result_json = os.path.join(save_dir, "results.json")
-        # detections  = self.convert_eval_format(results)
-        # json.dump(detections, open(result_json, "w"))
         self.save_results(results, save_dir)
         coco_dets = self.coco.loadRes('{}/results.json'.format(save_dir))
         coco_eval = COCOeval(self.coco, coco_dets, "bbox")

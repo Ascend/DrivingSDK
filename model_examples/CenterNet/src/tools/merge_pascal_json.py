@@ -44,7 +44,10 @@ MERGE_KEYS = ['images', 'annotations']
 out = {}
 tot_anns = 0
 for i, file_name in enumerate(INPUT_FILES):
-    data = json.load(open(ANNOT_PATH + file_name, 'r'))
+    data_path = ANNOT_PATH + file_name
+    if not os.path.exists(data_path):
+        raise FileNotFoundError(f"{data_path} not exists!")
+    data = json.load(open(data_path, 'r'))
     print('keys', data.keys())
     if i == 0:
         for key in KEYS:

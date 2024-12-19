@@ -151,7 +151,10 @@ def _coco_box_to_bbox(box):
 
 
 def count_agnostic(split):
-    coco = COCO.COCO(ANN_PATH + ANN_FILES[split])
+    coco_file_path = ANN_PATH + ANN_FILES[split]
+    if not os.path.exists(coco_file_path):
+        raise FileNotFoundError(f"{coco_file_path} not exists!")
+    coco = COCO.COCO(coco_file_path)
     images = coco.getImgIds()
     cnt = 0
     for img_id in images:
@@ -169,7 +172,10 @@ def count_agnostic(split):
 
 
 def count(split):
-    coco = COCO.COCO(ANN_PATH + ANN_FILES[split])
+    coco_file_path = ANN_PATH + ANN_FILES[split]
+    if not os.path.exists(coco_file_path):
+        raise FileNotFoundError(f"{coco_file_path} not exists!")
+    coco = COCO.COCO(coco_file_path)
     images = coco.getImgIds()
     cnt = 0
     obj = 0
@@ -203,7 +209,10 @@ def count(split):
 
 
 def count_iou(split):
-    coco = COCO.COCO(ANN_PATH + ANN_FILES[split])
+    coco_file_path = ANN_PATH + ANN_FILES[split]
+    if not os.path.exists(coco_file_path):
+        raise FileNotFoundError(f"{coco_file_path} not exists!")
+    coco = COCO.COCO(coco_file_path)
     images = coco.getImgIds()
     cnt = 0
     obj = 0
@@ -236,7 +245,10 @@ def count_iou(split):
 
 
 def count_anchor(split):
-    coco = COCO.COCO(ANN_PATH + ANN_FILES[split])
+    coco_file_path = ANN_PATH + ANN_FILES[split]
+    if not os.path.exists(coco_file_path):
+        raise FileNotFoundError(f"{coco_file_path} not exists!")
+    coco = COCO.COCO(coco_file_path)
     images = coco.getImgIds()
     cnt = 0
     obj = 0
@@ -319,7 +331,10 @@ def count_anchor(split):
 
 
 def count_size(split):
-    coco = COCO.COCO(ANN_PATH + ANN_FILES[split])
+    coco_file_path = ANN_PATH + ANN_FILES[split]
+    if not os.path.exists(coco_file_path):
+        raise FileNotFoundError(f"{coco_file_path} not exists!")
+    coco = COCO.COCO(coco_file_path)
     images = coco.getImgIds()
     cnt = 0
     obj = 0

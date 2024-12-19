@@ -39,6 +39,8 @@ OUT_PATH = '../../models/ExtremeNet_500000.pth'
 
 import torch
 
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"{MODEL_PATH} not exists!")
 state_dict = torch.load(MODEL_PATH)
 key_map = {'t_heats': 'hm_t', 'l_heats': 'hm_l', 'b_heats': 'hm_b', \
            'r_heats': 'hm_r', 'ct_heats': 'hm_c', \

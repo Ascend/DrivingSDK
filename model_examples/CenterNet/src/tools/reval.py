@@ -80,7 +80,10 @@ def from_dets(imdb_name, detection_file, args):
     imdb = pascal_voc('test', '2007')
     imdb.competition_mode(args.comp_mode)
     imdb.config['matlab_eval'] = args.matlab_eval
-    with open(os.path.join(detection_file), 'rb') as f:
+    data_path = os.path.join(detection_file)
+    if not os.path.exists(data_path):
+        raise FileNotFoundError(f"{data_path} not exists!")
+    with open(data_path, 'rb') as f:
         if 'json' in detection_file:
             dets = json.load(f)
         else:

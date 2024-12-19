@@ -73,6 +73,8 @@ class COCOHP(data.Dataset):
             self.annot_path = os.path.join(
                 self.data_dir, 'annotations',
                 'person_keypoints_{}2017.json').format(split)
+        if not os.path.exists(self.annot_path):
+            raise FileNotFoundError(f"{self.annot_path} not exists!")
         self.max_objs = 32
         self._data_rng = np.random.RandomState(123)
         self._eig_val = np.array([0.2141788, 0.01817699, 0.00341571],
@@ -138,9 +140,6 @@ class COCOHP(data.Dataset):
                   open('{}/results.json'.format(save_dir), 'w'))
 
     def run_eval(self, results, save_dir):
-        # result_json = os.path.join(opt.save_dir, "results.json")
-        # detections  = convert_eval_format(all_boxes)
-        # json.dump(detections, open(result_json, "w"))
         self.save_results(results, save_dir)
         coco_dets = self.coco.loadRes('{}/results.json'.format(save_dir))
         coco_eval = COCOeval(self.coco, coco_dets, "keypoints")

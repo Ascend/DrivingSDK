@@ -101,6 +101,8 @@ def main(opt, qtepoch=[0, ]):
     model = create_model(opt.arch, opt.heads, opt.head_conv, opt.load_local_weights, opt.local_weights_path)
     model = model.to(opt.device)  # npu
     if opt.pretrained:
+        if not os.path.exists(opt.pretrained_weight_path):
+            raise FileNotFoundError(f"{opt.pretrained_weight_path} not exists!")
         checkpoint = torch.load(opt.pretrained_weight_path, map_location='cpu')
         if 'module.' in list(checkpoint['state_dict'].keys())[0]:
             checkpoint['state_dict'] = {k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}

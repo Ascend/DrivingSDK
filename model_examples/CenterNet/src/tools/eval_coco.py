@@ -42,6 +42,8 @@ from pycocotools.cocoeval import COCOeval
 
 this_dir = os.path.dirname(__file__)
 ANN_PATH = this_dir + '../../data/coco/annotations/instances_val2017.json'
+if not os.path.exists(ANN_PATH):
+    raise FileNotFoundError(f"{ANN_PATH} not exists!")
 print(ANN_PATH)
 if __name__ == '__main__':
     pred_path = sys.argv[1]

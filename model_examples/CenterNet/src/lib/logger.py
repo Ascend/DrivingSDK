@@ -81,10 +81,6 @@ class Logger(object):
             if not os.path.exists(log_dir):
                 os.makedirs(log_dir, exist_ok=True)
         self.log = open(log_dir + '/log.txt', 'w')
-        try:
-            os.system('cp {}/opt.txt {}/'.format(opt.save_dir, log_dir))
-        except Exception:
-            pass
         self.start_line = True
 
     def write(self, txt):

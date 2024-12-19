@@ -299,6 +299,8 @@ class PoseResNet(nn.Module):
             if load_local_weights:
                 print("LOADING LOCAL WEIGHTS...")
                 print(local_weights_path)
+                if not os.path.exists(local_weights_path):
+                    raise FileNotFoundError(f"{local_weights_path} not exists!")
                 pretrained_state_dict = torch.load(local_weights_path, None)
             else:
                 print("NO LOADING LOCAL WEIGHTS...")

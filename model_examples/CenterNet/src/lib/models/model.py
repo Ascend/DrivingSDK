@@ -65,6 +65,8 @@ def load_model(model, model_path, optimizer=None, resume=False,
                lr=None, lr_step=None):
     print(model_path)
     start_epoch = 0
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"{model_path} not exists!")
     checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
     print('load model')
 

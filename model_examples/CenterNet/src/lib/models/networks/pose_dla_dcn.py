@@ -328,7 +328,10 @@ class DLA(nn.Module):
     def load_pretrained_model(self, data='imagenet', name='dla34', hash='ba72cf86'):
         # fc = self.fc
         if name.endswith('.pth'):
-            model_weights = torch.load(data + name)
+            pth_load_path = data + name
+            if not os.path.exists(pth_load_path):
+                raise FileNotFoundError(f"{pth_load_path} not exists!")
+            model_weights = torch.load(pth_load_path)
         else:
             model_url = get_model_url(data, name, hash)
             model_weights = model_zoo.load_url(model_url)
