@@ -176,6 +176,7 @@ out, argmax = scatter_max(updates, indices, out)
 | FCOS-resnet | https://gitee.com/ascend/mxDriving/tree/master/model_examples/FCOS | 【Test】|
 | MapTR |https://gitee.com/ascend/mxDriving/tree/master/model_examples/MapTR| 【Test】|
 | UniAD | https://gitee.com/ascend/mxDriving/tree/master/model_examples/UniAD |【Test】|
+| PivotNet|https://gitee.com/ascend/mxDriving/tree/master/model_examples/PivotNet|【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品

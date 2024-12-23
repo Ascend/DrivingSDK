@@ -1,0 +1,169 @@
+diff --git a/configs/pivotnet_nuscenes_swint.py b/configs/pivotnet_nuscenes_swint.py
+index 00b6f43..c0bbe8b 100644
+--- a/configs/pivotnet_nuscenes_swint.py
++++ b/configs/pivotnet_nuscenes_swint.py
+@@ -12,6 +12,12 @@ from mapmaster.engine.experiment import BaseExp
+ from mapmaster.dataset.nuscenes_pivotnet import NuScenesMapDataset
+ from mapmaster.dataset.transform import Resize, Normalize, ToTensor_Pivot
+ from mapmaster.utils.misc import get_param_groups, is_distributed
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
++torch.npu.config.allow_internal_format = False
++torch.npu.set_compile_mode(jit_compile=False)
++
+ 
+ 
+ class EXPConfig:
+@@ -21,8 +27,8 @@ class EXPConfig:
+ 
+     map_conf = dict(
+         dataset_name="nuscenes",
+-        nusc_root="/data/dataset/public/nuScenes",
+-        anno_root="/data/dataset/public/nuScenes/customer/pivot-bezier",
++        nusc_root="data/nuscenes",
++        anno_root="data/nuscenes/customer/pivot-bezier",
+         split_dir="assets/splits/nuscenes",
+         num_classes=3,
+         ego_size=(60, 30),
+diff --git a/mapmaster/engine/core.py b/mapmaster/engine/core.py
+index 4ecc69f..4128b3a 100644
+--- a/mapmaster/engine/core.py
++++ b/mapmaster/engine/core.py
+@@ -10,8 +10,14 @@ from mapmaster.engine.callbacks import CheckPointLoader, CheckPointSaver, ClearM
+ from mapmaster.engine.callbacks import TensorBoardMonitor, TextMonitor, ClipGrad
+ from mapmaster.utils.env import collect_env_info, get_root_dir
+ from mapmaster.utils.misc import setup_logger, sanitize_filename, PyDecorator, all_gather_object
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ 
++torch.npu.config.allow_internal_format = False
++torch.npu.set_compile_mode(jit_compile=False)
++
+ __all__ = ["BaseCli", "BeMapNetCli"]
+ 
+ 
+diff --git a/mapmaster/engine/executor.py b/mapmaster/engine/executor.py
+index a7bcf4c..5f344cd 100644
+--- a/mapmaster/engine/executor.py
++++ b/mapmaster/engine/executor.py
+@@ -4,8 +4,13 @@ from tqdm import tqdm
+ from typing import Sequence
+ from mapmaster.engine.experiment import BaseExp
+ from mapmaster.utils.misc import get_rank, synchronize
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ 
++torch.npu.config.allow_internal_format = False
++torch.npu.set_compile_mode(jit_compile=False)
++
+ __all__ = ["Callback", "BaseExecutor", "Trainer", "BeMapNetEvaluator"]
+ 
+ 
+diff --git a/mapmaster/models/bev_decoder/deform_transformer/ops/modules/ms_deform_attn.py b/mapmaster/models/bev_decoder/deform_transformer/ops/modules/ms_deform_attn.py
+index c091ed6..6a94dde 100644
+--- a/mapmaster/models/bev_decoder/deform_transformer/ops/modules/ms_deform_attn.py
++++ b/mapmaster/models/bev_decoder/deform_transformer/ops/modules/ms_deform_attn.py
+@@ -18,8 +18,8 @@ from torch import nn
+ import torch.nn.functional as F
+ from torch.nn.init import xavier_uniform_, constant_
+ 
+-from ..functions import MSDeformAttnFunction
+-
++import torch, torch_npu
++from mx_driving import npu_multi_scale_deformable_attn_function
+ 
+ def _is_power_of_2(n):
+     if (not isinstance(n, int)) or (n < 0):
+@@ -128,13 +128,13 @@ class MSDeformAttn(nn.Module):
+             raise ValueError(
+                 "Last dim of reference_points must be 2 or 4, but get {} instead.".format(reference_points.shape[-1])
+             )
+-        output = MSDeformAttnFunction.apply(
++        
++        output = npu_multi_scale_deformable_attn_function(
+             value,
+             input_spatial_shapes,
+             input_level_start_index,
+             sampling_locations,
+             attention_weights,
+-            self.im2col_step,
+         )
+         output = self.output_proj(output)
+         return output
+diff --git a/mapmaster/models/output_head/pivot_post_processor.py b/mapmaster/models/output_head/pivot_post_processor.py
+index cc49dcc..9b4b458 100644
+--- a/mapmaster/models/output_head/pivot_post_processor.py
++++ b/mapmaster/models/output_head/pivot_post_processor.py
+@@ -154,6 +154,8 @@ class SetCriterion(nn.Module):
+                     _, matched_pt_idx = pivot_dynamic_matching(cost_mat.detach().cpu().numpy())
+                     matched_pt_idx = torch.tensor(matched_pt_idx)
+                     # match pts loss
++                    # npu adapt, no damage to precision
++                    tgt_pts = torch.tensor(tgt_pts, dtype=torch.float32)
+                     loss_match = w * F.l1_loss(src_pts[matched_pt_idx], tgt_pts, reduction="none").sum(dim=-1)   # [n_gt_pt, 2] -> [n_gt_dt]
+                     loss_match = (loss_match * weight_pt).sum() / weight_pt.sum()
+                     loss_pts += loss_match / num_instances
+diff --git a/requirement.txt b/requirement.txt
+index 7120c16..d3fc906 100644
+--- a/requirement.txt
++++ b/requirement.txt
+@@ -1,3 +1,5 @@
++torchvision==0.16.0
++decorator
+ clearml
+ loguru
+ Ninja
+@@ -9,4 +11,4 @@ tabulate
+ tensorboardX
+ Pillow==9.4.0
+ numpy==1.23.5
+-visvalingamwyatt=0.2.0
+\ No newline at end of file
++visvalingamwyatt==0.2.0
+\ No newline at end of file
+diff --git a/run.sh b/run.sh
+index ee8c865..6a7ddb8 100644
+--- a/run.sh
++++ b/run.sh
+@@ -1,6 +1,8 @@
+ #!/usr/bin/env bash
+ 
+-export PYTHONPATH=$(pwd)
++export PYTHONPATH=$PYTHONPATH:$(pwd)
++export CPU_AFFINITY_CONF=1
++export TASK_QUEUE_ENABLE=2
+ 
+ case "$1" in
+     "train")
+diff --git a/tools/evaluation/cd.py b/tools/evaluation/cd.py
+index 9edf001..9462504 100644
+--- a/tools/evaluation/cd.py
++++ b/tools/evaluation/cd.py
+@@ -5,7 +5,8 @@ def chamfer_distance(source_pc, target_pc, threshold, cum=False, bidirectional=T
+     torch.backends.cudnn.allow_tf32 = False
+     # dist = torch.cdist(source_pc.float(), target_pc.float())
+     # dist = torch.cdist(source_pc.float(), target_pc.float(), compute_mode='donot_use_mm_for_euclid_dist')
+-    dist = torch.cdist(source_pc.type(torch.float64), target_pc.type(torch.float64))
++    # npu adapt, no damage to precision
++    dist = torch.cdist(source_pc.type(torch.float32), target_pc.type(torch.float32))
+     dist1, _ = torch.min(dist, 2)
+     dist2, _ = torch.min(dist, 1)
+     if cum:
+diff --git a/tools/evaluation/eval.py b/tools/evaluation/eval.py
+index d85a976..baf29a7 100644
+--- a/tools/evaluation/eval.py
++++ b/tools/evaluation/eval.py
+@@ -7,7 +7,8 @@ from tqdm import tqdm
+ from tabulate import tabulate
+ from torch.utils.data import Dataset, DataLoader
+ from ap import instance_mask_ap as get_batch_ap
+-
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ class BeMapNetResultForNuScenes(Dataset):
+     def __init__(self, gt_dir, dt_dir, val_txt):
