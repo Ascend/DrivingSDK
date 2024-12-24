@@ -1,0 +1,617 @@
+diff --git a/patch/distributed.py b/patch/distributed.py
+new file mode 100644
+index 0000000..f0dfecc
+--- /dev/null
++++ b/patch/distributed.py
+@@ -0,0 +1,166 @@
++# Copyright (c) OpenMMLab. All rights reserved.
++from typing import Any, List, Tuple
++
++import torch
++from torch.nn.parallel.distributed import (DistributedDataParallel,
++                                           _find_tensors)
++
++from mmcv import print_log
++from mmcv.utils import TORCH_VERSION, digit_version
++from .scatter_gather import ScatterInputs, scatter_kwargs
++
++
++class MMDistributedDataParallel(DistributedDataParallel):
++    """The DDP module that supports DataContainer.
++
++    MMDDP has two main differences with PyTorch DDP:
++
++    - It supports a custom type :class:`DataContainer` which allows more
++      flexible control of input data.
++    - It implement two APIs ``train_step()`` and ``val_step()``.
++    """
++
++    def to_kwargs(self, inputs: ScatterInputs, kwargs: ScatterInputs,
++                  device_id: int) -> Tuple[tuple, tuple]:
++        # Use `self.to_kwargs` instead of `self.scatter` in pytorch1.8
++        # to move all tensors to device_id
++        return scatter_kwargs(inputs, kwargs, [device_id], dim=self.dim)
++
++    def scatter(self, inputs: ScatterInputs, kwargs: ScatterInputs,
++                device_ids: List[int]) -> Tuple[tuple, tuple]:
++        return scatter_kwargs(inputs, kwargs, device_ids, dim=self.dim)
++
++    def train_step(self, *inputs, **kwargs):
++        """train_step() API for module wrapped by DistributedDataParallel.
++
++        This method is basically the same as
++        ``DistributedDataParallel.forward()``, while replacing
++        ``self.module.forward()`` with ``self.module.train_step()``.
++        It is compatible with PyTorch 1.1 - 1.5.
++        """
++
++        # In PyTorch >= 1.7, ``reducer._rebuild_buckets()`` is moved from the
++        # end of backward to the beginning of forward.
++        if ('parrots' not in TORCH_VERSION
++                and digit_version(TORCH_VERSION) >= digit_version('1.7')
++                and self.reducer._rebuild_buckets()):
++            print_log(
++                'Reducer buckets have been rebuilt in this iteration.',
++                logger='mmcv')
++
++        if ('parrots' not in TORCH_VERSION
++                and digit_version(TORCH_VERSION) >= digit_version('1.11.0a0')):
++            if self._check_sync_bufs_pre_fwd():
++                self._sync_buffers()
++        else:
++            if (getattr(self, 'require_forward_param_sync', False)
++                    and self.require_forward_param_sync):
++                self._sync_params()
++
++        if self.device_ids:
++            inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
++            if len(self.device_ids) == 1:
++                output = self.module.train_step(*inputs[0], **kwargs[0])
++            else:
++                outputs = self.parallel_apply(
++                    self._module_copies[:len(inputs)], inputs, kwargs)
++                output = self.gather(outputs, self.output_device)
++        else:
++            output = self.module.train_step(*inputs, **kwargs)
++
++        if ('parrots' not in TORCH_VERSION
++                and digit_version(TORCH_VERSION) >= digit_version('1.11.0a0')):
++            if self._check_sync_bufs_post_fwd():
++                self._sync_buffers()
++
++        if (torch.is_grad_enabled()
++                and getattr(self, 'require_backward_grad_sync', False)
++                and self.require_backward_grad_sync):
++            if self.find_unused_parameters:
++                self.reducer.prepare_for_backward(list(_find_tensors(output)))
++            else:
++                self.reducer.prepare_for_backward([])
++        else:
++            if ('parrots' not in TORCH_VERSION
++                    and digit_version(TORCH_VERSION) > digit_version('1.2')):
++                self.require_forward_param_sync = False
++        return output
++
++    def val_step(self, *inputs, **kwargs):
++        """val_step() API for module wrapped by DistributedDataParallel.
++
++        This method is basically the same as
++        ``DistributedDataParallel.forward()``, while replacing
++        ``self.module.forward()`` with ``self.module.val_step()``.
++        It is compatible with PyTorch 1.1 - 1.5.
++        """
++        # In PyTorch >= 1.7, ``reducer._rebuild_buckets()`` is moved from the
++        # end of backward to the beginning of forward.
++        if ('parrots' not in TORCH_VERSION
++                and digit_version(TORCH_VERSION) >= digit_version('1.7')
++                and self.reducer._rebuild_buckets()):
++            print_log(
++                'Reducer buckets have been rebuilt in this iteration.',
++                logger='mmcv')
++
++        if ('parrots' not in TORCH_VERSION
++                and digit_version(TORCH_VERSION) >= digit_version('1.11.0a0')):
++            if self._check_sync_bufs_pre_fwd():
++                self._sync_buffers()
++        else:
++            if (getattr(self, 'require_forward_param_sync', False)
++                    and self.require_forward_param_sync):
++                self._sync_params()
++
++        if self.device_ids:
++            inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
++            if len(self.device_ids) == 1:
++                output = self.module.val_step(*inputs[0], **kwargs[0])
++            else:
++                outputs = self.parallel_apply(
++                    self._module_copies[:len(inputs)], inputs, kwargs)
++                output = self.gather(outputs, self.output_device)
++        else:
++            output = self.module.val_step(*inputs, **kwargs)
++
++        if ('parrots' not in TORCH_VERSION
++                and digit_version(TORCH_VERSION) >= digit_version('1.11.0a0')):
++            if self._check_sync_bufs_post_fwd():
++                self._sync_buffers()
++
++        if (torch.is_grad_enabled()
++                and getattr(self, 'require_backward_grad_sync', False)
++                and self.require_backward_grad_sync):
++            if self.find_unused_parameters:
++                self.reducer.prepare_for_backward(list(_find_tensors(output)))
++            else:
++                self.reducer.prepare_for_backward([])
++        else:
++            if ('parrots' not in TORCH_VERSION
++                    and digit_version(TORCH_VERSION) > digit_version('1.2')):
++                self.require_forward_param_sync = False
++        return output
++
++    def _run_ddp_forward(self, *inputs, **kwargs) -> Any:
++        """Processes inputs and runs ``self.module.forward``.
++
++        Pytorch 1.12.0 performs ``self.module.forward`` in ``_run_ddp_forward``
++        and deprecates using ``DistributedDataParallel.to_kwargs`` to
++        process inputs, which leads to inputs cannot be processed by
++        :meth:`MMDistributedDataParallel.to_kwargs` anymore. Therefore,
++        ``MMDistributedDataParallel`` overrides this method to call
++        :meth:`to_kwargs` explicitly.
++
++        See more information in `<https://github.com/open-mmlab/mmsegmentation/issues/1742>`_.  # noqa: E501
++
++        Returns:
++            Any: Forward result of :attr:`module`.
++        """
++        module_to_run = self.module
++
++        if self.device_ids:
++            inputs, kwargs = self.to_kwargs(  # type: ignore
++                inputs, kwargs, self.device_ids[0])
++            return module_to_run(*inputs[0], **kwargs[0])  # type: ignore
++        else:
++            return module_to_run(*inputs, **kwargs)
+diff --git a/patch/requirements.txt b/patch/requirements.txt
+new file mode 100644
+index 0000000..583c2f0
+--- /dev/null
++++ b/patch/requirements.txt
+@@ -0,0 +1,16 @@
++numpy==1.23.5
++pyyaml==6.0.2
++mmdet==2.28.2
++mmsegmentation==0.30.0
++numba==0.58.1
++ipython==8.12.3
++einops==0.8.0
++fvcore==0.1.5.post20221221
++attr==0.3.2
++attrs==24.2.0
++psutil==6.1.0
++opencv-python==4.8.1.78
++opencv-python-headless==4.8.1.78
++mmengine==0.9.1
++torchvision==0.9.1
++setuptools==69.5.1
+\ No newline at end of file
+diff --git a/projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e_performance.py b/projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e_performance.py
+new file mode 100644
+index 0000000..418eb59
+--- /dev/null
++++ b/projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e_performance.py
+@@ -0,0 +1,254 @@
++_base_ = [
++    '../../../mmdetection3d/configs/_base_/datasets/nus-3d.py',
++    '../../../mmdetection3d/configs/_base_/default_runtime.py'
++]
++backbone_norm_cfg = dict(type='LN', requires_grad=True)
++plugin=True
++plugin_dir='projects/mmdet3d_plugin/'
++
++# If point cloud range is changed, the models should also change their point
++# cloud range accordingly
++point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
++voxel_size = [0.2, 0.2, 8]
++img_norm_cfg = dict(
++    mean=[103.530, 116.280, 123.675], std=[57.375, 57.120, 58.395], to_rgb=False) # fix img_norm
++# For nuScenes we usually do 10-class detection
++class_names = [
++    'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
++    'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
++]
++
++num_gpus = 8
++batch_size = 2
++num_iters_per_epoch = 28130 // (num_gpus * batch_size)
++num_epochs = 1
++
++queue_length = 1
++num_frame_losses = 1
++collect_keys=['lidar2img', 'intrinsics', 'extrinsics','timestamp', 'img_timestamp', 'ego_pose', 'ego_pose_inv']
++input_modality = dict(
++    use_lidar=False,
++    use_camera=True,
++    use_radar=False,
++    use_map=False,
++    use_external=True)
++model = dict(
++    type='Petr3D',
++    num_frame_head_grads=num_frame_losses,
++    num_frame_backbone_grads=num_frame_losses,
++    num_frame_losses=num_frame_losses,
++    use_grid_mask=True,
++    img_backbone=dict(
++        type='VoVNetCP', ###use checkpoint to save memory
++        spec_name='V-99-eSE',
++        norm_eval=True,
++        frozen_stages=-1,
++        input_ch=3,
++        out_features=('stage4','stage5',)),
++    img_neck=dict(
++        type='CPFPN',  ###remove unused parameters 
++        in_channels=[768, 1024],
++        out_channels=256,
++        num_outs=2),
++    img_roi_head=dict(
++        type='FocalHead',
++        num_classes=10,
++        in_channels=256,
++        loss_cls2d=dict(
++            type='QualityFocalLoss',
++            use_sigmoid=True,
++            beta=2.0,
++            loss_weight=2.0),
++        loss_centerness=dict(type='GaussianFocalLoss', reduction='mean', loss_weight=1.0),
++        loss_bbox2d=dict(type='L1Loss', loss_weight=5.0),
++        loss_iou2d=dict(type='GIoULoss', loss_weight=2.0),
++        loss_centers2d=dict(type='L1Loss', loss_weight=10.0),
++        train_cfg=dict(
++        assigner2d=dict(
++            type='HungarianAssigner2D',
++            cls_cost=dict(type='FocalLossCost', weight=2.),
++            reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
++            iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0),
++            centers2d_cost=dict(type='BBox3DL1Cost', weight=10.0)))
++        ),
++    pts_bbox_head=dict(
++        type='StreamPETRHead',
++        num_classes=10,
++        in_channels=256,
++        num_query=644,
++        memory_len=1024,
++        topk_proposals=256,
++        num_propagated=256,
++        with_ego_pos=True,
++        match_with_velo=False,
++        scalar=10, ##noise groups
++        noise_scale = 1.0, 
++        dn_weight= 1.0, ##dn loss weight
++        split = 0.75, ###positive rate
++        LID=True,
++        with_position=True,
++        position_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
++        code_weights = [2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
++        transformer=dict(
++            type='PETRTemporalTransformer',
++            decoder=dict(
++                type='PETRTransformerDecoder',
++                return_intermediate=True,
++                num_layers=6,
++                transformerlayers=dict(
++                    type='PETRTemporalDecoderLayer',
++                    attn_cfgs=[
++                        dict(
++                            type='MultiheadAttention',
++                            embed_dims=256,
++                            num_heads=8,
++                            dropout=0.1),
++                        dict(
++                            type='PETRMultiheadFlashAttention',
++                            embed_dims=256,
++                            num_heads=8,
++                            dropout=0.1),
++                        ],
++                    feedforward_channels=2048,
++                    ffn_dropout=0.1,
++                    with_cp=True,  ###use checkpoint to save memory
++                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
++                                     'ffn', 'norm')),
++            )),
++        bbox_coder=dict(
++            type='NMSFreeCoder',
++            post_center_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
++            pc_range=point_cloud_range,
++            max_num=300,
++            voxel_size=voxel_size,
++            num_classes=10), 
++        loss_cls=dict(
++            type='FocalLoss',
++            use_sigmoid=True,
++            gamma=2.0,
++            alpha=0.25,
++            loss_weight=2.0),
++        loss_bbox=dict(type='L1Loss', loss_weight=0.25),
++        loss_iou=dict(type='GIoULoss', loss_weight=0.0),),
++    # model training and testing settings
++    train_cfg=dict(pts=dict(
++        grid_size=[512, 512, 1],
++        voxel_size=voxel_size,
++        point_cloud_range=point_cloud_range,
++        out_size_factor=4,
++        assigner=dict(
++            type='HungarianAssigner3D',
++            cls_cost=dict(type='FocalLossCost', weight=2.0),
++            reg_cost=dict(type='BBox3DL1Cost', weight=0.25),
++            iou_cost=dict(type='IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head. 
++            pc_range=point_cloud_range),)))
++
++
++dataset_type = 'CustomNuScenesDataset'
++data_root = './data/nuscenes/'
++
++file_client_args = dict(backend='disk')
++
++
++ida_aug_conf = {
++        "resize_lim": (0.47, 0.625),
++        "final_dim": (320, 800),
++        "bot_pct_lim": (0.0, 0.0),
++        "rot_lim": (0.0, 0.0),
++        "H": 900,
++        "W": 1600,
++        "rand_flip": True,
++    }
++train_pipeline = [
++    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
++    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
++        with_label=True, with_bbox_depth=True),
++    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
++    dict(type='ObjectNameFilter', classes=class_names),
++    dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=True),
++    dict(type='GlobalRotScaleTransImage',
++            rot_range=[-0.3925, 0.3925],
++            translation_std=[0, 0, 0],
++            scale_ratio_range=[0.95, 1.05],
++            reverse_angle=True,
++            training=True,
++            ),
++    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
++    dict(type='PadMultiViewImage', size_divisor=32),
++    dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
++    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists'] + collect_keys,
++             meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d'))
++]
++test_pipeline = [
++    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
++    dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False),
++    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
++    dict(type='PadMultiViewImage', size_divisor=32),
++    dict(
++        type='MultiScaleFlipAug3D',
++        img_scale=(1333, 800),
++        pts_scale_ratio=1,
++        flip=False,
++        transforms=[
++            dict(
++                type='PETRFormatBundle3D',
++                collect_keys=collect_keys,
++                class_names=class_names,
++                with_label=False),
++            dict(type='Collect3D', keys=['img'] + collect_keys,
++            meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token'))
++        ])
++]
++
++data = dict(
++    samples_per_gpu=batch_size,
++    workers_per_gpu=4,
++    train=dict(
++        type=dataset_type,
++        data_root=data_root,
++        ann_file=data_root + 'nuscenes2d_temporal_infos_train.pkl',
++        num_frame_losses=num_frame_losses,
++        seq_split_num=2, # streaming video training
++        seq_mode=True, # streaming video training
++        pipeline=train_pipeline,
++        classes=class_names,
++        modality=input_modality,
++        collect_keys=collect_keys + ['img', 'prev_exists', 'img_metas'],
++        queue_length=queue_length,
++        test_mode=False,
++        use_valid_flag=True,
++        filter_empty_gt=False,
++        box_type_3d='LiDAR'),
++    val=dict(type=dataset_type, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'img_metas'], queue_length=queue_length, ann_file=data_root + 'nuscenes2d_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
++    test=dict(type=dataset_type, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'img_metas'], queue_length=queue_length, ann_file=data_root + 'nuscenes2d_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
++    shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
++    nonshuffler_sampler=dict(type='DistributedSampler')
++    )
++
++
++optimizer = dict(
++    type='AdamW', 
++    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
++    paramwise_cfg=dict(
++        custom_keys={
++            'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
++        }),
++    weight_decay=0.01)
++
++optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
++# learning policy
++lr_config = dict(
++    policy='CosineAnnealing',
++    warmup='linear',
++    warmup_iters=500,
++    warmup_ratio=1.0 / 3,
++    min_lr_ratio=1e-3,
++    )
++
++evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
++find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
++checkpoint_config = dict(interval=num_iters_per_epoch, max_keep_ckpts=3)
++runner = dict(
++    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
++load_from='ckpts/fcos3d_vovnet_imgbackbone-remapped.pth'
++resume_from=None
+diff --git a/projects/mmdet3d_plugin/core/apis/mmdet_train.py b/projects/mmdet3d_plugin/core/apis/mmdet_train.py
+index bed0e5a..d0b0c8e 100644
+--- a/projects/mmdet3d_plugin/core/apis/mmdet_train.py
++++ b/projects/mmdet3d_plugin/core/apis/mmdet_train.py
+@@ -12,7 +12,7 @@ import warnings
+ import numpy as np
+ import torch
+ import torch.distributed as dist
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
+                          Fp16OptimizerHook, OptimizerHook, build_optimizer,
+                          build_runner, get_dist_info)
+@@ -76,22 +76,22 @@ def custom_train_detector(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+         if eval_model is not None:
+-            eval_model = MMDistributedDataParallel(
++            eval_model = NPUDistributedDataParallel(
+                 eval_model.cuda(),
+                 device_ids=[torch.cuda.current_device()],
+                 broadcast_buffers=False,
+                 find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+         if eval_model is not None:
+-            eval_model = MMDataParallel(
++            eval_model = NPUDataParallel(
+                 eval_model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+ 
+diff --git a/projects/mmdet3d_plugin/models/utils/attention.py b/projects/mmdet3d_plugin/models/utils/attention.py
+index 3559b65..c385e45 100644
+--- a/projects/mmdet3d_plugin/models/utils/attention.py
++++ b/projects/mmdet3d_plugin/models/utils/attention.py
+@@ -1,7 +1,7 @@
+ # ------------------------------------------------------------------------
+ # Copyright (c) 2023 megvii-model. All Rights Reserved.
+ # ------------------------------------------------------------------------
+-#  Modified by Shihao Wang
++#  Modified by Linsiman Li
+ # ------------------------------------------------------------------------
+ # flash-attention 
+ import math
+@@ -17,9 +17,7 @@ from torch.nn.functional import linear
+ from einops import rearrange
+ from mmcv.runner import auto_fp16
+ from mmcv.runner.base_module import BaseModule
+-
+-from flash_attn.flash_attn_interface import flash_attn_unpadded_kvpacked_func
+-from flash_attn.bert_padding import unpad_input, pad_input, index_first_axis
++import torch_npu
+ 
+ 
+ def _in_projection_packed(q, k, v, w, b = None):
+@@ -48,7 +46,7 @@ class FlashAttention(nn.Module):
+         self.fp16_enabled = True
+ 
+     @auto_fp16(apply_to=('q', 'kv'), out_fp32=True)
+-    def forward(self, q, kv, 
++    def forward(self, q, kv,
+                 causal=False, 
+                 key_padding_mask=None):
+         """Implements the multihead softmax attention.
+@@ -65,33 +63,27 @@ class FlashAttention(nn.Module):
+         batch_size = q.shape[0]
+         seqlen_q, seqlen_k = q.shape[1], kv.shape[1]
+         if key_padding_mask is None:
+-            q, kv = rearrange(q, 'b s ... -> (b s) ...'), rearrange(kv, 'b s ... -> (b s) ...')
+-            max_sq, max_sk = seqlen_q, seqlen_k 
+-            cu_seqlens_q = torch.arange(0, (batch_size + 1) * seqlen_q, step=seqlen_q, dtype=torch.int32,
+-                                    device=q.device)
+-            cu_seqlens_k = torch.arange(0, (batch_size + 1) * seqlen_k, step=seqlen_k, dtype=torch.int32,
+-                                    device=kv.device)                    
+-            output = flash_attn_unpadded_kvpacked_func(
+-                q, kv, cu_seqlens_q, cu_seqlens_k, max_sq, max_sk,
+-                self.dropout_p if self.training else 0.0,
+-                softmax_scale=self.softmax_scale, causal=causal
+-            )
+-            output = rearrange(output, '(b s) ... -> b s ...', b=batch_size)
++            if self.softmax_scale:
++                scale = self.softmax_scale
++            else:
++                scale = (q.shape[-1]) ** (-0.5)
++
++            dropout_p = self.dropout_p if self.training else 0.0
++            h = q.shape[-2]
++            output = torch_npu.npu_fusion_attention(q,
++                        kv[:,:, 0],
++                        kv[:,:, 1],
++                        h,
++                        input_layout = "BSND",
++                        pre_tockens=65536,
++                        next_tockens=65536,
++                        atten_mask=None,
++                        scale = scale,
++                        keep_prob=1.-dropout_p,
++                        sync=False,
++                        inner_precise=0)[0]
+         else:
+-            nheads = kv.shape[-2]
+-            q = rearrange(q, 'b s ... -> (b s) ...')
+-            max_sq = seqlen_q
+-            cu_seqlens_q = torch.arange(0, (batch_size + 1) * seqlen_q, step=seqlen_q, dtype=torch.int32,
+-                                    device=q.device)
+-            x = rearrange(kv, 'b s two h d -> b s (two h d)')
+-            x_unpad, indices, cu_seqlens_k, max_sk = unpad_input(x, key_padding_mask)
+-            x_unpad = rearrange(x_unpad, 'nnz (two h d) -> nnz two h d', two=2, h=nheads)
+-            output_unpad = flash_attn_unpadded_kvpacked_func(
+-                q, x_unpad, cu_seqlens_q, cu_seqlens_k, max_sq, max_sk,
+-                self.dropout_p if self.training else 0.0,
+-                softmax_scale=self.softmax_scale, causal=causal
+-            )
+-            output = rearrange(output_unpad, '(b s) ... -> b s ...', b=batch_size)
++            pass
+ 
+         return output, None
+ 
+diff --git a/tools/env_model.sh b/tools/env_model.sh
+new file mode 100644
+index 0000000..ba0f656
+--- /dev/null
++++ b/tools/env_model.sh
+@@ -0,0 +1,5 @@
++export TASK_QUEUE_ENABLE=2
++export CPU_AFFINITY_CONF=1
++export HCCL_OP_BASE_FFTS_MODE_ENABLE=TRUE
++export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
++export MULTI_STREAM_MEMORY_REUSE=1
+\ No newline at end of file
+diff --git a/tools/train.py b/tools/train.py
+index 23ad6a2..65d7810 100755
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -12,6 +12,8 @@ import mmcv
+ import os
+ import time
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import warnings
+ from mmcv import Config, DictAction
+ from mmcv.runner import get_dist_info, init_dist, wrap_fp16_model
+@@ -27,6 +29,9 @@ from mmdet.apis import set_random_seed
+ from mmseg import __version__ as mmseg_version
+ from mmcv.utils import TORCH_VERSION, digit_version
+ 
++torch.npu.config.allow_internal_format = False
++torch.npu.set_compile_mode(jit_compile=False)
++
+ def parse_args():
+     parser = argparse.ArgumentParser(description='Train a detector')
+     parser.add_argument('config', help='train config file path')

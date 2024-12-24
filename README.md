@@ -167,6 +167,7 @@ out, argmax = scatter_max(updates, indices, out)
 | BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |【Pass】|
 | SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |【Pass】|
 | GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner | 【Pass】|
+| StreamPETR  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/StreamPETR |【Test】|
 | BEVDet  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVDet |【Test】|
 | PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
 | TPVFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/TPVFormer |【Test】|
