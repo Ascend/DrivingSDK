@@ -32,7 +32,7 @@ bash ci/build.sh --python=3.8
 
 | 参数   | 取值范围                                                     | 说明                           | 缺省值 | 备注                                           |
 | ------ | ------------------------------------------------------------ | ------------------------------ | ------ | ---------------------------------------------- |
-| python | pytorch2.1.0、2.3.1及以上版本，支持3.8及以上 | 指定编译过程中使用的python版本 | 3.8    | 
+| python | pytorch2.1.0、2.3.1及以上版本，支持3.8及以上 | 指定编译过程中使用的python版本 | 3.8    |
 
 支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如下：
 
@@ -88,19 +88,19 @@ out, argmax = scatter_max(updates, indices, out)
 │  │  └── ops                   # 通用算子
 │  ├── preprocess               # 数据预处理模块
 │  │  ├── __init__.py
-│  │  ├── CMakeLists.txt   
+│  │  ├── CMakeLists.txt
 │  │  └── ops                   # 数据预处理算子
 │  ├── detection                # 目标检测模块
 │  │  ├── __init__.py
-│  │  ├── CMakeLists.txt   
+│  │  ├── CMakeLists.txt
 │  │  └── ops                   # 目标检测算子
 │  ├── point                    # 点云模块
 │  │  ├── __init__.py
-│  │  ├── CMakeLists.txt   
+│  │  ├── CMakeLists.txt
 │  │  └── ops                   # 点云算子
 │  ├── fused                    # 融合模块
 │  │  ├── __init__.py
-│  │  ├── CMakeLists.txt   
+│  │  ├── CMakeLists.txt
 │  │  └── ops                   # 融合算子
 │  └── spconv                   # 稀疏卷积模块
 │     ├── __init__.py
@@ -178,6 +178,7 @@ out, argmax = scatter_max(updates, indices, out)
 | MapTR |https://gitee.com/ascend/mxDriving/tree/master/model_examples/MapTR| 【Test】|
 | UniAD | https://gitee.com/ascend/mxDriving/tree/master/model_examples/UniAD |【Test】|
 | PivotNet|https://gitee.com/ascend/mxDriving/tree/master/model_examples/PivotNet|【Test】|
+| CenterPoint(3D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
@@ -225,7 +226,7 @@ out, argmax = scatter_max(updates, indices, out)
 |  密钥组件、私钥、证书、密文文件目录   |   700（rwx------）      |
 |  密钥组件、私钥、证书、加密密文       |   600（rw-------）     |
 |  加解密接口、加解密脚本              |   500（r-x------）      |
-    
+
 ## 构建安全声明
 在源码编译安装Driving SDK时，需要您自行编译，编译过程中会生成一些中间文件，建议您在编译完成后，对中间文件做好权限控制，以保证文件安全。
 ## 运行安全声明
@@ -286,7 +287,7 @@ Driving SDK在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安�
 Driving SDK在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
 
 
-# 软件生命周期说明 
+# 软件生命周期说明
 ## 分支维护策略
 
 Driving SDK版本分支的维护阶段如下：

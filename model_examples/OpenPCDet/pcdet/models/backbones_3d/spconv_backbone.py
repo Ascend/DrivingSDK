@@ -2,19 +2,20 @@ from functools import partial
 
 import torch.nn as nn
 
-from ...utils.spconv_utils import replace_feature, spconv
+from ...utils.spconv_utils import replace_feature
+from mx_driving import spconv
 
 
 def post_act_block(in_channels, out_channels, kernel_size, indice_key=None, stride=1, padding=0,
                    conv_type='subm', norm_fn=None):
 
     if conv_type == 'subm':
-        conv = spconv.SubMConv3d(in_channels, out_channels, kernel_size, bias=False, indice_key=indice_key)
+        conv = spconv.SubMConv3d(in_channels, out_channels, kernel_size, bias=False, mode='spconv', indice_key=indice_key)
     elif conv_type == 'spconv':
         conv = spconv.SparseConv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding,
-                                   bias=False, indice_key=indice_key)
+                                   bias=False, mode='spconv', indice_key=indice_key)
     elif conv_type == 'inverseconv':
-        conv = spconv.SparseInverseConv3d(in_channels, out_channels, kernel_size, indice_key=indice_key, bias=False)
+        conv = spconv.SparseInverseConv3d(in_channels, out_channels, kernel_size, mode='spconv', indice_key=indice_key, bias=False)
     else:
         raise NotImplementedError
 
@@ -37,12 +38,12 @@ class SparseBasicBlock(spconv.SparseModule):
         if bias is None:
             bias = norm_fn is not None
         self.conv1 = spconv.SubMConv3d(
-            inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=bias, indice_key=indice_key
+            inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=bias, mode='spconv', indice_key=indice_key
         )
         self.bn1 = norm_fn(planes)
         self.relu = nn.ReLU()
         self.conv2 = spconv.SubMConv3d(
-            planes, planes, kernel_size=3, stride=stride, padding=1, bias=bias, indice_key=indice_key
+            planes, planes, kernel_size=3, stride=stride, padding=1, bias=bias, mode='spconv', indice_key=indice_key
         )
         self.bn2 = norm_fn(planes)
         self.downsample = downsample
@@ -76,7 +77,7 @@ class VoxelBackBone8x(nn.Module):
         self.sparse_shape = grid_size[::-1] + [1, 0, 0]
 
         self.conv_input = spconv.SparseSequential(
-            spconv.SubMConv3d(input_channels, 16, 3, padding=1, bias=False, indice_key='subm1'),
+            spconv.SubMConv3d(input_channels, 16, 3, padding=1, bias=False, mode='spconv', indice_key='subm1'),
             norm_fn(16),
             nn.ReLU(),
         )
@@ -112,7 +113,7 @@ class VoxelBackBone8x(nn.Module):
         self.conv_out = spconv.SparseSequential(
             # [200, 150, 5] -> [200, 150, 2]
             spconv.SparseConv3d(64, 128, (3, 1, 1), stride=(2, 1, 1), padding=last_pad,
-                                bias=False, indice_key='spconv_down2'),
+                                bias=False, mode='spconv', indice_key='spconv_down2'),
             norm_fn(128),
             nn.ReLU(),
         )
@@ -191,7 +192,7 @@ class VoxelResBackBone8x(nn.Module):
         self.sparse_shape = grid_size[::-1] + [1, 0, 0]
 
         self.conv_input = spconv.SparseSequential(
-            spconv.SubMConv3d(input_channels, 16, 3, padding=1, bias=False, indice_key='subm1'),
+            spconv.SubMConv3d(input_channels, 16, 3, padding=1, bias=False, mode='spconv', indice_key='subm1'),
             norm_fn(16),
             nn.ReLU(),
         )
@@ -228,7 +229,7 @@ class VoxelResBackBone8x(nn.Module):
         self.conv_out = spconv.SparseSequential(
             # [200, 150, 5] -> [200, 150, 2]
             spconv.SparseConv3d(128, 128, (3, 1, 1), stride=(2, 1, 1), padding=last_pad,
-                                bias=False, indice_key='spconv_down2'),
+                                bias=False, mode='spconv', indice_key='spconv_down2'),
             norm_fn(128),
             nn.ReLU(),
         )
@@ -291,5 +292,5 @@ class VoxelResBackBone8x(nn.Module):
                 'x_conv4': 8,
             }
         })
-        
+
         return batch_dict
