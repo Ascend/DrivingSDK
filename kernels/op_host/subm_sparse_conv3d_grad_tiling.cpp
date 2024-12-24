@@ -61,7 +61,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int64_t outchannel = grad_shape.GetDim(1);
     int64_t number = outchannel + 2;
     int64_t valid_number = valid_indices_shape.GetDim(0);
-    availableUbSize = (availableUbSize - 20*1024 - outchannel*4) / 20;
+    availableUbSize = (availableUbSize - 20*1024 - outchannel*70) / 20;
     availableUbSize = GetCeilInt(availableUbSize, 32) * 32;
     context->SetBlockDim(coreUsed);
     tiling.set_core_data(coreData);

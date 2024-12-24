@@ -102,7 +102,7 @@ public:
         pipe->InitBuffer(inQueueIndices, 1, this->available_ub_size * 4 * sizeof(DTYPE_FEATURE));
         pipe->InitBuffer(inQueueFeature, 1, total_kernel_size * inchannelalign * sizeof(DTYPE_FEATURE));
         pipe->InitBuffer(indicesoffsetbuf, total_kernel_size * sizeof(int32_t));
-        pipe->InitBuffer(tempgmbuf, total_kernel_size * sizeof(int32_t));
+        pipe->InitBuffer(tempgmbuf, total_kernel_size * data_each_block * sizeof(int32_t));
         copyParams_feature = {1, (uint16_t)(this->inchannel * sizeof(DTYPE_FEATURE)), 0, 0};
         copyParams_weight = {(uint16_t)(this->out_channel),
                                         (uint16_t)(this->inchannel * sizeof(DTYPE_FEATURE)), 0, 0};
@@ -180,6 +180,7 @@ private:
         for (int32_t i = 0; i < tensor_size; i++) {
             Duplicate<int32_t>(indices_offset_ub, -1, total_kernel_size, 1, 1, 8);
             Duplicate<DTYPE_FEATURE>(feature_ub, 0, total_kernel_size * this->inchannel);
+            Duplicate<DTYPE_FEATURE>(temp_gm_ub, -1, total_kernel_size * 8);
             int64_t batch_id = indices_ub.GetValue(i);
             int64_t indice_z = indices_ub.GetValue(i + this->available_ub_size);
             int64_t indice_y = indices_ub.GetValue(i + this->available_ub_size * 2);
@@ -199,16 +200,18 @@ private:
                                                         this->outSpatialShape[2] +
                                                         point[1] * this->outSpatialShape[2] + point[2] +
                                                         this->feature_map_size * batch_id;
-                                DataCopyPad(temp_gm_ub, tempGm[point_offset],
-                                            copyParams_temp_gm_ub, padParams);
-                                auto feature_address = temp_gm_ub.GetValue(0);
-                                if (feature_address != -1) {
-                                    DataCopyPad(feature_ub[offset * this->inchannel], featureGm[(int32_t)(feature_address) * this->inchannel],
-                                                copyParams_feature, padParams);
-                                    indices_offset_ub.SetValue(offset, (int32_t)(feature_address));
-                                }
+                                DataCopyPad(temp_gm_ub[offset * data_each_block], tempGm[point_offset],
+                                            copyParams_temp_gm_ub, padParams);    
                         }
                     }
+                }
+            }
+            for (int64_t iz = 0; iz < this->total_kernel_size; iz++) {
+                auto feature_address = temp_gm_ub.GetValue(iz * data_each_block);
+                if (feature_address != -1) {
+                    DataCopyPad(feature_ub[iz * this->inchannel], featureGm[(int32_t)(feature_address) * this->inchannel],
+                                copyParams_feature, padParams);
+                    indices_offset_ub.SetValue(iz, (int32_t)(feature_address));
                 }
             }
             set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
@@ -248,6 +251,7 @@ private:
         for (int32_t i = 0; i < tensor_size; i++) {
             Duplicate<int32_t>(indices_offset_ub, -1, total_kernel_size, 1, 1, 8);
             Duplicate<DTYPE_FEATURE>(feature_ub, 0, total_kernel_size * inchannel_ailgn_32b);
+            Duplicate<DTYPE_FEATURE>(temp_gm_ub, -1, total_kernel_size * 8);
             int64_t batch_id = indices_ub.GetValue(i);
             int64_t indice_z = indices_ub.GetValue(i + this->available_ub_size);
             int64_t indice_y = indices_ub.GetValue(i + this->available_ub_size * 2);
@@ -266,17 +270,20 @@ private:
                                                         this->outSpatialShape[2] +
                                                         point[1] * this->outSpatialShape[2] + point[2] +
                                                         this->feature_map_size * batch_id;
-                                DataCopyPad(temp_gm_ub, tempGm[point_offset],
+                                DataCopyPad(temp_gm_ub[offset * data_each_block], tempGm[point_offset],
                                             copyParams_temp_gm_ub, padParams);
-                                auto feature_address = temp_gm_ub.GetValue(0);
-                                if (feature_address != -1) {
-                                    DataCopyPad(feature_ub[offset * inchannel_ailgn_32b],
-                                                featureGm[(int32_t)(feature_address) * this->inchannel],
-                                                copyParams_feature, featurepadParams);
-                                    indices_offset_ub.SetValue(offset, (int32_t)(feature_address));
-                                }
                         }
                     }
+                }
+            }
+
+            for (int64_t iz = 0; iz < total_kernel_size; iz++) {
+                auto feature_address = temp_gm_ub.GetValue(iz * data_each_block);
+                if (feature_address != -1) {
+                    DataCopyPad(feature_ub[iz * inchannel_ailgn_32b],
+                                featureGm[(int32_t)(feature_address) * this->inchannel],
+                                copyParams_feature, featurepadParams);
+                    indices_offset_ub.SetValue(iz, (int32_t)(feature_address));
                 }
             }
             set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
