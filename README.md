@@ -172,6 +172,7 @@ out, argmax = scatter_max(updates, indices, out)
 | PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
 | TPVFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/TPVFormer |【Test】|
 | DETR | https://gitee.com/ascend/mxDriving/tree/master/model_examples/DETR |【Test】|
+| Deformable-DETR | https://gitee.com/ascend/mxDriving/tree/master/model_examples/Deformable-DETR |【Test】|
 | LaneSegNet | https://gitee.com/ascend/mxDriving/tree/master/model_examples/LaneSegNet |【Test】|
 | BEVFusion | https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFusion |【Test】|
 | FCOS-resnet | https://gitee.com/ascend/mxDriving/tree/master/model_examples/FCOS | 【Test】|
