@@ -3,11 +3,50 @@
 
 - 通用
     - [hypot](./context/hypot.md)
-- 感知
+    - [scatter_max](./context/scatter_max.md)
+    - [three_interpolate](./context/three_interpolate.md)
+    - [knn](./context/knn.md)
+    - [three_nn](./context/three_nn.md)
+    - [scatter_mean](./context/scatter_mean.md)
+    - [assign_score_withk](./context/assign_score_withk.md)
+    - [furthest_point_sampling](./context/furthest_point_sampling.md)
+    - [furthest_point_sample_with_dist](./context/furthest_point_sample_with_dist.md)
+    - [group_points](./context/group_points.md)
+    - [unique_voxel](./context/unique_voxel.md)
+- 采样
+    - [roipoint_pool3d](./context/roipoint_pool3d.md)
+    - [roiaware_pool3d](./context/roiaware_pool3d.md)
+    - [npu_voxel_pooling_train](./context/npu_voxel_pooling_train.md)
+    - [bev_pool](./context/bev_pool_v1.md)
+    - [bev_pool_v2](./context/bev_pool_v2.md)
+    - [bev_pool_v3[beta]](./context/bev_pool_v3[beta].md)
+    - [roi_align_rotated](./context/roi_align_rotated.md)
+    - [border_align](./context/border_align.md)
     - [pixel_group](./context/pixel_group.md)
-- 点云
-- 预处理
+- 体素化
+    - [voxelization](./context/voxelization.md)
+    - [dynamic_scatter](./context/dynamic_scatter.md)
+- 检测
+    - [boxes_overlap_bev](./context/boxes_overlap_bev.md)
+    - [box_iou_quadri](./context/box_iou_quadri.md)
+    - [box_iou_rotated[beta]](./context/box_iou_rotated[beta].md)
+    - [boxes_iou_bev[beta]](./context/boxes_iou_bev[beta].md)
+    - [nms3d](./context/nms3d.md)
+    - [nms3d_normal](./context/nms3d_normal.md)
+    - [npu_rotated_iou](./context/npu_rotated_iou.md)
     - [points_in_boxes_all](./context/points_in_boxes_all.md)
+    - [points_in_box](./context/points_in_box.md)
 - 稀疏
+    - [SparseConv3d](./context/SparseConv3d.md)
+    - [SubmSparseConv3d](./context/SubMConv3d.md)
+    - [SparseInverseConv3d[beta]](./context/SparseInverseConv3d[beta].md)
 - 融合
     - [multi_scale_deformable_attn](./context/multi_scale_deformable_attn.md)
+    - [deformable_aggregation](./context/deformable_aggregation.md)
+    - [deformable_conv2d](./context/deform_conv2d.md)
+    - [modulated_deformable_conv2d](./context/modulated_deform_conv2d.md)
+    - [npu_add_relu](./context/npu_add_relu.md)
+    - [npu_max_pool2d](./context/npu_max_pool2d.md)
+    - [geometric_kernel_attention[beta]](./context/geometric_kernel_attention[beta].md)
+    - [npu_gaussian[beta]](./context/npu_gaussian[beta].md)
+    - 

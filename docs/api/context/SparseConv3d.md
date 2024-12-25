@@ -1,4 +1,4 @@
-## SparseConv3d(beta)
+## SparseConv3d
 ### 接口原型
 ```python
 mx_driving.SparseConv3d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, indice_key=None, mode='mmcv') -> SparseConvTensor
