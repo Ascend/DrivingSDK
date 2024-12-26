@@ -75,7 +75,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
      ```
      pip install -r requirements.txt
      ```
-  6. 安装Driving SDK加速库，并将环境变量添加至 test/env_npu.sh 文件中
+  6. 安装mxDriving加速库，并将环境变量添加至 test/env_npu.sh 文件中
 
 ## 准备数据集
 

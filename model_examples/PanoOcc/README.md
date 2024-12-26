@@ -125,7 +125,7 @@
     pip install ipython==8.18.1
     ```
 
-5. 安装 Driving SDK 加速库
+5. 安装 mxDriving 加速库
 
     安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)，安装后手动 source 环境变量。
 
