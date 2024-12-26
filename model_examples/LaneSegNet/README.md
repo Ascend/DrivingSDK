@@ -132,7 +132,7 @@ data/OpenLane-V2
 - 单机8卡精度
 
   ```
-  bash test/train_full_8p.sh
+  bash test/train_8p_full.sh
   ```
 
 # 结果
