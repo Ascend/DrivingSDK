@@ -61,16 +61,16 @@
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
   |    PyTorch     |  2.1   |
-  |    Driving SDK   | latest |
+  |    mxDriving   | latest |
   |      mmcv      |  1.x   |
   |     mmdet      | 2.28.2 |
   | mmsegmentation | 0.30.0 |
 
-- 安装Driving SDK
+- 安装mxDriving
 
-  请参考昇腾[Driving SDK](https://gitee.com/ascend/mxDriving)代码仓说明编译安装Driving SDK
+  请参考昇腾[mxDriving](https://gitee.com/ascend/mxDriving)代码仓说明编译安装mxDriving
   <br>
- 【注意】请使用最新版本Driving SDK（包含bevpoolv3算子的版本）
+ 【注意】请使用最新版本mxDriving（包含bevpoolv3算子的版本）
 
 - 安装基础依赖
 

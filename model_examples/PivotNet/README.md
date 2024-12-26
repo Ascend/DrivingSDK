@@ -99,7 +99,7 @@ code_path=model_examples/PivotNet
    python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
    ```
 
-4. 安装 Driving SDK 加速库
+4. 安装 mxDriving 加速库
 
    安装方法参考[官方文档](https://gitee.com/ascend/mxDriving/wikis/mxDriving)。
 

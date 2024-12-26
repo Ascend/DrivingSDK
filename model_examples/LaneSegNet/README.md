@@ -70,7 +70,7 @@
     pip install -r requirements.txt
     ```
 
-  5. 安装Driving SDK加速库
+  5. 安装mxDriving加速库
 
   6. 非兼容修改[可选]
     ```

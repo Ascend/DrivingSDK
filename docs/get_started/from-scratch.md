@@ -36,7 +36,7 @@ def bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape)
         b = ranks_bev[i]
         out[b] += d * f
 ```
-事实上，我们已经实现了一个简单的`bev_pool_v3`算子，接下来我们把它一步步转换成Driving SDK上的AscendC代码。
+事实上，我们已经实现了一个简单的`bev_pool_v3`算子，接下来我们把它一步步转换成mxDriving上的AscendC代码。
 ### 2. 增加算子Python API
 在`mx_driving/point/ops`目录下创建一个新的文件`bev_pool_v3.py`，并添加如下代码：
 ```python

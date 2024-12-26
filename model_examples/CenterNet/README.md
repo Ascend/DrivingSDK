@@ -21,7 +21,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   ```
   ```
   url=https://gitee.com/ascend/mxDriving.git
-  code_path=model_examples/CenterNet # Driving SDK
+  code_path=model_examples/CenterNet # mxDriving
   ```
 
 # 准备训练环境
@@ -207,7 +207,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
 
 ## 变更
 
-2024.12.11: 迁移模型至Driving SDK仓，优化DCNv2和NMS编译方式。
+2024.12.11: 迁移模型至mxDriving仓，优化DCNv2和NMS编译方式。
 
 2023.02.14：更新readme，重新发布。
 

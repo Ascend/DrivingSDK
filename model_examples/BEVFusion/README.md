@@ -74,8 +74,8 @@ BEVFusion 是一个高效且通用的多任务多传感器融合框架，它在�
   pip install mmdet==3.1.0 numpy==1.23.5 yapf==0.40.1
   pip install -e .
   ```
-
-  4. 参考 Driving SDK 构建说明，安装 Driving SDK 加速库，并将对应的环境变量添加至 test/env_npu.sh 文件中。
+  
+  4. 参考 mxDriving 构建说明，安装 mxDriving 加速库，并将对应的环境变量添加至 test/env_npu.sh 文件中。
 
 ## 准备数据集
 
