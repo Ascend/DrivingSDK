@@ -33,7 +33,7 @@
 
   ```
   url=https://github.com/weiyithu/SurroundOcc
-  commit_id=f698d7968a60815067601776dabfca2a8b03500a
+  commit_id=05263c6a8fe464a7f9d28358ff7196ba58dc0de6
   ```
 - 适配昇腾 AI 处理器的实现：
 
@@ -67,9 +67,23 @@
 |    昇腾NPU固件    | 24.1.RC3 |
 |    昇腾NPU驱动    | 24.1.RC3 |
 
+- 克隆代码仓到当前目录并使用patch文件
+
+    ```
+    git clone https://gitee.com/ascend/mxDriving.git
+    cd mxDriving/model_examples/SurroundOcc
+    git clone https://github.com/weiyithu/SurroundOcc.git
+    git checkout 05263c6a8fe464a7f9d28358ff7196ba58dc0de6
+    cp -f SurroundOcc_npu.patch SurroundOcc
+    cp -f test SurroundOcc
+    cd SurroundOcc
+    git apply --reject SurroundOcc_npu.patch
+    ```
+
+
 - 安装mmdet3d
 
-  - 在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
+  - 在克隆的模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
 
     ```
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
@@ -90,7 +104,7 @@
 
 - 安装mmcv
 
-  - 在模型根目录下，克隆mmcv仓，并进入mmcv目录安装
+  - 在克隆的模型根目录下，克隆mmcv仓，并进入mmcv目录安装
 
     ```
     git clone -b 1.x https://github.com/open-mmlab/mmcv
@@ -99,7 +113,7 @@
     ```
 - 安装mxDriving加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/mxDriving)。
 
-- 在模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
+- 在克隆的模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 
   ```
   pip install -r requirements.txt
@@ -131,7 +145,7 @@ SurroundOcc
 
 ### 准备预训练权重
 
-- 根据原仓Installation章节下载预训练权重r101_dcn_fcos3d_pretrain.pth，并放在模型根目录ckpts下。
+- 根据原仓Installation章节下载预训练权重r101_dcn_fcos3d_pretrain.pth，并放在克隆的模型根目录ckpts下。
 
 ## 快速开始
 
@@ -141,7 +155,7 @@ SurroundOcc
 
 #### 开始训练
 
-  1. 在模型根目录下，运行训练脚本。
+  1. 在克隆的模型根目录下，运行训练脚本。
 
      该模型支持单机8卡训练。
 
@@ -165,9 +179,6 @@ SurroundOcc
 | 竞品A           |  8p  |         8         |   fp32    |  12   | 0.3163 | 0.1999 |         1028          |
 | Atlas 800T A2 |  8p  |         8         |   fp32    |  12   | 0.3114 | 0.1995 |         1054          |
 
-# 公网地址说明
-
-代码涉及公网地址参考 public_address_statement.md
 
 # 变更说明
 
