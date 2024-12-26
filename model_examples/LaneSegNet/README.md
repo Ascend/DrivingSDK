@@ -1,20 +1,6 @@
 
 # LaneSegNet: Map Learning with Lane Segment Perception for Autonomous Driving
 
-# 概述
-[![arXiv](https://img.shields.io/badge/arXiv-2312.16108-479ee2.svg)](https://arxiv.org/abs/2312.16108)
-[![OpenLane-V2](https://img.shields.io/badge/GitHub-OpenLane--V2-blueviolet.svg)](https://github.com/OpenDriveLab/OpenLane-V2)
-[![LICENSE](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](./LICENSE)
-
-![lanesegment](figs/lane_segment.jpg "Diagram of Lane Segment")
-
-
-### Performance in LaneSegNet paper
-
-|   Model    | Epoch |  mAP  | TOP<sub>lsls</sub> | Memory | Config | Download |
-| :--------: | :---: | :---: | :----------------: | :----: | :----: | :------: |
-| LaneSegNet | 24 | 33.5 | 25.4 | 9.4G | [config](projects/configs/lanesegnet_r50_8x1_24e_olv2_subset_A.py) | [ckpt](https://huggingface.co/OpenDriveLab/lanesegnet_r50_8x1_24e_olv2_subset_A/resolve/main/lanesegnet_r50_8x1_24e_olv2_subset_A.pth) / [log](https://huggingface.co/OpenDriveLab/lanesegnet_r50_8x1_24e_olv2_subset_A/resolve/main/20231225_213951.log) |
-
 # 环境准备
 
 ## 准备环境
@@ -23,60 +9,83 @@
 
   **表 1**  版本支持表
 
-  | Torch_Version | Python_Version|
-  | :--------: | :--------:|
-  | PyTorch 2.1 | Python 3.9 |
+  | Torch_Version | 
+  | :--------: | 
+  | PyTorch 2.1 | 
   
 - 环境准备指导。
 
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》搭建torch环境。
   
+## 代码实现
+
+- 参考实现：
+
+```
+url=https://github.com/OpenDriveLab/LaneSegNet
+commit 699e5862ba2c173490b7e1f47b06184be8b7306e
+```
+
+- 适配昇腾 AI 处理器的实现：
+
+```
+url=https://gitee.com/ascend/mxDriving.git
+code_path=mxDriving/model_examples/LaneSegNet
+```
+
 - 安装依赖。
-  1. 安装基础依赖
-    ```
-    pip install mmdet==2.26.0
-    pip install mmsegmentation==0.29.1
-    ```
-  2. 源码安装 mmcv
-    ```
-    git clone -b 1.x https://github.com/open-mmlab/mmcv.git
-    cd mmcv
 
-    vi ./mmcv/parallel/distributed.py"
-    将 module_to_run = self._replicated_tensor_module if self._use_replicated_tensor_module else self.module
-    改为 module_to_run = self.module
+1. 安装基础依赖
+  ```
+  pip install mmdet==2.26.0
+  pip install mmsegmentation==0.29.1
+  ```
 
-    vi ./mmcv/parallel/_functions.py
-    将 streams = [_get_stream(device) for device in target_gpus]
-    改为 streams = [_get_stream(torch.device("cuda", device)) for device in target_gpus]
+2. 源码安装 mmcv
+  ```
+  git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+  cd mmcv
+  cp ../mmcv_config.patch ./
+  git apply --reject --whitespace=fix mmcv_config.patch
+  pip install -r requirements/runtime.txt
+  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+  ```
 
-    pip install -r requirements/runtime.txt
-    MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
-    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-    ```
+3. 安装 mmdet3d
+  ```
+  git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
+  cd mmdetection3d
+  cp ../mmdet3d_config.patch ./
+  git apply --reject --whitespace=fix mmdet3d_config.patch
+  pip install -e .
+  ```
 
-  3. 安装 mmdet3d
-    ```
-    git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
+4. 设置LaneSegNet
+  ```
+  git clone https://github.com/OpenDriveLab/LaneSegNet.git
+  cp -f lane_seg_net_config.patch LaneSegNet
+  cd LaneSegNet
+  git checkout 699e5862ba2c173490b7e1f47b06184be8b7306e
+  git apply --reject --whitespace=fix lane_seg_net_config.patch
+  pip install -r requirements.txt
+  ```
 
-    cd mmdetection3d
-    修改mmdet3d/init.py mmcv_maximum_version版本范围
-    修改 requirements/runtime.txt 注释numba部分
-    pip install -e .
-    ```
+5. 依赖配置
+  ```
+  pip install networkx==3.1
+  pip insatll torchvision==0.16.0
+  pip install numba
+  pip install numpy==1.24.0
+  ```
 
-  4. 安装其他依赖
-    ```
-    pip install -r requirements.txt
-    ```
-
-  5. 安装mxDriving加速库
-
-  6. 非兼容修改[可选]
-    ```
-    vi ../python3.9/site-packages/networkx/algorithms/dag.py
-    将 from fractions import gcd 改为 from math import gcd
-    ```
+6. 安装Driving SDK加速库
+  ```
+  git clone https://gitee.com/ascend/mxDriving.git
+  cd mx_driving
+  bash ci/build.sh --python=3.8
+  cd dist
+  pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
+  ```
 
 ## 准备数据集
 
@@ -114,21 +123,17 @@ data/OpenLane-V2
 
 ### Train
 
-We recommend using 8 GPUs for training. If a different number of GPUs is utilized, you can enhance performance by configuring the `--autoscale-lr` option. The training logs will be saved to `work_dirs/lanesegnet`.
+- 单机8卡性能
 
-```bash
-cd LaneSegNet
-mkdir -p work_dirs/lanesegnet
+  ```
+  bash test/train_8p_performance.sh
+  ```
 
-bash ./tools/dist_train.sh 8 [--autoscale-lr]
-```
+- 单机8卡精度
 
-### Evaluate
-You can set `--show` to visualize the results.
-
-```bash
-bash ./tools/dist_test.sh 8 [--show]
-```
+  ```
+  bash test/train_full_8p.sh
+  ```
 
 # 结果
 
@@ -137,13 +142,6 @@ bash ./tools/dist_test.sh 8 [--show]
 |  8p-竞品A   | R50       |       FP32    |        24     |        33.5   |      10.84    |
 |  8p-Atlas 800T A2   | R50      |       FP32    |        24     |        32.9   |      11.00    |
 
-# 公网地址说明
-代码涉及公网地址参考 public_address_statement.md
-
-# 版本说明
 
 ## 变更
-
 2024.12.5：首次发布。
-
-## FAQ
