@@ -161,7 +161,6 @@ out, argmax = scatter_max(updates, indices, out)
 | BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Test】|
 | PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
 | TPVFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/TPVFormer |【Test】|
-| UniAD | https://gitee.com/ascend/mxDriving/tree/master/model_examples/UniAD |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
@@ -257,7 +256,6 @@ out, argmax = scatter_max(updates, indices, out)
 |GameFormer-Planner|   [model_examples/GameFormer-Planner/public_address_statement.md](./model_examples/GameFormer-Planner/public_address_statement.md)|
 |PanoOcc|   [model_examples/PanoOcc/public_address_statement.md](./model_examples/PanoOcc/public_address_statement.md)|
 |TPVFormer|   [model_examples/TPVFormer/public_address_statement.md](./model_examples/TPVFormer/public_address_statement.md)|
-|UniAD|   [model_examples/UniAD/public_address_statement.md](./model_examples/UniAD/public_address_statement.md)|
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，Driving SDK提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
 ## 通信安全加固
