@@ -37,6 +37,19 @@ code_path=PyTorch/built-in/autonoumous_driving
 
     请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
+#### 0. 克隆代码仓到当前目录并使用patch文件
+
+```
+    git clone https://gitee.com/ascend/mxDriving.git
+    cd mxDriving/model_examples/OpenPCDet
+    git clone https://github.com/open-mmlab/OpenPCDet.git
+    git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
+    cp -f OpenPCDet_npu.patch OpenPCDet
+    cp -f test OpenPCDet/tools
+    cd OpenPCDet
+    git apply --reject OpenPCDet_npu.patch
+```
+
 #### 1. 基本环境准备
 
 在模型源码包所在目录下执行相应命令，安装模型需要的依赖
@@ -186,7 +199,7 @@ python setup.py develop
     ```
 
 ### 模型训练
-1. 进入OpenPCDet的根目录。
+1. 进入应用过patch文件的OpenPCDet源码的根目录。
    ```shell
    cd ./OpenPCDet/
    ```
@@ -271,9 +284,22 @@ python setup.py develop
          from spconv.core_cc.csrc.sparse.all.ops3d import Point2Voxel as Point2VoxelGPU3d
          from spconv.core_cc.csrc.sparse.all.ops4d import Point2Voxel as Point2VoxelGPU4d
       ```
-   #### 3. 编译安装OpenPCDet
+   
+   #### 3. 克隆代码仓到当前目录并使用patch文件
+
+    ```
+    git clone https://gitee.com/ascend/mxDriving.git
+    cd mxDriving/model_examples/OpenPCDet
+    git clone https://github.com/open-mmlab/OpenPCDet.git
+    git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
+    cp -f OpenPCDet_npu.patch OpenPCDet
+    cp -f test OpenPCDet/tools
+    cd OpenPCDet
+    git apply --reject OpenPCDet_npu.patch
+    ```
+   
+   #### 4. 编译安装OpenPCDet
    ```
-   cd OpenPCDet/
    python setup.py develop
    ```
 
@@ -304,7 +330,7 @@ python setup.py develop
    ```
 
 ### 模型训练
-1. 进入OpenPCDet的根目录。
+1. 进入应用过patch的OpenPCDet根目录。
    ```
    cd OpenPCDet/
    ```
@@ -374,6 +400,3 @@ pip install protobuf
 ## 版本说明
 [2024-01-24] **NEW:** PointPillar模型在NPU设备首次适配.
 
-## 公网地址说明
-
-代码涉及公网地址及个人邮箱地址参考 ```./public_address_statement.md```
