@@ -9,7 +9,6 @@
 -   [GameFormer-Planner](#GameFormer-Planner)
     - [准备训练环境](#准备训练环境)
     - [快速开始](#快速开始)
--   [公网地址说明](#公网地址说明)
 -   [变更说明](#变更说明)
 -   [FAQ](#FAQ)
 
@@ -17,7 +16,7 @@
 
 ## 模型介绍
 
-在复杂的现实环境中运行的自动驾驶车辆需要准确预测交通参与者之间的交互行为。GameFormer模型结合了一个Transformer编码器，以及一个分层Transformer解码器结构，来有效地模拟场景元素之间的关系。在每个解码层级，除了共享的环境上下文之外，解码器还利用前一级别的预测结果来迭代地完善交互过程。该模型在nuPlan规划基准数据集上验证了有效性，取得了领先的性能。本仓库将GameFormer模型迁移到昇腾NPU，并进行了性能优化。
+在复杂的现实环境中运行的自动驾驶车辆需要准确预测交通参与者之间的交互行为。GameFormer-Planner模型结合了一个Transformer编码器，以及一个分层Transformer解码器结构，来有效地模拟场景元素之间的关系。在每个解码层级，除了共享的环境上下文之外，解码器还利用前一级别的预测结果来迭代地完善交互过程。该模型在nuPlan规划基准数据集上验证了有效性，取得了领先的性能。本仓库针对GameFormer-Planner模型进行了昇腾NPU适配，并且提供了适配Patch，方便用户在NPU上进行模型训练。
 
 ## 支持任务列表
 
@@ -88,6 +87,15 @@
     cd ..
     ```
 
+3. 拉取GameFormer-Planner模型仓库代码并使用Patch进行代码修改
+    ```
+    git clone https://github.com/MCZhi/GameFormer-Planner.git && cd GameFormer-Planner
+    git checkout c6f3a69b947edd0c3079e458275fc490520e8bde
+    cp ../gameformer.patch .
+    git apply gameformer.patch
+    cd ..
+    ```
+
 ### 准备数据集
 
 1. 下载[NuPlan数据集](https://www.nuscenes.org/nuplan#download)，并将数据集结构排布成如下格式：
@@ -124,12 +132,25 @@
     ```
 2. 数据预处理
     ```
-    python data_process.py
+    python GameFormer-Planner/data_process.py
     --data_path nuplan/dataset/nuplan-v1.1/splits/mini
     --map_path nuplan/dataset/maps
     --save_path nuplan/processed_data
     ```
---scenarios_per_type和--total_scenarios可以用于控制生成数据点的数量，请根据原仓库的指引，生成150万个数据点，并用其中的十分之一作为Validation Set，剩余的部分作为Training Set。
+    --scenarios_per_type和--total_scenarios可以用于控制生成数据点的数量，请根据原仓库的指引，生成150万个数据点，并用其中的十分之一作为Validation Set，剩余的部分作为Training Set。预处理完成之后数据排布如下所示：
+    ```
+    nuplan
+    └── processed_data
+        ├── train
+        │   ├── us-nv-las-vegas-strip_12b86ec515a15de0.npz
+        │   ├── ...
+        │   └── us-nv-las-vegas-strip_b880c406318b552f.npz
+        └── val
+            ├── us-pa-pittsburgh-hazelwood_db2c7a20fb6453d4.npz
+            ├── ...
+            └── us-pa-pittsburgh-hazelwood_ffd6690ff3ba5ee5.npz
+
+    ```
 
 ## 快速开始
 本任务主要提供**单机8卡**和**4卡**的训练脚本。
@@ -139,8 +160,6 @@
     ```
     bash script/train_gameformer_8x512.sh 8 1 # 8卡性能(1 epoch)
     bash script/train_gameformer_8x512.sh 8 30 # 8卡精度(30 epoch)
-    bash script/train_gameformer_4x256.sh 4 1 # 4卡性能(1 epoch)
-    bash script/train_gameformer_4x256.sh 4 30 # 4卡精度(30 epoch)
     ```
 
 ### 训练结果
@@ -148,12 +167,6 @@
 | ------------- | :--: | :------------: | :-------: | :---: | :----: | :----: | :----: | :----: | :----: | :----: | :-------------------: |
 | 竞品A         |  8p  |  512  |   fp32    |  30   | 1.17 | 3.11 | 0.10 | 0.07 | 0.70 | 1.30 |         790          |
 | Atlas 800T A2 |  8p  |   512 |   fp32    |  30   | 1.16 | 3.10 | 0.10 | 0.07 | 0.69 | 1.29 |         1034          |
-| 竞品A         |  4p  |  256  |   fp32    |  30   | 1.23 | 3.24 | 0.11 | 0.07 | 0.75 | 1.39 |         448          |
-| Atlas 800T A2 |  4p  |   256 |   fp32    |  30   | 1.24 | 3.24 | 0.11 | 0.07 | 0.76 | 1.43 |         644          |
-
-# 公网地址说明
-
-代码涉及公网地址参考 public_address_statement.md
 
 # 变更说明
 

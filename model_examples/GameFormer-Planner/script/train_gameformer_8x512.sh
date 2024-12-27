@@ -12,10 +12,10 @@ export HCCL_OP_BASE_FFTS_MODE_ENABLE=TRUE
 
 torchrun --nnodes=1 \
         --nproc_per_node=$GPUS_PER_NODE \
-        train_predictor.py \
+        GameFormer-Planner/train_predictor.py \
         --batch_size=512 \
         --train_epochs=$EPOCHS \
         --learning_rate=1e-4 \
-        --train_set=nuplan/nuplan_processed/train \
-        --valid_set=nuplan/nuplan_processed/val \
+        --train_set=nuplan/processed_data/train \
+        --valid_set=nuplan/processed_data/val \
         --name="log_8x512" \
