@@ -1,0 +1,583 @@
+diff --git a/LAVIS/dataset/dataset_used.txt b/LAVIS/dataset/dataset_used.txt
+new file mode 100644
+index 0000000..c1c62da
+--- /dev/null
++++ b/LAVIS/dataset/dataset_used.txt
+@@ -0,0 +1,15 @@
++routes_town01_long_w16_08_13_08_35_38/,
++routes_town01_tiny_w0_08_27_06_10_40/,
++routes_town01_short_w11_08_14_05_48_55/,
++routes_town01_long_w13_08_13_05_34_24/,
++routes_town01_short_w11_08_13_20_20_34/,
++routes_town01_long_w18_08_13_02_10_30/,
++routes_town01_long_w14_08_13_03_14_07/,
++routes_town01_long_w12_08_13_03_12_20/,
++routes_town01_long_w18_08_13_07_26_30/,
++routes_town01_long_w15_08_13_06_34_00/,
++routes_town01_long_w12_08_13_04_54_01/,
++routes_town01_long_w4_08_13_08_00_59/,
++routes_town01_long_w16_08_13_06_00_48/,
++routes_town01_long_w12_08_13_06_50_01/,
++routes_town01_short_w11_08_13_16_49_16/
+\ No newline at end of file
+diff --git a/LAVIS/lavis/common/config.py b/LAVIS/lavis/common/config.py
+index 2264b05..63af099 100644
+--- a/LAVIS/lavis/common/config.py
++++ b/LAVIS/lavis/common/config.py
+@@ -26,7 +26,7 @@ class Config:
+ 
+         config = OmegaConf.load(self.args.cfg_path)
+ 
+-        runner_config = self.build_runner_config(config)
++        runner_config = self.build_runner_config(config, **user_config)
+         model_config = self.build_model_config(config, **user_config)
+         dataset_config = self.build_dataset_config(config)
+ 
+@@ -81,8 +81,12 @@ class Config:
+         return model_config
+ 
+     @staticmethod
+-    def build_runner_config(config):
+-        return {"run": config.run}
++    def build_runner_config(config, **kwargs):
++        run_config = OmegaConf.merge(
++            config.run,
++            kwargs
++        )
++        return {"run": run_config}
+ 
+     @staticmethod
+     def build_dataset_config(config):
+diff --git a/LAVIS/lavis/common/dist_utils.py b/LAVIS/lavis/common/dist_utils.py
+index 296a3c8..3818ab6 100644
+--- a/LAVIS/lavis/common/dist_utils.py
++++ b/LAVIS/lavis/common/dist_utils.py
+@@ -70,7 +70,7 @@ def init_distributed_mode(args):
+     args.distributed = True
+ 
+     torch.cuda.set_device(args.gpu)
+-    args.dist_backend = "nccl"
++    args.dist_backend = "hccl"
+     print(
+         "| distributed init (rank {}, world {}): {}".format(
+             args.rank, args.world_size, args.dist_url
+diff --git a/LAVIS/lavis/common/logger.py b/LAVIS/lavis/common/logger.py
+index aa1ea0d..57e2c19 100644
+--- a/LAVIS/lavis/common/logger.py
++++ b/LAVIS/lavis/common/logger.py
+@@ -40,7 +40,7 @@ class SmoothedValue(object):
+         """
+         if not dist_utils.is_dist_avail_and_initialized():
+             return
+-        t = torch.tensor([self.count, self.total], dtype=torch.float64, device="cuda")
++        t = torch.tensor([self.count, self.total], dtype=torch.float32, device="cuda")
+         dist.barrier()
+         dist.all_reduce(t)
+         t = t.tolist()
+diff --git a/LAVIS/lavis/datasets/datasets/base_io_dataset.py b/LAVIS/lavis/datasets/datasets/base_io_dataset.py
+index 185baaa..c0e9456 100644
+--- a/LAVIS/lavis/datasets/datasets/base_io_dataset.py
++++ b/LAVIS/lavis/datasets/datasets/base_io_dataset.py
+@@ -21,7 +21,8 @@ class BaseIODataset(torch.utils.data.Dataset):
+             return False
+ 
+     def _load_text(self, path):
+-        text = open(self.root_path + path, 'r').read()
++        with open(self.root_path + path, 'r') as f:
++            text = f.read()
+         return text
+ 
+     def _load_image(self, path):
+@@ -36,7 +37,8 @@ class BaseIODataset(torch.utils.data.Dataset):
+ 
+     def _load_json(self, path):
+         try:
+-            json_value = json.load(open(self.root_path + path))
++            with open(self.root_path + path) as f:
++                json_value = json.load(f)
+         except Exception as e:
+             _logger.info(path)
+             n = path[-9:-5]
+diff --git a/LAVIS/lavis/datasets/datasets/carla_dataset_llm.py b/LAVIS/lavis/datasets/datasets/carla_dataset_llm.py
+index b95bad8..b573489 100644
+--- a/LAVIS/lavis/datasets/datasets/carla_dataset_llm.py
++++ b/LAVIS/lavis/datasets/datasets/carla_dataset_llm.py
+@@ -143,6 +143,9 @@ class CarlaVoiceDataset(BaseIODataset):
+ 
+     def _get_scenario_paths(self, dataset_root, weathers, towns):
+         scenario_infos = []
++        with open('./LAVIS/dataset/dataset_used.txt', 'r') as f:
++            text = f.read()
++        dataset_names = text.split(',\n')
+         dataset_indexs = self._load_text(os.path.join(dataset_root, 'navigation_instruction_list.txt')).split('\n')
+         for line in dataset_indexs:
+             if len(line) < 10: continue
+@@ -151,6 +154,8 @@ class CarlaVoiceDataset(BaseIODataset):
+             if towns is not None:
+                 if info['town_id'] not in towns:
+                     continue
++            if info['route_path'] not in dataset_names:
++                continue
+             if weathers is not None:
+                 if info['weather_id'] not in weathers:
+                     continue
+diff --git a/LAVIS/lavis/models/__init__.py b/LAVIS/lavis/models/__init__.py
+index e5976e6..1049f8a 100644
+--- a/LAVIS/lavis/models/__init__.py
++++ b/LAVIS/lavis/models/__init__.py
+@@ -12,15 +12,6 @@ from lavis.common.registry import registry
+ 
+ from lavis.models.base_model import BaseModel
+ 
+-from lavis.models.albef_models.albef_classification import AlbefClassification
+-from lavis.models.albef_models.albef_feature_extractor import AlbefFeatureExtractor
+-from lavis.models.albef_models.albef_nlvr import AlbefNLVR
+-from lavis.models.albef_models.albef_pretrain import AlbefPretrain
+-from lavis.models.albef_models.albef_retrieval import AlbefRetrieval
+-from lavis.models.albef_models.albef_vqa import AlbefVQA
+-from lavis.models.alpro_models.alpro_qa import AlproQA
+-from lavis.models.alpro_models.alpro_retrieval import AlproRetrieval
+-
+ from lavis.models.blip_models.blip import BlipBase
+ from lavis.models.blip_models.blip_caption import BlipCaption
+ from lavis.models.blip_models.blip_classification import BlipClassification
+@@ -42,12 +33,9 @@ from lavis.models.blip2_models.blip2_vicuna_instruct import Blip2VicunaInstruct
+ 
+ from lavis.models.blip_diffusion_models.blip_diffusion import BlipDiffusion
+ 
+-from lavis.models.pnp_vqa_models.pnp_vqa import PNPVQA
+-from lavis.models.pnp_vqa_models.pnp_unifiedqav2_fid import PNPUnifiedQAv2FiD
+ from lavis.models.img2prompt_models.img2prompt_vqa import Img2PromptVQA
+ from lavis.models.med import XBertLMHeadDecoder
+ from lavis.models.vit import VisionTransformerEncoder
+-from lavis.models.clip_models.model import CLIP
+ 
+ from lavis.models.gpt_models.gpt_dialogue import GPTDialogue
+ from lavis.models.drive_models.drive import Blip2VicunaDrive
+@@ -57,14 +45,6 @@ from lavis.processors.base_processor import BaseProcessor
+ 
+ __all__ = [
+     "load_model",
+-    "AlbefClassification",
+-    "AlbefFeatureExtractor",
+-    "AlbefNLVR",
+-    "AlbefVQA",
+-    "AlbefPretrain",
+-    "AlbefRetrieval",
+-    "AlproQA",
+-    "AlproRetrieval",
+     "BaseModel",
+     "BlipBase",
+     "BlipFeatureExtractor",
+@@ -83,10 +63,7 @@ __all__ = [
+     "Blip2T5",
+     "Blip2T5Instruct",
+     "Blip2VicunaInstruct",
+-    "PNPVQA",
+     "Img2PromptVQA",
+-    "PNPUnifiedQAv2FiD",
+-    "CLIP",
+     "VisionTransformerEncoder",
+     "XBertLMHeadDecoder",
+     "GPTDialogue",
+diff --git a/LAVIS/lavis/models/drive_models/drive.py b/LAVIS/lavis/models/drive_models/drive.py
+index 7ebf76e..e9e3f8e 100644
+--- a/LAVIS/lavis/models/drive_models/drive.py
++++ b/LAVIS/lavis/models/drive_models/drive.py
+@@ -503,6 +503,7 @@ class Blip2VicunaDrive(Blip2Base):
+             return predicted_waypoints, predicted_end_prob
+ 
+         gt_waypoints = self.build_gt_waypoints(samples['local_future_waypoints'], samples['valid_frames'])
++        gt_waypoints = gt_waypoints.to(predicted_waypoints.dtype)
+         waypoints_loss = self.waypoints_loss(predicted_waypoints, gt_waypoints)
+ 
+         gt_end_flags = self.build_gt_end_flags(samples['valid_frames'])
+diff --git a/LAVIS/lavis/processors/__init__.py b/LAVIS/lavis/processors/__init__.py
+index 3129e04..6531a49 100644
+--- a/LAVIS/lavis/processors/__init__.py
++++ b/LAVIS/lavis/processors/__init__.py
+@@ -7,43 +7,26 @@
+ 
+ from lavis.processors.base_processor import BaseProcessor
+ 
+-from lavis.processors.alpro_processors import (
+-    AlproVideoTrainProcessor,
+-    AlproVideoEvalProcessor,
+-)
+ from lavis.processors.blip_processors import (
+     BlipImageTrainProcessor,
+     Blip2ImageTrainProcessor,
+     BlipImageEvalProcessor,
+     BlipCaptionProcessor,
+ )
+-from lavis.processors.blip_diffusion_processors import (
+-    BlipDiffusionInputImageProcessor,
+-    BlipDiffusionTargetImageProcessor,
+-)
+ from lavis.processors.gpt_processors import (
+     GPTVideoFeatureProcessor,
+     GPTDialogueProcessor,
+ )
+-from lavis.processors.clip_processors import ClipImageTrainProcessor
+ 
+ from lavis.common.registry import registry
+ 
+ __all__ = [
+     "BaseProcessor",
+-    # ALPRO
+-    "AlproVideoTrainProcessor",
+-    "AlproVideoEvalProcessor",
+     # BLIP
+     "BlipImageTrainProcessor",
+     "Blip2ImageTrainProcessor",
+     "BlipImageEvalProcessor",
+     "BlipCaptionProcessor",
+-    # BLIP-Diffusion
+-    "BlipDiffusionInputImageProcessor",
+-    "BlipDiffusionTargetImageProcessor",
+-    # CLIP
+-    "ClipImageTrainProcessor",
+     # GPT
+     "GPTVideoFeatureProcessor",
+     "GPTDialogueProcessor",
+diff --git a/LAVIS/lavis/projects/lmdrive/notice_llava15_visual_encoder_r50_seq40.yaml b/LAVIS/lavis/projects/lmdrive/notice_llama7b_visual_encoder_r50_seq40.yaml
+similarity index 81%
+rename from LAVIS/lavis/projects/lmdrive/notice_llava15_visual_encoder_r50_seq40.yaml
+rename to LAVIS/lavis/projects/lmdrive/notice_llama7b_visual_encoder_r50_seq40.yaml
+index 7d958b3..d892bbb 100644
+--- a/LAVIS/lavis/projects/lmdrive/notice_llava15_visual_encoder_r50_seq40.yaml
++++ b/LAVIS/lavis/projects/lmdrive/notice_llama7b_visual_encoder_r50_seq40.yaml
+@@ -7,8 +7,8 @@ model:
+   arch: vicuna_drive 
+   model_type: vicuna7b
+   preception_model: memfuser_baseline_e1d3_return_feature
+-  preception_model_ckpt: ../vision_encoder/sensor_pretrain.pth.tar.r50
+-  llm_model: /data/llava-v1.5-7b 
++  preception_model_ckpt: ../vision_encoder/vision-encoder-r50.pth.tar
++  llm_model: /data/llama-7b
+   load_pretrained: True
+   freeze_vit: True
+   max_txt_len: 64 # max length of instruction
+@@ -23,16 +23,16 @@ datasets:
+       annotations:
+         train:
+           storage: '/path/to/your/dataset'
+-          towns: [1,2,3,4,5,6,7,10]
+-          weathers: [0,1,2,3,4,5,6,7,8,9,10,11,14,15,16,17,18,19]
++          towns: [1]
++          weathers: [11,12,4,0]
+           scale: [0.95, 1.05]
+           enable_start_frame_augment: True
+           token_max_length: 40
+           enable_notice: True
+         val:
+           storage: '/path/to/your/dataset'
+-          towns: [1,2,3,4,5,6,7,10]
+-          weathers: [12,13,20]
++          towns: [1]
++          weathers: [16]
+           scale: [0.95, 1.05]
+           enable_start_frame_augment: True
+           token_max_length: 40
+@@ -48,8 +48,8 @@ run:
+ 
+   weight_decay: 0.06
+   max_epoch: 15
+-  batch_size_train: 4
+-  batch_size_eval: 4
++  batch_size_train: 2
++  batch_size_eval: 2
+   num_workers: 24
+   warmup_steps: 2000
+ 
+diff --git a/LAVIS/lavis/runners/runner_base.py b/LAVIS/lavis/runners/runner_base.py
+index edf215d..a50ee0c 100644
+--- a/LAVIS/lavis/runners/runner_base.py
++++ b/LAVIS/lavis/runners/runner_base.py
+@@ -13,6 +13,7 @@ import time
+ from pathlib import Path
+ 
+ import torch
++import torch_npu
+ import torch.distributed as dist
+ import webdataset as wds
+ from tensorboardX import SummaryWriter
+@@ -115,7 +116,7 @@ class RunnerBase:
+ 
+             beta2 = self.config.run_cfg.get("beta2", 0.999)
+ 
+-            self._optimizer = torch.optim.AdamW(
++            self._optimizer = torch_npu.optim.NpuFusedAdamW(
+                 optim_params,
+                 lr=float(self.config.run_cfg.init_lr),
+                 betas=(0.9, beta2),
+@@ -648,6 +649,12 @@ class RunnerBase:
+     def log_stats(self, stats, split_name):
+         if isinstance(stats, dict):
+             log_stats = {**{f"{split_name}_{k}": v for k, v in stats.items()}}
++            if 'train_loss' in log_stats.keys():
++                print(
++                    "Train stats: train_loss: {}, train_waypoints_loss: {}".format(
++                        log_stats['train_loss'], log_stats['train_waypoints_loss']
++                    )
++                )
+             with open(os.path.join(self.output_dir, "log.txt"), "a") as f:
+                 f.write(json.dumps(log_stats) + "\n")
+         elif isinstance(stats, list):
+diff --git a/LAVIS/lavis/tasks/__init__.py b/LAVIS/lavis/tasks/__init__.py
+index 848788d..9dbca4c 100644
+--- a/LAVIS/lavis/tasks/__init__.py
++++ b/LAVIS/lavis/tasks/__init__.py
+@@ -7,16 +7,6 @@
+ 
+ from lavis.common.registry import registry
+ from lavis.tasks.base_task import BaseTask
+-from lavis.tasks.captioning import CaptionTask
+-from lavis.tasks.image_text_pretrain import ImageTextPretrainTask
+-from lavis.tasks.multimodal_classification import (
+-    MultimodalClassificationTask,
+-)
+-from lavis.tasks.retrieval import RetrievalTask
+-from lavis.tasks.vqa import VQATask, GQATask, AOKVQATask
+-from lavis.tasks.vqa_reading_comprehension import VQARCTask, GQARCTask
+-from lavis.tasks.dialogue import DialogueTask
+-from lavis.tasks.text_to_image_generation import TextToImageGenerationTask
+ from lavis.tasks.drive import DriveTask
+ 
+ 
+@@ -32,18 +22,5 @@ def setup_task(cfg):
+ 
+ __all__ = [
+     "BaseTask",
+-    "AOKVQATask",
+-    "RetrievalTask",
+-    "CaptionTask",
+-    "VQATask",
+-    "GQATask",
+-    "VQARCTask",
+-    "GQARCTask",
+-    "MultimodalClassificationTask",
+-    # "VideoQATask",
+-    # "VisualEntailmentTask",
+-    "ImageTextPretrainTask",
+-    "DialogueTask",
+-    "TextToImageGenerationTask",
+     "DriveTask",
+ ]
+diff --git a/LAVIS/lavis/tasks/drive.py b/LAVIS/lavis/tasks/drive.py
+index a1587cf..8113660 100644
+--- a/LAVIS/lavis/tasks/drive.py
++++ b/LAVIS/lavis/tasks/drive.py
+@@ -9,7 +9,10 @@ import logging
+ import os
+ 
+ import torch
++import torch_npu
+ import torch.distributed as dist
++from torch_npu.contrib import transfer_to_npu
++
+ from lavis.common.dist_utils import get_rank, get_world_size, is_main_process, is_dist_avail_and_initialized
+ from lavis.common.logger import MetricLogger, SmoothedValue
+ from lavis.common.registry import registry
+diff --git a/LAVIS/requirements.txt b/LAVIS/requirements.txt
+index dcd3234..1e54ff2 100644
+--- a/LAVIS/requirements.txt
++++ b/LAVIS/requirements.txt
+@@ -18,10 +18,11 @@ pycocotools
+ python-magic
+ scikit-image
+ sentencepiece
+-spacy
++spacy==3.7.6
+ streamlit
+ torch>=1.10.0
++tensorboardX
+ tqdm
+-transformers>=4.28.0
++transformers==4.28.0
+ webdataset
+ peft
+diff --git a/LAVIS/train.py b/LAVIS/train.py
+index 9f44d1e..4e90011 100644
+--- a/LAVIS/train.py
++++ b/LAVIS/train.py
+@@ -11,7 +11,9 @@ import random
+ 
+ import numpy as np
+ import torch
++import torch_npu
+ import torch.backends.cudnn as cudnn
++from torch_npu.contrib import transfer_to_npu
+ 
+ import lavis.tasks as tasks
+ from lavis.common.config import Config
+@@ -32,6 +34,9 @@ from lavis.runners import *
+ from lavis.tasks import *
+ 
+ 
++torch.npu.config.allow_internal_format = False
++torch.npu.conv.allow_hf32 = False
++torch_npu.npu.set_compile_mode(jit_compile = False)
+ def parse_args():
+     parser = argparse.ArgumentParser(description="Training")
+ 
+diff --git a/LAVIS/train.sh b/LAVIS/train.sh
+new file mode 100644
+index 0000000..d89fe4d
+--- /dev/null
++++ b/LAVIS/train.sh
+@@ -0,0 +1 @@
++torchrun --nproc_per_node=8 ./LAVIS/train.py --cfg-path ./LAVIS/lavis/projects/lmdrive/notice_llama7b_visual_encoder_r50_seq40.yaml --options max_epoch=20
+\ No newline at end of file
+diff --git a/vision_encoder/requirements.txt b/vision_encoder/requirements.txt
+index 275433a..bd412fa 100644
+--- a/vision_encoder/requirements.txt
++++ b/vision_encoder/requirements.txt
+@@ -1,7 +1,7 @@
+-torch==2.0.1
+-torchvision
++torchvision==0.16.0
+ pyyaml
+ scikit-image
+-opencv-python
++opencv-python==4.8.0.76
++opencv-python-headless==4.5.5.64
+ torch_scatter
+ tqdm
+diff --git a/vision_encoder/timm/models/__init__.py b/vision_encoder/timm/models/__init__.py
+index 235d9fd..974f9ff 100644
+--- a/vision_encoder/timm/models/__init__.py
++++ b/vision_encoder/timm/models/__init__.py
+@@ -1,50 +1,3 @@
+-from .byoanet import *
+-from .byobnet import *
+-from .cait import *
+-from .coat import *
+-from .convit import *
+-from .cspnet import *
+-from .densenet import *
+-from .dla import *
+-from .dpn import *
+-from .efficientnet import *
+-from .ghostnet import *
+-from .gluon_resnet import *
+-from .gluon_xception import *
+-from .hardcorenas import *
+-from .hrnet import *
+-from .inception_resnet_v2 import *
+-from .inception_v3 import *
+-from .inception_v4 import *
+-from .levit import *
+-from .mlp_mixer import *
+-from .mobilenetv3 import *
+-from .nasnet import *
+-from .nest import *
+-from .nfnet import *
+-from .pit import *
+-from .pnasnet import *
+-from .regnet import *
+-from .res2net import *
+-from .resnest import *
+-from .resnet import *
+-from .resnetv2 import *
+-from .rexnet import *
+-from .selecsls import *
+-from .senet import *
+-from .sknet import *
+-from .swin_transformer import *
+-from .tnt import *
+-from .tresnet import *
+-from .vgg import *
+-from .visformer import *
+-from .vision_transformer_hybrid import *
+-from .vovnet import *
+-from .xception import *
+-from .xception_aligned import *
+-from .xcit import *
+-from .twins import *
+-from .interfuser import *
+ from .pointpillar import *
+ from .memfuser import *
+ 
+diff --git a/vision_encoder/timm/models/pointpillar.py b/vision_encoder/timm/models/pointpillar.py
+index 7dac231..b9e43bd 100644
+--- a/vision_encoder/timm/models/pointpillar.py
++++ b/vision_encoder/timm/models/pointpillar.py
+@@ -4,11 +4,12 @@ Credit: Tianwei Yin
+ 
+ from os import stat
+ import logging
+-from torch_scatter import scatter_mean, scatter_max
++from mx_driving import scatter_max,scatter_mean
+ from torch import nn
+ from .registry import register_model
+ import numpy as np
+ import torch
++import mx_driving
+ 
+ _logger = logging.getLogger(__name__)
+ 
+@@ -61,7 +62,7 @@ class DynamicPointNet(nn.Module):
+         TODO: multiple layers
+         """
+         feat = self.net(points)
+-        feat_max = scatter_max(feat, inverse_indices, dim=0)[0]
++        feat_max = scatter_max(feat.to(torch.float), inverse_indices.to(torch.int32))[0]
+         return feat_max
+ 
+ 
+@@ -89,7 +90,7 @@ class PointPillarNet(nn.Module):
+ 
+         xyz = points[:, :3]
+ 
+-        points_cluster = xyz - scatter_mean(xyz, inverse_indices, dim=0)[inverse_indices]
++        points_cluster = xyz - scatter_mean(xyz, inverse_indices.to(torch.int32)[inverse_indices]
+ 
+         points_xp = xyz[:, :1] - x_centers
+         points_yp = xyz[:, 1:2] - y_centers
+@@ -108,8 +109,21 @@ class PointPillarNet(nn.Module):
+ 
+         return points, coords
+ 
++    def modified_unique(self, coords):
++        voxels_npu = mx_driving._C.point_to_voxel(coords.to(torch.int32), [], [], "XYZ")
++        cnt, uni_vox, uni_ind, argsort_ind, _ = mx_driving.unique_voxel(voxels_npu)
++        dec = mx_driving._C.voxel_to_point(uni_vox, [], [], "XYZ")
++        sorted_ind = torch.argsort(argsort_ind.to(torch.float32),dim=0).to(torch.long)
++        is_unq=torch.zeros(coords.size(0)).to(coords.device)
++
++        is_unq[uni_ind]=1
++        unq_inv_sorted=is_unq.cumsum(0)-1
++        unq_inv=torch.gather(unq_inv_sorted, 0, sorted_ind)
++        unq_inv = unq_inv.to(torch.int64)
++        return dec, unq_inv
++
+     def pillar_generation(self, points, coords):
+-        unique_coords, inverse_indices = coords.unique(return_inverse=True, dim=0)
++        unique_coords, inverse_indices = self.modified_unique(coords)
+         decorated_points = self.decorate(points, unique_coords, inverse_indices)
+ 
+         return decorated_points, unique_coords, inverse_indices
+@@ -139,7 +153,8 @@ class PointPillarNet(nn.Module):
+             # batch_size, grid_y, grid_x 
+             coords = torch.cat(coords, dim=0)
+             filtered_points = torch.cat(filtered_points, dim=0)
+-
++            if coords.size(0)==0:
++                return torch.zeros(20,32,240,240,dtype=torch.float16).npu()
+             decorated_points, unique_coords, inverse_indices = self.pillar_generation(filtered_points, coords)
+ 
+         features = self.point_net(decorated_points, inverse_indices)
+diff --git a/vision_encoder/train_pretrain.py b/vision_encoder/train_pretrain.py
+index 87075fe..ffd05e3 100755
+--- a/vision_encoder/train_pretrain.py
++++ b/vision_encoder/train_pretrain.py
+@@ -906,7 +906,7 @@ def main():
+     if args.distributed:
+         args.device = "cuda:%d" % args.local_rank
+         torch.cuda.set_device(args.local_rank)
+-        torch.distributed.init_process_group(backend="nccl", init_method="env://")
++        torch.distributed.init_process_group(backend="hccl", init_method="env://")
+         args.world_size = torch.distributed.get_world_size()
+         args.rank = torch.distributed.get_rank()
+         _logger.info(

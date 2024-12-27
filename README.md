@@ -180,6 +180,7 @@ out, argmax = scatter_max(updates, indices, out)
 | UniAD | https://gitee.com/ascend/mxDriving/tree/master/model_examples/UniAD |【Test】|
 | PivotNet|https://gitee.com/ascend/mxDriving/tree/master/model_examples/PivotNet|【Test】|
 | CenterPoint(3D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Test】|
+| LMDrive  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/LMDrive |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
