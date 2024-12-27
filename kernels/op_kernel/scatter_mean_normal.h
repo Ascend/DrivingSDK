@@ -134,7 +134,7 @@ private:
         Duplicate(onesTensor, (float)1, dataEachBlock); // one Block
 
         uint64_t indices_offset = indicesBaseOffset + taskEachLine * taskId;
-        DataCopy(indicesLocal, indicesGm[indices_offset], AlignUp(ubIndicesNum, indicesEachBlock));
+        DataCopy(indicesLocal, indicesGm[indices_offset], AlignUp(taskLine, indicesEachBlock));
         pipe_barrier(PIPE_ALL);
         for (uint64_t idx = 0; idx < taskLine; idx++) {
             DTYPE_INDICES dataInIndices = indicesLocal.GetValue(idx);

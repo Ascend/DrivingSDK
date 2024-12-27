@@ -220,7 +220,7 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeEachTask(int32_t taskId, u
 {
     LocalTensor<int32_t> indicesLocal = inIndexUb.Get<int32_t>();
     auto indicesOffset = indicesBaseOffset + taskEachLine * taskId;
-    DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(this->indexUbSize, this->indicesEachBlock));
+    DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(taskLine, this->indicesEachBlock));
 
 #pragma bisheng auto_sync parallel
     for (uint64_t idx = 0; idx < taskLine; idx++) {

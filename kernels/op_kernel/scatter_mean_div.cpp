@@ -112,7 +112,7 @@ private:
         srcLocal = inQueueSrc.Get<DTYPE_SRC>();
 
         auto count_offset = countBaseOffset + taskEachLine * taskId;
-        DataCopy(countLocal, countGm[count_offset], AlignUp(ubCountNum, countEachBlock));
+        DataCopy(countLocal, countGm[count_offset], AlignUp(taskLine, countEachBlock));
 
         CopyParamasInit(tail);
         pipe_barrier(PIPE_ALL);
