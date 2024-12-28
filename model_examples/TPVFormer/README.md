@@ -29,16 +29,9 @@
 
   ```
   url=https://github.com/wzzheng/TPVFormer.git
-  commit_id=a1cf223ae4b79f56a2b046016c35a8fb3a0b6284
+  commit_id=459bc060901c9c4920f802252f04b290a449e4a1
   ```
   
-- 适配昇腾 AI 处理器的实现：
-
-  ```
-  url=https://gitee.com/ascend/ModelZoo-PyTorch.git
-  code_path=PyTorch/contrib/autonoumous_driving
-  ```
-
 # 准备训练环境
 ## 安装昇腾环境
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
@@ -69,6 +62,15 @@
 - 安装Mx_Driving-Accelerator
 
   请参考昇腾[mxDriving](https://gitee.com/ascend/mxDriving)代码仓说明编译安装mx-driving
+
+- 克隆代码到当前目录并使用patch文件
+```
+git clone https://github.com/wzzheng/TPVFormer.git
+git checkout 459bc060901c9c4920f802252f04b290a449e4a1
+cp -f TPVFormer.patch TPVFormer
+cd TPVFormer
+git apply TPVFormer_npu.patch
+```
 
 - 安装基础依赖
 
