@@ -87,8 +87,6 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
     ```
     git clone -b 1.x https://github.com/open-mmlab/mmcv
     cd mmcv
-    MMCV_WITH_OPS=1 pip install -e . -v
-
     MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
     ```
