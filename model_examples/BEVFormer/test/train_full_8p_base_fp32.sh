@@ -35,13 +35,13 @@ done
 
 #训练开始时间，不需要修改
 start_time=$(date +%s)
-
+cd BEVFormer
 sed -i "s|log_config = dict(interval=1,|log_config = dict(interval=50,|g" projects/configs/bevformer/bevformer_base.py
 sed -i "s|total_epochs = .*|total_epochs = ${epochs}|g" projects/configs/bevformer/bevformer_base.py
 sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=100)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|g" projects/configs/bevformer/bevformer_base.py
 
 bash ./tools/dist_train.sh ./projects/configs/bevformer/bevformer_base.py ${world_size} > ${test_path_dir}/output/train_full_8p_base_fp32.log 2>&1 &
-
+cd ..
 wait
 
 #训练结束时间，不需要修改

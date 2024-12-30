@@ -1,0 +1,97 @@
+diff --git a/mmdet3d/__init__.py b/mmdet3d/__init__.py
+index 643c39c9..a951e2cc 100644
+--- a/mmdet3d/__init__.py
++++ b/mmdet3d/__init__.py
+@@ -1,4 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
+ import mmcv
+ 
+ import mmdet
+@@ -19,7 +20,7 @@ def digit_version(version_str):
+ 
+ 
+ mmcv_minimum_version = '1.5.2'
+-mmcv_maximum_version = '1.7.0'
++mmcv_maximum_version = '1.7.2'
+ mmcv_version = digit_version(mmcv.__version__)
+ 
+ 
+diff --git a/mmdet3d/datasets/nuscenes_dataset.py b/mmdet3d/datasets/nuscenes_dataset.py
+index 47d6e15e..539205bf 100644
+--- a/mmdet3d/datasets/nuscenes_dataset.py
++++ b/mmdet3d/datasets/nuscenes_dataset.py
+@@ -1,4 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
+ import tempfile
+ from os import path as osp
+ 
+@@ -316,7 +317,7 @@ class NuScenesDataset(Custom3DDataset):
+         print('Start to convert detection format...')
+         for sample_id, det in enumerate(mmcv.track_iter_progress(results)):
+             annos = []
+-            boxes = output_to_nusc_box(det, self.with_velocity)
++            boxes = output_to_nusc_box(det)
+             sample_token = self.data_infos[sample_id]['token']
+             boxes = lidar_nusc_box_to_global(self.data_infos[sample_id], boxes,
+                                              mapped_class_names,
+@@ -573,7 +574,7 @@ class NuScenesDataset(Custom3DDataset):
+                         file_name, show)
+ 
+ 
+-def output_to_nusc_box(detection, with_velocity=True):
++def output_to_nusc_box(detection):
+     """Convert the output to the box class in the nuScenes.
+ 
+     Args:
+@@ -593,24 +594,21 @@ def output_to_nusc_box(detection, with_velocity=True):
+     box_gravity_center = box3d.gravity_center.numpy()
+     box_dims = box3d.dims.numpy()
+     box_yaw = box3d.yaw.numpy()
+-
+-    # our LiDAR coordinate system -> nuScenes box coordinate system
+-    nus_box_dims = box_dims[:, [1, 0, 2]]
++    # check whether this is necessary
++    # with dir_offset & dir_limit in the head
++    box_yaw = -box_yaw - np.pi / 2
+ 
+     box_list = []
+     for i in range(len(box3d)):
+         quat = pyquaternion.Quaternion(axis=[0, 0, 1], radians=box_yaw[i])
+-        if with_velocity:
+-            velocity = (*box3d.tensor[i, 7:9], 0.0)
+-        else:
+-            velocity = (0, 0, 0)
++        velocity = (*box3d.tensor[i, 7:9], 0.0)
+         # velo_val = np.linalg.norm(box3d[i, 7:9])
+         # velo_ori = box3d[i, 6]
+         # velocity = (
+         # velo_val * np.cos(velo_ori), velo_val * np.sin(velo_ori), 0.0)
+         box = NuScenesBox(
+             box_gravity_center[i],
+-            nus_box_dims[i],
++            box_dims[i],
+             quat,
+             label=labels[i],
+             score=scores[i],
+diff --git a/requirements/runtime.txt b/requirements/runtime.txt
+index 643cb0cd..309f0042 100644
+--- a/requirements/runtime.txt
++++ b/requirements/runtime.txt
+@@ -1,10 +1,10 @@
+ lyft_dataset_sdk
+-networkx>=2.2,<2.3
+-numba==0.53.0
++networkx==2.8
++numba==0.58.1
+ numpy
+ nuscenes-devkit
+ plyfile
+-scikit-image
++scikit-image==0.21.0
+ # by default we also use tensorboard to log results
+ tensorboard
+-trimesh>=2.35.39,<2.35.40
++trimesh>=2.35.39,<2.35.40
+\ No newline at end of file
