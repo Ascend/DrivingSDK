@@ -1,0 +1,121 @@
+diff --git a/train_8p.py b/train_8p.py
+new file mode 100644
+index 00000000..bd5d9c5b
+--- /dev/null
++++ b/train_8p.py
+@@ -0,0 +1,10 @@
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++import ultralytics
++from ultralytics import YOLO
++FILE = Path(__file__).resolve()
++ROOT = FILE.parents[0]  # YOLOv8 root directory
++if str(ROOT) not in sys.path:
++    sys.path.append(str(ROOT))  # add ROOT to PATH
++ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
++def parse_opt(known=False):
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--weights', type=str, default=ROOT / 'yolov8n.pt', help='initial weights path')
++    parser.add_argument('--data', type=str, default=ROOT / 'ultralytics/cfg/datasets/coco.yaml', help='dataset.yaml path')
++    parser.add_argument('--epochs', type=int, default=100)
++    parser.add_argument('--data_shuffle', default=True, action="store_false")
++    parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='train, val image size (pixels)')
++    parser.add_argument('--device', default='', help='npu device, i.e. 0 or 0,1,2,3 or cpu')
++    opt = parser.parse_known_args()[0] if known else parser.parse_args()
++    return opt
++if __name__ == "__main__":
++    opt = parse_opt()
++    # Load a model
++    model = YOLO(opt.cfg).load(opt.weights)
++   # Train the model
++    model.train(
++        data=opt.data,  # path to dataset YAML
++        epochs=opt.epochs,  # number of training epochs
++        imgsz=opt.imgsz,  # training image size
++        data_shuffle=opt.data_shuffle,
++        device=opt.device,  # device to run on, i.e. device=0 or device=0,1,2,3 or device=cpu
++    )
++
+diff --git a/ultralytics/engine/trainer.py b/ultralytics/engine/trainer.py
+index ae98540b..238237f9 100644
+--- a/ultralytics/engine/trainer.py
++++ b/ultralytics/engine/trainer.py
+@@ -18,6 +18,8 @@ from pathlib import Path
+ 
+ import numpy as np
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from torch import distributed as dist
+ from torch import nn, optim
+ 
+diff --git a/ultralytics/engine/validator.py b/ultralytics/engine/validator.py
+index 5e0f0988..e099e603 100644
+--- a/ultralytics/engine/validator.py
++++ b/ultralytics/engine/validator.py
+@@ -207,6 +207,7 @@ class BaseValidator:
+                     *tuple(self.speed.values())
+                 )
+             )
++            LOGGER.info(F'fps:{(1000/ sum(self.speed.values())):.2f}')
+             if self.args.save_json and self.jdict:
+                 with open(str(self.save_dir / "predictions.json"), "w") as f:
+                     LOGGER.info(f"Saving {f.name}...")
+diff --git a/ultralytics/utils/loss.py b/ultralytics/utils/loss.py
+index 15bf92f9..290ab00c 100644
+--- a/ultralytics/utils/loss.py
++++ b/ultralytics/utils/loss.py
+@@ -181,12 +181,12 @@ class v8DetectionLoss:
+         """Preprocesses the target counts and matches with the input batch size to output a tensor."""
+         nl, ne = targets.shape
+         if nl == 0:
+-            out = torch.zeros(batch_size, 0, ne - 1, device=self.device)
++            out = torch.zeros(batch_size, 0, ne - 1)
+         else:
+             i = targets[:, 0]  # image index
+             _, counts = i.unique(return_counts=True)
+             counts = counts.to(dtype=torch.int32)
+-            out = torch.zeros(batch_size, counts.max(), ne - 1, device=self.device)
++            out = torch.zeros(batch_size, counts.max(), ne - 1)
+             for j in range(batch_size):
+                 matches = i == j
+                 n = matches.sum()
+@@ -217,12 +217,12 @@ class v8DetectionLoss:
+ 
+         dtype = pred_scores.dtype
+         batch_size = pred_scores.shape[0]
+-        imgsz = torch.tensor(feats[0].shape[2:], device=self.device, dtype=dtype) * self.stride[0]  # image size (h,w)
++        imgsz = torch.tensor(feats[0].shape[2:], dtype=dtype) * self.stride[0].cpu()  # image size (h,w)
+         anchor_points, stride_tensor = make_anchors(feats, self.stride, 0.5)
+ 
+         # Targets
+         targets = torch.cat((batch["batch_idx"].view(-1, 1), batch["cls"].view(-1, 1), batch["bboxes"]), 1)
+-        targets = self.preprocess(targets.to(self.device), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]])
++        targets = self.preprocess(targets.cpu(), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]]).to(self.device)
+         gt_labels, gt_bboxes = targets.split((1, 4), 2)  # cls, xyxy
+         mask_gt = gt_bboxes.sum(2, keepdim=True).gt_(0.0)
+ 
+diff --git a/ultralytics/utils/tal.py b/ultralytics/utils/tal.py
+index 74604eda..51fc53c1 100644
+--- a/ultralytics/utils/tal.py
++++ b/ultralytics/utils/tal.py
+@@ -110,12 +110,14 @@ class TaskAlignedAssigner(nn.Module):
+         ind[0] = torch.arange(end=self.bs).view(-1, 1).expand(-1, self.n_max_boxes)  # b, max_num_obj
+         ind[1] = gt_labels.squeeze(-1)  # b, max_num_obj
+         # Get the scores of each grid for each gt cls
+-        bbox_scores[mask_gt] = pd_scores[ind[0], :, ind[1]][mask_gt]  # b, max_num_obj, h*w
++        pd_scores_trans = pd_scores.permute(0, 2, 1)
++        temp = pd_scores_trans[ind[0], ind[1], :]
++        bbox_scores = torch.where(mask_gt, temp, bbox_scores)
+ 
+         # (b, max_num_obj, 1, 4), (b, 1, h*w, 4)
+-        pd_boxes = pd_bboxes.unsqueeze(1).expand(-1, self.n_max_boxes, -1, -1)[mask_gt]
+-        gt_boxes = gt_bboxes.unsqueeze(2).expand(-1, -1, na, -1)[mask_gt]
+-        overlaps[mask_gt] = self.iou_calculation(gt_boxes, pd_boxes)
++        pd_boxes = pd_bboxes.unsqueeze(1).expand(-1, self.n_max_boxes, -1, -1)
++        gt_boxes = gt_bboxes.unsqueeze(2).expand(-1, -1, na, -1)
++        overlaps = torch.where(mask_gt, self.iou_calculation(gt_boxes, pd_boxes), overlaps)
+ 
+         align_metric = bbox_scores.pow(self.alpha) * overlaps.pow(self.beta)
+         return align_metric, overlaps
