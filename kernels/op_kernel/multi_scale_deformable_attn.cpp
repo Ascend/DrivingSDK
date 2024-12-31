@@ -6,13 +6,32 @@
 #include "kernel_operator.h"
 
 using namespace AscendC;
+constexpr int32_t BUFFER_NUM = 2;
+constexpr uint32_t EMBED_DIMS = 64;
+constexpr uint32_t POINTS = 8;
 
-template<int32_t num_points, int32_t embed_dims>
-class KernelMultiScaleDeformableAttnOpt {
+#define ADD_MSDA_CASE_ALIGNED(num_points)                                                                    \
+    if (TILING_KEY_IS(num_points##1)) {                                                                      \
+        MultiScaleDeformableAttnKernel<num_points, true> op(value, valueSpatialShapes, valueLevelStartIndex, \
+            samplingLocations, attentionWeights, output, &tilingData, &pipe);                                \
+        op.Process();                                                                                        \
+        return;                                                                                              \
+    }
+
+#define ADD_MSDA_CASE_UNALIGNED(num_points)                                                                   \
+    if (TILING_KEY_IS(num_points##0)) {                                                                       \
+        MultiScaleDeformableAttnKernel<num_points, false> op(value, valueSpatialShapes, valueLevelStartIndex, \
+            samplingLocations, attentionWeights, output, &tilingData, &pipe);                                 \
+        op.Process();                                                                                         \
+        return;                                                                                               \
+    }
+
+template<uint32_t num_points, bool aligned>
+class MultiScaleDeformableAttnKernel {
 public:
-    __aicore__ inline KernelMultiScaleDeformableAttnOpt() = delete;
+    __aicore__ inline MultiScaleDeformableAttnKernel() = delete;
 
-    __aicore__ inline KernelMultiScaleDeformableAttnOpt(GM_ADDR value, GM_ADDR valueSpatialShapes,
+    __aicore__ inline MultiScaleDeformableAttnKernel(GM_ADDR value, GM_ADDR valueSpatialShapes,
         GM_ADDR valueLevelStartIndex, GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR output,
         const MultiScaleDeformableAttnTilingData* tilingData, TPipe* pipe)
         : pipe_(pipe), blkIdx_(GetBlockIdx())
@@ -21,8 +40,6 @@ public:
         InitTask();
         InitGM(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, output);
         InitBuffer();
-        InitEvent();
-
         SetVectorMask<float>(FULL_MASK, FULL_MASK);
         SetAtomicNone();
     }
@@ -32,10 +49,14 @@ public:
 private:
     __aicore__ inline void InitTask()
     {
-        uint32_t avgTasks = numQueries_ / coreNum_;
-        uint32_t remainTasks = numQueries_ % coreNum_;
+        uint32_t avgTasks = (batchSize_ * numQueries_) / coreNum_;
+        uint32_t remainTasks = (batchSize_ * numQueries_) % coreNum_;
         startOffset_ = avgTasks * blkIdx_ + (blkIdx_ < remainTasks ? blkIdx_ : remainTasks);
         endOffset_ = startOffset_ + avgTasks + (blkIdx_ < remainTasks ? 1 : 0);
+        batch_ = startOffset_ / numQueries_;
+        query_ = startOffset_ % numQueries_;
+        baseSrcOffset_ = batch_ * numKeys_ * numHeads_;
+        baseDstOffset_ = startOffset_ * numHeads_ * embedDims_;
     }
 
     __aicore__ inline void InitTiling(const MultiScaleDeformableAttnTilingData* tilingData)
@@ -43,7 +64,7 @@ private:
         batchSize_ = tilingData->batchSize;
         numKeys_ = tilingData->numKeys;
         numHeads_ = tilingData->numHeads;
-        embedDims_ = embed_dims;
+        embedDims_ = tilingData->embedDims;
         numLevels_ = tilingData->numLevels;
         numQueries_ = tilingData->numQueries;
         numPoints_ = tilingData->numPoints;
@@ -51,25 +72,24 @@ private:
         pointLoops_ = tilingData->pointLoops;
         realLevels_ = tilingData->realLevels;
 
-        oneQueryNum_ = realLevels_ * numHeads_ * numPoints_;
+        oneQueryNum_ = numHeads_ * realLevels_ * numPoints_;
 
-        alignedNumPoints_ = AlignUp(num_points, B32_DATA_NUM_PER_BLOCK);
-        alignedOneHeadNum_ = numLevels_ * alignedNumPoints_;
+        alignedOneHeadNum_ = numLevels_ * POINTS;
         alignedOneQueryNum_ = AlignUp(numHeads_ * alignedOneHeadNum_, B32_DATA_NUM_PER_REPEAT);
-        alignedEmbedDims_ = AlignUp(embedDims_, B32_DATA_NUM_PER_BLOCK);
-        alignedCornerEmbedDims_ = AlignUp(4 * num_points * alignedEmbedDims_, B32_DATA_NUM_PER_REPEAT);
-        alignedHeadEmbedDims_ = AlignUp(numHeads_ * alignedEmbedDims_, B32_DATA_NUM_PER_REPEAT);
-
-        embedBlk_ = alignedEmbedDims_ / B32_DATA_NUM_PER_BLOCK;
+        alignedCornerEmbedDims_ = alignedOneHeadNum_ * EMBED_DIMS;
+        alignedHeadEmbedDims_ = numHeads_ * EMBED_DIMS;
         outDims_ = numHeads_ * embedDims_;
-        outBlk_ = numHeads_ * embedBlk_;
-        queryBlk_ = alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK;
-        rptTimes_ = alignedOneQueryNum_ / B32_DATA_NUM_PER_REPEAT;
-        valRptTimes4_ = alignedCornerEmbedDims_ / B32_DATA_NUM_PER_REPEAT;
-        valRptTimes2_ = DivCeil(2 * num_points * alignedEmbedDims_, B32_DATA_NUM_PER_REPEAT);
-        valRptTimes1_ = DivCeil(num_points * alignedEmbedDims_, B32_DATA_NUM_PER_REPEAT);
-        outRptTimes_ = alignedHeadEmbedDims_ / B32_DATA_NUM_PER_REPEAT;
 
+        queryBlk_ = alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK;
+        qryRpt_ = alignedOneQueryNum_ / B32_DATA_NUM_PER_REPEAT;
+        cornerRpt_ = 4 * alignedOneHeadNum_;
+
+        if constexpr (aligned) {
+            embedBlk_ = embedDims_ / B32_DATA_NUM_PER_BLOCK;
+        } else {
+            embedBlk_ = embedDims_ * B32_BYTE_SIZE;
+        }
+        outBlk_ = numHeads_ * embedBlk_;
         if (num_points == 8 && pointLoops_ == 1) {
             cpSampleParams_.blockLen = DivCeil(numLevels_ * numHeads_ * num_points, B32_DATA_NUM_PER_BLOCK);
             cpDoubleSampleParams_.blockLen = DivCeil(2 * numLevels_ * numHeads_ * num_points, B32_DATA_NUM_PER_BLOCK);
@@ -80,17 +100,21 @@ private:
             cpDoubleSampleParams_.blockCount = numLevels_ * numHeads_;
             cpDoubleSampleParams_.blockLen = 2 * num_points * B32_BYTE_SIZE;
             cpDoubleSampleParams_.srcStride = 2 * (numPoints_ - num_points) * B32_BYTE_SIZE;
-            cpDoubleSampleParams_.dstStride = num_points == 8 ? 0 : 1;
+            cpDoubleSampleParams_.dstStride = num_points > 4 ? 0 : 1;
         }
 
         cpOneValParams_.blockLen = embedBlk_;
-        cpDoubleValParams_.blockLen = embedBlk_;
-        cpDoubleValParams_.srcStride = outBlk_ - embedBlk_;
-        cpDoubleValParams_.dstStride = 2 * num_points * embedBlk_ - embedBlk_;
-
-        gatherParams_.repeatTimes = rptTimes_ * 2;
-
-        dstRptStride_ = num_points * embedBlk_;
+        cpRowDoubleParams_.blockLen = embedBlk_;
+        cpRowDoubleParams_.srcStride = outBlk_ - embedBlk_;
+        cpRowDoubleParams_.dstStride =
+            alignedCornerEmbedDims_ / B32_DATA_NUM_PER_BLOCK - DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
+        cpColDoubleParams_.blockLen = embedBlk_;
+        cpColDoubleParams_.dstStride =
+            2 * alignedCornerEmbedDims_ / B32_DATA_NUM_PER_BLOCK - DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
+        cpOutParams_.blockCount = numHeads_;
+        cpOutParams_.blockLen = embedBlk_;
+        cpOutParams_.srcStride = 8 - DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
+        gatherParams_.repeatTimes = qryRpt_ * 2;
     }
 
     __aicore__ inline void InitGM(GM_ADDR value, GM_ADDR valueSpatialShapes, GM_ADDR valueLevelStartIndex,
@@ -111,40 +135,43 @@ private:
         pipe_->InitBuffer(offsetQue_, AlignUp(numLevels_, B32_DATA_NUM_PER_BLOCK) * B32_BYTE_SIZE);
         pipe_->InitBuffer(locationQue_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE); // x, y
         pipe_->InitBuffer(attentionWeightsQue_, alignedOneQueryNum_ * B32_BYTE_SIZE);
-        pipe_->InitBuffer(valueQue_, 2 * alignedCornerEmbedDims_ * B32_BYTE_SIZE); // 2 for double buffer
-        pipe_->InitBuffer(outputQue_, 2 * alignedHeadEmbedDims_ * B32_BYTE_SIZE);
+        pipe_->InitBuffer(valueQue_, BUFFER_NUM * 4 * alignedCornerEmbedDims_ * B32_BYTE_SIZE); // 2 for double buffer
+        pipe_->InitBuffer(outputQue_, BUFFER_NUM * alignedHeadEmbedDims_ * B32_BYTE_SIZE);
 
         pipe_->InitBuffer(shapeBrcBuf_, 2 * alignedOneQueryNum_ * B32_BYTE_SIZE); // w, h
         pipe_->InitBuffer(locIntBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE);   // x0, y0, x1, y1
         pipe_->InitBuffer(locFloatBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE); // lw, lh
         pipe_->InitBuffer(weightBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE);   // w1-w4
-        pipe_->InitBuffer(cornerWeightBuf_, 4 * alignedNumPoints_ * B32_BYTE_SIZE);
         // NOTE: cornerWeightBrcBuf must be at the tail of ub
-        pipe_->InitBuffer(cornerWeightBrcBuf_, 4 * num_points * alignedEmbedDims_ * B32_BYTE_SIZE);
-    }
-
-    __aicore__ inline void InitEvent()
-    {
-        calEvt_ = pipe_->AllocEventID<HardEvent::V_MTE3>();
-        copyEvt_ = pipe_->AllocEventID<HardEvent::MTE2_V>();
+        pipe_->InitBuffer(cornerWeightBrcBuf_, 4 * (alignedCornerEmbedDims_ + alignedOneHeadNum_ * 8) * B32_BYTE_SIZE);
     }
 
     __aicore__ inline void PrepareShape(
         const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& offset, LocalTensor<float>& shapeBrc);
 
-    __aicore__ inline void CopyInSample(const LocalTensor<float>& location, const LocalTensor<float>& attentionWeight,
-        uint32_t batch, uint32_t query, uint32_t pl);
+    __aicore__ inline void CopyInSample(
+        const LocalTensor<float>& location, const LocalTensor<float>& attentionWeight, uint32_t taskIdx, uint32_t pl);
 
     __aicore__ inline void ComputeLocation(const LocalTensor<float>& location, const LocalTensor<float>& shapes,
         const LocalTensor<int32_t>& locInt, const LocalTensor<float>& locFloat);
 
-    __aicore__ inline void ComputeWeight(const LocalTensor<int32_t>& locInt, const LocalTensor<float>& locFloat,
-        const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight);
+    __aicore__ inline void ComputeWeight(const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
+        const LocalTensor<float>& attentionWeight);
 
-    __aicore__ inline void ComputeBilinearInterpolation(const LocalTensor<int32_t>& shapes,
-        const LocalTensor<int32_t>& offset, const LocalTensor<int32_t>& locInt, const LocalTensor<float>& value,
-        const LocalTensor<float>& weight, const LocalTensor<float>& cornerWeight,
+    __aicore__ inline void ComputeBilinearInterpolation(uint32_t pl, uint8_t outerPing,
+        const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& offset, const LocalTensor<int32_t>& locX,
+        const LocalTensor<int32_t>& locY, const LocalTensor<float>& value, const LocalTensor<float>& weight,
         const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output);
+
+    __aicore__ inline void DataCopyValue(
+        const LocalTensor<float>& dst, const GlobalTensor<float>& src, const DataCopyParams& cpParams)
+    {
+        if constexpr (aligned) {
+            DataCopy(dst, src, cpParams);
+        } else {
+            DataCopyPad(dst, src, cpParams, {});
+        }
+    }
 
 private:
     TPipe* pipe_;
@@ -154,30 +181,29 @@ private:
     TBuf<TPosition::VECCALC> locationQue_, attentionWeightsQue_, shapeQue_, offsetQue_, valueQue_;
     TBuf<TPosition::VECCALC> outputQue_;
 
-    TBuf<TPosition::VECCALC> locIntBuf_, locFloatBuf_, shapeBrcBuf_, weightBuf_, cornerWeightBuf_, cornerWeightBrcBuf_;
+    TBuf<TPosition::VECCALC> locIntBuf_, locFloatBuf_, shapeBrcBuf_, weightBuf_, cornerWeightBrcBuf_;
 
     int32_t blkIdx_;
 
     uint64_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, realLevels_;
-    uint32_t  coreNum_, pointLoops_;
+    uint32_t coreNum_, pointLoops_;
     uint32_t startOffset_, endOffset_;
-    uint32_t alignedNumPoints_, alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_,
-        alignedHeadEmbedDims_;
+    uint32_t alignedOneHeadNum_, alignedOneQueryNum_, alignedCornerEmbedDims_, alignedHeadEmbedDims_;
     uint32_t oneQueryNum_;
-    uint16_t queryBlk_, embedBlk_, outBlk_, dstRptStride_;
-    uint16_t rptTimes_, outRptTimes_, valRptTimes4_, valRptTimes2_, valRptTimes1_;
-
-    TEventID calEvt_, copyEvt_;
+    uint16_t queryBlk_, embedBlk_, outBlk_;
+    uint16_t qryRpt_, cornerRpt_;
+    uint32_t query_, batch_;
+    TEventID copyEvt_ {3};
 
     uint64_t baseSrcOffset_, baseDstOffset_, srcOffset_;
 
-    DataCopyParams cpOneValParams_, cpDoubleValParams_ {2, 0, 0, 0}, cpSampleParams_ {1, 0, 0, 0},
-        cpDoubleSampleParams_ {1, 0, 0, 0};
+    DataCopyParams cpOneValParams_, cpRowDoubleParams_ {2, 0, 0, 0}, cpColDoubleParams_ {2, 0, 0, 0}, cpSampleParams_,
+        cpDoubleSampleParams_, cpOutParams_;
     GatherMaskParams gatherParams_;
 };
 
-template<int32_t num_points, int32_t embed_dims>
-__aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>::PrepareShape(
+template<uint32_t num_points, bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnKernel<num_points, aligned>::PrepareShape(
     const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& offset, LocalTensor<float>& shapeBrc)
 {
     DataCopy(shapes, valueSpatialShapesGm_,
@@ -197,12 +223,11 @@ __aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>
     }
 }
 
-template<int32_t num_points, int32_t embed_dims>
-__aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>::CopyInSample(
-    const LocalTensor<float>& location, const LocalTensor<float>& attentionWeight, uint32_t batch, uint32_t query,
-    uint32_t pl)
+template<uint32_t num_points, bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnKernel<num_points, aligned>::CopyInSample(
+    const LocalTensor<float>& location, const LocalTensor<float>& attentionWeight, uint32_t taskIdx, uint32_t pl)
 {
-    uint64_t sampleOffset = (batch * numQueries_ + query) * oneQueryNum_;
+    uint64_t sampleOffset = taskIdx * oneQueryNum_;
     WaitFlag<HardEvent::V_MTE2>(0);
     WaitFlag<HardEvent::V_MTE2>(1);
     if (num_points == 8 && pointLoops_ == 1) {
@@ -216,8 +241,8 @@ __aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>
     SetFlag<HardEvent::MTE2_V>(copyEvt_);
 }
 
-template<int32_t num_points, int32_t embed_dims>
-__aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>::ComputeLocation(
+template<uint32_t num_points, bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnKernel<num_points, aligned>::ComputeLocation(
     const LocalTensor<float>& location, const LocalTensor<float>& shapes, const LocalTensor<int32_t>& locInt,
     const LocalTensor<float>& locFloat)
 {
@@ -229,174 +254,138 @@ __aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>
         gatherParams_, cnt);
     SetVectorMask<float>(FULL_MASK, FULL_MASK);
 
-    Mul<float, false>(location, location, shapes, MASK_PLACEHOLDER, 2 * rptTimes_, {1, 1, 1, 8, 8, 8});
-    Adds<float, false>(locFloat, location, 0.5f, MASK_PLACEHOLDER, 2 * rptTimes_, {1, 1, 8, 8});
-    Cast<int32_t, float, false>(locInt, locFloat, RoundMode::CAST_FLOOR, MASK_PLACEHOLDER, 2 * rptTimes_, {1, 1, 8, 8});
+    Mul<float, false>(location, location, shapes, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 1, 8, 8, 8});
+    Adds<float, false>(locFloat, location, 0.5f, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+    Cast<int32_t, float, false>(locInt, locFloat, RoundMode::CAST_FLOOR, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+    Cast<float, int32_t, false>(
+        locFloat[2 * alignedOneQueryNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+    Adds<int32_t, false>(locInt, locInt, -1, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
     SetFlag<HardEvent::V_MTE2>(0);
     SetFlag<HardEvent::V_MTE2>(1);
 }
 
-template<int32_t num_points, int32_t embed_dims>
-__aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>::ComputeWeight(
-    const LocalTensor<int32_t>& locInt, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
-    const LocalTensor<float>& attentionWeight)
+template<uint32_t num_points, bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnKernel<num_points, aligned>::ComputeWeight(
+    const LocalTensor<float>& locFloat, const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight)
 {
-    Cast<float, int32_t, false>(
-        locFloat[2 * alignedOneQueryNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * rptTimes_, {1, 1, 8, 8});
-    Sub<float, false>(locFloat, locFloat, locFloat[2 * alignedOneQueryNum_], MASK_PLACEHOLDER, 2 * rptTimes_,
-        {1, 1, 1, 8, 8, 8}); // lh, lw
+    Sub<float, false>(locFloat, locFloat, locFloat[2 * alignedOneQueryNum_], MASK_PLACEHOLDER, 2 * qryRpt_,
+        {1, 1, 1, 8, 8, 8}); // lw, lh
     Mul<float, false>(weight[3 * alignedOneQueryNum_], locFloat, locFloat[alignedOneQueryNum_], MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8}); // lh * lw
-    Duplicate<float, false>(weight, 1.f, MASK_PLACEHOLDER, rptTimes_, 1, 8);
-    Sub<float, false>(weight, weight, locFloat, MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Sub<float, false>(weight, weight, locFloat[alignedOneQueryNum_], MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Add<float, false>(weight, weight, weight[3 * alignedOneQueryNum_], MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Sub<float, false>(weight[alignedOneQueryNum_], locFloat[alignedOneQueryNum_], weight[3 * alignedOneQueryNum_],
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Sub<float, false>(weight[2 * alignedOneQueryNum_], locFloat, weight[3 * alignedOneQueryNum_], MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8});
+        qryRpt_, {1, 1, 1, 8, 8, 8}); // lw * lh
+    Duplicate<float, false>(weight, 1.f, MASK_PLACEHOLDER, qryRpt_, 1, 8);
+    Sub<float, false>(weight, weight, locFloat, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
+    Sub<float, false>(weight, weight, locFloat[alignedOneQueryNum_], MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
+    Add<float, false>(weight, weight, weight[3 * alignedOneQueryNum_], MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
+    Sub<float, false>(weight[alignedOneQueryNum_], locFloat, weight[3 * alignedOneQueryNum_], MASK_PLACEHOLDER, qryRpt_,
+        {1, 1, 1, 8, 8, 8}); // lw - lw * lh, lw*hh
+    Sub<float, false>(weight[2 * alignedOneQueryNum_], locFloat[alignedOneQueryNum_], weight[3 * alignedOneQueryNum_],
+        MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8}); // hw*lh
 
-    Mul<float, false>(weight, weight, attentionWeight, MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
+    Mul<float, false>(weight, weight, attentionWeight, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
     Mul<float, false>(weight[alignedOneQueryNum_], weight[alignedOneQueryNum_], attentionWeight, MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8});
+        qryRpt_, {1, 1, 1, 8, 8, 8});
     Mul<float, false>(weight[2 * alignedOneQueryNum_], weight[2 * alignedOneQueryNum_], attentionWeight,
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
+        MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
     Mul<float, false>(weight[3 * alignedOneQueryNum_], weight[3 * alignedOneQueryNum_], attentionWeight,
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
+        MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
 }
 
-template<int32_t num_points, int32_t embed_dims>
-__aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>::ComputeBilinearInterpolation(
-    const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& offset, const LocalTensor<int32_t>& locInt,
-    const LocalTensor<float>& value, const LocalTensor<float>& weight, const LocalTensor<float>& cornerWeight,
-    const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output)
+template<uint32_t num_points, bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnKernel<num_points, aligned>::ComputeBilinearInterpolation(uint32_t pl,
+    uint8_t outerPing, const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& offset,
+    const LocalTensor<int32_t>& locX, const LocalTensor<int32_t>& locY, const LocalTensor<float>& value,
+    const LocalTensor<float>& weight, const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output)
 {
-    uint8_t ping = 0;
+    uint8_t innerPing = 0;
 
-#pragma bisheng auto_sync parallel
     for (uint32_t head = 0; head < numHeads_; ++head) {
         uint32_t valueOffset = (baseSrcOffset_ + head) * embedDims_;
-        uint32_t outOffset = head * alignedEmbedDims_;
-
+        uint32_t outOffset = head * EMBED_DIMS;
+        uint32_t baseIdx = head * alignedOneHeadNum_;
+        LocalTensor<float> valuePing = value[innerPing * 4 * alignedCornerEmbedDims_];
         for (uint32_t level = 0; level < numLevels_; ++level) {
             int32_t h = shapes.GetValue(level * 2);
             int32_t w = shapes.GetValue(level * 2 + 1);
             srcOffset_ = valueOffset + offset.GetValue(level) * outDims_;
-
-            uint32_t sx = head * alignedOneHeadNum_ + level * alignedNumPoints_;
-            uint32_t sy = sx + alignedOneQueryNum_;
-
-            uint32_t pingOffset = ping * alignedCornerEmbedDims_;
-            WaitFlag<HardEvent::V_MTE2>(ping);
-
+            uint32_t idx = baseIdx + level * POINTS;
+            LocalTensor<float> valueLevel = valuePing[level * POINTS * EMBED_DIMS];
             for (uint32_t point = 0; point < num_points; ++point) {
-                int32_t y1 = locInt.GetValue(point + sy);
-                int32_t x1 = locInt.GetValue(point + sx);
-                int32_t y0 = y1 - 1;
-                int32_t x0 = x1 - 1;
-
-                if (0 <= y0 && y0 < h) {
-                    if (0 < x1 && x1 < w) {
-                        DataCopy(value[pingOffset + point * alignedEmbedDims_],
-                            valueGm_[srcOffset_ + (y0 * w + x0) * outDims_], cpDoubleValParams_);
-                    } else if (0 <= x0 && x0 < w) {
-                        DataCopy(value[pingOffset + point * alignedEmbedDims_],
-                            valueGm_[srcOffset_ + (y0 * w + x0) * outDims_], cpOneValParams_);
-                    } else if (0 <= x1 && x1 < w) {
-                        DataCopy(value[pingOffset + point * alignedEmbedDims_ + 2 * num_points * alignedEmbedDims_],
-                            valueGm_[srcOffset_ + (y0 * w + x1) * outDims_], cpOneValParams_);
+                int32_t x = locX.GetValue(idx + point);
+                int32_t y = locY.GetValue(idx + point);
+                if (unlikely(level == 0 && point == 0)) {
+                    WaitFlag<HardEvent::V_MTE2>(innerPing);
+                }
+                if (0 <= y && y < h - 1) {
+                    if (0 <= x && x < w - 1) {
+                        DataCopyValue(valueLevel[point * EMBED_DIMS], valueGm_[srcOffset_ + (y * w + x) * outDims_],
+                            cpRowDoubleParams_);
+                        DataCopyValue(valueLevel[point * EMBED_DIMS + 2 * alignedCornerEmbedDims_],
+                            valueGm_[srcOffset_ + ((y + 1) * w + x) * outDims_], cpRowDoubleParams_);
+                    } else if (x == w - 1) {
+                        cpColDoubleParams_.srcStride = w * outBlk_ - embedBlk_;
+                        DataCopyValue(valueLevel[point * EMBED_DIMS], valueGm_[srcOffset_ + (y * w + x) * outDims_],
+                            cpColDoubleParams_);
+                    } else if (x == -1) {
+                        cpColDoubleParams_.srcStride = w * outBlk_ - embedBlk_;
+                        DataCopyValue(valueLevel[point * EMBED_DIMS + alignedCornerEmbedDims_],
+                            valueGm_[srcOffset_ + y * w * outDims_], cpColDoubleParams_);
+                    }
+                } else if (y == h - 1) {
+                    if (0 <= x && x < w - 1) {
+                        DataCopyValue(valueLevel[point * EMBED_DIMS], valueGm_[srcOffset_ + (y * w + x) * outDims_],
+                            cpRowDoubleParams_);
+                    } else if (x == w - 1) {
+                        DataCopyValue(valueLevel[point * EMBED_DIMS], valueGm_[srcOffset_ + (y * w + x) * outDims_],
+                            cpOneValParams_);
+                    } else if (x == -1) {
+                        DataCopyValue(valueLevel[point * EMBED_DIMS + alignedCornerEmbedDims_],
+                            valueGm_[srcOffset_ + y * w * outDims_], cpOneValParams_);
+                    }
+                } else if (y == -1) {
+                    if (0 <= x && x < w - 1) {
+                        DataCopyValue(valueLevel[point * EMBED_DIMS + 2 * alignedCornerEmbedDims_],
+                            valueGm_[srcOffset_ + x * outDims_], cpRowDoubleParams_);
+                    } else if (x == w - 1) {
+                        DataCopyValue(valueLevel[point * EMBED_DIMS + 2 * alignedCornerEmbedDims_],
+                            valueGm_[srcOffset_ + x * outDims_], cpOneValParams_);
+                    } else if (x == -1) {
+                        DataCopyValue(valueLevel[point * EMBED_DIMS + 3 * alignedCornerEmbedDims_],
+                            valueGm_[srcOffset_], cpOneValParams_);
                     }
                 }
-                if (0 <= y1 && y1 < h) {
-                    if (0 < x1 && x1 < w) {
-                        DataCopy(value[pingOffset + point * alignedEmbedDims_ + num_points * alignedEmbedDims_],
-                            valueGm_[srcOffset_ + (y1 * w + x0) * outDims_], cpDoubleValParams_);
-                    } else if (0 <= x0 && x0 < w) {
-                        DataCopy(value[pingOffset + point * alignedEmbedDims_ + num_points * alignedEmbedDims_],
-                            valueGm_[srcOffset_ + (y1 * w + x0) * outDims_], cpOneValParams_);
-                    } else if (0 <= x1 && x1 < w) {
-                        DataCopy(value[pingOffset + point * alignedEmbedDims_ + 3 * num_points * alignedEmbedDims_],
-                            valueGm_[srcOffset_ + (y1 * w + x1) * outDims_], cpOneValParams_);
-                    }
-                }
             }
-            SetFlag<HardEvent::MTE2_V>(copyEvt_);
-
-            // broadcast to [4*8, embedDims_]
-            Copy<float, false>(cornerWeight, weight[sx], MASK_PLACEHOLDER, 1, {1, queryBlk_, 8, 8});
-            PipeBarrier<PIPE_V>();
-            for (uint32_t i = 0; i < 4; ++i) {
-                Brcb(cornerWeightBrc[i * num_points * alignedEmbedDims_], cornerWeight[i * alignedNumPoints_], 1,
-                    {embedBlk_, dstRptStride_});
-            }
-            PipeBarrier<PIPE_V>();
-            for (uint32_t i = 1; i < embedBlk_; ++i) {
-                Copy<float, false>(cornerWeightBrc[i * B32_DATA_NUM_PER_BLOCK], cornerWeightBrc, MASK_PLACEHOLDER, 4,
-                    {embedBlk_, embedBlk_, dstRptStride_, dstRptStride_});
-            }
-
-            WaitFlag<HardEvent::MTE2_V>(copyEvt_);
-
-            PipeBarrier<PIPE_V>();
-            Mul<float, false>(cornerWeightBrc, value[pingOffset], cornerWeightBrc, MASK_PLACEHOLDER, valRptTimes4_,
-                {1, 1, 1, 8, 8, 8});
-
-            PipeBarrier<PIPE_V>();
-            Duplicate<float, false>(value[pingOffset], 0.f, MASK_PLACEHOLDER, valRptTimes4_, 1, 8);
-            SetFlag<HardEvent::V_MTE2>(ping);
-            ping = 1 - ping;
-
-            Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[2 * num_points * alignedEmbedDims_],
-                MASK_PLACEHOLDER, valRptTimes2_, {1, 1, 1, 8, 8, 8});
-            PipeBarrier<PIPE_V>();
-            Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[num_points * alignedEmbedDims_],
-                MASK_PLACEHOLDER, valRptTimes1_, {1, 1, 1, 8, 8, 8});
-
-            if (embed_dims < 64) {
-                SetVectorMask<float>(0, (1UL << embedDims_) - 1);
-            }
-            if (num_points == 8) {
-                PipeBarrier<PIPE_V>();
-                Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[4 * alignedEmbedDims_],
-                    MASK_PLACEHOLDER, 4,
-                    {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_),
-                        static_cast<uint8_t>(embedBlk_)});
-            }
-            if (num_points >= 4) {
-                PipeBarrier<PIPE_V>();
-                Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[2 * alignedEmbedDims_],
-                    MASK_PLACEHOLDER, 2,
-                    {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_),
-                        static_cast<uint8_t>(embedBlk_)});
-            }
-            if (num_points >= 2) {
-                PipeBarrier<PIPE_V>();
-                Add<float, false>(cornerWeightBrc, cornerWeightBrc, cornerWeightBrc[alignedEmbedDims_],
-                    MASK_PLACEHOLDER, 1,
-                    {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_),
-                        static_cast<uint8_t>(embedBlk_)});
-            }
-            if (num_points >= 1) {
-                PipeBarrier<PIPE_V>();
-                Add<float, false>(output[outOffset], output[outOffset], cornerWeightBrc, MASK_PLACEHOLDER, 1,
-                    {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_),
-                        static_cast<uint8_t>(embedBlk_)});
-            }
-            SetVectorMask<float>(FULL_MASK, FULL_MASK);
         }
+        SetFlag<HardEvent::MTE2_V>(innerPing);
+
+        for (uint32_t i = 0; i < 4; ++i) {
+            Brcb(cornerWeightBrc[4 * alignedCornerEmbedDims_ + i * alignedOneHeadNum_ * 8],
+                weight[baseIdx + i * alignedOneQueryNum_], numLevels_, {1, 8});
+        }
+        Brcb(cornerWeightBrc, cornerWeightBrc[4 * alignedCornerEmbedDims_], cornerRpt_, {1, 8});
+        WaitFlag<HardEvent::MTE2_V>(innerPing);
+        Mul<float, false>(
+            cornerWeightBrc, valuePing, cornerWeightBrc, MASK_PLACEHOLDER, cornerRpt_, {1, 1, 1, 8, 8, 8});
+        Duplicate<float, false>(valuePing, 0.f, MASK_PLACEHOLDER, cornerRpt_, 1, 8);
+        SetFlag<HardEvent::V_MTE2>(innerPing);
+        innerPing = 1 - innerPing;
+        if (unlikely(head == 0 && pl == 0)) {
+            WaitFlag<HardEvent::MTE3_V>(outerPing);
+            Duplicate<float, false>(output, 0.f, MASK_PLACEHOLDER, numHeads_, 1, 8);
+        }
+        Add<float, false>(
+            output[outOffset], cornerWeightBrc, output[outOffset], MASK_PLACEHOLDER, cornerRpt_, {1, 1, 1, 0, 8, 0});
     }
 }
 
 
-template<int32_t num_points, int32_t embed_dims>
-__aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>::Process()
+template<uint32_t num_points, bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnKernel<num_points, aligned>::Process()
 {
     LocalTensor<float> location = locationQue_.Get<float>();
     LocalTensor<float> attentionWeight = attentionWeightsQue_.Get<float>();
     LocalTensor<int32_t> shapes = shapeQue_.Get<int32_t>();
     LocalTensor<int32_t> offset = offsetQue_.Get<int32_t>();
     LocalTensor<float> value = valueQue_.Get<float>();
-    LocalTensor<float> cornerWeight = cornerWeightBuf_.Get<float>();
     LocalTensor<float> cornerWeightBrc = cornerWeightBrcBuf_.Get<float>();
     LocalTensor<float> output = outputQue_.Get<float>();
 
@@ -406,32 +395,38 @@ __aicore__ inline void KernelMultiScaleDeformableAttnOpt<num_points, embed_dims>
     LocalTensor<float> weight = weightBuf_.Get<float>();
 
     PrepareShape(shapes, offset, shapeBrc);
-    Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, 2 * valRptTimes4_, 1, 8);
+    Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, cornerRpt_, 1, 8);
+    Duplicate<float, false>(value[4 * alignedCornerEmbedDims_], 0.f, MASK_PLACEHOLDER, cornerRpt_, 1, 8);
     SetFlag<HardEvent::V_MTE2>(0);
     SetFlag<HardEvent::V_MTE2>(1);
     SetFlag<HardEvent::MTE3_V>(0);
     SetFlag<HardEvent::MTE3_V>(1);
 
-    uint8_t ping = 0;
-    for (uint32_t batch = 0; batch < batchSize_; ++batch) {
-        for (uint32_t query = startOffset_; query < endOffset_; ++query) {
-            baseSrcOffset_ = batch * numKeys_ * numHeads_;
-            baseDstOffset_ = (batch * numQueries_ + query) * numHeads_ * embedDims_;
+    uint8_t outerPing = 0;
+    for (uint32_t taskIdx = startOffset_; taskIdx < endOffset_; ++taskIdx) {
+        for (uint32_t pl = 0; pl < pointLoops_; ++pl) {
+            CopyInSample(location[2 * alignedOneQueryNum_], attentionWeight, taskIdx, pl);
+            ComputeLocation(location, shapeBrc, locInt, locFloat);
+            ComputeWeight(locFloat, weight, attentionWeight);
+            ComputeBilinearInterpolation(pl, outerPing, shapes, offset, locInt, locInt[alignedOneQueryNum_], value,
+                weight, cornerWeightBrc, output[outerPing * alignedHeadEmbedDims_]);
+        }
+        SetFlag<HardEvent::V_MTE3>(outerPing);
+        WaitFlag<HardEvent::V_MTE3>(outerPing);
+        if constexpr (aligned) {
+            DataCopy(outputGm_[baseDstOffset_], output[outerPing * alignedHeadEmbedDims_], cpOutParams_);
+        } else {
+            DataCopyPad(outputGm_[baseDstOffset_], output[outerPing * alignedHeadEmbedDims_], cpOutParams_);
+        }
+        SetFlag<HardEvent::MTE3_V>(outerPing);
 
-            WaitFlag<HardEvent::MTE3_V>(ping);
-            Duplicate<float, false>(output[ping * alignedHeadEmbedDims_], 0.f, MASK_PLACEHOLDER, outRptTimes_, 1, 8);
-            for (uint32_t pl = 0; pl < pointLoops_; ++pl) {
-                CopyInSample(location[2 * alignedOneQueryNum_], attentionWeight, batch, query, pl);
-                ComputeLocation(location, shapeBrc, locInt, locFloat);
-                ComputeWeight(locInt, locFloat, weight, attentionWeight);
-                ComputeBilinearInterpolation(shapes, offset, locInt, value, weight, cornerWeight, cornerWeightBrc,
-                    output[ping * alignedHeadEmbedDims_]);
-            }
-            SetFlag<HardEvent::V_MTE3>(calEvt_);
-            WaitFlag<HardEvent::V_MTE3>(calEvt_);
-            DataCopy(outputGm_[baseDstOffset_], output[ping * alignedHeadEmbedDims_], {1, outBlk_, 0, 0});
-            SetFlag<HardEvent::MTE3_V>(ping);
-            ping = 1 - ping;
+        outerPing = 1 - outerPing;
+        baseDstOffset_ += outDims_;
+        ++query_;
+        if (unlikely(query_ == numQueries_)) {
+            query_ = 0;
+            batch_++;
+            baseSrcOffset_ += numKeys_ * numHeads_;
         }
     }
     WaitFlag<HardEvent::V_MTE2>(0);
@@ -446,41 +441,20 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn(GM_ADDR value,
 {
     TPipe pipe;
     GET_TILING_DATA(tilingData, tiling);
-    if (TILING_KEY_IS(1002)) {
-        KernelMultiScaleDeformableAttnOpt<2, 16> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(1004)) {
-        KernelMultiScaleDeformableAttnOpt<4, 16> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(1008)) {
-        KernelMultiScaleDeformableAttnOpt<8, 16> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(2002)) {
-        KernelMultiScaleDeformableAttnOpt<2, 32> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(2004)) {
-        KernelMultiScaleDeformableAttnOpt<4, 32> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(2008)) {
-        KernelMultiScaleDeformableAttnOpt<8, 32> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(4002)) {
-        KernelMultiScaleDeformableAttnOpt<2, 64> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(4004)) {
-        KernelMultiScaleDeformableAttnOpt<4, 64> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(4008)) {
-        KernelMultiScaleDeformableAttnOpt<8, 64> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    }
+    ADD_MSDA_CASE_ALIGNED(1)
+    ADD_MSDA_CASE_ALIGNED(2)
+    ADD_MSDA_CASE_ALIGNED(3)
+    ADD_MSDA_CASE_ALIGNED(4)
+    ADD_MSDA_CASE_ALIGNED(5)
+    ADD_MSDA_CASE_ALIGNED(6)
+    ADD_MSDA_CASE_ALIGNED(7)
+    ADD_MSDA_CASE_ALIGNED(8)
+    ADD_MSDA_CASE_UNALIGNED(1)
+    ADD_MSDA_CASE_UNALIGNED(2)
+    ADD_MSDA_CASE_UNALIGNED(3)
+    ADD_MSDA_CASE_UNALIGNED(4)
+    ADD_MSDA_CASE_UNALIGNED(5)
+    ADD_MSDA_CASE_UNALIGNED(6)
+    ADD_MSDA_CASE_UNALIGNED(7)
+    ADD_MSDA_CASE_UNALIGNED(8)
 }

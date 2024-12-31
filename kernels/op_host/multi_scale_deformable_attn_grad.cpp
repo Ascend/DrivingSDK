@@ -25,20 +25,14 @@ const uint32_t NUM_LEVEL_DIM = 0;
 const uint32_t REAL_LEVEL_DIM = 3;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
-const uint32_t B32_DATA_NUM_PER_BLOCK = 4;
+const uint32_t B32_DATA_NUM_PER_BLOCK = 8;
 
-// the points can be grouped into 2, 4 or 8 points per block
-// the numPoints has to be even, except 1
 std::tuple<uint32_t, uint32_t> GroupPoints(uint32_t numPoints)
 {
-    if (numPoints % 8 == 0) {
-        return std::make_tuple(8, numPoints / 8);
-    }
-    if (numPoints % 4 == 0) {
-        return std::make_tuple(4, numPoints / 4);
-    }
-    if (numPoints % 2 == 0) {
-        return std::make_tuple(2, numPoints / 2);
+    for (uint32_t p = 8; p >= 2; p--) {
+        if (numPoints % p == 0) {
+            return std::make_tuple(p, numPoints / p);
+        }
     }
     return std::make_tuple(1, numPoints);
 }
@@ -72,17 +66,12 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingCon
     uint64_t numQueries = attnWeightShape.GetDim(NUM_QUERIES_DIM);
     uint64_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
     uint64_t numLevels = spatialShape.GetDim(NUM_LEVEL_DIM);
-    bool optPoint = numLevels <= 8 && numHeads <= 8 && (embedDims == 16 || embedDims == 32 || embedDims == 64) &&
-                        (numPoints % 2 == 0 || numPoints == 1);
-    uint32_t pointLoops = 0;
-    uint32_t point = 0;
-    if (optPoint) {
-        auto groups = GroupPoints(numPoints);
-        pointLoops = std::get<1>(groups);
-        point = std::get<0>(groups);
-    }
+    auto groups = GroupPoints(numPoints);
+    bool aligned = embedDims % B32_DATA_NUM_PER_BLOCK == 0;
+    uint32_t point = std::get<0>(groups);
+    uint32_t pointLoops = std::get<1>(groups);
 
-    context->SetTilingKey(optPoint ? (embedDims / 16) * 1000 + point : 0);
+    context->SetTilingKey(aligned ? point * 10 + 1 : point * 10);
 
     tiling.set_batchSize(batchSize);
     tiling.set_numKeys(numKeys);

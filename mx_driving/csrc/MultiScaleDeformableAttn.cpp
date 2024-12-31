@@ -93,11 +93,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_backw
     }
 
     if (ASCEND_UNLIKELY(value.scalar_type() == at::kHalf)) {
+        at::Tensor grad_value_fp32 = grad_value.to(at::kFloat);
         at::Tensor value_fp32 = value.to(at::kFloat);
         at::Tensor sampling_locations_fp32 = sampling_locations.to(at::kFloat);
         at::Tensor attention_weights_fp32 = attention_weights.to(at::kFloat);
         EXEC_NPU_CMD(aclnnMultiScaleDeformableAttnGrad, value_fp32, value_spatial_shapes, value_level_start_index,
-            sampling_locations_fp32, attention_weights_fp32, grad_output, grad_value, grad_sampling_loc,
+            sampling_locations_fp32, attention_weights_fp32, grad_value_fp32, grad_value, grad_sampling_loc,
             grad_attn_weight);
         return std::make_tuple(
             grad_value.to(at::kHalf), grad_sampling_loc.to(at::kHalf), grad_attn_weight.to(at::kHalf));
