@@ -182,6 +182,7 @@ out, argmax = scatter_max(updates, indices, out)
 | PivotNet|https://gitee.com/ascend/mxDriving/tree/master/model_examples/PivotNet|【Test】|
 | CenterPoint(3D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Test】|
 | LMDrive  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/LMDrive |【Test】|
+| DETR3D | https://gitee.com/ascend/mxDriving/tree/master/model_examples/DETR3D |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品

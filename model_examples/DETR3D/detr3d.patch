@@ -1,0 +1,55 @@
+diff --git a/mmdetection3d b/mmdetection3d
+deleted file mode 160000
+index 60ce864..0000000
+--- a/mmdetection3d
++++ /dev/null
+@@ -1 +0,0 @@
+-Subproject commit 60ce864ff76af4316fb9ae56a2a5b7741bfdd9ab
+diff --git a/projects/configs/detr3d/detr3d_res101_gridmask.py b/projects/configs/detr3d/detr3d_res101_gridmask.py
+index a4ff267..b87100b 100644
+--- a/projects/configs/detr3d/detr3d_res101_gridmask.py
++++ b/projects/configs/detr3d/detr3d_res101_gridmask.py
+@@ -203,7 +203,7 @@ data = dict(
+     test=dict(pipeline=test_pipeline, classes=class_names, modality=input_modality))
+ 
+ optimizer = dict(
+-    type='AdamW', 
++    type='NpuFusedAdamW', 
+     lr=2e-4,
+     paramwise_cfg=dict(
+         custom_keys={
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+index 0000000..0bffec1
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1,6 @@
++numpy==1.23.1
++pycocotools==2.0.7
++scipy==1.10.1
++setuptools==75.1.0
++torchvision==0.16.0
++numba==0.58.1
+diff --git a/tools/train.py b/tools/train.py
+index b9649e0..af095a9 100755
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -7,6 +7,8 @@ import mmcv
+ import os
+ import time
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import warnings
+ from mmcv import Config, DictAction
+ from mmcv.runner import get_dist_info, init_dist
+@@ -22,6 +24,9 @@ from mmdet.apis import set_random_seed
+ from mmseg import __version__ as mmseg_version
+ 
+ 
++torch.npu.config.allow_internal_format = False
++torch.npu.set_compile_mode(jit_compile=False)
++
+ def parse_args():
+     parser = argparse.ArgumentParser(description='Train a detector')
+     parser.add_argument('config', help='train config file path')

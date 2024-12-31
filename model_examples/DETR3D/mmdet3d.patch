@@ -1,0 +1,92 @@
+diff --git a/configs/_base_/default_runtime.py b/configs/_base_/default_runtime.py
+index 5fc198bb..576738c8 100644
+--- a/configs/_base_/default_runtime.py
++++ b/configs/_base_/default_runtime.py
+@@ -10,7 +10,7 @@ log_config = dict(
+         dict(type='TensorboardLoggerHook')
+     ])
+ # yapf:enable
+-dist_params = dict(backend='nccl')
++dist_params = dict(backend='hccl')
+ log_level = 'INFO'
+ work_dir = None
+ load_from = None
+diff --git a/mmdet3d/__init__.py b/mmdet3d/__init__.py
+index 643c39c9..001b2247 100644
+--- a/mmdet3d/__init__.py
++++ b/mmdet3d/__init__.py
+@@ -19,7 +19,7 @@ def digit_version(version_str):
+ 
+ 
+ mmcv_minimum_version = '1.5.2'
+-mmcv_maximum_version = '1.7.0'
++mmcv_maximum_version = '1.7.2'
+ mmcv_version = digit_version(mmcv.__version__)
+ 
+ 
+diff --git a/mmdet3d/apis/train.py b/mmdet3d/apis/train.py
+index 4d970264..040670c3 100644
+--- a/mmdet3d/apis/train.py
++++ b/mmdet3d/apis/train.py
+@@ -4,7 +4,7 @@ import warnings
+ 
+ import numpy as np
+ import torch
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
+                          Fp16OptimizerHook, OptimizerHook, build_optimizer,
+                          build_runner, get_dist_info)
+@@ -103,13 +103,13 @@ def train_segmentor(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+     # build runner
+@@ -223,13 +223,13 @@ def train_detector(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+     # build runner
+@@ -245,7 +245,7 @@ def train_detector(model,
+             'please set `runner` in your config.', UserWarning)
+     else:
+         if 'total_epochs' in cfg:
+-            assert cfg.total_epochs == cfg.runner.max_epochs
++            cfg.runner.max_epochs = cfg.total_epochs
+ 
+     runner = build_runner(
+         cfg.runner,
+diff --git a/requirements/runtime.txt b/requirements/runtime.txt
+index 643cb0cd..4c6dc193 100644
+--- a/requirements/runtime.txt
++++ b/requirements/runtime.txt
+@@ -1,6 +1,6 @@
+ lyft_dataset_sdk
+ networkx>=2.2,<2.3
+-numba==0.53.0
++# numba==0.53.0
+ numpy
+ nuscenes-devkit
+ plyfile
