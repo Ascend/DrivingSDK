@@ -80,7 +80,7 @@ code_path=mxDriving/model_examples/LaneSegNet
 
 6. 安装Driving SDK加速库
   ```
-  git clone https://gitee.com/ascend/mxDriving.git
+  git clone https://gitee.com/ascend/mxDriving.git -b master
   cd mx_driving
   bash ci/build.sh --python=3.8
   cd dist

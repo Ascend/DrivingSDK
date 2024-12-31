@@ -50,7 +50,7 @@ YOLOv8（You Only Look Once version 8）是YOLO系列算法中的第八个版本
 
   2. 安装Driving SDK加速库
   ```
-  git clone https://gitee.com/ascend/mxDriving.git
+  git clone https://gitee.com/ascend/mxDriving.git -b master
   cd mx_driving
   bash ci/build.sh --python=3.8
   cd dist

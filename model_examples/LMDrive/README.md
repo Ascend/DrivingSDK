@@ -146,7 +146,7 @@ LMDrive
 - 克隆代码仓并应用补丁。
 
 ```
-git clone https://gitee.com/ascend/mxDriving.git
+git clone https://gitee.com/ascend/mxDriving.git -b master
 git clone github.com/opendilab/LMDrive
 cp -f {mxDriving_root_dir}/model_examples/LMDrive/npu.patch LMDrive
 cp -rf {mxDriving_root_dir}/model_examples/LMDrive/test LMDrive

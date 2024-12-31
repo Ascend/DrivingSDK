@@ -51,7 +51,7 @@ conda create -n deformable_detr -python=3.9
 
 3、克隆代码仓到当前目录并使用 patch 文件
 ```
-git clone https://gitee.com/ascend/mxDriving.git
+git clone https://gitee.com/ascend/mxDriving.git -b master
 cd mxDriving/model_examples/Deformable-DETR
 chmod -R 777 run.sh
 ./run.sh
@@ -60,7 +60,7 @@ cp -rf test Deformable-DETR
 如果需要将 Deformable-DETR 源码 clone 到用户自定义目录，执行下面的shell命令：
 ```
 your_path=/home/    # 替换为用户自定义目标目录地址
-git clone https://gitee.com/ascend/mxDriving.git
+git clone https://gitee.com/ascend/mxDriving.git -b master
 cd mxDriving/model_examples/Deformable-DETR
 chmod -R 777 run.sh
 git clone https://github.com/fundamentalvision/Deformable-DETR.git ${your_path}

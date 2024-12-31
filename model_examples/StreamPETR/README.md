@@ -99,7 +99,7 @@ conda activate streampetr
 
 3. 克隆代码仓并使用patch文件
 ```
-git clone https://gitee.com/ascend/mxDriving.git
+git clone https://gitee.com/ascend/mxDriving.git -b master
 cd mxDriving/model_examples/StreamPETR
 chmod -R 777 run.sh
 ./run.sh
