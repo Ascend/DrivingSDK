@@ -66,10 +66,11 @@
 - 克隆代码到当前目录并使用patch文件
 ```
 git clone https://github.com/wzzheng/TPVFormer.git
-git checkout 459bc060901c9c4920f802252f04b290a449e4a1
 cp -f TPVFormer.patch TPVFormer
+cp -r test TPVFormer
 cd TPVFormer
-git apply TPVFormer_npu.patch
+git checkout 459bc060901c9c4920f802252f04b290a449e4a1
+git apply TPVFormer.patch
 ```
 
 - 安装基础依赖
