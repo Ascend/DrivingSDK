@@ -82,7 +82,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 ## 准备数据集
 
-1. 用户需自行下载 nuScenes V1.0 full 和 CAN bus 数据集，结构如下：
+1. 用户需自行下载 nuScenes V1.0 full 和 CAN bus 数据集放置在BEVFormer模型代码目录下，结构如下：
 
    ```
    data/
@@ -95,7 +95,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
    ```
 
 ## 下载预训练权重
-创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
+在BEVFormer模型代码目录下创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
    ```
    ckpts/
    ├── r101_dcn_fcos3d_pretrain.pth
