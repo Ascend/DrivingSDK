@@ -152,8 +152,8 @@ cd ../ && pip install pytorch_scatter/dist/torch_scatter-*.whl
 python -c "import torch_scatter"
 ```
 
-#### 2.5 编译安装mxDriving
-参考mxDriving官方gitee仓README安装编译构建并安装mxDriving包：[参考链接](https://gitee.com/ascend/mxDriving)
+#### 2.5 编译安装Driving SDK
+参考Driving SDK官方gitee仓README安装编译构建并安装Driving SDK包：[参考链接](https://gitee.com/ascend/mxDriving)
 
 【注意】安装完毕后建议运行以下命令，如无报错，证明安装无误，可继续安装流程
 ```shell

@@ -54,14 +54,14 @@
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
   |    PyTorch     |  2.1   |
-  | mx-driving | latest |
+  | Driving SDK | latest |
   |      mmcv      |  1.x   |
   |     mmdet      | 2.28.2 |
   | mmsegmentation | 0.30.0 |
 
-- 安装Mx_Driving-Accelerator
+- 安装Driving SDK-Accelerator
 
-  请参考昇腾[mxDriving](https://gitee.com/ascend/mxDriving)代码仓说明编译安装mx-driving
+  请参考昇腾[Driving SDK](https://gitee.com/ascend/mxDriving)代码仓说明编译安装Driving SDK
 
 - 克隆代码到当前目录并使用patch文件
 ```
