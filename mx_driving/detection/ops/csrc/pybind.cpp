@@ -42,4 +42,7 @@ void init_detection(pybind11::module& m)
 
     // roiaware_pool3d_grad
     m.def("roiaware_pool3d_grad", &roiaware_pool3d_grad, "roiaware_pool3d_grad NPU version");
+
+    // pixel_group
+    m.def("pixel_group", &pixel_group, "pixel_group");
 }
