@@ -10,7 +10,6 @@
     - [准备训练环境](#准备训练环境)
     - [快速开始](#快速开始)
        - [训练任务](#训练任务) 
--   [公网地址说明](#公网地址说明)
 -   [变更说明](#变更说明)
 -   [FAQ](#FAQ)
 
@@ -35,13 +34,6 @@
     ```
     url=https://github.com/Robertwyq/PanoOcc
     commit_id=3d93b119fcced35612af05587b395e8b38d8271f
-    ```
-
-- 适配昇腾 AI 处理器的实现：
-
-    ```
-    url=https://gitee.com/ascend/mxDriving.git
-    code_path=model_examples/PanoOcc
     ```
 
 # PanoOcc（在研版本）
@@ -75,49 +67,61 @@
     ```
     source {cann_root_dir}/set_env.sh
     ```
+1. 准备模型源码
 
-1. 安装 mmcv
+    在当前目录下，克隆并准备 PanoOcc 源码
 
-    在模型根目录下，克隆 mmcv 仓，替换其中部分代码，并进入 mmcv 目录安装
+    ```
+    git clone https://github.com/Robertwyq/PanoOcc.git
+    git checkout 3d93b119fcced35612af05587b395e8b38d8271f
+    cp panoocc.patch PanoOcc
+    cp -r test/ PanoOcc/
+    cd PanoOcc
+    git apply --reject --whitespace=fix panoocc.patch
+    cd ../
+    ```
+
+2. 源码编译安装 mmcv
+
+    克隆 mmcv 仓，并进入 mmcv 目录编译安装
 
     ```
     git clone -b 1.x https://github.com/open-mmlab/mmcv
-    cp -f patch/mmcv/distributed.py mmcv/mmcv/parallel/distributed.py
-    cp -f patch/mmcv/modulated_deform_conv.py mmcv/mmcv/ops/modulated_deform_conv.py
-    cp -f patch/mmcv/optimizer.py mmcv/mmcv/runner/hooks/optimizer.py
+    cp mmcv.patch mmcv
     cd mmcv
+    git apply --reject mmcv.patch
     MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
+    cd ../
     ```
 
-2. 安装 mmdet
+3. 安装 mmdet
 
-    在模型根目录下，克隆 mmdet 仓，替换其中部分代码，并进入 mmdet 目录安装
+    克隆 mmdet 仓，并进入 mmdet 目录编译安装
 
     ```
     git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
-    cp -f patch/mmdet/__init__.py mmdetection/mmdet/__init__.py
-    cp -f patch/mmdet/resnet.py mmdetection/mmdet/models/backbones/resnet.py
+    cp mmdetection.patch mmdetection
     cd mmdetection
+    git apply --reject mmdetection.patch
     pip install -e .
+    cd ../
     ```
 
-3. 安装 mmdet3d
+4. 安装 mmdet3d
 
     在模型根目录下，克隆 mmdet3d 仓，替换其中部分代码，并进入 mmdet3d 目录安装
 
     ```
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
-    cp -f patch/mmdet3d/__init__.py mmdetection3d/mmdet3d/__init__.py
-    cp -f patch/mmdet3d/runtime.txt mmdetection3d/requirements/runtime.txt
-    cp -f patch/mmdet3d/nuscenes_dataset.py mmdetection3d/mmdet3d/datasets/nuscenes_dataset.py
-    cp -f patch/mmdet3d/loading.py mmdetection3d/mmdet3d/datasets/pipelines/loading.py
-    cp -f patch/mmdet3d/transforms_3d.py mmdetection3d/mmdet3d/datasets/pipelines/transforms_3d.py
+    cp mmdetection3d.patch mmdetection3d
     cd mmdetection3d
+    git apply --reject mmdetection3d.patch
     pip install -v -e .
+    cd ../
     ```
 
-4. 安装其他依赖
+5. 安装其他依赖
 
     ```
     pip install mmsegmentation==0.30.0
@@ -127,11 +131,11 @@
 
 5. 安装 mxDriving 加速库
 
-    安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)，安装后手动 source 环境变量。
+    安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)
 
 ### 准备数据集
 
-1. 根据原仓数据集准备中的 [NuScenes LiDAR Benchmark](https://github.com/Robertwyq/PanoOcc/blob/main/docs/dataset.md#1-nuscenes-lidar-benchmark) 章节准备数据集，参考数据集结构如下：
+1. 根据原仓数据集准备中的 [NuScenes LiDAR Benchmark](https://github.com/Robertwyq/PanoOcc/blob/main/docs/dataset.md#1-nuscenes-lidar-benchmark) 章节在模型源码根目录下准备数据集，参考数据集结构如下：
 
     ```
     PanoOcc
@@ -151,7 +155,7 @@
     │   │   ├── nuscenes.yaml
     ```
 
-2. 数据预处理
+2. 在模型源码根目录下进行数据预处理
 
    ```
    python tools/create_data.py nuscenes --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data/nuscenes
@@ -159,7 +163,7 @@
 
 ### 准备预训练权重
 
-创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
+在模型源码根目录下创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
    ```
    ckpts/
    ├── r101_dcn_fcos3d_pretrain.pth
@@ -173,7 +177,7 @@
 
 #### 开始训练
 
-  - 在模型根目录下，运行训练脚本。
+  - 在模型源码根目录下，运行训练脚本。
 
      ```
      bash test/train_8p_panoocc_base_4f_fp32.sh --epochs=3 # 8卡性能
@@ -186,10 +190,6 @@
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :----: | :-------------------: |
 | 竞品A           |  8p  |         8         |   fp32    |  24   | 0.712 | 0.411 | 0.497 |         1322          |
 | Atlas 800T A2 |  8p  |         8         |   fp32    |  24   | 0.710 | 0.416 | 0.499 |         2211          |
-
-# 公网地址说明
-
-代码涉及公网地址参考 public_address_statement.md
 
 # 变更说明
 
