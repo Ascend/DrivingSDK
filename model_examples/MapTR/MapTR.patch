@@ -1,0 +1,1343 @@
+diff --git a/projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py b/projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py
+index 1f734f0..12976bd 100644
+--- a/projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py
++++ b/projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py
+@@ -82,7 +82,7 @@ model = dict(
+         dir_interval=1,
+         query_embed_type='instance_pts',
+         transform_method='minmax',
+-        gt_shift_pts_pattern='v2',
++        gt_shift_pts_pattern='v5', #3
+         num_classes=num_map_classes,
+         in_channels=_dim_,
+         sync_cls_avg_factor=True,
+diff --git a/projects/mmdet3d_plugin/bevformer/modules/decoder.py b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
+index 33024f8..e6e4fc9 100644
+--- a/projects/mmdet3d_plugin/bevformer/modules/decoder.py
++++ b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
+@@ -24,8 +24,10 @@ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
+                         to_2tuple)
+ 
+ from mmcv.utils import ext_loader
+-from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
+-    MultiScaleDeformableAttnFunction_fp16
++# from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
++#     MultiScaleDeformableAttnFunction_fp16
++    
++from mx_driving.fused import npu_multi_scale_deformable_attn_function #3
+ 
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+@@ -324,14 +326,8 @@ class CustomMSDeformableAttention(BaseModule):
+                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
+         if torch.cuda.is_available() and value.is_cuda:
+ 
+-            # using fp16 deformable attention is unstable because it performs many sum operations
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index, sampling_locations, attention_weights) #3
++            
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/projects/mmdet3d_plugin/bevformer/modules/spatial_cross_attention.py b/projects/mmdet3d_plugin/bevformer/modules/spatial_cross_attention.py
+index bdebb00..7ed0852 100644
+--- a/projects/mmdet3d_plugin/bevformer/modules/spatial_cross_attention.py
++++ b/projects/mmdet3d_plugin/bevformer/modules/spatial_cross_attention.py
+@@ -21,12 +21,13 @@ from mmcv.runner import force_fp32, auto_fp16
+ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+ 
+ from mmcv.utils import ext_loader
+-from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
+-    MultiScaleDeformableAttnFunction_fp16
++# from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
++#     MultiScaleDeformableAttnFunction_fp16
+ from projects.mmdet3d_plugin.models.utils.bricks import run_time
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+ 
++from mx_driving.fused import npu_multi_scale_deformable_attn_function #3
+ 
+ @ATTENTION.register_module()
+ class SpatialCrossAttention(BaseModule):
+@@ -383,13 +384,7 @@ class MSDeformableAttention3D(BaseModule):
+         #
+ 
+         if torch.cuda.is_available() and value.is_cuda:
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index, sampling_locations, attention_weights) #3
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+@@ -610,13 +605,7 @@ class MSIPM3D(BaseModule):
+         #
+ 
+         if torch.cuda.is_available() and value.is_cuda:
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index, sampling_locations, attention_weights) #3
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/projects/mmdet3d_plugin/bevformer/modules/temporal_self_attention.py b/projects/mmdet3d_plugin/bevformer/modules/temporal_self_attention.py
+index 78fb9f5..0082c64 100644
+--- a/projects/mmdet3d_plugin/bevformer/modules/temporal_self_attention.py
++++ b/projects/mmdet3d_plugin/bevformer/modules/temporal_self_attention.py
+@@ -5,7 +5,7 @@
+ # ---------------------------------------------
+ 
+ from projects.mmdet3d_plugin.models.utils.bricks import run_time
+-from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32
++# from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32
+ from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
+ import warnings
+ import torch
+@@ -21,6 +21,7 @@ from mmcv.utils import ext_loader
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+ 
++from mx_driving.fused import npu_multi_scale_deformable_attn_function #3
+ 
+ @ATTENTION.register_module()
+ class TemporalSelfAttention(BaseModule):
+@@ -239,14 +240,8 @@ class TemporalSelfAttention(BaseModule):
+                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
+         if torch.cuda.is_available() and value.is_cuda:
+ 
+-            # using fp16 deformable attention is unstable because it performs many sum operations
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index, sampling_locations, attention_weights) #3
++            
+         else:
+ 
+             output = multi_scale_deformable_attn_pytorch(
+diff --git a/projects/mmdet3d_plugin/datasets/av2_map_dataset.py b/projects/mmdet3d_plugin/datasets/av2_map_dataset.py
+index 0b23a8d..dd5339c 100644
+--- a/projects/mmdet3d_plugin/datasets/av2_map_dataset.py
++++ b/projects/mmdet3d_plugin/datasets/av2_map_dataset.py
+@@ -500,10 +500,10 @@ class VectorizedAV2LocalMap(object):
+                  dataroot,
+                  patch_size,
+                  test_mode=False,
+-                 map_classes=['divider','ped_crossing','boundary'],
+-                 line_classes=['road_divider', 'lane_divider'],
+-                 ped_crossing_classes=['ped_crossing'],
+-                 contour_classes=['road_segment', 'lane'],
++                 map_classes=('divider','ped_crossing','boundary'),
++                 line_classes=('road_divider', 'lane_divider'),
++                 ped_crossing_classes=('ped_crossing'),
++                 contour_classes=('road_segment', 'lane'),
+                  sample_dist=1,
+                  num_samples=250,
+                  padding=False,
+@@ -623,8 +623,7 @@ class VectorizedAV2LocalMap(object):
+             is_polygon =  np.array_equal(exterior_coords[0],exterior_coords[-1])
+             if is_polygon:
+                 polygon = Polygon(exterior_coords, interiors)
+-            else:    
+-                import pdb;pdb.set_trace()
++            else:
+                 polygon = LineString(exterior_coords)
+                 raise ValueError(f'WRONG type: line in boundary')
+             if is_polygon:
+@@ -632,13 +631,13 @@ class VectorizedAV2LocalMap(object):
+                     new_polygon = polygon.intersection(patch)
+                     if not new_polygon.is_empty:
+                         # import pdb;pdb.set_trace()
+-                        if new_polygon.geom_type is 'Polygon':
++                        if new_polygon.geom_type == 'Polygon':
+                             if not new_polygon.is_valid:
+                                 continue
+                             new_polygon = self.proc_polygon(new_polygon,ego_SE3_city)
+                             if not new_polygon.is_valid:
+                                 continue
+-                        elif new_polygon.geom_type is 'MultiPolygon':
++                        elif new_polygon.geom_type == 'MultiPolygon':
+                             polygons = []
+                             for single_polygon in new_polygon.geoms:
+                                 if not single_polygon.is_valid or single_polygon.is_empty:
+@@ -654,7 +653,7 @@ class VectorizedAV2LocalMap(object):
+                                 continue
+                         else:
+                             raise ValueError('{} is not valid'.format(new_polygon.geom_type))
+-                        if new_polygon.geom_type is 'Polygon':
++                        if new_polygon.geom_type == 'Polygon':
+                             new_polygon = MultiPolygon([new_polygon])
+                         polygon_list.append(new_polygon)
+             else:
+@@ -676,13 +675,13 @@ class VectorizedAV2LocalMap(object):
+             if polygon.is_valid:
+                 new_polygon = polygon.intersection(patch)
+                 if not new_polygon.is_empty:
+-                    if new_polygon.geom_type is 'Polygon':
++                    if new_polygon.geom_type == 'Polygon':
+                         if not new_polygon.is_valid:
+                             continue
+                         new_polygon = self.proc_polygon(new_polygon,ego_SE3_city)
+                         if not new_polygon.is_valid:
+                             continue
+-                    elif new_polygon.geom_type is 'MultiPolygon':
++                    elif new_polygon.geom_type == 'MultiPolygon':
+                         polygons = []
+                         for single_polygon in new_polygon.geoms:
+                             if not single_polygon.is_valid or single_polygon.is_empty:
+@@ -699,7 +698,7 @@ class VectorizedAV2LocalMap(object):
+                     else:
+                         raise ValueError('{} is not valid'.format(new_polygon.geom_type))
+ 
+-                    if new_polygon.geom_type is 'Polygon':
++                    if new_polygon.geom_type == 'Polygon':
+                         new_polygon = MultiPolygon([new_polygon])
+                     polygon_list.append(new_polygon)
+         map_ped_geom.append(('ped_crossing',polygon_list))
+@@ -904,7 +903,7 @@ class CustomAV2LocalMapDataset(CustomNuScenesDataset):
+                  queue_length=4, 
+                  code_size=2,
+                  bev_size=(200, 200), 
+-                 pc_range=[-51.2, -51.2, -5.0, 51.2, 51.2, 3.0],
++                 pc_range=(-51.2, -51.2, -5.0, 51.2, 51.2, 3.0),
+                  overlap_test=False, 
+                  fixed_ptsnum_per_line=-1,
+                  eval_use_same_gt_sample_num_flag=False,
+@@ -1012,7 +1011,7 @@ class CustomAV2LocalMapDataset(CustomNuScenesDataset):
+             gt_vecs_pts_loc = to_tensor(anns_results['gt_vecs_pts_loc'])
+             try:
+                 gt_vecs_pts_loc = gt_vecs_pts_loc.flatten(1).to(dtype=torch.float32)
+-            except:
++            except Exception as e:
+                 # empty tensor, will be passed in train, 
+                 # but we preserve it for test
+                 
+@@ -1417,7 +1416,7 @@ class CustomAV2LocalMapDataset(CustomNuScenesDataset):
+                  metric='bbox',
+                  logger=None,
+                  jsonfile_prefix=None,
+-                 result_names=['pts_bbox'],
++                 result_names=('pts_bbox'),
+                  show=False,
+                  out_dir=None,
+                  pipeline=None):
+diff --git a/projects/mmdet3d_plugin/datasets/builder.py b/projects/mmdet3d_plugin/datasets/builder.py
+index 0ad7a92..ba09708 100644
+--- a/projects/mmdet3d_plugin/datasets/builder.py
++++ b/projects/mmdet3d_plugin/datasets/builder.py
+@@ -86,7 +86,7 @@ def build_dataloader(dataset,
+         sampler=sampler,
+         num_workers=num_workers,
+         collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
+-        pin_memory=False,
++        pin_memory=True, #3
+         worker_init_fn=init_fn,
+         **kwargs)
+ 
+diff --git a/projects/mmdet3d_plugin/datasets/map_utils/mean_ap.py b/projects/mmdet3d_plugin/datasets/map_utils/mean_ap.py
+index 7c8607c..c868be9 100644
+--- a/projects/mmdet3d_plugin/datasets/map_utils/mean_ap.py
++++ b/projects/mmdet3d_plugin/datasets/map_utils/mean_ap.py
+@@ -140,7 +140,7 @@ def format_res_gt_by_classes(result_path,
+                              cls_names=None,
+                              num_pred_pts_per_instance=30,
+                              eval_use_same_gt_sample_num_flag=False,
+-                             pc_range=[-15.0, -30.0, -5.0, 15.0, 30.0, 3.0],
++                             pc_range=(-15.0, -30.0, -5.0, 15.0, 30.0, 3.0),
+                              nproc=24):
+     assert cls_names is not None
+     timer = mmcv.Timer()
+@@ -157,45 +157,6 @@ def format_res_gt_by_classes(result_path,
+     formatting_file = 'cls_formatted.pkl'
+     formatting_file = osp.join(output_dir,formatting_file)
+ 
+-    # for vis
+-    if False:
+-        from PIL import Image
+-        import matplotlib.pyplot as plt
+-        from matplotlib import transforms
+-        from matplotlib.patches import Rectangle
+-
+-        show_dir = osp.join(output_dir,'vis_json')
+-        mmcv.mkdir_or_exist(osp.abspath(show_dir))
+-        # import pdb;pdb.set_trace()
+-        car_img = Image.open('./figs/lidar_car.png')
+-        colors_plt = ['r', 'b', 'g']
+-        for i in range(20):
+-
+-            plt.figure(figsize=(2, 4))
+-            plt.xlim(pc_range[0], pc_range[3])
+-            plt.ylim(pc_range[1], pc_range[4])
+-            plt.axis('off')
+-
+-            for line in gen_results[i]['vectors']:
+-                l = np.array(line['pts'])
+-                plt.plot(l[:,0],l[:,1],'-', 
+-                # color=colors[line['type']]
+-                color = 'red',
+-                )
+-
+-            for line in annotations[i]['vectors']:
+-                # l = np.array(line['pts']) + np.array((1,1))
+-                l = np.array(line['pts'])
+-                # l = line['pts']
+-                plt.plot(l[:,0],l[:,1],'-', 
+-                    # color=colors[line['type']],
+-                    color = 'blue',
+-                    )
+-            plt.imshow(car_img, extent=[-1.2, 1.2, -1.5, 1.5])
+-            map_path = osp.join(show_dir, 'COMPARE_MAP_{}.jpg'.format(i))
+-            plt.savefig(map_path, bbox_inches='tight', dpi=400)
+-            plt.close()
+-
+     for i, clsname in enumerate(cls_names):
+ 
+         gengts = pool.starmap(
+@@ -223,7 +184,7 @@ def eval_map(gen_results,
+              cls_names=None,
+              logger=None,
+              tpfp_fn=None,
+-             pc_range=[-15.0, -30.0, -5.0, 15.0, 30.0, 3.0],
++             pc_range=(-15.0, -30.0, -5.0, 15.0, 30.0, 3.0),
+              metric=None,
+              num_pred_pts_per_instance=30,
+              nproc=24):
+diff --git a/projects/mmdet3d_plugin/datasets/map_utils/tpfp_chamfer.py b/projects/mmdet3d_plugin/datasets/map_utils/tpfp_chamfer.py
+index 4db530d..16ebf40 100644
+--- a/projects/mmdet3d_plugin/datasets/map_utils/tpfp_chamfer.py
++++ b/projects/mmdet3d_plugin/datasets/map_utils/tpfp_chamfer.py
+@@ -37,16 +37,16 @@ def custom_polyline_score(pred_lines, gt_lines, linewidth=1., metric='chamfer'):
+ 
+ 
+     if metric=='chamfer':
+-        iou_matrix = np.full((num_preds, num_gts), -100.)
++        chamfer_matrix = np.full((num_preds, num_gts), -100.)
+     elif metric=='iou':
+-        iou_matrix = np.zeros((num_preds, num_gts),dtype=np.float64)
++        chamfer_matrix = np.zeros((num_preds, num_gts),dtype=np.float64)
+     else:
+         raise NotImplementedError
+ 
+-    for i, pline in enumerate(gt_lines_shapely):
++    for i, gt_line in enumerate(gt_lines_shapely):
+ 
+-        for o in tree.query(pline):
+-            if o.intersects(pline):
++        for o in tree.query(gt_line):
++            if o.intersects(gt_line):
+                 pred_id = index_by_id[id(o)]
+ 
+                 if metric=='chamfer':
+@@ -56,13 +56,13 @@ def custom_polyline_score(pred_lines, gt_lines, linewidth=1., metric='chamfer'):
+                     valid_ab = dist_mat.min(-1).mean()
+                     valid_ba = dist_mat.min(-2).mean()
+ 
+-                    iou_matrix[pred_id, i] = -(valid_ba+valid_ab)/2
++                    chamfer_matrix[pred_id, i] = -(valid_ba+valid_ab)/2
+                 elif metric=='iou':
+-                    inter = o.intersection(pline).area
+-                    union = o.union(pline).area
+-                    iou_matrix[pred_id, i] = inter / union
++                    inter = o.intersection(gt_line).area
++                    union = o.union(gt_line).area
++                    chamfer_matrix[pred_id, i] = inter / union
+ 
+-    return iou_matrix
++    return chamfer_matrix
+ 
+ if __name__ == '__main__':
+     import torch
+diff --git a/projects/mmdet3d_plugin/datasets/nuscenes_map_dataset.py b/projects/mmdet3d_plugin/datasets/nuscenes_map_dataset.py
+index cdd40dd..5becf7c 100644
+--- a/projects/mmdet3d_plugin/datasets/nuscenes_map_dataset.py
++++ b/projects/mmdet3d_plugin/datasets/nuscenes_map_dataset.py
+@@ -454,6 +454,47 @@ class LiDARInstanceLines(object):
+                             dtype=torch.float32)
+         return instances_tensor
+ 
++    @property
++    def shift_fixed_num_sampled_points_v5(self):
++        """
++        return  [instances_num, num_shifts, fixed_num, 2]
++        """
++        assert len(self.instance_list) != 0
++        instances_list = []
++        for instance in self.instance_list:
++            distances = np.linspace(0, instance.length, self.fixed_num)
++            sampled_points = np.array([list(instance.interpolate(distance).coords) for distance in distances]).reshape(-1, 2)
++            is_poly = np.equal(sampled_points[0], sampled_points[-1])
++            is_poly = is_poly.all()
++            shift_pts_list = []
++            if is_poly:
++                pts_to_shift = sampled_points[:-1,:]
++                for shift_right_i in range(0, self.fixed_num, 2):
++                    shift_pts = np.roll(pts_to_shift,shift_right_i,axis=0)
++                    shift_pts = np.vstack((shift_pts, shift_pts[0]))
++                    shift_pts_list.append(shift_pts)
++                    shift_pts_list.append(np.flip(shift_pts, axis=0))
++            else:
++                shift_pts_list.append(sampled_points)
++                shift_pts_list.append(np.flip(sampled_points, axis=0))
++            
++            multi_shifts_pts = np.stack(shift_pts_list,axis=0)
++            multi_shifts_pts_tensor = to_tensor(multi_shifts_pts)
++            multi_shifts_pts_tensor = multi_shifts_pts_tensor.to(
++                            dtype=torch.float32)
++            
++            multi_shifts_pts_tensor[:,:,0] = torch.clamp(multi_shifts_pts_tensor[:,:,0], min=-self.max_x,max=self.max_x)
++            multi_shifts_pts_tensor[:,:,1] = torch.clamp(multi_shifts_pts_tensor[:,:,1], min=-self.max_y,max=self.max_y)
++            # if not is_poly:
++            if multi_shifts_pts_tensor.shape[0] < self.fixed_num:
++                padding = torch.full([self.fixed_num - multi_shifts_pts_tensor.shape[0],self.fixed_num,2], self.padding_value)
++                multi_shifts_pts_tensor = torch.cat([multi_shifts_pts_tensor,padding],dim=0)
++            instances_list.append(multi_shifts_pts_tensor)
++        instances_tensor = torch.stack(instances_list, dim=0)
++        instances_tensor = instances_tensor.to(
++                            dtype=torch.float32)
++        return instances_tensor
++
+     @property
+     def shift_fixed_num_sampled_points_torch(self):
+         """
+@@ -500,10 +541,10 @@ class VectorizedLocalMap(object):
+     def __init__(self,
+                  dataroot,
+                  patch_size,
+-                 map_classes=['divider','ped_crossing','boundary'],
+-                 line_classes=['road_divider', 'lane_divider'],
+-                 ped_crossing_classes=['ped_crossing'],
+-                 contour_classes=['road_segment', 'lane'],
++                 map_classes=('divider','ped_crossing','boundary'),
++                 line_classes=('road_divider', 'lane_divider'),
++                 ped_crossing_classes=('ped_crossing'),
++                 contour_classes=('road_segment', 'lane'),
+                  sample_dist=1,
+                  num_samples=250,
+                  padding=False,
+@@ -794,7 +835,7 @@ class VectorizedLocalMap(object):
+                                                       origin=(patch_x, patch_y), use_radians=False)
+                         new_polygon = affinity.affine_transform(new_polygon,
+                                                                 [1.0, 0.0, 0.0, 1.0, -patch_x, -patch_y])
+-                        if new_polygon.geom_type is 'Polygon':
++                        if new_polygon.geom_type == 'Polygon':
+                             new_polygon = MultiPolygon([new_polygon])
+                         polygon_list.append(new_polygon)
+ 
+@@ -809,7 +850,7 @@ class VectorizedLocalMap(object):
+                                                       origin=(patch_x, patch_y), use_radians=False)
+                         new_polygon = affinity.affine_transform(new_polygon,
+                                                                 [1.0, 0.0, 0.0, 1.0, -patch_x, -patch_y])
+-                        if new_polygon.geom_type is 'Polygon':
++                        if new_polygon.geom_type == 'Polygon':
+                             new_polygon = MultiPolygon([new_polygon])
+                         polygon_list.append(new_polygon)
+ 
+@@ -819,7 +860,7 @@ class VectorizedLocalMap(object):
+         if layer_name not in self.map_explorer[location].map_api.non_geometric_line_layers:
+             raise ValueError("{} is not a line layer".format(layer_name))
+ 
+-        if layer_name is 'traffic_light':
++        if layer_name == 'traffic_light':
+             return None
+ 
+         patch_x = patch_box[0]
+@@ -860,7 +901,7 @@ class VectorizedLocalMap(object):
+                                                       origin=(patch_x, patch_y), use_radians=False)
+                     new_polygon = affinity.affine_transform(new_polygon,
+                                                             [1.0, 0.0, 0.0, 1.0, -patch_x, -patch_y])
+-                    if new_polygon.geom_type is 'Polygon':
++                    if new_polygon.geom_type == 'Polygon':
+                         new_polygon = MultiPolygon([new_polygon])
+                     polygon_list.append(new_polygon)
+ 
+@@ -907,7 +948,7 @@ class CustomNuScenesLocalMapDataset(CustomNuScenesDataset):
+                  map_ann_file=None, 
+                  queue_length=4, 
+                  bev_size=(200, 200), 
+-                 pc_range=[-51.2, -51.2, -5.0, 51.2, 51.2, 3.0],
++                 pc_range=(-51.2, -51.2, -5.0, 51.2, 51.2, 3.0),
+                  overlap_test=False, 
+                  fixed_ptsnum_per_line=-1,
+                  eval_use_same_gt_sample_num_flag=False,
+@@ -1007,7 +1048,7 @@ class CustomNuScenesLocalMapDataset(CustomNuScenesDataset):
+             gt_vecs_pts_loc = to_tensor(anns_results['gt_vecs_pts_loc'])
+             try:
+                 gt_vecs_pts_loc = gt_vecs_pts_loc.flatten(1).to(dtype=torch.float32)
+-            except:
++            except Exception as e:
+                 # empty tensor, will be passed in train, 
+                 # but we preserve it for test
+                 gt_vecs_pts_loc = gt_vecs_pts_loc
+diff --git a/projects/mmdet3d_plugin/datasets/pipelines/loading.py b/projects/mmdet3d_plugin/datasets/pipelines/loading.py
+index 96f244b..d6b1b6a 100644
+--- a/projects/mmdet3d_plugin/datasets/pipelines/loading.py
++++ b/projects/mmdet3d_plugin/datasets/pipelines/loading.py
+@@ -113,7 +113,7 @@ class CustomLoadPointsFromMultiSweeps:
+         self,
+         sweeps_num=10,
+         load_dim=5,
+-        use_dim=[0, 1, 2, 4],
++        use_dim=(0, 1, 2, 4),
+         pad_empty_sweeps=False,
+         remove_close=False,
+         test_mode=False,
+@@ -271,7 +271,7 @@ class CustomLoadPointsFromFile:
+         self,
+         coord_type,
+         load_dim=6,
+-        use_dim=[0, 1, 2],
++        use_dim=(0, 1, 2),
+         shift_height=False,
+         use_color=False,
+         load_augmented=None,
+diff --git a/projects/mmdet3d_plugin/maptr/dense_heads/maptr_head.py b/projects/mmdet3d_plugin/maptr/dense_heads/maptr_head.py
+index 44fd988..932ac7f 100644
+--- a/projects/mmdet3d_plugin/maptr/dense_heads/maptr_head.py
++++ b/projects/mmdet3d_plugin/maptr/dense_heads/maptr_head.py
+@@ -666,8 +666,8 @@ class MapTRHead(DETRHead):
+         #     gt_bboxes.to(device) for gt_bboxes in gt_bboxes_list]
+         gt_bboxes_list = [
+             gt_bboxes.bbox.to(device) for gt_bboxes in gt_vecs_list]
+-        gt_pts_list = [
+-            gt_bboxes.fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
++        # gt_pts_list = [
++        #     gt_bboxes.fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list] #3
+         if self.gt_shift_pts_pattern == 'v0':
+             gt_shifts_pts_list = [
+                 gt_bboxes.shift_fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
+@@ -683,11 +683,14 @@ class MapTRHead(DETRHead):
+         elif self.gt_shift_pts_pattern == 'v4':
+             gt_shifts_pts_list = [
+                 gt_bboxes.shift_fixed_num_sampled_points_v4.to(device) for gt_bboxes in gt_vecs_list]
++        elif self.gt_shift_pts_pattern == 'v5':
++            gt_shifts_pts_list = [
++                gt_bboxes.shift_fixed_num_sampled_points_v5.to(device) for gt_bboxes in gt_vecs_list] #3
+         else:
+             raise NotImplementedError
+         all_gt_bboxes_list = [gt_bboxes_list for _ in range(num_dec_layers)]
+         all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
+-        all_gt_pts_list = [gt_pts_list for _ in range(num_dec_layers)]
++        # all_gt_pts_list = [gt_pts_list for _ in range(num_dec_layers)] #3
+         all_gt_shifts_pts_list = [gt_shifts_pts_list for _ in range(num_dec_layers)]
+         all_gt_bboxes_ignore_list = [
+             gt_bboxes_ignore for _ in range(num_dec_layers)
+@@ -701,6 +704,8 @@ class MapTRHead(DETRHead):
+         loss_dict = dict()
+         # loss of proposal generated from encode feature map.
+         if enc_cls_scores is not None:
++            gt_pts_list = [
++                gt_bboxes.fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list] #3
+             binary_labels_list = [
+                 torch.zeros_like(gt_labels_list[i])
+                 for i in range(len(all_gt_labels_list))
+diff --git a/projects/mmdet3d_plugin/maptr/modules/__init__.py b/projects/mmdet3d_plugin/maptr/modules/__init__.py
+index 0069e92..b7a4c1d 100644
+--- a/projects/mmdet3d_plugin/maptr/modules/__init__.py
++++ b/projects/mmdet3d_plugin/maptr/modules/__init__.py
+@@ -1,5 +1,5 @@
+ from .transformer import MapTRPerceptionTransformer
+ from .decoder import MapTRDecoder
+-from .geometry_kernel_attention import GeometrySptialCrossAttention, GeometryKernelAttention
++# from .geometry_kernel_attention import GeometrySptialCrossAttention, GeometryKernelAttention #3
+ from .builder import build_fuser
+-from .encoder import LSSTransform
+\ No newline at end of file
++# from .encoder import LSSTransform #3
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn.h b/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn.h
+deleted file mode 100644
+index 6e58260..0000000
+--- a/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn.h
++++ /dev/null
+@@ -1,42 +0,0 @@
+-#pragma once
+-
+-// #include "cpu/ms_deform_attn_cpu.h"
+-
+-// #ifdef WITH_CUDA
+-#include "geometric_kernel_attn_cuda.h"
+-
+-at::Tensor
+-geometric_kernel_attn_forward(
+-    const at::Tensor &value,
+-    const at::Tensor &spatial_shapes,
+-    const at::Tensor &level_start_index,
+-    const at::Tensor &sampling_loc,
+-    const at::Tensor &attn_weight,
+-    const int im2col_step)
+-{
+-  if (value.type().is_cuda())
+-  {
+-
+-    return geometric_kernel_attn_cuda_forward(
+-        value, spatial_shapes, level_start_index, sampling_loc, attn_weight, im2col_step);
+-  }
+-  AT_ERROR("Not implemented on the CPU");
+-}
+-
+-std::vector<at::Tensor>
+-geometric_kernel_attn_backward(
+-    const at::Tensor &value,
+-    const at::Tensor &spatial_shapes,
+-    const at::Tensor &level_start_index,
+-    const at::Tensor &sampling_loc,
+-    const at::Tensor &attn_weight,
+-    const at::Tensor &grad_output,
+-    const int im2col_step)
+-{
+-  if (value.type().is_cuda())
+-  {
+-    return geometric_kernel_attn_cuda_backward(
+-        value, spatial_shapes, level_start_index, sampling_loc, attn_weight, grad_output, im2col_step);
+-  }
+-  AT_ERROR("Not implemented on the CPU");
+-}
+diff --git a/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda.cu b/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda.cu
+deleted file mode 100644
+index 2e0e3ab..0000000
+--- a/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda.cu
++++ /dev/null
+@@ -1,144 +0,0 @@
+-#include <ATen/ATen.h>
+-#include <ATen/cuda/CUDAContext.h>
+-#include <cuda.h>
+-#include <cuda_runtime.h>
+-
+-#include <THC/THCAtomics.cuh>
+-#include <vector>
+-
+-#include "geometric_kernel_attn_cuda_kernel.cuh"
+-
+-
+-at::Tensor geometric_kernel_attn_cuda_forward(
+-  const at::Tensor &value,
+-  const at::Tensor &spatial_shapes,
+-  const at::Tensor &level_start_index,
+-  const at::Tensor &sampling_loc,
+-  const at::Tensor &attn_weight,
+-  const int im2col_step) {
+-
+-    AT_ASSERTM(value.is_contiguous(), "value tensor has to be contiguous");
+-    AT_ASSERTM(spatial_shapes.is_contiguous(), "spatial_shapes tensor has to be contiguous");
+-    AT_ASSERTM(level_start_index.is_contiguous(), "level_start_index tensor has to be contiguous");
+-    AT_ASSERTM(sampling_loc.is_contiguous(), "sampling_loc tensor has to be contiguous");
+-    AT_ASSERTM(attn_weight.is_contiguous(), "attn_weight tensor has to be contiguous");
+-
+-    AT_ASSERTM(value.type().is_cuda(), "value must be a CUDA tensor");
+-    AT_ASSERTM(spatial_shapes.type().is_cuda(), "spatial_shapes must be a CUDA tensor");
+-    AT_ASSERTM(level_start_index.type().is_cuda(), "level_start_index must be a CUDA tensor");
+-    AT_ASSERTM(sampling_loc.type().is_cuda(), "sampling_loc must be a CUDA tensor");
+-    AT_ASSERTM(attn_weight.type().is_cuda(), "attn_weight must be a CUDA tensor");
+-
+-    const int batch = value.size(0);
+-    const int spatial_size = value.size(1);
+-    const int num_heads = value.size(2);
+-    const int channels = value.size(3);
+-
+-    const int num_levels = spatial_shapes.size(0);
+-
+-    const int num_query = sampling_loc.size(1);
+-    const int num_point = sampling_loc.size(4);
+-
+-    const int im2col_step_ = std::min(batch, im2col_step);
+-
+-    AT_ASSERTM(batch % im2col_step_ == 0, "batch(%d) must divide im2col_step(%d)", batch, im2col_step_);
+-    
+-    auto output = at::zeros({batch, num_query, num_heads, channels}, value.options());
+-
+-    const int batch_n = im2col_step_;
+-    auto output_n = output.view({batch/im2col_step_, batch_n, num_query, num_heads, channels});
+-    auto per_value_size = spatial_size * num_heads * channels;
+-    auto per_sample_loc_size = num_query * num_heads * num_levels * num_point * 2;
+-    auto per_attn_weight_size = num_query * num_heads * num_levels * num_point;
+-    for (int n = 0; n < batch/im2col_step_; ++n)
+-    {
+-        auto columns = output_n.select(0, n);
+-        AT_DISPATCH_FLOATING_TYPES(value.type(), "multiscale_kernel_attn_forward_cuda", ([&] {
+-          multiscale_kernel_attn_forward_cuda(at::cuda::getCurrentCUDAStream(),
+-                value.data<scalar_t>() + n * im2col_step_ * per_value_size,
+-                spatial_shapes.data<int64_t>(),
+-                level_start_index.data<int64_t>(),
+-                sampling_loc.data<int64_t>() + n * im2col_step_ * per_sample_loc_size,
+-                attn_weight.data<scalar_t>() + n * im2col_step_ * per_attn_weight_size,
+-                batch_n, spatial_size, num_heads, channels, num_levels, num_query, num_point,
+-                columns.data<scalar_t>());
+-
+-        }));
+-    }
+-
+-    output = output.view({batch, num_query, num_heads*channels});
+-
+-    return output;
+-
+-}
+-
+-std::vector<at::Tensor> geometric_kernel_attn_cuda_backward(
+-  const at::Tensor &value,
+-  const at::Tensor &spatial_shapes,
+-  const at::Tensor &level_start_index,
+-  const at::Tensor &sampling_loc,
+-  const at::Tensor &attn_weight,
+-  const at::Tensor &grad_output,
+-  const int im2col_step) {
+-
+-    AT_ASSERTM(value.is_contiguous(), "value tensor has to be contiguous");
+-    AT_ASSERTM(spatial_shapes.is_contiguous(), "spatial_shapes tensor has to be contiguous");
+-    AT_ASSERTM(level_start_index.is_contiguous(), "level_start_index tensor has to be contiguous");
+-    AT_ASSERTM(sampling_loc.is_contiguous(), "sampling_loc tensor has to be contiguous");
+-    AT_ASSERTM(attn_weight.is_contiguous(), "attn_weight tensor has to be contiguous");
+-    AT_ASSERTM(grad_output.is_contiguous(), "grad_output tensor has to be contiguous");
+-
+-    AT_ASSERTM(value.type().is_cuda(), "value must be a CUDA tensor");
+-    AT_ASSERTM(spatial_shapes.type().is_cuda(), "spatial_shapes must be a CUDA tensor");
+-    AT_ASSERTM(level_start_index.type().is_cuda(), "level_start_index must be a CUDA tensor");
+-    AT_ASSERTM(sampling_loc.type().is_cuda(), "sampling_loc must be a CUDA tensor");
+-    AT_ASSERTM(attn_weight.type().is_cuda(), "attn_weight must be a CUDA tensor");
+-    AT_ASSERTM(grad_output.type().is_cuda(), "grad_output must be a CUDA tensor");
+-
+-
+-    const int batch = value.size(0);
+-    const int spatial_size = value.size(1);
+-    const int num_heads = value.size(2);
+-    const int channels = value.size(3);
+-
+-    const int num_levels = spatial_shapes.size(0);
+-
+-    const int num_query = sampling_loc.size(1);
+-    const int num_point = sampling_loc.size(4);
+-
+-    const int im2col_step_ = std::min(batch, im2col_step);
+-
+-    AT_ASSERTM(batch % im2col_step_ == 0, "batch(%d) must divide im2col_step(%d)", batch, im2col_step_);
+-
+-    auto grad_value = at::zeros_like(value);
+-    auto grad_attn_weight = at::zeros_like(attn_weight);
+-
+-    const int batch_n = im2col_step_;
+-    auto per_value_size = spatial_size * num_heads * channels;
+-    auto per_sample_loc_size = num_query * num_heads * num_levels * num_point * 2;
+-    auto per_attn_weight_size = num_query * num_heads * num_levels * num_point;
+-    auto grad_output_n = grad_output.view({batch/im2col_step_, batch_n, num_query, num_heads, channels});
+-    
+-    for (int n = 0; n < batch/im2col_step_; ++n)
+-    {
+-        auto grad_output_g = grad_output_n.select(0, n);
+-        AT_DISPATCH_FLOATING_TYPES(value.type(), "multiscale_kernel_attn_backward_cuda", ([&] {
+-          multiscale_kernel_attn_backward_cuda(at::cuda::getCurrentCUDAStream(),
+-                                    grad_output_g.data<scalar_t>(),
+-                                    value.data<scalar_t>() + n * im2col_step_ * per_value_size,
+-                                    spatial_shapes.data<int64_t>(),
+-                                    level_start_index.data<int64_t>(),
+-                                    sampling_loc.data<int64_t>() + n * im2col_step_ * per_sample_loc_size,
+-                                    attn_weight.data<scalar_t>() + n * im2col_step_ * per_attn_weight_size,
+-                                    batch_n, spatial_size, num_heads, channels, num_levels, num_query, num_point,
+-                                    grad_value.data<scalar_t>() +  n * im2col_step_ * per_value_size,
+-                                    grad_attn_weight.data<scalar_t>() + n * im2col_step_ * per_attn_weight_size);
+-
+-        }));
+-    }
+-
+-    return {
+-        grad_value, grad_attn_weight
+-    };
+-    
+-}
+diff --git a/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda.h b/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda.h
+deleted file mode 100644
+index b0844d7..0000000
+--- a/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda.h
++++ /dev/null
+@@ -1,20 +0,0 @@
+-
+-#pragma once
+-#include <torch/extension.h>
+-
+-at::Tensor geometric_kernel_attn_cuda_forward(
+-    const at::Tensor &value,
+-    const at::Tensor &spatial_shapes,
+-    const at::Tensor &level_start_index,
+-    const at::Tensor &sampling_loc,
+-    const at::Tensor &attn_weight,
+-    const int im2col_step);
+-
+-std::vector<at::Tensor> geometric_kernel_attn_cuda_backward(
+-    const at::Tensor &value,
+-    const at::Tensor &spatial_shapes,
+-    const at::Tensor &level_start_index,
+-    const at::Tensor &sampling_loc,
+-    const at::Tensor &attn_weight,
+-    const at::Tensor &grad_output,
+-    const int im2col_step);
+diff --git a/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda_kernel.cuh b/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda_kernel.cuh
+deleted file mode 100644
+index 7d6a77e..0000000
+--- a/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn/src/geometric_kernel_attn_cuda_kernel.cuh
++++ /dev/null
+@@ -1,471 +0,0 @@
+-#include <cstdio>
+-#include <algorithm>
+-#include <cstring>
+-
+-#include <ATen/ATen.h>
+-#include <ATen/cuda/CUDAContext.h>
+-
+-#include <THC/THCAtomics.cuh>
+-#include <algorithm>
+-
+-#define CUDA_KERNEL_LOOP(i, n)                          \
+-  for (int i = blockIdx.x * blockDim.x + threadIdx.x;   \
+-      i < (n);                                          \
+-      i += blockDim.x * gridDim.x)
+-
+-const int CUDA_NUM_THREADS = 1024;
+-inline int GET_BLOCKS(const int N, const int num_threads) {
+-  return (N + num_threads - 1) / num_threads;
+-}
+-
+-__device__ int clip(int n, int lower, int upper) {
+-  n = n >= lower ? n : lower;
+-  return n < upper ? n : upper;
+-}
+-
+-template <typename scalar_t>
+-__device__ scalar_t multi_scale_kernel_attn_sampling(
+-    const scalar_t *&bottom_data, const int &height, const int &width,
+-    const int &nheads, const int &channels, const int &h,
+-    const int &w, const int &m, const int &c) {
+-  const int w_stride = nheads * channels;
+-  const int h_stride = width * w_stride;
+-
+-  const int base_ptr = m * channels + c;
+-  const int h_ptr_offset = h_stride * h;
+-  const int w_ptr_offset = w_stride * w;
+-  scalar_t val = bottom_data[base_ptr + h_ptr_offset + w_ptr_offset];
+-
+-  return val;
+-}
+-
+-template <typename scalar_t>
+-__device__ void multiscale_kernel_attn_sampling_backward(
+-    const scalar_t *&bottom_data, const int &height, const int &width,
+-    const int &nheads, const int &channels, const int &h,
+-    const int &w, const int &m, const int &c, const scalar_t &top_grad,
+-    const scalar_t &attn_weight, scalar_t *&grad_value,  scalar_t *grad_attn_weight) {
+-
+-  const int w_stride = nheads * channels;
+-  const int h_stride = width * w_stride;
+-  const int h_ptr_offset = h_stride * h;
+-  const int w_ptr_offset = w_stride * w;
+-  const int base_ptr = m * channels + c;
+-  const scalar_t top_grad_value = top_grad * attn_weight;
+-  // scalar_t grad_h_weight = 0, grad_w_weight = 0;
+-
+-  const int ptr = base_ptr + h_ptr_offset + w_ptr_offset;
+-  scalar_t val = bottom_data[ptr];
+-  atomicAdd(grad_value + ptr, top_grad_value);
+-  *grad_attn_weight = top_grad * val;
+-}
+-
+-
+-template <typename scalar_t>
+-__global__ void multiscale_kernel_attn_forward_gpu_kernel(
+-    const int n, const scalar_t *data_value, const int64_t *data_spatial_shapes,
+-    const int64_t *data_level_start_index, const int64_t *data_sampling_loc,
+-    const scalar_t *data_attn_weight, const int batch_size,
+-    const int spatial_size, const int num_heads, const int channels,
+-    const int num_levels, const int num_query, const int num_point,
+-    scalar_t *data_col) {
+-  CUDA_KERNEL_LOOP(index, n) {
+-    int _temp = index;
+-    const int c_col = _temp % channels;
+-    _temp /= channels;
+-    const int sampling_index = _temp;
+-    const int m_col = _temp % num_heads;
+-    _temp /= num_heads;
+-    const int q_col = _temp % num_query;
+-    _temp /= num_query;
+-    const int b_col = _temp;
+-
+-    scalar_t *data_col_ptr = data_col + index;
+-    int data_weight_ptr = sampling_index * num_levels * num_point;
+-    int data_loc_w_ptr = data_weight_ptr << 1;
+-    const int qid_stride = num_heads * channels;
+-    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
+-    scalar_t col = 0;
+-
+-    for (int l_col = 0; l_col < num_levels; ++l_col) {
+-      const int level_start_id = data_level_start_index[l_col];
+-      const int spatial_h_ptr = l_col << 1;
+-      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
+-      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
+-      const scalar_t *data_value_ptr =
+-          data_value +
+-          (data_value_ptr_init_offset + level_start_id * qid_stride);
+-      for (int p_col = 0; p_col < num_point; ++p_col) {
+-        const int loc_w = data_sampling_loc[data_loc_w_ptr];
+-        const int loc_h = data_sampling_loc[data_loc_w_ptr + 1];
+-        const scalar_t weight = data_attn_weight[data_weight_ptr];
+-        const int loc_h_ = clip(loc_h, 0, spatial_h-1);
+-        const int loc_w_ = clip(loc_w, 0, spatial_w-1);
+-        col += multi_scale_kernel_attn_sampling(data_value_ptr, spatial_h, spatial_w, num_heads, 
+-                                                channels, loc_h_, loc_w_, m_col, c_col) * weight;
+-
+-        data_weight_ptr += 1;
+-        data_loc_w_ptr += 2;
+-      }
+-    }
+-    *data_col_ptr = col;
+-  }
+-}
+-
+-template <typename scalar_t, unsigned int blockSize>
+-__global__ void multiscale_kernel_attn_backward_gpu_kernel_shm_blocksize_aware_reduce_v2(const int n,
+-                                                const scalar_t *grad_col,
+-                                                const scalar_t *data_value,
+-                                                const int64_t *data_spatial_shapes,
+-                                                const int64_t *data_level_start_index, 
+-                                                const int64_t *data_sampling_loc,
+-                                                const scalar_t *data_attn_weight,
+-                                                const int batch_size, 
+-                                                const int spatial_size, 
+-                                                const int num_heads,
+-                                                const int channels, 
+-                                                const int num_levels,
+-                                                const int num_query,
+-                                                const int num_point,
+-                                                scalar_t *grad_value,
+-                                                scalar_t *grad_attn_weight)
+-{
+-  CUDA_KERNEL_LOOP(index, n)
+-  {
+-    __shared__ scalar_t cache_grad_attn_weight[blockSize];
+-    unsigned int tid = threadIdx.x;
+-    int _temp = index;
+-    const int c_col = _temp % channels;
+-    _temp /= channels;
+-    const int sampling_index = _temp; 
+-    const int m_col = _temp % num_heads;
+-    _temp /= num_heads;
+-    const int q_col = _temp % num_query;
+-    _temp /= num_query;
+-    const int b_col = _temp;
+-
+-    const scalar_t top_grad = grad_col[index];
+-
+-    int data_weight_ptr = sampling_index * num_levels * num_point;
+-    int data_loc_w_ptr = data_weight_ptr << 1;
+-    const int grad_sampling_ptr = data_weight_ptr;
+-    // grad_sampling_loc += grad_sampling_ptr << 1;
+-    grad_attn_weight += grad_sampling_ptr;
+-    const int grad_weight_stride = 1;
+-    // const int grad_loc_stride = 2;
+-    const int qid_stride = num_heads * channels;
+-    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
+-
+-    for (int l_col=0; l_col < num_levels; ++l_col)
+-    {
+-      const int level_start_id = data_level_start_index[l_col];
+-      const int spatial_h_ptr = l_col << 1;
+-      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
+-      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
+-      const int value_ptr_offset = data_value_ptr_init_offset + level_start_id * qid_stride;
+-      const scalar_t *data_value_ptr = data_value + value_ptr_offset;
+-      scalar_t *grad_value_ptr = grad_value + value_ptr_offset;
+-
+-      for (int p_col=0; p_col < num_point; ++p_col)
+-      {
+-        const int loc_w = data_sampling_loc[data_loc_w_ptr];
+-        const int loc_h = data_sampling_loc[data_loc_w_ptr + 1];
+-        const scalar_t weight = data_attn_weight[data_weight_ptr];
+-        *(cache_grad_attn_weight+threadIdx.x)=0;
+-        const int loc_h_ = clip(loc_h, 0, spatial_h-1);
+-        const int loc_w_ = clip(loc_w, 0, spatial_w-1);
+-        multiscale_kernel_attn_sampling_backward(
+-          data_value_ptr, spatial_h, spatial_w, num_heads, channels, loc_h_, loc_w_, m_col, c_col,
+-          top_grad, weight, grad_value_ptr, cache_grad_attn_weight+threadIdx.x);
+-        __syncthreads();
+-
+-        for (unsigned int s=blockSize/2; s>0; s>>=1)
+-        {
+-          if (tid < s) {
+-            // const unsigned int xid1 = tid << 1;
+-            //const unsigned int xid2 = (tid + s) << 1;
+-            cache_grad_attn_weight[tid] += cache_grad_attn_weight[tid + s];
+-          }
+-          __syncthreads();
+-        }
+-
+-        if (tid == 0)
+-        { 
+-          *grad_attn_weight = cache_grad_attn_weight[0];
+-        }
+-        __syncthreads();
+-
+-        data_weight_ptr += 1;
+-        data_loc_w_ptr += 2;
+-        grad_attn_weight += grad_weight_stride;
+-      }
+-    }
+-  }
+-}
+-
+-
+-template <typename scalar_t>
+-__global__ void multiscale_kernel_attn_backward_gpu_kernel_shm_reduce_v2(
+-  const int n,
+-  const scalar_t *grad_col,
+-  const scalar_t *data_value,
+-  const int64_t *data_spatial_shapes,
+-  const int64_t *data_level_start_index, 
+-  const int64_t *data_sampling_loc,
+-  const scalar_t *data_attn_weight,
+-  const int batch_size, 
+-  const int spatial_size, 
+-  const int num_heads,
+-  const int channels, 
+-  const int num_levels,
+-  const int num_query,
+-  const int num_point,
+-  scalar_t *grad_value,
+-  scalar_t *grad_attn_weight)
+-{
+-  CUDA_KERNEL_LOOP(index, n)
+-  {
+-    extern __shared__ int _s[];
+-    scalar_t* cache_grad_sampling_loc = (scalar_t*)_s;
+-    scalar_t* cache_grad_attn_weight = cache_grad_sampling_loc + 2 * blockDim.x;
+-    unsigned int tid = threadIdx.x;
+-    int _temp = index;
+-    const int c_col = _temp % channels;
+-    _temp /= channels;
+-    const int sampling_index = _temp; 
+-    const int m_col = _temp % num_heads;
+-    _temp /= num_heads;
+-    const int q_col = _temp % num_query;
+-    _temp /= num_query;
+-    const int b_col = _temp;
+-
+-    const scalar_t top_grad = grad_col[index];
+-
+-    int data_weight_ptr = sampling_index * num_levels * num_point;
+-    int data_loc_w_ptr = data_weight_ptr << 1;
+-    const int grad_sampling_ptr = data_weight_ptr;
+-    // grad_sampling_loc += grad_sampling_ptr << 1;
+-    grad_attn_weight += grad_sampling_ptr;
+-    const int grad_weight_stride = 1;
+-    // const int grad_loc_stride = 2;
+-    const int qid_stride = num_heads * channels;
+-    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
+-
+-    for (int l_col=0; l_col < num_levels; ++l_col)
+-    {
+-      const int level_start_id = data_level_start_index[l_col];
+-      const int spatial_h_ptr = l_col << 1;
+-      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
+-      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
+-      const int value_ptr_offset = data_value_ptr_init_offset + level_start_id * qid_stride;
+-      const scalar_t *data_value_ptr = data_value + value_ptr_offset;
+-      scalar_t *grad_value_ptr = grad_value + value_ptr_offset;
+-
+-      for (int p_col=0; p_col < num_point; ++p_col)
+-      {
+-        const int loc_w = data_sampling_loc[data_loc_w_ptr];
+-        const int loc_h = data_sampling_loc[data_loc_w_ptr + 1];
+-        const scalar_t weight = data_attn_weight[data_weight_ptr];
+-        *(cache_grad_attn_weight+threadIdx.x)=0;
+-        const int loc_h_ = clip(loc_h, 0, spatial_h-1);
+-        const int loc_w_ = clip(loc_w, 0, spatial_w-1);
+-        multiscale_kernel_attn_sampling_backward(
+-          data_value_ptr, spatial_h, spatial_w, num_heads, channels, loc_h_, loc_w_, m_col, c_col,
+-          top_grad, weight, grad_value_ptr, cache_grad_attn_weight+threadIdx.x);
+-        __syncthreads();
+-        
+-        for (unsigned int s=blockDim.x/2, spre=blockDim.x; s>0; s>>=1, spre>>=1)
+-        {
+-          if (tid < s) {
+-            // const unsigned int xid1 = tid << 1;
+-            // const unsigned int xid2 = (tid + s) << 1;
+-            cache_grad_attn_weight[tid] += cache_grad_attn_weight[tid + s];
+-            if (tid + (s << 1) < spre)
+-            {
+-              cache_grad_attn_weight[tid] += cache_grad_attn_weight[tid + (s << 1)];
+-
+-            } 
+-          }
+-          __syncthreads();
+-        }
+-
+-        if (tid == 0)
+-        {
+-          *grad_attn_weight = cache_grad_attn_weight[0];
+-        }
+-        __syncthreads();
+-
+-        data_weight_ptr += 1;
+-        data_loc_w_ptr += 2;
+-        grad_attn_weight += grad_weight_stride;
+-      }
+-    }
+-  }
+-}
+-
+-
+-template <typename scalar_t>
+-void multiscale_kernel_attn_forward_cuda(cudaStream_t stream,
+-                              const scalar_t* data_value,
+-                              const int64_t* data_spatial_shapes, 
+-                              const int64_t* data_level_start_index, 
+-                              const int64_t* data_sampling_loc,
+-                              const scalar_t* data_attn_weight,
+-                              const int batch_size,
+-                              const int spatial_size, 
+-                              const int num_heads, 
+-                              const int channels, 
+-                              const int num_levels, 
+-                              const int num_query,
+-                              const int num_point,
+-                              scalar_t* data_col)
+-{
+-  const int num_kernels = batch_size * num_query * num_heads * channels;
+-  const int num_actual_kernels = batch_size * num_query * num_heads * channels;
+-  const int num_threads = CUDA_NUM_THREADS;
+-  multiscale_kernel_attn_forward_gpu_kernel<scalar_t>
+-      <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
+-          0, stream>>>(
+-      num_kernels, data_value, data_spatial_shapes, data_level_start_index, data_sampling_loc, data_attn_weight, 
+-      batch_size, spatial_size, num_heads, channels, num_levels, num_query, num_point, data_col);
+-  
+-  cudaError_t err = cudaGetLastError();
+-  if (err != cudaSuccess)
+-  {
+-    printf("error in multiscale_kernel_attn_forward_cuda: %s\n", cudaGetErrorString(err));
+-  }
+-
+-}
+-
+-
+-template <typename scalar_t>
+-void multiscale_kernel_attn_backward_cuda(cudaStream_t stream,
+-                                          const scalar_t* grad_col,
+-                                          const scalar_t* data_value,
+-                                          const int64_t * data_spatial_shapes,
+-                                          const int64_t * data_level_start_index,
+-                                          const int64_t * data_sampling_loc,
+-                                          const scalar_t * data_attn_weight,
+-                                          const int batch_size, 
+-                                          const int spatial_size, 
+-                                          const int num_heads,
+-                                          const int channels, 
+-                                          const int num_levels,
+-                                          const int num_query,
+-                                          const int num_point, 
+-                                          scalar_t* grad_value,
+-                                          scalar_t* grad_attn_weight)
+-{
+-  const int num_threads = (channels > CUDA_NUM_THREADS)?CUDA_NUM_THREADS:channels;
+-  const int num_kernels = batch_size * num_query * num_heads * channels;
+-  const int num_actual_kernels = batch_size * num_query * num_heads * channels;
+-  switch(channels) {
+-    case 128:
+-    multiscale_kernel_attn_backward_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 128>
+-        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
+-            0, stream>>>(
+-                      num_kernels, 
+-                      grad_col,
+-                      data_value,
+-                      data_spatial_shapes,
+-                      data_level_start_index, 
+-                      data_sampling_loc,
+-                      data_attn_weight,
+-                      batch_size, 
+-                      spatial_size, 
+-                      num_heads,
+-                      channels, 
+-                      num_levels,
+-                      num_query,
+-                      num_point,
+-                      grad_value,
+-                      grad_attn_weight);
+-      break;
+-    case 256:
+-    multiscale_kernel_attn_backward_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 256>
+-      <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,0, stream>>>(
+-                      num_kernels, 
+-                      grad_col,
+-                      data_value,
+-                      data_spatial_shapes,
+-                      data_level_start_index, 
+-                      data_sampling_loc,
+-                      data_attn_weight,
+-                      batch_size, 
+-                      spatial_size, 
+-                      num_heads,
+-                      channels, 
+-                      num_levels,
+-                      num_query,
+-                      num_point,
+-                      grad_value,
+-                      grad_attn_weight);
+-      break;
+-    case 512:
+-    multiscale_kernel_attn_backward_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 512>
+-      <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads, 0, stream>>>(
+-                      num_kernels, 
+-                      grad_col,
+-                      data_value,
+-                      data_spatial_shapes,
+-                      data_level_start_index, 
+-                      data_sampling_loc,
+-                      data_attn_weight,
+-                      batch_size, 
+-                      spatial_size, 
+-                      num_heads,
+-                      channels, 
+-                      num_levels,
+-                      num_query,
+-                      num_point,
+-                      grad_value,
+-                      grad_attn_weight);
+-      break;
+-    case 1024:
+-    multiscale_kernel_attn_backward_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 1024>
+-      <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads, 0, stream>>>(
+-                      num_kernels, 
+-                      grad_col,
+-                      data_value,
+-                      data_spatial_shapes,
+-                      data_level_start_index, 
+-                      data_sampling_loc,
+-                      data_attn_weight,
+-                      batch_size, 
+-                      spatial_size, 
+-                      num_heads,
+-                      channels, 
+-                      num_levels,
+-                      num_query,
+-                      num_point,
+-                      grad_value,
+-                      grad_attn_weight);
+-      break;
+-    default:
+-      multiscale_kernel_attn_backward_gpu_kernel_shm_reduce_v2<scalar_t>
+-      <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads, num_threads*3*sizeof(scalar_t), stream>>>(
+-                    num_kernels, 
+-                    grad_col,
+-                    data_value,
+-                    data_spatial_shapes,
+-                    data_level_start_index, 
+-                    data_sampling_loc,
+-                    data_attn_weight,
+-                    batch_size, 
+-                    spatial_size, 
+-                    num_heads,
+-                    channels, 
+-                    num_levels,
+-                    num_query,
+-                    num_point,
+-                    grad_value,
+-                    grad_attn_weight);
+-  }
+-
+-  cudaError_t err = cudaGetLastError();
+-  if (err != cudaSuccess)
+-  {
+-    printf("error in multiscale_kernel_attn_backward_cuda: %s\n", cudaGetErrorString(err));
+-  }
+-
+-}
+diff --git a/projects/mmdet3d_plugin/maptr/modules/transformer.py b/projects/mmdet3d_plugin/maptr/modules/transformer.py
+index f0946c2..6dc31c7 100644
+--- a/projects/mmdet3d_plugin/maptr/modules/transformer.py
++++ b/projects/mmdet3d_plugin/maptr/modules/transformer.py
+@@ -122,7 +122,7 @@ class MapTRPerceptionTransformer(BaseModule):
+             bev_queries,
+             bev_h,
+             bev_w,
+-            grid_length=[0.512, 0.512],
++            grid_length=(0.512, 0.512),
+             bev_pos=None,
+             prev_bev=None,
+             **kwargs):
+diff --git a/tools/data_converter/av2_converter.py b/tools/data_converter/av2_converter.py
+index 2c48983..024e333 100644
+--- a/tools/data_converter/av2_converter.py
++++ b/tools/data_converter/av2_converter.py
+@@ -41,8 +41,8 @@ def parse_args():
+         default=64,
+         required=False,
+         help='workers to process data')
+-    args = parser.parse_args()
+-    return args
++    args_p = parser.parse_args()
++    return args_p
+ 
+ def create_av2_infos_mp(root_path,
+                         info_prefix,
+diff --git a/tools/maptr/vis_pred.py b/tools/maptr/vis_pred.py
+index 157ef5f..84ccbb3 100644
+--- a/tools/maptr/vis_pred.py
++++ b/tools/maptr/vis_pred.py
+@@ -196,10 +196,11 @@ def main():
+     pc_range = cfg.point_cloud_range
+ 
+     # get car icon
+-    car_img = Image.open('./figs/lidar_car.png')
++    with Image.open('./figs/lidar_car.png') as car_img:
++    
++        # get color map: divider->r, ped->b, boundary->g
++        colors_plt = ['orange', 'b', 'g']
+ 
+-    # get color map: divider->r, ped->b, boundary->g
+-    colors_plt = ['orange', 'b', 'g']
+ 
+ 
+     logger.info('BEGIN vis test dataset samples gt label & pred')
+diff --git a/tools/train.py b/tools/train.py
+index da1f761..1760945 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -12,6 +12,7 @@ import mmcv
+ import os
+ import time
+ import torch
++import torch_npu #3
+ import warnings
+ from mmcv import Config, DictAction
+ from mmcv.runner import get_dist_info, init_dist
+@@ -29,6 +30,10 @@ from mmseg import __version__ as mmseg_version
+ 
+ from mmcv.utils import TORCH_VERSION, digit_version
+ 
++from torch_npu.contrib import transfer_to_npu
++
++torch.npu.config.allow_internal_format = False #3
++torch.npu.set_compile_mode(jit_compile=False) #3
+ 
+ def parse_args():
+     parser = argparse.ArgumentParser(description='Train a detector')
+@@ -80,6 +85,7 @@ def parse_args():
+         default='none',
+         help='job launcher')
+     parser.add_argument('--local_rank', type=int, default=0)
++    parser.add_argument('--local-rank', type=int, default=0)
+     parser.add_argument(
+         '--autoscale-lr',
+         action='store_true',

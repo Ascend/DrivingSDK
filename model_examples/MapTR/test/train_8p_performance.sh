@@ -40,7 +40,7 @@ if [ x"${etp_flag}" != x"true" ]; then
   source ${test_path_dir}/env_npu.sh
 fi
 
-bash ./tools/dist_train.sh ./projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py 8 \
+bash ./MapTR/tools/dist_train.sh ./MapTR/projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py 8 \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 

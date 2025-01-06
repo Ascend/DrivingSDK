@@ -62,7 +62,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
 |    昇腾NPU固件    | 24.1.RC3 |
 |    昇腾NPU驱动    | 24.1.RC3 |
 
-- 安装mmdet3d
+1. 安装mmdet3d
   
   - 在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
     
@@ -80,7 +80,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
     ```
     pip install -v -e .
     ```
-- 安装mmcv
+2. 安装mmcv
   
   - 在模型根目录下，克隆mmcv仓，并进入mmcv目录安装
     
@@ -90,17 +90,26 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
     MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
     ```
-- 安装mxDriving加速库，安装branch_v6.0.0-RC3分支，具体方法参考[原仓](https://gitee.com/ascend/mxDriving)。
-- 在模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
+3. 安装mxDriving加速库，具体方法参考[原仓](https://gitee.com/ascend/mxDriving)。
+4. 在模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
   
   ```
   pip install -r requirement.txt
   ```
-- 在当前python环境下执行`pip show pip`，得到三方包安装路径Location，记作location_path，在模型根目录下执行以下命令来替换patch。
+5. 在当前python环境下执行`pip show pip`，得到三方包安装路径Location，记作location_path，在模型根目录下执行以下命令来替换patch。
   
   ```
   bash replace_patch.sh --packages_path=location_path
   ```
+
+6. 模型代码更新
+  ```
+  git clone https://github.com/hustvl/MapTR.git
+  cp MapTR.patch MapTR
+  cd MapTR
+  git checkout 1b435fd9f0db9a14bb2a9baafb565200cc7028a2
+  git apply --reject --whitespace=fix MapTR.patch
+  cd ../
 
 ### 准备数据集
 
