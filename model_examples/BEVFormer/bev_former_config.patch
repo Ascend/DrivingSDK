@@ -155,7 +155,7 @@ index 33024f8..755883b 100644
 -            output = MultiScaleDeformableAttnFunction.apply(
 -                value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
-+            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++            output = mx_driving.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
 +                                                            sampling_locations, attention_weights)
          else:
              output = multi_scale_deformable_attn_pytorch(
@@ -306,7 +306,7 @@ index 100d94f..a513ef4 100644
 -            output = MultiScaleDeformableAttnFunction.apply(
 -                value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
-+            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++            output = mx_driving.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
 +                                                            sampling_locations, attention_weights)
          else:
              output = multi_scale_deformable_attn_pytorch(
@@ -337,7 +337,7 @@ index 78fb9f5..27a7ea9 100644
 -            output = MultiScaleDeformableAttnFunction.apply(
 -                value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
-+            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++            output = mx_driving.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
 +                                                            sampling_locations, attention_weights)
          else:
  
