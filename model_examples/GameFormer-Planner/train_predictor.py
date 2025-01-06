@@ -4,6 +4,7 @@
 import os
 import stat
 import time
+import datetime
 import logging
 import csv
 import argparse
@@ -25,55 +26,60 @@ from torch_npu.contrib import transfer_to_npu
 from torch_npu.optim import NpuFusedAdam 
 
 
-def train_epoch(data_loader, model, optimizer):
+def train_epoch(data_loader, model, optimizer, epoch_idx, profiling_step):
     epoch_loss = []
     epoch_metrics = []
     model.train()
 
-    # 从第三十个iteration开始测量单步训练时长
-    start_time, iter_cnt, start_iter = time.time(), 0, 30 
-    with tqdm(data_loader, desc="Training", unit="batch") as data_epoch:
-        for batch in data_epoch:
-            # prepare data
-            inputs = {
-                'ego_agent_past': batch[0].to(args.device),
-                'neighbor_agents_past': batch[1].to(args.device),
-                'map_lanes': batch[2].to(args.device),
-                'map_crosswalks': batch[3].to(args.device),
-                'route_lanes': batch[4].to(args.device)
-            }
+    start_time = time.time()
+    total_step = len(data_loader)
+    for step, batch in enumerate(data_loader):
+        # prepare data
+        inputs = {
+            'ego_agent_past': batch[0].to(args.device),
+            'neighbor_agents_past': batch[1].to(args.device),
+            'map_lanes': batch[2].to(args.device),
+            'map_crosswalks': batch[3].to(args.device),
+            'route_lanes': batch[4].to(args.device)
+        }
 
-            ego_future = batch[5].to(args.device)
-            neighbors_future = batch[6].to(args.device)
-            neighbors_future_valid = torch.ne(neighbors_future[..., :2], 0)
+        ego_future = batch[5].to(args.device)
+        neighbors_future = batch[6].to(args.device)
+        neighbors_future_valid = torch.ne(neighbors_future[..., :2], 0)
 
-            # call the mdoel
-            optimizer.zero_grad()
-            level_k_outputs, ego_plan = model(inputs)
-            loss, results = level_k_loss(level_k_outputs, ego_future, neighbors_future, neighbors_future_valid)
-            prediction = results[:, 1:]
-            plan_loss = planning_loss(ego_plan, ego_future)
-            loss += plan_loss
+        # call the mdoel
+        optimizer.zero_grad()
+        level_k_outputs, ego_plan = model(inputs)
+        loss, results = level_k_loss(level_k_outputs, ego_future, neighbors_future, neighbors_future_valid)
+        prediction = results[:, 1:]
+        plan_loss = planning_loss(ego_plan, ego_future)
+        loss += plan_loss
 
-            # loss backward
-            loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), 5)
-            optimizer.step()
+        # loss backward
+        loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), 5)
+        optimizer.step()
 
-            # compute metrics
-            metrics = motion_metrics(ego_plan, prediction, ego_future, neighbors_future, neighbors_future_valid)
-            epoch_metrics.append(metrics)
-            epoch_loss.append(loss.item())
-            data_epoch.set_postfix(loss='{:.4f}'.format(np.mean(epoch_loss)))
+        # compute metrics
+        metrics = motion_metrics(ego_plan, prediction, ego_future, neighbors_future, neighbors_future_valid)
+        epoch_metrics.append(metrics)
+        epoch_loss.append(loss.item())
 
-            if dist.get_rank() == 0:  
-                iter_cnt += 1
-                if iter_cnt == start_iter:
-                    start_time = time.time()
-
-        if dist.get_rank() == 0:     
-            avg_time = (time.time() - start_time) / (iter_cnt - start_iter)
-            logging.info("average training time per step: %f", avg_time)
+        if step > 0 and step % profiling_step == 0:
+            if dist.get_rank() == 0:
+                now = datetime.datetime.now()
+                formatted_time = now.strftime('%Y-%m-%d %H:%M:%S')
+                avg_train_time = (time.time() - start_time) / profiling_step
+                remain_time = avg_train_time * (total_step - step)
+                remain_time = str(datetime.timedelta(seconds=int(remain_time)))
+                planningADE, planningFDE = epoch_metrics[-1][0], epoch_metrics[-1][1]
+                planningAHE, planningFHE = epoch_metrics[-1][2], epoch_metrics[-1][3]
+                predictionADE, predictionFDE = epoch_metrics[-1][4], epoch_metrics[-1][5]
+                current_lr = optimizer.param_groups[0]['lr']
+                epoch_info = f"[{formatted_time}] Epoch [{epoch_idx}] Step [{step}/{total_step}]: avg_train_time: {avg_train_time:.4f}, remain_time: {remain_time}, current_lr: {current_lr}, loss: {loss.item():.4f}, "
+                metrics_info = f"planningADE: {planningADE:.4f}, planningFDE: {planningFDE:.4f}, planningAHE: {planningAHE:.4f}, planningFHE: {planningFHE:.4f}, predictionADE: {predictionADE:.4f}, predictionFDE: {predictionFDE:.4f}"
+                logging.info(epoch_info + metrics_info)
+                start_time = time.time()
                     
     # show metrics
     epoch_metrics = np.array(epoch_metrics)
@@ -83,7 +89,7 @@ def train_epoch(data_loader, model, optimizer):
     epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
     if dist.get_rank() == 0:
         logging.info("plannerADE: %.4f, plannerFDE: %.4f, plannerAHE: %.4f, plannerFHE: %.4f, predictorADE: %.4f, predictorFDE: %.4f\n", planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE)
-        epoch_metrics.append(avg_time)
+        epoch_metrics.append(avg_train_time)
     return np.mean(epoch_loss), epoch_metrics
 
 
@@ -126,7 +132,7 @@ def valid_epoch(data_loader, model):
     planningAHE, planningFHE = np.mean(epoch_metrics[:, 2]), np.mean(epoch_metrics[:, 3])
     predictionADE, predictionFDE = np.mean(epoch_metrics[:, 4]), np.mean(epoch_metrics[:, 5])
     epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
-    epoch_metrics_tensor = torch.tensor(epoch_metrics, device=dist.get_rank()).reshape([-1, 1])
+    epoch_metrics_tensor = torch.tensor(epoch_metrics, device=model.device).reshape([-1, 1])
     gathered_data = [torch.zeros_like(epoch_metrics_tensor) for _ in range(dist.get_world_size())] 
     dist.all_gather(gathered_data, epoch_metrics_tensor)
 
@@ -175,6 +181,7 @@ def model_training(args_, local_rank_):
     # training parameters
     train_epochs = args_.train_epochs
     batch_size = args_.batch_size
+    profiling_step = args_.profiling_step
     
     # set up data loaders
     train_set = DrivingData(args_.train_set + '/*.npz', args_.num_neighbors)
@@ -192,7 +199,7 @@ def model_training(args_, local_rank_):
     for epoch in range(train_epochs):
         if local_rank_ == 0:
             logging.info("Epoch %d/%d", epoch + 1, train_epochs)
-        train_loss, train_metrics = train_epoch(train_loader, model, optimizer)
+        train_loss, train_metrics = train_epoch(train_loader, model, optimizer, epoch, profiling_step)
         val_loss, val_metrics = valid_epoch(valid_loader, model)
 
         # save to training log
@@ -204,7 +211,7 @@ def model_training(args_, local_rank_):
                'val-planningAHE': val_metrics[2], 'val-planningFHE': val_metrics[3],
                'val-predictionADE': val_metrics[4], 'val-predictionFDE': val_metrics[5]}
 
-        if local_rank_ == 0:
+        if dist.get_rank() == 0:
             flags = os.O_RDWR | os.O_CREAT
             mode = stat.S_IWUSR | stat.S_IRUSR
             if epoch == 0:
@@ -219,6 +226,7 @@ def model_training(args_, local_rank_):
 
             # save model at the end of epoch
             torch.save(model.state_dict(), f'training_log/{args_.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth')
+            os.chmod(f'training_log/{args_.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth', mode)
             logging.info("Model saved in training_log/%s\n", args_.name)
             
             if epoch == train_epochs - 1:
@@ -232,6 +240,7 @@ if __name__ == "__main__":
     # Arguments
     parser = argparse.ArgumentParser(description='Training')
     parser.add_argument('--name', type=str, help='log name (default: "Exp1")', default="Exp1")
+    parser.add_argument("--profiling_step", type=int, default=10, help="number of steps for profiling")
     parser.add_argument('--train_set', type=str, help='path to train data')
     parser.add_argument('--valid_set', type=str, help='path to validation data')
     parser.add_argument('--seed', type=int, help='fix random seed', default=1965)
