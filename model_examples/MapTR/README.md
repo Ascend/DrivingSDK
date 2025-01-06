@@ -110,6 +110,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   git checkout 1b435fd9f0db9a14bb2a9baafb565200cc7028a2
   git apply --reject --whitespace=fix MapTR.patch
   cd ../
+  ```
 
 ### 准备数据集
 
