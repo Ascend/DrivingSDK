@@ -75,6 +75,7 @@ code_path=mxDriving/model_examples/LaneSegNet
   pip install networkx==3.1
   pip insatll torchvision==0.16.0
   pip install numba
+  pip install torchvision==0.16.0
   pip install numpy==1.24.0
   ```
 
