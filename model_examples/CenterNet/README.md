@@ -10,7 +10,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
 
   ```
   url=https://github.com/xingyizhou/CenterNet.git 
-  commit_id=5b1a490a52da57d3580e80b8bb4bbead9ef2af96
+  commit_id=4c50fd3a46bdf63dbf2082c5cbb3458d39579e6c
   ```
 
 - 适配昇腾 AI 处理器的实现：
@@ -44,8 +44,22 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
   
 - 安装依赖。
+  1. 首先下载mxDriving仓，进入CenterNet模型代码目录：
+  ```
+  git clone https://gitee.com/ascend/mxDriving.git -b master
+  cd mxDriving/model_examples/CenterNet
+  ```
 
-  在模型源码包根目录下执行命令，安装模型对应PyTorch版本需要的依赖。
+  2. 源码安装 CenterNet
+  ```
+  git clone https://github.com/xingyizhou/CenterNet.git
+  cp -f CenterNet.patch CenterNet/
+  cd CenterNet
+  git apply CenterNet.patch --reject
+  cp -f ../test ./
+  ```
+
+  3. 在模型源码包根目录下执行命令，安装模型对应PyTorch版本需要的依赖。
   ```
   pip install -r 2.1_requirements.txt  # PyTorch2.1版本
 
