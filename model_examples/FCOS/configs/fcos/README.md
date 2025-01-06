@@ -1,1 +1,0 @@
-https://github.com/open-mmlab/mmdetection/tree/main/configs/fcos/README.md

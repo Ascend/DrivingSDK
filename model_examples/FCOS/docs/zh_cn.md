@@ -1,1 +1,0 @@
-https://github.com/open-mmlab/mmdetection/tree/main/docs/zh_cn

@@ -1,1 +1,0 @@
-https://github.com/open-mmlab/mmdetection/tree/main/tools/misc/download_dataset.py

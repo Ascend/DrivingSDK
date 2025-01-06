@@ -1,0 +1,127 @@
+diff --git a/configs/fcos/fcos_r50-caffe_fpn_gn-head_1x_coco.py b/configs/fcos/fcos_r50-caffe_fpn_gn-head_1x_coco.py
+index 928a9b4c..48c52e78 100644
+--- a/configs/fcos/fcos_r50-caffe_fpn_gn-head_1x_coco.py
++++ b/configs/fcos/fcos_r50-caffe_fpn_gn-head_1x_coco.py
+@@ -70,6 +70,10 @@ param_scheduler = [
+ 
+ # optimizer
+ optim_wrapper = dict(
+-    optimizer=dict(lr=0.01),
++    optimizer=dict(type='SGD', lr=0.01),
+     paramwise_cfg=dict(bias_lr_mult=2., bias_decay_mult=0.),
+     clip_grad=dict(max_norm=35, norm_type=2))
++
++default_hooks = dict(logger=dict(type='LoggerHook', interval=500))
++train_cfg = dict(max_epochs=1)
++env_cfg = dict(dist_cfg=dict(backend='hccl'))
+\ No newline at end of file
+diff --git a/mmdet.patch b/mmdet.patch
+new file mode 100644
+index 00000000..e69de29b
+diff --git a/mmdet/__init__.py b/mmdet/__init__.py
+index 3ac884ac..49589e46 100644
+--- a/mmdet/__init__.py
++++ b/mmdet/__init__.py
+@@ -6,7 +6,7 @@ from mmengine.utils import digit_version
+ from .version import __version__, version_info
+ 
+ mmcv_minimum_version = '2.0.0rc4'
+-mmcv_maximum_version = '2.2.0'
++mmcv_maximum_version = '2.2.1'
+ mmcv_version = digit_version(mmcv.__version__)
+ 
+ mmengine_minimum_version = '0.7.1'
+diff --git a/mmdet/models/dense_heads/fcos_head.py b/mmdet/models/dense_heads/fcos_head.py
+index ba4d4640..4d00d1c0 100644
+--- a/mmdet/models/dense_heads/fcos_head.py
++++ b/mmdet/models/dense_heads/fcos_head.py
+@@ -261,9 +261,11 @@ class FCOSHead(AnchorFreeHead):
+         bg_class_ind = self.num_classes
+         pos_inds = ((flatten_labels >= 0)
+                     & (flatten_labels < bg_class_ind)).nonzero().reshape(-1)
++        one = torch.tensor([1.0], dtype=torch.float, device=bbox_preds[0].device)
+         num_pos = torch.tensor(
+             len(pos_inds), dtype=torch.float, device=bbox_preds[0].device)
+-        num_pos = max(reduce_mean(num_pos), 1.0)
++        num_pos = reduce_mean(num_pos)
++        num_pos = torch.max(num_pos, one)
+         loss_cls = self.loss_cls(
+             flatten_cls_scores, flatten_labels, avg_factor=num_pos)
+ 
+@@ -444,13 +446,19 @@ class FCOSHead(AnchorFreeHead):
+ 
+         # if there are still more than one objects for a location,
+         # we choose the one with minimal area
+-        areas[inside_gt_bbox_mask == 0] = INF
+-        areas[inside_regress_range == 0] = INF
++        areas = areas.masked_fill(inside_gt_bbox_mask == 0, INF)
++        areas = areas.masked_fill(inside_regress_range == 0, INF)
+         min_area, min_area_inds = areas.min(dim=1)
+ 
+         labels = gt_labels[min_area_inds]
+-        labels[min_area == INF] = self.num_classes  # set as BG
+-        bbox_targets = bbox_targets[range(num_points), min_area_inds]
++        labels = labels.masked_fill(min_area == INF, self.num_classes) # set as BG
++
++        base_step = bbox_targets.shape[1]
++        base_end = bbox_targets.shape[0] * bbox_targets.shape[1]
++        min_area_base = torch.arange(0, base_end, base_step, device=min_area_inds.device)
++        min_area_inds = min_area_inds + min_area_base
++        bbox_targets = bbox_targets.view(-1, bbox_targets.shape[2])
++        bbox_targets = bbox_targets.index_select(0, min_area_inds)
+ 
+         return labels, bbox_targets
+ 
+@@ -465,12 +473,16 @@ class FCOSHead(AnchorFreeHead):
+             Tensor: Centerness target.
+         """
+         # only calculate pos centerness targets, otherwise there may be nan
+-        left_right = pos_bbox_targets[:, [0, 2]]
+-        top_bottom = pos_bbox_targets[:, [1, 3]]
+-        if len(left_right) == 0:
+-            centerness_targets = left_right[..., 0]
++        if len(pos_bbox_targets) == 0:
++            centerness_targets = centerness_targets[..., 0]
+         else:
+-            centerness_targets = (
+-                left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) * (
+-                    top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
++            pos_bbox_targets_trans = pos_bbox_targets.transpose(0, 1)
++            left_right_one = pos_bbox_targets_trans.select(0, 0)
++            left_right_two = pos_bbox_targets_trans.select(0, 2)
++            top_bottom_one = pos_bbox_targets_trans.select(0, 1)
++            top_bottom_two = pos_bbox_targets_trans.select(0, 3)
++            centerness_targets = torch.min(left_right_one, left_right_two
++                ) / torch.max(left_right_one, left_right_two) * torch.min(
++                top_bottom_one, top_bottom_two) / torch.max(top_bottom_one,
++                top_bottom_two)
+         return torch.sqrt(centerness_targets)
+diff --git a/mmdet/models/necks/fpg.py b/mmdet/models/necks/fpg.py
+index 73ee799b..40d123fa 100644
+--- a/mmdet/models/necks/fpg.py
++++ b/mmdet/models/necks/fpg.py
+@@ -20,7 +20,7 @@ class Transition(BaseModule):
+         self.in_channels = in_channels
+         self.out_channels = out_channels
+ 
+-    def forward(x):
++    def forward(self, x):
+         pass
+ 
+ 
+diff --git a/tools/train.py b/tools/train.py
+index 7e5b71fb..71ae4ffc 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -3,6 +3,11 @@ import argparse
+ import os
+ import os.path as osp
+ 
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++torch_npu.npu.set_compile_mode(jit_compile=False)
++
+ from mmengine.config import Config, DictAction
+ from mmengine.registry import RUNNERS
+ from mmengine.runner import Runner

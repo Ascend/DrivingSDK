@@ -19,13 +19,15 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 - 参考实现：
 
   ```
-  url=https://github.com/open-mmlab/mmdetection/tree/main
+  url=https://github.com/open-mmlab/mmdetection
+  commit_id=cfd5d3a985b0249de009b67d04f37263e11cdf3d
   ```
 
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/mxDriving/tree/master/model_examples/FCOS
+  url=https://gitee.com/ascend/mxDriving.git
+  code_path=model_examples/FCOS
   ```
 
 
@@ -33,42 +35,74 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 ## 准备环境
 
-- 当前模型支持的 PyTorch 版本和已知三方库依赖如下表所示。
+### 安装昇腾环境
 
-  **表 1**  版本支持表
+请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境，本仓已支持表1中软件版本。
 
-  | Torch_Version      | 三方库依赖版本                                 |
-  | :--------: | :----------------------------------------------------------: |
-  | PyTorch 2.1 | torchvision==0.16.0 |
+**表 1**  昇腾软件版本支持表
 
-- 环境准备指导。
+|     软件类型      | 支持版本 |
+| :---------------: | :------: |
+| FrameworkPTAdaper | 6.0.RC4  |
+|       CANN        | 8.0.RC4  |
+|    昇腾NPU固件    | 24.1.RC4 |
+|    昇腾NPU驱动    | 24.1.RC4 |
 
-  请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
+### 安装模型环境
 
-- 安装依赖。
+**表 2**  三方库版本支持表
 
-  在模型源码包根目录下执行命令，安装模型对应PyTorch版本需要的依赖。
+| Torch_Version      | 三方库依赖版本                                 |
+| :--------: | :----------------------------------------------------------: |
+| PyTorch 2.1 | torchvision==0.16.0 |
+
+0. 激活 CANN 环境
+
+  将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
   ```
-  pip install -r requirements.txt  # PyTorch2.1版本
+  source {cann_root_dir}/set_env.sh
   ```
-  > **说明：** 
-  >只需执行一条对应的PyTorch版本依赖安装命令。
+
+1. 安装 mmcv
+
+  在 FCOS 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装
+
+  ```
+  git clone https://github.com/open-mmlab/mmcv
+  cd mmcv
+  MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
+  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
+  cd ../
+  ```
+
+2. 修改 mmengine
   
-- 安装mmcv环境。
-  1. 安装mmcv，最好是2.2.0版本。
-    ```
-    git clone git://github.com/open-mmlab/mmcv.git
-    cd mmcv
-    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py build_ext
-    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-    pip3 show mmcv # 查看版本和路径
-    ``` 
-  2. 用mmengine_need里的文件替换mmengine中对应的文件。
   ```
-    pip3 show mmengine # 查看版本和路径
-    cp -f mmengine_need/loops.py ${mmengine_path}/mmengine/runner/loops.py
-    ```
+  pip3 show mmengine # 查看版本和路径
+  cp -f mmengine_need/loops.py ${mmengine_path}/mmengine/runner/loops.py
+  ```
+
+3. 准备模型源码
+
+  克隆 mmdet 仓，替换其中部分代码
+
+  ```
+  git clone https://github.com/open-mmlab/mmdetection.git
+  cd mmdetection/
+  git checkout cfd5d3a985b0249de009b67d04f37263e11cdf3d
+  cp ../mmdet.patch ./
+  git apply --reject mmdet.patch
+  cp -r ../test/ ./
+  ```
+
+4. 安装其他依赖
   
+  在 mmdet 代码目录下，安装依赖
+
+  ```
+  pip install -r requirements.txt
+  pip install torchvision==0.16.0
+  ```
 
 ## 准备数据集
 
@@ -183,7 +217,3 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=1000 ] = 0.689
 ## FAQ
 
 无。
-
-# 公网地址说明
-
-代码涉及公网地址参考 public_address_statement.md
