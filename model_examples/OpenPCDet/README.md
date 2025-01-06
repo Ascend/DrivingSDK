@@ -38,11 +38,23 @@ code_path=PyTorch/built-in/autonoumous_driving
 
     请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
+#### 0. 克隆代码仓到当前目录并使用patch文件
+
+```
+    git clone https://gitee.com/ascend/mxDriving.git
+    cd mxDriving/model_examples/OpenPCDet
+    git clone https://github.com/open-mmlab/OpenPCDet.git
+    cd OpenPCDet
+    git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
+    cp -f ../OpenPCDet_npu.patch .
+    git apply --reject OpenPCDet_npu.patch
+    cp -f ../test tools/
+```
+
 #### 1. 基本环境准备
 
-在模型源码包所在目录下执行相应命令，安装模型需要的依赖
+在应用过patch的模型源码包所在目录下执行相应命令，安装模型需要的依赖
 ```shell
-cd ./OpenPCDet
 pip install -r requirements.txt && cd ../   # PyTorch 2.1版本
 pip install -r 2.3_requirements.txt && cd ../   # PyTorch 2.3版本
 pip install -r 2.4_requirements.txt && cd ../   # PyTorch 2.4版本
@@ -149,7 +161,7 @@ python -c "import mx_driving"
 ```
 
 #### 2.6 编译安装OpenPCDet
-执行以下命令，编译安装OpenPCDet
+执行以下命令，应用过patch的模型根目录编译安装OpenPCDet
 ```shell
 cd ./OpenPCDet/
 python setup.py develop
@@ -187,7 +199,7 @@ python setup.py develop
     ```
 
 ### 模型训练
-1. 进入OpenPCDet的根目录。
+1. 进入应用过patch文件的OpenPCDet的根目录。
    ```shell
    cd ./OpenPCDet/
    ```
@@ -235,9 +247,21 @@ python setup.py develop
 
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
+  #### 0. 克隆代码仓到当前目录并使用patch文件
+
+    ```
+    git clone https://gitee.com/ascend/mxDriving.git
+    cd mxDriving/model_examples/OpenPCDet
+    git clone https://github.com/open-mmlab/OpenPCDet.git
+    cd OpenPCDet
+    git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
+    cp -f ../OpenPCDet_npu.patch .
+    git apply --reject OpenPCDet_npu.patch
+    cp -f ../test tools/
+    ```
 
   #### 1. 基本环境
-  在模型源码包根目录下执行相应命令，安装模型需要的依赖。
+  在应用过patch的模型源码包根目录下执行相应命令，安装模型需要的依赖。
   ```
   conda create -n env_name python=3.8
   pip install -r requirements.txt    # PyTorch 2.1版本
@@ -272,9 +296,9 @@ python setup.py develop
          from spconv.core_cc.csrc.sparse.all.ops3d import Point2Voxel as Point2VoxelGPU3d
          from spconv.core_cc.csrc.sparse.all.ops4d import Point2Voxel as Point2VoxelGPU4d
       ```
-   #### 3. 编译安装OpenPCDet
+
+   #### 4. 编译安装OpenPCDet
    ```
-   cd OpenPCDet/
    python setup.py develop
    ```
 
@@ -305,7 +329,7 @@ python setup.py develop
    ```
 
 ### 模型训练
-1. 进入OpenPCDet的根目录。
+1. 进入应用过patch的OpenPCDet的根目录。
    ```
    cd OpenPCDet/
    ```
@@ -347,11 +371,23 @@ S
 
     请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
+#### 0. 克隆代码仓到当前目录并使用patch文件
+
+```
+git clone https://gitee.com/ascend/mxDriving.git
+cd mxDriving/model_examples/OpenPCDet
+git clone https://github.com/open-mmlab/OpenPCDet.git
+cd OpenPCDet
+git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
+cp -f ../OpenPCDet_npu.patch .
+git apply --reject OpenPCDet_npu.patch
+cp -f ../test tools/
+```
+
 #### 1. 基本环境准备
 
-在模型源码包所在目录下执行相应命令，安装模型需要的依赖
+在应用过patch文件的模型源码包所在目录下执行相应命令，安装模型需要的依赖
 ```shell
-cd ./OpenPCDet
 pip install -r requirements.txt && cd ../   # PyTorch 2.1版本
 pip install -r 2.3_requirements.txt && cd ../   # PyTorch 2.3版本
 pip install -r 2.4_requirements.txt && cd ../   # PyTorch 2.4版本
@@ -429,7 +465,7 @@ python -c "import mx_driving"
 ```
 
 #### 2.6 编译安装OpenPCDet
-执行以下命令，编译安装OpenPCDet
+在应用过patch文件模型根目录，执行以下命令，编译安装OpenPCDet
 ```shell
 cd ./OpenPCDet/
 python setup.py develop
@@ -467,7 +503,7 @@ python setup.py develop
     ```
 
 ### 模型训练
-1. 进入OpenPCDet的根目录。
+1. 进入应用过patch文件的OpenPCDet的根目录。
    ```shell
    cd ./OpenPCDet/
    ```
