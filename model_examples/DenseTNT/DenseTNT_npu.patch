@@ -1,0 +1,175 @@
+diff --git a/requirements.txt b/requirements.txt
+index dbacf29..61e4efb 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,5 +1,4 @@
+-torch>=1.6.0
+ cython
+ tqdm
+ matplotlib
+-scipy
+\ No newline at end of file
++scipy
+diff --git a/src/dataset_argoverse.py b/src/dataset_argoverse.py
+index 456d615..cde5ae7 100644
+--- a/src/dataset_argoverse.py
++++ b/src/dataset_argoverse.py
+@@ -581,7 +581,7 @@ def argoverse2_get_instance(args: utils.Args, instance_dir):
+             mapping['stage_one_label'] = stage_one_label
+ 
+     # print(len(polyline_spans), len(vectors), map_start_polyline_idx, polyline_spans[map_start_polyline_idx])
+-
++    vectors = utils.convert_to_float32(vectors)
+     mapping.update(dict(
+         matrix=np.array(vectors),
+         labels=np.array(labels).reshape([args.future_frame_num, 2]),
+diff --git a/src/modeling/lib.py b/src/modeling/lib.py
+index 7f5e435..8ff78f0 100644
+--- a/src/modeling/lib.py
++++ b/src/modeling/lib.py
+@@ -32,7 +32,7 @@ class MLP(nn.Module):
+         if out_features is None:
+             out_features = hidden_size
+         self.linear = nn.Linear(hidden_size, out_features)
+-        self.layer_norm = LayerNorm(out_features)
++        self.layer_norm = torch.nn.LayerNorm(out_features)
+ 
+     def forward(self, hidden_states):
+         hidden_states = self.linear(hidden_states)
+@@ -53,12 +53,11 @@ class GlobalGraph(nn.Module):
+         self.num_attention_heads = num_attention_heads
+         self.attention_head_size = hidden_size // num_attention_heads if attention_head_size is None else attention_head_size
+         self.all_head_size = self.num_attention_heads * self.attention_head_size
++        self.sqrt_attention_head_size = math.sqrt(self.attention_head_size)
+ 
+         self.num_qkv = 1
+ 
+-        self.query = nn.Linear(hidden_size, self.all_head_size * self.num_qkv)
+-        self.key = nn.Linear(hidden_size, self.all_head_size * self.num_qkv)
+-        self.value = nn.Linear(hidden_size, self.all_head_size * self.num_qkv)
++        self.qkv = nn.Linear(hidden_size, 3 * self.all_head_size * self.num_qkv)
+         if utils.args.attention_decay:
+             self.attention_decay = nn.Parameter(torch.ones(1) * 0.5)
+ 
+@@ -83,16 +82,16 @@ class GlobalGraph(nn.Module):
+         return x.permute(0, 2, 1, 3)
+ 
+     def forward(self, hidden_states, attention_mask=None, mapping=None, return_scores=False):
+-        mixed_query_layer = self.query(hidden_states)
+-        mixed_key_layer = nn.functional.linear(hidden_states, self.key.weight)
+-        mixed_value_layer = self.value(hidden_states)
++        qkv = self.qkv(hidden_states)
++        query_layer, key_layer, value_layer = torch.chunk(qkv, 3, dim=-1)
+ 
+-        query_layer = self.transpose_for_scores(mixed_query_layer)
+-        key_layer = self.transpose_for_scores(mixed_key_layer)
+-        value_layer = self.transpose_for_scores(mixed_value_layer)
++        query_layer = self.transpose_for_scores(query_layer)
++        key_layer = self.transpose_for_scores(key_layer)
++        value_layer = self.transpose_for_scores(value_layer)
+ 
+-        attention_scores = torch.matmul(
+-            query_layer / math.sqrt(self.attention_head_size), key_layer.transpose(-1, -2))
++        attention_scores = torch.matmul(
++            query_layer / self.sqrt_attention_head_size, key_layer.transpose(-1, -2))
+         # print(attention_scores.shape, attention_mask.shape)
+         if attention_mask is not None:
+             attention_scores = attention_scores + self.get_extended_attention_mask(attention_mask)
+@@ -125,9 +124,14 @@ class CrossAttention(GlobalGraph):
+         super(CrossAttention, self).__init__(hidden_size, attention_head_size, num_attention_heads)
+         if query_hidden_size is not None:
+             self.query = nn.Linear(query_hidden_size, self.all_head_size * self.num_qkv)
++        else:
++            self.query = nn.Linear(hidden_size, self.all_head_size * self.num_qkv)
+         if key_hidden_size is not None:
+             self.key = nn.Linear(key_hidden_size, self.all_head_size * self.num_qkv)
+             self.value = nn.Linear(key_hidden_size, self.all_head_size * self.num_qkv)
++        else:
++            self.key = nn.Linear(hidden_size, self.all_head_size * self.num_qkv)
++            self.value = nn.Linear(hidden_size, self.all_head_size * self.num_qkv)
+ 
+     def forward(self, hidden_states_query, hidden_states_key=None, attention_mask=None, mapping=None,
+                 return_scores=False):
+diff --git a/src/modeling/vectornet.py b/src/modeling/vectornet.py
+index 502f936..3f8788e 100644
+--- a/src/modeling/vectornet.py
++++ b/src/modeling/vectornet.py
+@@ -20,8 +20,8 @@ class NewSubGraph(nn.Module):
+ 
+         self.layer_0 = MLP(hidden_size)
+         self.layers = nn.ModuleList([GlobalGraph(hidden_size, num_attention_heads=2) for _ in range(depth)])
+-        self.layers_2 = nn.ModuleList([LayerNorm(hidden_size) for _ in range(depth)])
+-        self.layers_3 = nn.ModuleList([LayerNorm(hidden_size) for _ in range(depth)])
++        self.layers_2 = nn.ModuleList([torch.nn.LayerNorm(hidden_size) for _ in range(depth)])
++        self.layers_3 = nn.ModuleList([torch.nn.LayerNorm(hidden_size) for _ in range(depth)])
+         self.layers_4 = nn.ModuleList([GlobalGraph(hidden_size) for _ in range(depth)])
+         self.layer_0_again = MLP(hidden_size)
+ 
+diff --git a/src/run.py b/src/run.py
+index 989fe1b..7369120 100644
+--- a/src/run.py
++++ b/src/run.py
+@@ -14,6 +14,9 @@ from torch.utils.data import RandomSampler
+ from torch.utils.data.distributed import DistributedSampler
+ from tqdm import tqdm as tqdm_
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
+ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+ 
+ 
+@@ -203,6 +206,7 @@ def train_one_epoch(model, iter_bar, optimizer, device, args: utils.Args, i_epoc
+ 
+ 
+ def run_training_process(rank, world_size, args, queue):
++    torch.npu.set_device(rank)
+     if args.distributed_training:
+         print(f"Running DDP on rank {rank}.")
+ 
+@@ -223,17 +227,17 @@ def run_training_process(rank, world_size, args, queue):
+         model = VectorNet(args).to(rank)
+ 
+     if 'set_predict' in args.other_params:
+-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate)
++        optimizer = torch_npu.optim.NpuFusedAdam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate)
+     elif 'complete_traj-3' in args.other_params:
+         prefix = 'module.' if isinstance(model, DDP) else ''
+-        optimizer = torch.optim.Adam(
++        optimizer = torch_npu.optim.NpuFusedAdam(
+             [each[1] for each in model.named_parameters() if not str(each[0]).startswith(f'{prefix}decoder.complete_traj')],
+             lr=args.learning_rate)
+-        optimizer_2 = torch.optim.Adam(
++        optimizer_2 = torch_npu.optim.NpuFusedAdam(
+             [each[1] for each in model.named_parameters() if str(each[0]).startswith(f'{prefix}decoder.complete_traj')],
+             lr=args.learning_rate)
+     else:
+-        optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
++        optimizer = torch_npu.optim.NpuFusedAdam(model.parameters(), lr=args.learning_rate)
+ 
+     if args.distributed_training:
+         if rank == 0:
+diff --git a/src/utils.py b/src/utils.py
+index 4290911..9b91d12 100644
+--- a/src/utils.py
++++ b/src/utils.py
+@@ -276,7 +276,6 @@ def init(args_: Args, logger_):
+ 
+     if not args.do_eval and not args.debug and os.path.exists(args.output_dir):
+         print('{} {} exists'.format(get_color_text('Warning!'), args.output_dir))
+-        input()
+ 
+     if args.do_eval:
+         assert os.path.exists(args.output_dir)
+@@ -373,6 +372,11 @@ def init(args_: Args, logger_):
+ 
+     assert args.do_train or args.do_eval
+ 
++def convert_to_float32(item):
++    if isinstance(item, list):
++        return [convert_to_float32(sub_item) for sub_item in item]
++    else:
++        return np.float32(item)
+ 
+ def add_eval_param(param):
+     if param not in args.eval_params:
