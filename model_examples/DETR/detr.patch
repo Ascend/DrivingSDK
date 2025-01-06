@@ -1,0 +1,80 @@
+diff --git a/main.py b/main.py
+index e5f9eff..c3bd866 100644
+--- a/main.py
++++ b/main.py
+@@ -2,12 +2,15 @@
+ import argparse
+ import datetime
+ import json
++import os
+ import random
+ import time
+ from pathlib import Path
+ 
+ import numpy as np
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from torch.utils.data import DataLoader, DistributedSampler
+ 
+ import datasets
+@@ -17,6 +20,9 @@ from engine import evaluate, train_one_epoch
+ from models import build_model
+ 
+ 
++torch.npu.config.allow_internal_format = False
++torch.npu.set_compile_mode(jit_compile=False)
++
+ def get_args_parser():
+     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
+     parser.add_argument('--lr', default=1e-4, type=float)
+@@ -103,6 +109,9 @@ def get_args_parser():
+ 
+ 
+ def main(args):
++    os.environ["MASTER_ADDR"] = "localhost"
++    os.environ["MASTER_PORT"] = "29888"
++
+     utils.init_distributed_mode(args)
+     print("git:\n  {}\n".format(utils.get_sha()))
+ 
+@@ -135,8 +144,8 @@ def main(args):
+             "lr": args.lr_backbone,
+         },
+     ]
+-    optimizer = torch.optim.AdamW(param_dicts, lr=args.lr,
+-                                  weight_decay=args.weight_decay)
++    optimizer = torch_npu.optim.NpuFusedAdamW(param_dicts, lr=args.lr,
++                                              weight_decay=args.weight_decay)
+     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
+ 
+     dataset_train = build_dataset(image_set='train', args=args)
+diff --git a/requirements.txt b/requirements.txt
+index bb8f782..af73ef6 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,9 +1,5 @@
+ cython
+-git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI&egg=pycocotools
++pycocotools==2.0.7
+ submitit
+-torch>=1.5.0
+-torchvision>=0.6.0
+-git+https://github.com/cocodataset/panopticapi.git#egg=panopticapi
++torchvision==0.16.0
+ scipy
+-onnx
+-onnxruntime
+diff --git a/util/misc.py b/util/misc.py
+index dfa9fb5..3b94b43 100644
+--- a/util/misc.py
++++ b/util/misc.py
+@@ -48,7 +48,7 @@ class SmoothedValue(object):
+         """
+         if not is_dist_avail_and_initialized():
+             return
+-        t = torch.tensor([self.count, self.total], dtype=torch.float64, device='cuda')
++        t = torch.tensor([self.count, self.total], dtype=torch.float32, device='cuda')
+         dist.barrier()
+         dist.all_reduce(t)
+         t = t.tolist()

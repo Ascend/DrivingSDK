@@ -84,9 +84,19 @@ code_path=model_examples/DETR
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
-2. 安装其他依赖
+2. 设置 DETR 并安装相关依赖
 
    ```
+   cd model_examples/DETR
+   git clone https://github.com/facebookresearch/detr.git --depth=1
+   
+   cd detr/
+   git fetch --unshallow
+   git checkout 29901c51d7fe8712168b8d0d64351170bc0f83e0
+   cp -f ../detr.patch ./
+   cp -rf ../test ./
+   git apply detr.patch
+   
    pip install -r requirements.txt
    ```
 
@@ -122,6 +132,7 @@ coco_path/
 - 在模型根目录下，运行训练脚本。
 
   ```
+  cd model_examples/DETR/detr
   bash test/train_8p_full.sh --data_path='/coco_path' # 8p 精度训练
   bash test/train_8p_performance.sh --data_path='/coco_path' # 8p 性能训练
   ```
@@ -139,10 +150,6 @@ coco_path/
 | :-----------: | :--: | :----: | :----------------: | :--: |
 |     竞品A     |  8p   |  300   |       0.410        | 128 |
 | Atlas 800T A2 |  8p   |  300   |       0.405        | 122 |
-
-# 公网地址说明
-
-代码涉及公网地址参考 public_address_statement.md
 
 # 变更说明
 
