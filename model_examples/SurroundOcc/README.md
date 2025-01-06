@@ -37,10 +37,10 @@
   ```
 - 适配昇腾 AI 处理器的实现：
 
-    ```
-    url=https://gitee.com/ascend/ModelZoo-PyTorch.git
-    code_path=PyTorch/built-in/autonoumous_driving 
-    ```
+  ```
+  url=https://gitee.com/ascend/mxDriving.git
+  code_path=model_examples/SurroundOcc
+  ```
 
 # SurroundOcc
 
@@ -77,7 +77,7 @@
     git checkout 05263c6a8fe464a7f9d28358ff7196ba58dc0de6
     cp -f ../SurroundOcc_npu.patch .
     git apply --reject SurroundOcc_npu.patch
-    cp -f ../test .
+    cp -rf ../test .
     ```
 
 

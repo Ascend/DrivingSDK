@@ -163,8 +163,8 @@ out, argmax = scatter_max(updates, indices, out)
 | BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Pass】|
 | FCN |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |【Pass】|
 | PETR | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/PETR| 【Pass】|
-| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet | 【Pass】|
-| CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Pass】|
+| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PointPillar | 【Pass】|
+| CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/CenterPoint |【Pass】|
 | BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |【Pass】|
 | SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |【Pass】|
 | GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner | 【Pass】|
@@ -180,7 +180,7 @@ out, argmax = scatter_max(updates, indices, out)
 | MapTR |https://gitee.com/ascend/mxDriving/tree/master/model_examples/MapTR| 【Test】|
 | UniAD | https://gitee.com/ascend/mxDriving/tree/master/model_examples/UniAD |【Test】|
 | PivotNet|https://gitee.com/ascend/mxDriving/tree/master/model_examples/PivotNet|【Test】|
-| CenterPoint(3D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Test】|
+| CenterPoint(3D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/CenterPoint |【Test】|
 | LMDrive  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/LMDrive |【Test】|
 | DETR3D | https://gitee.com/ascend/mxDriving/tree/master/model_examples/DETR3D |【Test】|
 
