@@ -8,7 +8,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
   ```
   url=https://github.com/fundamentalvision/BEVFormer
-  commit_id=20923e66aa26a906ba8d21477c238567fa6285e9
+  commit_id=66b65f3a1f58caf0507cb2a971b9c0e7f842376c
   ```
 
 # 支持模型
@@ -38,14 +38,9 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
   1. 源码编译安装 mmcv 1.x
      ```
       git clone -b 1.x https://github.com/open-mmlab/mmcv.git
-      cp -f mmcv_need/base_runner.py mmcv/mmcv/runner/base_runner.py
-      cp -f mmcv_need/epoch_based_runner.py mmcv/mmcv/runner/epoch_based_runner.py
-      cp -f mmcv_need/points_in_polygons_npu.cpp mmcv/mmcv/ops/csrc/pytorch/npu/points_in_polygons_npu.cpp
-      cp -f mmcv_need/distributed.py mmcv/mmcv/parallel/distributed.py
-      cp -f mmcv_need/modulated_deform_conv.py mmcv/mmcv/ops/modulated_deform_conv.py
-      cp -f mmcv_need/runtime.txt mmcv/requirements/runtime.txt
-      cp -f mmcv_need/optimizer.py mmcv/mmcv/runner/hooks/optimizer.py
+      cp mmcv_config.patch mmcv
       cd mmcv
+      git apply --reject mmcv_config.patch
       pip install -r requirements/runtime.txt
       MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
       MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
@@ -53,18 +48,17 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
   2. 源码安装 mmdetection3d v1.0.0rc4
      ```
      git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
-     cp -f mmdet3d_need/__init__.py mmdetection3d/mmdet3d/__init__.py
-     cp -f mmdet3d_need/nuscenes_dataset.py mmdetection3d/mmdet3d/datasets/nuscenes_dataset.py
-     cp -f mmdet3d_need/runtime.txt mmdetection3d/requirements/runtime.txt
+     cp mmdet3d_config.patch mmdetection3d
      cd mmdetection3d
+     git apply --reject mmdet3d_config.patch
      pip install -e .
      ```
   3. 源码安装 mmdet 2.24.0
      ```
      git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
-     cp -f mmdet_need/__init__.py mmdetection/mmdet/__init__.py
-     cp -f mmdet_need/resnet.py mmdetection/mmdet/models/backbones/resnet.py
+     cp mmdet_config.patch mmdetection
      cd mmdetection
+     git apply --reject mmdet_config.patch
      pip install -e .
      ```
   4. 安装 detectron2
@@ -75,11 +69,20 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
      ```
      pip install -r requirements.txt
      ```
-  6. 安装mxDriving加速库，并将环境变量添加至 test/env_npu.sh 文件中
+  6. 模型代码更新
+     ```
+     git clone https://github.com/fundamentalvision/BEVFormer.git
+     cp bev_former_config.patch BEVFormer
+     cd BEVFormer
+     git checkout 66b65f3a1f58caf0507cb2a971b9c0e7f842376c
+     git apply --reject --whitespace=fix bev_former_config.patch
+     cd ../
+     ```
+  7. 安装mxDriving加速库
 
 ## 准备数据集
 
-1. 用户需自行下载 nuScenes V1.0 full 和 CAN bus 数据集，结构如下：
+1. 用户需自行下载 nuScenes V1.0 full 和 CAN bus 数据集放置在BEVFormer模型代码目录下，结构如下：
 
    ```
    data/
@@ -92,7 +95,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
    ```
 
 ## 下载预训练权重
-创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
+   在BEVFormer模型代码目录下创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
    ```
    ckpts/
    ├── r101_dcn_fcos3d_pretrain.pth
@@ -100,13 +103,14 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 # 开始训练
 
-- 单机8卡训练
-   
-     ```shell
-     bash test/train_full_8p_base_fp32.sh --epochs=4 # 8卡训练，默认训练24个epochs，这里只训练4个epochs
-     bash test/train_performance_8p_base_fp32.sh # 8卡性能
-     ```
-
+- 单机8卡训练(精度)
+   ```shell
+   bash test/train_full_8p_base_fp32.sh --epochs=4 # 8卡训练，默认训练24个epochs，这里只训练4个epochs
+   ```
+- 单机8卡训练（性能）
+   ```shell
+   bash test/train_performance_8p_base_fp32.sh # 8卡性能
+   ```
 # 结果
 
 |  NAME       | Backbone          | Method          |   训练方式     |     Epoch    |      NDS     |     mAP      |     FPS      |

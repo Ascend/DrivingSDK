@@ -24,10 +24,9 @@ if [ -d ${output_path} ]; then
 fi
 
 mkdir -p ${output_path}
-
+cd BEVFormer
 sed -i "s|log_config = dict(interval=50,|log_config = dict(interval=1,|g" projects/configs/bevformer/bevformer_base.py
 sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=500)|g" projects/configs/bevformer/bevformer_base.py
-
 
 #训练开始时间，不需要修改
 start_time=$(date +%s)
@@ -35,10 +34,9 @@ start_time=$(date +%s)
 bash ./tools/dist_train.sh ./projects/configs/bevformer/bevformer_base.py ${world_size} > ${test_path_dir}/output/train_performance_8p_base_fp32.log 2>&1 &
 
 wait
-
 sed -i "s|log_config = dict(interval=1,|log_config = dict(interval=50,|g" projects/configs/bevformer/bevformer_base.py
 sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=500)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|g" projects/configs/bevformer/bevformer_base.py
-
+cd ..
 #训练结束时间，不需要修改
 end_time=$(date +%s)
 e2e_time=$(($end_time - $start_time))
@@ -48,7 +46,7 @@ echo "------------------ Final result ------------------"
 
 #获取性能数据，不需要修改
 #单迭代训练时长，不需要修改
-TrainingTime=$(grep -o ", time: [0-9.]*" ${test_path_dir}/output/train_performance_8p_base_fp32.log | tail -n 30 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
+TrainingTime=$(grep -o ", time: [0-9.]*" ${test_path_dir}/output/train_performance_8p_base_fp32.log | tail -n 1 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
 
 #吞吐量
 ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$TrainingTime'}')
