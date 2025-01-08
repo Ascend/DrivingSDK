@@ -11,22 +11,22 @@ template <typename T>
 class AssignScoreWithk {
 public:
     __aicore__ inline AssignScoreWithk(GM_ADDR points, GM_ADDR centers, GM_ADDR scores, GM_ADDR knn_idx, GM_ADDR output,
-                                       GM_ADDR workspace, const AssignScoreWithkTilingData* __restrict tiling_data)
+                                       GM_ADDR workspace, const AssignScoreWithkTilingData* tilingData)
     {
         ASSERT(GetBlockNum() != 0 && "block num can not be zero");
 
-        batchSize = tiling_data->batch_size;
-        nsource = tiling_data->nsource;
-        npoint = tiling_data->npoint;
-        numWeights= tiling_data->num_weights;
-        numNeighbors = tiling_data->num_neighbors;
-        numFeatures= tiling_data->num_features;
-        aggregate = tiling_data->aggregate;
+        batchSize = tilingData->batchSize;
+        nsource = tilingData->nsource;
+        npoint = tilingData->npoint;
+        numWeights= tilingData->numWeights;
+        numNeighbors = tilingData->numNeighbors;
+        numFeatures= tilingData->numFeatures;
+        aggregate = tilingData->aggregate;
         dataAlign = ONE_BLK_SIZE / sizeof(T);
         weightsAlign= AlignUp(numWeights, dataAlign);
         inner = (numWeights * sizeof(T) + ONE_BLK_SIZE - 1) / ONE_BLK_SIZE * ONE_BLK_SIZE / sizeof(T);
-        ndataPerCore = tiling_data->npoint_per_core;
-        ndataRemained = tiling_data->npoint_remained;
+        ndataPerCore = tilingData->npointPerCore;
+        ndataRemained = tilingData->npointRemained;
 
         coreId = GetBlockIdx();
         if (coreId < ndataRemained) {
@@ -42,7 +42,7 @@ public:
         startBatchIdx = startDataIdx / (numFeatures * npoint);
         startFeatureIdx = (startDataIdx - startBatchIdx * numFeatures * npoint) / npoint;
         startPointIdx = startDataIdx - startBatchIdx * numFeatures * npoint - startFeatureIdx *npoint;
-        numBatchInCore = (startFeatureIdx * npoint + startPointIdx + ndataInCore + numFeatures * npoint - 1) / (numFeatures * npoint);
+        numBatchInCore = (startFeatureIdx * npoint + startPointIdx + ndataInCore + numFeatures * npoint - 1) / (numFeatures * npoint) - startBatchIdx;
         numFeaturesInCore = (startPointIdx + ndataInCore + npoint - 1) / npoint;
 
         pointsGm.SetGlobalBuffer((__gm__ T *)points + startBatchIdx * numFeatures * nsource * numWeights + startFeatureIdx * nsource * numWeights,
@@ -168,7 +168,6 @@ extern "C" __global__ __aicore__ void assign_score_withk(
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
 #endif
     GET_TILING_DATA(tilingData, tiling);
-    const AssignScoreWithkTilingData* __restrict tiling_data = &tilingData;
-    AssignScoreWithk<float> op(points, centers, scores, knnIdx, output, workspace, tiling_data);
+    AssignScoreWithk<float> op(points, centers, scores, knnIdx, output, workspace, &tilingData);
     op.Process();
 }

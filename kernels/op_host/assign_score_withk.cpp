@@ -6,6 +6,14 @@
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
 
+constexpr size_t BATCH_IDX = 0;
+constexpr size_t NSOURCE_IDX = 1;
+constexpr size_t NPOINT_IDX = 2;
+constexpr size_t NWEIGHTS_IDX = 3;
+constexpr size_t NNEIGHBORS_IDX = 4;
+constexpr size_t NFEATURES_IDX = 5;
+constexpr size_t AGG_IDX = 6;
+
 namespace optiling {
 
 /****************class impl*****************/
@@ -26,14 +34,7 @@ static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
         (context->GetInputDesc(0) == nullptr)) {
         return ge::GRAPH_FAILED;
     }
-
-    constexpr size_t BATCH_IDX = 0;
-    constexpr size_t NSOURCE_IDX = 1;
-    constexpr size_t NPOINT_IDX = 2;
-    constexpr size_t NWEIGHTS_IDX = 3;
-    constexpr size_t NNEIGHBORS_IDX = 4;
-    constexpr size_t NFEATURES_IDX = 5;
-    constexpr size_t AGG_IDX = 6;
+    
     auto batchSizePtr = attr->GetAttrPointer<uint32_t>(BATCH_IDX);
     auto nsourcePtr = attr->GetAttrPointer<uint32_t>(NSOURCE_IDX);
     auto npointPtr = attr->GetAttrPointer<uint32_t>(NPOINT_IDX);
@@ -68,16 +69,16 @@ static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
     uint64_t npointRemained = (static_cast<uint64_t>(batchSize) * numFeatures * npoint) % numCore;
 
     AssignScoreWithkTilingData TilingData;
-    TilingData.set_npoint_per_core(npointPerCore);
-    TilingData.set_npoint_remained(npointRemained);
+    TilingData.set_npointPerCore(npointPerCore);
+    TilingData.set_npointRemained(npointRemained);
     TilingData.set_aggregate(aggregate);
-    TilingData.set_batch_size(batchSize);
+    TilingData.set_batchSize(batchSize);
     TilingData.set_nsource(nsource);
     TilingData.set_npoint(npoint);
-    TilingData.set_num_weights(numWeights);
-    TilingData.set_num_neighbors(numNeighbors);
-    TilingData.set_num_features(numFeatures);
-    TilingData.set_num_core(numCore);
+    TilingData.set_numWeights(numWeights);
+    TilingData.set_numNeighbors(numNeighbors);
+    TilingData.set_numFeatures(numFeatures);
+    TilingData.set_numCore(numCore);
     context->SetBlockDim(numCore);
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
@@ -96,10 +97,6 @@ static ge::graphStatus AssignScoreWithkInferShape(gert::InferShapeContext *conte
     if ((attr == nullptr) || (outputShape == nullptr)) {
         return ge::GRAPH_FAILED;
     }
-    constexpr size_t BATCH_IDX = 0;
-    constexpr size_t NPOINT_IDX = 2;
-    constexpr size_t NNEIGHBORS_IDX = 4;
-    constexpr size_t NFEATURES_IDX = 5;
     auto batchSizePtr = attr->GetAttrPointer<uint32_t>(BATCH_IDX);
     auto npointPtr = attr->GetAttrPointer<uint32_t>(NPOINT_IDX);
     auto numNeighborsPtr = attr->GetAttrPointer<uint32_t>(NNEIGHBORS_IDX);

@@ -20,6 +20,7 @@ mx_driving.common.assign_score_withk(Tensor scores, Tensor point_features, Tenso
 ### 算子约束
 - `npoint`和`K`都不大于`N`。
 - `aggregate`参数取值当前仅支持`sum`
+- $M \times K \leq 5000$
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
@@ -27,13 +28,15 @@ mx_driving.common.assign_score_withk(Tensor scores, Tensor point_features, Tenso
 import numpy as np
 import torch, torch_npu
 from mx_driving import assign_score_withk
-points = np.random.rand(4, 100, 8, 16).astype(np.float32)
-centers = np.random.rand(4, 100, 8, 16).astype(np.float32)
-scores = np.random.rand(4, 64, 10, 8).astype(np.float32)
-knn_idx = np.array([[np.random.choice(100, size=10, replace=False) for _ in range(64)] for _ in range(4)]).astype(np.int64)
-output = assign_score_withk(torch.from_numpy(scores).npu(),
-                            torch.from_numpy(points).npu(),
-                            torch.from_numpy(centers).npu(),
-                            torch.from_numpy(knn_idx).npu(),
-                            "sum")
+points = torch.from_numpy(np.random.rand(4, 100, 8, 16).astype(np.float32)).npu()
+centers = torch.from_numpy(np.random.rand(4, 100, 8, 16).astype(np.float32)).npu()
+scores = torch.from_numpy(np.random.rand(4, 64, 10, 8).astype(np.float32)).npu()
+knn_idx = torch.from_numpy(np.array([[np.random.choice(100, size=10, replace=False) 
+                    for _ in range(64)] for _ in range(4)]).astype(np.int64)).npu()
+grad_out = torch.from_numpy(np.random.rand(4, 16, 64, 10).astype(np.float32)).npu()
+points.requires_grad = True
+centers.requires_grad = True
+scores.requires_grad = True
+output = assign_score_withk(scores, points, centers, knn_idx, "sum")
+output.backward(grad_out)
 ```

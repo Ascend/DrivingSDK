@@ -21,18 +21,18 @@ public:
     
     __aicore__ inline void InitTask(const AssignScoreWithkTilingData* tilingData)
     {
-        batchSize = tilingData->batch_size;
+        batchSize = tilingData->batchSize;
         nsource = tilingData->nsource;
         npoint = tilingData->npoint;
-        numWeights= tilingData->num_weights;
-        numNeighbors = tilingData->num_neighbors;
-        numFeatures= tilingData->num_features;
+        numWeights= tilingData->numWeights;
+        numNeighbors = tilingData->numNeighbors;
+        numFeatures= tilingData->numFeatures;
         aggregate = tilingData->aggregate;
         dataAlign = ONE_BLK_SIZE / sizeof(T);
         featureAlign = AlignUp(numFeatures, dataAlign);
 
-        ndataPerCore = tilingData->npoint_per_core;
-        ndataRemained = tilingData->npoint_remained;
+        ndataPerCore = tilingData->npointPerCore;
+        ndataRemained = tilingData->npointRemained;
 
         coreId = GetBlockIdx();
         if (coreId < ndataRemained) {

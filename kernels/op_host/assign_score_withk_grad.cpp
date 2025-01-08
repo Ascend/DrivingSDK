@@ -79,16 +79,16 @@ static ge::graphStatus AssignScoreWithkGradTilingFunc(gert::TilingContext *conte
     uint64_t npointRemained = (static_cast<uint64_t>(batchSize) * npoint) % numCore;
 
     AssignScoreWithkTilingData TilingData;
-    TilingData.set_npoint_per_core(npointPerCore);
-    TilingData.set_npoint_remained(npointRemained);
+    TilingData.set_npointPerCore(npointPerCore);
+    TilingData.set_npointRemained(npointRemained);
     TilingData.set_aggregate(aggregate);
-    TilingData.set_batch_size(batchSize);
+    TilingData.set_batchSize(batchSize);
     TilingData.set_nsource(nsource);
     TilingData.set_npoint(npoint);
-    TilingData.set_num_weights(numWeights);
-    TilingData.set_num_neighbors(numNeighbors);
-    TilingData.set_num_features(numFeatures);
-    TilingData.set_num_core(numCore);
+    TilingData.set_numWeights(numWeights);
+    TilingData.set_numNeighbors(numNeighbors);
+    TilingData.set_numFeatures(numFeatures);
+    TilingData.set_numCore(numCore);
     context->SetBlockDim(numCore);
 
     uint32_t dataAlign = 32 / sizeof(float);
