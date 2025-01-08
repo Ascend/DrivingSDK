@@ -1,6 +1,0 @@
-decorator
-attr
-attrs
-psutil
-scipy
-numpy==1.24.1

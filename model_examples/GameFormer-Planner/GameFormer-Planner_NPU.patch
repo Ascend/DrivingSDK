@@ -1,0 +1,1706 @@
+diff --git a/GameFormer/data_utils.py b/GameFormer/data_utils.py
+index 878d669..7d076e5 100644
+--- a/GameFormer/data_utils.py
++++ b/GameFormer/data_utils.py
+@@ -1,11 +1,16 @@
++# Copyright(c) 2023 Zhiyu Huang
++
++from typing import Dict, Iterable, List, Optional, Tuple, Union
++
+ import torch
+ import numpy as np
+ import matplotlib as mpl
+ import matplotlib.pyplot as plt
+ 
+-from nuplan.database.nuplan_db.nuplan_scenario_queries import *
+ from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario import NuPlanScenario
+ from nuplan.common.actor_state.vehicle_parameters import get_pacifica_parameters
++from nuplan.common.maps.maps_datatypes import TrafficLightStatusData
++from nuplan.common.maps.abstract_map import AbstractMap
+ from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioExtractionInfo
+ from nuplan.planning.training.preprocessing.features.trajectory_utils import convert_absolute_to_relative_poses
+ 
+@@ -23,9 +28,20 @@ from nuplan.planning.training.preprocessing.utils.agents_preprocessing import (
+     pad_agent_states
+ )
+ 
++from nuplan.planning.training.preprocessing.feature_builders.vector_builder_utils import (
++    VectorFeatureLayer, 
++    MapObjectPolylines, 
++    LaneSegmentTrafficLightData, 
++    VectorFeatureLayerMapping, 
++    get_route_lane_polylines_from_roadblock_ids, 
++    get_map_object_polygons, 
++    get_lane_polylines, 
++    get_traffic_light_encoding
++)
++
+ from nuplan.common.actor_state.state_representation import Point2D, StateSE2
+ from nuplan.common.geometry.torch_geometry import vector_set_coordinates_to_local_frame
+-from nuplan.planning.training.preprocessing.feature_builders.vector_builder_utils import *
++from nuplan.common.actor_state.tracked_objects_types import TrackedObjectType
+ from nuplan.planning.training.preprocessing.utils.vector_preprocessing import interpolate_points
+ 
+ 
+@@ -75,8 +91,8 @@ def sampled_tracked_objects_to_tensor_list(past_tracked_objects):
+     output_types = []
+     track_token_ids = {}
+ 
+-    for i in range(len(past_tracked_objects)):
+-        tensorized, track_token_ids, agent_types = _extract_agent_tensor(past_tracked_objects[i], track_token_ids, object_types)
++    for past_tracked_object in past_tracked_objects:
++        tensorized, track_token_ids, agent_types = _extract_agent_tensor(past_tracked_object, track_token_ids, object_types)
+         output.append(tensorized)
+         output_types.append(agent_types)
+ 
+@@ -179,7 +195,7 @@ def agent_past_process(past_ego_states, past_time_stamps, past_tracked_objects,
+         The num_agents is padded or trimmed to fit the predefined number of agents across.
+         The num_frames includes both present and past frames.
+     '''
+-    agents = np.zeros(shape=(num_agents, agents_tensor.shape[0], agents_tensor.shape[-1]+3), dtype=np.float32)
++    agents = np.zeros(shape=(num_agents, agents_tensor.shape[0], agents_tensor.shape[-1] + 3), dtype=np.float32)
+ 
+     # sort agents according to distance to ego
+     distance_to_ego = torch.norm(agents_tensor[-1, :, :2], dim=-1)
+@@ -212,7 +228,7 @@ def agent_future_process(anchor_ego_state, future_tracked_objects, num_agents, a
+     padded_agent_states = pad_agent_states_with_zeros(local_coords_agent_states)
+ 
+     # fill agent features into the array
+-    agent_futures = np.zeros(shape=(num_agents, padded_agent_states.shape[0]-1, 3), dtype=np.float32)
++    agent_futures = np.zeros(shape=(num_agents, padded_agent_states.shape[0] - 1, 3), dtype=np.float32)
+     for i, j in enumerate(agent_index):
+         agent_futures[i] = padded_agent_states[1:, j, [AgentInternalIndex.x(), AgentInternalIndex.y(), AgentInternalIndex.heading()]].numpy()
+ 
+@@ -224,13 +240,13 @@ def pad_agent_states_with_zeros(agent_trajectories):
+     track_id_idx = AgentInternalIndex.track_token()
+ 
+     pad_agent_trajectories = torch.zeros((len(agent_trajectories), key_frame.shape[0], key_frame.shape[1]), dtype=torch.float32)
+-    for idx in range(len(agent_trajectories)):
+-        frame = agent_trajectories[idx]
++    for idx, agent_trajectory in enumerate(agent_trajectories):
++        frame = agent_trajectory
+         mapped_rows = frame[:, track_id_idx]
+ 
+         for row_idx in range(key_frame.shape[0]):
+             if row_idx in mapped_rows:
+-                pad_agent_trajectories[idx, row_idx] = frame[frame[:, track_id_idx]==row_idx]
++                pad_agent_trajectories[idx, row_idx] = frame[frame[:, track_id_idx] == row_idx]
+ 
+     return pad_agent_trajectories
+ 
+@@ -320,8 +336,8 @@ def get_neighbor_vector_set_map(
+     for feature_name in map_features:
+         try:
+             feature_layers.append(VectorFeatureLayer[feature_name])
+-        except KeyError:
+-            raise ValueError(f"Object representation for layer: {feature_name} is unavailable")
++        except KeyError as e:
++            raise ValueError(f"Object representation for layer: {feature_name} is unavailable") from e
+ 
+     # extract lanes
+     if VectorFeatureLayer.LANE in feature_layers:
+@@ -476,7 +492,7 @@ def polyline_process(polylines, avails, traffic_light=None):
+     for i in range(polylines.shape[0]):
+         if avails[i][0]: 
+             polyline = polylines[i]
+-            polyline_heading = wrap_to_pi(np.arctan2(polyline[1:, 1]-polyline[:-1, 1], polyline[1:, 0]-polyline[:-1, 0]))
++            polyline_heading = wrap_to_pi(np.arctan2(polyline[1:, 1] - polyline[:-1, 1], polyline[1:, 0] - polyline[:-1, 0]))
+             polyline_heading = np.insert(polyline_heading, -1, polyline_heading[-1])[:, np.newaxis]
+             if traffic_light is None:
+                 new_polylines[i] = np.concatenate([polyline, polyline_heading], axis=-1)
+@@ -487,7 +503,7 @@ def polyline_process(polylines, avails, traffic_light=None):
+ 
+ 
+ def wrap_to_pi(theta):
+-    return (theta+np.pi) % (2*np.pi) - np.pi
++    return (theta + np.pi) % (2 * np.pi) - np.pi
+ 
+ 
+ def create_ego_raster(vehicle_state):
+@@ -499,10 +515,10 @@ def create_ego_raster(vehicle_state):
+ 
+     # Extract ego vehicle state
+     x_center, y_center, heading = vehicle_state[0], vehicle_state[1], vehicle_state[2]
+-    ego_bottom_right = (x_center - ego_rear_length, y_center - ego_width/2)
++    ego_bottom_right = (x_center - ego_rear_length, y_center - ego_width / 2)
+ 
+     # Paint the rectangle
+-    rect = plt.Rectangle(ego_bottom_right, ego_front_length+ego_rear_length, ego_width, linewidth=2, color='r', alpha=0.6, zorder=3,
++    rect = plt.Rectangle(ego_bottom_right, ego_front_length + ego_rear_length, ego_width, linewidth=2, color='r', alpha=0.6, zorder=3,
+                         transform=mpl.transforms.Affine2D().rotate_around(*(x_center, y_center), heading) + plt.gca().transData)
+     plt.gca().add_patch(rect)
+ 
+@@ -511,8 +527,8 @@ def create_agents_raster(agents):
+     for i in range(agents.shape[0]):
+         if agents[i, 0] != 0:
+             x_center, y_center, heading = agents[i, 0], agents[i, 1], agents[i, 2]
+-            agent_length, agent_width = agents[i, 6],  agents[i, 7]
+-            agent_bottom_right = (x_center - agent_length/2, y_center - agent_width/2)
++            agent_length, agent_width = agents[i, 6], agents[i, 7]
++            agent_bottom_right = (x_center - agent_length / 2, y_center - agent_width / 2)
+ 
+             rect = plt.Rectangle(agent_bottom_right, agent_length, agent_width, linewidth=2, color='m', alpha=0.6, zorder=3,
+                                 transform=mpl.transforms.Affine2D().rotate_around(*(x_center, y_center), heading) + plt.gca().transData)
+diff --git a/GameFormer/npu_fused_modules.py b/GameFormer/npu_fused_modules.py
+new file mode 100644
+index 0000000..a5f25f7
+--- /dev/null
++++ b/GameFormer/npu_fused_modules.py
+@@ -0,0 +1,292 @@
++# Copyright (c) 2016-     Facebook, Inc
++
++from typing import Optional, Tuple, List, Callable, Union
++import math
++
++import torch
++import torch.nn as nn
++import torch.nn.functional as F
++from torch import Tensor
++import torch_npu
++
++
++class NpuFusedMultiheadAttention(nn.MultiheadAttention):
++    def forward(
++            self,
++            query: Tensor,
++            key: Tensor,
++            value: Tensor,
++            key_padding_mask: Optional[Tensor] = None,
++            need_weights: bool = True,
++            attn_mask: Optional[Tensor] = None,
++            average_attn_weights: bool = True,
++            is_causal : bool = False) -> Tuple[Tensor, Optional[Tensor]]:
++
++        if not self._qkv_same_embed_dim:
++            attn_output, attn_output_weights = fused_multi_head_attention_forward(
++                query, key, value, self.embed_dim, self.num_heads,
++                self.in_proj_weight, self.in_proj_bias,
++                self.bias_k, self.bias_v, self.add_zero_attn,
++                self.dropout, self.out_proj.weight, self.out_proj.bias,
++                training=self.training,
++                key_padding_mask=key_padding_mask, need_weights=need_weights,
++                attn_mask=attn_mask,
++                use_separate_proj_weight=True,
++                q_proj_weight=self.q_proj_weight, k_proj_weight=self.k_proj_weight,
++                v_proj_weight=self.v_proj_weight,
++                average_attn_weights=average_attn_weights,
++                is_causal=is_causal)
++        else:
++            attn_output, attn_output_weights = fused_multi_head_attention_forward(
++                query, key, value, self.embed_dim, self.num_heads,
++                self.in_proj_weight, self.in_proj_bias,
++                self.bias_k, self.bias_v, self.add_zero_attn,
++                self.dropout, self.out_proj.weight, self.out_proj.bias,
++                training=self.training,
++                key_padding_mask=key_padding_mask,
++                need_weights=need_weights,
++                attn_mask=attn_mask,
++                average_attn_weights=average_attn_weights,
++                is_causal=is_causal)
++            
++        return attn_output, attn_output_weights
++
++    
++def fused_multi_head_attention_forward(
++    query: Tensor,
++    key: Tensor,
++    value: Tensor,
++    embed_dim_to_check: int,
++    num_heads: int,
++    in_proj_weight: Optional[Tensor],
++    in_proj_bias: Optional[Tensor],
++    bias_k: Optional[Tensor],
++    bias_v: Optional[Tensor],
++    add_zero_attn: bool,
++    dropout_p: float,
++    out_proj_weight: Tensor,
++    out_proj_bias: Optional[Tensor],
++    training: bool = True,
++    key_padding_mask: Optional[Tensor] = None,
++    need_weights: bool = True,
++    attn_mask: Optional[Tensor] = None,
++    use_separate_proj_weight: bool = False,
++    q_proj_weight: Optional[Tensor] = None,
++    k_proj_weight: Optional[Tensor] = None,
++    v_proj_weight: Optional[Tensor] = None,
++    static_k: Optional[Tensor] = None,
++    static_v: Optional[Tensor] = None,
++    average_attn_weights: bool = True,
++    is_causal: bool = False,
++) -> Tuple[Tensor, Optional[Tensor]]:
++
++    from torch.overrides import handle_torch_function, has_torch_function
++    tens_ops = (query, key, value, in_proj_weight, in_proj_bias, bias_k, bias_v, out_proj_weight, out_proj_bias)
++    if has_torch_function(tens_ops):
++        return handle_torch_function(
++            fused_multi_head_attention_forward,
++            tens_ops,
++            query,
++            key,
++            value,
++            embed_dim_to_check,
++            num_heads,
++            in_proj_weight,
++            in_proj_bias,
++            bias_k,
++            bias_v,
++            add_zero_attn,
++            dropout_p,
++            out_proj_weight,
++            out_proj_bias,
++            training=training,
++            key_padding_mask=key_padding_mask,
++            need_weights=need_weights,
++            attn_mask=attn_mask,
++            is_causal=is_causal,
++            use_separate_proj_weight=use_separate_proj_weight,
++            q_proj_weight=q_proj_weight,
++            k_proj_weight=k_proj_weight,
++            v_proj_weight=v_proj_weight,
++            static_k=static_k,
++            static_v=static_v,
++            average_attn_weights=average_attn_weights,
++        )
++
++    # set up shape vars
++    bsz, tgt_len, embed_dim = query.shape
++    _, src_len, _ = key.shape
++
++    if is_causal and attn_mask is None:
++        raise RuntimeError(
++            "Need attn_mask if specifying the is_causal hint. "
++            "You may use the Transformer module method "
++            "`generate_square_subsequent_mask` to create this mask."
++        )
++
++    if isinstance(embed_dim, torch.Tensor):
++        # embed_dim can be a tensor when JIT tracing
++        head_dim = embed_dim.div(num_heads, rounding_mode='trunc')
++    else:
++        head_dim = embed_dim // num_heads
++
++    #
++    # compute in-projection
++    #
++    if not use_separate_proj_weight:
++        q, k, v = _in_projection_packed(query, key, value, in_proj_weight, in_proj_bias)
++    else:
++        if in_proj_bias is None:
++            b_q = b_k = b_v = None
++        else:
++            b_q, b_k, b_v = in_proj_bias.chunk(3)
++        q, k, v = _in_projection(query, key, value, q_proj_weight, k_proj_weight, v_proj_weight, b_q, b_k, b_v)
++
++    # prep attention mask
++
++    if attn_mask is not None:
++        # ensure attn_mask's dim is 3
++        if attn_mask.dim() == 2:
++            correct_2d_size = (tgt_len, src_len)
++            if attn_mask.shape != correct_2d_size:
++                raise RuntimeError(f"The shape of the 2D attn_mask is {attn_mask.shape}, but should be {correct_2d_size}.")
++            attn_mask = attn_mask.unsqueeze(0)
++        elif attn_mask.dim() == 3:
++            correct_3d_size = (bsz * num_heads, tgt_len, src_len)
++            if attn_mask.shape != correct_3d_size:
++                raise RuntimeError(f"The shape of the 3D attn_mask is {attn_mask.shape}, but should be {correct_3d_size}.")
++        else:
++            raise RuntimeError(f"attn_mask's dimension {attn_mask.dim()} is not supported")
++
++    # add bias along batch dimension (currently second)
++    if bias_k is not None and bias_v is not None:
++        k = torch.cat([k, bias_k.repeat(1, bsz, 1)])
++        v = torch.cat([v, bias_v.repeat(1, bsz, 1)])
++        if attn_mask is not None:
++            attn_mask = torch._C._nn.pad(attn_mask, (0, 1))
++        if key_padding_mask is not None:
++            key_padding_mask = torch._C._nn.pad(key_padding_mask, (0, 1))
++
++    q = q.view(bsz, tgt_len, num_heads, head_dim)
++    k = k.view(bsz, src_len, num_heads, head_dim)
++    v = v.view(bsz, src_len, num_heads, head_dim)
++
++    # add zero attention along batch dimension (now first)
++    if add_zero_attn:
++        zero_attn_shape = (bsz * num_heads, 1, head_dim)
++        k = torch.cat([k, torch.zeros(zero_attn_shape, dtype=k.dtype, device=k.device)], dim=1)
++        v = torch.cat([v, torch.zeros(zero_attn_shape, dtype=v.dtype, device=v.device)], dim=1)
++        if attn_mask is not None:
++            attn_mask = torch._C._nn.pad(attn_mask, (0, 1))
++        if key_padding_mask is not None:
++            key_padding_mask = torch._C._nn.pad(key_padding_mask, (0, 1))
++
++    # merge key padding and attention masks
++    if key_padding_mask is not None:
++        key_padding_mask = key_padding_mask.view(bsz, 1, 1, src_len).   \
++            expand(-1, num_heads, -1, -1).reshape(bsz * num_heads, 1, src_len)
++        if attn_mask is None:
++            attn_mask = key_padding_mask
++        else:
++            attn_mask = attn_mask + key_padding_mask
++
++    # adjust dropout probability
++    if not training:
++        dropout_p = 0.0
++
++    if attn_mask is not None:
++        if attn_mask.size(0) == 1 and attn_mask.dim() == 3:
++            attn_mask = attn_mask.unsqueeze(0)
++        else:
++            attn_mask = attn_mask.view(bsz, num_heads, -1, src_len)
++
++        if attn_mask.shape[-2] == 1:
++            attn_mask = attn_mask.repeat([1, 1, tgt_len, 1])
++    
++    #使用NPU融合算子torch_npu.npu_fusion_attention
++    attn_output = torch_npu.npu_fusion_attention(q, k, v, head_num=num_heads, pse=None, atten_mask=attn_mask.bool(), 
++                                        input_layout="BSND", scale=1.0 / math.sqrt(q.shape[-1]), sparse_mode=1, 
++                                        keep_prob=1 - dropout_p)[0]
++
++    attn_output = attn_output.view(bsz, tgt_len, embed_dim)
++    attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
++
++    return attn_output, None
++
++
++class NpuFusedTransformerEncoderLayer(nn.TransformerEncoderLayer):
++    def __init__(self, d_model: int, nhead: int, dim_feedforward: int = 2048, 
++                dropout: float = 0.1, activation: Union[str, Callable[[Tensor], Tensor]] = F.relu,
++                layer_norm_eps: float = 1e-5, batch_first: bool = False, norm_first: bool = False,
++                bias: bool = True, device=None, dtype=None) -> None:
++        super().__init__(d_model, nhead, dim_feedforward, dropout, activation, 
++                         layer_norm_eps, batch_first, norm_first, bias, device, dtype)
++        factory_kwargs = {'device': device, 'dtype': dtype}
++        self.self_attn = NpuFusedMultiheadAttention(d_model, nhead, dropout=dropout,
++                                            bias=bias, batch_first=batch_first,
++                                            **factory_kwargs)
++        
++    def forward(
++            self,
++            src: Tensor,
++            src_mask: Optional[Tensor] = None,
++            src_key_padding_mask: Optional[Tensor] = None,
++            is_causal: bool = False) -> Tensor:
++
++        x = src
++        if self.norm_first:
++            x = x + self._sa_block(self.norm1(x), src_mask, src_key_padding_mask, is_causal=is_causal)
++            x = x + self._ff_block(self.norm2(x))
++        else:
++            x = self.norm1(x + self._sa_block(x, src_mask, src_key_padding_mask, is_causal=is_causal))
++            x = self.norm2(x + self._ff_block(x))
++
++        return x
++    
++
++def _in_projection_packed(
++    q: Tensor,
++    k: Tensor,
++    v: Tensor,
++    w: Tensor,
++    b: Optional[Tensor] = None,
++) -> List[Tensor]:
++
++    E = q.size(-1)
++    if k is v:
++        if q is k:
++            # self-attention
++            proj = F.linear(q, w, b).split(E, -1)
++            return proj[0], proj[1], proj[2]
++        else:
++            # encoder-decoder attention
++            w_q, w_kv = w.split([E, E * 2])
++            if b is None:
++                b_q = b_kv = None
++            else:
++                b_q, b_kv = b.split([E, E * 2])
++            q_proj = F.linear(q, w_q, b_q)
++            kv_proj = F.linear(k, w_kv, b_kv).split(E, -1)
++            return (q_proj, kv_proj[0], kv_proj[1])
++    else:
++        w_q, w_k, w_v = w.chunk(3)
++        if b is None:
++            b_q = b_k = b_v = None
++        else:
++            b_q, b_k, b_v = b.chunk(3)
++        return F.linear(q, w_q, b_q), F.linear(k, w_k, b_k), F.linear(v, w_v, b_v)
++    
++    
++def _in_projection(
++    q: Tensor,
++    k: Tensor,
++    v: Tensor,
++    w_q: Tensor,
++    w_k: Tensor,
++    w_v: Tensor,
++    b_q: Optional[Tensor] = None,
++    b_k: Optional[Tensor] = None,
++    b_v: Optional[Tensor] = None,
++) -> Tuple[Tensor, Tensor, Tensor]:
++    return F.linear(q, w_q, b_q), F.linear(k, w_k, b_k), F.linear(v, w_v, b_v)
++    
+diff --git a/GameFormer/predictor.py b/GameFormer/predictor.py
+index 62bf5e6..9da79fa 100644
+--- a/GameFormer/predictor.py
++++ b/GameFormer/predictor.py
+@@ -1,5 +1,10 @@
++# Copyright(c) 2023 Zhiyu Huang
++
+ import torch
+-from .predictor_modules import *
++import torch.nn as nn
++import torch.nn.functional as F
++from .predictor_modules import AgentEncoder, VectorMapEncoder, FutureEncoder, InitialPredictionDecoder, InteractionDecoder, CrossTransformer
++from .npu_fused_modules import NpuFusedTransformerEncoderLayer
+ 
+ 
+ class Encoder(nn.Module):
+@@ -13,7 +18,7 @@ class Encoder(nn.Module):
+         self.ego_encoder = AgentEncoder(agent_dim=7)
+         self.lane_encoder = VectorMapEncoder(self._lane_feature, self._lane_len)
+         self.crosswalk_encoder = VectorMapEncoder(self._crosswalk_feature, self._crosswalk_len)
+-        attention_layer = nn.TransformerEncoderLayer(d_model=dim, nhead=heads, dim_feedforward=dim*4,
++        attention_layer = NpuFusedTransformerEncoderLayer(d_model=dim, nhead=heads, dim_feedforward=dim * 4,
+                                                      activation=F.gelu, dropout=dropout, batch_first=True)
+         self.fusion_encoder = nn.TransformerEncoder(attention_layer, layers, enable_nested_tensor=False)
+ 
+@@ -38,10 +43,10 @@ class Encoder(nn.Module):
+         encoded_map_crosswalks, crosswalks_mask = self.crosswalk_encoder(map_crosswalks)
+ 
+         # attention fusion encoding
+-        input = torch.cat([encoded_actors, encoded_map_lanes, encoded_map_crosswalks], dim=1)
++        input_data = torch.cat([encoded_actors, encoded_map_lanes, encoded_map_crosswalks], dim=1)
+         mask = torch.cat([actors_mask, lanes_mask, crosswalks_mask], dim=1)
+ 
+-        encoding = self.fusion_encoder(input, src_key_padding_mask=mask)
++        encoding = self.fusion_encoder(input_data, src_key_padding_mask=mask)
+ 
+         # outputs
+         encoder_outputs = {
+@@ -77,8 +82,8 @@ class Decoder(nn.Module):
+         decoder_outputs['level_0_scores'] = last_score
+         
+         # level k reasoning
+-        for k in range(1, self.levels+1):
+-            interaction_decoder = self.interaction_stage[k-1]
++        for k in range(1, self.levels + 1):
++            interaction_decoder = self.interaction_stage[k - 1]
+             last_content, last_level, last_score = interaction_decoder(current_states, last_level, last_score, last_content, encoding, mask)
+             decoder_outputs[f'level_{k}_interactions'] = last_level
+             decoder_outputs[f'level_{k}_scores'] = last_score
+@@ -93,7 +98,7 @@ class NeuralPlanner(nn.Module):
+         super(NeuralPlanner, self).__init__()
+         self._future_len = 80
+         self.route_fusion = CrossTransformer()
+-        self.plan_decoder = nn.Sequential(nn.Linear(512, 256), nn.ELU(), nn.Dropout(0.1), nn.Linear(256, self._future_len*2))
++        self.plan_decoder = nn.Sequential(nn.Linear(512, 256), nn.ELU(), nn.Dropout(0.1), nn.Linear(256, self._future_len * 2))
+         self.route_encoder = VectorMapEncoder(3, 50)
+ 
+     def dynamics_layer(self, controls, initial_state):       
+@@ -101,13 +106,18 @@ class NeuralPlanner(nn.Module):
+         max_a = 5 # vehicle's accleration limits [m/s^2]
+         max_d = 0.5 # vehicle's steering limits [rad]
+         
+-        vel_init = torch.hypot(initial_state[..., 3], initial_state[..., 4])
++        # new implementation since hypot is not supported by NPU
++        vel_init = torch.sqrt(torch.pow(initial_state[..., 3], 2) \
++                         + torch.pow(initial_state[..., 4], 2))
++
++        # vel_init = torch.hypot(initial_state[..., 3], initial_state[..., 4])
++
+         vel = vel_init[:, None] + torch.cumsum(controls[..., 0].clamp(-max_a, max_a) * dt, dim=-1)
+         vel = torch.clamp(vel, min=0)
+ 
+         yaw_rate = controls[..., 1].clamp(-max_d, max_d) * vel
+         yaw = initial_state[:, None, 2] + torch.cumsum(yaw_rate * dt, dim=-1)
+-        yaw = torch.fmod(yaw, 2*torch.pi)
++        yaw = torch.fmod(yaw, 2 * torch.pi)
+ 
+         vel_x = vel * torch.cos(yaw)
+         vel_y = vel * torch.sin(yaw)
+@@ -119,7 +129,11 @@ class NeuralPlanner(nn.Module):
+ 
+     def forward(self, env_encoding, route_lanes, initial_state):
+         route_lanes, mask = self.route_encoder(route_lanes)
+-        mask[:, 0] = False
++        mask = mask.detach()
++        mask_d1, mask_d2 = mask.shape
++        flag = torch.cat([torch.zeros([mask_d1, 1], device=route_lanes.device), \
++                          torch.ones([mask_d1, mask_d2 - 1], device=route_lanes.device)], dim=1)
++        mask = mask * flag
+         route_encoding = self.route_fusion(env_encoding, route_lanes, route_lanes, mask)
+         env_route_encoding = torch.cat([env_encoding, route_encoding], dim=-1)
+         env_route_encoding = torch.max(env_route_encoding, dim=1)[0] # max pooling over modalities
+diff --git a/GameFormer/predictor_modules.py b/GameFormer/predictor_modules.py
+index 4dc59d2..bfe6ae4 100644
+--- a/GameFormer/predictor_modules.py
++++ b/GameFormer/predictor_modules.py
+@@ -1,7 +1,12 @@
++# Copyright(c) 2023 Zhiyu Huang
++
+ import math
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
++import torch.distributed as dist
++
++from GameFormer.npu_fused_modules import NpuFusedMultiheadAttention
+ 
+ 
+ class PositionalEncoding(nn.Module):
+@@ -12,7 +17,7 @@ class PositionalEncoding(nn.Module):
+         pe = torch.zeros(max_len, 1, d_model)
+         pe[:, 0, 0::2] = torch.sin(position * div_term)
+         pe[:, 0, 1::2] = torch.cos(position * div_term)
+-        pe = pe.permute(1, 0, 2)
++        pe = pe.permute(1, 0, 2).contiguous()
+         self.register_buffer('pe', pe)
+         self.dropout = nn.Dropout(p=dropout)
+ 
+@@ -40,19 +45,19 @@ class VectorMapEncoder(nn.Module):
+         self.point_net = nn.Sequential(nn.Linear(map_dim, 64), nn.ReLU(), nn.Linear(64, 128), nn.ReLU(), nn.Linear(128, 256))
+         self.position_encode = PositionalEncoding(max_len=map_len)
+ 
+-    def segment_map(self, map, map_encoding):
++    def segment_map(self, map_input, map_encoding):
+         B, N_e, N_p, D = map_encoding.shape 
+-        map_encoding = F.max_pool2d(map_encoding.permute(0, 3, 1, 2), kernel_size=(1, 10))
+-        map_encoding = map_encoding.permute(0, 2, 3, 1).reshape(B, -1, D)
++        map_encoding = F.max_pool2d(map_encoding.permute(0, 3, 1, 2).contiguous(), kernel_size=(1, 10))
++        map_encoding = map_encoding.permute(0, 2, 3, 1).contiguous().reshape(B, -1, D)
+ 
+-        map_mask = torch.eq(map, 0)[:, :, :, 0].reshape(B, N_e, N_p//10, N_p//(N_p//10))
++        map_mask = torch.eq(map_input, 0)[:, :, :, 0].reshape(B, N_e, N_p // 10, N_p // (N_p // 10))
+         map_mask = torch.max(map_mask, dim=-1)[0].reshape(B, -1)
+ 
+         return map_encoding, map_mask
+ 
+-    def forward(self, input):
+-        output = self.position_encode(self.point_net(input))
+-        encoding, mask = self.segment_map(input, output)
++    def forward(self, input_data):
++        output = self.position_encode(self.point_net(input_data))
++        encoding, mask = self.segment_map(input_data, output)
+ 
+         return encoding, mask
+     
+@@ -76,7 +81,10 @@ class FutureEncoder(nn.Module):
+     def forward(self, trajs, current_states):
+         trajs = self.state_process(trajs, current_states)
+         trajs = self.mlp(trajs.detach())
++        bsz, d1, d2, d3, d4 = trajs.shape
++        trajs = trajs.reshape([bsz, d1 * d2, d3, d4])
+         output = torch.max(trajs, dim=-2).values
++        output = output.reshape([bsz, d1, d2, d4])
+ 
+         return output
+ 
+@@ -86,13 +94,13 @@ class GMMPredictor(nn.Module):
+         super(GMMPredictor, self).__init__()
+         self.modalities = modalities
+         self._future_len = 80
+-        self.gaussian = nn.Sequential(nn.Linear(256, 512), nn.ELU(), nn.Dropout(0.1), nn.Linear(512, self._future_len*4))
++        self.gaussian = nn.Sequential(nn.Linear(256, 512), nn.ELU(), nn.Dropout(0.1), nn.Linear(512, self._future_len * 4))
+         self.score = nn.Sequential(nn.Linear(256, 64), nn.ELU(), nn.Linear(64, 1))
+     
+-    def forward(self, input):
+-        B, N, M, _ = input.shape
+-        traj = self.gaussian(input).view(B, N, M, self._future_len, 4) # mu_x, mu_y, log_sig_x, log_sig_y
+-        score = self.score(input).squeeze(-1)
++    def forward(self, input_data):
++        B, N, M, _ = input_data.shape
++        traj = self.gaussian(input_data).view(B, N, M, self._future_len, 4) # mu_x, mu_y, log_sig_x, log_sig_y
++        score = self.score(input_data).squeeze(-1)
+ 
+         return traj, score
+ 
+@@ -100,13 +108,13 @@ class GMMPredictor(nn.Module):
+ class SelfTransformer(nn.Module):
+     def __init__(self, heads=8, dim=256, dropout=0.1):
+         super(SelfTransformer, self).__init__()
+-        self.self_attention = nn.MultiheadAttention(dim, heads, dropout, batch_first=True)
++        self.self_attention = NpuFusedMultiheadAttention(dim, heads, dropout, batch_first=True)
+         self.norm_1 = nn.LayerNorm(dim)
+         self.norm_2 = nn.LayerNorm(dim)
+-        self.ffn = nn.Sequential(nn.Linear(dim, dim*4), nn.GELU(), nn.Dropout(dropout), nn.Linear(dim*4, dim), nn.Dropout(dropout))
++        self.ffn = nn.Sequential(nn.Linear(dim, dim * 4), nn.GELU(), nn.Dropout(dropout), nn.Linear(dim * 4, dim), nn.Dropout(dropout))
+ 
+     def forward(self, inputs, mask=None):
+-        attention_output, _ = self.self_attention(inputs, inputs, inputs, key_padding_mask=mask)
++        attention_output, _ = self.self_attention(inputs, inputs, inputs, key_padding_mask=mask, need_weights=False)
+         attention_output = self.norm_1(attention_output + inputs)
+         output = self.norm_2(self.ffn(attention_output) + attention_output)
+ 
+@@ -116,13 +124,13 @@ class SelfTransformer(nn.Module):
+ class CrossTransformer(nn.Module):
+     def __init__(self, heads=8, dim=256, dropout=0.1):
+         super(CrossTransformer, self).__init__()
+-        self.cross_attention = nn.MultiheadAttention(dim, heads, dropout, batch_first=True)
++        self.cross_attention = NpuFusedMultiheadAttention(dim, heads, dropout, batch_first=True)
+         self.norm_1 = nn.LayerNorm(dim)
+         self.norm_2 = nn.LayerNorm(dim)
+-        self.ffn = nn.Sequential(nn.Linear(dim, dim*4), nn.GELU(), nn.Dropout(dropout), nn.Linear(dim*4, dim), nn.Dropout(dropout))
++        self.ffn = nn.Sequential(nn.Linear(dim, dim * 4), nn.GELU(), nn.Dropout(dropout), nn.Linear(dim * 4, dim), nn.Dropout(dropout))
+ 
+     def forward(self, query, key, value, mask=None):
+-        attention_output, _ = self.cross_attention(query, key, value, key_padding_mask=mask)
++        attention_output, _ = self.cross_attention(query, key, value, key_padding_mask=mask, need_weights=False)
+         attention_output = self.norm_1(attention_output)
+         output = self.norm_2(self.ffn(attention_output) + attention_output)
+ 
+@@ -178,10 +186,11 @@ class InteractionDecoder(nn.Module):
+         encoding = torch.cat([interaction, encoding], dim=1)
+ 
+         # mask out the corresponding agents
+-        mask = torch.cat([mask[:, :N], mask], dim=1)
+-        mask = mask.unsqueeze(1).expand(-1, N, -1).clone()
++        mask = torch.cat([mask[:, :N], mask], dim=1).detach()
++        mask = mask.unsqueeze(1).repeat(1, N, 1).cpu()
+         for i in range(N):
+             mask[:, i, i] = 1
++        mask = mask.to(encoding.device)
+ 
+         # using cross-attention to decode the future trajectories
+         query = last_content + multi_futures
+diff --git a/GameFormer/train_utils.py b/GameFormer/train_utils.py
+index 67d5b85..c22c081 100644
+--- a/GameFormer/train_utils.py
++++ b/GameFormer/train_utils.py
+@@ -1,7 +1,10 @@
+-import torch
++# Copyright(c) 2023 Zhiyu Huang
++
+ import logging
+-import glob
+ import random
++
++import torch
++import glob
+ import numpy as np
+ from torch.utils.data import Dataset
+ from torch.nn import functional as F
+@@ -63,10 +66,10 @@ def imitation_loss(gmm, scores, ground_truth):
+     std_x = torch.exp(log_std_x)
+     std_y = torch.exp(log_std_y)
+ 
+-    gmm_loss = log_std_x + log_std_y + 0.5 * (torch.square(dx/std_x) + torch.square(dy/std_y))
++    gmm_loss = log_std_x + log_std_y + 0.5 * (torch.square(dx / std_x) + torch.square(dy / std_y))
+     gmm_loss = torch.mean(gmm_loss)
+ 
+-    score_loss = F.cross_entropy(scores.permute(0, 2, 1), best_mode, label_smoothing=0.2, reduction='none')
++    score_loss = F.cross_entropy(scores.permute(0, 2, 1).contiguous(), best_mode, label_smoothing=0.2, reduction='none')
+     score_loss = score_loss * torch.ne(ground_truth[:, :, 0, 0], 0)
+     score_loss = torch.mean(score_loss)
+     
+@@ -104,7 +107,6 @@ def motion_metrics(plan_trajectory, prediction_trajectories, ego_future, neighbo
+     plan_distance = torch.norm(plan_trajectory[:, :, :2] - ego_future[:, :, :2], dim=-1)
+     prediction_distance = torch.norm(prediction_trajectories[:, :, :, :2] - neighbors_future[:, :, :, :2], dim=-1)
+     heading_error = torch.abs(torch.fmod(plan_trajectory[:, :, 2] - ego_future[:, :, 2] + np.pi, 2 * np.pi) - np.pi)
+-
+     # planning
+     plannerADE = torch.mean(plan_distance)
+     plannerFDE = torch.mean(plan_distance[:, -1])
+diff --git a/Planner/bezier_path.py b/Planner/bezier_path.py
+index 4863a01..762040e 100644
+--- a/Planner/bezier_path.py
++++ b/Planner/bezier_path.py
+@@ -72,8 +72,6 @@ def bezier_derivatives_control_points(control_points, n_derivatives):
+     Compute control points of the successive derivatives of a given bezier curve.
+ 
+     A derivative of a bezier curve is a bezier curve.
+-    See https://pomax.github.io/bezierinfo/#derivatives
+-    for detailed explanations
+ 
+     :param control_points: (numpy array)
+     :param n_derivatives: (int)
+@@ -82,8 +80,9 @@ def bezier_derivatives_control_points(control_points, n_derivatives):
+     """
+     w = {0: control_points}
+     for i in range(n_derivatives):
+-        n = len(w[i])
+-        w[i + 1] = np.array([(n - 1) * (w[i][j + 1] - w[i][j])
++        w_i = w.get(i, [])
++        n = len(w_i)
++        w[i + 1] = np.array([(n - 1) * (w_i[j + 1] - w_i[j])
+                              for j in range(n - 1)])
+     return w
+ 
+diff --git a/Planner/cubic_spline.py b/Planner/cubic_spline.py
+index 8821ad9..db5b6e2 100644
+--- a/Planner/cubic_spline.py
++++ b/Planner/cubic_spline.py
+@@ -1,7 +1,9 @@
+ import math
+-import numpy as np
+ import bisect
+ 
++import numpy as np
++
++
+ 
+ class CubicSpline1D:
+     """
+diff --git a/Planner/observation.py b/Planner/observation.py
+index 21a711f..68757a3 100644
+--- a/Planner/observation.py
++++ b/Planner/observation.py
+@@ -1,3 +1,5 @@
++from typing import List, Dict
++
+ import torch
+ from nuplan.common.actor_state.state_representation import Point2D
+ from nuplan.planning.training.preprocessing.features.agents import Agents
+@@ -5,8 +7,30 @@ from nuplan.common.actor_state.tracked_objects_types import TrackedObjectType
+ from nuplan.common.geometry.torch_geometry import global_state_se2_tensor_to_local
+ from nuplan.planning.training.preprocessing.utils.vector_preprocessing import interpolate_points
+ from nuplan.common.geometry.torch_geometry import vector_set_coordinates_to_local_frame
+-from nuplan.planning.training.preprocessing.feature_builders.vector_builder_utils import *
+-from nuplan.planning.training.preprocessing.utils.agents_preprocessing import *
++from nuplan.common.maps.maps_datatypes import TrafficLightStatusData
++from nuplan.common.maps.abstract_map import AbstractMap
++
++from nuplan.planning.training.preprocessing.feature_builders.vector_builder_utils import (
++    VectorFeatureLayer, 
++    MapObjectPolylines, 
++    LaneSegmentTrafficLightData, 
++    VectorFeatureLayerMapping, 
++    get_route_lane_polylines_from_roadblock_ids, 
++    get_map_object_polygons, 
++    get_lane_polylines, 
++    get_traffic_light_encoding
++)
++from nuplan.planning.training.preprocessing.utils.agents_preprocessing import AgentInternalIndex, EgoInternalIndex
++from nuplan.planning.training.preprocessing.utils.agents_preprocessing import (
++    compute_yaw_rate_from_state_tensors,
++    convert_absolute_quantities_to_relative,
++    filter_agents_tensor,
++    pack_agents_tensor,
++    pad_agent_states,
++    sampled_past_ego_states_to_tensor,
++    sampled_past_timestamps_to_tensor,
++    sampled_tracked_objects_to_tensor_list,
++)
+ 
+ 
+ def observation_adapter(history_buffer, traffic_light_data, map_api, route_roadblock_ids, device='cpu'):
+@@ -83,8 +107,8 @@ def sampled_tracked_objects_to_tensor_list(past_tracked_objects):
+     output_types = []
+     track_token_ids = {}
+ 
+-    for i in range(len(past_tracked_objects)):
+-        tensorized, track_token_ids, agent_types = extract_agent_tensor(past_tracked_objects[i].tracked_objects, track_token_ids, object_types)
++    for past_tracked_object in past_tracked_objects:
++        tensorized, track_token_ids, agent_types = extract_agent_tensor(past_tracked_object.tracked_objects, track_token_ids, object_types)
+         output.append(tensorized)
+         output_types.append(agent_types)
+ 
+@@ -197,7 +221,7 @@ def agent_past_process(past_ego_states, past_time_stamps, past_tracked_objects,
+     
+         agents_tensor = pack_agents_tensor(local_coords_agent_states, yaw_rate_horizon)
+ 
+-    agents = torch.zeros((num_agents, agents_tensor.shape[0], agents_tensor.shape[-1]+3), dtype=torch.float32)
++    agents = torch.zeros((num_agents, agents_tensor.shape[0], agents_tensor.shape[-1] + 3), dtype=torch.float32)
+ 
+     # sort agents according to distance to ego
+     distance_to_ego = torch.norm(agents_tensor[-1, :, :2], dim=-1)
+@@ -241,8 +265,8 @@ def get_neighbor_vector_set_map(
+     for feature_name in map_features:
+         try:
+             feature_layers.append(VectorFeatureLayer[feature_name])
+-        except KeyError:
+-            raise ValueError(f"Object representation for layer: {feature_name} is unavailable")
++        except KeyError as e:
++            raise ValueError(f"Object representation for layer: {feature_name} is unavailable") from e
+ 
+     # extract lanes
+     if VectorFeatureLayer.LANE in feature_layers:
+@@ -371,8 +395,8 @@ def polyline_process(polylines, avails, traffic_light=None):
+     for i in range(polylines.shape[0]):
+         if avails[i][0]:
+             polyline = polylines[i]
+-            polyline_heading = torch.atan2(polyline[1:, 1]-polyline[:-1, 1], polyline[1:, 0]-polyline[:-1, 0])
+-            polyline_heading = torch.fmod(polyline_heading, 2*torch.pi)
++            polyline_heading = torch.atan2(polyline[1:, 1] - polyline[:-1, 1], polyline[1:, 0] - polyline[:-1, 0])
++            polyline_heading = torch.fmod(polyline_heading, 2 * torch.pi)
+             polyline_heading = torch.cat([polyline_heading, polyline_heading[-1].unsqueeze(0)], dim=0).unsqueeze(-1)
+             if traffic_light is None:
+                 new_polylines[i] = torch.cat([polyline, polyline_heading], dim=-1)
+diff --git a/Planner/occupancy_adapter.py b/Planner/occupancy_adapter.py
+index 3d47594..74dfea3 100644
+--- a/Planner/occupancy_adapter.py
++++ b/Planner/occupancy_adapter.py
+@@ -1,6 +1,6 @@
+ import scipy
+ import numpy as np
+-from common_utils import *
++from common_utils import T, WIDTH, MAX_LEN
+ from nuplan.planning.metrics.utils.expert_comparisons import principal_value
+ 
+ 
+@@ -13,7 +13,7 @@ def occupancy_adpter(predictions, scores, neighbors, ref_path):
+     prediction_F = [transform_to_Frenet(a, ref_path) for a in best_predictions]    
+     len_path = ref_path.shape[0]
+     if len_path < MAX_LEN * 10:
+-        ref_path = np.append(ref_path, np.repeat(ref_path[np.newaxis, -1], MAX_LEN*10-len(ref_path), axis=0), axis=0)
++        ref_path = np.append(ref_path, np.repeat(ref_path[np.newaxis, -1], MAX_LEN * 10 - len(ref_path), axis=0), axis=0)
+     
+     time_occupancy = np.stack(T * 10 * [ref_path[:, -1]], axis=0) # (timestep, path_len)
+ 
+@@ -36,12 +36,12 @@ def occupancy_adpter(predictions, scores, neighbors, ref_path):
+                 forward = 0.5 * al
+                 os = np.clip(a[t][0] - backward, 0, MAX_LEN)
+                 oe = np.clip(a[t][0] + forward, 0, MAX_LEN)
+-                time_occupancy[t][int(os*10):int(oe*10)] = 1
++                time_occupancy[t][int(os * 10): int(oe * 10)] = 1
+ 
+         if len_path < MAX_LEN * 10:
+             time_occupancy[t][len_path:] = 1
+ 
+-    time_occupancy = np.reshape(time_occupancy, (T*10, -1, 10))
++    time_occupancy = np.reshape(time_occupancy, (T * 10, -1, 10))
+     time_occupancy = np.max(time_occupancy, axis=-1)
+ 
+     return time_occupancy
+diff --git a/Planner/planner.py b/Planner/planner.py
+index 6d34afe..91e9ba7 100644
+--- a/Planner/planner.py
++++ b/Planner/planner.py
+@@ -1,16 +1,27 @@
+ import math
+ import time
+ import matplotlib.pyplot as plt
++import numpy as np
++import torch
+ from shapely import Point, LineString
+-from .planner_utils import *
+-from .observation import *
+ from GameFormer.predictor import GameFormer
+-from .state_lattice_path_planner import LatticePlanner
+ 
++from nuplan.common.maps.maps_datatypes import SemanticMapLayer
++from nuplan.common.maps.maps_datatypes import TrafficLightStatusType
+ from nuplan.planning.simulation.observation.observation_type import DetectionsTracks
+ from nuplan.planning.simulation.planner.abstract_planner import AbstractPlanner, PlannerInitialization, PlannerInput
+ from nuplan.planning.simulation.trajectory.interpolated_trajectory import InterpolatedTrajectory
+ from nuplan.planning.simulation.observation.idm.utils import path_to_linestring
++from nuplan.planning.simulation.planner.ml_planner.transform_utils import transform_predictions_to_states
++
++
++
++from common_utils import T, DT, MAX_LEN
++from .planner_utils import TrajectoryPlanner, annotate_occupancy, annotate_speed, transform_to_ego_frame
++from .observation import observation_adapter
++from .state_lattice_path_planner import LatticePlanner
++
++
+ 
+ 
+ class Planner(AbstractPlanner):
+@@ -19,7 +30,7 @@ class Planner(AbstractPlanner):
+         self._future_horizon = T # [s] 
+         self._step_interval = DT # [s]
+         self._target_speed = 13.0 # [m/s]
+-        self._N_points = int(T/DT)
++        self._N_points = int(T / DT)
+         self._model_path = model_path
+ 
+         if device is None:
+@@ -92,7 +103,7 @@ class Planner(AbstractPlanner):
+         # Get reference path, handle exception
+         try:
+             ref_path = self._path_planner.plan(ego_state, starting_block, observation, traffic_light_data)
+-        except:
++        except OSError:
+             ref_path = None
+ 
+         if ref_path is None:
+@@ -117,7 +128,7 @@ class Planner(AbstractPlanner):
+         # Finalize reference path
+         ref_path = np.concatenate([ref_path, max_speed, occupancy], axis=-1) # [x, y, theta, k, v_max, occupancy]
+         if len(ref_path) < MAX_LEN * 10:
+-            ref_path = np.append(ref_path, np.repeat(ref_path[np.newaxis, -1], MAX_LEN*10-len(ref_path), axis=0), axis=0)
++            ref_path = np.append(ref_path, np.repeat(ref_path[np.newaxis, -1], MAX_LEN * 10 - len(ref_path), axis=0), axis=0)
+         
+         return ref_path.astype(np.float32)
+ 
+diff --git a/Planner/planner_utils.py b/Planner/planner_utils.py
+index 2e3ce71..cbe8366 100644
+--- a/Planner/planner_utils.py
++++ b/Planner/planner_utils.py
+@@ -2,10 +2,7 @@ import scipy
+ import torch
+ import numpy as np
+ import matplotlib.pyplot as plt
+-from common_utils import *
+-from .refinement import RefinementPlanner
+-from .smoother import MotionNonlinearSmoother
+-from .occupancy_adapter import occupancy_adpter
++from common_utils import T, DT
+ 
+ from nuplan.planning.simulation.path.path import AbstractPath
+ from nuplan.common.actor_state.tracked_objects_types import TrackedObjectType
+@@ -14,10 +11,14 @@ from nuplan.common.maps.abstract_map_objects import RoadBlockGraphEdgeMapObject
+ from nuplan.common.maps.maps_datatypes import SemanticMapLayer, TrafficLightStatusData, TrafficLightStatusType
+ from nuplan.planning.simulation.planner.ml_planner.transform_utils import transform_predictions_to_states
+ 
++from .refinement import RefinementPlanner
++from .smoother import MotionNonlinearSmoother
++from .occupancy_adapter import occupancy_adpter
++
+ 
+ class TrajectoryPlanner:
+     def __init__(self, device='cpu'):
+-        self.N = int(T/DT)
++        self.N = int(T / DT)
+         self.ts = DT
+         self._device = device
+         self.planner = RefinementPlanner(device)
+@@ -56,7 +57,7 @@ class TrajectoryPlanner:
+ 
+             # Convert to Cartesian trajectory
+             ref_path = ref_path.squeeze(0).cpu().numpy()
+-            i = (s * 10).astype(np.int32).clip(0, len(ref_path)-1)
++            i = (s * 10).astype(np.int32).clip(0, len(ref_path) - 1)
+             plan = ref_path[i, :3]
+ 
+         return plan
+@@ -64,12 +65,12 @@ class TrajectoryPlanner:
+     @staticmethod
+     def transform_to_Cartesian_path(path, ref_path):
+         frenet_idx = np.array(path[:, 0] * 10, dtype=np.int32)
+-        frenet_idx = np.clip(frenet_idx, 0, len(ref_path)-1)
++        frenet_idx = np.clip(frenet_idx, 0, len(ref_path) - 1)
+         ref_points = ref_path[frenet_idx]
+-        l = path[frenet_idx, 1]
++        l_val = path[frenet_idx, 1]
+ 
+-        cartesian_x = ref_points[:, 0] - l * np.sin(ref_points[:, 2])
+-        cartesian_y = ref_points[:, 1] + l * np.cos(ref_points[:, 2])
++        cartesian_x = ref_points[:, 0] - l_val * np.sin(ref_points[:, 2])
++        cartesian_y = ref_points[:, 1] + l_val * np.cos(ref_points[:, 2])
+         cartesian_path = np.column_stack([cartesian_x, cartesian_y])
+ 
+         return cartesian_path
+@@ -90,7 +91,7 @@ def annotate_speed(ref_path, speed_limit):
+     speed = np.ones(len(ref_path)) * speed_limit
+     
+     # get the turning point
+-    turning_idx = np.argmax(np.abs(ref_path[:, 3]) > 1/10)
++    turning_idx = np.argmax(np.abs(ref_path[:, 3]) > 1 / 10)
+ 
+     # set speed limit to 3 m/s for turning
+     if turning_idx > 0:
+@@ -100,7 +101,7 @@ def annotate_speed(ref_path, speed_limit):
+ 
+ 
+ def wrap_to_pi(theta):
+-    return (theta+np.pi) % (2*np.pi) - np.pi
++    return (theta + np.pi) % (2 * np.pi) - np.pi
+ 
+ 
+ def transform_to_ego_frame(path, ego_state):
+diff --git a/Planner/refinement.py b/Planner/refinement.py
+index 0e21b3a..d3f33ea 100644
+--- a/Planner/refinement.py
++++ b/Planner/refinement.py
+@@ -1,7 +1,7 @@
+ import torch
+ import theseus as th
+ import matplotlib.pyplot as plt
+-from common_utils import *
++from common_utils import T, DT, LENGTH, MAX_LEN
+ 
+ 
+ def speed_constraint(optim_vars, aux_vars):
+@@ -10,6 +10,7 @@ def speed_constraint(optim_vars, aux_vars):
+ 
+     return speed_error
+ 
++
+ def acceleration(optim_vars, aux_vars):
+     ds = optim_vars[0].tensor
+     current_speed = aux_vars[0].tensor[:, 3]
+@@ -18,16 +19,18 @@ def acceleration(optim_vars, aux_vars):
+     
+     return acc
+ 
++
+ def speed_target(optim_vars, aux_vars):
+     ds = optim_vars[0].tensor
+     speed_limit = aux_vars[0].tensor
+     s = aux_vars[1].tensor
+-    s = (s * 10).long().clip(0, speed_limit.shape[1]-1)
++    s = (s * 10).long().clip(0, speed_limit.shape[1] - 1)
+     speed_limit = speed_limit[torch.arange(s.shape[0])[:, None], s]
+     speed_error = ds - speed_limit
+ 
+     return speed_error
+ 
++
+ def acceleration_constraint(optim_vars, aux_vars):
+     ds = optim_vars[0].tensor
+     current_speed = aux_vars[0].tensor[:, 3]
+@@ -37,6 +40,7 @@ def acceleration_constraint(optim_vars, aux_vars):
+     
+     return acc
+ 
++
+ def jerk(optim_vars, aux_vars):
+     ds = optim_vars[0].tensor
+     current_speed = aux_vars[0].tensor[:, 3]
+@@ -44,41 +48,43 @@ def jerk(optim_vars, aux_vars):
+     speed = torch.cat([current_speed[:, None], ds], dim=-1)
+     acc = torch.diff(speed) / DT
+     acc = torch.cat([current_acc[:, None], acc], dim=-1)
+-    jerk = torch.diff(acc) / DT
++    jerk_ = torch.diff(acc) / DT
++
++    return jerk_
+ 
+-    return jerk
+ 
+ def end_condition(optim_vars, aux_vars):
+     ds = optim_vars[0].tensor
+     s = torch.cumsum(ds * DT, dim=-1)
+     end = aux_vars[0].tensor[:, -1:]
+-    end_condition = (s[:, -1:] - end)
+-    end_condition = end_condition * (end_condition.abs() > 3.0)
++    end_condition_ = (s[:, -1:] - end)
++    end_condition_ = end_condition_ * (end_condition_.abs() > 3.0)
++
++    return end_condition_
+ 
+-    return end_condition
+ 
+ def safety(optim_vars, aux_vars):
+     ds = optim_vars[0].tensor
+     s = torch.cumsum(ds * DT, dim=-1)
+     occupancy = aux_vars[1].tensor
+-    safety_cost = []
++    _safety_cost = []
+     grid = torch.arange(0, MAX_LEN).to(occupancy.device)
+ 
+     for t in [1, 3, 6, 9, 14, 19, 24, 29]:
+-        o = occupancy[:, t]
+-        error = ((s[:, t, None] + LENGTH) - grid) * o 
++        o_t = occupancy[:, t]
++        error = ((s[:, t, None] + LENGTH) - grid) * o_t
+         error = error * ((s[:, t, None] + LENGTH) > grid)
+-        safety_cost.append(torch.sum(error, dim=-1))
++        _safety_cost.append(torch.sum(error, dim=-1))
+ 
+-    safety = torch.stack(safety_cost, dim=1)
++    safety_val = torch.stack(_safety_cost, dim=1)
+ 
+-    return safety
++    return safety_val
+ 
+ 
+ class RefinementPlanner:
+     def __init__(self, device):
+         self._device = device
+-        self.N = int(T/DT) # trajectory points (ds/dt)
++        self.N = int(T / DT) # trajectory points (ds/dt)
+         self.gains = {
+             "speed": 0.3,
+             "accel": 0.1,
+@@ -94,8 +100,8 @@ class RefinementPlanner:
+         weights = {k: th.ScaleCostWeight(th.Variable(torch.tensor(v), name=f'gain_{k}')) for k, v in self.gains.items()}
+         ego_state = th.Variable(torch.empty(1, 7), name="ego_state")
+         occupancy = th.Variable(torch.empty(1, 30, MAX_LEN), name="occupancy")
+-        speed_limit = th.Variable(torch.empty(1, MAX_LEN*10), name="speed_limit")
+-        ego_pred_plan = th.Variable(torch.empty(1, int(T/DT)), name="s")
++        speed_limit = th.Variable(torch.empty(1, MAX_LEN * 10), name="speed_limit")
++        ego_pred_plan = th.Variable(torch.empty(1, int(T / DT)), name="s")
+ 
+         objective = th.Objective()
+         self.objective = self.build_cost_function(objective, control_variables, ego_state, ego_pred_plan, 
+diff --git a/Planner/state_lattice_path_planner.py b/Planner/state_lattice_path_planner.py
+index 1a7223f..737666d 100644
+--- a/Planner/state_lattice_path_planner.py
++++ b/Planner/state_lattice_path_planner.py
+@@ -1,14 +1,15 @@
+ import scipy
+ import numpy as np
+ import matplotlib.pyplot as plt
+-from common_utils import *
++from common_utils import WIDTH, MAX_LEN
+ from shapely import Point, LineString
+ from shapely.geometry.base import CAP_STYLE
+-from .bezier_path import calc_4points_bezier_path
+-from .cubic_spline import calc_spline_course
+ from nuplan.common.actor_state.tracked_objects_types import TrackedObjectType
+ from nuplan.planning.simulation.observation.idm.utils import path_to_linestring
+ from nuplan.planning.metrics.utils.expert_comparisons import principal_value
++from .bezier_path import calc_4points_bezier_path
++from .cubic_spline import calc_spline_course
++
+ 
+ 
+ class LatticePlanner: 
+@@ -149,7 +150,7 @@ class LatticePlanner:
+             for j, state in enumerate(target_states):
+                 first_stage_path = calc_4points_bezier_path(ego_state[0], ego_state[1], ego_state[2], 
+                                                             state[0], state[1], state[2], 3, sampled_index[j])[0]
+-                second_stage_path = path_polyline[sampled_index[j]+1:, :2]
++                second_stage_path = path_polyline[sampled_index[j] + 1:, :2]
+                 path_polyline = np.concatenate([first_stage_path, second_stage_path], axis=0)
+                 new_paths.append((path_polyline, dist, path, path_len))     
+ 
+@@ -175,7 +176,7 @@ class LatticePlanner:
+         out_boundary = self.check_out_boundary(path[0][:100], path[2])
+         
+         # final cost
+-        cost = 10 * obstacles + 2 * out_boundary + 1 * lane_change  + 0.1 * curvature - 5 * target
++        cost = 10 * obstacles + 2 * out_boundary + 1 * lane_change + 0.1 * curvature - 5 * target
+ 
+         return cost
+ 
+@@ -186,7 +187,7 @@ class LatticePlanner:
+         rx, ry, ryaw, rk = calc_spline_course(x, y)
+         spline_path = np.stack([rx, ry, ryaw, rk], axis=1)
+         ref_path = self.transform_to_ego_frame(spline_path, ego_state)
+-        ref_path = ref_path[:self.max_path_len*10]
++        ref_path = ref_path[:self.max_path_len * 10]
+ 
+         return ref_path
+ 
+@@ -200,7 +201,7 @@ class LatticePlanner:
+             if child_edges:
+                 for child in child_edges:
+                     edge_len = len(child.baseline_path.discrete_path) * 0.25
+-                    traversed_edges.extend(self.depth_first_search(child, depth+edge_len))
++                    traversed_edges.extend(self.depth_first_search(child, depth + edge_len))
+ 
+             if len(traversed_edges) == 0:
+                 return [[starting_edge]]
+@@ -216,7 +217,7 @@ class LatticePlanner:
+         if np.abs(path_len - self.path_len) > 5:
+             return 0
+         
+-        expanded_path = LineString(path).buffer((WIDTH/2), cap_style=CAP_STYLE.square)
++        expanded_path = LineString(path).buffer((WIDTH / 2), cap_style=CAP_STYLE.square)
+         min_distance_to_vehicles = np.inf
+ 
+         for v in vehicles:
+@@ -234,7 +235,7 @@ class LatticePlanner:
+         refine_path = [path[0]]
+         
+         for i in range(1, path.shape[0]):
+-            if np.linalg.norm(path[i] - path[i-1]) < 0.1:
++            if np.linalg.norm(path[i] - path[i - 1]) < 0.1:
+                 continue
+             else:
+                 refine_path.append(path[i])
+@@ -252,7 +253,7 @@ class LatticePlanner:
+     
+     @staticmethod
+     def check_obstacles(path, obstacles):
+-        expanded_path = LineString(path).buffer((WIDTH/2), cap_style=CAP_STYLE.square)
++        expanded_path = LineString(path).buffer((WIDTH / 2), cap_style=CAP_STYLE.square)
+ 
+         for obstacle in obstacles:
+             obstacle_polygon = obstacle.geometry
+@@ -263,7 +264,7 @@ class LatticePlanner:
+     
+     @staticmethod
+     def check_out_boundary(polyline, path):
+-        line = LineString(polyline).buffer((WIDTH/2), cap_style=CAP_STYLE.square)
++        line = LineString(polyline).buffer((WIDTH / 2), cap_style=CAP_STYLE.square)
+ 
+         for edge in path:
+             left, right = edge.adjacent_edges
+@@ -279,7 +280,7 @@ class LatticePlanner:
+         dy = np.gradient(path[:, 1])
+         d2x = np.gradient(dx)
+         d2y = np.gradient(dy)
+-        curvature = np.abs(dx * d2y - d2x * dy) / (dx**2 + dy**2)**(3/2)
++        curvature = np.abs(dx * d2y - d2x * dy) / (dx ** 2 + dy ** 2)**(3 / 2)
+ 
+         return curvature
+ 
+diff --git a/common_utils.py b/common_utils.py
+index 809385e..e3ebb77 100644
+--- a/common_utils.py
++++ b/common_utils.py
+@@ -277,7 +277,7 @@ def get_low_level_metrics():
+ 
+ def get_high_level_metrics(low_level_metrics):
+     high_level_metrics = {
+-        'drivable_area_compliance': DrivableAreaComplianceStatistics(name='drivable_area_compliance',  category='Planning',
++        'drivable_area_compliance': DrivableAreaComplianceStatistics(name='drivable_area_compliance', category='Planning', 
+                                                                      lane_change_metric=low_level_metrics['ego_lane_change'],
+                                                                      max_violation_threshold=0.3, metric_score_unit='bool'),
+         'driving_direction_compliance': DrivingDirectionComplianceStatistics(name='driving_direction_compliance', category='Planning',
+diff --git a/data_process.py b/data_process.py
+index a1c191f..129bf72 100644
+--- a/data_process.py
++++ b/data_process.py
+@@ -1,19 +1,27 @@
+ import os
+ import argparse
+ from tqdm import tqdm
+-from common_utils import *
+-from GameFormer.data_utils import *
++import numpy as np
++from common_utils import get_scenario_map, get_filter_parameters
++from GameFormer.data_utils import sampled_tracked_objects_to_tensor_list, get_neighbor_vector_set_map, map_process, agent_future_process, create_map_raster, create_ego_raster, create_agents_raster, draw_trajectory, agent_past_process
++# from GameFormer.data_utils import *
+ import matplotlib.pyplot as plt
++from nuplan.common.actor_state.state_representation import Point2D
+ from nuplan.planning.utils.multithreading.worker_parallel import SingleMachineParallelExecutor
+ from nuplan.planning.scenario_builder.scenario_filter import ScenarioFilter
+ from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_builder import NuPlanScenarioBuilder
+ from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping
++from nuplan.planning.training.preprocessing.utils.agents_preprocessing import (
++    sampled_past_ego_states_to_tensor,
++    sampled_past_timestamps_to_tensor,
++)
++from nuplan.planning.training.preprocessing.features.trajectory_utils import convert_absolute_to_relative_poses
+ 
+ 
+ # define data processor
+ class DataProcessor(object):
+-    def __init__(self, scenarios):
+-        self._scenarios = scenarios
++    def __init__(self, scenarios_input):
++        self._scenarios = scenarios_input
+ 
+         self.past_time_horizon = 2 # [seconds]
+         self.num_past_poses = 10 * self.past_time_horizon 
+@@ -125,8 +133,8 @@ class DataProcessor(object):
+         plt.tight_layout()
+         plt.show()
+ 
+-    def save_to_disk(self, dir, data):
+-        np.savez(f"{dir}/{data['map_name']}_{data['token']}.npz", **data)
++    def save_to_disk(self, dictionary, data):
++        np.savez(f"{dictionary}/{data['map_name']}_{data['token']}.npz", **data)
+ 
+     def work(self, save_dir, debug=False):
+         for scenario in tqdm(self._scenarios):
+diff --git a/requirements.txt b/requirements.txt
+index a93e2fa..81106a2 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1 +1,6 @@
+-theseus-ai==0.1.3
+\ No newline at end of file
++decorator
++attr
++attrs
++psutil
++scipy
++numpy==1.24.1
+\ No newline at end of file
+diff --git a/run_nuplan_test.py b/run_nuplan_test.py
+index 9e41299..1c709a2 100644
+--- a/run_nuplan_test.py
++++ b/run_nuplan_test.py
+@@ -1,13 +1,16 @@
+ import time
+ import argparse
+ import datetime
++from datetime import timezone
+ import warnings
+ warnings.filterwarnings("ignore") 
+ 
++import pathlib
+ from tqdm import tqdm
+ from Planner.planner import Planner
+-from common_utils import *
++from common_utils import save_runner_reports, build_metrics_aggregators, get_scenario_map, get_filter_parameters, build_metrics_engine
+ 
++from nuplan.common.actor_state.vehicle_parameters import get_pacifica_parameters
+ from nuplan.planning.utils.multithreading.worker_parallel import SingleMachineParallelExecutor
+ from nuplan.planning.scenario_builder.scenario_filter import ScenarioFilter
+ from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_builder import NuPlanScenarioBuilder
+@@ -155,11 +158,11 @@ def build_nuboard(scenario_builder, simulation_path):
+     nuboard.run()
+ 
+ 
+-def main(args):
++def main(args_):
+     # parameters
+-    experiment_name = args.experiment_name
++    experiment_name = args_.experiment_name
+     job_name = 'gameformer_planner'
+-    experiment_time = datetime.datetime.now()
++    experiment_time = datetime.datetime.now(tz=timezone.utc)
+     experiment = f"{experiment_name}/{job_name}/{experiment_time}"  
+     output_dir = f"testing_log/{experiment}"
+     simulation_dir = "simulation"
+@@ -167,7 +170,7 @@ def main(args):
+     aggregator_metric_dir = "aggregator_metric"
+ 
+     # initialize planner
+-    planner = Planner(args.model_path, args.device)
++    planner = Planner(args_.model_path, args_.device)
+ 
+     # initialize main aggregator
+     metric_aggregators = build_metrics_aggregators(experiment_name, output_dir, aggregator_metric_dir)
+@@ -188,14 +191,14 @@ def main(args):
+ 
+     # build scenarios
+     print('Extracting scenarios...')
+-    data_root = args.data_path
+-    map_root = args.map_path
++    data_root = args_.data_path
++    map_root = args_.map_path
+     sensor_root = None
+     db_files = None
+     map_version = "nuplan-maps-v1.0"
+     scenario_mapping = ScenarioMapping(scenario_map=get_scenario_map(), subsample_ratio_override=0.5)
+     builder = NuPlanScenarioBuilder(data_root, map_root, sensor_root, db_files, map_version, scenario_mapping=scenario_mapping)
+-    scenario_filter = ScenarioFilter(*get_filter_parameters(args.scenarios_per_type, args.total_scenarios, args.shuffle_scenarios))
++    scenario_filter = ScenarioFilter(*get_filter_parameters(args_.scenarios_per_type, args_.total_scenarios, args_.shuffle_scenarios))
+     worker = SingleMachineParallelExecutor(use_process_pool=True)
+     scenarios = builder.get_scenarios(scenario_filter, worker)
+     del worker, scenario_filter, scenario_mapping
+diff --git a/train_predictor.py b/train_predictor.py
+index 3dbd57d..18f6444 100644
+--- a/train_predictor.py
++++ b/train_predictor.py
+@@ -1,64 +1,95 @@
++# Copyright(c) 2023 Zhiyu Huang
++# Copyright 2024 Huawei Technologies Co., Ltd
++
+ import os
++import stat
++import time
++import datetime
++import logging
+ import csv
+-import torch
+ import argparse
+ import numpy as np
+ from tqdm import tqdm
++
++import torch
+ from torch import nn, optim
+-from GameFormer.predictor import GameFormer
++import torch.distributed as dist
++from torch.nn.parallel import DistributedDataParallel as DDP
+ from torch.utils.data import DataLoader
+-from GameFormer.train_utils import *
++from torch.utils.data.distributed import DistributedSampler
++
++from GameFormer.predictor import GameFormer
++from GameFormer.train_utils import level_k_loss, planning_loss, motion_metrics, initLogging, set_seed, DrivingData
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++from torch_npu.optim import NpuFusedAdam 
+ 
+-def train_epoch(data_loader, model, optimizer):
++
++def train_epoch(data_loader, model, optimizer, epoch_idx, profiling_step):
+     epoch_loss = []
+     epoch_metrics = []
+     model.train()
+ 
+-    with tqdm(data_loader, desc="Training", unit="batch") as data_epoch:
+-        for batch in data_epoch:
+-            # prepare data
+-            inputs = {
+-                'ego_agent_past': batch[0].to(args.device),
+-                'neighbor_agents_past': batch[1].to(args.device),
+-                'map_lanes': batch[2].to(args.device),
+-                'map_crosswalks': batch[3].to(args.device),
+-                'route_lanes': batch[4].to(args.device)
+-            }
++    start_time = time.time()
++    total_step = len(data_loader)
++    for step, batch in enumerate(data_loader):
++        # prepare data
++        inputs = {
++            'ego_agent_past': batch[0].to(args.device),
++            'neighbor_agents_past': batch[1].to(args.device),
++            'map_lanes': batch[2].to(args.device),
++            'map_crosswalks': batch[3].to(args.device),
++            'route_lanes': batch[4].to(args.device)
++        }
+ 
+-            ego_future = batch[5].to(args.device)
+-            neighbors_future = batch[6].to(args.device)
+-            neighbors_future_valid = torch.ne(neighbors_future[..., :2], 0)
++        ego_future = batch[5].to(args.device)
++        neighbors_future = batch[6].to(args.device)
++        neighbors_future_valid = torch.ne(neighbors_future[..., :2], 0)
+ 
+-            # call the mdoel
+-            optimizer.zero_grad()
+-            level_k_outputs, ego_plan = model(inputs)
+-            loss, results = level_k_loss(level_k_outputs, ego_future, neighbors_future, neighbors_future_valid)
+-            prediction = results[:, 1:]
+-            plan_loss = planning_loss(ego_plan, ego_future)
+-            loss += plan_loss
+-
+-            # loss backward
+-            loss.backward()
+-            nn.utils.clip_grad_norm_(model.parameters(), 5)
+-            optimizer.step()
++        # call the mdoel
++        optimizer.zero_grad()
++        level_k_outputs, ego_plan = model(inputs)
++        loss, results = level_k_loss(level_k_outputs, ego_future, neighbors_future, neighbors_future_valid)
++        prediction = results[:, 1:]
++        plan_loss = planning_loss(ego_plan, ego_future)
++        loss += plan_loss
+ 
+-            # compute metrics
+-            metrics = motion_metrics(ego_plan, prediction, ego_future, neighbors_future, neighbors_future_valid)
+-            epoch_metrics.append(metrics)
+-            epoch_loss.append(loss.item())
+-            data_epoch.set_postfix(loss='{:.4f}'.format(np.mean(epoch_loss)))
++        # loss backward
++        loss.backward()
++        nn.utils.clip_grad_norm_(model.parameters(), 5)
++        optimizer.step()
+ 
++        # compute metrics
++        metrics = motion_metrics(ego_plan, prediction, ego_future, neighbors_future, neighbors_future_valid)
++        epoch_metrics.append(metrics)
++        epoch_loss.append(loss.item())
++
++        if step > 0 and step % profiling_step == 0:
++            if dist.get_rank() == 0:
++                now = datetime.datetime.now()
++                formatted_time = now.strftime('%Y-%m-%d %H:%M:%S')
++                avg_train_time = (time.time() - start_time) / profiling_step
++                remain_time = avg_train_time * (total_step - step)
++                remain_time = str(datetime.timedelta(seconds=int(remain_time)))
++                planningADE, planningFDE = epoch_metrics[-1][0], epoch_metrics[-1][1]
++                planningAHE, planningFHE = epoch_metrics[-1][2], epoch_metrics[-1][3]
++                predictionADE, predictionFDE = epoch_metrics[-1][4], epoch_metrics[-1][5]
++                current_lr = optimizer.param_groups[0]['lr']
++                epoch_info = f"[{formatted_time}] Epoch [{epoch_idx}] Step [{step}/{total_step}]: avg_train_time: {avg_train_time:.4f}, remain_time: {remain_time}, current_lr: {current_lr}, loss: {loss.item():.4f}, "
++                metrics_info = f"planningADE: {planningADE:.4f}, planningFDE: {planningFDE:.4f}, planningAHE: {planningAHE:.4f}, planningFHE: {planningFHE:.4f}, predictionADE: {predictionADE:.4f}, predictionFDE: {predictionFDE:.4f}"
++                logging.info(epoch_info + metrics_info)
++                start_time = time.time()
++                    
+     # show metrics
+     epoch_metrics = np.array(epoch_metrics)
+     planningADE, planningFDE = np.mean(epoch_metrics[:, 0]), np.mean(epoch_metrics[:, 1])
+     planningAHE, planningFHE = np.mean(epoch_metrics[:, 2]), np.mean(epoch_metrics[:, 3])
+     predictionADE, predictionFDE = np.mean(epoch_metrics[:, 4]), np.mean(epoch_metrics[:, 5])
+     epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
+-    logging.info(f"plannerADE: {planningADE:.4f}, plannerFDE: {planningFDE:.4f}, " +
+-                 f"plannerAHE: {planningAHE:.4f}, plannerFHE: {planningFHE:.4f}, " +
+-                 f"predictorADE: {predictionADE:.4f}, predictorFDE: {predictionFDE:.4f}\n")
+-        
++    if dist.get_rank() == 0:
++        logging.info("plannerADE: %.4f, plannerFDE: %.4f, plannerAHE: %.4f, plannerFHE: %.4f, predictorADE: %.4f, predictorFDE: %.4f\n", planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE)
++        epoch_metrics.append(avg_train_time)
+     return np.mean(epoch_loss), epoch_metrics
+ 
+ 
+@@ -71,15 +102,15 @@ def valid_epoch(data_loader, model):
+         for batch in data_epoch:
+            # prepare data
+             inputs = {
+-                'ego_agent_past': batch[0].to(args.device),
+-                'neighbor_agents_past': batch[1].to(args.device),
+-                'map_lanes': batch[2].to(args.device),
+-                'map_crosswalks': batch[3].to(args.device),
+-                'route_lanes': batch[4].to(args.device)
++                'ego_agent_past': batch[0].to(args.device, non_blocking=True),
++                'neighbor_agents_past': batch[1].to(args.device, non_blocking=True),
++                'map_lanes': batch[2].to(args.device, non_blocking=True),
++                'map_crosswalks': batch[3].to(args.device, non_blocking=True),
++                'route_lanes': batch[4].to(args.device, non_blocking=True)
+             }
+ 
+-            ego_future = batch[5].to(args.device)
+-            neighbors_future = batch[6].to(args.device)
++            ego_future = batch[5].to(args.device, non_blocking=True)
++            neighbors_future = batch[6].to(args.device, non_blocking=True)
+             neighbors_future_valid = torch.ne(neighbors_future[..., :2], 0)
+ 
+             # call the mdoel
+@@ -94,62 +125,85 @@ def valid_epoch(data_loader, model):
+             metrics = motion_metrics(ego_plan, prediction, ego_future, neighbors_future, neighbors_future_valid)
+             epoch_metrics.append(metrics)
+             epoch_loss.append(loss.item())
+-            data_epoch.set_postfix(loss='{:.4f}'.format(np.mean(epoch_loss)))
++            data_epoch.set_postfix(loss='{:.4f}'.format(epoch_loss[-1]))
+ 
+     epoch_metrics = np.array(epoch_metrics)
+     planningADE, planningFDE = np.mean(epoch_metrics[:, 0]), np.mean(epoch_metrics[:, 1])
+     planningAHE, planningFHE = np.mean(epoch_metrics[:, 2]), np.mean(epoch_metrics[:, 3])
+     predictionADE, predictionFDE = np.mean(epoch_metrics[:, 4]), np.mean(epoch_metrics[:, 5])
+     epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
+-    logging.info(f"val-plannerADE: {planningADE:.4f}, val-plannerFDE: {planningFDE:.4f}, " +
+-                 f"val-plannerAHE: {planningAHE:.4f}, val-plannerFHE: {planningFHE:.4f}, " +
+-                 f"val-predictorADE: {predictionADE:.4f}, val-predictorFDE: {predictionFDE:.4f}\n")
++    epoch_metrics_tensor = torch.tensor(epoch_metrics, device=model.device).reshape([-1, 1])
++    gathered_data = [torch.zeros_like(epoch_metrics_tensor) for _ in range(dist.get_world_size())] 
++    dist.all_gather(gathered_data, epoch_metrics_tensor)
++
++    if dist.get_rank() == 0:
++        gathered_data = torch.cat(gathered_data, dim=1)
++        gathered_data = gathered_data.mean(dim=-1).cpu().numpy().tolist()
++        planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE = gathered_data
++        epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
++        logging.info("val-plannerADE: %.4f, val-plannerFDE: %.4f, val-plannerAHE: %.4f, val-plannerFHE: %.4f, val-predictorADE: %.4f, val-predictorFDE: %.4f\n", planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE)
+ 
+     return np.mean(epoch_loss), epoch_metrics
+ 
+ 
+-def model_training():
++def model_training(args_, local_rank_):
+     # Logging
+-    log_path = f"./training_log/{args.name}/"
++    log_path = f"./training_log/{args_.name}/"
+     os.makedirs(log_path, exist_ok=True)
+-    initLogging(log_file=log_path+'train.log')
++    initLogging(log_file=log_path + 'train.log')
++
++    # ddp setup  
++    dist.init_process_group(backend='nccl')
++    torch.cuda.set_device(local_rank_)
+ 
+-    logging.info("------------- {} -------------".format(args.name))
+-    logging.info("Batch size: {}".format(args.batch_size))
+-    logging.info("Learning rate: {}".format(args.learning_rate))
+-    logging.info("Use device: {}".format(args.device))
++    if local_rank_ == 0:
++        logging.info("------------- %s -------------", args_.name)
++        logging.info("Batch size: %s", args_.batch_size)
++        logging.info("Learning rate: %s", args_.learning_rate)
++        logging.info("Use device: %s", args_.device)
+ 
+     # set seed
+-    set_seed(args.seed)
++    set_seed(args_.seed)
+ 
+     # set up model
+-    gameformer = GameFormer(encoder_layers=args.encoder_layers, decoder_levels=args.decoder_levels, neighbors=args.num_neighbors)
+-    gameformer = gameformer.to(args.device)
+-    logging.info("Model Params: {}".format(sum(p.numel() for p in gameformer.parameters())))
+-
+-    # set up optimizer
+-    optimizer = optim.AdamW(gameformer.parameters(), lr=args.learning_rate)
+-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 12, 14, 16, 18], gamma=0.5)
++    model = GameFormer(encoder_layers=args_.encoder_layers, decoder_levels=args_.decoder_levels, neighbors=args_.num_neighbors)
++    if local_rank_ == 0:
++        logging.info("Model Params: %d", sum(p.numel() for p in model.parameters()))
++    
++    device = '{}:{}'.format(args_.device, local_rank_)
++    model = model.to(device)
++    model = DDP(model, device_ids=[local_rank_])
++    
++    # use NPU fused optimizer
++    optimizer = NpuFusedAdam(model.parameters(), lr=args_.learning_rate)
++    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 13, 16, 19, 22, 25, 28], gamma=0.5)
+ 
+     # training parameters
+-    train_epochs = args.train_epochs
+-    batch_size = args.batch_size
++    train_epochs = args_.train_epochs
++    batch_size = args_.batch_size
++    profiling_step = args_.profiling_step
+     
+     # set up data loaders
+-    train_set = DrivingData(args.train_set + '/*.npz', args.num_neighbors)
+-    valid_set = DrivingData(args.valid_set + '/*.npz', args.num_neighbors)
+-    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=os.cpu_count())
+-    valid_loader = DataLoader(valid_set, batch_size=batch_size, shuffle=False, num_workers=os.cpu_count())
+-    logging.info("Dataset Prepared: {} train data, {} validation data\n".format(len(train_set), len(valid_set)))
++    train_set = DrivingData(args_.train_set + '/*.npz', args_.num_neighbors)
++    valid_set = DrivingData(args_.valid_set + '/*.npz', args_.num_neighbors)
++    train_sampler = DistributedSampler(train_set)
++    valid_sampler = DistributedSampler(valid_set, shuffle=False)
++    train_loader = DataLoader(train_set, batch_size=batch_size, pin_memory=True, 
++                              sampler=train_sampler, num_workers=args_.workers)
++    valid_loader = DataLoader(valid_set, batch_size=batch_size, pin_memory=True, 
++                              sampler=valid_sampler, num_workers=args_.workers)
++    if local_rank_ == 0:
++        logging.info("Dataset Prepared: %d train data, %d validation data\n", len(train_set), len(valid_set))
+     
+     # begin training
+     for epoch in range(train_epochs):
+-        logging.info(f"Epoch {epoch+1}/{train_epochs}")
+-        train_loss, train_metrics = train_epoch(train_loader, gameformer, optimizer)
+-        val_loss, val_metrics = valid_epoch(valid_loader, gameformer)
++        if local_rank_ == 0:
++            logging.info("Epoch %d/%d", epoch + 1, train_epochs)
++        train_loss, train_metrics = train_epoch(train_loader, model, optimizer, epoch, profiling_step)
++        val_loss, val_metrics = valid_epoch(valid_loader, model)
+ 
+         # save to training log
+-        log = {'epoch': epoch+1, 'loss': train_loss, 'lr': optimizer.param_groups[0]['lr'], 'val-loss': val_loss, 
++        log = {'epoch': epoch + 1, 'loss': train_loss, 'lr': optimizer.param_groups[0]['lr'], 'val-loss': val_loss, 
+                'train-planningADE': train_metrics[0], 'train-planningFDE': train_metrics[1], 
+                'train-planningAHE': train_metrics[2], 'train-planningFHE': train_metrics[3], 
+                'train-predictionADE': train_metrics[4], 'train-predictionFDE': train_metrics[5],
+@@ -157,39 +211,49 @@ def model_training():
+                'val-planningAHE': val_metrics[2], 'val-planningFHE': val_metrics[3],
+                'val-predictionADE': val_metrics[4], 'val-predictionFDE': val_metrics[5]}
+ 
+-        if epoch == 0:
+-            with open(f'./training_log/{args.name}/train_log.csv', 'w') as csv_file: 
+-                writer = csv.writer(csv_file) 
+-                writer.writerow(log.keys())
+-                writer.writerow(log.values())
+-        else:
+-            with open(f'./training_log/{args.name}/train_log.csv', 'a') as csv_file: 
+-                writer = csv.writer(csv_file)
+-                writer.writerow(log.values())
++        if dist.get_rank() == 0:
++            flags = os.O_RDWR | os.O_CREAT
++            mode = stat.S_IWUSR | stat.S_IRUSR
++            if epoch == 0:
++                with os.fdopen(os.open(f'./training_log/{args_.name}/train_log.csv', flags, mode), 'w') as csv_file:
++                    writer = csv.writer(csv_file) 
++                    writer.writerow(log.keys())
++                    writer.writerow(log.values())
++            else:
++                with os.fdopen(os.open(f'./training_log/{args_.name}/train_log.csv', flags, mode), 'w') as csv_file:                    
++                    writer = csv.writer(csv_file)
++                    writer.writerow(log.values())
++
++            # save model at the end of epoch
++            torch.save(model.state_dict(), f'training_log/{args_.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth')
++            os.chmod(f'training_log/{args_.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth', mode)
++            logging.info("Model saved in training_log/%s\n", args_.name)
++            
++            if epoch == train_epochs - 1:
++                logging.info("Model Performance (FPS): %.4f", 1 / train_metrics[-1])
++                logging.info("Model Metric (plannerADE): %.4f", val_metrics[0])
+ 
+         # reduce learning rate
+         scheduler.step()
+ 
+-        # save model at the end of epoch
+-        torch.save(gameformer.state_dict(), f'training_log/{args.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth')
+-        logging.info(f"Model saved in training_log/{args.name}\n")
+-
+-
+ if __name__ == "__main__":
+     # Arguments
+     parser = argparse.ArgumentParser(description='Training')
+     parser.add_argument('--name', type=str, help='log name (default: "Exp1")', default="Exp1")
++    parser.add_argument("--profiling_step", type=int, default=10, help="number of steps for profiling")
+     parser.add_argument('--train_set', type=str, help='path to train data')
+     parser.add_argument('--valid_set', type=str, help='path to validation data')
+-    parser.add_argument('--seed', type=int, help='fix random seed', default=3407)
++    parser.add_argument('--seed', type=int, help='fix random seed', default=1965)
++    parser.add_argument("--workers", type=int, default=8, help="number of workers used for dataloader")
+     parser.add_argument('--encoder_layers', type=int, help='number of encoding layers', default=3)
+     parser.add_argument('--decoder_levels', type=int, help='levels of reasoning', default=2)
+     parser.add_argument('--num_neighbors', type=int, help='number of neighbor agents to predict', default=10)
+-    parser.add_argument('--train_epochs', type=int, help='epochs of training', default=20)
++    parser.add_argument('--train_epochs', type=int, help='epochs of training', default=30)
+     parser.add_argument('--batch_size', type=int, help='batch size (default: 32)', default=32)
+     parser.add_argument('--learning_rate', type=float, help='learning rate (default: 1e-4)', default=1e-4)
+-    parser.add_argument('--device', type=str, help='run on which device (default: cuda)', default='cuda')
++    parser.add_argument('--device', type=str, help='run on which device (default: cuda)', default='npu')
+     args = parser.parse_args()
++    local_rank = int(os.environ['LOCAL_RANK'])
+ 
+     # Run
+-    model_training()
+\ No newline at end of file
++    model_training(args, local_rank)
+\ No newline at end of file
