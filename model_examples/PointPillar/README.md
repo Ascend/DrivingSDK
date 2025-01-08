@@ -41,7 +41,7 @@ code_path=model_examples/PointPillar
 
     ```
     git clone https://gitee.com/ascend/mxDriving.git
-    cd mxDriving/model_examples/OpenPCDet
+    cd mxDriving/model_examples/PointPillar
     git clone https://github.com/open-mmlab/OpenPCDet.git
     cd OpenPCDet
     git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356

@@ -29,7 +29,7 @@ code_path=model_examples/CenterPoint
 
 | Torch_Version | 三方库依赖版本            |
 | - |--------------------|
-| PyTorch 2.1.0 | torchvision 0.16.2 |
+| PyTorch 2.1.0 | torchvision 0.16.0 |
 
 - 环境准备指导。
 
@@ -39,7 +39,7 @@ code_path=model_examples/CenterPoint
 
 ```
     git clone https://gitee.com/ascend/mxDriving.git
-    cd mxDriving/model_examples/OpenPCDet
+    cd mxDriving/model_examples/CenterPoint
     git clone https://github.com/open-mmlab/OpenPCDet.git
     cd OpenPCDet
     git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
@@ -235,7 +235,7 @@ python setup.py develop
 
 | Torch_Version | 三方库依赖版本            |
 | - |--------------------|
-| PyTorch 2.1.0 | torchvision 0.16.2 |
+| PyTorch 2.1.0 | torchvision 0.16.0 |
 
 - 环境准备指导。
 
@@ -245,7 +245,7 @@ python setup.py develop
 
 ```
 git clone https://gitee.com/ascend/mxDriving.git
-cd mxDriving/model_examples/OpenPCDet
+cd mxDriving/model_examples/CenterPoint
 git clone https://github.com/open-mmlab/OpenPCDet.git
 cd OpenPCDet
 git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
