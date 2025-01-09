@@ -49,4 +49,4 @@
     - [npu_max_pool2d](./context/npu_max_pool2d.md)
     - [geometric_kernel_attention[beta]](./context/geometric_kernel_attention[beta].md)
     - [npu_gaussian[beta]](./context/npu_gaussian[beta].md)
-    - 
+    - [npu_fused_bias_leaky_relu](./context/npu_fused_bias_leaky_relu.md)
