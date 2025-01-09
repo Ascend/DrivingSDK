@@ -53,7 +53,7 @@ export TASK_QUEUE_ENABLE=2
 # 绑核
 export CPU_AFFINITY_CONF=1
 #使能高性能内存库
-export LD_PRELOAD=$LD_PRELOAD:/use/local/lib/lib/libtcmalloc.so
+export LD_PRELOAD=$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so
 
 echo "[INFO] Finish setting ENV VAR"
 
