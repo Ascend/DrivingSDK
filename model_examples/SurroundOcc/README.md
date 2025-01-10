@@ -38,8 +38,8 @@
 - 适配昇腾 AI 处理器的实现：
 
     ```
-    url=https://gitee.com/ascend/ModelZoo-PyTorch.git
-    code_path=PyTorch/built-in/autonoumous_driving 
+    url=https://gitee.com/ascend/mxDriving.git
+    code_path=model_examples/SurroundOcc 
     ```
 
 # SurroundOcc
@@ -70,14 +70,17 @@
 - 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/mxDriving.git
+    git clone https://gitee.com/ascend/mxDriving.git -b branch_v6.0.0
     cd mxDriving/model_examples/SurroundOcc
     git clone https://github.com/weiyithu/SurroundOcc.git
-    git checkout 05263c6a8fe464a7f9d28358ff7196ba58dc0de6
-    cp -f SurroundOcc_npu.patch SurroundOcc
-    cp -f test SurroundOcc
+    # 因为github仓下载代码不稳定，已将原始代码上传到了个人仓，可使用以下命令下载
+    # git clone https://gitee.com/zhangchenrui2/SurroundOcc.git  
     cd SurroundOcc
+    # 如果下载的是个人仓的模型源码，则不需要进行下面的checkout操作
+    git checkout 05263c6a8fe464a7f9d28358ff7196ba58dc0de6
+    cp -r ../SurroundOcc_npu.patch .
     git apply --reject SurroundOcc_npu.patch
+    cp -r ../test .
     ```
 
 

@@ -12,8 +12,8 @@ commit_id=255db8f02a8bd07211d2c91f54602d63c4c93356
 
 - 适配昇腾AI处理器的实现：
 ```
-url=https://gitee.com/ascend/ModelZoo-PyTorch.git
-code_path=PyTorch/built-in/autonoumous_driving
+url=https://gitee.com/ascend/mxDriving.git
+code_path=model_examples/OpenPCDet
 ```
 
 
@@ -29,9 +29,7 @@ code_path=PyTorch/built-in/autonoumous_driving
 
 | Torch_Version | 三方库依赖版本            |
 | - |--------------------|
-| PyTorch 2.1.0 | torchvision 0.16.2 |
-| PyTorch 2.3.1 | torchvision 0.18.1 |
-| PyTorch 2.4.0 | torchvision 0.19.0 |
+| PyTorch 2.1.0 | torchvision 0.16.0 |
 
 - 环境准备指导。 
 
@@ -40,24 +38,21 @@ code_path=PyTorch/built-in/autonoumous_driving
 #### 0. 克隆代码仓到当前目录并使用patch文件
 
 ```
-    git clone https://gitee.com/ascend/mxDriving.git
+    git clone https://gitee.com/ascend/mxDriving.git -b branch_v6.0.0
     cd mxDriving/model_examples/OpenPCDet
     git clone https://github.com/open-mmlab/OpenPCDet.git
-    git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
-    cp -f OpenPCDet_npu.patch OpenPCDet
-    cp -f test OpenPCDet/tools
     cd OpenPCDet
+    git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
+    cp -f ../OpenPCDet_npu.patch .
     git apply --reject OpenPCDet_npu.patch
+    cp -rf ../test tools
 ```
 
 #### 1. 基本环境准备
 
 在模型源码包所在目录下执行相应命令，安装模型需要的依赖
 ```shell
-cd ./OpenPCDet
 pip install -r requirements.txt && cd ../   # PyTorch 2.1版本
-pip install -r 2.3_requirements.txt && cd ../   # PyTorch 2.3版本
-pip install -r 2.4_requirements.txt && cd ../   # PyTorch 2.4版本
 ```
 
 #### 2. 手动编译安装cumm和spconv
@@ -161,7 +156,7 @@ python -c "import mx_driving"
 ```
 
 #### 2.6 编译安装OpenPCDet
-执行以下命令，编译安装OpenPCDet
+在应用过patch的源码目录下执行以下命令，编译安装OpenPCDet
 ```shell
 cd ./OpenPCDet/
 python setup.py develop
@@ -241,19 +236,30 @@ python setup.py develop
   | Torch_Version      | 三方库依赖版本                                 |
   | :--------: | :----------------------------------------------------------: |
   | PyTorch 2.1.0 | torchvision 0.16.0 |
-  | PyTorch 2.2 | torchvision 0.17.0 |
 
 - 环境准备指导。
 
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
+  #### 0. 克隆代码仓到当前目录并使用patch文件
+
+  ```
+  git clone https://gitee.com/ascend/mxDriving.git -b branch_v6.0.0
+  cd mxDriving/model_examples/OpenPCDet
+  git clone https://github.com/open-mmlab/OpenPCDet.git
+  cd OpenPCDet
+  git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
+  cp -f ../OpenPCDet_npu.patch .
+  git apply --reject OpenPCDet_npu.patch
+  cp -rf ../test tools
+  ```
+  
 
   #### 1. 基本环境
   在模型源码包根目录下执行相应命令，安装模型需要的依赖。
   ```
   conda create -n env_name python=3.8
   pip install -r requirements.txt    # PyTorch 2.1版本
-  pip install -r 2.2_requirements.txt    # PyTorch 2.2版本
   ```
 
   #### 2. 手动编译安装cumm和spconv
@@ -285,20 +291,7 @@ python setup.py develop
          from spconv.core_cc.csrc.sparse.all.ops4d import Point2Voxel as Point2VoxelGPU4d
       ```
    
-   #### 3. 克隆代码仓到当前目录并使用patch文件
-
-    ```
-    git clone https://gitee.com/ascend/mxDriving.git
-    cd mxDriving/model_examples/OpenPCDet
-    git clone https://github.com/open-mmlab/OpenPCDet.git
-    git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
-    cp -f OpenPCDet_npu.patch OpenPCDet
-    cp -f test OpenPCDet/tools
-    cd OpenPCDet
-    git apply --reject OpenPCDet_npu.patch
-    ```
-   
-   #### 4. 编译安装OpenPCDet
+   #### 3. 应用过patch的模型源码中编译安装OpenPCDet
    ```
    python setup.py develop
    ```
