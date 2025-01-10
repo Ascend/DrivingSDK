@@ -12,7 +12,7 @@ index 643c39c9..001b2247 100644
  
  
 diff --git a/mmdet3d/apis/train.py b/mmdet3d/apis/train.py
-index 4d970264..bca5ac7c 100644
+index 4d970264..ac6e8090 100644
 --- a/mmdet3d/apis/train.py
 +++ b/mmdet3d/apis/train.py
 @@ -10,7 +10,8 @@ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
@@ -42,15 +42,6 @@ index 4d970264..bca5ac7c 100644
              model.cuda(),
              device_ids=[torch.cuda.current_device()],
              broadcast_buffers=False,
-@@ -246,7 +246,7 @@ def train_detector(model,
-     else:
-         if 'total_epochs' in cfg:
-             assert cfg.total_epochs == cfg.runner.max_epochs
--
-+    # print('---------cfg.runner-----------', cfg.runner)
-     runner = build_runner(
-         cfg.runner,
-         default_args=dict(
 diff --git a/requirements/runtime.txt b/requirements/runtime.txt
 index 643cb0cd..885e3129 100644
 --- a/requirements/runtime.txt
