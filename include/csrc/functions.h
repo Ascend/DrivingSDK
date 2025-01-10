@@ -252,4 +252,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_gauss
     int32_t out_size_factor, float gaussian_overlap, int32_t min_radius, float voxel_size_x, float voxel_size_y,
     float pc_range_x, float pc_range_y, int32_t feature_map_size_x, int32_t feature_map_size_y, bool norm_bbox,
     bool with_velocity);
+
+at::Tensor diff_iou_rotated_sort_vertices(const at::Tensor& vertices, const at::Tensor& mask,
+    const at::Tensor& num_valid);
+    
 #endif // CSRC_FUNCTIONS_H_

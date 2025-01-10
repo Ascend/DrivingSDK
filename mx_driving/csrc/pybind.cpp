@@ -203,4 +203,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // npu_gaussian
     m.def("npu_gaussian", &npu_gaussian);
+
+    // diff_iou_rotated_sort_vertices
+    m.def("diff_iou_rotated_sort_vertices", &diff_iou_rotated_sort_vertices);
 }

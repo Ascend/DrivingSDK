@@ -433,6 +433,10 @@ def cal_anchors_heading(
     anchors: torch.Tensor,
     origin_pos: Optional[torch.Tensor],
 ) -> torch.Tensor: ...
+def diff_iou_rotated_2d(
+    box1: torch.Tensor,
+    box2: torch.Tensor
+) -> torch.Tensor: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
@@ -483,4 +487,5 @@ __all__ = [
     "npu_bev_pool_v3",
     "npu_bev_pool_v3_backward",
     "cal_anchors_heading",
+    "diff_iou_rotated_2d",
 ]

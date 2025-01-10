@@ -50,6 +50,7 @@ from .ops.voxelization import voxelization
 from .ops.unique_voxel import unique_voxel
 from .ops.cal_anchors_heading import cal_anchors_heading
 from .ops.npu_gaussian import npu_gaussian
+from .ops.diff_iou_rotated import diff_iou_rotated_2d
 
 __all__ = [
     "RoIPointPool3d",
@@ -105,7 +106,8 @@ __all__ = [
     "npu_voxel_pooling_train",
     "voxelization",
     "cal_anchors_heading",
-    "npu_gaussian"
+    "npu_gaussian",
+    "diff_iou_rotated_2d",
 ]
 
 
