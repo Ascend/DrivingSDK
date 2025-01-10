@@ -1,5 +1,5 @@
 diff --git a/projects/bevformer/modules/decoder.py b/projects/bevformer/modules/decoder.py
-index 33024f8..6d0285b 100644
+index 33024f8..cb61b12 100644
 --- a/projects/bevformer/modules/decoder.py
 +++ b/projects/bevformer/modules/decoder.py
 @@ -26,7 +26,7 @@ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
@@ -11,6 +11,15 @@ index 33024f8..6d0285b 100644
  ext_module = ext_loader.load_ext(
      '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
  
+@@ -290,7 +290,7 @@ class CustomMSDeformableAttention(BaseModule):
+ 
+         bs, num_query, _ = query.shape
+         bs, num_value, _ = value.shape
+-        assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
++        # assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
+ 
+         value = self.value_proj(value)
+         if key_padding_mask is not None:
 @@ -323,15 +323,8 @@ class CustomMSDeformableAttention(BaseModule):
                  f'Last dim of reference_points must be'
                  f' 2 or 4, but get {reference_points.shape[-1]} instead.')
@@ -30,18 +39,105 @@ index 33024f8..6d0285b 100644
              output = multi_scale_deformable_attn_pytorch(
                  value, spatial_shapes, sampling_locations, attention_weights)
 diff --git a/projects/bevformer/modules/spatial_cross_attention.py b/projects/bevformer/modules/spatial_cross_attention.py
-index 77dfa91..7d1658d 100644
+index 77dfa91..b8a0520 100644
 --- a/projects/bevformer/modules/spatial_cross_attention.py
 +++ b/projects/bevformer/modules/spatial_cross_attention.py
-@@ -25,6 +25,7 @@ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFuncti
+@@ -25,7 +25,13 @@ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFuncti
      MultiScaleDeformableAttnFunction_fp16
  ext_module = ext_loader.load_ext(
      '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
 +import mx_driving
  
++bev_mask_global = torch.tensor([]).npu()
++indexes_global = None
++max_len_global = None
++bev_mask_id_global = -1
++count_global = None
  
  @ATTENTION.register_module()
-@@ -382,13 +383,8 @@ class MSDeformableAttention3D(BaseModule):
+ class SpatialCrossAttention(BaseModule):
+@@ -134,10 +140,28 @@ class SpatialCrossAttention(BaseModule):
+ 
+         D = reference_points_cam.size(3)
+         indexes = []
+-        for i, mask_per_img in enumerate(bev_mask):
+-            index_query_per_img = mask_per_img[0].sum(-1).nonzero().squeeze(-1)
+-            indexes.append(index_query_per_img)
+-        max_len = max([len(each) for each in indexes])
++        global bev_mask_global, indexes_global, max_len_global, bev_mask_id_global, count_global
++        bev_mask_id = id(bev_mask)
++        if bev_mask_id == bev_mask_id_global:
++            indexes = indexes_global
++            max_len = max_len_global
++            count = count_global
++        else:
++            count = torch.any(bev_mask, 3)
++            bev_mask_ = count.squeeze()
++            for i, mask_per_img in enumerate(bev_mask_):
++                index_query_per_img = mask_per_img.nonzero().squeeze(-1)
++                indexes.append(index_query_per_img)
++
++            max_len = max([len(each) for each in indexes])
++            count = count.permute(1, 2, 0).sum(-1)
++            count = torch.clamp(count, min=1.0)
++            count = count[..., None]
++            count_global = count
++            bev_mask_global = bev_mask.clone()
++            indexes_global = indexes
++            max_len_global = max_len
++            bev_mask_id_global = bev_mask_id
+ 
+         # each camera only interacts with its corresponding BEV queries. This step can  greatly save GPU memory.
+         queries_rebatch = query.new_zeros(
+@@ -145,9 +169,9 @@ class SpatialCrossAttention(BaseModule):
+         reference_points_rebatch = reference_points_cam.new_zeros(
+             [bs, self.num_cams, max_len, D, 2])
+         
+-        for j in range(bs):
+-            for i, reference_points_per_img in enumerate(reference_points_cam):   
+-                index_query_per_img = indexes[i]
++        for i, reference_points_per_img in enumerate(reference_points_cam):   
++            index_query_per_img = indexes[i]
++            for j in range(bs):
+                 queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
+                 reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
+ 
+@@ -155,20 +179,18 @@ class SpatialCrossAttention(BaseModule):
+ 
+         key = key.permute(2, 0, 1, 3).reshape(
+             bs * self.num_cams, l, self.embed_dims)
+-        value = value.permute(2, 0, 1, 3).reshape(
++        value = value.permute(2, 0, 1, 3).reshape( 
+             bs * self.num_cams, l, self.embed_dims)
+ 
+-        queries = self.deformable_attention(query=queries_rebatch.view(bs*self.num_cams, max_len, self.embed_dims), key=key, value=value,
+-                                            reference_points=reference_points_rebatch.view(bs*self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
++        queries = self.deformable_attention(query=queries_rebatch.view(bs * self.num_cams, max_len, self.embed_dims), key=key, value=value,
++                                            reference_points=reference_points_rebatch.view(bs * self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
+                                             level_start_index=level_start_index).view(bs, self.num_cams, max_len, self.embed_dims)
+         for j in range(bs):
+             for i, index_query_per_img in enumerate(indexes):
+                 slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
+ 
+-        count = bev_mask.sum(-1) > 0
+-        count = count.permute(1, 2, 0).sum(-1)
+-        count = torch.clamp(count, min=1.0)
+-        slots = slots / count[..., None]
++
++        slots = slots / count
+         slots = self.output_proj(slots)
+ 
+         return self.dropout(slots) + inp_residual
+@@ -328,7 +350,7 @@ class MSDeformableAttention3D(BaseModule):
+ 
+         bs, num_query, _ = query.shape
+         bs, num_value, _ = value.shape
+-        assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
++        # assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
+ 
+         value = self.value_proj(value)
+         if key_padding_mask is not None:
+@@ -382,13 +404,8 @@ class MSDeformableAttention3D(BaseModule):
          #
  
          if torch.cuda.is_available() and value.is_cuda:
@@ -58,7 +154,7 @@ index 77dfa91..7d1658d 100644
              output = multi_scale_deformable_attn_pytorch(
                  value, spatial_shapes, sampling_locations, attention_weights)
 diff --git a/projects/bevformer/modules/temporal_self_attention.py b/projects/bevformer/modules/temporal_self_attention.py
-index b52a9aa..33116f7 100644
+index b52a9aa..437051a 100644
 --- a/projects/bevformer/modules/temporal_self_attention.py
 +++ b/projects/bevformer/modules/temporal_self_attention.py
 @@ -19,6 +19,7 @@ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
@@ -69,6 +165,15 @@ index b52a9aa..33116f7 100644
  
  
  @ATTENTION.register_module()
+@@ -190,7 +191,7 @@ class TemporalSelfAttention(BaseModule):
+             value = value.permute(1, 0, 2)
+         bs,  num_query, embed_dims = query.shape
+         _, num_value, _ = value.shape
+-        assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
++        # assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
+         assert self.num_bev_queue == 2
+ 
+         query = torch.cat([value[:bs], query], -1)
 @@ -237,15 +238,8 @@ class TemporalSelfAttention(BaseModule):
                  f'Last dim of reference_points must be'
                  f' 2 or 4, but get {reference_points.shape[-1]} instead.')
@@ -100,320 +205,142 @@ index 9900f37..ff6e803 100644
      lr=2e-4,
      paramwise_cfg=dict(
          custom_keys={
-diff --git a/projects/configs/lanesegnet_r50_8x1_24e_olv2_subset_A_single_epoch.py b/projects/configs/lanesegnet_r50_8x1_24e_olv2_subset_A_single_epoch.py
-new file mode 100644
-index 0000000..2c34107
---- /dev/null
-+++ b/projects/configs/lanesegnet_r50_8x1_24e_olv2_subset_A_single_epoch.py
-@@ -0,0 +1,306 @@
-+_base_ = []
-+custom_imports = dict(imports=['projects.bevformer', 'projects.lanesegnet'])
+diff --git a/projects/lanesegnet/models/dense_heads/laneseg_head.py b/projects/lanesegnet/models/dense_heads/laneseg_head.py
+index 267e036..910864a 100644
+--- a/projects/lanesegnet/models/dense_heads/laneseg_head.py
++++ b/projects/lanesegnet/models/dense_heads/laneseg_head.py
+@@ -151,6 +151,9 @@ class LaneSegHead(AnchorFreeHead):
+         self.num_lane_type_classes = num_lane_type_classes
+         self._init_layers()
+ 
++        self.pc_range_diff_tensor = torch.tensor(list(map(lambda x, y: x - y, pc_range[self.pts_dim:], pc_range[:self.pts_dim]))).cuda()
++        self.pc_range_head_tensor = torch.tensor(pc_range[:self.pts_dim]).cuda()
 +
-+# If point cloud range is changed, the models should also change their point
-+# cloud range accordingly
-+point_cloud_range = [-51.2, -25.6, -2.3, 51.2, 25.6, 1.7]
+     def _init_layers(self):
+         cls_branch = []
+         for _ in range(self.num_reg_fcs):
+@@ -229,7 +232,10 @@ class LaneSegHead(AnchorFreeHead):
+         bev_feats = bev_feats.view([bev_feats.shape[0], self.bev_h, self.bev_w, self.embed_dims])
+         bev_feats = bev_feats.permute(0, 3, 1, 2).contiguous()
+         mask_embed = self.mask_embed[lvl](output)
+-        outputs_mask = torch.einsum("bqc,bchw->bqhw", mask_embed, bev_feats)
++        bev_feats = bev_feats.reshape(bev_feats.shape[0], bev_feats.shape[1], -1)
++        outputs_mask = torch.bmm(mask_embed, bev_feats)
++        outputs_mask = outputs_mask.reshape(outputs_mask.shape[0], outputs_mask.shape[1], self.bev_h, self.bev_w)
++        # outputs_mask = torch.einsum("bqc,bchw->bqhw", mask_embed, bev_feats)
+         return outputs_mask
+ 
+     @auto_fp16(apply_to=('mlvl_feats'))
+@@ -284,10 +290,13 @@ class LaneSegHead(AnchorFreeHead):
+             tmp = tmp.sigmoid()
+ 
+             coord = tmp.clone()
+-            coord[..., 0] = coord[..., 0] * (self.pc_range[3] - self.pc_range[0]) + self.pc_range[0]
+-            coord[..., 1] = coord[..., 1] * (self.pc_range[4] - self.pc_range[1]) + self.pc_range[1]
 +
-+img_norm_cfg = dict(
-+    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+             if self.pts_dim == 3:
+-                coord[..., 2] = coord[..., 2] * (self.pc_range[5] - self.pc_range[2]) + self.pc_range[2]
++                coord = coord * self.pc_range_diff_tensor + self.pc_range_head_tensor
++            else:
++                coord[..., 0] = coord[..., 0] * (self.pc_range[3] - self.pc_range[0]) + self.pc_range[0]
++                coord[..., 1] = coord[..., 1] * (self.pc_range[4] - self.pc_range[1]) + self.pc_range[1]
 +
-+class_names = ['lane_segment', 'ped_crossing']
-+class_nums = len(class_names)
+             centerline = coord.view(bs, num_query, -1).contiguous()
+ 
+             offset = self.reg_branches_offset[-1](hs[-1])
+@@ -338,10 +347,13 @@ class LaneSegHead(AnchorFreeHead):
+             tmp = tmp.sigmoid()
+ 
+             coord = tmp.clone()
+-            coord[..., 0] = coord[..., 0] * (self.pc_range[3] - self.pc_range[0]) + self.pc_range[0]
+-            coord[..., 1] = coord[..., 1] * (self.pc_range[4] - self.pc_range[1]) + self.pc_range[1]
 +
-+input_modality = dict(
-+    use_lidar=False,
-+    use_camera=True,
-+    use_radar=False,
-+    use_map=False,
-+    use_external=False)
-+num_cams = 7
-+pts_dim = 3
+             if self.pts_dim == 3:
+-                coord[..., 2] = coord[..., 2] * (self.pc_range[5] - self.pc_range[2]) + self.pc_range[2]
++                coord = coord * self.pc_range_diff_tensor + self.pc_range_head_tensor
++            else:
++                coord[..., 0] = coord[..., 0] * (self.pc_range[3] - self.pc_range[0]) + self.pc_range[0]
++                coord[..., 1] = coord[..., 1] * (self.pc_range[4] - self.pc_range[1]) + self.pc_range[1]
 +
-+dataset_type = 'OpenLaneV2_subset_A_LaneSegNet_Dataset'
-+data_root = 'data/OpenLane-V2/'
+             centerline = coord.view(bs, num_query, -1).contiguous()
+ 
+             offset = self.reg_branches_offset[lvl](hs[lvl])
+@@ -387,11 +399,13 @@ class LaneSegHead(AnchorFreeHead):
+                            gt_lanes_right_type,
+                            gt_bboxes_ignore=None):
+ 
 +
-+para_method = 'fix_pts_interp'
-+method_para = dict(n_points=10)
-+code_size = 3 * method_para['n_points'] * pts_dim
-+
-+_dim_ = 256
-+_pos_dim_ = _dim_//2
-+_ffn_dim_ = _dim_*2
-+_ffn_cfg_ = dict(
-+    type='FFN',
-+    embed_dims=_dim_,
-+    feedforward_channels=_ffn_dim_,
-+    num_fcs=2,
-+    ffn_drop=0.1,
-+    act_cfg=dict(type='ReLU', inplace=True),
-+),
-+
-+_num_levels_ = 4
-+bev_h_ = 100
-+bev_w_ = 200
-+
-+model = dict(
-+    type='LaneSegNet',
-+    img_backbone=dict(
-+        type='ResNet',
-+        depth=50,
-+        num_stages=4,
-+        out_indices=(1, 2, 3),
-+        frozen_stages=1,
-+        norm_cfg=dict(type='BN', requires_grad=False),
-+        norm_eval=True,
-+        style='pytorch',
-+        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
-+    img_neck=dict(
-+        type='FPN',
-+        in_channels=[512, 1024, 2048],
-+        out_channels=_dim_,
-+        start_level=0,
-+        add_extra_convs='on_output',
-+        num_outs=_num_levels_,
-+        relu_before_extra_convs=True),
-+    bev_constructor=dict(
-+        type='BEVFormerConstructer',
-+        num_feature_levels=_num_levels_,
-+        num_cams=num_cams,
-+        embed_dims=_dim_,
-+        rotate_prev_bev=True,
-+        use_shift=True,
-+        use_can_bus=True,
-+        pc_range=point_cloud_range,
-+        bev_h=bev_h_,
-+        bev_w=bev_w_,
-+        rotate_center=[bev_h_//2, bev_w_//2],
-+        encoder=dict(
-+            type='BEVFormerEncoder',
-+            num_layers=3,
-+            pc_range=point_cloud_range,
-+            num_points_in_pillar=4,
-+            return_intermediate=False,
-+            transformerlayers=dict(
-+                type='BEVFormerLayer',
-+                attn_cfgs=[
-+                    dict(
-+                        type='TemporalSelfAttention',
-+                        embed_dims=_dim_,
-+                        num_levels=1),
-+                    dict(
-+                        type='SpatialCrossAttention',
-+                        embed_dims=_dim_,
-+                        num_cams=num_cams,
-+                        pc_range=point_cloud_range,
-+                        deformable_attention=dict(
-+                            type='MSDeformableAttention3D',
-+                            embed_dims=_dim_,
-+                            num_points=8,
-+                            num_levels=_num_levels_)
-+                    )
-+                ],
-+                ffn_cfgs=_ffn_cfg_,
-+                operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
-+                                 'ffn', 'norm'))),
-+        positional_encoding=dict(
-+            type='LearnedPositionalEncoding',
-+            num_feats=_pos_dim_,
-+            row_num_embed=bev_h_,
-+            col_num_embed=bev_w_),
-+    ),
-+    lane_head=dict(
-+        type='LaneSegHead',
-+        num_classes=class_nums,
-+        num_lane_type_classes=3,
-+        in_channels=_dim_,
-+        num_query=200,
-+        bev_h=bev_h_,
-+        bev_w=bev_w_,
-+        pc_range=point_cloud_range,
-+        pts_dim=pts_dim,
-+        sync_cls_avg_factor=False,
-+        with_box_refine=True,
-+        code_size=code_size,
-+        code_weights= [1.0 for i in range(code_size)],
-+        transformer=dict(
-+            type='LaneSegNetTransformer',
-+            embed_dims=_dim_,
-+            points_num=method_para['n_points'],
-+            pts_dim=pts_dim,
-+            decoder=dict(
-+                type='LaneSegNetDecoder',
-+                num_layers=6,
-+                return_intermediate=True,
-+                pc_range=point_cloud_range,
-+                pts_dim=pts_dim,
-+                transformerlayers=dict(
-+                    type='CustomDetrTransformerDecoderLayer',
-+                    attn_cfgs=[
-+                        dict(
-+                            type='MultiheadAttention',
-+                            embed_dims=_dim_,
-+                            num_heads=8,
-+                            dropout=0.1),
-+                         dict(
-+                            type='LaneAttention',
-+                            embed_dims=_dim_,
-+                            num_heads=8,
-+                            num_points=32,
-+                            num_levels=1),
-+                    ],
-+                    ffn_cfgs=_ffn_cfg_,
-+                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
-+                                     'ffn', 'norm')))),
-+        bbox_coder=dict(type='LaneSegmentPseudoCoder'),
-+        loss_cls=dict(
-+            type='FocalLoss',
-+            use_sigmoid=True,
-+            gamma=2.0,
-+            alpha=0.25,
-+            loss_weight=1.5),
-+        loss_bbox=dict(type='L1Loss', loss_weight=0.025),
-+        loss_lane_type=dict(
-+            type='CrossEntropyLoss',
-+            use_sigmoid=True,
-+            loss_weight=0.1),
-+        loss_mask=dict(
-+            type='CrossEntropyLoss',
-+            use_sigmoid=True,
-+            reduction='mean',
-+            loss_weight=3.0),
-+        loss_dice=dict(
-+            type='DiceLoss',
-+            use_sigmoid=True,
-+            activate=True,
-+            reduction='mean',
-+            naive_dice=True,
-+            eps=1.0,
-+            loss_weight=3.0)),
-+    lclc_head=dict(
-+        type='RelationshipHead',
-+        in_channels_o1=_dim_,
-+        in_channels_o2=_dim_,
-+        shared_param=False,
-+        loss_rel=dict(
-+            type='FocalLoss',
-+            use_sigmoid=True,
-+            gamma=2.0,
-+            alpha=0.25,
-+            loss_weight=5)),
-+    # model training and testing settings
-+    train_cfg=dict(
-+        lane=dict(
-+            assigner=dict(
-+                type='LaneSegmentHungarianAssigner3D',
-+                cls_cost=dict(type='FocalLossCost', weight=1.5),
-+                reg_cost=dict(type='LaneL1Cost', weight=0.025),
-+                mask_cost=dict(type='CrossEntropyLossCost', weight=3.0, use_sigmoid=True),
-+                dice_cost=dict(type='DiceCost', weight=3.0, pred_act=False, eps=1.0),
-+                pc_range=point_cloud_range))))
-+
-+train_pipeline = [
-+    dict(type='CustomLoadMultiViewImageFromFiles', to_float32=True),
-+    dict(type='LoadAnnotations3DLaneSegment',
-+         with_lane_3d=True, with_lane_label_3d=True, with_lane_adj=True, with_lane_type=True,
-+         with_bbox=False, with_label=False, with_lane_lste_adj=False),
-+    dict(type='PhotoMetricDistortionMultiViewImage'),
-+    dict(type='CropFrontViewImageForAv2'),
-+    dict(type='RandomScaleImageMultiViewImage', scales=[0.5]),
-+    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-+    dict(type='PadMultiViewImageSame2Max', size_divisor=32),
-+    dict(type='GridMaskMultiViewImage'),
-+    dict(type='LaneSegmentParameterize3D', method=para_method, method_para=method_para),
-+    dict(type='GenerateLaneSegmentMask', points_num=method_para['n_points'], bev_h=bev_h_, bev_w=bev_w_),
-+    dict(type='CustomFormatBundle3DLane', class_names=class_names),
-+    dict(type='CustomCollect3D', keys=[
-+        'img', 'gt_lanes_3d', 'gt_lane_labels_3d', 'gt_lane_adj',
-+        'gt_instance_masks', 'gt_lane_left_type', 'gt_lane_right_type'])
-+]
-+
-+test_pipeline = [
-+    dict(type='CustomLoadMultiViewImageFromFiles', to_float32=True),
-+    dict(type='CropFrontViewImageForAv2'),
-+    dict(type='RandomScaleImageMultiViewImage', scales=[0.5]),
-+    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-+    dict(type='PadMultiViewImageSame2Max', size_divisor=32),
-+    dict(type='CustomFormatBundle3DLane', class_names=class_names),
-+    dict(type='CustomCollect3D', keys=['img'])
-+]
-+
-+data = dict(
-+    samples_per_gpu=1,
-+    workers_per_gpu=8,
-+    train=dict(
-+        type=dataset_type,
-+        data_root=data_root,
-+        ann_file=data_root + 'data_dict_subset_A_train_lanesegnet.pkl',
-+        pipeline=train_pipeline,
-+        classes=class_names,
-+        modality=input_modality,
-+        split='train',
-+        filter_map_change=True,
-+        points_num=method_para['n_points'],
-+        test_mode=False),
-+    val=dict(
-+        type=dataset_type,
-+        data_root=data_root,
-+        ann_file=data_root + 'data_dict_subset_A_val_lanesegnet.pkl',
-+        pipeline=test_pipeline,
-+        classes=class_names,
-+        modality=input_modality,
-+        split='val',
-+        points_num=method_para['n_points'],
-+        test_mode=True),
-+    test=dict(
-+        type=dataset_type,
-+        data_root=data_root,
-+        ann_file=data_root + 'data_dict_subset_A_val_lanesegnet.pkl',
-+        pipeline=test_pipeline,
-+        classes=class_names,
-+        modality=input_modality,
-+        split='val',
-+        points_num=method_para['n_points'],
-+        test_mode=True)
-+)
-+
-+optimizer = dict(
-+    type='NpuFusedAdamW',
-+    lr=2e-4,
-+    paramwise_cfg=dict(
-+        custom_keys={
-+            'img_backbone': dict(lr_mult=0.1),
-+        }),
-+    weight_decay=0.01)
-+
-+optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
-+# learning policy
-+lr_config = dict(
-+    policy='CosineAnnealing',
-+    warmup='linear',
-+    warmup_iters=500,
-+    warmup_ratio=1.0 / 3,
-+    min_lr_ratio=1e-3)
-+total_epochs = 1
-+evaluation = dict(interval=100, pipeline=test_pipeline)
-+
-+runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
-+log_config = dict(
-+    interval=50,
-+    hooks=[
-+        dict(type='TextLoggerHook'),
-+        dict(type='TensorboardLoggerHook')
-+    ])
-+
-+checkpoint_config = dict(interval=1, max_keep_ckpts=1)
-+
-+dist_params = dict(backend='nccl')
-+log_level = 'INFO'
-+work_dir = None
-+load_from = None
-+resume_from = None
-+workflow = [('train', 1)]
-+
-+# NOTE: `auto_scale_lr` is for automatically scaling LR,
-+# base_batch_size = (8 GPUs) x (1 samples per GPU)
-+auto_scale_lr = dict(base_batch_size=8)
+         num_bboxes = lanes_pred.size(0)
+         # assigner and sampler
+         assign_result = self.assigner.assign(lanes_pred, masks_pred, cls_score, gt_lanes, 
+                                              gt_instance_masks, gt_labels)
+-
++        gt_labels = gt_labels.float()
++        gt_instance_masks = gt_instance_masks.float()
+         sampling_result = self.sampler.sample(assign_result, lanes_pred, gt_lanes)
+ 
+         pos_inds = sampling_result.pos_inds
+@@ -524,26 +538,28 @@ class LaneSegHead(AnchorFreeHead):
+         # Compute the average number of gt boxes accross all gpus, for
+         # normalization purposes
+         num_total_pos = loss_cls.new_tensor([num_total_pos])
+-        num_total_pos = torch.clamp(reduce_mean(num_total_pos), min=1).item()
++        # num_total_pos = torch.clamp(reduce_mean(num_total_pos), min=1).item()
++        num_total_pos = torch.clamp(reduce_mean(num_total_pos), min=1)
+ 
+         # regression L1 loss
+         lanes_preds = lanes_preds.reshape(-1, lanes_preds.size(-1))
+ 
+         isnotnan = torch.isfinite(bbox_targets).all(dim=-1)
+         bbox_weights = bbox_weights * self.code_weights
+-
+-        loss_bbox = self.loss_bbox(
+-            lanes_preds[isnotnan, :self.code_size], 
+-            bbox_targets[isnotnan, :self.code_size],
+-            bbox_weights[isnotnan, :self.code_size],
+-            avg_factor=num_total_pos)
++        if self.code_size == lanes_preds.size(1):
++            loss_bbox = self.loss_bbox(
++                lanes_preds[isnotnan], 
++                bbox_targets[isnotnan],
++                bbox_weights[isnotnan],
++                avg_factor=num_total_pos)
++        else:
++            loss_bbox = self.loss_bbox(
++                lanes_preds[isnotnan, :self.code_size], 
++                bbox_targets[isnotnan, :self.code_size],
++                bbox_weights[isnotnan, :self.code_size],
++                avg_factor=num_total_pos)
+ 
+         # segmentation part
+-        cls_scores = cls_scores.flatten(0,1)
+-        num_total_masks = reduce_mean(cls_scores.new_tensor([num_total_pos]))
+-        num_total_masks = max(num_total_masks, 1)
+-
+-        # extract positive ones, shape (batch_size, num_queries, h, w) -> (num_total_gts, h, w)
+         mask_preds = masks_preds[mask_weights > 0]
+ 
+         if mask_targets.shape[0] == 0:
+@@ -553,7 +569,7 @@ class LaneSegHead(AnchorFreeHead):
+ 
+         # dice loss
+         loss_dice = self.loss_dice(
+-            mask_preds, mask_targets, avg_factor=num_total_masks
++            mask_preds, mask_targets, avg_factor=num_total_pos
+         )
+ 
+         # mask loss (point based, deprecated)
+@@ -569,7 +585,7 @@ class LaneSegHead(AnchorFreeHead):
+             mask_targets = mask_targets.reshape(mask_preds.shape).bool()
+ 
+         loss_mask = self.loss_mask(
+-            mask_preds, mask_targets, avg_factor=num_total_masks * h * w
++            mask_preds, mask_targets, avg_factor=num_total_pos * h * w
+         )
+ 
+         if digit_version(TORCH_VERSION) >= digit_version('1.8'):
 diff --git a/projects/lanesegnet/models/modules/lane_attention.py b/projects/lanesegnet/models/modules/lane_attention.py
-index 0996561..20b9d67 100644
+index 0996561..2f63c3c 100644
 --- a/projects/lanesegnet/models/modules/lane_attention.py
 +++ b/projects/lanesegnet/models/modules/lane_attention.py
 @@ -16,6 +16,7 @@ from mmcv.cnn.bricks.registry import ATTENTION
@@ -424,6 +351,15 @@ index 0996561..20b9d67 100644
  
  
  @ATTENTION.register_module()
+@@ -116,7 +117,7 @@ class LaneAttention(BaseModule):
+ 
+         bs, num_query, _ = query.shape
+         bs, num_value, _ = value.shape
+-        assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
++        # assert (spatial_shapes[:, 0] * spatial_shapes[:, 1]).sum() == num_value
+ 
+         value = self.value_proj(value)
+         if key_padding_mask is not None:
 @@ -145,15 +146,8 @@ class LaneAttention(BaseModule):
                  f'Last dim of reference_points must be'
                  f' 2, but get {reference_points.shape[-1]} instead.')
@@ -442,26 +378,66 @@ index 0996561..20b9d67 100644
          else:
              output = multi_scale_deformable_attn_pytorch(
                  value, spatial_shapes, sampling_locations, attention_weights)
-diff --git a/tools/dist_train_single_epoch.sh b/tools/dist_train_single_epoch.sh
-new file mode 100755
-index 0000000..fa16c79
---- /dev/null
-+++ b/tools/dist_train_single_epoch.sh
-@@ -0,0 +1,14 @@
-+#!/usr/bin/env bash
-+set -x
+diff --git a/projects/lanesegnet/models/modules/laneseg_decoder.py b/projects/lanesegnet/models/modules/laneseg_decoder.py
+index b7c7351..2e11a16 100644
+--- a/projects/lanesegnet/models/modules/laneseg_decoder.py
++++ b/projects/lanesegnet/models/modules/laneseg_decoder.py
+@@ -10,6 +10,7 @@ from mmcv.cnn.bricks.transformer import TransformerLayerSequence, BaseTransforme
+ from mmdet.models.utils.transformer import inverse_sigmoid
+ 
+ 
++# TRANSFORMER_LAYER_SEQUENCE > 识别为mmcv的一个模块
+ @TRANSFORMER_LAYER_SEQUENCE.register_module()
+ class LaneSegNetDecoder(TransformerLayerSequence):
+ 
+@@ -26,6 +27,8 @@ class LaneSegNetDecoder(TransformerLayerSequence):
+         self.pc_range = pc_range
+         self.sample_idx = sample_idx
+         self.pts_dim = pts_dim
++        self.pc_range_diff_tensor = torch.tensor(list(map(lambda x, y: x - y, pc_range[self.pts_dim:], pc_range[:self.pts_dim]))).cuda()
++        self.pc_range_head_tensor = torch.tensor(pc_range[:self.pts_dim]).cuda()
+ 
+     def forward(self,
+                 query,
+@@ -40,6 +43,7 @@ class LaneSegNetDecoder(TransformerLayerSequence):
+         intermediate_reference_points = []
+         lane_ref_points = reference_points[:, :, self.sample_idx * 2, :]
+         for lid, layer in enumerate(self.layers):
++            # print('layer'*10, layer)
+             # BS NUM_QUERY NUM_LEVEL NUM_REFPTS 3
+             reference_points_input = lane_ref_points[..., :2].unsqueeze(2)
+             output = layer(
+@@ -65,10 +69,12 @@ class LaneSegNetDecoder(TransformerLayerSequence):
+                 reference_points = tmp.detach()
+ 
+                 coord = tmp.clone()
+-                coord[..., 0] = coord[..., 0] * (self.pc_range[3] - self.pc_range[0]) + self.pc_range[0]
+-                coord[..., 1] = coord[..., 1] * (self.pc_range[4] - self.pc_range[1]) + self.pc_range[1]
 +
-+timestamp=`date +"%y%m%d.%H%M%S"`
-+
-+WORK_DIR=work_dirs/lanesegnet
-+CONFIG=projects/configs/lanesegnet_r50_8x1_24e_olv2_subset_A_single_epoch.py
-+
-+GPUS=$1
-+PORT=${PORT:-28510}
-+
-+python -m torch.distributed.run --nproc_per_node=$GPUS --master_port=$PORT \
-+    tools/train.py $CONFIG --launcher pytorch --work-dir ${WORK_DIR} ${@:2} \
-+    2>&1 | tee ${WORK_DIR}/train.${timestamp}.log
+                 if self.pts_dim == 3:
+-                    coord[..., 2] = coord[..., 2] * (self.pc_range[5] - self.pc_range[2]) + self.pc_range[2]
++                    coord = coord * self.pc_range_diff_tensor + self.pc_range_head_tensor
++                else:
++                    coord[..., 0] = coord[..., 0] * (self.pc_range[3] - self.pc_range[0]) + self.pc_range[0]
++                    coord[..., 1] = coord[..., 1] * (self.pc_range[4] - self.pc_range[1]) + self.pc_range[1]
+                 centerline = coord.view(bs, num_query, -1).contiguous()
+ 
+                 offset = reg_offset[lid](output)
+@@ -79,10 +85,11 @@ class LaneSegNetDecoder(TransformerLayerSequence):
+ 
+                 lane_ref_points = torch.cat([left_laneline, right_laneline], axis=-2).contiguous().detach()
+ 
+-                lane_ref_points[..., 0] = (lane_ref_points[..., 0] - self.pc_range[0]) / (self.pc_range[3] - self.pc_range[0])
+-                lane_ref_points[..., 1] = (lane_ref_points[..., 1] - self.pc_range[1]) / (self.pc_range[4] - self.pc_range[1])
+                 if self.pts_dim == 3:
+-                    lane_ref_points[..., 2] = (lane_ref_points[..., 2] - self.pc_range[2]) / (self.pc_range[5] - self.pc_range[2])
++                    lane_ref_points = (lane_ref_points -  self.pc_range_head_tensor) / self.pc_range_diff_tensor
++                else:
++                    lane_ref_points[..., 0] = (lane_ref_points[..., 0] - self.pc_range[0]) / (self.pc_range[3] - self.pc_range[0])
++                    lane_ref_points[..., 1] = (lane_ref_points[..., 1] - self.pc_range[1]) / (self.pc_range[4] - self.pc_range[1])
+ 
+             output = output.permute(1, 0, 2)
+             if self.return_intermediate:
 diff --git a/tools/train.py b/tools/train.py
 index 18684fb..784b715 100755
 --- a/tools/train.py
