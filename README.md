@@ -83,9 +83,10 @@ out, argmax = scatter_max(updates, indices, out)
 │  ├── op_host               
 │  ├── op_kernel                  
 │  └── CMakeLists.txt
+├── onnx_plugin                 # onnx框架适配层
 ├── mx_driving
 │  ├── __init__.py
-│  ├── csrc                     # 适配层
+│  ├── csrc                     # 加速库API适配层
 │  └── ...               
 ├── model_examples              # 自动驾驶模型示例
 │  └── BEVFormer                # BEVFormer模型示例
