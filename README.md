@@ -79,36 +79,16 @@ out, argmax = scatter_max(updates, indices, out)
 ## 目录结构及说明
 ```
 .
+├── kernels                     # 算子实现
+│  ├── op_host               
+│  ├── op_kernel                  
+│  └── CMakeLists.txt
 ├── mx_driving
 │  ├── __init__.py
-│  ├── common                   # 通用模块
-│  │  ├── __init__.py
-│  │  ├── CMakeLists.txt
-│  │  ├── components            # 通用组件
-│  │  └── ops                   # 通用算子
-│  ├── preprocess               # 数据预处理模块
-│  │  ├── __init__.py
-│  │  ├── CMakeLists.txt
-│  │  └── ops                   # 数据预处理算子
-│  ├── detection                # 目标检测模块
-│  │  ├── __init__.py
-│  │  ├── CMakeLists.txt
-│  │  └── ops                   # 目标检测算子
-│  ├── point                    # 点云模块
-│  │  ├── __init__.py
-│  │  ├── CMakeLists.txt
-│  │  └── ops                   # 点云算子
-│  ├── fused                    # 融合模块
-│  │  ├── __init__.py
-│  │  ├── CMakeLists.txt
-│  │  └── ops                   # 融合算子
-│  └── spconv                   # 稀疏卷积模块
-│     ├── __init__.py
-│     ├── CMakeLists.txt
-|     └── ops                   # 稀疏卷积算子
+│  ├── csrc                     # 适配层
+│  └── ...               
 ├── model_examples              # 自动驾驶模型示例
 │  └── BEVFormer                # BEVFormer模型示例
-├── bind                        # torch 绑定
 ├── ci                          # ci脚本
 ├── cmake                       # cmake脚本
 ├── CMakeLists.txt              # cmake配置文件
@@ -118,14 +98,13 @@ out, argmax = scatter_max(updates, indices, out)
 |  └── ...
 ├── include                     # 头文件
 ├── LICENSE                     # 开源协议
-├── MANIFEST.in                 # whl打包配置
 ├── OWNERS                      # 代码审查
 ├── README.md                   # 项目说明
 ├── requirements.txt            # 依赖
 ├── scripts                     # 工程脚本
 ├── setup.py                    # whl打包配置
-├── tests                       # 测试文件
-└── utils                       # 工具脚本
+└── tests                       # 测试文件
+
 ```
 ## 算子清单
 请参见[算子清单](./docs/api/README.md)。
