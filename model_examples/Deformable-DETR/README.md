@@ -1,7 +1,5 @@
 # Deformable DETR for PyTorch
 
-[toc]
-
 ## 简介
 
 - 论文原作者：Xizhou Zhu, Weijie Su, Lewei Lu, Bin Li, Xiaogang Wang, Jifeng Dai.
@@ -46,7 +44,8 @@ source {cann_root_dir}/set_env.sh
 
 2、创建 conda 环境并激活：
 ```
-conda create -n deformable_detr -python=3.9
+conda create -n deformable_detr python=3.9
+conda activate deformable_detr
 ```
 
 3、克隆代码仓到当前目录并使用 patch 文件
