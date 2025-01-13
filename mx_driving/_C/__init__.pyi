@@ -437,6 +437,13 @@ def diff_iou_rotated_2d(
     box1: torch.Tensor,
     box2: torch.Tensor
 ) -> torch.Tensor: ...
+def grid_sampler2d_v2(
+    input: torch.Tensor,
+    grid: torch.Tensor,
+    interpolation_mode: int,
+    padding_mode: int,
+    align_corners: bool,
+) -> torch.Tensor: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",

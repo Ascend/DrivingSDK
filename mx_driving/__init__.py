@@ -19,6 +19,7 @@ from .ops.furthest_point_sampling_with_dist import furthest_point_sample_with_di
 from .ops.fused_bias_leaky_relu import npu_fused_bias_leaky_relu
 from .ops.group_points import group_points
 from .ops.geometric_kernel_attention import geometric_kernel_attention
+from .ops.grid_sampler2d_v2 import grid_sampler2d_v2
 from .ops.hypot import hypot
 from .ops.knn import knn
 from .ops.modulated_deform_conv2d import ModulatedDeformConv2dFunction, modulated_deform_conv2d
@@ -77,6 +78,7 @@ __all__ = [
     "furthest_point_sample_with_dist",
     "npu_fused_bias_leaky_relu",
     "geometric_kernel_attention",
+    "grid_sampler2d_v2",
     "group_points",
     "hypot",
     "knn",

@@ -256,4 +256,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_gauss
 at::Tensor diff_iou_rotated_sort_vertices(const at::Tensor& vertices, const at::Tensor& mask,
     const at::Tensor& num_valid);
     
+at::Tensor grid_sampler2d_v2(const at::Tensor& input, const at::Tensor& grid, int64_t interpolation_mode,
+    int64_t padding_mode, bool align_corners);
 #endif // CSRC_FUNCTIONS_H_

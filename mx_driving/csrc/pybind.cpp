@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Huawei Technologies Co., Ltd
+// Copyright (c) 2024-2025 Huawei Technologies Co., Ltd
 // All rights reserved.
 //
 // Licensed under the BSD 3-Clause License  (the "License");
@@ -206,4 +206,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // diff_iou_rotated_sort_vertices
     m.def("diff_iou_rotated_sort_vertices", &diff_iou_rotated_sort_vertices);
+
+    // grid_sampler2d_v2
+    m.def("grid_sampler2d_v2", &grid_sampler2d_v2);
 }

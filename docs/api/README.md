@@ -23,6 +23,7 @@
     - [roi_align_rotated](./context/roi_align_rotated.md)
     - [border_align](./context/border_align.md)
     - [pixel_group](./context/pixel_group.md)
+    - [grid_sampler2d_v2](./context/grid_sampler2d_v2[beta].md)
 - 体素化
     - [voxelization](./context/voxelization.md)
     - [dynamic_scatter](./context/dynamic_scatter.md)
