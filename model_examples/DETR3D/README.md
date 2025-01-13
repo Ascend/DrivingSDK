@@ -74,56 +74,59 @@ code_path=model_examples/DETR3D
 
 0. 激活 CANN 环境
 
-   将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
+  将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
 
-   ```
-   source {cann_root_dir}/set_env.sh
-   ```
+  ```
+  source {cann_root_dir}/set_env.sh
+  ```
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
 2. 安装基础依赖
-   ```
-   pip install mmdet==2.28.0
-   pip install mmsegmentation==0.29.1
-   ```
+  ```
+  pip install mmsegmentation==0.29.1
+  ```
 
 3. 安装mmcv
 
-   在模型根目录下，克隆mmcv仓，并进入mmcv目录安装。
+  ```
+  git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+  cd mmcv
+  cp -f ../mmcv.patch ./
+  git apply --reject --whitespace=fix mmcv.patch
+  pip install -r requirements/runtime.txt
+  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+  ```
 
-   ```
-   git clone -b 1.x https://github.com/open-mmlab/mmcv.git
-   cd mmcv
-   cp -f ../mmcv.patch ./
-   git apply --reject --whitespace=fix mmcv.patch
-   pip install -r requirements/runtime.txt
-   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
-   ```
+4. 安装mmdet
 
-4. 安装mmdet3d
+  ```
+  git clone -b v2.28.0 https://github.com/open-mmlab/mmdetection.git
+  cd mmdetection3d
+  cp -f ../mmdet.patch ./
+  git apply --reject --whitespace=fix mmdet.patch
+  pip install -e .
+  ```
 
-   在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录安装。
+5. 准备模型源码并安装mmdet3d
 
-   ```
-   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
-   cd mmdetection3d
-   cp -f ../mmdet3d.patch ./
-   git apply --reject --whitespace=fix mmdet3d.patch
-   pip install -r requirements/runtime.txt
-   pip install -e .
-   ```
+  ```
+  git clone https://github.com/WangYueFt/detr3d
+  cp -f detr3d.patch detr3d
+  cd detr3d
+  git checkout 34a47673011fe13593a3e594a376668acca8bddb
+  git apply --reject --whitespace=fix detr3d.patch
+  pip install -r requirements.txt
+  git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
+  cp -f ../mmdet3d.patch mmdetection3d
+  cd mmdetection3d
+  pip install -r requirements/runtime.txt
+  pip install -e .
+  ```
 
-5. 设置DETR3D
-    ```
-   git clone https://github.com/WangYueFt/detr3d
-   cp -f model_examples/DETR3D/detr3d.patch detr3d
-   cd detr3d
-   git checkout 34a47673011fe13593a3e594a376668acca8bddb
-   git apply --reject --whitespace=fix detr3d.patch
-   pip install -r requirements.txt
-   ```
+6. 安装 mxDriving 加速库
 
+  安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)
 
 ### 模型数据准备
 
@@ -164,8 +167,8 @@ code_path=model_examples/DETR3D
 - 生成模型训练数据
 
 ```
-cd /path/to/detr3d
-python3 ./tools/create_data.py nuscenes --root-path=./data/nuscenes --out-dir=./data/nuscenes --extra-tag nuscenes
+cd /path/to/detr3d/
+python3 mmdetection3d/tools/create_data.py nuscenes --root-path=./data/nuscenes --out-dir=./data/nuscenes --extra-tag nuscenes
 ```
 
 ## 快速开始
@@ -196,14 +199,15 @@ cd model_examples/DETR3D
 
 ### 训练结果
 
-|     芯片      | 卡数 | global batch size | epoch | mAP<sup>avg</sup>@EASY | mAP<sup>avg</sup>@HARD | 性能-单步迭代耗时(s) |
+|     芯片      | 卡数 | global batch size | epoch | mAP | NDS | FPS |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: |--------------|
-|     竞品A     |  8p  |         1         |  24   |         0.3469          |         0.4223          |       0.801      |
-| Atlas 800T A2 |  8p  |         1         |  24   |         0.3464          |         0.4200          |       1.201      |
+|     竞品A     |  8p  |         1         |  24   |         0.3494          |         0.4222          |       13.16      |
+| Atlas 800T A2 |  8p  |         1         |  24   |         0.3521          |         0.4209          |       9.65    |
 
 # 变更说明
 
 2024.12.30：首次发布
+2025.1.13: 性能优化
 
 # FAQ
 
