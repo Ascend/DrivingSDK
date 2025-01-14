@@ -93,7 +93,7 @@ echo "end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
 e2e_time=$(( $end_time - $start_time ))
 
 # 从 log 中获取性能
-avg_time=`grep "loss=" ${output_path_dir}/train_8p_full.log | tail -n 1 | grep -oP "[0-9]+\.[0-9]+it/s" | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
+avg_time=`sed 's/\r/\n/g' ${output_path_dir}/train_8p_full.log | grep "loss=" | tail -n 200 | grep -oP "[0-9]+\.[0-9]+it/s" | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
 # 从 log 中获取精度
 FDE=`grep "FDE:" ${output_path_dir}/train_8p_full.log | awk -F " " '{print $2}'| awk 'END {print}'`
 MR=`grep "FDE:" ${output_path_dir}/train_8p_full.log | awk -F ":" '{print $NF}'| awk 'END {print}'`

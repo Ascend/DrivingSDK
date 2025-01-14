@@ -121,10 +121,10 @@ bash test/train_8p_performance.sh --data_path='data/train' --output_path='argove
 
 ### 训练结果：
 
-| 芯片          | 卡数 | epoch | FDE | FPS  |
+| 芯片          | 卡数 | epoch | FDE | it/s  |
 | ------------- | ---- | ----- | ------------------ | ---- |
-| 竞品A         | 8p   | 16    | 5.158              | 172   |
-| Atlas 800T A2 | 8p   | 50    | 5.159              | 120   |
+| 竞品A         | 8p   | 16    | 5.158              | 3.712   |
+| Atlas 800T A2 | 8p   | 16    | 5.007              | 1.989   |
 
 ## 变更说明
 
