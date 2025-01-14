@@ -1,0 +1,34 @@
+diff --git a/mmcv/ops/multi_scale_deform_attn.py b/mmcv/ops/multi_scale_deform_attn.py
+index 92759a1d..25d07c36 100644
+--- a/mmcv/ops/multi_scale_deform_attn.py
++++ b/mmcv/ops/multi_scale_deform_attn.py
+@@ -7,6 +7,7 @@ import mmengine
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
++import mx_driving
+ from mmengine.model import BaseModule, constant_init, xavier_init
+ from mmengine.registry import MODELS
+ from mmengine.utils import deprecated_api_warning
+@@ -366,9 +367,7 @@ class MultiScaleDeformableAttention(BaseModule):
+         if ((IS_CUDA_AVAILABLE and value.is_cuda)
+                 or (IS_MLU_AVAILABLE and value.is_mlu)
+                 or (IS_NPU_AVAILABLE and value.device.type == 'npu')):
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = mx_driving.multi_scale_deformable_attn(value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/mmcv/version.py b/mmcv/version.py
+index bd4cdb13..a9f3ba40 100644
+--- a/mmcv/version.py
++++ b/mmcv/version.py
+@@ -1,5 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
+-__version__ = '2.2.0'
++__version__ = '2.1.0'
+ 
+ 
+ def parse_version_info(version_str: str, length: int = 4) -> tuple:

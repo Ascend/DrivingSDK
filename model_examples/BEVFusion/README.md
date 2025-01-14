@@ -79,7 +79,7 @@ BEVFusion 是一个高效且通用的多任务多传感器融合框架，它在�
 
 ## 准备数据集
 
-1. 用户需自行下载 nuScenes 数据集，放在 mmdetection3d 目录下，或者自行构建软连接，结构如下：
+1. 用户需自行下载 nuScenes 数据集，放在 mmdetection3d 目录下，或者自行构建软链接，结构如下：
 
    ```
    data

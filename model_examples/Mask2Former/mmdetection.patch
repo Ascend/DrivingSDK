@@ -1,0 +1,20 @@
+diff --git a/mmdet/models/task_modules/samplers/mask_pseudo_sampler.py b/mmdet/models/task_modules/samplers/mask_pseudo_sampler.py
+index 307dd5d1..5270b80e 100644
+--- a/mmdet/models/task_modules/samplers/mask_pseudo_sampler.py
++++ b/mmdet/models/task_modules/samplers/mask_pseudo_sampler.py
+@@ -44,10 +44,13 @@ class MaskPseudoSampler(BaseSampler):
+         """
+         pred_masks = pred_instances.masks
+         gt_masks = gt_instances.masks
++
+         pos_inds = torch.nonzero(
+-            assign_result.gt_inds > 0, as_tuple=False).squeeze(-1).unique()
++            assign_result.gt_inds > 0, as_tuple=False).squeeze(-1)
++
+         neg_inds = torch.nonzero(
+-            assign_result.gt_inds == 0, as_tuple=False).squeeze(-1).unique()
++            assign_result.gt_inds == 0, as_tuple=False).squeeze(-1)
++
+         gt_flags = pred_masks.new_zeros(pred_masks.shape[0], dtype=torch.uint8)
+         sampling_result = MaskSamplingResult(
+             pos_inds=pos_inds,

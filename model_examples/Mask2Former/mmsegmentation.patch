@@ -1,0 +1,218 @@
+diff --git a/.gitignore b/.gitignore
+index 787d13ec..f5baf17f 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -118,3 +118,8 @@ mmseg/.mim
+ 
+ # Pytorch
+ *.pth
++
++# Npu
++kernel_meta/*
++fusion_result.json
++*.patch
+diff --git a/configs/_base_/datasets/cityscapes.py b/configs/_base_/datasets/cityscapes.py
+index b63a4cdf..cdb1ba2c 100644
+--- a/configs/_base_/datasets/cityscapes.py
++++ b/configs/_base_/datasets/cityscapes.py
+@@ -43,6 +43,7 @@ train_dataloader = dict(
+     batch_size=2,
+     num_workers=2,
+     persistent_workers=True,
++    pin_memory=True,
+     sampler=dict(type='InfiniteSampler', shuffle=True),
+     dataset=dict(
+         type=dataset_type,
+diff --git a/configs/mask2former/mask2former_r50_8xb2-90k_cityscapes-512x1024.py b/configs/mask2former/mask2former_r50_8xb2-90k_cityscapes-512x1024.py
+index d2211b66..98824014 100644
+--- a/configs/mask2former/mask2former_r50_8xb2-90k_cityscapes-512x1024.py
++++ b/configs/mask2former/mask2former_r50_8xb2-90k_cityscapes-512x1024.py
+@@ -112,7 +112,7 @@ model = dict(
+             eps=1.0,
+             loss_weight=5.0),
+         train_cfg=dict(
+-            num_points=12544,
++            num_points=3136,
+             oversample_ratio=3.0,
+             importance_sample_ratio=0.75,
+             assigner=dict(
+@@ -152,7 +152,7 @@ train_dataloader = dict(dataset=dict(pipeline=train_pipeline))
+ # optimizer
+ embed_multi = dict(lr_mult=1.0, decay_mult=0.0)
+ optimizer = dict(
+-    type='AdamW', lr=0.0001, weight_decay=0.05, eps=1e-8, betas=(0.9, 0.999))
++    type='NpuFusedAdamW', lr=0.0001, weight_decay=0.05, eps=1e-8, betas=(0.9, 0.999))
+ optim_wrapper = dict(
+     type='OptimWrapper',
+     optimizer=optimizer,
+diff --git a/mmseg/models/backbones/swin.py b/mmseg/models/backbones/swin.py
+index 67b28a96..fdb9aaba 100644
+--- a/mmseg/models/backbones/swin.py
++++ b/mmseg/models/backbones/swin.py
+@@ -4,9 +4,12 @@ from collections import OrderedDict
+ from copy import deepcopy
+ 
+ import torch
++
+ import torch.nn as nn
+ import torch.nn.functional as F
+ import torch.utils.checkpoint as cp
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from mmcv.cnn import build_norm_layer
+ from mmcv.cnn.bricks.transformer import FFN, build_dropout
+ from mmengine.logging import print_log
+@@ -20,6 +23,25 @@ from mmseg.registry import MODELS
+ from ..utils.embed import PatchEmbed, PatchMerging
+ 
+ 
++class MatmulApply(torch.autograd.Function):
++
++    @staticmethod
++    def forward(ctx, self, mat2):
++        ctx.save_for_backward(self, mat2)
++        result = torch.matmul(self, mat2.transpose(-2, -1))
++        return result
++
++    @staticmethod
++    def backward(ctx, grad):
++        self, mat2 = ctx.saved_tensors
++        self_grad = torch_npu.npu_bmmV2(grad, mat2, [])
++        mat2_grad = torch_npu.npu_bmmV2(grad.transpose(-2, -1), self, [])
++        return self_grad, mat2_grad
++
++
++matmul_transpose = MatmulApply.apply
++
++
+ class WindowMSA(BaseModule):
+     """Window based multi-head self-attention (W-MSA) module with relative
+     position bias.
+@@ -72,12 +94,23 @@ class WindowMSA(BaseModule):
+         self.attn_drop = nn.Dropout(attn_drop_rate)
+         self.proj = nn.Linear(embed_dims, embed_dims)
+         self.proj_drop = nn.Dropout(proj_drop_rate)
+-
+         self.softmax = nn.Softmax(dim=-1)
+ 
+     def init_weights(self):
+         trunc_normal_(self.relative_position_bias_table, std=0.02)
+ 
++    def bmm_replace(self, q, k):
++        B, num_heads, N, D1 = q.shape
++        B = int(B)
++        num_heads = int(num_heads)
++        N = int(N)
++        D1 = int(D1)
++        D2 = int(k.shape[3])
++        q_r = q.reshape(B * num_heads, N, D1)
++        k_r = k.reshape(B * num_heads, D1, D2)
++        attn = torch.bmm(q_r, k_r)
++        return attn.reshape(B, num_heads, N, D2)
++
+     def forward(self, x, mask=None):
+         """
+         Args:
+@@ -87,13 +120,13 @@ class WindowMSA(BaseModule):
+                 Wh*Ww, Wh*Ww), value should be between (-inf, 0].
+         """
+         B, N, C = x.shape
+-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads,
+-                                  C // self.num_heads).permute(2, 0, 3, 1, 4)
++        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4).contiguous()
++
+         # make torchscript happy (cannot use tensor as tuple)
+-        q, k, v = qkv[0], qkv[1], qkv[2]
++        q, k, v = qkv[0].clone(), qkv[1].clone(), qkv[2].clone()
+ 
+         q = q * self.scale
+-        attn = (q @ k.transpose(-2, -1))
++        attn = matmul_transpose(q, k)
+ 
+         relative_position_bias = self.relative_position_bias_table[
+             self.relative_position_index.view(-1)].view(
+@@ -112,8 +145,8 @@ class WindowMSA(BaseModule):
+         attn = self.softmax(attn)
+ 
+         attn = self.attn_drop(attn)
++        x = torch_npu.npu_confusion_transpose((attn @ v), [0, 2, 1, 3], (B, N, C), True)
+ 
+-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+         x = self.proj(x)
+         x = self.proj_drop(x)
+         return x
+@@ -253,6 +286,26 @@ class ShiftWindowMSA(BaseModule):
+         x = self.drop(x)
+         return x
+ 
++    def roll_re2(self, x, shifts):
++        if shifts > 0:
++            block_a = x[:, -shifts:, -shifts:, :]
++            block_b = x[:, 0:-shifts, -shifts:, :]
++            block_c = x[:, -shifts:, 0:-shifts, :]
++            block_d = x[:, :-shifts, :-shifts, :]
++            patch_ab = torch.cat((block_a, block_b), dim=1)
++            patch_cd = torch.cat((block_c, block_d), dim=1)
++            patch = torch.cat((patch_ab, patch_cd), dim=2)
++        else:
++            shifts = shifts * -1
++            block_a = x[:, :shifts, :shifts, :]
++            block_b = x[:, shifts:, :shifts, :]
++            block_c = x[:, :shifts, shifts:, :]
++            block_d = x[:, shifts:, shifts:, :]
++            patch_ba = torch.cat((block_b, block_a), dim=1)
++            patch_dc = torch.cat((block_d, block_c), dim=1)
++            patch = torch.cat((patch_dc, patch_ba), dim=2)
++        return patch
++
+     def window_reverse(self, windows, H, W):
+         """
+         Args:
+diff --git a/requirements.txt b/requirements.txt
+index 501bddc8..b37504ed 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,4 +1,18 @@
+--r requirements/optional.txt
+--r requirements/runtime.txt
+--r requirements/tests.txt
+--r requirements/multimodal.txt
++setuptools==65.7.0
++torchvision==0.16.0
++mmengine==0.10.3
++pyyaml
++attrs
++numpy==1.23.0
++decorator
++sympy
++cffi
++pathlib2
++psutil
++protobuf==3.20.3
++scipy
++requests
++absl-py
++regex
++ftfy
++prettytable
+diff --git a/tools/train.py b/tools/train.py
+index 10fdaa18..07151688 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -3,6 +3,9 @@ import argparse
+ import logging
+ import os
+ import os.path as osp
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ from mmengine.config import Config, DictAction
+ from mmengine.logging import print_log
+@@ -101,4 +104,6 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
++    torch_npu.npu.set_compile_mode(jit_compile=False)
++    torch.npu.config.allow_internal_format = False
+     main()
