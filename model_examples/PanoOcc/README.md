@@ -40,7 +40,7 @@
 - 适配昇腾 AI 处理器的实现：
 
     ```
-    url=https://gitee.com/ascend/mxDriving.git
+    url=https://gitee.com/ascend/DrivingSDK.git
     code_path=model_examples/PanoOcc
     ```
 
@@ -125,9 +125,9 @@
     pip install ipython==8.18.1
     ```
 
-5. 安装 mxDriving 加速库
+5. 安装 Driving SDK 加速库
 
-    安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)，安装后手动 source 环境变量。
+    安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)，安装后手动 source 环境变量。
 
 ### 准备数据集
 
