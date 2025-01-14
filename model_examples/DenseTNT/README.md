@@ -20,7 +20,7 @@
 
 - 原始代码仓库：https://github.com/Tsinghua-MARS-Lab/DenseTNT
 - commit id：a07c237ea883b320aedf5e505185589ec4f88d76
-- 昇腾适配代码仓库：https://gitee.com/ascend/mxDriving/tree/master/model_examples/DenseTNT
+- 昇腾适配代码仓库：https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT
 
 ## 支持的任务列表
 
@@ -64,8 +64,8 @@ git checkout a07c237ea883b320aedf5e505185589ec4f88d76
 
 4、克隆 Driving SDK 仓并使用 patch 文件
 ```
-git clone https://gitee.com/ascend/mxDriving.git -b master
-cd mxDriving/model_examples/DenseTNT
+git clone https://gitee.com/ascend/DrivingSDK.git -b master
+cd DrivingSDK/model_examples/DenseTNT
 cp -f DenseTNT_npu.patch ${path-to-DenseTNT}
 cp -rf test ${path-to-DenseTNT}
 cd ${path-to-DenseTNT}

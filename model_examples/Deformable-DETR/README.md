@@ -14,7 +14,7 @@
 
 - 原始代码仓库：https://github.com/fundamentalvision/Deformable-DETR
 - commit id：11169a60c33333af00a4849f1808023eba96a931
-- 昇腾适配代码仓库：https://gitee.com/ascend/mxDriving/tree/master/model_examples/Deformable-DETR
+- 昇腾适配代码仓库：https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR
 
 ## 支持的任务列表
 
@@ -50,8 +50,8 @@ conda activate deformable_detr
 
 3、克隆代码仓到当前目录并使用 patch 文件
 ```
-git clone https://gitee.com/ascend/mxDriving.git -b master
-cd mxDriving/model_examples/Deformable-DETR
+git clone https://gitee.com/ascend/DrivingSDK.git -b master
+cd DrivingSDK/model_examples/Deformable-DETR
 chmod -R 777 run.sh
 ./run.sh
 cp -rf test Deformable-DETR
@@ -59,8 +59,8 @@ cp -rf test Deformable-DETR
 如果需要将 Deformable-DETR 源码 clone 到用户自定义目录，执行下面的shell命令：
 ```
 your_path=/home/    # 替换为用户自定义目标目录地址
-git clone https://gitee.com/ascend/mxDriving.git -b master
-cd mxDriving/model_examples/Deformable-DETR
+git clone https://gitee.com/ascend/DrivingSDK.git -b master
+cd DrivingSDK/model_examples/Deformable-DETR
 chmod -R 777 run.sh
 git clone https://github.com/fundamentalvision/Deformable-DETR.git ${your_path}
 cp -f Deformable-DETR_npu.patch ${your_path}

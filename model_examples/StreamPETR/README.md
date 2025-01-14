@@ -49,7 +49,7 @@ commit_id=95f64702306ccdb7a78889578b2a55b5deb35b2a
 
 - 适配昇腾 AI 处理器的实现：
 ```
-url=https://gitee.com/ascend/mxDriving.git
+url=https://gitee.com/ascend/DrivingSDK.git
 code_path=model_examples/StreamPETR
 ```
 
@@ -99,14 +99,14 @@ conda activate streampetr
 
 3. 克隆代码仓并使用patch文件
 ```
-git clone https://gitee.com/ascend/mxDriving.git -b master
-cd mxDriving/model_examples/StreamPETR
+git clone https://gitee.com/ascend/DrivingSDK.git -b master
+cd DrivingSDK/model_examples/StreamPETR
 chmod -R 777 run.sh
 ./run.sh
 ```
 
 安装依赖：
-将mxDriving文件夹所在位置记作 mxDriving_root_dir，执行以下命令
+将Driving SDK文件夹所在位置记作 DrivingSDK_root_dir，执行以下命令
 ```
 cd StreamPETR/patch
 pip install -r requirements.txt
@@ -115,10 +115,10 @@ pip install -r requirements.txt
 4. 安装mmcv-full
 源码安装：
 ```
-cd {mxDriving_root_dir}/model_examples/StreamPETR
+cd {DrivingSDK_root_dir}/model_examples/StreamPETR
 git clone https://github.com/open-mmlab/mmcv.git -b 1.x
 cd mmcv
-cp -f {mxDriving_root_dir}/model_examples/StreamPETR/StreamPETR/patch/distributed.py mmcv/parallel/distributed.py
+cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/distributed.py mmcv/parallel/distributed.py
 source {cann_root_dir}/set_env.sh
 MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
 pip show mmcv-full
@@ -128,7 +128,7 @@ pip show mmcv-full
 源码安装：
 在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
 ```
-cd {mxDriving_root_dir}/model_examples/StreamPETR/StreamPETR
+cd {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR
 git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
 cd mmdetection3d
 ```
@@ -151,7 +151,7 @@ pip install -v -e .
 
 6. 加入test相关文件
 ```
-cd {mxDriving_root_dir}/model_examples/StreamPETR
+cd {DrivingSDK_root_dir}/model_examples/StreamPETR
 cp -rf test StreamPETR
 ```
 
@@ -219,7 +219,7 @@ StreamPETR
 
 单机8卡精度训练：
 ```
-cd {mxDriving_root_dir}/model_examples/StreamPETR/StreamPETR
+cd {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR
 source tools/env_model.sh
 bash test/train_8p.sh
 ```

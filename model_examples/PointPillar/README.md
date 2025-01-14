@@ -12,7 +12,7 @@ commit_id=255db8f02a8bd07211d2c91f54602d63c4c93356
 
 - 适配昇腾AI处理器的实现：
 ```
-url=https://gitee.com/ascend/mxDriving.git
+url=https://gitee.com/ascend/DrivingSDK.git
 code_path=model_examples/PointPillar
 ```
 
@@ -40,8 +40,8 @@ code_path=model_examples/PointPillar
   #### 0. 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/mxDriving.git
-    cd mxDriving/model_examples/PointPillar
+    git clone https://gitee.com/ascend/DrivingSDK.git
+    cd DrivingSDK/model_examples/PointPillar
     git clone https://github.com/open-mmlab/OpenPCDet.git
     cd OpenPCDet
     git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356

@@ -26,7 +26,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/mxDriving.git
+  url=https://gitee.com/ascend/DrivingSDK.git
   code_path=model_examples/FCOS
   ```
 

@@ -20,8 +20,8 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   code_path=PyTorch/contrib/cv/detection # ModelZoo-PyTorch
   ```
   ```
-  url=https://gitee.com/ascend/mxDriving.git
-  code_path=model_examples/CenterNet # mxDriving
+  url=https://gitee.com/ascend/DrivingSDK.git
+  code_path=model_examples/CenterNet # Driving SDK
   ```
 
 # 准备训练环境
@@ -44,10 +44,10 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
   
 - 安装依赖。
-  1. 首先下载mxDriving仓，进入CenterNet模型代码目录：
+  1. 首先下载Driving SDK仓，进入CenterNet模型代码目录：
   ```
-  git clone https://gitee.com/ascend/mxDriving.git -b master
-  cd mxDriving/model_examples/CenterNet
+  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  cd DrivingSDK/model_examples/CenterNet
   ```
 
   2. 源码安装 CenterNet
@@ -221,7 +221,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
 
 ## 变更
 
-2024.12.11: 迁移模型至mxDriving仓，优化DCNv2和NMS编译方式。
+2024.12.11: 迁移模型至Driving SDK仓，优化DCNv2和NMS编译方式。
 
 2023.02.14：更新readme，重新发布。
 

@@ -29,8 +29,8 @@ commit 699e5862ba2c173490b7e1f47b06184be8b7306e
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/mxDriving.git
-code_path=mxDriving/model_examples/LaneSegNet
+url=https://gitee.com/ascend/DrivingSDK.git
+code_path=DrivingSDK/model_examples/LaneSegNet
 ```
 
 - 安装依赖。
@@ -81,7 +81,7 @@ code_path=mxDriving/model_examples/LaneSegNet
 
 6. 安装Driving SDK加速库
   ```
-  git clone https://gitee.com/ascend/mxDriving.git -b master
+  git clone https://gitee.com/ascend/DrivingSDK.git -b master
   cd mx_driving
   bash ci/build.sh --python=3.8
   cd dist

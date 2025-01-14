@@ -1,8 +1,8 @@
-# mxDriving
+# Driving SDK
 
 # 简介
 
-mxDriving是基于昇腾NPU平台开发的适用于自动驾驶场景的算子和模型加速库，提供了一系列高性能的算子和模型加速接口，支持PyTorch框架。
+Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景的算子和模型加速库，提供了一系列高性能的算子和模型加速接口，支持PyTorch框架。
 
 
 # 安装
@@ -19,14 +19,14 @@ mxDriving是基于昇腾NPU平台开发的适用于自动驾驶场景的算子�
 ## 从源码安装
 1. 克隆原始仓。
 ```shell
-git clone https://gitee.com/ascend/mxDriving.git -b master
+git clone https://gitee.com/ascend/DrivingSDK.git -b master
 ```
-2. 编译mxDriving。
+2. 编译Driving SDK。
 > 注意：请在仓库根目录下执行编译命令
 ```shell
 bash ci/build.sh --python=3.8
 ```
-生成的whl包在`mx_driving/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
+生成的whl包在`DrivingSDK/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
 请参考[编译指导](docs/get_started/compile.md)获取更多编译细节。
 参数`--python`指定编译过程中使用的python版本，支持3.8及以上：
 
@@ -52,15 +52,15 @@ bash ci/build.sh --python=3.8
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.3.1|v2.3.1-6.0.rc3|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.4.0|v2.4.0-6.0.rc3|
 
-3. 安装mxDriving。
+3. 安装Driving SDK。
 ```shell+
-cd mx_driving/dist
+cd DrivingSDK/dist
 pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
 ```
 如需要保存安装日志，可在`pip3 install`命令后添加`--log <PATH>`参数，并对您指定的目录<PATH>做好权限控制。
 # 卸载
 Pytorch 框架训练环境的卸载请参考昇腾官方文档[Pytorch框架训练环境卸载](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00032.html)。
-mxDriving的卸载只需执行以下命令：
+Driving SDK的卸载只需执行以下命令：
 ```shell
 pip3 uninstall mx_driving
 ```
@@ -122,7 +122,7 @@ out, argmax = scatter_max(updates, indices, out)
 | MobileNetV2  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV2_for_PyTorch| 【Pass】 |
 | YoloV5  |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 | 【Pass】|
 | YoloV7  | https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov7_for_PyTorch  |【Pass】|
-| YoloV8  |https://gitee.com/ascend/mxDriving/tree/master/model_examples/Yolov8 |【Test】|
+| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |【Test】|
 | YoloV9  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/detection/YOLOV9_for_PyTorch |【Test】|
 | YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |【Pass】|
 | Stable-Diffusion|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/diffusion/diffusers0.18.1|【Pass】 |
@@ -134,7 +134,7 @@ out, argmax = scatter_max(updates, indices, out)
 | Mobilenetv3|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV3-Large_ID1784_for_PyTorch|【Pass】 |
 | Faster-Mask-RCNN|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/detection/Faster_Mask_RCNN_for_PyTorch|【Pass】 |
 | Swin-Transformer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/Swin-Transformer_for_PyTorch | 【Pass】|
-| CenterNet  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/CenterNet |【Pass】|
+| CenterNet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterNet |【Pass】|
 | EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch |【Pass】|
 | EfficientNetV2 | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |【Pass】|
 | SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 | 【Pass】|
@@ -143,27 +143,27 @@ out, argmax = scatter_max(updates, indices, out)
 | BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Pass】|
 | FCN |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |【Pass】|
 | PETR | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/PETR| 【Pass】|
-| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PointPillar | 【Pass】|
-| CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/CenterPoint |【Pass】|
-| BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |【Pass】|
-| SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |【Pass】|
-| GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner | 【Pass】|
-| StreamPETR  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/StreamPETR |【Test】|
-| BEVDet  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVDet |【Test】|
-| PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
-| TPVFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/TPVFormer |【Test】|
-| DETR | https://gitee.com/ascend/mxDriving/tree/master/model_examples/DETR |【Test】|
-| Deformable-DETR | https://gitee.com/ascend/mxDriving/tree/master/model_examples/Deformable-DETR |【Test】|
-| LaneSegNet | https://gitee.com/ascend/mxDriving/tree/master/model_examples/LaneSegNet |【Test】|
-| BEVFusion | https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFusion |【Test】|
-| FCOS-resnet | https://gitee.com/ascend/mxDriving/tree/master/model_examples/FCOS | 【Test】|
-| MapTR |https://gitee.com/ascend/mxDriving/tree/master/model_examples/MapTR| 【Test】|
-| UniAD | https://gitee.com/ascend/mxDriving/tree/master/model_examples/UniAD |【Test】|
-| PivotNet|https://gitee.com/ascend/mxDriving/tree/master/model_examples/PivotNet|【Test】|
-| CenterPoint(3D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/CenterPoint |【Test】|
-| LMDrive  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/LMDrive |【Test】|
-| DETR3D | https://gitee.com/ascend/mxDriving/tree/master/model_examples/DETR3D |【Test】|
-| DenseTNT | https://gitee.com/ascend/mxDriving/tree/master/model_examples/DenseTNT |【Test】|
+| PointPillar(2D)  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointPillar | 【Pass】|
+| CenterPoint(2D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |【Pass】|
+| BevFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFormer |【Pass】|
+| SurroundOcc  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc |【Pass】|
+| GameFormer-Planner  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner | 【Pass】|
+| StreamPETR  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/StreamPETR |【Test】|
+| BEVDet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet |【Test】|
+| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |【Test】|
+| TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |【Test】|
+| DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR |【Test】|
+| Deformable-DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR |【Test】|
+| LaneSegNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LaneSegNet |【Test】|
+| BEVFusion | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFusion |【Test】|
+| FCOS-resnet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS | 【Test】|
+| MapTR |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTR| 【Test】|
+| UniAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD |【Test】|
+| PivotNet|https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PivotNet|【Test】|
+| CenterPoint(3D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |【Test】|
+| LMDrive  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LMDrive |【Test】|
+| DETR3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR3D |【Test】|
+| DenseTNT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
@@ -175,7 +175,7 @@ out, argmax = scatter_max(updates, indices, out)
     ```shell
     echo 2 > /proc/sys/kernel/randomize_va_space
     ```
-2. 由于mxDriving需要用户自行编译，建议您对编译后生成的so文件开启`strip`, 又称**移除调试符号信息**, 开启方式如下：
+2. 由于Driving SDK需要用户自行编译，建议您对编译后生成的so文件开启`strip`, 又称**移除调试符号信息**, 开启方式如下：
     ```shell
     strip -s <so_file>
     ```
@@ -184,11 +184,11 @@ out, argmax = scatter_max(updates, indices, out)
     - mx_driving/packages/vendors/customize/op_proto/lib/linux/aarch64/libcust_opsproto_rt2.0.so
     - mx_driving/packages/vendors/customize/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64/libcust_opmaster_rt2.0.so
 ## 运行用户建议
-出于安全性及权限最小化角度考虑，不建议使用`root`等管理员类型账户使用mx_driving。
+出于安全性及权限最小化角度考虑，不建议使用`root`等管理员类型账户使用Driving SDK。
 
 ## 文件权限控制
-在使用mxDriving时，您可能会进行profiling、调试等操作，建议您对相关目录及文件做好权限控制，以保证文件安全。
-1. 建议您在使用mxDriving时，将umask调整为`0027`及以上，保障新增文件夹默认最高权限为`750`，文件默认最高权限为`640`。
+在使用Driving SDK时，您可能会进行profiling、调试等操作，建议您对相关目录及文件做好权限控制，以保证文件安全。
+1. 建议您在使用Driving SDK时，将umask调整为`0027`及以上，保障新增文件夹默认最高权限为`750`，文件默认最高权限为`640`。
 2. 建议您对个人数据、商业资产、源文件、训练过程中保存的各类文件等敏感内容做好权限管控，可参考下表设置安全权限。
 ### 文件权限参考
 
@@ -213,13 +213,13 @@ out, argmax = scatter_max(updates, indices, out)
 |  加解密接口、加解密脚本              |   500（r-x------）      |
 
 ## 构建安全声明
-在源码编译安装mxDriving时，需要您自行编译，编译过程中会生成一些中间文件，建议您在编译完成后，对中间文件做好权限控制，以保证文件安全。
+在源码编译安装Driving SDK时，需要您自行编译，编译过程中会生成一些中间文件，建议您在编译完成后，对中间文件做好权限控制，以保证文件安全。
 ## 运行安全声明
 1. 建议您结合运行环境资源状况编写对应训练脚本。若训练脚本与资源状况不匹配，如数据集加载内存大小超出内存容量限制、训练脚本在本地生成数据超过磁盘空间大小等情况，可能引发错误并导致进程意外退出。
-2. mxDriving在运行异常时(如输入校验异常（请参考api文档说明），环境变量配置错误，算子执行报错等)会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括通过设定算子同步执行、查看CANN日志、解析生成的Core Dump文件等方式。
+2. Driving SDK在运行异常时(如输入校验异常（请参考api文档说明），环境变量配置错误，算子执行报错等)会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括通过设定算子同步执行、查看CANN日志、解析生成的Core Dump文件等方式。
 ## 公网地址声明
 
-在mx_driving的配置文件和脚本中存在[公网地址](#公网地址)。
+在Driving SDK的配置文件和脚本中存在[公网地址](#公网地址)。
 
 ### 公网地址
 
@@ -265,27 +265,27 @@ out, argmax = scatter_max(updates, indices, out)
 |LaneSegNet|   [model_examples/LaneSegNet/public_address_statement.md](./model_examples/LaneSegNet/public_address_statement.md)|
 
 ## 公开接口声明
-参考[API清单](./docs/api/README.md)，mxDriving提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
+参考[API清单](./docs/api/README.md)，Driving SDK提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
 ## 通信安全加固
-mxDriving在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
+Driving SDK在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
 ## 通信矩阵
-mxDriving在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
+Driving SDK在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
 
 
 # 软件生命周期说明
 ## 分支维护策略
 
-mxDriving版本分支的维护阶段如下：
+Driving SDK版本分支的维护阶段如下：
 
 | **状态**            | **时间** | **说明**                                         |
 | ------------------- | -------- | ------------------------------------------------ |
 | 计划                | 1—3 个月 | 计划特性                                         |
 | 开发                | 3 个月   | 开发特性                                         |
-| 维护                | 6-12 个月| 合入所有已解决的问题并发布版本，针对不同的mxDriving版本采取不同的维护策略，常规版本和长期支持版本维护周期分别为6个月和12个月 |
+| 维护                | 6-12 个月| 合入所有已解决的问题并发布版本，针对不同的Driving SDK版本采取不同的维护策略，常规版本和长期支持版本维护周期分别为6个月和12个月 |
 | 无维护              | 0—3 个月 | 合入所有已解决的问题，无专职维护人员，无版本发布 |
 | 生命周期终止（EOL） | N/A      | 分支不再接受任何修改                             |
 
-## mxDriving版本维护策略
+## Driving SDK版本维护策略
 
-| **mxDriving版本** | **维护策略** | **当前状态** | **发布时间** | **后续状态** | **EOL日期** |
+| **Driving SDK版本** | **维护策略** | **当前状态** | **发布时间** | **后续状态** | **EOL日期** |
 |-----------|-----------|--------|------------|-----------------------|-----------|

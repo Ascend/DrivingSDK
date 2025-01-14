@@ -44,7 +44,7 @@ commit_id=3f334e499bae6c9e2f3ed06cf77ac6cbd22d0ba8
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/mxDriving.git
+url=https://gitee.com/ascend/DrivingSDK.git
 code_path=model_examples/PivotNet
 ```
 
@@ -99,9 +99,9 @@ code_path=model_examples/PivotNet
    python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
    ```
 
-4. 安装 mxDriving 加速库
+4. 安装 Driving SDK 加速库
 
-   安装方法参考[官方文档](https://gitee.com/ascend/mxDriving/wikis/mxDriving)。
+   安装方法参考[官方文档](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK)。
 
 
 5. 设置PivotNet

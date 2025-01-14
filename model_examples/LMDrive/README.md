@@ -114,7 +114,7 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
     python setup.py develop # if you have installed LAVIS before, please uninstall it
     ```
 
-- 安装mxDriving加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/mxDriving)。
+- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
 
 
 
@@ -146,10 +146,10 @@ LMDrive
 - 克隆代码仓并应用补丁。
 
 ```
-git clone https://gitee.com/ascend/mxDriving.git -b master
+git clone https://gitee.com/ascend/DrivingSDK.git -b master
 git clone github.com/opendilab/LMDrive
-cp -f {mxDriving_root_dir}/model_examples/LMDrive/npu.patch LMDrive
-cp -rf {mxDriving_root_dir}/model_examples/LMDrive/test LMDrive
+cp -f {DrivingSDK_root_dir}/model_examples/LMDrive/npu.patch LMDrive
+cp -rf {DrivingSDK_root_dir}/model_examples/LMDrive/test LMDrive
 cd LMDrive
 git checkout 43fc2e9a914623fd6eec954a94aeca2d3966e3db
 git apply --whitespace=fix npu.patch
