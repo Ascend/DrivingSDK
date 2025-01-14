@@ -38,7 +38,7 @@
 - 适配昇腾 AI 处理器的实现：
 
     ```
-    url=https://gitee.com/ascend/mxDriving.git
+    url=https://gitee.com/ascend/DrivingSDK.git
     code_path=model_examples/SurroundOcc 
     ```
 
@@ -70,8 +70,8 @@
 - 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/mxDriving.git -b branch_v6.0.0
-    cd mxDriving/model_examples/SurroundOcc
+    git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v6.0.0
+    cd DrivingSDK/model_examples/SurroundOcc
     git clone https://github.com/weiyithu/SurroundOcc.git
     # 因为github仓下载代码不稳定，已将原始代码上传到了个人仓，可使用以下命令下载
     # git clone https://gitee.com/zhangchenrui2/SurroundOcc.git  
@@ -114,7 +114,7 @@
     cd mmcv
     MMCV_WITH_OPS=1 pip install -e . -v
     ```
-- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/mxDriving)。
+- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
 
 - 在克隆的模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 

@@ -131,7 +131,7 @@
 
 5. 安装 Driving SDK 加速库
 
-    安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)
+    安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)
 
 ### 准备数据集
 

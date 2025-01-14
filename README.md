@@ -19,14 +19,14 @@ Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景的算子
 ## 从源码安装
 1. 克隆原始仓。
 ```shell
-git clone https://gitee.com/ascend/mxDriving.git -b branch_v6.0.0
+git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v6.0.0
 ```
 2. 编译Driving SDK。
 > 注意：请在仓库根目录下执行编译命令
 ```shell
 bash ci/build.sh --python=3.8
 ```
-生成的whl包在`mx_driving/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
+生成的whl包在`DrivingSDK/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl`。
 请参考[编译指导](docs/get_started/compile.md)获取更多编译细节。
 参数`--python`指定编译过程中使用的python版本，支持3.8及以上：
 
@@ -54,7 +54,7 @@ bash ci/build.sh --python=3.8
 
 3. 安装Driving SDK。
 ```shell+
-cd mx_driving/dist
+cd DrivingSDK/dist
 pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
 ```
 如需要保存安装日志，可在`pip3 install`命令后添加`--log <PATH>`参数，并对您指定的目录<PATH>做好权限控制。
@@ -79,7 +79,7 @@ out, argmax = scatter_max(updates, indices, out)
 ## 目录结构及说明
 ```
 .
-├── mx_driving
+├── DrivingSDK
 │  ├── __init__.py
 │  ├── common                   # 通用模块
 │  │  ├── __init__.py
@@ -138,7 +138,7 @@ out, argmax = scatter_max(updates, indices, out)
 |  Model   | 链接  | 认证 |
 |  :----:  |  :----  | :----  |
 | MatrixVT  | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/MatrixVT | 【Pass】 |
-| PointPillar(2D)  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet | 【Pass】|
+| PointPillar(2D)  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenPCDet | 【Pass】|
 | YoloV5  |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 | 【Pass】|
 | YoloV7  | https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov7_for_PyTorch  |【Pass】|
 | YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |【Pass】|
@@ -151,16 +151,16 @@ out, argmax = scatter_max(updates, indices, out)
 | EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch |【Pass】|
 | EfficientNetV2 | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |【Pass】|
 | SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 | 【Pass】|
-| CenterPoint(2D)  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/OpenPCDet |【Pass】|
-| BevFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/BEVFormer |【Pass】|
-| SurroundOcc  | https://gitee.com/ascend/mxDriving/tree/master/model_examples/SurroundOcc |【Pass】|
-| GameFormer-Planner  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/GameFormer-Planner | 【Pass】|
+| CenterPoint(2D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenPCDet |【Pass】|
+| BevFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFormer |【Pass】|
+| SurroundOcc  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc |【Pass】|
+| GameFormer-Planner  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner | 【Pass】|
 | U-net |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/UNet_for_PyTorch|【Pass】 |
 | FCN-res18  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |【Test】|
 | BEVDet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BEVDet_for_PyTorch |【Test】|
 | BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Test】|
-| PanoOcc  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/PanoOcc |【Test】|
-| TPVFormer  |  https://gitee.com/ascend/mxDriving/tree/master/model_examples/TPVFormer |【Test】|
+| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |【Test】|
+| TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品

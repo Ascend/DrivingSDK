@@ -36,7 +36,7 @@
 
 - 适配昇腾 AI 处理器的实现：
     ```
-    url=https://gitee.com/ascend/mxDriving.git
+    url=https://gitee.com/ascend/DrivingSDK.git
     code_path=model_examples/GameFormer-Planner
     ```
 
