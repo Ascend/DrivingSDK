@@ -2,6 +2,7 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  */
 #include "scatter_mean.h"
+#include "common.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
@@ -16,16 +17,6 @@ const uint64_t TILING_MODE_NO_TAIL_MULTIHEAD = 3;
 const uint64_t TILING_MODE_NO_TAIL = 2;
 const uint64_t TILING_MODE_NORMAL = 1;
 const uint64_t LEAST_LINE_EACH_TASK = 4;
-
-const uint64_t DATA_SIZE_2 = 2;
-const uint64_t DATA_SIZE_4 = 4;
-
-static map<ge::DataType, uint64_t> kDataSizeMap = {
-    {ge::DT_FLOAT16, DATA_SIZE_2},
-    {ge::DT_BF16, DATA_SIZE_2},
-    {ge::DT_FLOAT, DATA_SIZE_4},
-    {ge::DT_INT32, DATA_SIZE_4}
-};
 
 static uint64_t GetCeilInt(uint64_t value1, uint64_t value2)
 {

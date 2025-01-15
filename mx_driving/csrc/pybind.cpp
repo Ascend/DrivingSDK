@@ -207,6 +207,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // diff_iou_rotated_sort_vertices
     m.def("diff_iou_rotated_sort_vertices", &diff_iou_rotated_sort_vertices);
 
-    // grid_sampler2d_v2
-    m.def("grid_sampler2d_v2", &grid_sampler2d_v2);
+    // scatter_add
+    m.def("npu_scatter_add", &npu_scatter_add);
+
+    // scatter_add_grad
+    m.def("npu_scatter_add_grad", &npu_scatter_add_grad);
 }

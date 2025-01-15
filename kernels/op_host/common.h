@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
  */
 #ifndef COMMON_H
 #define COMMON_H
@@ -9,7 +9,14 @@
 #include "tiling/tiling_api.h"
 #include "register/tilingdata_base.h"
 
-inline uint32_t ceil_multiple(uint32_t num, uint32_t block)
+inline std::map<ge::DataType, uint64_t> kDataSizeMap = {
+    {ge::DT_FLOAT, sizeof(float)},
+    {ge::DT_INT32, sizeof(int32_t)},
+    {ge::DT_INT64, sizeof(int64_t)}
+};
+
+template<typename T>
+inline T ceil_multiple(T num, T block)
 {
     if (block == 0) {
         return 0;
@@ -17,7 +24,8 @@ inline uint32_t ceil_multiple(uint32_t num, uint32_t block)
     return (num + block - 1) / block;
 }
 
-inline uint32_t ceil_value(uint32_t num, uint32_t block)
+template<typename T>
+inline T ceil_value(T num, T block)
 {
     if (block == 0) {
         return 0;

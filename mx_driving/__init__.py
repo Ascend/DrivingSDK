@@ -44,6 +44,7 @@ from .ops.rotated_iou import npu_rotated_iou
 from .ops.rotated_overlaps import npu_rotated_overlaps
 from .ops.scatter_max import scatter_max
 from .ops.scatter_mean import scatter_mean
+from .ops.scatter_add import scatter_add
 from .ops.three_interpolate import three_interpolate
 from .ops.three_nn import three_nn
 from .ops.voxel_pooling_train import npu_voxel_pooling_train
