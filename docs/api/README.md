@@ -13,6 +13,7 @@
     - [furthest_point_sample_with_dist](./context/furthest_point_sample_with_dist.md)
     - [group_points](./context/group_points.md)
     - [unique_voxel](./context/unique_voxel.md)
+    - [scatter_add](./context/scatter_add.md)
 - 采样
     - [roipoint_pool3d](./context/roipoint_pool3d.md)
     - [roiaware_pool3d](./context/roiaware_pool3d.md)
