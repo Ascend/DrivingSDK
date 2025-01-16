@@ -23,16 +23,6 @@ const uint32_t REAL_LEVEL_DIM = 3;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
 const uint32_t B32_DATA_NUM_PER_BLOCK = 8;
-
-std::tuple<uint32_t, uint32_t> GroupPoints(uint32_t numPoints)
-{
-    for (uint32_t p = 8; p >= 2; p--) {
-        if (numPoints % p == 0) {
-            return std::make_tuple(p, numPoints / p);
-        }
-    }
-    return std::make_tuple(1, numPoints);
-}
 } // namespace
 
 namespace optiling {
@@ -58,12 +48,9 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     uint64_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
     uint64_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
     uint64_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
-    auto groups = GroupPoints(numPoints);
     bool aligned = embedDims % B32_DATA_NUM_PER_BLOCK == 0;
-    uint32_t point = std::get<0>(groups);
-    uint32_t pointLoops = std::get<1>(groups);
 
-    context->SetTilingKey(aligned ? point * 10 + 1 : point * 10);
+    context->SetTilingKey(aligned ? 1 : 0);
 
     tiling.set_batchSize(valueShape.GetDim(BATCH_SIZE_DIM));
     tiling.set_numKeys(valueShape.GetDim(NUM_KEYS_DIM));
@@ -73,13 +60,12 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     tiling.set_numQueries(attnWeightShape.GetDim(NUM_QUERIES_DIM));
     tiling.set_numPoints(numPoints);
     tiling.set_coreNum(coreNum);
-    tiling.set_pointLoops(pointLoops);
     tiling.set_realLevels(attnWeightShape.GetDim(REAL_LEVEL_DIM));
     MX_DRIVING_LOGI(
         "MultiScaleDeformableAttn's tiling: batchSize=%d, numKeys=%d, numHeads=%d, embedDims=%d, numLevels=%d,numQueries=%d, numPoints=%d, coreNum=%d, pointLoops=%d,realLevels=%d",
         tiling.get_batchSize(), tiling.get_numKeys(), tiling.get_numHeads(), tiling.get_embedDims(),
         tiling.get_numLevels(), tiling.get_numQueries(), tiling.get_numPoints(), tiling.get_coreNum(),
-        tiling.get_pointLoops(), tiling.get_realLevels());
+        tiling.get_realLevels());
 
     ADD_TILING_DATA(context, tiling)
 

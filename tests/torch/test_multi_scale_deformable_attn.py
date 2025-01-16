@@ -27,10 +27,10 @@ def cpu_gen_inputs(shape):
 
 @golden_data_cache(__file__)
 def multi_scale_deformable_attn_pytorch(
-        value: torch.Tensor,
-        value_spatial_shapes: torch.Tensor,
-        sampling_locations: torch.Tensor,
-        attention_weights: torch.Tensor,
+    value: torch.Tensor,
+    value_spatial_shapes: torch.Tensor,
+    sampling_locations: torch.Tensor,
+    attention_weights: torch.Tensor,
 ) -> torch.Tensor:
     bs, _, num_heads, embed_dims = value.shape
     _, num_queries, num_heads, num_levels, num_points, _ = sampling_locations.shape
@@ -59,8 +59,9 @@ def multi_scale_deformable_attn_pytorch(
 
 
 @golden_data_cache(__file__)
-def multi_scale_deformable_attn_pytorch_grad(cpu_output, cpu_grad_output, cpu_value, cpu_sampling_locations,
-                                             cpu_attention_weights):
+def multi_scale_deformable_attn_pytorch_grad(
+    cpu_output, cpu_grad_output, cpu_value, cpu_sampling_locations, cpu_attention_weights
+):
     cpu_output.backward(cpu_grad_output)
     grad_value = cpu_value.grad.float().numpy()
     grad_sampling_locations = cpu_sampling_locations.grad.float().numpy()
@@ -113,7 +114,8 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
             cpu_value, cpu_shapes, cpu_sampling_locations, cpu_attention_weights
         )
         grad_value, grad_sampling_locations, grad_attention_weights = multi_scale_deformable_attn_pytorch_grad(
-            cpu_output, cpu_grad_output, cpu_value, cpu_sampling_locations, cpu_attention_weights)
+            cpu_output, cpu_grad_output, cpu_value, cpu_sampling_locations, cpu_attention_weights
+        )
         return ExecResults(
             output=cpu_output.detach().float().numpy(),
             grad_value=grad_value,
@@ -167,8 +169,15 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
         npu_results = self.npu_to_exec(npu_inputs)
         self.assertRtolEqual(cpu_results.output, npu_results.output)
 
+    def test_fully_embed_64(self):
+        shape = [1, 1450, 64, 7, 8, 8]
+        cpu_inputs, npu_inputs = self.gen_inputs(shape, torch.float32)
+        cpu_results = self.cpu_to_exec(cpu_inputs)
+        npu_results = self.npu_to_exec(npu_inputs)
+        self.assertRtolEqual(cpu_results.output, npu_results.output)
+
     def test_point_16(self):
-        shape = [1, 1890, 32, 7, 5, 16]
+        shape = [1, 1890, 32, 7, 4, 16]
         cpu_inputs, npu_inputs = self.gen_inputs(shape, torch.float32)
         cpu_results = self.cpu_to_exec(cpu_inputs)
         npu_results = self.npu_to_exec(npu_inputs)

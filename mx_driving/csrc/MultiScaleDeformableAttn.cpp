@@ -22,6 +22,7 @@ constexpr size_t QUERY_IDX = 1;
 constexpr size_t HEAD_IDX = 2;
 constexpr size_t EMBED_IDX = 3;
 constexpr size_t LEVEL_IDX = 3;
+constexpr size_t POINT_IDX = 4;
 } // namespace
 
 at::Tensor multi_scale_deformable_attn(const at::Tensor& value, const at::Tensor& value_spatial_shapes,
@@ -42,6 +43,9 @@ at::Tensor multi_scale_deformable_attn(const at::Tensor& value, const at::Tensor
     TORCH_CHECK(attention_weights.scalar_type() == at::kHalf || attention_weights.scalar_type() == at::kFloat,
         "attention_weights: float16 or float32 tensor expected but got a tensor with dtype: ",
         attention_weights.scalar_type());
+    TORCH_CHECK(value.size(EMBED_IDX) <= 64, "The number of embedding dimensions should be less than or equal to 64");
+    TORCH_CHECK(sampling_locations.size(LEVEL_IDX) * sampling_locations.size(POINT_IDX) <= 64,
+        "The product of the number of levels and the number of points should be less than or equal to 64");
 
     at::SmallVector<int64_t, 4> output_size = {sampling_locations.size(BATCH_IDX), sampling_locations.size(QUERY_IDX),
         value.size(HEAD_IDX) * value.size(EMBED_IDX)};
@@ -81,6 +85,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_backw
         attention_weights.scalar_type());
     TORCH_CHECK(grad_output.scalar_type() == at::kHalf || grad_output.scalar_type() == at::kFloat,
         "grad_output: float16 or float32 tensor expected but got a tensor with dtype: ", grad_output.scalar_type());
+
+    TORCH_CHECK(value.size(EMBED_IDX) <= 64, "The number of embedding dimensions should be less than or equal to 64");
+    TORCH_CHECK(sampling_locations.size(LEVEL_IDX) * sampling_locations.size(POINT_IDX) <= 64,
+        "The product of the number of levels and the number of points should be less than or equal to 64");
 
     at::Tensor grad_value = at::zeros_like(value, value.options().dtype(at::kFloat));
     at::Tensor grad_sampling_loc = at::empty_like(sampling_locations, sampling_locations.options().dtype(at::kFloat));

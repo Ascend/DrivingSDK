@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,644 +16,246 @@
 
 /*!
  * \file multi_scale_deformable_attn_grad.cpp
- * \brief
+ * \brief msdagrad operator
  */
 
-#include "kernel_operator.h"
+#include "kernel_common.h"
+#include "msda.h"
 
-using namespace AscendC;
 
-#define ADD_MSDA_GRAD_CASE_ALIGNED(num_points)                                                                         \
-    if (TILING_KEY_IS(num_points##1)) {                                                                                \
-        MultiScaleDeformableAttnGradKernel<num_points, true> op(value_gm, spatial_shapes_gm, level_start_index_gm,     \
-            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, \
-            &tiling_datas, &pipe);                                                                                     \
-        op.Process();                                                                                                  \
-        return;                                                                                                        \
-    }
+template<bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned>::ComputeBilinearInterpolation(
+    const LocalTensor<uint64_t>& validFlag, const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location,
+    const LocalTensor<int32_t>& loc, const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production,
+    const LocalTensor<float>& value, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
+    const LocalTensor<float>& attentionWeight, const LocalTensor<float>& cornerWeightBrc,
+    const LocalTensor<float>& gradOut)
+{
+    WaitFlag<HardEvent::V_MTE2>(this->biEvt_);
+    for (uint32_t head = 0; head < this->numHeads_; ++head) {
+        uint64_t valid = validFlag.GetValue(head);
+        uint64_t bottomInvalid = validFlag.GetValue(head + 2 * this->validFlagMaskLen_ / 8);
+        uint64_t topInvalid = validFlag.GetValue(head + 3 * this->validFlagMaskLen_ / 8);
+        uint32_t outOffset = head * this->alignedEmbedDims_;
+        uint32_t baseIdx = head * this->alignedOneHeadNum_;
 
-#define ADD_MSDA_GRAD_CASE_UNALIGNED(num_points)                                                                       \
-    if (TILING_KEY_IS(num_points##0)) {                                                                                \
-        MultiScaleDeformableAttnGradKernel<num_points, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,    \
-            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, \
-            &tiling_datas, &pipe);                                                                                     \
-        op.Process();                                                                                                  \
-        return;                                                                                                        \
-    }
-
-template<uint32_t num_points, bool aligned>
-class MultiScaleDeformableAttnGradKernel {
-public:
-    __aicore__ inline MultiScaleDeformableAttnGradKernel() = delete;
-
-    __aicore__ inline MultiScaleDeformableAttnGradKernel(GM_ADDR value, GM_ADDR valueSpatialShapes,
-        GM_ADDR valueLevelStartIndex, GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR gradOutput,
-        GM_ADDR gradValue, GM_ADDR gradSamplingLocations, GM_ADDR gradAttentionWeights,
-        const MultiScaleDeformableAttnGradTilingData* tilingData, TPipe* pipe)
-        : pipe_(pipe), blkIdx_(GetBlockIdx())
-    {
-        InitTiling(tilingData);
-        InitTask();
-        InitGM(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, gradOutput,
-            gradValue, gradSamplingLocations, gradAttentionWeights);
-        InitBuffer();
-        InitEvent();
-
-        SetVectorMask<float>(FULL_MASK, FULL_MASK);
-    }
-
-    __aicore__ inline void Process();
-
-private:
-    __aicore__ inline void InitTask()
-    {
-        uint32_t avgTasks = numQueries_ / coreNum_;
-        uint32_t remainTasks = numQueries_ % coreNum_;
-        startOffset_ = avgTasks * blkIdx_ + (blkIdx_ < remainTasks ? blkIdx_ : remainTasks);
-        endOffset_ = startOffset_ + avgTasks + (blkIdx_ < remainTasks ? 1 : 0);
-    }
-
-    __aicore__ inline void InitTiling(const MultiScaleDeformableAttnGradTilingData* tilingData)
-    {
-        batchSize_ = tilingData->batchSize;
-        numKeys_ = tilingData->numKeys;
-        numHeads_ = tilingData->numHeads;
-        embedDims_ = tilingData->embedDims;
-        numLevels_ = tilingData->numLevels;
-        numQueries_ = tilingData->numQueries;
-        numPoints_ = tilingData->numPoints;
-        coreNum_ = tilingData->coreNum;
-        pointLoops_ = tilingData->pointLoops;
-        realLevels_ = tilingData->realLevels;
-
-        oneQueryNum_ = realLevels_ * numHeads_ * numPoints_;
-
-        alignedNumPoints_ = AlignUp(num_points, B32_DATA_NUM_PER_BLOCK);
-        alignedOneHeadNum_ = numLevels_ * alignedNumPoints_;
-        alignedOneQueryNum_ = AlignUp(numHeads_ * alignedOneHeadNum_, B32_DATA_NUM_PER_REPEAT);
-        alignedEmbedDims_ = AlignUp(embedDims_, B32_DATA_NUM_PER_BLOCK);
-        alignedCornerEmbedDims_ = AlignUp(4 * num_points * alignedEmbedDims_, B32_DATA_NUM_PER_REPEAT);
-
-        embedBlk_ = alignedEmbedDims_ / B32_DATA_NUM_PER_BLOCK;
-        outDims_ = numHeads_ * embedDims_;
-        outBlk_ = numHeads_ * embedBlk_;
-        pointBlk_ = alignedNumPoints_ / B32_DATA_NUM_PER_BLOCK;
-        queryBlk_ = alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK;
-        rptTimes_ = alignedOneQueryNum_ / B32_DATA_NUM_PER_REPEAT;
-        valRptTimes4_ = alignedCornerEmbedDims_ / B32_DATA_NUM_PER_REPEAT;
-        valRptTimes1_ = DivCeil(num_points * alignedEmbedDims_, B32_DATA_NUM_PER_REPEAT);
-
-        valueMask_ = embedDims_ < 64 ? (1UL << embedDims_) - 1 : FULL_MASK;
-
-        if (num_points == 8 && pointLoops_ == 1) {
-            cpSampleParams_.blockLen = DivCeil(numLevels_ * numHeads_ * num_points, B32_DATA_NUM_PER_BLOCK);
-            cpDoubleSampleParams_.blockLen = DivCeil(2 * numLevels_ * numHeads_ * num_points, B32_DATA_NUM_PER_BLOCK);
+        if (head == 0) {
+            this->ComputeWeight(locFloat, shapeFloat, production, weight, attentionWeight);
+            WaitFlag<HardEvent::MTE2_V>(1);
+        }
+        WaitFlag<HardEvent::MTE3_V>(0);
+        for (uint32_t i = 0; i < 4; ++i) {
+            Brcb(cornerWeightBrc[i * this->alignedCornerEmbedDims_], weight[baseIdx + i * this->alignedOneQueryNum_],
+                this->alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK,
+                {this->embedBlk_, static_cast<uint16_t>(8 * this->embedBlk_)});
+        }
+        for (uint32_t i = 1; i < this->embedBlk_; ++i) {
+            Adds<float, false>(cornerWeightBrc[i * B32_DATA_NUM_PER_BLOCK], cornerWeightBrc, 0.f, MASK_PLACEHOLDER,
+                this->brcRpt_,
+                {this->embedBlk_, this->embedBlk_, static_cast<uint8_t>(8 * this->embedBlk_),
+                    static_cast<uint8_t>(8 * this->embedBlk_)});
+        }
+        SetVectorMask<float>(0, this->embedMask_);
+        if (unlikely(this->oneHeadNum_ == 64)) {
+            Mul<float, false>(cornerWeightBrc, cornerWeightBrc, gradOut[outOffset], MASK_PLACEHOLDER,
+                2 * this->oneHeadNum_,
+                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
+            Mul<float, false>(cornerWeightBrc[2 * this->alignedCornerEmbedDims_],
+                cornerWeightBrc[2 * this->alignedCornerEmbedDims_], gradOut[outOffset], MASK_PLACEHOLDER,
+                2 * this->oneHeadNum_,
+                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
         } else {
-            cpSampleParams_.blockCount = numLevels_ * numHeads_;
-            cpSampleParams_.blockLen = num_points * B32_BYTE_SIZE;
-            cpSampleParams_.srcStride = (numPoints_ - num_points) * B32_BYTE_SIZE;
-            cpDoubleSampleParams_.blockCount = numLevels_ * numHeads_;
-            cpDoubleSampleParams_.blockLen = 2 * num_points * B32_BYTE_SIZE;
-            cpDoubleSampleParams_.srcStride = 2 * (numPoints_ - num_points) * B32_BYTE_SIZE;
-            cpDoubleSampleParams_.dstStride = num_points > 4 ? 0 : 1;
+            Mul<float, false>(cornerWeightBrc, cornerWeightBrc, gradOut[outOffset], MASK_PLACEHOLDER,
+                4 * this->oneHeadNum_,
+                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
         }
+        SetFlag<HardEvent::V_MTE3>(0);
 
-        if constexpr (aligned) {
-            cpGradOutParams_.blockLen = embedBlk_;
-            cpOneValParams_.blockLen = embedBlk_;
-            cpDoubleValParams_.blockLen = embedBlk_;
-            cpDoubleValParams_.srcStride = outBlk_ - embedBlk_;
-            cpGradValueParams_.blockLen = embedBlk_;
-            cpGradValueParams_.dstStride = outBlk_ - embedBlk_;
+        WaitFlag<HardEvent::V_MTE3>(0);
+        WaitFlag<HardEvent::V_MTE2>(0);
+        SetAtomicAdd<float>();
+        for (int32_t i = ScalarGetSFFValue<1>(valid); i < this->oneHeadNum_ && i >= 0;
+            i = ScalarGetSFFValue<1>(valid)) {
+            valid = sbitset0(valid, i);
+            uint32_t idx = baseIdx + i;
+            int32_t w = shapeInt.GetValue(idx);
+            // WARN: dangerous!
+            uint64_t gmOffset = static_cast<uint64_t>(location.GetValue(idx));
+            this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmOffset], this->cpRowDoubleParams_);
+            this->CopyInValue(value[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
+                this->valueGm_[gmOffset + w * this->outDims_], this->cpRowDoubleParams_);
+            this->CopyOutValue(
+                gradValueGm_[gmOffset], cornerWeightBrc[i * this->alignedEmbedDims_], cpGradRowDoubleParams_);
+            this->CopyOutValue(gradValueGm_[gmOffset + w * this->outDims_],
+                cornerWeightBrc[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
+                cpGradRowDoubleParams_);
+        }
+        for (int32_t i = ScalarGetSFFValue<0>(bottomInvalid); i < this->oneHeadNum_ && i >= 0;
+            i = ScalarGetSFFValue<0>(bottomInvalid)) {
+            bottomInvalid = sbitset1(bottomInvalid, i);
+            uint32_t idx = baseIdx + i;
+            int32_t w = shapeInt.GetValue(idx);
+            int32_t x = loc.GetValue(idx);
+            // WARN: dangerous!
+            uint64_t gmOffset = static_cast<uint64_t>(location.GetValue(idx));
+            if (x != -1) {
+                this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmOffset], this->cpOneValParams_);
+                this->CopyOutValue(
+                    gradValueGm_[gmOffset], cornerWeightBrc[i * this->alignedEmbedDims_], cpGradOneValParams_);
+            }
+            if (x != w - 1) {
+                this->CopyInValue(value[i * this->alignedEmbedDims_ + this->alignedCornerEmbedDims_],
+                    this->valueGm_[gmOffset + this->outDims_], this->cpOneValParams_);
+                this->CopyOutValue(gradValueGm_[gmOffset + this->outDims_],
+                    cornerWeightBrc[i * this->alignedEmbedDims_ + this->alignedCornerEmbedDims_], cpGradOneValParams_);
+            }
+        }
+        for (int32_t i = ScalarGetSFFValue<0>(topInvalid); i < this->oneHeadNum_ && i >= 0;
+            i = ScalarGetSFFValue<0>(topInvalid)) {
+            topInvalid = sbitset1(topInvalid, i);
+            uint32_t idx = baseIdx + i;
+            int32_t w = shapeInt.GetValue(idx);
+            int32_t x = loc.GetValue(idx);
+            // WARN: dangerous!
+            uint64_t gmOffset = static_cast<uint64_t>(location.GetValue(idx));
+            if (x != -1) {
+                this->CopyInValue(value[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
+                    this->valueGm_[gmOffset + w * this->outDims_], this->cpOneValParams_);
+                this->CopyOutValue(gradValueGm_[gmOffset + w * this->outDims_],
+                    cornerWeightBrc[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
+                    cpGradOneValParams_);
+            }
+            if (x != w - 1) {
+                this->CopyInValue(value[i * this->alignedEmbedDims_ + 3 * this->alignedCornerEmbedDims_],
+                    this->valueGm_[gmOffset + w * this->outDims_ + this->outDims_], this->cpOneValParams_);
+                this->CopyOutValue(gradValueGm_[gmOffset + w * this->outDims_ + this->outDims_],
+                    cornerWeightBrc[i * this->alignedEmbedDims_ + 3 * this->alignedCornerEmbedDims_],
+                    cpGradOneValParams_);
+            }
+        }
+        SetAtomicNone();
+        SetFlag<HardEvent::MTE2_V>(0);
+        SetFlag<HardEvent::MTE3_V>(0);
+
+        WaitFlag<HardEvent::MTE2_V>(0);
+        if (unlikely(this->oneHeadNum_ == 64)) {
+            Mul<float, false>(value, value, gradOut[outOffset], MASK_PLACEHOLDER, 2 * this->oneHeadNum_,
+                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
+            Mul<float, false>(value[2 * this->alignedCornerEmbedDims_], value[2 * this->alignedCornerEmbedDims_],
+                gradOut[outOffset], MASK_PLACEHOLDER, 2 * this->oneHeadNum_,
+                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
         } else {
-            cpGradOutParams_.blockLen = embedDims_ * B32_BYTE_SIZE;
-            cpOneValParams_.blockLen = embedDims_ * B32_BYTE_SIZE;
-            cpDoubleValParams_.blockLen = embedDims_ * B32_BYTE_SIZE;
-            cpDoubleValParams_.srcStride = (outDims_ - embedDims_) * B32_BYTE_SIZE;
-            cpGradValueParams_.blockLen = embedDims_ * B32_BYTE_SIZE;
-            cpGradValueParams_.dstStride = (outDims_ - embedDims_) * B32_BYTE_SIZE;
+            Mul<float, false>(value, value, gradOut[outOffset], MASK_PLACEHOLDER, 4 * this->oneHeadNum_,
+                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
         }
-        cpGradOutParams_.blockCount = numHeads_;
-        cpDoubleValParams_.dstStride = num_points * embedBlk_ - embedBlk_;
-        cpGradValueParams_.srcStride = num_points * embedBlk_ - embedBlk_;
-
-        gatherParams_.repeatTimes = rptTimes_ * 2;
-    }
-
-    __aicore__ inline void InitGM(GM_ADDR value, GM_ADDR valueSpatialShapes, GM_ADDR valueLevelStartIndex,
-        GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR gradOutput, GM_ADDR gradValue,
-        GM_ADDR gradSamplingLocations, GM_ADDR gradAttentionWeights)
-    {
-        valueGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(value));
-        locationGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(samplingLocations));
-        attentionWeightsGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(attentionWeights));
-        valueSpatialShapesGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(valueSpatialShapes));
-        valueLevelStartIndexGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(valueLevelStartIndex));
-        gradOutGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradOutput));
-        gradValueGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradValue));
-        gradLocGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradSamplingLocations));
-        gradAttentionWeightsGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradAttentionWeights));
-    }
-
-    __aicore__ inline void InitBuffer()
-    {
-        pipe_->InitBuffer(
-            gatherOffsetBuf_, 16 * B32_BYTE_SIZE); // [0, 8, 1, 9, 2, 10, 3, 11, 4, 12, 5, 13, 6, 14, 7, 15]
-        pipe_->InitBuffer(shapeQue_, AlignUp(numLevels_ * 2, B32_DATA_NUM_PER_BLOCK) * B32_BYTE_SIZE);
-        pipe_->InitBuffer(offsetQue_, AlignUp(numLevels_, B32_DATA_NUM_PER_BLOCK) * B32_BYTE_SIZE);
-        pipe_->InitBuffer(locationQue_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE); // x, y
-        pipe_->InitBuffer(attentionWeightsQue_, alignedOneQueryNum_ * B32_BYTE_SIZE);
-        pipe_->InitBuffer(valueQue_, 2 * alignedCornerEmbedDims_ * B32_BYTE_SIZE); // 2 for double buffer
-        pipe_->InitBuffer(gradValueQue_, 2 * alignedCornerEmbedDims_ * B32_BYTE_SIZE);
-        pipe_->InitBuffer(gradOutQue_, numHeads_ * alignedEmbedDims_ * B32_BYTE_SIZE);
-        pipe_->InitBuffer(gradAttentionWeightsQue_, numLevels_ * alignedNumPoints_ * B32_BYTE_SIZE);
-
-        pipe_->InitBuffer(shapeBrcBuf_, 2 * alignedOneQueryNum_ * B32_BYTE_SIZE);   // w, h
-        pipe_->InitBuffer(locIntBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE);     // x0, y0, x1, y1
-        pipe_->InitBuffer(locFloatBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE);   // lw, lh
-        pipe_->InitBuffer(productionBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE); // lh * lw
-        pipe_->InitBuffer(weightBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE);     // w1-w4
-        pipe_->InitBuffer(cornerWeightBuf_, 4 * alignedNumPoints_ * B32_BYTE_SIZE);
-        pipe_->InitBuffer(reducedValueBuf_, 4 * alignedNumPoints_ * B32_BYTE_SIZE);
-        pipe_->InitBuffer(valueDiffBuf_, 4 * alignedNumPoints_ * B32_BYTE_SIZE);
-        pipe_->InitBuffer(gradLocQue_, numLevels_ * 32 * B32_BYTE_SIZE);
-    }
-
-    __aicore__ inline void InitEvent()
-    {
-        calEvt_ = pipe_->AllocEventID<HardEvent::V_MTE3>();
-        copyEvt_ = pipe_->AllocEventID<HardEvent::MTE2_V>();
-    }
-
-    __aicore__ inline void PrepareGatherOffset(const LocalTensor<uint32_t>& gatherOffset);
-
-    __aicore__ inline void PrepareShape(
-        const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& offset, LocalTensor<float>& shapeBrc);
-
-    __aicore__ inline void CopyInSample(const LocalTensor<float>& location, const LocalTensor<float>& attentionWeight,
-        uint32_t batch, uint32_t query, uint32_t pl);
-
-    __aicore__ inline void CopyInGradOut(const LocalTensor<float>& gradOut, uint32_t batch, uint32_t query);
-
-    __aicore__ inline void ComputeLocation(const LocalTensor<float>& location, const LocalTensor<float>& shapes,
-        const LocalTensor<int32_t>& locInt, const LocalTensor<float>& locFloat);
-
-    __aicore__ inline void ComputeWeight(const LocalTensor<int32_t>& locInt, const LocalTensor<float>& locFloat,
-        const LocalTensor<float>& shapes, const LocalTensor<float>& production, const LocalTensor<float>& weight,
-        const LocalTensor<float>& attentionWeight);
-
-    __aicore__ inline void ComputeBilinearInterpolation(const LocalTensor<int32_t>& shapes,
-        const LocalTensor<int32_t>& offset, const LocalTensor<int32_t>& locInt, const LocalTensor<float>& locFloat,
-        const LocalTensor<float>& value, const LocalTensor<float>& production, const LocalTensor<float>& weight,
-        const LocalTensor<float>& gradOut, const LocalTensor<float>& gradValue, const LocalTensor<float>& cornerWeight,
-        const LocalTensor<float>& reducedValue, const LocalTensor<float>& valueDiff, const LocalTensor<float>& gradLoc,
-        const LocalTensor<float>& gradWeight, const LocalTensor<uint32_t>& gatherOffset);
-
-private:
-    TPipe* pipe_;
-    GlobalTensor<float> valueGm_, locationGm_, attentionWeightsGm_, gradOutGm_, gradValueGm_, gradLocGm_,
-        gradAttentionWeightsGm_;
-    GlobalTensor<int32_t> valueSpatialShapesGm_, valueLevelStartIndexGm_;
-
-    TBuf<TPosition::VECCALC> locationQue_, attentionWeightsQue_, shapeQue_, offsetQue_, valueQue_, gradOutQue_;
-    TBuf<TPosition::VECCALC> gradValueQue_, gradLocQue_, gradAttentionWeightsQue_;
-
-    TBuf<TPosition::VECCALC> locIntBuf_, locFloatBuf_, shapeBrcBuf_, productionBuf_, weightBuf_, cornerWeightBuf_,
-        reducedValueBuf_, valueDiffBuf_, gatherOffsetBuf_;
-
-    int32_t blkIdx_;
-
-    uint64_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, realLevels_;
-    uint32_t coreNum_, pointLoops_;
-    uint32_t startOffset_, endOffset_;
-    uint32_t alignedNumPoints_, alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_;
-    uint32_t oneQueryNum_;
-    uint16_t pointBlk_, headBlk_, queryBlk_, embedBlk_, outBlk_;
-    uint16_t rptTimes_, valRptTimes4_, valRptTimes1_;
-    uint64_t valueMask_;
-    TEventID calEvt_, copyEvt_;
-
-    uint64_t baseSrcOffset_, baseDstOffset_, srcOffset_, weightOffset_;
-
-    DataCopyParams cpOneValParams_, cpDoubleValParams_ {2, 0, 0, 0}, cpSampleParams_,
-        cpDoubleSampleParams_ {1, 0, 0, 0}, cpGradOutParams_, cpGradValueParams_ {2, 0, 0, 0};
-    GatherMaskParams gatherParams_;
-};
-
-template<uint32_t num_points, bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<num_points, aligned>::PrepareGatherOffset(
-    const LocalTensor<uint32_t>& gatherOffset)
-{
-    for (uint32_t i = 0; i < 8; ++i) {
-        gatherOffset.SetValue(2 * i, (i + 8) * 4);
-        gatherOffset.SetValue(2 * i + 1, i * 4);
-    }
-}
-template<uint32_t num_points, bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<num_points, aligned>::PrepareShape(
-    const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& offset, LocalTensor<float>& shapeBrc)
-{
-    DataCopy(shapes, valueSpatialShapesGm_,
-        {1, static_cast<uint16_t>(DivCeil(2 * numLevels_, B32_DATA_NUM_PER_BLOCK)), 0, 0});
-    DataCopy(
-        offset, valueLevelStartIndexGm_, {1, static_cast<uint16_t>(DivCeil(numLevels_, B32_DATA_NUM_PER_BLOCK)), 0, 0});
-    SetFlag<HardEvent::MTE2_V>(copyEvt_);
-    WaitFlag<HardEvent::MTE2_V>(copyEvt_);
-    // broadcast to [head*level, 8]
-    for (uint32_t k = 0; k < 2; ++k) {
-        for (uint32_t i = 0; i < numLevels_; ++i) {
-            shapeBrc.SetValue(i + k * alignedOneQueryNum_, shapes.GetValue(2 * i + 1 - k));
+        if (head == this->numHeads_ - 1) {
+            SetFlag<HardEvent::V_MTE2>(1);
         }
-        Brcb(shapeBrc[k * alignedOneQueryNum_], shapeBrc[k * alignedOneQueryNum_], 1, {1, 8});
-        Copy<float, false>(shapeBrc[k * alignedOneQueryNum_ + numLevels_ * 8], shapeBrc[k * alignedOneQueryNum_],
-            MASK_PLACEHOLDER, numHeads_ - 1, {1, 1, static_cast<uint16_t>(numLevels_), 0});
-    }
-}
-
-template<uint32_t num_points, bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<num_points, aligned>::CopyInSample(
-    const LocalTensor<float>& location, const LocalTensor<float>& attentionWeight, uint32_t batch, uint32_t query,
-    uint32_t pl)
-{
-    uint64_t sampleOffset = (batch * numQueries_ + query) * oneQueryNum_;
-    weightOffset_ = sampleOffset + pl * num_points;
-    WaitFlag<HardEvent::V_MTE2>(0);
-    WaitFlag<HardEvent::V_MTE2>(1);
-    if (num_points == 8 && pointLoops_ == 1) {
-        DataCopy(location, locationGm_[weightOffset_ * 2], cpDoubleSampleParams_);
-        DataCopy(attentionWeight, attentionWeightsGm_[weightOffset_], cpSampleParams_);
-    } else {
-        DataCopyPad(location, locationGm_[weightOffset_ * 2], cpDoubleSampleParams_, {});
-        DataCopyPad(attentionWeight, attentionWeightsGm_[weightOffset_], cpSampleParams_, {});
-    }
-}
-
-template<uint32_t num_points, bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<num_points, aligned>::CopyInGradOut(
-    const LocalTensor<float>& gradOut, uint32_t batch, uint32_t query)
-{
-    uint64_t gradOffset = (batch * numQueries_ + query) * numHeads_ * embedDims_;
-    if constexpr (aligned) {
-        DataCopy(gradOut, gradOutGm_[gradOffset], cpGradOutParams_);
-    } else {
-        DataCopyPad(gradOut, gradOutGm_[gradOffset], cpGradOutParams_, {});
-    }
-    SetFlag<HardEvent::MTE2_V>(copyEvt_);
-}
-
-template<uint32_t num_points, bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<num_points, aligned>::ComputeLocation(
-    const LocalTensor<float>& location, const LocalTensor<float>& shapes, const LocalTensor<int32_t>& locInt,
-    const LocalTensor<float>& locFloat)
-{
-    uint64_t cnt;
-    WaitFlag<HardEvent::MTE2_V>(copyEvt_);
-
-    GatherMask(location, location[2 * alignedOneQueryNum_], 1, false, MASK_PLACEHOLDER, gatherParams_, cnt);
-    GatherMask(location[alignedOneQueryNum_], location[2 * alignedOneQueryNum_], 2, false, MASK_PLACEHOLDER,
-        gatherParams_, cnt);
-    SetVectorMask<float>(FULL_MASK, FULL_MASK);
-
-    Mul<float, false>(location, location, shapes, MASK_PLACEHOLDER, 2 * rptTimes_, {1, 1, 1, 8, 8, 8});
-    Adds<float, false>(locFloat, location, 0.5f, MASK_PLACEHOLDER, 2 * rptTimes_, {1, 1, 8, 8});
-    Cast<int32_t, float, false>(locInt, locFloat, RoundMode::CAST_FLOOR, MASK_PLACEHOLDER, 2 * rptTimes_, {1, 1, 8, 8});
-    SetFlag<HardEvent::V_MTE2>(0);
-    SetFlag<HardEvent::V_MTE2>(1);
-}
-
-template<uint32_t num_points, bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<num_points, aligned>::ComputeWeight(
-    const LocalTensor<int32_t>& locInt, const LocalTensor<float>& locFloat, const LocalTensor<float>& shapes,
-    const LocalTensor<float>& production, const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight)
-{
-    Cast<float, int32_t, false>(
-        locFloat[2 * alignedOneQueryNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * rptTimes_, {1, 1, 8, 8});
-    Sub<float, false>(locFloat, locFloat, locFloat[2 * alignedOneQueryNum_], MASK_PLACEHOLDER, 2 * rptTimes_,
-        {1, 1, 1, 8, 8, 8}); // lw, lh
-    Mul<float, false>(production[3 * alignedOneQueryNum_], locFloat, locFloat[alignedOneQueryNum_], MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8}); // lh * lw
-    Duplicate<float, false>(production, 1.f, MASK_PLACEHOLDER, rptTimes_, 1, 8);
-    Sub<float, false>(
-        locFloat[2 * alignedOneQueryNum_], production, locFloat, MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8}); // hw
-    Sub<float, false>(locFloat[3 * alignedOneQueryNum_], production, locFloat[alignedOneQueryNum_], MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8}); // hh
-
-    Mul<float, false>(production, locFloat[2 * alignedOneQueryNum_], locFloat[3 * alignedOneQueryNum_],
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8}); // hw * hh
-    Mul<float, false>(production[alignedOneQueryNum_], locFloat, locFloat[3 * alignedOneQueryNum_], MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8}); // lw * hh
-    Mul<float, false>(production[2 * alignedOneQueryNum_], locFloat[alignedOneQueryNum_],
-        locFloat[2 * alignedOneQueryNum_], MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8}); // hw * lh
-    Mul<float, false>(production[3 * alignedOneQueryNum_], locFloat[alignedOneQueryNum_], locFloat, MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8}); // lw * lh
-    Mul<float, false>(weight, production, attentionWeight, MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(weight[alignedOneQueryNum_], production[alignedOneQueryNum_], attentionWeight, MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(weight[2 * alignedOneQueryNum_], production[2 * alignedOneQueryNum_], attentionWeight,
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(weight[3 * alignedOneQueryNum_], production[3 * alignedOneQueryNum_], attentionWeight,
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(
-        locFloat, locFloat, shapes[alignedOneQueryNum_], MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8}); // lw * h
-    Mul<float, false>(locFloat[alignedOneQueryNum_], locFloat[alignedOneQueryNum_], shapes, MASK_PLACEHOLDER, rptTimes_,
-        {1, 1, 1, 8, 8, 8}); // lh * w
-    Mul<float, false>(locFloat[2 * alignedOneQueryNum_], locFloat[2 * alignedOneQueryNum_], shapes[alignedOneQueryNum_],
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8}); // hw * h
-    Mul<float, false>(locFloat[3 * alignedOneQueryNum_], locFloat[3 * alignedOneQueryNum_], shapes, MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8}); // hh * w
-    Mul<float, false>(locFloat, locFloat, attentionWeight, MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(locFloat[alignedOneQueryNum_], locFloat[alignedOneQueryNum_], attentionWeight, MASK_PLACEHOLDER,
-        rptTimes_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(locFloat[2 * alignedOneQueryNum_], locFloat[2 * alignedOneQueryNum_], attentionWeight,
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(locFloat[3 * alignedOneQueryNum_], locFloat[3 * alignedOneQueryNum_], attentionWeight,
-        MASK_PLACEHOLDER, rptTimes_, {1, 1, 1, 8, 8, 8});
-}
-
-template<uint32_t num_points, bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<num_points, aligned>::ComputeBilinearInterpolation(
-    const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& offset, const LocalTensor<int32_t>& locInt,
-    const LocalTensor<float>& locFloat, const LocalTensor<float>& value, const LocalTensor<float>& production,
-    const LocalTensor<float>& weight, const LocalTensor<float>& gradOut, const LocalTensor<float>& gradValue,
-    const LocalTensor<float>& cornerWeight, const LocalTensor<float>& reducedValue, const LocalTensor<float>& valueDiff,
-    const LocalTensor<float>& gradLoc, const LocalTensor<float>& gradWeight, const LocalTensor<uint32_t>& gatherOffset)
-{
-    uint8_t ping = 0;
-
-    for (uint32_t head = 0; head < numHeads_; ++head) {
-        uint64_t valueOffset = (baseSrcOffset_ + head) * embedDims_;
-        uint32_t outOffset = head * alignedEmbedDims_;
-        uint64_t weightOffset = weightOffset_ + head * realLevels_ * numPoints_;
-
-        for (uint32_t level = 0; level < numLevels_; ++level) {
-            SetVectorMask<float>(0, valueMask_);
-
-            int32_t h = shapes.GetValue(level * 2);
-            int32_t w = shapes.GetValue(level * 2 + 1);
-            srcOffset_ = valueOffset + offset.GetValue(level) * outDims_;
-
-            uint32_t sx = head * alignedOneHeadNum_ + level * alignedNumPoints_;
-            uint32_t sy = sx + alignedOneQueryNum_;
-
-            uint32_t pingOffset = ping * alignedCornerEmbedDims_;
-            WaitFlag<HardEvent::V_MTE2>(ping);
-
-            for (uint32_t point = 0; point < num_points; ++point) {
-                int32_t px = point + sx;
-                int32_t py = point + sy;
-                int32_t y1 = locInt.GetValue(py);
-                int32_t x1 = locInt.GetValue(px);
-                int32_t y0 = y1 - 1;
-                int32_t x0 = x1 - 1;
-
-                if (0 <= y0 && y0 < h) {
-                    if (0 < x1 && x1 < w) {
-                        uint32_t ubOffset = pingOffset + point * alignedEmbedDims_;
-                        uint64_t gmOffset = srcOffset_ + (y0 * w + x0) * outDims_;
-                        if constexpr (aligned) {
-                            DataCopy(value[ubOffset], valueGm_[gmOffset], cpDoubleValParams_);
-                        } else {
-                            DataCopyPad(value[ubOffset], valueGm_[gmOffset], cpDoubleValParams_, {});
-                        }
-                        Muls<float, false>(gradValue[ubOffset], gradOut[outOffset], weight.GetValue(px),
-                            MASK_PLACEHOLDER, 1, {1, 1, 8, 8});
-                        Muls<float, false>(gradValue[ubOffset + num_points * alignedEmbedDims_], gradOut[outOffset],
-                            weight.GetValue(py), MASK_PLACEHOLDER, 1, {1, 1, 8, 8});
-                        SetFlag<HardEvent::V_MTE3>(calEvt_);
-                        WaitFlag<HardEvent::V_MTE3>(calEvt_);
-                        SetAtomicAdd<float>();
-                        if constexpr (aligned) {
-                            DataCopy(gradValueGm_[gmOffset], gradValue[ubOffset], cpGradValueParams_);
-                        } else {
-                            DataCopyPad(gradValueGm_[gmOffset], gradValue[ubOffset], cpGradValueParams_);
-                        }
-                        SetAtomicNone();
-                    } else if (0 <= x0 && x0 < w) {
-                        uint32_t ubOffset = pingOffset + point * alignedEmbedDims_;
-                        uint64_t gmOffset = srcOffset_ + (y0 * w + x0) * outDims_;
-                        if constexpr (aligned) {
-                            DataCopy(value[ubOffset], valueGm_[gmOffset], cpOneValParams_);
-                        } else {
-                            DataCopyPad(value[ubOffset], valueGm_[gmOffset], cpOneValParams_, {});
-                        }
-                        Muls<float, false>(gradValue[ubOffset], gradOut[outOffset], weight.GetValue(px),
-                            MASK_PLACEHOLDER, 1, {1, 1, 8, 8});
-                        SetFlag<HardEvent::V_MTE3>(calEvt_);
-                        WaitFlag<HardEvent::V_MTE3>(calEvt_);
-                        SetAtomicAdd<float>();
-                        if constexpr (aligned) {
-                            DataCopy(gradValueGm_[gmOffset], gradValue[ubOffset], cpOneValParams_);
-                        } else {
-                            DataCopyPad(gradValueGm_[gmOffset], gradValue[ubOffset], cpOneValParams_);
-                        }
-                        SetAtomicNone();
-                    } else if (0 <= x1 && x1 < w) {
-                        uint32_t ubOffset = pingOffset + (point + num_points) * alignedEmbedDims_;
-                        uint64_t gmOffset = srcOffset_ + (y0 * w + x1) * outDims_;
-                        if constexpr (aligned) {
-                            DataCopy(value[ubOffset], valueGm_[gmOffset], cpOneValParams_);
-                        } else {
-                            DataCopyPad(value[ubOffset], valueGm_[gmOffset], cpOneValParams_, {});
-                        };
-                        Muls<float, false>(gradValue[ubOffset], gradOut[outOffset], weight.GetValue(py),
-                            MASK_PLACEHOLDER, 1, {1, 1, 8, 8});
-                        SetFlag<HardEvent::V_MTE3>(calEvt_);
-                        WaitFlag<HardEvent::V_MTE3>(calEvt_);
-                        SetAtomicAdd<float>();
-                        if constexpr (aligned) {
-                            DataCopy(gradValueGm_[gmOffset], gradValue[ubOffset], cpOneValParams_);
-                        } else {
-                            DataCopyPad(gradValueGm_[gmOffset], gradValue[ubOffset], cpOneValParams_);
-                        }
-                        SetAtomicNone();
-                    }
-                }
-                if (0 <= y1 && y1 < h) {
-                    if (0 < x1 && x1 < w) {
-                        uint32_t ubOffset = pingOffset + (point + 2 * num_points) * alignedEmbedDims_;
-                        uint64_t gmOffset = srcOffset_ + (y1 * w + x0) * outDims_;
-                        if constexpr (aligned) {
-                            DataCopy(value[ubOffset], valueGm_[gmOffset], cpDoubleValParams_);
-                        } else {
-                            DataCopyPad(value[ubOffset], valueGm_[gmOffset], cpDoubleValParams_, {});
-                        }
-                        Muls<float, false>(gradValue[ubOffset], gradOut[outOffset],
-                            weight.GetValue(px + 2 * alignedOneQueryNum_), MASK_PLACEHOLDER, 1, {1, 1, 8, 8});
-                        Muls<float, false>(gradValue[ubOffset + num_points * alignedEmbedDims_], gradOut[outOffset],
-                            weight.GetValue(py + 2 * alignedOneQueryNum_), MASK_PLACEHOLDER, 1, {1, 1, 8, 8});
-                        SetFlag<HardEvent::V_MTE3>(calEvt_);
-                        WaitFlag<HardEvent::V_MTE3>(calEvt_);
-                        SetAtomicAdd<float>();
-                        if constexpr (aligned) {
-                            DataCopy(gradValueGm_[gmOffset], gradValue[ubOffset], cpGradValueParams_);
-                        } else {
-                            DataCopyPad(gradValueGm_[gmOffset], gradValue[ubOffset], cpGradValueParams_);
-                        }
-                        SetAtomicNone();
-                    } else if (0 <= x0 && x0 < w) {
-                        uint32_t ubOffset = pingOffset + (point + 2 * num_points) * alignedEmbedDims_;
-                        uint64_t gmOffset = srcOffset_ + (y1 * w + x0) * outDims_;
-                        if constexpr (aligned) {
-                            DataCopy(value[ubOffset], valueGm_[gmOffset], cpOneValParams_);
-                        } else {
-                            DataCopyPad(value[ubOffset], valueGm_[gmOffset], cpOneValParams_, {});
-                        };
-                        Muls<float, false>(gradValue[ubOffset], gradOut[outOffset],
-                            weight.GetValue(px + 2 * alignedOneQueryNum_), MASK_PLACEHOLDER, 1, {1, 1, 8, 8});
-                        SetFlag<HardEvent::V_MTE3>(calEvt_);
-                        WaitFlag<HardEvent::V_MTE3>(calEvt_);
-                        SetAtomicAdd<float>();
-                        if constexpr (aligned) {
-                            DataCopy(gradValueGm_[gmOffset], gradValue[ubOffset], cpOneValParams_);
-                        } else {
-                            DataCopyPad(gradValueGm_[gmOffset], gradValue[ubOffset], cpOneValParams_);
-                        }
-                        SetAtomicNone();
-                    } else if (0 <= x1 && x1 < w) {
-                        uint32_t ubOffset = pingOffset + (point + 3 * num_points) * alignedEmbedDims_;
-                        uint64_t gmOffset = srcOffset_ + (y1 * w + x1) * outDims_;
-                        if constexpr (aligned) {
-                            DataCopy(value[ubOffset], valueGm_[gmOffset], cpOneValParams_);
-                        } else {
-                            DataCopyPad(value[ubOffset], valueGm_[gmOffset], cpOneValParams_, {});
-                        };
-                        Muls<float, false>(gradValue[ubOffset], gradOut[outOffset],
-                            weight.GetValue(py + 2 * alignedOneQueryNum_), MASK_PLACEHOLDER, 1, {1, 1, 8, 8});
-                        SetFlag<HardEvent::V_MTE3>(calEvt_);
-                        WaitFlag<HardEvent::V_MTE3>(calEvt_);
-                        SetAtomicAdd<float>();
-                        if constexpr (aligned) {
-                            DataCopy(gradValueGm_[gmOffset], gradValue[ubOffset], cpOneValParams_);
-                        } else {
-                            DataCopyPad(gradValueGm_[gmOffset], gradValue[ubOffset], cpOneValParams_);
-                        }
-                        SetAtomicNone();
-                    }
-                }
-            }
-            SetFlag<HardEvent::MTE2_V>(copyEvt_);
-            SetFlag<HardEvent::MTE3_V>(ping);
-            WaitFlag<HardEvent::MTE3_V>(ping);
-
-            SetVectorMask<float>(0, 0xffffffff);
-            Copy<float, false>(cornerWeight, production[sx], MASK_PLACEHOLDER, 1, {1, queryBlk_, 8, 8});
-
-            WaitFlag<HardEvent::MTE2_V>(copyEvt_);
-            SetVectorMask<float>(0, valueMask_);
-            Mul<float, false>(value[pingOffset], value[pingOffset], gradOut[outOffset], MASK_PLACEHOLDER,
-                num_points * 4, {1, 1, 1, static_cast<uint8_t>(embedBlk_), static_cast<uint8_t>(embedBlk_), 0});
-            PipeBarrier<PIPE_V>();
-            for (uint32_t i = 0; i < 4; ++i) {
-                WholeReduceSum<float, false>(reducedValue[i * alignedNumPoints_],
-                    value[pingOffset + i * num_points * alignedEmbedDims_], MASK_PLACEHOLDER, num_points, 1, 1,
-                    embedBlk_); // dstRepStride Unit: 4 bytes
-            }
-            PipeBarrier<PIPE_V>();
-            Duplicate<float, false>(value[pingOffset], 0.f, MASK_PLACEHOLDER, num_points * 4, 1, embedBlk_);
-            SetFlag<HardEvent::V_MTE2>(ping);
-            ping = 1 - ping;
-
-            SetVectorMask<float>(0, 0xff);
-            PipeBarrier<PIPE_V>();
-            Mul<float, false>(cornerWeight, reducedValue, cornerWeight, MASK_PLACEHOLDER, 4,
-                {1, 1, 1, 1, 1, 1}); // [4*numPoints,] * [4*numPoints,]
-
-            PipeBarrier<PIPE_V>();
-            Add<float, false>(cornerWeight, cornerWeight, cornerWeight[2 * alignedNumPoints_], MASK_PLACEHOLDER, 2,
-                {1, 1, 1, 1, 1, 1});
-            PipeBarrier<PIPE_V>();
-            Add<float, false>(gradWeight[level * alignedNumPoints_], cornerWeight, cornerWeight[alignedNumPoints_],
-                MASK_PLACEHOLDER, 1, {1, 1, 1, 1, 1, 1});
-            SetFlag<HardEvent::V_MTE3>(calEvt_);
-            WaitFlag<HardEvent::V_MTE3>(calEvt_);
-            if (num_points == 8) {
-                DataCopy(gradAttentionWeightsGm_[weightOffset], gradWeight[level * alignedNumPoints_], {1, 1, 0, 0});
-            } else {
-                DataCopyPad(gradAttentionWeightsGm_[weightOffset], gradWeight[level * alignedNumPoints_],
-                    {1, static_cast<uint16_t>(num_points * B32_BYTE_SIZE), 0, 0});
-            }
-
-            Sub<float, false>(valueDiff, reducedValue[3 * alignedNumPoints_], reducedValue[alignedNumPoints_],
-                MASK_PLACEHOLDER, 2, {1, 1, 1, 1, 0, 1});
-            PipeBarrier<PIPE_V>();
-            Sub<float, false>(valueDiff[2 * alignedNumPoints_], reducedValue[2 * alignedNumPoints_], reducedValue,
-                MASK_PLACEHOLDER, 1, {1, 1, 1, 1, 1, 0});
-            PipeBarrier<PIPE_V>();
-            Sub<float, false>(valueDiff[3 * alignedNumPoints_], reducedValue[alignedNumPoints_], reducedValue,
-                MASK_PLACEHOLDER, 1, {1, 1, 1, 1, 1, 0});
-
-            SetVectorMask<float>(0, 0xffffffff);
-            Copy<float, false>(reducedValue, locFloat[sx], MASK_PLACEHOLDER, 1, {1, queryBlk_, 8, 8});
-            PipeBarrier<PIPE_V>();
-            Mul<float, false>(reducedValue, reducedValue, valueDiff, MASK_PLACEHOLDER, 1, {1, 1, 1, 1, 1, 1});
-            PipeBarrier<PIPE_V>();
-            Add<float, false>(reducedValue, reducedValue, reducedValue[2 * alignedNumPoints_], MASK_PLACEHOLDER, 1,
-                {1, 1, 1, 1, 1, 1});
-            PipeBarrier<PIPE_V>();
-            Gather(gradLoc[level * 32], reducedValue, gatherOffset, 0, 16);
-            SetFlag<HardEvent::V_MTE3>(calEvt_);
-            WaitFlag<HardEvent::V_MTE3>(calEvt_);
-            if (num_points >= 4) { // has padded
-                DataCopy(gradLocGm_[weightOffset * 2], gradLoc[level * 32],
-                    {1, static_cast<uint16_t>(num_points * 2 / B32_DATA_NUM_PER_BLOCK), 0, 0});
-            } else {
-                DataCopyPad(gradLocGm_[weightOffset * 2], gradLoc[level * 32],
-                    {1, static_cast<uint16_t>(2 * num_points * B32_BYTE_SIZE), 0, 0});
-            }
-            weightOffset += numPoints_;
+        for (uint32_t i = 0; i < 4; ++i) {
+            WholeReduceSum<float, false>(weight[baseIdx + i * this->alignedOneQueryNum_],
+                value[i * this->alignedCornerEmbedDims_], MASK_PLACEHOLDER, this->oneHeadNum_, 1, 1, this->embedBlk_);
         }
-    }
+        ResetMask();
 
-    SetVectorMask<float>(FULL_MASK, FULL_MASK);
+        if (unlikely(this->cornerRpt_ > MAX_REPEAT_TIMES)) {
+            Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
+            Duplicate<float, false>(value[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER,
+                this->cornerRpt_ / 2, 1, 8);
+        } else {
+            Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
+        }
+        SetFlag<HardEvent::V_MTE2>(0);
+    }
 }
 
-
-template<uint32_t num_points, bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<num_points, aligned>::Process()
+template<bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned>::ComputeGrad(const LocalTensor<float>& production,
+    const LocalTensor<float>& locFloat, const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
+    const LocalTensor<float>& gradLocation, const LocalTensor<float>& gradAttentionWeight,
+    const LocalTensor<uint32_t>& gatherOffset, uint32_t taskIdx)
 {
-    LocalTensor<uint32_t> gatherOffset = gatherOffsetBuf_.Get<uint32_t>();
-    LocalTensor<float> location = locationQue_.Get<float>();
-    LocalTensor<float> attentionWeight = attentionWeightsQue_.Get<float>();
-    LocalTensor<int32_t> shapes = shapeQue_.Get<int32_t>();
-    LocalTensor<int32_t> offset = offsetQue_.Get<int32_t>();
-    LocalTensor<float> value = valueQue_.Get<float>();
-    LocalTensor<float> cornerWeight = cornerWeightBuf_.Get<float>();
-    LocalTensor<float> reducedValue = reducedValueBuf_.Get<float>();
-    LocalTensor<float> valueDiff = valueDiffBuf_.Get<float>();
-    LocalTensor<float> gradOut = gradOutQue_.Get<float>();
-    LocalTensor<float> gradValue = gradValueQue_.Get<float>();
-    LocalTensor<float> gradLoc = gradLocQue_.Get<float>();
-    LocalTensor<float> gradWeight = gradAttentionWeightsQue_.Get<float>();
+    uint64_t sampleOffset = taskIdx * this->oneQueryNum_;
+    Mul<float, false>(production, weight, production, MASK_PLACEHOLDER, 4 * this->qryRpt_, {1, 1, 1, 8, 8, 8});
+    Add<float, false>(production, production, production[2 * this->alignedOneQueryNum_], MASK_PLACEHOLDER,
+        2 * this->qryRpt_, {1, 1, 1, 8, 8, 8});
+    WaitFlag<HardEvent::MTE3_V>(1);
+    Add<float, false>(gradAttentionWeight, production, production[this->alignedOneQueryNum_], MASK_PLACEHOLDER,
+        this->qryRpt_, {1, 1, 1, 8, 8, 8});
 
-    LocalTensor<float> shapeBrc = shapeBrcBuf_.Get<float>();
-    LocalTensor<int32_t> locInt = locIntBuf_.Get<int32_t>();
-    LocalTensor<float> locFloat = locFloatBuf_.Get<float>();
-    LocalTensor<float> production = productionBuf_.Get<float>();
-    LocalTensor<float> weight = weightBuf_.Get<float>();
+    Sub<float, false>(gradLocation, weight[3 * this->alignedOneQueryNum_], weight[this->alignedOneQueryNum_],
+        MASK_PLACEHOLDER, this->qryRpt_, {1, 1, 1, 8, 8, 8});
+    Sub<float, false>(gradLocation[this->alignedOneQueryNum_], weight[3 * this->alignedOneQueryNum_],
+        weight[2 * this->alignedOneQueryNum_], MASK_PLACEHOLDER, this->qryRpt_, {1, 1, 1, 8, 8, 8});
+    Sub<float, false>(gradLocation[2 * this->alignedOneQueryNum_], weight[2 * this->alignedOneQueryNum_], weight,
+        MASK_PLACEHOLDER, this->qryRpt_, {1, 1, 1, 8, 8, 8});
+    Sub<float, false>(gradLocation[3 * this->alignedOneQueryNum_], weight[this->alignedOneQueryNum_], weight,
+        MASK_PLACEHOLDER, this->qryRpt_, {1, 1, 1, 8, 8, 8});
+    Mul<float, false>(gradLocation, locFloat, gradLocation, MASK_PLACEHOLDER, 4 * this->qryRpt_, {1, 1, 1, 8, 8, 8});
+    Add<float, false>(gradLocation[2 * this->alignedOneQueryNum_], gradLocation,
+        gradLocation[2 * this->alignedOneQueryNum_], MASK_PLACEHOLDER, 2 * this->qryRpt_, {1, 1, 1, 8, 8, 8});
+    Gather(gradLocation, gradLocation[2 * this->alignedOneQueryNum_], gatherOffset, 0, 64, 2 * this->qryRpt_, 8);
+    SetFlag<HardEvent::V_MTE3>(1);
+    WaitFlag<HardEvent::V_MTE3>(1);
+    DataCopyPad(gradLocGm_[sampleOffset * 2], gradLocation, cpGradDoubleSampleParams_);
+    DataCopyPad(gradAttentionWeightsGm_[sampleOffset], gradAttentionWeight, cpGradSampleParams_);
+    SetFlag<HardEvent::MTE3_V>(1);
+}
+
+template<bool aligned>
+__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned>::Process()
+{
+    LocalTensor<uint32_t> gatherOffset = this->gatherOffsetBuf_.template Get<uint32_t>();
+    LocalTensor<float> locationFloat = this->locationQue_.template Get<float>();
+    LocalTensor<int32_t> locationInt = this->locationQue_.template Get<int32_t>();
+    LocalTensor<float> attentionWeight = this->attentionWeightsQue_.template Get<float>();
+    LocalTensor<int32_t> shapes = this->shapeQue_.template Get<int32_t>();
+    LocalTensor<int32_t> offset = this->offsetQue_.template Get<int32_t>();
+    LocalTensor<float> shapeFloat = this->shapeFloatBuf_.template Get<float>();
+    LocalTensor<int32_t> shapeInt = this->shapeIntBuf_.template Get<int32_t>();
+    LocalTensor<int32_t> offsetInt = this->offsetIntBuf_.template Get<int32_t>();
+    LocalTensor<float> value = this->valueQue_.template Get<float>();
+    LocalTensor<float> cornerWeightBrc = this->cornerWeightBrcBuf_.template Get<float>();
+    LocalTensor<float> gradOut = this->outputQue_.template Get<float>();
+    LocalTensor<uint64_t> validFlag = this->validFlagBuf_.template Get<uint64_t>();
+
+    LocalTensor<int32_t> locInt = this->locIntBuf_.template Get<int32_t>();
+    LocalTensor<float> locFloat = this->locFloatBuf_.template Get<float>();
+    LocalTensor<float> production = this->productionBuf_.template Get<float>();
+    LocalTensor<float> weight = this->weightBuf_.template Get<float>();
+    LocalTensor<float> gradLocation = this->gradLocationQue_.template Get<float>();
+    LocalTensor<float> gradAttentionWeight = this->gradAttentionWeightsQue_.template Get<float>();
 
     PrepareGatherOffset(gatherOffset);
-    PrepareShape(shapes, offset, shapeBrc);
-    Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, 2 * valRptTimes4_, 1, 8);
+    this->PrepareShape(shapes, shapeInt, shapeFloat, offset, offsetInt);
+    // note that the repeat times can be 256 when one head num comes to 64 and embeddims comes to 64
+    if (unlikely(this->cornerRpt_ > MAX_REPEAT_TIMES)) {
+        Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
+        Duplicate<float, false>(
+            value[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
+    } else {
+        Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
+    }
+    SetFlag<HardEvent::V_MTE2>(this->copyEvt_);
     SetFlag<HardEvent::V_MTE2>(0);
     SetFlag<HardEvent::V_MTE2>(1);
+    SetFlag<HardEvent::MTE3_V>(0);
+    SetFlag<HardEvent::MTE3_V>(1);
 
-    for (uint32_t batch = 0; batch < batchSize_; ++batch) {
-        for (uint32_t query = startOffset_; query < endOffset_; ++query) {
-            for (uint32_t pl = 0; pl < pointLoops_; ++pl) {
-                baseSrcOffset_ = batch * numHeads_ * numKeys_;
-                baseDstOffset_ = (batch * numQueries_ + query) * numHeads_ * embedDims_;
-                CopyInSample(location[2 * alignedOneQueryNum_], attentionWeight, batch, query, pl);
-                CopyInGradOut(gradOut, batch, query);
-                ComputeLocation(location, shapeBrc, locInt, locFloat);
-                ComputeWeight(locInt, locFloat, shapeBrc, production, weight, attentionWeight);
-                ComputeBilinearInterpolation(shapes, offset, locInt, locFloat, value, production, weight, gradOut,
-                    gradValue, cornerWeight, reducedValue, valueDiff, gradLoc, gradWeight, gatherOffset);
-            }
-        }
+    for (uint32_t taskIdx = this->startOffset_; taskIdx < this->endOffset_; ++taskIdx) {
+        this->CopyInSample(locationFloat[2 * this->alignedOneQueryNum_], attentionWeight, taskIdx);
+        CopyInGradOut(gradOut, taskIdx);
+        this->ComputeLocation(taskIdx, locationFloat, locationInt, shapeFloat, shapeInt, locFloat, locInt, offsetInt,
+            validFlag.ReinterpretCast<uint8_t>());
+        ComputeBilinearInterpolation(validFlag, shapeInt, locationInt, locInt, shapeFloat, production, value, locFloat,
+            weight, attentionWeight, cornerWeightBrc, gradOut);
+        ComputeGrad(
+            production, locFloat, weight, attentionWeight, gradLocation, gradAttentionWeight, gatherOffset, taskIdx);
     }
+    WaitFlag<HardEvent::V_MTE2>(this->copyEvt_);
     WaitFlag<HardEvent::V_MTE2>(0);
     WaitFlag<HardEvent::V_MTE2>(1);
-    PipeBarrier<PIPE_ALL>();
+    WaitFlag<HardEvent::MTE3_V>(0);
+    WaitFlag<HardEvent::MTE3_V>(1);
 }
 
 // core func
@@ -664,20 +266,15 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn_grad(GM_ADDR v
 {
     TPipe pipe;
     GET_TILING_DATA(tiling_datas, tiling_data);
-    ADD_MSDA_GRAD_CASE_ALIGNED(1)
-    ADD_MSDA_GRAD_CASE_ALIGNED(2)
-    ADD_MSDA_GRAD_CASE_ALIGNED(3)
-    ADD_MSDA_GRAD_CASE_ALIGNED(4)
-    ADD_MSDA_GRAD_CASE_ALIGNED(5)
-    ADD_MSDA_GRAD_CASE_ALIGNED(6)
-    ADD_MSDA_GRAD_CASE_ALIGNED(7)
-    ADD_MSDA_GRAD_CASE_ALIGNED(8)
-    ADD_MSDA_GRAD_CASE_UNALIGNED(1)
-    ADD_MSDA_GRAD_CASE_UNALIGNED(2)
-    ADD_MSDA_GRAD_CASE_UNALIGNED(3)
-    ADD_MSDA_GRAD_CASE_UNALIGNED(4)
-    ADD_MSDA_GRAD_CASE_UNALIGNED(5)
-    ADD_MSDA_GRAD_CASE_UNALIGNED(6)
-    ADD_MSDA_GRAD_CASE_UNALIGNED(7)
-    ADD_MSDA_GRAD_CASE_UNALIGNED(8)
+    if (TILING_KEY_IS(1)) {
+        MultiScaleDeformableAttnGradKernel<true> op(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm,
+            attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas,
+            &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(0)) {
+        MultiScaleDeformableAttnGradKernel<false> op(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm,
+            attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas,
+            &pipe);
+        op.Process();
+    }
 }

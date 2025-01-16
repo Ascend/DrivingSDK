@@ -2,7 +2,7 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
  */
 #include "ge/utils.h"
-#include "multi_scale_deformable_attn_grad_tiling.h"
+#include "multi_scale_deformable_attn_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/tiling_api.h"
@@ -26,23 +26,13 @@ const uint32_t REAL_LEVEL_DIM = 3;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
 const uint32_t B32_DATA_NUM_PER_BLOCK = 8;
-
-std::tuple<uint32_t, uint32_t> GroupPoints(uint32_t numPoints)
-{
-    for (uint32_t p = 8; p >= 2; p--) {
-        if (numPoints % p == 0) {
-            return std::make_tuple(p, numPoints / p);
-        }
-    }
-    return std::make_tuple(1, numPoints);
-}
 } // namespace
 
 namespace optiling {
 static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingContext* context)
 {
     CHECK_NULLPTR(context);
-    MultiScaleDeformableAttnGradTilingData tiling;
+    MultiScaleDeformableAttnTilingData tiling;
 
     auto valueTensorPtr = context->GetInputTensor(INPUT_VALUE);
     auto spatialTensorPtr = context->GetInputTensor(INPUT_SPATIAL_SHAPE);
@@ -64,14 +54,10 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingCon
     uint64_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
     uint64_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
     uint64_t numQueries = attnWeightShape.GetDim(NUM_QUERIES_DIM);
-    uint64_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
     uint64_t numLevels = spatialShape.GetDim(NUM_LEVEL_DIM);
-    auto groups = GroupPoints(numPoints);
+    uint64_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
     bool aligned = embedDims % B32_DATA_NUM_PER_BLOCK == 0;
-    uint32_t point = std::get<0>(groups);
-    uint32_t pointLoops = std::get<1>(groups);
-
-    context->SetTilingKey(aligned ? point * 10 + 1 : point * 10);
+    context->SetTilingKey(aligned ? 1 : 0);
 
     tiling.set_batchSize(batchSize);
     tiling.set_numKeys(numKeys);
@@ -81,7 +67,6 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttnGrad(gert::TilingCon
     tiling.set_numQueries(numQueries);
     tiling.set_numPoints(numPoints);
     tiling.set_coreNum(coreNum);
-    tiling.set_pointLoops(pointLoops);
     tiling.set_realLevels(attnWeightShape.GetDim(REAL_LEVEL_DIM));
 
     ADD_TILING_DATA(context, tiling);
