@@ -24,12 +24,12 @@ mx_driving.grid_sampler2d_v2(Tensor input, Tensor grid, str mode="bilinear", str
 
 ### 约束说明
 
-- input 和 grid 必须为 4 维张量，且二者 batch size 必须相同。
-- input 和 grid 均不支持 inf 和 nan。
-- grid 最后一维必须为 2，元素值需归一化到 `[-1, 1]`。
-- input, grid 和 output 的元素个数在 int32 范围内，并且每个元素的偏移量均能用 32 位索引表示。
-- mode 目前仅支持 `"bilinear"`，使用其它模式时将调用 canndev 接口。
-- input 的 channel 目前仅支持 8 以内，超过范围时将调用 canndev 接口。
+- `input` 和 `grid` 必须为 4 维张量，且二者 batch size 必须相同。
+- `input` 和 `grid` 均不支持 `inf` 、`-inf` 和 `nan`，不支持空 tensor。
+- `grid` 最后一维必须为 2，元素值需归一化到 `[-1, 1]`。
+- `input`、 `grid` 和 `output` 的元素个数在 int32 范围内，并且每个元素的偏移量均能用 32 位索引表示。
+- 仅支持 `"bilinear"`，C <= 128，超出范围将调用 cann 算子。
+- 相比于 cann 中的 `grid_sample`，针对 BEVDet 模型场景做了性能优化，所有参数配置需要与模型配置保持一致。即 `input: (24, 4, 64, 176), grid: (24, 5632, 176, 2), "bilinear", "zeros", True`。
 
 ### 支持的型号
 
@@ -41,9 +41,8 @@ mx_driving.grid_sampler2d_v2(Tensor input, Tensor grid, str mode="bilinear", str
 import torch, torch_npu
 from mx_driving import grid_sampler2d_v2
 
-inp = torch.rand(2, 4, 3, 4, dtype=torch.float32)
-rand_tensor = torch.rand(2, 2, 3, 2, dtype=torch.float32)
+inp = torch.rand(1, 1, 1, 1, dtype=torch.float32)
+rand_tensor = torch.rand(1, 2, 3, 2, dtype=torch.float32)
 grid = 2 * rand_tensor - 1
-output = grid_sampler2d_v2(input.npu(), grid.npu(), "bilinear", "zeros", False)
+output = grid_sampler2d_v2(inp.npu(), grid.npu(), "bilinear", "zeros", False)
 ```
-

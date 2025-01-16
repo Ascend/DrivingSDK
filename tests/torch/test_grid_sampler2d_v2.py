@@ -60,6 +60,16 @@ class TestGridSampler2dV2(TestCase):
         cpu_result, npu_result = gen_outputs(input_tensor, grid_tensor, "bilinear", "reflection", True)
         self.assertRtolEqual(cpu_result.cpu().detach().numpy(), npu_result.cpu().detach().numpy())
 
+    def test_channel_64(self, device="npu"):
+        input_tensor, grid_tensor = gen_inputs([24, 64, 64, 176], [24, 24, 176, 2], torch.float32)
+        cpu_result, npu_result = gen_outputs(input_tensor, grid_tensor, "bilinear", "zeros", False)
+        self.assertRtolEqual(cpu_result.cpu().detach().numpy(), npu_result.cpu().detach().numpy())
+
+    def test_channel_128(self, device="npu"):
+        input_tensor, grid_tensor = gen_inputs([24, 128, 64, 176], [24, 24, 176, 2], torch.float32)
+        cpu_result, npu_result = gen_outputs(input_tensor, grid_tensor, "bilinear", "zeros", False)
+        self.assertRtolEqual(cpu_result.cpu().detach().numpy(), npu_result.cpu().detach().numpy())
+
 
 if __name__ == "__main__":
     run_tests()

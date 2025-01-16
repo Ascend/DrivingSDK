@@ -10,7 +10,6 @@ namespace {
 constexpr int32_t BUFFER_NUM = 2;
 constexpr int32_t GRID_CHANNEL = 2;
 constexpr int32_t COMPARE_ALIGN_BYTE = 256;
-constexpr int32_t BRCB_BLOCK_NUM_PER_REPEAT = 8;
 
 enum PaddingMode {
     ZEROS,
@@ -72,14 +71,21 @@ private:
         alignedGridNumPerCore_ = alignedTaskNumPerLoop_ * GRID_CHANNEL;
         alignedCompareNumPerCore_ = AlignUp(alignedTaskNumPerLoop_, COMPARE_ALIGN_BYTE / sizeof(float));
         alignedMaskNum_ = AlignUp(alignedTaskNumPerLoop_, ONE_BLK_SIZE / sizeof(uint8_t));
+        alignedChannelBlk_ = alignedChannel_ / B32_DATA_NUM_PER_BLOCK;
 
         gatherParams_.repeatTimes = AlignUp(alignedGridNumPerCore_, B32_DATA_NUM_PER_REPEAT) / B32_DATA_NUM_PER_REPEAT;
-        inputCpParams_.blockLen = alignedChannel_ / B32_DATA_NUM_PER_BLOCK;
-        outputCpOutBlockLen_ = alignedChannel_ / B32_DATA_NUM_PER_BLOCK;
+        inputCpParams_.blockLen = alignedChannelBlk_;
+        outputCpOutBlockLen_ = alignedChannelBlk_;
 
-        brcbRptTimes_ = groupSize_ / BRCB_BLOCK_NUM_PER_REPEAT;
-        brcbRptParams_.dstBlkStride = alignedChannel_ / BRCB_BLOCK_NUM_PER_REPEAT;
-        brcbRptParams_.dstRepStride = alignedChannel_;
+        brcbRptTimes_ = groupSize_ / BRCB_BROADCAST_NUMBER;
+        brcbRptParams_.dstBlkStride = alignedChannelBlk_;
+        brcbRptParams_.dstRepStride = alignedChannelBlk_ * BRCB_BROADCAST_NUMBER;
+
+        weightAddsRptCount_ = DivCeil(groupSize_ * coordPosition_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
+        weightAddsRptParams_.dstBlkStride = alignedChannelBlk_;
+        weightAddsRptParams_.srcBlkStride = alignedChannelBlk_;
+        weightAddsRptParams_.dstRepStride = alignedChannelBlk_ * B32_DATA_NUM_PER_BLOCK;
+        weightAddsRptParams_.srcRepStride = alignedChannelBlk_ * B32_DATA_NUM_PER_BLOCK;
     }
 
     __aicore__ inline void InitTask()
@@ -208,8 +214,8 @@ private:
         uint16_t groupSize, const LocalTensor<float>& inputXCpInPing, const LocalTensor<float>& weightBrcb,
         const LocalTensor<float>& outputCpOutPong, const LocalTensor<int32_t>& nwOffsetInt,
         const LocalTensor<int32_t>& neOffsetInt, const LocalTensor<int32_t>& swOffsetInt,
-        const LocalTensor<int32_t>& seOffsetInt, const LocalTensor<float> nwWeight, const LocalTensor<float> neWeight,
-        const LocalTensor<float> swWeight, const LocalTensor<float> seWeight);
+        const LocalTensor<int32_t>& seOffsetInt, const LocalTensor<float>& nwWeight, const LocalTensor<float>& neWeight,
+        const LocalTensor<float>& swWeight, const LocalTensor<float>& seWeight);
 
     __aicore__ inline void ComputeBilinear(const LocalTensor<float>& inputXFp, const LocalTensor<float>& inputYFp);
 
@@ -288,6 +294,7 @@ private:
     int32_t alignedGridNumPerCore_;
     int32_t alignedCompareNumPerCore_;
     int32_t alignedMaskNum_;
+    int32_t alignedChannelBlk_;
     uint16_t outputCpOutBlockLen_;
 
     uint64_t coreId_;
@@ -307,6 +314,8 @@ private:
     DataCopyParams inputCpParams_ {1, 0, 0, 0};
     uint8_t brcbRptTimes_;
     BrcbRepeatParams brcbRptParams_;
+    uint8_t weightAddsRptCount_;
+    UnaryRepeatParams weightAddsRptParams_;
 
     LocalTensor<uint8_t> selMask1_;
     LocalTensor<uint8_t> selMask2_;
@@ -548,8 +557,8 @@ __aicore__ inline void GridSampler2dV2Kernel::ComputeBilinearPerGroup(uint8_t& p
     uint16_t groupSize, const LocalTensor<float>& inputXCpInPing, const LocalTensor<float>& weightBrcb,
     const LocalTensor<float>& outputCpOutPong, const LocalTensor<int32_t>& nwOffsetInt,
     const LocalTensor<int32_t>& neOffsetInt, const LocalTensor<int32_t>& swOffsetInt,
-    const LocalTensor<int32_t>& seOffsetInt, const LocalTensor<float> nwWeight, const LocalTensor<float> neWeight,
-    const LocalTensor<float> swWeight, const LocalTensor<float> seWeight)
+    const LocalTensor<int32_t>& seOffsetInt, const LocalTensor<float>& nwWeight, const LocalTensor<float>& neWeight,
+    const LocalTensor<float>& swWeight, const LocalTensor<float>& seWeight)
 {
     WaitFlag<HardEvent::V_MTE2>(ping);
     for (int32_t j = 0; j < groupSize; j++) {
@@ -562,6 +571,10 @@ __aicore__ inline void GridSampler2dV2Kernel::ComputeBilinearPerGroup(uint8_t& p
     Brcb(weightBrcb[neCpInOffsetStart_], neWeight[groupOffset], brcbRptTimes_, brcbRptParams_);
     Brcb(weightBrcb[swCpInOffsetStart_], swWeight[groupOffset], brcbRptTimes_, brcbRptParams_);
     Brcb(weightBrcb[seCpInOffsetStart_], seWeight[groupOffset], brcbRptTimes_, brcbRptParams_);
+    for (int i = 1; i < alignedChannelBlk_; i++) {
+        Adds(weightBrcb[i * B32_DATA_NUM_PER_BLOCK], weightBrcb, 0.f, B32_DATA_NUM_PER_REPEAT, weightAddsRptCount_,
+            weightAddsRptParams_);
+    }
 
     WaitFlag<HardEvent::MTE2_V>(ping);
     Mul(weightBrcb, inputXCpInPing, weightBrcb, groupSize_ * alignedChannel_ * coordPosition_);

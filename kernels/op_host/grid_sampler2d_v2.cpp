@@ -24,7 +24,10 @@ constexpr int32_t BUFFER_NUM = 2;
 constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
 constexpr int32_t BILINEAR_DIVIDE_UB_NUM = 40;
 constexpr int32_t COORD_POSITION = 4;
-constexpr int32_t FP32_GROUP_SIZE = 32;
+constexpr int32_t CHANNEL_64 = 64;
+constexpr int32_t CHANNEL_128 = 128;
+constexpr int32_t FP32_GROUP_SIZE_LE_64 = 32;
+constexpr int32_t FP32_GROUP_SIZE_GT_64_LE_128 = 16;
 } // namespace
 
 namespace optiling {
@@ -92,8 +95,15 @@ static ge::graphStatus TilingFuncForGridSampler2dV2(gert::TilingContext* context
     int32_t divideNum = BILINEAR_DIVIDE_UB_NUM;
     int32_t coordPosition = COORD_POSITION;
 
+    int32_t groupSize = 1;
+    if (channel <= CHANNEL_64) {
+        groupSize = FP32_GROUP_SIZE_LE_64;
+    } else if (channel <= CHANNEL_128) {
+        groupSize = FP32_GROUP_SIZE_GT_64_LE_128;
+    }
+
     uint64_t extraUbBytes =
-        static_cast<uint64_t>(alignedChannel) * B32_BYTE_SIZE * coordPosition * FP32_GROUP_SIZE * (BUFFER_NUM * 2 + 1);
+        static_cast<uint64_t>(alignedChannel) * B32_BYTE_SIZE * coordPosition * groupSize * (BUFFER_NUM * 2 + 1);
     int32_t taskNumPerLoop = (availableUbBytes - RESERVE_UB - extraUbBytes) / (divideNum * B32_BYTE_SIZE);
     if (taskNumPerLoop <= 0) {
         return ge::GRAPH_FAILED;
@@ -119,7 +129,7 @@ static ge::graphStatus TilingFuncForGridSampler2dV2(gert::TilingContext* context
     tilingData.set_lastCopyLoop(taskNumRemained / alignedTaskNumPerLoop);
     tilingData.set_lastCopyTail(taskNumRemained % alignedTaskNumPerLoop);
     tilingData.set_coordPosition(coordPosition);
-    tilingData.set_groupSize(FP32_GROUP_SIZE);
+    tilingData.set_groupSize(groupSize);
 
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;

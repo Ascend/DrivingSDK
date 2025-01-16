@@ -31,9 +31,9 @@ def grid_sampler2d_v2(input, grid, mode="bilinear", padding_mode="zeros", align_
         )
         output = torch.nn.functional.grid_sample(input, grid, mode, padding_mode, align_corners)
         return output
-    if input.size(1) > 8:
+    if input.size(1) > 128:
         warnings.warn(
-            f"mx_driving.grid_sampler2d_v2(): Not support for channel of input greater than 8, will call torch.nn.functional.grid_sample()."
+            f"mx_driving.grid_sampler2d_v2(): Not support for channel of input greater than 128, will call torch.nn.functional.grid_sample()."
         )
         output = torch.nn.functional.grid_sample(input, grid, mode, padding_mode, align_corners)
         return output
