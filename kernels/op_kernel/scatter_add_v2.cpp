@@ -8,7 +8,7 @@
 #include "scatter_add_notail.h"
 #include "scatter_add_notail_bighead.h"
 
-extern "C" __global__ __aicore__ void scatter_add(GM_ADDR src, GM_ADDR indices, GM_ADDR var, GM_ADDR out,
+extern "C" __global__ __aicore__ void scatter_add_v2(GM_ADDR src, GM_ADDR indices, GM_ADDR var, GM_ADDR out,
                                                               GM_ADDR workspace, GM_ADDR tiling)
 {
     TPipe pipe;

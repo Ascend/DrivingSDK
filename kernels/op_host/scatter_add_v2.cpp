@@ -108,7 +108,8 @@ ge::graphStatus ScatterAddTiling::ScatterAddNoTailTilingFunc(gert::TilingContext
 
     usedCoreNum = coreNum;
     uint64_t coreEachHead = 1;
-    uint64_t taskEachLineLast, taskLastLineLast;
+    uint64_t taskEachLineLast;
+    uint64_t taskLastLineLast;
     
     if (head > coreNum) {
         uint64_t headNum;
@@ -374,9 +375,9 @@ static ge::graphStatus ScatterAddInferDataType(gert::InferDataTypeContext *conte
 }
 
 namespace ops {
-class ScatterAdd : public OpDef {
+class ScatterAddV2 : public OpDef {
 public:
-    explicit ScatterAdd(const char* name) : OpDef(name)
+    explicit ScatterAddV2(const char* name) : OpDef(name)
     {
         this->Input("src")
             .ParamType(REQUIRED)
@@ -413,5 +414,5 @@ public:
     }
 };
 
-OP_ADD(ScatterAdd);
+OP_ADD(ScatterAddV2);
 }

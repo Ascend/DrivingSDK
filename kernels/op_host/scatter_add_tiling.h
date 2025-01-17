@@ -34,7 +34,7 @@ BEGIN_TILING_DATA_DEF(ScatterAddTilingData)
     TILING_DATA_FIELD_DEF(uint32_t, ubSrcNum);
 END_TILING_DATA_DEF;
 
-REGISTER_TILING_DATA_CLASS(ScatterAdd, ScatterAddTilingData)
+REGISTER_TILING_DATA_CLASS(ScatterAddV2, ScatterAddTilingData)
 }
 
 #endif // SCATTER_MEAN_H

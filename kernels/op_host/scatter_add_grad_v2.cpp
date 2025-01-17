@@ -181,7 +181,9 @@ void ScatterAddGradTiling::SetModeLine(gert::TilingContext* context, int32_t gra
     bigCoreNum = dataLine - dataLineSmallCore * coreUsed;
 
     uint64_t ubTailNum;
-    uint64_t taskNum, taskEachLine, taskLastLine;
+    uint64_t taskNum;
+    uint64_t taskEachLine;
+    uint64_t taskLastLine;
     uint32_t dbTimes = 1;
 
     if (tail < MAX_DEAL_NUM) {
@@ -375,9 +377,9 @@ static ge::graphStatus InferDtype4ScatterAddGrad(gert::InferDataTypeContext *con
 
 
 namespace ops {
-class ScatterAddGrad : public OpDef {
+class ScatterAddGradV2 : public OpDef {
 public:
-    explicit ScatterAddGrad(const char* name) : OpDef(name)
+    explicit ScatterAddGradV2(const char* name) : OpDef(name)
     {
         this->Input("grad_out")
             .ParamType(REQUIRED)
@@ -404,5 +406,5 @@ public:
     }
 };
 
-OP_ADD(ScatterAddGrad);
+OP_ADD(ScatterAddGradV2);
 }

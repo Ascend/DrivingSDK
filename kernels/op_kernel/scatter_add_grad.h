@@ -11,9 +11,9 @@ namespace ScatterAddGradNS {
 using namespace AscendC;
 
 template <typename T>
-class ScatterAddGrad : public ScatterAddGradBase<T> {
+class ScatterAddGradV2 : public ScatterAddGradBase<T> {
 public:
-    __aicore__ inline ScatterAddGrad() {}
+    __aicore__ inline ScatterAddGradV2() {}
     __aicore__ inline void Init(GM_ADDR gradOut, GM_ADDR index, GM_ADDR gradIn, const ScatterAddGradTilingData* tilingData)
     {
         this->InitTiling(tilingData);

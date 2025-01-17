@@ -34,5 +34,5 @@ BEGIN_TILING_DATA_DEF(ScatterAddGradTilingData)
 
 END_TILING_DATA_DEF;
 
-REGISTER_TILING_DATA_CLASS(ScatterAddGrad, ScatterAddGradTilingData)
+REGISTER_TILING_DATA_CLASS(ScatterAddGradV2, ScatterAddGradTilingData)
 }
