@@ -104,8 +104,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
    ```
 
 ## 下载预训练权重
-   在BEVFormer模型代码目录下创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
-   wget https://github.com/zhiqi-li/storage/releases/download/v1.0/r101_dcn_fcos3d_pretrain.pth
+   在BEVFormer模型代码目录下创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中（wget https://github.com/zhiqi-li/storage/releases/download/v1.0/r101_dcn_fcos3d_pretrain.pth）
    ```
     BEVFormer
     ├── ckpts/
