@@ -170,9 +170,6 @@ private:
     __aicore__ inline void CompensatePrecision(
         const LocalTensor<float>& floor, const LocalTensor<float>& dividend, float divisor, int32_t calCount);
 
-    __aicore__ inline void Mods(
-        const LocalTensor<float>& dstLocal, const LocalTensor<float>& srcLocal, float scalarValue, int32_t calCount);
-
     __aicore__ inline void UnnormalizeCoord(const LocalTensor<float>& coord, int32_t size);
 
     __aicore__ inline void ClipCoord(const LocalTensor<float>& coord, int32_t size);
@@ -354,19 +351,6 @@ __aicore__ inline void GridSampler2dV2Kernel::CompensatePrecision(
     Select(floor, selMask, tmpFloat, floor, SELMODE::VSEL_TENSOR_TENSOR_MODE, calCount);
 }
 
-__aicore__ inline void GridSampler2dV2Kernel::Mods(const LocalTensor<float>& dstLocal,
-    const LocalTensor<float>& srcLocal, const float scalarValue, const int32_t calCount)
-{
-    // c = a / b, result = a - floor(c) * b
-    LocalTensor<int32_t> tmpInt = tmpIntBuf_.Get<int32_t>();
-    Muls(dstLocal, srcLocal, (1.f / scalarValue), calCount);
-    Cast(tmpInt, dstLocal, RoundMode::CAST_FLOOR, calCount);
-    Cast(dstLocal, tmpInt, RoundMode::CAST_NONE, calCount);
-    CompensatePrecision(dstLocal, srcLocal, scalarValue, calCount);
-    Muls(dstLocal, dstLocal, scalarValue, calCount);
-    Sub(dstLocal, srcLocal, dstLocal, calCount);
-}
-
 __aicore__ inline void GridSampler2dV2Kernel::ReflectCoord(
     const LocalTensor<float>& coord, const int32_t twiceLow, const int32_t twiceHigh)
 {
@@ -377,11 +361,13 @@ __aicore__ inline void GridSampler2dV2Kernel::ReflectCoord(
     float min = static_cast<float>(twiceLow) / 2;
     float negMin = -1.f * min;
     float span = static_cast<float>(twiceHigh - twiceLow) / 2;
+    LocalTensor<float> tmpFloat = tmpFloatBuf_.Get<float>();
     Adds(coord, coord, negMin, alignedTaskNumPerLoop_);
     Abs(coord, coord, alignedTaskNumPerLoop_);
 
     LocalTensor<float> extraCoord = extraFpPointBuf_.Get<float>();
-    Mods(extraCoord, coord, span, alignedTaskNumPerLoop_);
+    Duplicate(tmpFloat, span, alignedTaskNumPerLoop_);
+    Fmod(extraCoord, coord, tmpFloat, alignedTaskNumPerLoop_);
 
     // flip
     LocalTensor<float> flip = flipFloatBuf_.Get<float>();
@@ -393,11 +379,12 @@ __aicore__ inline void GridSampler2dV2Kernel::ReflectCoord(
 
     LocalTensor<uint8_t> selMask = mask1Buf_.Get<uint8_t>();
     LocalTensor<float> mod = modFloatBuf_.Get<float>();
-    Mods(mod, flip, 2.f, alignedTaskNumPerLoop_);
+    Duplicate(tmpFloat, 2.f, alignedTaskNumPerLoop_);
+    Fmod(mod, flip, tmpFloat, alignedTaskNumPerLoop_);
     CompareScalar(selMask, mod, 0.f, CMPMODE::EQ, alignedCompareNumPerCore_);
 
     // out1 = extra + min, out2 = span - extra + min
-    LocalTensor<float> out1 = tmpFloatBuf_.Get<float>();
+    LocalTensor<float> out1 = tmpFloat;
     LocalTensor<float> out2 = extraCoord;
     Adds(out1, extraCoord, min, alignedTaskNumPerLoop_);
     Muls(out2, extraCoord, -1.f, alignedTaskNumPerLoop_);
@@ -561,8 +548,8 @@ __aicore__ inline void GridSampler2dV2Kernel::ComputeBilinearPerGroup(uint8_t& p
     const LocalTensor<float>& swWeight, const LocalTensor<float>& seWeight)
 {
     WaitFlag<HardEvent::V_MTE2>(ping);
-    for (int32_t j = 0; j < groupSize; j++) {
-        CopyInXtrans(groupOffset, j, inputXCpInPing, nwOffsetInt, neOffsetInt, swOffsetInt, seOffsetInt);
+    for (int32_t i = 0; i < groupSize; i++) {
+        CopyInXtrans(groupOffset, i, inputXCpInPing, nwOffsetInt, neOffsetInt, swOffsetInt, seOffsetInt);
     }
     SetFlag<HardEvent::MTE2_V>(ping);
 
