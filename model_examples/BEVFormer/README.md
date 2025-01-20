@@ -79,15 +79,24 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
      cd ../
      ```
   7. 安装Driving SDK加速库
+    参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
 
 ## 准备数据集
 
 1. 用户需自行下载 nuScenes V1.0 full 和 CAN bus 数据集放置在BEVFormer模型代码目录下，结构如下：
 
    ```
-   data/
-   ├── nuscenes
-   ├── can_bus
+    BEVFormer
+    ├── data/
+    │   ├── can_bus/
+    │   ├── nuscenes/
+    │   │   ├── maps/
+    │   │   ├── samples/
+    │   │   ├── sweeps/
+    │   │   ├── v1.0-test/
+    |   |   ├── v1.0-trainval/
+    |   |   ├── nuscenes_infos_temporal_train.pkl
+    |   |   ├── nuscenes_infos_temporal_val.pkl
    ```
 2. 数据预处理
    ```
@@ -96,9 +105,12 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 ## 下载预训练权重
    在BEVFormer模型代码目录下创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
+   wget https://github.com/zhiqi-li/storage/releases/download/v1.0/r101_dcn_fcos3d_pretrain.pth
    ```
-   ckpts/
-   ├── r101_dcn_fcos3d_pretrain.pth
+    BEVFormer
+    ├── ckpts/
+    │   ├── r101_dcn_fcos3d_pretrain.pth
+
    ```
 
 # 开始训练
