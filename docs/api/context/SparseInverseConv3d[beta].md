@@ -40,7 +40,7 @@ def generate_indice(batch, height, width, depth, actual_num):
     b_indice = base_indices // (height * width * depth)
     base_indices = base_indices % (height * width * depth)
     h_indice = base_indices // (width * depth)
-    base_indices = base_indices // (width * depth)
+    base_indices = base_indices % (width * depth)
     w_indice = base_indices // depth
     d_indice = base_indices % depth
     indices = np.concatenate((b_indice, h_indice, w_indice, d_indice)).reshape(4, actual_num)

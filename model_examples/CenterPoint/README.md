@@ -401,7 +401,7 @@ python setup.py develop
 训练性能结果展示表
 | Exp | FPS |
 | - | - |
-| 8p-竞品A | 29.62 |
+| 8p-竞品A | 51.61 |
 | 8p-Atlas 800T A2| 22.37 |
 
 ## FAQ

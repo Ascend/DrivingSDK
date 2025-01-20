@@ -22,9 +22,9 @@ export CPU_AFFINITY_CONF=1
 
 #基础参数，需要模型审视修改
 #网络名称，同目录名称
-Network="CenterPoint"
+Network="CenterPoint3d"
 #训练batch_size
-batch_size=12
+batch_size=4
 #训练模型配置文件
 cfg_file="cfgs/nuscenes_models/cbgs_voxel0075_res3d_centerpoint.yaml"
 
