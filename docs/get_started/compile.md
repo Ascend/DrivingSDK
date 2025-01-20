@@ -1,7 +1,7 @@
-## mxDriving仓编译指导
+## Driving SDK仓编译指导
 如果你遇到编译问题，可查看[FAQ](#faq)或者去issue中留言。
 ### 前置依赖
-mxDriving仓编译依赖以下组件：
+Driving SDK仓编译依赖以下组件：
 1. Ascend-cann-toolkit开发套件包，可前往官网下载，并在安装后使能环境变量（假设安装在`/usr/local/Ascend/`下）：
 ```
 source /usr/local/Ascend/ascend-toolkit/set_env.sh

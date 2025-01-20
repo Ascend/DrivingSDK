@@ -78,7 +78,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
      git apply --reject --whitespace=fix bev_former_config.patch
      cd ../
      ```
-  7. 安装mxDriving加速库
+  7. 安装Driving SDK加速库
 
 ## 准备数据集
 

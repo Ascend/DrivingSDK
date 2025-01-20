@@ -18,7 +18,7 @@
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/mxDriving.git
+  url=https://gitee.com/ascend/DrivingSDK.git
   code_path=model_examples/Mask2Former
   ```
 
@@ -93,7 +93,7 @@
       cd ../
       ```
 
-  4. 请参考 [mxDriving 使用说明](https://gitee.com/ascend/mxDriving/blob/master/README.md) 编译并安装 `mxDriving` 包。
+  4. 请参考 [Driving SDK 使用说明](https://gitee.com/ascend/DrivingSDK/blob/master/README.md) 编译并安装 `Driving SDK` 包。
 
 
 

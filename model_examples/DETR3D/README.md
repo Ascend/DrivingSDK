@@ -125,9 +125,9 @@ code_path=model_examples/DETR3D
   pip install -e .
   ```
 
-6. 安装 mxDriving 加速库
+6. 安装 Driving SDK 加速库
 
-  安装方法参考[原仓](https://gitee.com/ascend/mxDriving/wikis/mxDriving%20%E4%BD%BF%E7%94%A8)
+  安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)
 
 ### 模型数据准备
 
