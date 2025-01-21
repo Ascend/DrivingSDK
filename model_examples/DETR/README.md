@@ -70,9 +70,9 @@ code_path=model_examples/DETR
 
 **表 2** 三方库版本支持表
 
-| 三方库  | 支持版本 |
+| Torch_Version | 三方库依赖版本 |
 | :-----: | :------: |
-| PyTorch |  2.1.0   |
+| PyTorch 2.1 | torchvision==0.16.0 |
 
 0. 激活 CANN 环境
 
@@ -133,27 +133,29 @@ coco_path/
 
   ```
   cd model_examples/DETR/detr
-  bash test/train_8p_full.sh --data_path='/coco_path' # 8p 精度训练
-  bash test/train_8p_performance.sh --data_path='/coco_path' # 8p 性能训练
+  bash test/train_8p_full.sh --data_path='/coco_path' # 8p 精度训练，epochs 默认 300
+  bash test/train_8p_performance.sh --data_path='/coco_path' # 8p 性能训练，epochs 默认 20
   ```
 
   训练脚本参数说明：
 
   ```
   --data_path    # 数据集路径，必填
-  --epochs       # 重复训练次数，可选项，默认300
+  --epochs       # 重复训练次数，可选项
   ```
 
 #### 训练结果
 
-|     芯片      | 卡数 | epoch | mAP(IoU=0.50:0.95) | FPS  |
-| :-----------: | :--: | :----: | :----------------: | :--: |
-|     竞品A     |  8p   |  300   |       0.410        | 128 |
-| Atlas 800T A2 |  8p   |  300   |       0.405        | 122 |
+|     芯片      | 卡数 | epoch | mAP(IoU=0.50:0.95) | FPS | Torch_Version |
+| :-----------: | :--: | :----: | :----------------: | :--: | :--: |
+|     竞品A     |  8p   |  300   |       0.410        | 126 | PyTorch 2.1 |
+| Atlas 800T A2 |  8p   |  300   |       0.410        | 122 | PyTorch 2.1 |
 
 # 变更说明
 
 2024.11.21：首次发布
+
+2025.1.21: 在训练脚本中增加结果保存功能，更新资料中的torch版本描述和训练结果
 
 # FAQ
 
