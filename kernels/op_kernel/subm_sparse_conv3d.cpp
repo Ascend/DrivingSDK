@@ -206,6 +206,7 @@ private:
                     }
                 }
             }
+            PipeBarrier<PIPE_ALL>();
             for (int64_t iz = 0; iz < this->total_kernel_size; iz++) {
                 auto feature_address = temp_gm_ub.GetValue(iz * data_each_block);
                 if (feature_address != -1) {
@@ -214,14 +215,12 @@ private:
                     indices_offset_ub.SetValue(iz, (int32_t)(feature_address));
                 }
             }
-            set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            PipeBarrier<PIPE_ALL>();
             DataCopyPad(outputGm[(int32_t)((address + i) * total_kernel_size) * this->inchannel],
                         feature_ub, copyParams_output);
             DataCopyPad(indices_offsetGm[(int32_t)(address + i)* total_kernel_size],
                         indices_offset_ub, copyParams_count_offset);
-            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            PipeBarrier<PIPE_ALL>();
         }
         inQueueIndices.FreeTensor(indices_ub);
         inQueueFeature.FreeTensor(feature_ub);
@@ -276,7 +275,7 @@ private:
                     }
                 }
             }
-
+            PipeBarrier<PIPE_ALL>();
             for (int64_t iz = 0; iz < total_kernel_size; iz++) {
                 auto feature_address = temp_gm_ub.GetValue(iz * data_each_block);
                 if (feature_address != -1) {
@@ -286,14 +285,12 @@ private:
                     indices_offset_ub.SetValue(iz, (int32_t)(feature_address));
                 }
             }
-            set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            PipeBarrier<PIPE_ALL>();
             DataCopyPad(outputGm[(int32_t)((address + i) * total_kernel_size) * this->inchannel],
                         feature_ub, copyParams_feature_out);
             DataCopyPad(indices_offsetGm[(int32_t)(address + i)* total_kernel_size],
                         indices_offset_ub, copyParams_count_offset);
-            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            PipeBarrier<PIPE_ALL>();
         }
         inQueueIndices.FreeTensor(indices_ub);
         inQueueFeature.FreeTensor(feature_ub);
