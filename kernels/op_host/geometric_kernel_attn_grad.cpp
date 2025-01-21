@@ -17,16 +17,19 @@ const uint32_t POS_INPUT_LEVEL_START_INDEX = 2;
 const uint32_t POS_INPUT_SAMPLING_LOCATIONS = 3;
 const uint32_t POS_INPUT_ATTN_WEIGHTS = 4;
 const uint32_t POS_INPUT_GRAD_OUTPUT = 5;
+
 const uint32_t POS_OUTPUT_GRAD_VALUE = 0;
 const uint32_t POS_OUTPUT_GRAD_ATTN_WEIGHTS = 1;
-const uint32_t POS_ATTR_NUM_POINTS_REAL = 0;
+
 const uint32_t VALUE_BATCH_SIZE_DIM = 0;
 const uint32_t VALUE_NUM_KEYS_DIM = 1;
-const uint32_t VALUE_EMBED_DIMS_DIM = 2;
-const uint32_t ATTN_WEIGHTS_NUM_LEVELS_DIM = 0;
-const uint32_t ATTN_WEIGHTS_BATCH_SIZE_DIM = 1;
-const uint32_t ATTN_WEIGHTS_NUM_QUERIES_DIM = 2;
-const uint32_t ATTN_WEIGHTS_NUM_POINTS_DIM = 3;
+const uint32_t VALUE_NUM_HEADS_DIM = 2;
+const uint32_t VALUE_EMBED_DIMS_DIM = 3;
+const uint32_t ATTN_WEIGHTS_BATCH_SIZE_DIM = 0;
+const uint32_t ATTN_WEIGHTS_NUM_QUERIES_DIM = 1;
+const uint32_t ATTN_WEIGHTS_NUM_LEVELS_DIM = 3;
+const uint32_t ATTN_WEIGHTS_NUM_POINTS_DIM = 4;
+
 const uint64_t UB_RESERVE_BYTES = 10 * 1024;
 const uint32_t FLOAT32_BYTES = 4;
 const uint32_t BLOCK_BYTES = 32;
@@ -50,14 +53,14 @@ static ge::graphStatus TilingFuncForGeometricKernelAttnGrad(gert::TilingContext*
         return ge::GRAPH_FAILED;
     }
     auto ascendPlatformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
-    auto aicNum = ascendPlatformInfo.GetCoreNumAic();
-    auto aivNum = ascendPlatformInfo.GetCoreNumAiv();
-    if (aicNum == 0 || aivNum == 0) {
+    uint32_t coreNum = ascendPlatformInfo.GetCoreNumAiv();
+    if (coreNum == 0) {
         return ge::GRAPH_FAILED;
     }
-    context->SetBlockDim(aicNum);
+    context->SetBlockDim(coreNum);
 
     uint32_t batchSize = valueShape.GetDim(VALUE_BATCH_SIZE_DIM);
+    uint32_t numHeads = valueShape.GetDim(VALUE_NUM_HEADS_DIM);
     uint32_t embedDims = valueShape.GetDim(VALUE_EMBED_DIMS_DIM);
     uint32_t numKeys = valueShape.GetDim(VALUE_NUM_KEYS_DIM);
     uint32_t numLevels = attnWeightShape.GetDim(ATTN_WEIGHTS_NUM_LEVELS_DIM);
@@ -66,66 +69,37 @@ static ge::graphStatus TilingFuncForGeometricKernelAttnGrad(gert::TilingContext*
 
     uint32_t numItemsPerBlock = BLOCK_BYTES / FLOAT32_BYTES;
     uint32_t numLevelsAligned = AlignUp(numLevels, numItemsPerBlock);
-    uint32_t numKeysAligned = AlignUp(numKeys, numItemsPerBlock);
     uint32_t numPointsAligned = AlignUp(numPoints, numItemsPerBlock);
 
-    uint32_t numLargeCores = numQueries % aivNum;
-    if (numLargeCores == 0) {
-        numLargeCores = aivNum;
-    }
+    uint32_t taskNum = batchSize * numQueries;
+    uint32_t taskPerCore = taskNum / coreNum;
+    uint32_t taskCoreTail = taskNum % coreNum;
 
     uint64_t ubBytesTotal;
     ascendPlatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubBytesTotal);
     uint64_t ubBytes = ubBytesTotal - UB_RESERVE_BYTES;
     uint64_t ubSize = ubBytes / FLOAT32_BYTES;
-    uint32_t ubSize4Others = numLevelsAligned * 3 + numPointsAligned * embedDims * 2;
-    uint32_t ubSize4OthersOpt = ubSize4Others + numKeys * embedDims;
-    uint32_t oneQuerySizePerBundle = numKeysAligned + embedDims + numPointsAligned * 3;
-
-    uint32_t ubSize4Bundle = ubSize - ubSize4OthersOpt;
-    if (ubSize4OthersOpt + 2 * oneQuerySizePerBundle < ubSize) {
-        context->SetTilingKey(1);
-    } else {
-        context->SetTilingKey(0);
-        ubSize4Bundle = ubSize - ubSize4Others;
-    }
-
-    uint32_t numQueriesPerBundle = (ubSize4Bundle - numItemsPerBlock) / oneQuerySizePerBundle;
-    uint32_t numQueriesPerLargeCore = (numQueries + aivNum - 1) / aivNum;
-
-    matmul_tiling::MatmulApiTiling mmTiling(ascendPlatformInfo);
-    mmTiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
-    mmTiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT, true);
-    mmTiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND_ALIGN, matmul_tiling::DataType::DT_FLOAT);
-    mmTiling.SetShape(numQueriesPerLargeCore, numKeys, embedDims);
-    mmTiling.SetOrgShape(numQueriesPerLargeCore, numKeys, embedDims);
-    mmTiling.SetBias(false);
-    mmTiling.SetBufferSpace(-1, -1, -1);
-    if (mmTiling.GetTiling(tiling.mmTilingData) == -1) {
-        return ge::GRAPH_FAILED;
-    }
+    uint32_t ubSize4Others = 5 * numLevelsAligned + 3 * numHeads * numLevels * numPointsAligned * embedDims;
+    uint32_t querySizePerTask = 10 * numHeads * numLevels * numPointsAligned + numHeads * embedDims;
+    uint32_t taskCompNum = (ubSize - ubSize4Others - numItemsPerBlock) / querySizePerTask;
 
     tiling.set_batchSize(batchSize);
+    tiling.set_numHeads(numHeads);
     tiling.set_embedDims(embedDims);
     tiling.set_numKeys(numKeys);
     tiling.set_numLevels(numLevels);
     tiling.set_numQueries(numQueries);
     tiling.set_numPoints(numPoints);
-    tiling.set_coreNum(aivNum);
-    tiling.set_numLargeCores(numLargeCores);
-    tiling.set_numQueriesPerBundle(numQueriesPerBundle);
-    tiling.set_numQueriesPerLargeCore(numQueriesPerLargeCore);
+    tiling.set_coreNum(coreNum);
+    tiling.set_taskPerCore(taskPerCore);
+    tiling.set_taskCompNum(taskCompNum);
+    tiling.set_taskCoreTail(taskCoreTail);
 
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-
-    size_t systemWorkspaceSize = ascendPlatformInfo.GetLibApiWorkSpaceSize();
-    size_t tmp4GradAttnWeightsSize = numQueries * numKeysAligned * sizeof(float);
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
-    currentWorkspace[0] = systemWorkspaceSize + tmp4GradAttnWeightsSize;
 
     return ge::GRAPH_SUCCESS;
 }
@@ -146,15 +120,8 @@ static ge::graphStatus InferShapeForGeometricKernelAttnGrad(gert::InferShapeCont
         return ge::GRAPH_FAILED;
     }
 
-    int64_t batchSize = valueShape->GetDim(VALUE_BATCH_SIZE_DIM);
-    int64_t numKeys = valueShape->GetDim(VALUE_NUM_KEYS_DIM);
-    int64_t embedDims = valueShape->GetDim(VALUE_EMBED_DIMS_DIM);
-    int64_t numLevels = attnWeightsShape->GetDim(ATTN_WEIGHTS_NUM_LEVELS_DIM);
-    int64_t numQueries = attnWeightsShape->GetDim(ATTN_WEIGHTS_NUM_QUERIES_DIM);
-    int64_t numPoints = attnWeightsShape->GetDim(ATTN_WEIGHTS_NUM_POINTS_DIM);
-
-    *gradValueShape = {batchSize, numKeys, embedDims};
-    *gradAttnWeightsShape = {numLevels, batchSize, numQueries, numPoints};
+    *gradValueShape = *valueShape;
+    *gradAttnWeightsShape = *attnWeightsShape;
     return GRAPH_SUCCESS;
 }
 

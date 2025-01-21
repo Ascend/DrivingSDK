@@ -16,6 +16,10 @@ mx_driving.geometric_kernel_attention(Tensor value, Tensor spatial_shapes, Tenso
 - `Tensor`：计算注意力权重后的特征图张量，数据类型为`float32`，形状为`[B, num_queries, num_heads*dim]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
+### 约束说明
+- 假设num_points向上取到8的整数倍后为num_points_align，当前版本反向算子仅支持`num_heads * num_levels * num_points_align * dim < 16 * 1024`。
+- 假设num_points向上取到8的整数倍后为num_points_align，当前版本反向算子仅支持`num_heads * num_levels * num_points_align < 256`。
+- 当前版本反向算子仅支持`dim % 8 == 0`。
 ### 调用示例
 ```python
 import torch, torch_npu

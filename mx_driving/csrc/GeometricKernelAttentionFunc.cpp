@@ -89,8 +89,8 @@ std::tuple<at::Tensor, at::Tensor> geometric_kernel_attention_backward(const at:
 
     TORCH_CHECK(embed_dims % 8 == 0, "embed_dims must be a multiple of 8, but embed_dims is ", embed_dims, ".");
 
-    at::Tensor grad_value = at::zeros(value_size, value.options().dtype(at::kFloat));
-    at::Tensor grad_attn_weights = at::zeros(attn_weights_size, attn_weights.options().dtype(at::kFloat));
+    at::Tensor grad_value = at::zeros({bs, num_keys, num_heads, embed_dims}, value.options().dtype(at::kFloat));
+    at::Tensor grad_attn_weights = at::empty({bs, num_queries, num_heads, num_levels, num_points}, attn_weights.options().dtype(at::kFloat));
 
     at::Tensor value_fp = value.to(at::kFloat);
     at::Tensor spatial_shapes_fp = spatial_shapes.to(at::kInt);
@@ -99,23 +99,8 @@ std::tuple<at::Tensor, at::Tensor> geometric_kernel_attention_backward(const at:
     at::Tensor attn_weights_fp = attn_weights.to(at::kFloat);
     at::Tensor grad_output_fp = grad_output.to(at::kFloat);
 
-    value_fp = value_fp.permute({0, 2, 1, 3}).contiguous();
-    value_fp = value_fp.view({bs * num_heads, num_keys, embed_dims}).contiguous();
-    sampling_locations_fp = sampling_locations_fp.permute({3, 0, 2, 5, 1, 4}).contiguous();
-    sampling_locations_fp = sampling_locations_fp.view({num_levels, bs * num_heads, 2, num_queries, num_points}).contiguous();
-    attn_weights_fp = attn_weights_fp.permute({3, 0, 2, 1, 4}).contiguous();
-    attn_weights_fp = attn_weights_fp.view({num_levels, bs * num_heads, num_queries, num_points}).contiguous();
-    grad_output_fp = grad_output_fp.view({bs, num_queries, num_heads, embed_dims});
-    grad_output_fp = grad_output_fp.permute({0, 2, 1, 3}).contiguous();
-    grad_output_fp = grad_output_fp.view({bs * num_heads, num_queries, embed_dims}).contiguous();
-
     EXEC_NPU_CMD(aclnnGeometricKernelAttnGrad, value_fp, spatial_shapes_fp, level_start_index_fp, sampling_locations_fp,
         attn_weights_fp, grad_output_fp, grad_value, grad_attn_weights);
-
-    grad_value = grad_value.view({bs, num_heads, num_keys, embed_dims});
-    grad_value = grad_value.permute({0, 2, 1, 3}).contiguous();
-    grad_attn_weights = grad_attn_weights.view({num_levels, bs, num_heads, num_queries, num_points});
-    grad_attn_weights = grad_attn_weights.permute({1, 3, 2, 0, 4}).contiguous();
 
     return std::make_tuple(grad_value.to(ori_dtype), grad_attn_weights.to(ori_dtype));
 }
