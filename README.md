@@ -157,6 +157,7 @@ out, argmax = scatter_max(updates, indices, out)
 | LaneSegNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LaneSegNet |【Test】|
 | BEVFusion | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFusion |【Test】|
 | FCOS-resnet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS | 【Test】|
+| FCOS3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS3D | 【Test】|
 | MapTR |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTR| 【Test】|
 | UniAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD |【Test】|
 | PivotNet|https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PivotNet|【Test】|

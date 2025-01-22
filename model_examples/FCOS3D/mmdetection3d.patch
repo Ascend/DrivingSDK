@@ -1,0 +1,253 @@
+diff --git a/configs/_base_/datasets/nus-mono3d.py b/configs/_base_/datasets/nus-mono3d.py
+index 9a1d2265..bd522476 100644
+--- a/configs/_base_/datasets/nus-mono3d.py
++++ b/configs/_base_/datasets/nus-mono3d.py
+@@ -54,6 +54,7 @@ train_dataloader = dict(
+     batch_size=2,
+     num_workers=2,
+     persistent_workers=True,
++    pin_memory=True,
+     sampler=dict(type='DefaultSampler', shuffle=True),
+     dataset=dict(
+         type=dataset_type,
+@@ -82,6 +83,7 @@ val_dataloader = dict(
+     num_workers=2,
+     persistent_workers=True,
+     drop_last=False,
++    pin_memory=True,
+     sampler=dict(type='DefaultSampler', shuffle=False),
+     dataset=dict(
+         type=dataset_type,
+diff --git a/configs/_base_/default_runtime.py b/configs/_base_/default_runtime.py
+index 9249ab99..b2e9ec71 100644
+--- a/configs/_base_/default_runtime.py
++++ b/configs/_base_/default_runtime.py
+@@ -11,7 +11,7 @@ default_hooks = dict(
+ env_cfg = dict(
+     cudnn_benchmark=False,
+     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0),
+-    dist_cfg=dict(backend='nccl'),
++    dist_cfg=dict(backend='hccl', timeout=7200000),
+ )
+ 
+ log_processor = dict(type='LogProcessor', window_size=50, by_epoch=True)
+diff --git a/configs/benchmark/hv_PartA2_secfpn_4x8_cyclic_80e_pcdet_kitti-3d-3class.py b/configs/benchmark/hv_PartA2_secfpn_4x8_cyclic_80e_pcdet_kitti-3d-3class.py
+index baec55f9..85d97889 100644
+--- a/configs/benchmark/hv_PartA2_secfpn_4x8_cyclic_80e_pcdet_kitti-3d-3class.py
++++ b/configs/benchmark/hv_PartA2_secfpn_4x8_cyclic_80e_pcdet_kitti-3d-3class.py
+@@ -371,7 +371,7 @@ custom_hooks = [
+ env_cfg = dict(
+     cudnn_benchmark=False,
+     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0),
+-    dist_cfg=dict(backend='nccl'),
++    dist_cfg=dict(backend='hccl'),
+ )
+ 
+ vis_backends = [dict(type='LocalVisBackend')]
+diff --git a/configs/benchmark/hv_pointpillars_secfpn_3x8_100e_det3d_kitti-3d-car.py b/configs/benchmark/hv_pointpillars_secfpn_3x8_100e_det3d_kitti-3d-car.py
+index dc59480e..b63905c4 100644
+--- a/configs/benchmark/hv_pointpillars_secfpn_3x8_100e_det3d_kitti-3d-car.py
++++ b/configs/benchmark/hv_pointpillars_secfpn_3x8_100e_det3d_kitti-3d-car.py
+@@ -234,7 +234,7 @@ custom_hooks = [
+ env_cfg = dict(
+     cudnn_benchmark=False,
+     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0),
+-    dist_cfg=dict(backend='nccl'),
++    dist_cfg=dict(backend='hccl'),
+ )
+ 
+ vis_backends = [dict(type='LocalVisBackend')]
+diff --git a/configs/benchmark/hv_pointpillars_secfpn_4x8_80e_pcdet_kitti-3d-3class.py b/configs/benchmark/hv_pointpillars_secfpn_4x8_80e_pcdet_kitti-3d-3class.py
+index 01dc8b5c..5a0ca4a3 100644
+--- a/configs/benchmark/hv_pointpillars_secfpn_4x8_80e_pcdet_kitti-3d-3class.py
++++ b/configs/benchmark/hv_pointpillars_secfpn_4x8_80e_pcdet_kitti-3d-3class.py
+@@ -277,7 +277,7 @@ custom_hooks = [
+ env_cfg = dict(
+     cudnn_benchmark=False,
+     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0),
+-    dist_cfg=dict(backend='nccl'),
++    dist_cfg=dict(backend='hccl'),
+ )
+ 
+ vis_backends = [dict(type='LocalVisBackend')]
+diff --git a/configs/benchmark/hv_second_secfpn_4x8_80e_pcdet_kitti-3d-3class.py b/configs/benchmark/hv_second_secfpn_4x8_80e_pcdet_kitti-3d-3class.py
+index f8dd0d24..9075d3b9 100644
+--- a/configs/benchmark/hv_second_secfpn_4x8_80e_pcdet_kitti-3d-3class.py
++++ b/configs/benchmark/hv_second_secfpn_4x8_80e_pcdet_kitti-3d-3class.py
+@@ -267,7 +267,7 @@ custom_hooks = [
+ env_cfg = dict(
+     cudnn_benchmark=False,
+     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0),
+-    dist_cfg=dict(backend='nccl'),
++    dist_cfg=dict(backend='hccl'),
+ )
+ 
+ vis_backends = [dict(type='LocalVisBackend')]
+diff --git a/configs/mvfcos3d/multiview-fcos3d_r101-dcn_8xb2_waymoD5-3d-3class.py b/configs/mvfcos3d/multiview-fcos3d_r101-dcn_8xb2_waymoD5-3d-3class.py
+index b75a6db5..b644b7e8 100644
+--- a/configs/mvfcos3d/multiview-fcos3d_r101-dcn_8xb2_waymoD5-3d-3class.py
++++ b/configs/mvfcos3d/multiview-fcos3d_r101-dcn_8xb2_waymoD5-3d-3class.py
+@@ -40,7 +40,7 @@ default_scope = 'mmdet3d'
+ env_cfg = dict(
+     cudnn_benchmark=False,
+     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0),
+-    dist_cfg=dict(backend='nccl'),
++    dist_cfg=dict(backend='hccl'),
+ )
+ 
+ log_level = 'INFO'
+diff --git a/docs/en/user_guides/config.md b/docs/en/user_guides/config.md
+index 2d4358e5..23f3b05c 100644
+--- a/docs/en/user_guides/config.md
++++ b/docs/en/user_guides/config.md
+@@ -360,7 +360,7 @@ env_cfg = dict(
+     mp_cfg=dict(  # Multi-processing config
+         mp_start_method='fork',  # Use fork to start multi-processing threads. 'fork' usually faster than 'spawn' but maybe unsafe. See discussion in https://github.com/pytorch/pytorch/issues/1355
+         opencv_num_threads=0),  # Disable opencv multi-threads to avoid system being overloaded
+-    dist_cfg=dict(backend='nccl'))  # Distribution configs
++    dist_cfg=dict(backend='hccl'))  # Distribution configs
+ 
+ vis_backends = [dict(type='LocalVisBackend')]  # Visualization backends. Refer to https://mmengine.readthedocs.io/en/latest/advanced_tutorials/visualization.html
+ visualizer = dict(
+diff --git a/docs/en/user_guides/train_test.md b/docs/en/user_guides/train_test.md
+index e3a85d3a..a126ff3b 100644
+--- a/docs/en/user_guides/train_test.md
++++ b/docs/en/user_guides/train_test.md
+@@ -238,7 +238,7 @@ If you use launch training jobs with Slurm, there are two ways to specify the po
+ 
+    ```python
+    env_cfg = dict(
+-       dist_cfg=dict(backend='nccl', port=29500)
++       dist_cfg=dict(backend='hccl', port=29500)
+    )
+    ```
+ 
+@@ -246,7 +246,7 @@ If you use launch training jobs with Slurm, there are two ways to specify the po
+ 
+    ```python
+    env_cfg = dict(
+-       dist_cfg=dict(backend='nccl', port=29501)
++       dist_cfg=dict(backend='hccl', port=29501)
+    )
+    ```
+ 
+diff --git a/docs/zh_cn/user_guides/config.md b/docs/zh_cn/user_guides/config.md
+index f971a108..40ed9b45 100644
+--- a/docs/zh_cn/user_guides/config.md
++++ b/docs/zh_cn/user_guides/config.md
+@@ -359,7 +359,7 @@ env_cfg = dict(
+     mp_cfg=dict(  # 多进程配置
+         mp_start_method='fork',  # 使用 fork 来启动多进程。'fork' 通常比 'spawn' 更快，但可能不安全。请参考 https://github.com/pytorch/pytorch/issues/1355
+         opencv_num_threads=0),  # 关闭 opencv 的多进程以避免系统超负荷
+-    dist_cfg=dict(backend='nccl'))  # 分布式配置
++    dist_cfg=dict(backend='hccl'))  # 分布式配置
+ 
+ vis_backends = [dict(type='LocalVisBackend')]  # 可视化后端。请参考 https://mmengine.readthedocs.io/zh_CN/latest/advanced_tutorials/visualization.html
+ visualizer = dict(
+diff --git a/docs/zh_cn/user_guides/train_test.md b/docs/zh_cn/user_guides/train_test.md
+index 3b475a44..e77129b4 100644
+--- a/docs/zh_cn/user_guides/train_test.md
++++ b/docs/zh_cn/user_guides/train_test.md
+@@ -234,7 +234,7 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 PORT=29501 ./tools/dist_train.sh ${CONFIG_FILE} 4
+ 
+    ```python
+    env_cfg = dict(
+-       dist_cfg=dict(backend='nccl', port=29500)
++       dist_cfg=dict(backend='hccl', port=29500)
+    )
+    ```
+ 
+@@ -242,7 +242,7 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 PORT=29501 ./tools/dist_train.sh ${CONFIG_FILE} 4
+ 
+    ```python
+    env_cfg = dict(
+-       dist_cfg=dict(backend='nccl', port=29501)
++       dist_cfg=dict(backend='hccl', port=29501)
+    )
+    ```
+ 
+diff --git a/mmdet3d/__init__.py b/mmdet3d/__init__.py
+index 17c17773..e7b5408c 100644
+--- a/mmdet3d/__init__.py
++++ b/mmdet3d/__init__.py
+@@ -18,11 +18,6 @@ mmdet_minimum_version = '3.0.0rc5'
+ mmdet_maximum_version = '3.4.0'
+ mmdet_version = digit_version(mmdet.__version__)
+ 
+-assert (mmcv_version >= digit_version(mmcv_minimum_version)
+-        and mmcv_version < digit_version(mmcv_maximum_version)), \
+-    f'MMCV=={mmcv.__version__} is used but incompatible. ' \
+-    f'Please install mmcv>={mmcv_minimum_version}, <{mmcv_maximum_version}.'
+-
+ assert (mmengine_version >= digit_version(mmengine_minimum_version)
+         and mmengine_version < digit_version(mmengine_maximum_version)), \
+     f'MMEngine=={mmengine.__version__} is used but incompatible. ' \
+diff --git a/mmdet3d/configs/_base_/default_runtime.py b/mmdet3d/configs/_base_/default_runtime.py
+index c13d0e11..32687766 100644
+--- a/mmdet3d/configs/_base_/default_runtime.py
++++ b/mmdet3d/configs/_base_/default_runtime.py
+@@ -21,7 +21,7 @@ default_hooks = dict(
+ env_cfg = dict(
+     cudnn_benchmark=False,
+     mp_cfg=dict(mp_start_method='fork', opencv_num_threads=0),
+-    dist_cfg=dict(backend='nccl'),
++    dist_cfg=dict(backend='hccl'),
+ )
+ 
+ log_processor = dict(type=LogProcessor, window_size=50, by_epoch=True)
+diff --git a/tools/dist_test.sh b/tools/dist_test.sh
+index dea131b4..39bf6ae9 100755
+--- a/tools/dist_test.sh
++++ b/tools/dist_test.sh
+@@ -9,7 +9,8 @@ PORT=${PORT:-29500}
+ MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
+ 
+ PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
+-python -m torch.distributed.launch \
++# python -m torch.distributed.launch \
++torchrun \
+     --nnodes=$NNODES \
+     --node_rank=$NODE_RANK \
+     --master_addr=$MASTER_ADDR \
+diff --git a/tools/dist_train.sh b/tools/dist_train.sh
+index 3fca7641..bcd052f1 100755
+--- a/tools/dist_train.sh
++++ b/tools/dist_train.sh
+@@ -8,7 +8,8 @@ PORT=${PORT:-29500}
+ MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
+ 
+ PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
+-python -m torch.distributed.launch \
++# python -m torch.distributed.launch \
++torchrun \
+     --nnodes=$NNODES \
+     --node_rank=$NODE_RANK \
+     --master_addr=$MASTER_ADDR \
+diff --git a/tools/test.py b/tools/test.py
+index 4afc2559..a8bc9cf5 100644
+--- a/tools/test.py
++++ b/tools/test.py
+@@ -9,6 +9,9 @@ from mmengine.runner import Runner
+ 
+ from mmdet3d.utils import replace_ceph_backend
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
+ 
+ # TODO: support fuse_conv_bn and format_only
+ def parse_args():
+diff --git a/tools/train.py b/tools/train.py
+index 6b9c3b08..ea8f0bb0 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -11,6 +11,9 @@ from mmengine.runner import Runner
+ 
+ from mmdet3d.utils import replace_ceph_backend
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
+ 
+ def parse_args():
+     parser = argparse.ArgumentParser(description='Train a 3D detector')
