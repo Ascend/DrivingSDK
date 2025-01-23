@@ -15,6 +15,7 @@
 #include "deformable_aggregation_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
+#include "common.h"
 
 namespace {
 
@@ -69,40 +70,27 @@ static ge::graphStatus TilingForDeformableAggregation(gert::TilingContext* conte
     auto bs = getAttr(BATCH_SIZE_IDX);
     auto numFeats = getAttr(FEAT_IDX);
     auto numEmbeds = getAttr(EMBEDS_IDX);
-    auto numAnchor = getAttr(ANCHORS_IDX);
+    auto numAnchors = getAttr(ANCHORS_IDX);
     auto numPoints = getAttr(PTS_IDX);
     auto numCams = getAttr(CAMS_IDX);
-    auto numScale = getAttr(SCALE_IDX);
+    auto numScales = getAttr(SCALE_IDX);
     auto numGroups = getAttr(GROUPS_IDX);
 
     uint32_t alignNum = BYTE_BLOCK / SIZE_OF_FP32;
-    uint32_t cAligned = (numEmbeds + alignNum - 1) / alignNum * alignNum;
-    uint32_t singleAligned = (SINGLE + alignNum - 1) / alignNum * alignNum;
+    uint32_t cAligned = ceil_value(static_cast<uint32_t>(numEmbeds), alignNum);
 
-    uint32_t average = bs * numAnchor * numPoints * numCams * numScale / coreNum;
-    uint32_t taskLast = bs * numAnchor * numPoints * numCams * numScale % coreNum;
-    uint32_t groupAligned = (numGroups + alignNum - 1) / alignNum * alignNum;
-    uint32_t usedCoreNum = coreNum;
-    if (average == 0) {
-        usedCoreNum = taskLast;
-    }
-
-    context->SetBlockDim(usedCoreNum);
+    context->SetBlockDim(coreNum);
 
     tiling.set_bs(bs);
     tiling.set_numFeats(numFeats);
     tiling.set_numEmbeds(numEmbeds);
-    tiling.set_numAnchor(numAnchor);
+    tiling.set_numAnchors(numAnchors);
     tiling.set_numPoints(numPoints);
     tiling.set_numCams(numCams);
-    tiling.set_numScale(numScale);
+    tiling.set_numScales(numScales);
     tiling.set_numGroups(numGroups);
     tiling.set_cAligned(cAligned);
-    tiling.set_singleAligned(singleAligned);
-    tiling.set_average(average);
-    tiling.set_taskLast(taskLast);
-    tiling.set_usedCoreNum(usedCoreNum);
-    tiling.set_groupAligned(groupAligned);
+    tiling.set_coreNum(coreNum);
 
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;

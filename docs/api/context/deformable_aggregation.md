@@ -23,12 +23,12 @@ mx_driving.npu_deformable_aggregation(Tensor feature_maps, Tensor spatial_shape,
 ### 约束说明
 - bs <= 128
 - num_feat的值为spatial_shape中每幅图的特征数量之和
-- c <= 256,且为group的整数倍
+- c <= 256, 且为group的整数倍
 - cam <= 6
 - scale <= 4
 - anchor <= 2048
 - pts <= 2048
-- group <= 32,且为2的指数倍
+- group 为8的整数倍
 - sample_locations的值在[0, 1]之间。
 - 每个输入tensor的数据量不超过1.5亿。
 - 反向具有相同约束。

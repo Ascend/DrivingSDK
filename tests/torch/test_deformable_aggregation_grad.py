@@ -187,7 +187,7 @@ class TestDeformableAggregation(TestCase):
         cList = [32]
         ptsList = [10, 21]
         anchorList = [10, 13]
-        numGroupsList = [4, 8]
+        numGroupsList = [8]
 
         for B in bList:
             for C in cList:
