@@ -68,6 +68,7 @@ private:
             COMPARE_ALIGN_BYTE) * COMPARE_ALIGN_BYTE;
         this->eventIDVToMTE3_ = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::V_MTE3));
         this->eventIDMTE2ToV_ = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
+        this->eventIDMTE3ToV_ = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE3_V));
 
         if (blkIdx_ < bigCoreCount_) {
             // big core
@@ -138,7 +139,7 @@ private:
         alignedAnchorsBufferByte_, taskMemAlignedByte_, bigCoreCount_, coreStartTaskIdx_,
         singleLoopTask_, taskElemCountAligned_, copyInDataBlockElemCountAligned_;
 
-    int32_t eventIDVToMTE3_, eventIDMTE2ToV_;
+    int32_t eventIDVToMTE3_, eventIDMTE2ToV_, eventIDMTE3ToV_;
 
     TBuf<TPosition::VECCALC> anchorsBuf_, anchorLeftShiftBuf_, tmpMaskBuf_, tmpBuf_;
     DataCopyExtParams anchorsCopyInParams_, anchorsLeftShiftCopyInParams_;
@@ -170,15 +171,15 @@ __aicore__ inline LocalTensor<float> CalAnchorsHeading::Compute(LocalTensor<floa
 {
     // reused buffer anchorsBuf_
     LocalTensor<float> xyDiffLocal = ComputeXYDiff(anchorsLocal, anchorsLocalLeftShift, taskCount);
-    AscendC::PipeBarrier<PIPE_V>();
 
     // reused buffer anchorLeftShiftBuf_
     LocalTensor<float> xyDiffGatheredLocal = ComputeGatheredXYDiff(xyDiffLocal, anchorsLocalLeftShift, taskCount);
-    AscendC::PipeBarrier<PIPE_V>();
+
+    SetFlag<HardEvent::MTE3_V>(eventIDMTE3ToV_);
+    WaitFlag<HardEvent::MTE3_V>(eventIDMTE3ToV_);
 
     // reused buffer anchorsBuf_ (variable xyDiffLocal)
     LocalTensor<float> headingLocal = ComputeHeading(xyDiffGatheredLocal, xyDiffLocal, taskCount);
-    AscendC::PipeBarrier<PIPE_V>();
 
     LocalTensor<float> outputLocal = ComputeOutput(headingLocal, xyDiffGatheredLocal, taskCount);
 
