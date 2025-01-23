@@ -90,7 +90,7 @@ code_path=model_examples/PivotNet
    ```
    git clone -b 1.x https://github.com/open-mmlab/mmcv
    cd mmcv
-   MMCV_WITH_OPS=1 pip install -e . -v
+   MMCV_WITH_OPS=1 python setup.py install
    ```
 
 3. 安装 detectron2
@@ -111,7 +111,7 @@ code_path=model_examples/PivotNet
    cd PivotNet
    git checkout 3f334e499bae6c9e2f3ed06cf77ac6cbd22d0ba8
    git apply --reject --whitespace=fix pivotnet.patch
-   pip install -r requirements.txt
+   pip install -r requirement.txt
    ```
 
 ### 模型数据准备
@@ -142,16 +142,16 @@ code_path=model_examples/PivotNet
 ```
 cd /path/to/pivotnet
 cd assets/weights
-wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/efficientnet-b0-355c32eb.pth .
-wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/resnet50-0676ba61.pth .
-wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_tiny_patch4_window7_512x512.pth .
+wget --no-check-certificate https://github.com/wenjie710/PivotNet/releases/download/v1.0/efficientnet-b0-355c32eb.pth .
+wget --no-check-certificate https://github.com/wenjie710/PivotNet/releases/download/v1.0/resnet50-0676ba61.pth .
+wget --no-check-certificate https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_tiny_patch4_window7_512x512.pth .
 ```
 
 - 生成模型训练数据
 
 ```
 cd /path/to/pivotnet
-python3 tools/anno_converter/nuscenes/convert.py -d ./data 
+python3 tools/anno_converter/nuscenes/convert.py -d .data/nuscenes
 ```
 
 ## 快速开始
@@ -185,20 +185,21 @@ cd model_examples/PivotNet
 |     芯片      | 卡数 | global batch size | epoch | mAP<sup>avg</sup>@EASY | mAP<sup>avg</sup>@HARD | 性能-单步迭代耗时(s) |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: |--------------|
 |     竞品A     |  8p  |         1         |  30   |         0.616          |         0.436          | 0.58         |
-| Atlas 800T A2 |  8p  |         1         |  30   |         0.616          |         0.438          | 1.16         |
+| Atlas 800T A2 |  8p  |         1         |  30   |         0.619          |         0.438          | 1.31         |
 
 ## 性能优化
 
-参考指南：--待补充官网文档--
-1、参考官网文档完成Python\pytorch\torch_npu编译优化
-2、参考官网文档完成OS性能优化
+参考指南：
+[性能优化](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0058.html)
+1. 参考[编译优化](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0061.html)完成Python\pytorch\torch_npu编译优化
+2. 参考[OS性能优化](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0067.html)完成高性能内存库替换
 
 ### 优化后训练结果
 
 |     芯片      | 卡数 | global batch size | epoch | mAP<sup>avg</sup>@EASY | mAP<sup>avg</sup>@HARD | 性能-单步迭代耗时(s) |
 | :-----------: | :--: | :---------------: | :---: |:----------------------:|:----------------------:| -------------------- |
 |     竞品A     |  8p  |         1         |  30   |         0.616          |         0.436          | 0.58                 |
-| Atlas 800T A2 |  8p  |         1         |  30   |         0.613          |         0.431          | 0.92                 |
+| Atlas 800T A2 |  8p  |         1         |  30   |         0.619          |         0.438          | 1.04                 |
 
 # 变更说明
 
