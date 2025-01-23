@@ -55,6 +55,7 @@ cd DrivingSDK/model_examples/Deformable-DETR
 chmod -R 777 run.sh
 ./run.sh
 cp -rf test Deformable-DETR
+cd Deformable-DETR
 ```
 如果需要将 Deformable-DETR 源码 clone 到用户自定义目录，执行下面的shell命令：
 ```
