@@ -63,32 +63,42 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
   source {cann_root_dir}/set_env.sh
   ```
 
-1. 安装 mmcv
+1. 源码安装 mmcv
 
-  在 FCOS 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装
+  在 FCOS 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装（安装完为 2.2.0 版本）
 
   ```
+  cd model_examples/FCOS/
   git clone https://github.com/open-mmlab/mmcv
-  cd mmcv
+  cd mmcv/
   MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
   cd ../
   ```
 
-2. 修改 mmengine
+2. 源码安装 mmengine
+
+  在 FCOS 根目录下，克隆 mmengine 仓，并进入 mmengine 目录应用 patch 后安装
   
   ```
-  pip3 show mmengine # 查看版本和路径
-  cp -f mmengine_need/loops.py ${mmengine_path}/mmengine/runner/loops.py
+  pip uninstall mmengine
+  git clone -b v0.10.6 https://github.com/open-mmlab/mmengine.git
+  cd mmengine/
+  git checkout a8c74c346d2ef3e5501115529ba588accb5f2a03
+  cp ../mmengine.patch ./
+  git apply --reject mmengine.patch
+  pip install -e .
+  cd ../
   ```
 
 3. 准备模型源码
 
-  克隆 mmdet 仓，替换其中部分代码
+  在 FCOS 根目录下，克隆 mmdetection 仓，替换其中部分代码
 
   ```
-  git clone https://github.com/open-mmlab/mmdetection.git
+  git clone https://github.com/open-mmlab/mmdetection.git --depth=1
   cd mmdetection/
+  git fetch --unshallow
   git checkout cfd5d3a985b0249de009b67d04f37263e11cdf3d
   cp ../mmdet.patch ./
   git apply --reject mmdet.patch
@@ -97,7 +107,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 4. 安装其他依赖
   
-  在 mmdet 代码目录下，安装依赖
+  在 mmdetection 代码目录下，安装依赖
 
   ```
   pip install -r requirements.txt
@@ -132,13 +142,23 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
    > **说明：** 
    >该数据集的训练过程脚本只作为一种参考示例。
 
+## 准备预训练权重
+
+1. 联网情况下，预训练权重会自动下载。
+
+2. 无网络情况下，可以通过该链接自行下载 [resnet50_caffe-788b5fa3.pth](https://download.openmmlab.com/pretrain/third_party/resnet50_caffe-788b5fa3.pth)，并拷贝至对应目录下。默认存储目录为 PyTorch 缓存目录：
+
+  ```
+  ~/.cache/torch/hub/checkpoints/resnet50_caffe-788b5fa3.pth
+  ```
+
 # 开始训练
 
 ## 训练模型
 
 1. 运行训练脚本。
 
-   该模型支持单机单卡训练和单机8卡训练。
+   该模型支持单机单卡训练和单机8卡训练，在 mmdetection 目录下运行训练脚本。
 
    - 单机单卡训练
 
@@ -213,6 +233,8 @@ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=1000 ] = 0.689
 ## 变更
 
 2024.11.8: 首次提交。
+
+2025.1.23: 资料更新，mmengine 使用源码安装。
 
 ## FAQ
 
