@@ -1,0 +1,12 @@
+shapely
+decorator
+attr
+attrs
+psutil
+scipy
+numpy==1.24.0
+tqdm
+matplotlib
+jinja2
+ml-dtypes
+tornado
