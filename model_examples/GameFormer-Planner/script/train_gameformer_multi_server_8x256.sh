@@ -23,7 +23,7 @@ torchrun --nnodes=2 \
         --node_rank=$NODE_RANK \
         --master_addr=$MASTER_ADDR \
         --master_port=$MASTER_PORT \
-        train_predictor.py \
+        GameFormer-Planner/train_predictor.py \
         --batch_size=256 \
         --train_epochs=$EPOCHS \
         --learning_rate=1e-4 \

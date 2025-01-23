@@ -91,8 +91,8 @@
     ```
     git clone https://github.com/MCZhi/GameFormer-Planner.git && cd GameFormer-Planner
     git checkout c6f3a69b947edd0c3079e458275fc490520e8bde
-    cp ../gameformer.patch .
-    git apply gameformer.patch
+    cp ../GameFormer-Planner_NPU.patch .
+    git apply GameFormer-Planner_NPU.patch
     cd ..
     ```
 
