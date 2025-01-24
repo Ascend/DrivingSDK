@@ -1,0 +1,9 @@
+pyyaml
+torchvision==0.16.0
+tqdm
+pycocotools
+numpy==1.22
+scipy
+decorator
+attrs
+psutil
