@@ -87,10 +87,11 @@ e2e_time=$(( $end_time - $start_time ))
 # 从 log 中获取性能
 avg_time=`grep "Epoch: .* Total time"  ${output_path_dir}/train_8p_full.log | tail -n 5 | grep -oP "[0-9]+\.[0-9]+" | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
 # 从 log 中获取精度
-mAP=`grep "Average Precision.* IoU=0\.50\:0\.95.* all" ${output_path_dir}/train_8p_full.log | awk -F "=" '{print $NF}'| awk 'END {print}'`
+mAP=`grep "Average Precision.* IoU=0\.50\:0.95\.* all" ${output_path_dir}/train_8p_full.log |awk -F "=" '{print $NF}'|awk 'END {print}'`
+avg_fps=`awk 'BEGIN{printf "%.3f\n", '$batch_size'*'${node_size}'/'$avg_time'}'`
 
 # 输出结果
 echo "[INFO] Final Result"
-echo " - End to End Time is ${e2e_time}s"
-echo " - Final Performance sec/iter ${avg_time}"
+echo " - End to End Time : ${e2e_time}s"
+echo " - Final Performance images/sec :  ${avg_fps}"
 echo " - Final mAP(IoU=0.50:0.95) : ${mAP}"
