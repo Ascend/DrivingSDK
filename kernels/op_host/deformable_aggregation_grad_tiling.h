@@ -8,21 +8,17 @@
 namespace optiling {
 BEGIN_TILING_DATA_DEF(DeformableAggregationGradTilingData)
 
-
-TILING_DATA_FIELD_DEF(uint32_t, batchSize);
-TILING_DATA_FIELD_DEF(uint32_t, numCams);
-TILING_DATA_FIELD_DEF(uint32_t, numFeat);
-TILING_DATA_FIELD_DEF(uint32_t, numEmbeds);
-TILING_DATA_FIELD_DEF(uint32_t, numScale);
-TILING_DATA_FIELD_DEF(uint32_t, numAnchors);
-TILING_DATA_FIELD_DEF(uint32_t, numPoints);
-TILING_DATA_FIELD_DEF(uint32_t, numGroups);
-
-TILING_DATA_FIELD_DEF(uint32_t, cAligned);
-TILING_DATA_FIELD_DEF(uint32_t, singleAligned);
-TILING_DATA_FIELD_DEF(uint32_t, average);
-TILING_DATA_FIELD_DEF(uint32_t, taskLast);
 TILING_DATA_FIELD_DEF(uint32_t, usedCoreNum);
+TILING_DATA_FIELD_DEF(uint32_t, avgWeightNum);
+TILING_DATA_FIELD_DEF(uint32_t, tailWeightNum);
+TILING_DATA_FIELD_DEF(uint32_t, singleProcessTaskLen);
+TILING_DATA_FIELD_DEF(uint32_t, numPoints);
+TILING_DATA_FIELD_DEF(uint32_t, numCams);
+TILING_DATA_FIELD_DEF(uint32_t, numScale);
+TILING_DATA_FIELD_DEF(uint32_t, numGroups);
+TILING_DATA_FIELD_DEF(uint32_t, numEmbeds);
+TILING_DATA_FIELD_DEF(uint32_t, numFeat);
+TILING_DATA_FIELD_DEF(uint32_t, numAnchors);
 
 END_TILING_DATA_DEF;
 

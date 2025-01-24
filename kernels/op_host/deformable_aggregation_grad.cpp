@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "ge/utils.h"
 #include "deformable_aggregation_grad_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -19,7 +20,6 @@
 
 using namespace ge;
 using namespace std;
-
 namespace {
 
 constexpr uint32_t SINGLE = 1;
@@ -54,9 +54,10 @@ static ge::graphStatus TilingForDeformableAggregationGrad(gert::TilingContext* c
     auto spatialShapeTensorPtr = context->GetInputTensor(INPUT_SPATIAL_SHAPE);
     auto samplingLocationTensorPtr = context->GetInputTensor(INPUT_SAMPLING_LOCATION);
     auto WeightTensorPtr = context->GetInputTensor(INPUT_WEIGHT);
-    if (featTensorPtr == nullptr || spatialShapeTensorPtr == nullptr || samplingLocationTensorPtr == nullptr || WeightTensorPtr == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(featTensorPtr);
+    CHECK_NULLPTR(spatialShapeTensorPtr);
+    CHECK_NULLPTR(samplingLocationTensorPtr);
+    CHECK_NULLPTR(WeightTensorPtr);
 
     auto featShape = featTensorPtr->GetStorageShape();
     auto spatialShapeShape = spatialShapeTensorPtr->GetStorageShape();
@@ -64,9 +65,7 @@ static ge::graphStatus TilingForDeformableAggregationGrad(gert::TilingContext* c
     auto weightShape = WeightTensorPtr->GetStorageShape();
 
     auto platformInfo = context->GetPlatformInfo();
-    if (platformInfo == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(platformInfo);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     static uint32_t coreNum = ascendcPlatform.GetCoreNumAiv();
     if (coreNum == 0) {
@@ -81,40 +80,32 @@ static ge::graphStatus TilingForDeformableAggregationGrad(gert::TilingContext* c
     uint32_t numAnchors = samplingLocationShape.GetDim(NUM_ANCHORS_DIM);
     uint32_t numPoints = samplingLocationShape.GetDim(NUM_POINTS_DIM);
     uint32_t numGroups = weightShape.GetDim(NUM_GROUPS_DIM);
-    if (numGroups == 0) {
-        return -1;
-    }
-    
-    uint32_t alignNum = BYTE_BLOCK / SIZE_OF_FP32;
-
-    uint32_t cAligned = (numEmbeds / numGroups + alignNum - 1) / alignNum * alignNum;
-    uint32_t singleAligned = (SINGLE + alignNum - 1) / alignNum * alignNum;
-
-    uint32_t average = batchSize * numAnchors * numPoints * numCams * numScale / coreNum;
-    uint32_t taskLast = batchSize * numAnchors * numPoints * numCams * numScale % coreNum;
-
+ 
     uint32_t usedCoreNum = coreNum;
-    if (average == 0) {
-        usedCoreNum = taskLast;
-    }
+    uint32_t totalTask = batchSize * numAnchors;
+
+    uint32_t avgWeightNum = Ceil(totalTask, usedCoreNum);
+    uint32_t tailWeightNum = Tail(totalTask, avgWeightNum);
+    usedCoreNum = Ceil(totalTask, avgWeightNum);
+
+    uint64_t ubSize;
+    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
+    uint64_t usedUbSize = (10 * 1024 + 22 * numEmbeds) * SIZE_OF_FP32;
+    uint32_t singleProcessTaskLen = (ubSize - usedUbSize) / SIZE_OF_FP32 / (numPoints * numCams * numScale * numGroups + numEmbeds + numPoints * numCams * 10);
+
     context->SetBlockDim(usedCoreNum);
-
-    tiling.set_batchSize(batchSize);
-    tiling.set_numCams(numCams);
-    tiling.set_numFeat(numFeat);
-    tiling.set_numEmbeds(numEmbeds);
-    tiling.set_numScale(numScale);
-    tiling.set_numAnchors(numAnchors);
-    tiling.set_numPoints(numPoints);
-    tiling.set_numGroups(numGroups);
-    
-    tiling.set_cAligned(cAligned);
-    tiling.set_singleAligned(singleAligned);
-    
-    tiling.set_average(average);
-    tiling.set_taskLast(taskLast);
     tiling.set_usedCoreNum(usedCoreNum);
-
+    tiling.set_avgWeightNum(avgWeightNum);
+    tiling.set_tailWeightNum(tailWeightNum);
+    tiling.set_singleProcessTaskLen(singleProcessTaskLen);
+    tiling.set_numPoints(numPoints);
+    tiling.set_numCams(numCams);
+    tiling.set_numScale(numScale);
+    tiling.set_numGroups(numGroups);
+    tiling.set_numEmbeds(numEmbeds);
+    tiling.set_numFeat(numFeat);
+    tiling.set_numAnchors(numAnchors);
+    
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -130,23 +121,17 @@ namespace ge {
 static ge::graphStatus InferShapeForDeformableAggregationGrad(gert::InferShapeContext* context)
 {
     const gert::Shape* featShape = context->GetInputShape(INPUT_FEAT);
-    if (featShape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
     const gert::Shape* samplingLocationShape = context->GetInputShape(INPUT_SAMPLING_LOCATION);
-    if (samplingLocationShape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
     const gert::Shape* weightShape = context->GetInputShape(INPUT_WEIGHT);
-    if (weightShape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(featShape);
+    CHECK_NULLPTR(samplingLocationShape);
+    CHECK_NULLPTR(weightShape);
     gert::Shape* grad_mc_ms_feat_shape = context->GetOutputShape(0);
     gert::Shape* grad_sampling_location_shape = context->GetOutputShape(1);
     gert::Shape* grad_weight_shape = context->GetOutputShape(2);
-    if ((grad_mc_ms_feat_shape == nullptr) || (grad_sampling_location_shape == nullptr) || (grad_weight_shape == nullptr)) {
-        return ge::GRAPH_FAILED;
-    }
+    CHECK_NULLPTR(grad_mc_ms_feat_shape);
+    CHECK_NULLPTR(grad_sampling_location_shape);
+    CHECK_NULLPTR(grad_weight_shape);
     *grad_mc_ms_feat_shape = *featShape;
     *grad_sampling_location_shape = *samplingLocationShape;
     *grad_weight_shape = *weightShape;

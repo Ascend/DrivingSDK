@@ -184,7 +184,7 @@ class TestDeformableAggregation(TestCase):
         np.random.seed(50051)
 
         bList = [1, 5]
-        cList = [32]
+        cList = [8 * 8, 8 * 8 * 2]
         ptsList = [10, 21]
         anchorList = [10, 13]
         numGroupsList = [8]
