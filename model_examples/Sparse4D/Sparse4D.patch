@@ -1,0 +1,1319 @@
+diff --git a/local_test.sh b/local_test.sh
+index e63bc91..9c48b33 100644
+--- a/local_test.sh
++++ b/local_test.sh
+@@ -1,12 +1,10 @@
+ export PYTHONPATH=$PYTHONPATH:./
+-export CUDA_VISIBLE_DEVICES=3
+ export PORT=29532
+ 
+-gpus=(${CUDA_VISIBLE_DEVICES//,/ })
+-gpu_num=${#gpus[@]}
++gpu_num=$2
+ 
+ config=projects/configs/$1.py
+-checkpoint=$2
++checkpoint=$3
+ 
+ echo "number of gpus: "${gpu_num}
+ echo "config file: "${config}
+diff --git a/local_train.sh b/local_train.sh
+index d584c4c..952c727 100644
+--- a/local_train.sh
++++ b/local_train.sh
+@@ -1,8 +1,34 @@
+-export CUDA_VISIBLE_DEVICES=0
+-export PYTHONPATH=$PYTHONPATH:./
++#将Host日志输出到串口,0-关闭/1-开启
++export ASCEND_SLOG_PRINT_TO_STDOUT=0
++#设置默认日志级别,0-debug/1-info/2-warning/3-error
++export ASCEND_GLOBAL_LOG_LEVEL=3
++#设置Event日志开启标志,0-关闭/1-开启
++export ASCEND_GLOBAL_EVENT_ENABLE=0
++#设置是否开启taskque,0-关闭/1-开启
++export TASK_QUEUE_ENABLE=2
++#设置是否开启PTCopy,0-关闭/1-开启
++export PTCOPY_ENABLE=1
++#设置是否开启combined标志,0-关闭/1-开启
++export COMBINED_ENABLE=1
++#设置特殊场景是否需要重新编译,不需要修改
++export DYNAMIC_OP="ADD#MUL"
++#HCCL白名单开关,1-关闭/0-开启
++export HCCL_WHITELIST_DISABLE=1
++export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
++#开启绑核
++#export CPU_AFFINITY_CONF=2
+ 
+-gpus=(${CUDA_VISIBLE_DEVICES//,/ })
+-gpu_num=${#gpus[@]}
++export OMP_NUM_THREADS=16
++export MKL_NUM_THREADS=16
++
++#编译优化相关
++#关闭torch绑核openmp
++export OMP_PROC_BIND=false
++# 编译必须，使用编译后的pytorch、torch_npu包运行模型必须，进入bisheng编译器所在目录
++# export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
++# export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
++
++gpu_num=$2
+ echo "number of gpus: "${gpu_num}
+ 
+ config=projects/configs/$1.py
+diff --git a/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py b/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
+index fdf075b..51bae30 100644
+--- a/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
++++ b/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
+@@ -56,7 +56,7 @@ LGD 1.89
+ # ================ base config ===================
+ plugin = True
+ plugin_dir = "projects/mmdet3d_plugin/"
+-dist_params = dict(backend="nccl")
++dist_params = dict(backend="hccl")
+ log_level = "INFO"
+ work_dir = None
+ 
+@@ -71,7 +71,7 @@ checkpoint_config = dict(
+     interval=num_iters_per_epoch * checkpoint_epoch_interval
+ )
+ log_config = dict(
+-    interval=51,
++    interval=1,
+     hooks=[
+         dict(type="TextLoggerHook", by_epoch=False),
+         dict(type="TensorboardLoggerHook"),
+@@ -451,7 +451,7 @@ vis_pipeline = [
+     ),
+ ]
+ evaluation = dict(
+-    interval=num_iters_per_epoch * checkpoint_epoch_interval,
++    interval=num_iters_per_epoch * num_epochs,
+     pipeline=vis_pipeline,
+     # out_dir="./vis",  # for visualization
+ )
+diff --git a/projects/mmdet3d_plugin/__init__.py b/projects/mmdet3d_plugin/__init__.py
+index e6f4ea2..37fcb15 100644
+--- a/projects/mmdet3d_plugin/__init__.py
++++ b/projects/mmdet3d_plugin/__init__.py
+@@ -2,3 +2,4 @@ from .datasets import *
+ from .models import *
+ from .apis import *
+ from .core.evaluation import *
++from .utils import *
+diff --git a/projects/mmdet3d_plugin/apis/mmdet_train.py b/projects/mmdet3d_plugin/apis/mmdet_train.py
+index ad6dc60..5c4dc90 100644
+--- a/projects/mmdet3d_plugin/apis/mmdet_train.py
++++ b/projects/mmdet3d_plugin/apis/mmdet_train.py
+@@ -9,7 +9,7 @@ import warnings
+ import numpy as np
+ import torch
+ import torch.distributed as dist
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (
+     HOOKS,
+     DistSamplerSeedHook,
+@@ -85,6 +85,8 @@ def custom_train_detector(
+                 type="DistributedSampler"
+             ),  # dict(type='DistributedSampler'),
+             runner_type=runner_type,
++            persistent_workers=True,
++            pin_memory=True,
+         )
+         for ds in dataset
+     ]
+@@ -94,7 +96,7 @@ def custom_train_detector(
+         find_unused_parameters = cfg.get("find_unused_parameters", False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+@@ -102,7 +104,7 @@ def custom_train_detector(
+         )
+ 
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids
+         )
+ 
+@@ -194,7 +196,7 @@ def custom_train_detector(
+             time.ctime().replace(" ", "_").replace(":", "_"),
+         )
+         eval_hook = CustomDistEvalHook if distributed else EvalHook
+-        runner.register_hook(eval_hook(val_dataloader, **eval_cfg))
++        runner.register_hook(eval_hook(val_dataloader, **eval_cfg), priority="LOW")
+ 
+     # user-defined hooks
+     if cfg.get("custom_hooks", None):
+diff --git a/projects/mmdet3d_plugin/datasets/builder.py b/projects/mmdet3d_plugin/datasets/builder.py
+index ab30f9d..3dff066 100644
+--- a/projects/mmdet3d_plugin/datasets/builder.py
++++ b/projects/mmdet3d_plugin/datasets/builder.py
+@@ -115,7 +115,7 @@ def build_dataloader(
+         batch_sampler=batch_sampler,
+         num_workers=num_workers,
+         collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
+-        pin_memory=False,
++        pin_memory=kwargs.pop("pin_memory", False),
+         worker_init_fn=init_fn,
+         **kwargs
+     )
+diff --git a/projects/mmdet3d_plugin/models/__init__.py b/projects/mmdet3d_plugin/models/__init__.py
+index 9f9de30..e38989b 100644
+--- a/projects/mmdet3d_plugin/models/__init__.py
++++ b/projects/mmdet3d_plugin/models/__init__.py
+@@ -13,7 +13,7 @@ from .detection3d import (
+     SparseBox3DKeyPointsGenerator,
+     SparseBox3DEncoder,
+ )
+-
++from .flash_attention import MultiheadFlashAttention
+ 
+ __all__ = [
+     "Sparse4D",
+@@ -27,4 +27,5 @@ __all__ = [
+     "SparseBox3DRefinementModule",
+     "SparseBox3DKeyPointsGenerator",
+     "SparseBox3DEncoder",
++    "MultiheadFlashAttention",
+ ]
+diff --git a/projects/mmdet3d_plugin/models/blocks.py b/projects/mmdet3d_plugin/models/blocks.py
+index 6523bbc..641f151 100644
+--- a/projects/mmdet3d_plugin/models/blocks.py
++++ b/projects/mmdet3d_plugin/models/blocks.py
+@@ -19,7 +19,7 @@ from mmcv.cnn.bricks.registry import (
+ )
+ 
+ try:
+-    from ..ops import deformable_aggregation_function as DAF
++    from mx_driving.fused import npu_deformable_aggregation as DAF
+ except:
+     DAF = None
+ 
+@@ -187,10 +187,11 @@ class DeformableFeatureAggregation(BaseModule):
+             )
+         )
+         if self.training and self.attn_drop > 0:
+-            mask = torch.rand(
+-                bs, num_anchor, self.num_cams, 1, self.num_pts, 1
+-            )
+-            mask = mask.to(device=weights.device, dtype=weights.dtype)
++            # mask = torch.rand(
++            #     bs, num_anchor, self.num_cams, 1, self.num_pts, 1
++            # )
++            # mask = mask.to(device=weights.device, dtype=weights.dtype)
++            mask = torch.rand((bs, num_anchor, self.num_cams, 1, self.num_pts, 1), device=weights.device, dtype=weights.dtype)
+             weights = ((mask > self.attn_drop) * weights) / (
+                 1 - self.attn_drop
+             )
+@@ -203,9 +204,13 @@ class DeformableFeatureAggregation(BaseModule):
+         pts_extend = torch.cat(
+             [key_points, torch.ones_like(key_points[..., :1])], dim=-1
+         )
+-        points_2d = torch.matmul(
+-            projection_mat[:, :, None, None], pts_extend[:, None, ..., None]
+-        ).squeeze(-1)
++        projection_mat = projection_mat[:, :, None, None].contiguous()
++        pts_extend = pts_extend[:, None, ..., None].contiguous()
++        points_2d  = []
++        for i in range(4):
++            temp = ((projection_mat[:,:,:,:,i,:].unsqueeze(-1)) * pts_extend).squeeze(-1).sum(dim = -1)
++            points_2d.append(temp)
++        points_2d = torch.stack(points_2d, dim=-1)
+         points_2d = points_2d[..., :2] / torch.clamp(
+             points_2d[..., 2:3], min=1e-5
+         )
+diff --git a/projects/mmdet3d_plugin/models/detection3d/detection3d_blocks.py b/projects/mmdet3d_plugin/models/detection3d/detection3d_blocks.py
+index 2e2dcfa..687f970 100644
+--- a/projects/mmdet3d_plugin/models/detection3d/detection3d_blocks.py
++++ b/projects/mmdet3d_plugin/models/detection3d/detection3d_blocks.py
+@@ -130,9 +130,8 @@ class SparseBox3DRefinementModule(BaseModule):
+     ):
+         feature = instance_feature + anchor_embed
+         output = self.layers(feature)
+-        output[..., self.refine_state] = (
+-            output[..., self.refine_state] + anchor[..., self.refine_state]
+-        )
++        output[..., self.refine_state] += anchor[..., self.refine_state]
++
+         if self.normalize_yaw:
+             output[..., [SIN_YAW, COS_YAW]] = torch.nn.functional.normalize(
+                 output[..., [SIN_YAW, COS_YAW]], dim=-1
+@@ -204,10 +203,12 @@ class SparseBox3DKeyPointsGenerator(BaseModule):
+ 
+         rotation_mat = anchor.new_zeros([bs, num_anchor, 3, 3])
+ 
+-        rotation_mat[:, :, 0, 0] = anchor[:, :, COS_YAW]
+-        rotation_mat[:, :, 0, 1] = -anchor[:, :, SIN_YAW]
+-        rotation_mat[:, :, 1, 0] = anchor[:, :, SIN_YAW]
+-        rotation_mat[:, :, 1, 1] = anchor[:, :, COS_YAW]
++        cos_yaw = anchor[:, :, COS_YAW]
++        sin_yaw = anchor[:, :, SIN_YAW]
++        rotation_mat[:, :, 0, 0] = cos_yaw
++        rotation_mat[:, :, 0, 1] = -sin_yaw
++        rotation_mat[:, :, 1, 0] = sin_yaw
++        rotation_mat[:, :, 1, 1] = cos_yaw
+         rotation_mat[:, :, 2, 2] = 1
+ 
+         key_points = torch.matmul(
+@@ -276,20 +277,28 @@ class SparseBox3DKeyPointsGenerator(BaseModule):
+                 translation = vel.transpose(0, -1) * time_interval
+                 translation = translation.transpose(0, -1)
+                 center = center - translation
+-            center = (
+-                torch.matmul(
+-                    T_src2dst[..., :3, :3], center[..., None]
+-                ).squeeze(dim=-1)
+-                + T_src2dst[..., :3, 3]
+-            )
++            
++            center_tmp = []
++            for i in range(3):
++                temp = ((T_src2dst[..., i, :3].unsqueeze(-1)) * center[..., None]).squeeze(-1).sum(dim=-1)
++                center_tmp.append(temp)
++            center = torch.stack(center_tmp, dim=-1)
++            center += T_src2dst[..., :3, 3]
++
+             size = anchor[..., [W, L, H]]
+-            yaw = torch.matmul(
+-                T_src2dst[..., :2, :2],
+-                anchor[..., [COS_YAW, SIN_YAW], None],
+-            ).squeeze(-1)
+-            vel = torch.matmul(
+-                T_src2dst[..., :vel_dim, :vel_dim], vel[..., None]
+-            ).squeeze(-1)
++
++            yaw_tmp = []
++            for i in range(2):
++                temp = ((T_src2dst[..., i, :2].unsqueeze(-1)) * anchor[..., [COS_YAW, SIN_YAW], None]).squeeze(-1).sum(dim=-1)
++                yaw_tmp.append(temp)
++            yaw = torch.stack(yaw_tmp, dim=-1)
++
++            vel_tmp = []
++            for i in range(vel_dim):
++                temp = ((T_src2dst[..., i, :vel_dim].unsqueeze(-1)) * vel[..., None]).squeeze(-1).sum(dim=-1)
++                vel_tmp.append(temp)
++            vel = torch.stack(vel_tmp, dim=-1)
++
+             dst_anchor = torch.cat([center, size, yaw, vel], dim=-1)
+             # TODO: Fix bug
+             # index = [X, Y, Z, W, L, H, COS_YAW, SIN_YAW] + [VX, VY, VZ][:vel_dim]
+diff --git a/projects/mmdet3d_plugin/models/detection3d/target.py b/projects/mmdet3d_plugin/models/detection3d/target.py
+index 524d03e..4dd5786 100644
+--- a/projects/mmdet3d_plugin/models/detection3d/target.py
++++ b/projects/mmdet3d_plugin/models/detection3d/target.py
+@@ -48,18 +48,19 @@ class SparseBox3DTarget(BaseTargetWithDenoising):
+     def encode_reg_target(self, box_target, device=None):
+         outputs = []
+         for box in box_target:
++            yaw = box[..., YAW]
+             output = torch.cat(
+                 [
+                     box[..., [X, Y, Z]],
+                     box[..., [W, L, H]].log(),
+-                    torch.sin(box[..., YAW]).unsqueeze(-1),
+-                    torch.cos(box[..., YAW]).unsqueeze(-1),
++                    torch.sin(yaw).unsqueeze(-1),
++                    torch.cos(yaw).unsqueeze(-1),
+                     box[..., YAW + 1 :],
+                 ],
+                 dim=-1,
+             )
+             if device is not None:
+-                output = output.to(device=device)
++                output = output.to(device=device, non_blocking=True)
+             outputs.append(output)
+         return outputs
+ 
+@@ -124,20 +125,13 @@ class SparseBox3DTarget(BaseTargetWithDenoising):
+         cost = []
+         for i in range(bs):
+             if len(cls_target[i]) > 0:
+-                neg_cost = (
+-                    -(1 - cls_pred[i] + self.eps).log()
+-                    * (1 - self.alpha)
+-                    * cls_pred[i].pow(self.gamma)
+-                )
+-                pos_cost = (
+-                    -(cls_pred[i] + self.eps).log()
+-                    * self.alpha
+-                    * (1 - cls_pred[i]).pow(self.gamma)
+-                )
+-                cost.append(
+-                    (pos_cost[:, cls_target[i]] - neg_cost[:, cls_target[i]])
+-                    * self.cls_weight
+-                )
++                current_pred = cls_pred[i]
++                diff_pred = 1 - current_pred
++                current_target = cls_target[i]
++
++                neg_cost = ((diff_pred + self.eps).log() * (1 - self.alpha) * current_pred.pow(self.gamma))
++                pos_cost = ((current_pred + self.eps).log()* self.alpha * diff_pred.pow(self.gamma))
++                cost.append((neg_cost[:, current_target] - pos_cost[:, current_target])* self.cls_weight)
+             else:
+                 cost.append(None)
+         return cost
+@@ -145,13 +139,14 @@ class SparseBox3DTarget(BaseTargetWithDenoising):
+     def _box_cost(self, box_pred, box_target, instance_reg_weights):
+         bs = box_pred.shape[0]
+         cost = []
++        reg_weights_tensor = box_pred.new_tensor(self.reg_weights)
+         for i in range(bs):
+             if len(box_target[i]) > 0:
+                 cost.append(
+                     torch.sum(
+                         torch.abs(box_pred[i, :, None] - box_target[i][None])
+                         * instance_reg_weights[i][None]
+-                        * box_pred.new_tensor(self.reg_weights),
++                        * reg_weights_tensor,
+                         dim=-1,
+                     )
+                     * self.box_weight
+@@ -230,11 +225,9 @@ class SparseBox3DTarget(BaseTargetWithDenoising):
+             if gt_instance_id is not None:
+                 dn_id_target = torch.cat([dn_id_target, dn_id_target], dim=1)
+ 
++        cost_cpu = [tensor.cpu() for tensor in box_cost]
+         for i in range(dn_anchor.shape[0]):
+-            cost = box_cost[i].cpu().numpy()
+-            anchor_idx, gt_idx = linear_sum_assignment(cost)
+-            anchor_idx = dn_anchor.new_tensor(anchor_idx, dtype=torch.int64)
+-            gt_idx = dn_anchor.new_tensor(gt_idx, dtype=torch.int64)
++            anchor_idx, gt_idx = linear_sum_assignment(cost_cpu[i])
+             dn_box_target[i, anchor_idx] = box_target[i, gt_idx]
+             dn_cls_target[i, anchor_idx] = cls_target[i, gt_idx]
+             if gt_instance_id is not None:
+diff --git a/projects/mmdet3d_plugin/models/flash_attention.py b/projects/mmdet3d_plugin/models/flash_attention.py
+new file mode 100644
+index 0000000..0d5dbe4
+--- /dev/null
++++ b/projects/mmdet3d_plugin/models/flash_attention.py
+@@ -0,0 +1,272 @@
++import warnings
++import math
++
++import torch
++import torch_npu
++import torch.nn as nn
++from torch.nn.functional import linear
++from torch.nn.init import xavier_uniform_, constant_
++
++from mmcv.utils import deprecated_api_warning
++from mmcv.runner import auto_fp16
++from mmcv.runner.base_module import BaseModule
++from mmcv.cnn.bricks.drop import build_dropout
++from mmcv.cnn.bricks.registry import ATTENTION
++
++
++from einops import rearrange
++
++
++def _in_projection_packed(q, k, v, w, b = None):
++    w_q, w_k, w_v = w.chunk(3)
++    if b is None:
++        b_q = b_k = b_v = None
++    else:
++        b_q, b_k, b_v = b.chunk(3)
++    return linear(q, w_q, b_q), linear(k, w_k, b_k), linear(v, w_v, b_v)
++
++
++class FlashAttention(nn.Module):
++    """Implement the scaled dot product attention with softmax.
++    Arguments
++    ---------
++        softmax_scale: The temperature to use for the softmax attention.
++                      (default: 1/sqrt(d_keys) where d_keys is computed at
++                      runtime)
++        attention_dropout: The dropout rate to apply to the attention
++                           (default: 0.1)
++    """
++    def __init__(self, softmax_scale=None, attention_dropout=0.0, device=None, dtype=None):
++        super().__init__()
++        self.softmax_scale = softmax_scale
++        self.dropout_p = attention_dropout
++        self.fp16_enabled = True
++    
++    @auto_fp16(apply_to=('q', 'kv'), out_fp32=True)
++    def forward(self, q, kv, 
++                causal=False, 
++                key_padding_mask=None):
++        """Implements the multihead softmax attention.
++        Arguments
++        ---------
++            q: The tensor containing the query. (B, T, H, D) 
++            kv: The tensor containing the key, and value. (B, S, 2, H, D) 
++            key_padding_mask: a bool tensor of shape (B, S)
++        """
++        assert q.dtype in [torch.float16, torch.bfloat16] and kv.dtype in [torch.float16, torch.bfloat16]
++        assert q.is_cuda and kv.is_cuda
++        assert q.shape[0] == kv.shape[0] and q.shape[-2] == kv.shape[-2] and q.shape[-1] == kv.shape[-1]
++
++        batch_size = q.shape[0]
++        seqlen_q, seqlen_k = q.shape[1], kv.shape[1]
++        if key_padding_mask is None:
++            if self.softmax_scale:
++                scale = self.softmax_scale
++            else:
++                scale = (q.shape[-1]) ** (-0.5)
++
++            dropout_p = self.dropout_p if self.training else 0.0
++            h = q.shape[-2]
++            # print(kv.shape)
++            output = torch_npu.npu_fusion_attention(q,
++                        kv[:,:, 0],
++                        kv[:,:, 1],
++                        h,
++                        input_layout = "BSND",
++                        pre_tockens=65536,
++                        next_tockens=65536,
++                        atten_mask=None,
++                        scale = scale,
++                        keep_prob=1.-dropout_p,
++                        sync=False,
++                        inner_precise=0)[0]
++        else:
++            pass
++        return output, None
++
++
++class FlashMHA(nn.Module):
++
++    def __init__(self, embed_dim, num_heads, bias=True, batch_first=True, attention_dropout=0.0,
++                 causal=False, device=None, dtype=None, **kwargs) -> None:
++        assert batch_first
++        factory_kwargs = {'device': device, 'dtype': dtype}
++        super().__init__()
++        self.embed_dim = embed_dim
++        self.causal = causal
++        self.bias = bias
++
++        self.num_heads = num_heads
++        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
++        self.head_dim = self.embed_dim // num_heads
++        assert self.head_dim % 8 == 0 and self.head_dim <= 128, "Only support head_dim <= 128 and divisible by 8"
++
++        self.in_proj_weight = nn.Parameter(torch.empty((3 * embed_dim, embed_dim)))
++        if bias:
++            self.in_proj_bias = nn.Parameter(torch.empty(3 * embed_dim))
++        else:
++            self.register_parameter('in_proj_bias', None)
++        self.inner_attn = FlashAttention(attention_dropout=attention_dropout, **factory_kwargs)
++        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
++        self._reset_parameters()
++
++    def _reset_parameters(self) -> None:
++        xavier_uniform_(self.in_proj_weight)
++        if self.in_proj_bias is not None:
++            constant_(self.in_proj_bias, 0.)
++            constant_(self.out_proj.bias, 0.)
++        
++    def forward(self, q, k, v, key_padding_mask=None):
++        """x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim)
++        key_padding_mask: bool tensor of shape (batch, seqlen)
++        """
++        q, k, v = _in_projection_packed(q, k, v, self.in_proj_weight, self.in_proj_bias)
++        q = rearrange(q, 'b s (h d) -> b s h d', h=self.num_heads)
++        k = rearrange(k, 'b s (h d) -> b s h d', h=self.num_heads)
++        v = rearrange(v, 'b s (h d) -> b s h d', h=self.num_heads)
++        kv = torch.stack([k, v], dim=2)
++        
++        context, attn_weights = self.inner_attn(q, kv, key_padding_mask=key_padding_mask, causal=self.causal)
++        return self.out_proj(rearrange(context, 'b s h d -> b s (h d)')), attn_weights
++
++
++@ATTENTION.register_module()
++class MultiheadFlashAttention(BaseModule):
++    """A wrapper for ``torch.nn.MultiheadAttention``.
++    This module implements MultiheadAttention with identity connection,
++    and positional encoding  is also passed as input.
++    Args:
++        embed_dims (int): The embedding dimension.
++        num_heads (int): Parallel attention heads.
++        attn_drop (float): A Dropout layer on attn_output_weights.
++            Default: 0.0.
++        proj_drop (float): A Dropout layer after `nn.MultiheadAttention`.
++            Default: 0.0.
++        dropout_layer (agent:`ConfigDict`): The dropout_layer used
++            when adding the shortcut.
++        init_cfg (agent:`mmcv.ConfigDict`): The Config for initialization.
++            Default: None.
++        batch_first (bool): When it is True,  Key, Query and Value are shape of
++            (batch, n, embed_dim), otherwise (n, batch, embed_dim).
++             Default to False.
++    """
++
++    def __init__(self,
++                 embed_dims,
++                 num_heads,
++                 attn_drop=0.,
++                 proj_drop=0.,
++                 dropout_layer=dict(type='Dropout', drop_prob=0.),
++                 init_cfg=None,
++                 batch_first=True,
++                 **kwargs):
++        super(MultiheadFlashAttention, self).__init__(init_cfg)
++        if 'dropout' in kwargs:
++            warnings.warn(
++                'The arguments `dropout` in MultiheadAttention '
++                'has been deprecated, now you can separately '
++                'set `attn_drop`(float), proj_drop(float), '
++                'and `dropout_layer`(dict) ', DeprecationWarning)
++            attn_drop = kwargs['dropout']
++            dropout_layer['drop_prob'] = kwargs.pop('dropout')
++
++        self.embed_dims = embed_dims
++        self.num_heads = num_heads
++        self.batch_first = True
++        self.attn = FlashMHA(
++            embed_dim=embed_dims, 
++            num_heads=num_heads, 
++            attention_dropout=attn_drop, 
++            dtype=torch.float16, 
++            device='cuda',
++            **kwargs
++        )
++
++        self.proj_drop = nn.Dropout(proj_drop)
++        self.dropout_layer = build_dropout(
++            dropout_layer) if dropout_layer else nn.Identity()
++
++    @deprecated_api_warning({'residual': 'identity'},
++                            cls_name='MultiheadAttention')
++    def forward(self,
++                query,
++                key=None,
++                value=None,
++                identity=None,
++                query_pos=None,
++                key_pos=None,
++                attn_mask=None,
++                key_padding_mask=None,
++                **kwargs):
++        """Forward function for `MultiheadAttention`.
++        **kwargs allow passing a more general data flow when combining
++        with other operations in `transformerlayer`.
++        Args:
++            query (Tensor): The input query with shape [num_queries, bs,
++                embed_dims] if self.batch_first is False, else
++                [bs, num_queries embed_dims].
++            key (Tensor): The key tensor with shape [num_keys, bs,
++                embed_dims] if self.batch_first is False, else
++                [bs, num_keys, embed_dims] .
++                If None, the ``query`` will be used. Defaults to None.
++            value (Tensor): The value tensor with same shape as `key`.
++                Same in `nn.MultiheadAttention.forward`. Defaults to None.
++                If None, the `key` will be used.
++            identity (Tensor): This tensor, with the same shape as x,
++                will be used for the identity link.
++                If None, `x` will be used. Defaults to None.
++            query_pos (Tensor): The positional encoding for query, with
++                the same shape as `x`. If not None, it will
++                be added to `x` before forward function. Defaults to None.
++            key_pos (Tensor): The positional encoding for `key`, with the
++                same shape as `key`. Defaults to None. If not None, it will
++                be added to `key` before forward function. If None, and
++                `query_pos` has the same shape as `key`, then `query_pos`
++                will be used for `key_pos`. Defaults to None.
++            attn_mask (Tensor): ByteTensor mask with shape [num_queries,
++                num_keys]. Same in `nn.MultiheadAttention.forward`.
++                Defaults to None.
++            key_padding_mask (Tensor): ByteTensor with shape [bs, num_keys].
++                Defaults to None.
++        Returns:
++            Tensor: forwarded results with shape
++            [num_queries, bs, embed_dims]
++            if self.batch_first is False, else
++            [bs, num_queries embed_dims].
++        """
++        # assert attn_mask is None, 'attn mask not supported now.'
++        if key is None:
++            key = query
++        if value is None:
++            value = key
++        if identity is None:
++            identity = query
++        if key_pos is None:
++            if query_pos is not None:
++                # use query_pos if key_pos is not available
++                if query_pos.shape == key.shape:
++                    key_pos = query_pos
++                else:
++                    warnings.warn(f'position encoding of key is'
++                                  f'missing in {self.__class__.__name__}.')
++        if query_pos is not None:
++            query = query + query_pos
++        if key_pos is not None:
++            key = key + key_pos
++
++        # The dataflow('key', 'query', 'value') of ``FlashAttention`` is (batch, num_query, embed_dims).
++        if not self.batch_first:
++            query = query.transpose(0, 1)
++            key = key.transpose(0, 1)
++            value = value.transpose(0, 1)
++        
++        out = self.attn(
++            q=query,
++            k=key,
++            v=value,
++            key_padding_mask=key_padding_mask)[0]
++
++        if not self.batch_first:
++            out = out.transpose(0, 1)
++
++        return identity + self.dropout_layer(self.proj_drop(out))
+diff --git a/projects/mmdet3d_plugin/models/sparse4d.py b/projects/mmdet3d_plugin/models/sparse4d.py
+index 4a02ce3..7b9289a 100644
+--- a/projects/mmdet3d_plugin/models/sparse4d.py
++++ b/projects/mmdet3d_plugin/models/sparse4d.py
+@@ -41,14 +41,15 @@ class Sparse4D(BaseDetector):
+     ):
+         super(Sparse4D, self).__init__(init_cfg=init_cfg)
+         if pretrained is not None:
+-            backbone.pretrained = pretrained
++            img_backbone.pretrained = pretrained
+         self.img_backbone = build_backbone(img_backbone)
+         if img_neck is not None:
+             self.img_neck = build_neck(img_neck)
+         self.head = build_head(head)
+         self.use_grid_mask = use_grid_mask
+         if use_deformable_func:
+-            assert DAF_VALID, "deformable_aggregation needs to be set up."
++            if not DAF_VALID:
++                raise RuntimeError("deformable_aggregation needs to be set up.")
+         self.use_deformable_func = use_deformable_func
+         if depth_branch is not None:
+             self.depth_branch = build_from_cfg(depth_branch, PLUGIN_LAYERS)
+diff --git a/projects/mmdet3d_plugin/models/sparse4d_head.py b/projects/mmdet3d_plugin/models/sparse4d_head.py
+index 80d662b..dba66a3 100644
+--- a/projects/mmdet3d_plugin/models/sparse4d_head.py
++++ b/projects/mmdet3d_plugin/models/sparse4d_head.py
+@@ -426,11 +426,7 @@ class Sparse4DHead(BaseModule):
+             )
+             reg_target = reg_target[..., : len(self.reg_weights)]
+             mask = torch.logical_not(torch.all(reg_target == 0, dim=-1))
+-            mask_valid = mask.clone()
+-
+-            num_pos = max(
+-                reduce_mean(torch.sum(mask).to(dtype=reg.dtype)), 1.0
+-            )
++            res = reduce_mean(torch.sum(mask).to(dtype=reg.dtype))
+             if self.cls_threshold_to_reg > 0:
+                 threshold = self.cls_threshold_to_reg
+                 mask = torch.logical_and(
+@@ -439,7 +435,6 @@ class Sparse4DHead(BaseModule):
+ 
+             cls = cls.flatten(end_dim=1)
+             cls_target = cls_target.flatten(end_dim=1)
+-            cls_loss = self.loss_cls(cls, cls_target, avg_factor=num_pos)
+ 
+             mask = mask.reshape(-1)
+             reg_weights = reg_weights * reg.new_tensor(self.reg_weights)
+@@ -449,6 +444,8 @@ class Sparse4DHead(BaseModule):
+             reg_target = torch.where(
+                 reg_target.isnan(), reg.new_tensor(0.0), reg_target
+             )
++            num_pos = max(res , 1.0)
++            cls_loss = self.loss_cls(cls, cls_target, avg_factor=num_pos)
+             cls_target = cls_target[mask]
+             if qt is not None:
+                 qt = qt.flatten(end_dim=1)[mask]
+diff --git a/projects/mmdet3d_plugin/ops/__init__.py b/projects/mmdet3d_plugin/ops/__init__.py
+index cf23848..e688d0b 100644
+--- a/projects/mmdet3d_plugin/ops/__init__.py
++++ b/projects/mmdet3d_plugin/ops/__init__.py
+@@ -1,6 +1,6 @@
+ import torch
+ 
+-from .deformable_aggregation import DeformableAggregationFunction
++from mx_driving.fused import npu_deformable_aggregation
+ 
+ 
+ def deformable_aggregation_function(
+@@ -10,7 +10,7 @@ def deformable_aggregation_function(
+     sampling_location,
+     weights,
+ ):
+-    return DeformableAggregationFunction.apply(
++    return npu_deformable_aggregation(
+         feature_maps,
+         spatial_shape,
+         scale_start_index,
+diff --git a/projects/mmdet3d_plugin/utils/__init__.py b/projects/mmdet3d_plugin/utils/__init__.py
+new file mode 100644
+index 0000000..6f211c1
+--- /dev/null
++++ b/projects/mmdet3d_plugin/utils/__init__.py
+@@ -0,0 +1,5 @@
++from .epoch_based_runner_with_profiling import ProfilingEpochBasedRunner
++
++__all__ = [
++    "ProfilingEpochBasedRunner",
++]
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py b/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py
+new file mode 100644
+index 0000000..6ad725e
+--- /dev/null
++++ b/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py
+@@ -0,0 +1,230 @@
++# Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
++import os.path as osp
++import platform
++import shutil
++import time
++import warnings
++from typing import Any, Dict, List, Optional, Tuple
++
++import torch
++import torch_npu
++from torch.utils.data import DataLoader
++
++import mmcv
++from mmcv.runner.base_runner import BaseRunner
++from mmcv.runner.builder import RUNNERS
++from mmcv.runner.checkpoint import save_checkpoint
++from mmcv.runner.utils import get_host_info
++
++torch.npu.config.allow_internal_format = False
++
++
++@RUNNERS.register_module()
++class ProfilingEpochBasedRunner(BaseRunner):
++    """Epoch-based Runner.
++
++    This runner train models epoch by epoch.
++    """
++
++    def run_iter(self, data_batch: Any, train_mode: bool, **kwargs) -> None:
++        if self.batch_processor is not None:
++            outputs = self.batch_processor(
++                self.model, data_batch, train_mode=train_mode, **kwargs)
++        elif train_mode:
++            outputs = self.model.train_step(data_batch, self.optimizer,
++                                            **kwargs)
++        else:
++            outputs = self.model.val_step(data_batch, self.optimizer, **kwargs)
++        if not isinstance(outputs, dict):
++            raise TypeError('"batch_processor()" or "model.train_step()"'
++                            'and "model.val_step()" must return a dict')
++        if 'log_vars' in outputs:
++            self.log_buffer.update(outputs['log_vars'], outputs['num_samples'])
++        self.outputs = outputs
++
++    def train(self, data_loader, **kwargs):
++        self.model.train()
++        self.mode = 'train'
++        self.data_loader = data_loader
++        self._max_iters = self._max_epochs * len(self.data_loader)
++        self.call_hook('before_train_epoch')
++        time.sleep(2)  # Prevent possible deadlock during epoch transition
++        if False:
++            for i, data_batch in enumerate(self.data_loader):
++                self.data_batch = data_batch
++                self._inner_iter = i
++                self.call_hook('before_train_iter')
++                self.run_iter(data_batch, train_mode=True, **kwargs)
++                self.call_hook('after_train_iter')
++                del self.data_batch
++                self._iter += 1
++        elif False:
++            experimental_config = torch_npu.profiler._ExperimentalConfig(data_simplification=False, profiler_level=torch_npu.profiler.ProfilerLevel.Level2)
++            with torch_npu.profiler.profile(
++                activities=[torch_npu.profiler.ProfilerActivity.CPU, torch_npu.profiler.ProfilerActivity.NPU],
++                with_stack=True,
++                record_shapes=True,
++                profile_memory=True,
++                schedule=torch_npu.profiler.schedule(wait=1, warmup=1, active=1, repeat=1, skip_first=1),
++                experimental_config = experimental_config,
++                on_trace_ready=torch_npu.profiler.tensorboard_trace_handler("./profiling")) as prof:
++                for i, data_batch in enumerate(self.data_loader):
++                    self.data_batch = data_batch
++                    self._inner_iter = i
++                    self.call_hook('before_train_iter')
++                    self.run_iter(data_batch, train_mode=True, **kwargs)
++                    self.call_hook('after_train_iter')
++                    del self.data_batch
++                    self._iter += 1
++                    # if self._iter == self._stop_iters:
++                    #     exit("STOP!!!")
++                    prof.step()
++        else:
++            experimental_config = torch_npu.profiler._ExperimentalConfig(profiler_level=torch_npu.profiler.ProfilerLevel.Level1)
++            with torch_npu.profiler.profile(
++                activities=[torch_npu.profiler.ProfilerActivity.NPU],
++                record_shapes=True,
++                experimental_config = experimental_config,
++                schedule=torch_npu.profiler.schedule(wait=1, warmup=1, active=1, repeat=1, skip_first=1),
++                on_trace_ready=torch_npu.profiler.tensorboard_trace_handler("./profiling")) as prof:
++                for i, data_batch in enumerate(self.data_loader):
++                    self.data_batch = data_batch
++                    self._inner_iter = i
++                    self.call_hook('before_train_iter')
++                    self.run_iter(data_batch, train_mode=True, **kwargs)
++                    self.call_hook('after_train_iter')
++                    del self.data_batch
++                    self._iter += 1
++
++                    prof.step()
++
++        self.call_hook('after_train_epoch')
++        self._epoch += 1
++
++    @torch.no_grad()
++    def val(self, data_loader, **kwargs):
++        self.model.eval()
++        self.mode = 'val'
++        self.data_loader = data_loader
++        self.call_hook('before_val_epoch')
++        time.sleep(2)  # Prevent possible deadlock during epoch transition
++        for i, data_batch in enumerate(self.data_loader):
++            self.data_batch = data_batch
++            self._inner_iter = i
++            self.call_hook('before_val_iter')
++            self.run_iter(data_batch, train_mode=False)
++            self.call_hook('after_val_iter')
++            del self.data_batch
++        self.call_hook('after_val_epoch')
++
++    def run(self,
++            data_loaders: List[DataLoader],
++            workflow: List[Tuple[str, int]],
++            max_epochs: Optional[int] = None,
++            **kwargs) -> None:
++        """Start running.
++
++        Args:
++            data_loaders (list[:obj:`DataLoader`]): Dataloaders for training
++                and validation.
++            workflow (list[tuple]): A list of (phase, epochs) to specify the
++                running order and epochs. E.g, [('train', 2), ('val', 1)] means
++                running 2 epochs for training and 1 epoch for validation,
++                iteratively.
++        """
++        assert isinstance(data_loaders, list)
++        assert mmcv.is_list_of(workflow, tuple)
++        assert len(data_loaders) == len(workflow)
++        if max_epochs is not None:
++            warnings.warn(
++                'setting max_epochs in run is deprecated, '
++                'please set max_epochs in runner_config', DeprecationWarning)
++            self._max_epochs = max_epochs
++
++        assert self._max_epochs is not None, (
++            'max_epochs must be specified during instantiation')
++
++        for i, flow in enumerate(workflow):
++            mode, epochs = flow
++            if mode == 'train':
++                self._max_iters = self._max_epochs * len(data_loaders[i])
++                break
++
++        work_dir = self.work_dir if self.work_dir is not None else 'NONE'
++        self.logger.info('Start running, host: %s, work_dir: %s',
++                         get_host_info(), work_dir)
++        self.logger.info('Hooks will be executed in the following order:\n%s',
++                         self.get_hook_info())
++        self.logger.info('workflow: %s, max: %d epochs', workflow,
++                         self._max_epochs)
++        self.call_hook('before_run')
++
++        while self.epoch < self._max_epochs:
++            for i, flow in enumerate(workflow):
++                mode, epochs = flow
++                if isinstance(mode, str):  # self.train()
++                    if not hasattr(self, mode):
++                        raise ValueError(
++                            f'runner has no method named "{mode}" to run an '
++                            'epoch')
++                    epoch_runner = getattr(self, mode)
++                else:
++                    raise TypeError(
++                        'mode in workflow must be a str, but got {}'.format(
++                            type(mode)))
++
++                for _ in range(epochs):
++                    if mode == 'train' and self.epoch >= self._max_epochs:
++                        break
++                    epoch_runner(data_loaders[i], **kwargs)
++
++        time.sleep(1)  # wait for some hooks like loggers to finish
++        self.call_hook('after_run')
++
++    def save_checkpoint(self,
++                        out_dir: str,
++                        filename_tmpl: str = 'epoch_{}.pth',
++                        save_optimizer: bool = True,
++                        meta: Optional[Dict] = None,
++                        create_symlink: bool = True) -> None:
++        """Save the checkpoint.
++
++        Args:
++            out_dir (str): The directory that checkpoints are saved.
++            filename_tmpl (str, optional): The checkpoint filename template,
++                which contains a placeholder for the epoch number.
++                Defaults to 'epoch_{}.pth'.
++            save_optimizer (bool, optional): Whether to save the optimizer to
++                the checkpoint. Defaults to True.
++            meta (dict, optional): The meta information to be saved in the
++                checkpoint. Defaults to None.
++            create_symlink (bool, optional): Whether to create a symlink
++                "latest.pth" to point to the latest checkpoint.
++                Defaults to True.
++        """
++        if meta is None:
++            meta = {}
++        elif not isinstance(meta, dict):
++            raise TypeError(
++                f'meta should be a dict or None, but got {type(meta)}')
++        if self.meta is not None:
++            meta.update(self.meta)
++            # Note: meta.update(self.meta) should be done before
++            # meta.update(epoch=self.epoch + 1, iter=self.iter) otherwise
++            # there will be problems with resumed checkpoints.
++            # More details in https://github.com/open-mmlab/mmcv/pull/1108
++        meta.update(epoch=self.epoch + 1, iter=self.iter)
++
++        filename = filename_tmpl.format(self.epoch + 1)
++        filepath = osp.join(out_dir, filename)
++        optimizer = self.optimizer if save_optimizer else None
++        save_checkpoint(self.model, filepath, optimizer=optimizer, meta=meta)
++        # in some environments, `os.symlink` is not supported, you may need to
++        # set `create_symlink` to False
++        if create_symlink:
++            dst_file = osp.join(out_dir, 'latest.pth')
++            if platform.system() != 'Windows':
++                mmcv.symlink(filename, dst_file)
++            else:
++                shutil.copy(filepath, dst_file)
+diff --git a/test/env_npu.sh b/test/env_npu.sh
+new file mode 100644
+index 0000000..bb3b249
+--- /dev/null
++++ b/test/env_npu.sh
+@@ -0,0 +1,52 @@
++#!/bin/bash
++CANN_INSTALL_PATH_CONF='/etc/Ascend/ascend_cann_install.info'
++
++if [ -f $CANN_INSTALL_PATH_CONF ]; then
++    CANN_INSTALL_PATH=$(cat $CANN_INSTALL_PATH_CONF | grep Install_Path | cut -d "=" -f 2)
++else
++    CANN_INSTALL_PATH="/usr/local/Ascend"
++fi
++
++if [ -d ${CANN_INSTALL_PATH}/ascend-toolkit/latest ]; then
++    source ${CANN_INSTALL_PATH}/ascend-toolkit/set_env.sh
++else
++    source ${CANN_INSTALL_PATH}/nnae/set_env.sh
++fi
++
++
++#将Host日志输出到串口,0-关闭/1-开启
++export ASCEND_SLOG_PRINT_TO_STDOUT=0
++#设置默认日志级别,0-debug/1-info/2-warning/3-error
++export ASCEND_GLOBAL_LOG_LEVEL=3
++#设置Event日志开启标志,0-关闭/1-开启
++export ASCEND_GLOBAL_EVENT_ENABLE=0
++#设置是否开启taskque,0-关闭/1-开启
++export TASK_QUEUE_ENABLE=2
++#设置是否开启PTCopy,0-关闭/1-开启
++export PTCOPY_ENABLE=1
++#设置是否开启combined标志,0-关闭/1-开启
++export COMBINED_ENABLE=1
++#设置特殊场景是否需要重新编译,不需要修改
++export DYNAMIC_OP="ADD#MUL"
++#HCCL白名单开关,1-关闭/0-开启
++export HCCL_WHITELIST_DISABLE=1
++export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
++
++#开启绑核
++export CPU_AFFINITY_CONF=1
++
++export OMP_NUM_THREADS=16
++export MKL_NUM_THREADS=16
++
++#设置device侧日志登记为error
++msnpureport -g error -d 0
++msnpureport -g error -d 1
++msnpureport -g error -d 2
++msnpureport -g error -d 3
++msnpureport -g error -d 4
++msnpureport -g error -d 5
++msnpureport -g error -d 6
++msnpureport -g error -d 7
++#关闭Device侧Event日志
++msnpureport -e disable
++
+diff --git a/test/train_8p.sh b/test/train_8p.sh
+new file mode 100644
+index 0000000..084bfab
+--- /dev/null
++++ b/test/train_8p.sh
+@@ -0,0 +1,149 @@
++#!/bin/bash
++
++#当前路径
++cur_path=`pwd`
++
++#集合通信参数
++export RANK_SIZE=8
++export JOB_ID=10087
++RANK_ID_START=0
++
++performance=0
++
++#基础参数
++batch_size=6
++#训练step
++max_epochs=100
++
++# 帮助信息
++if [[ $1 == --help || $1 == -h ]];then
++    echo"usage:./train_8p.sh <args>"
++    echo " "
++    echo "parameter explain:
++    --py_config               train config
++    --performance              switch to performance mode when != 0
++    --work_dir                 set output dir for training
++    -h/--help		             show help message
++    "
++    exit 1
++fi
++
++#参数校验
++for para in $*
++do
++    if [[ $para == --py_config* ]];then
++        py_config=`echo ${para#*=}`
++    elif [[ $para == --performance* ]];then
++        performance=`echo ${para#*=}`
++    elif [[ $para == --work_dir* ]];then
++        work_dir=`echo ${para#*=}`
++    fi
++done
++
++if (($performance!=0)); then
++    max_epochs=1
++fi
++
++#校验是否传入py_config
++if [[ $py_config == "" ]];then
++    echo "[Error] para \"py_config\" must be config"
++    exit 1
++fi
++
++#配置名称
++config_name=`echo $py_config | awk -F "/" '{print $NF}' | awk -F "." '{print $1}'`
++#网络名称，同配置名称
++Network=$config_name
++
++if [[ $work_dir == "" ]];then
++    work_dir="output/train_8p/$config_name"
++else
++    work_dir="${work_dir}/train_8p/$config_name"
++fi
++
++test_path_dir=$cur_path
++ASCEND_DEVICE_ID=0
++
++if [ ! -d ${test_path_dir}/output ];then
++    mkdir ${test_path_dir}/output
++fi
++if [ -d ${test_path_dir}/output/${ASCEND_DEVICE_ID} ];then
++    rm -rf ${test_path_dir}/output/${ASCEND_DEVICE_ID}
++    mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID/ckpt
++else
++    mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID/ckpt
++fi
++
++
++#训练开始时间
++start_time=$(date +%s)
++# source 环境变量
++source ${test_path_dir}/test/env_npu.sh
++
++#设置环境变量
++echo "Device ID: $ASCEND_DEVICE_ID"
++export RANK_ID=$RANK_ID
++export WORLD_SIZE=8
++
++bash ./tools/dist_train.sh \
++        ${py_config} \
++        ${WORLD_SIZE} \
++        --work-dir=${work_dir}
++        
++
++
++#训练结束时间
++end_time=$(date +%s)
++e2e_time=$(( $end_time - $start_time ))
++
++log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
++
++#结果打印
++echo "------------------ Final result ------------------"
++#输出性能FPS
++FPS=`grep -a 'Epoch '  ${log_file}|awk -F " time: " '!/Epoch \[1\]\[1/ {print $NF}'|awk -F " " '{print $1}' | awk '{ sum += $0; n++} END { if (n > 0) print sum / n;}'`
++FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'/'${FPS}'}'`
++#打印
++echo "Final Performance images/sec : $FPS"
++echo "E2E Training Duration sec : $e2e_time"
++
++#性能看护结果汇总
++#训练用例信息
++DeviceType=`uname -m`
++CaseName=${Network}_bs${batch_size}_${RANK_SIZE}'p'_'map'
++
++##获取性能数据
++#吞吐量
++ActualFPS=${FPS}
++#单迭代训练时长
++TrainingTime=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'*1000*8/'${FPS}'}'`
++echo "TrainingTime for step(ms) : $TrainingTime"
++
++#从train_$ASCEND_DEVICE_ID.log提取Loss到train_${CaseName}_loss.txt中
++grep "Epoch " ${log_file}|awk -F "loss: " '!/Epoch \[1\]\[1/ {print $NF}' | awk -F "," '{print $1}' >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt
++
++#最后一个迭代loss值
++ActualLoss=`awk 'END {print}' ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt`
++
++#关键信息打印到${CaseName}.log中
++echo "Network = ${Network}" >  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++echo "RankSize = ${RANK_SIZE}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++echo "BatchSize = ${batch_size}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++echo "DeviceType = ${DeviceType}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++echo "CaseName = ${CaseName}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++echo "ActualFPS = ${ActualFPS}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++echo "TrainingTime = ${TrainingTime}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++echo "ActualLoss = ${ActualLoss}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++echo "E2ETrainingTime = ${e2e_time}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++
++# 性能任务控制
++if (($performance==0));then
++  eval_log_file=`echo ${test_path_dir}/output/$ASCEND_DEVICE_ID/eval_${CaseName}.log`
++  bash ./tools/dist_test.sh ${py_config} ${work_dir}/epoch_${max_epochs}_ema.pth 8 --eval mAP >> ${eval_log_file} 2>&1 &
++  wait
++  #输出训练精度
++  train_accuracy=`grep -a 'mAP: ' ${eval_log_file}|awk 'END {print}'|awk -F " " '{print $NF}'`
++  #打印
++  echo "Final Train Accuracy : ${train_accuracy}"
++  echo "mAP = ${train_accuracy}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
++fi
+diff --git a/tools/anchor_generator.py b/tools/anchor_generator.py
+index 058b6e8..1576d5d 100644
+--- a/tools/anchor_generator.py
++++ b/tools/anchor_generator.py
+@@ -1,3 +1,4 @@
++import os
+ import numpy as np
+ from sklearn.cluster import KMeans
+ import mmcv
+@@ -5,6 +6,8 @@ import mmcv
+ from projects.mmdet3d_plugin.core.box3d import *
+ 
+ 
++os.environ["OPENBLAS_NUM_THREADS"] = '1'
++
+ def get_kmeans_anchor(
+     ann_file,
+     num_anchor=900,
+diff --git a/tools/dist_test.sh b/tools/dist_test.sh
+index 033365e..671ee60 100644
+--- a/tools/dist_test.sh
++++ b/tools/dist_test.sh
+@@ -6,5 +6,5 @@ GPUS=$3
+ PORT=${PORT:-29610}
+ 
+ PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
+-python3 -m torch.distributed.launch --nproc_per_node=$GPUS --master_port=$PORT \
++python3 -m torch.distributed.run --nproc_per_node=$GPUS --master_port=$PORT \
+     $(dirname "$0")/test.py $CONFIG $CHECKPOINT --launcher pytorch ${@:4}
+diff --git a/tools/dist_train.sh b/tools/dist_train.sh
+index 565905e..6f7ed2c 100644
+--- a/tools/dist_train.sh
++++ b/tools/dist_train.sh
+@@ -5,5 +5,5 @@ GPUS=$2
+ PORT=${PORT:-28650}
+ 
+ PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
+-python3 -m torch.distributed.launch --nproc_per_node=$GPUS --master_port=$PORT \
++OMP_NUM_THREADS=16 MKL_NUM_THREADS=16 python3 -m torch.distributed.run --nproc_per_node=$GPUS --master_port=$PORT \
+     $(dirname "$0")/train.py $CONFIG --launcher pytorch ${@:3}
+diff --git a/tools/test.py b/tools/test.py
+index 963e668..5ca85c3 100644
+--- a/tools/test.py
++++ b/tools/test.py
+@@ -6,7 +6,7 @@ import torch
+ import warnings
+ from mmcv import Config, DictAction
+ from mmcv.cnn import fuse_conv_bn
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (
+     get_dist_info,
+     init_dist,
+@@ -103,6 +103,7 @@ def parse_args():
+         help="job launcher",
+     )
+     parser.add_argument("--local_rank", type=int, default=0)
++    parser.add_argument("--local-rank", type=int, default=0)
+     parser.add_argument("--result_file", type=str, default=None)
+     parser.add_argument("--show_only", action="store_true")
+     args = parser.parse_args()
+@@ -254,10 +255,10 @@ def main():
+     if args.result_file is not None:
+         outputs = torch.load(args.result_file)
+     elif not distributed:
+-        model = MMDataParallel(model, device_ids=[0])
++        model = NPUDataParallel(model, device_ids=[0])
+         outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+     else:
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+@@ -308,6 +309,7 @@ def main():
+ 
+ if __name__ == "__main__":
+     torch.multiprocessing.set_start_method(
+-        "fork"
++        "fork",
++        force=True
+     )  # use fork workers_per_gpu can be > 1
+     main()
+diff --git a/tools/train.py b/tools/train.py
+index bca3f6b..a81e48f 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -26,6 +26,9 @@ from datetime import timedelta
+ 
+ import cv2
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
+ cv2.setNumThreads(8)
+ 
+ 
+@@ -94,6 +97,7 @@ def parse_args():
+         help="job launcher",
+     )
+     parser.add_argument("--local_rank", type=int, default=0)
++    parser.add_argument("--local-rank", type=int, default=0)
+     parser.add_argument(
+         "--autoscale-lr",
+         action="store_true",
+@@ -313,6 +317,7 @@ def main():
+ 
+ if __name__ == "__main__":
+     torch.multiprocessing.set_start_method(
+-        "fork"
++        "fork",
++        force=True
+     )  # use fork workers_per_gpu can be > 1
+     main()

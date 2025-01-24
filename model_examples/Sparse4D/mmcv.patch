@@ -1,0 +1,14 @@
+diff --git a/mmcv/parallel/distributed.py b/mmcv/parallel/distributed.py
+index bf34cb59..f0dfecc9 100644
+--- a/mmcv/parallel/distributed.py
++++ b/mmcv/parallel/distributed.py
+@@ -156,8 +156,7 @@ class MMDistributedDataParallel(DistributedDataParallel):
+         Returns:
+             Any: Forward result of :attr:`module`.
+         """
+-        module_to_run = self._replicated_tensor_module if \
+-            self._use_replicated_tensor_module else self.module
++        module_to_run = self.module
+ 
+         if self.device_ids:
+             inputs, kwargs = self.to_kwargs(  # type: ignore
