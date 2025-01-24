@@ -3,6 +3,7 @@
 ```python
 mx_driving.bev_pool(Tensor feat, Tensor geom_feat, int B, int D, int H, int W) -> Tensor
 ```
+> 注意：可以使用性能更好的[bev_pool_v3](./bev_pool_v3.md)替换。
 兼容：
 ```
 mx_driving.point.bev_pool(Tensor feat, Tensor geom_feat, int B, int D, int H, int W) -> Tensor

@@ -4,6 +4,7 @@
 mx_driving.bev_pool_v2(Tensor depth, Tensor feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
                                  List[int] bev_feat_shape, Tensor interval_starts, Tensor interval_lengths) -> Tensor
 ```
+> 注意：可以使用性能更好的[bev_pool_v3](./bev_pool_v3.md)替换。
 兼容：
 ```
 mx_driving.point.bev_pool_v2(Tensor depth, Tensor feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
