@@ -45,13 +45,11 @@ public:
 
         if (blockIndex < lcoreNum) {
             taskNumPerCore = taskNumPerLcore;
+            taskStartIndex = blockIndex * taskNumPerCore;
         } else {
             taskNumPerCore = taskNumPerScore;
+            taskStartIndex = lcoreNum * taskNumPerLcore + (blockIndex - lcoreNum) * taskNumPerCore;
         }
-
-        uint32_t ubSizeForLoop = (static_cast<uint32_t>(ubTotalSize)) / ALIGN_NUM;
-        taskNumPerLoop = taskNumPerCore;
-        loopCount = 1;
 
         uint64_t castBatchSize = static_cast<uint64_t>(batchSize);
         uint64_t castNumLevel = static_cast<uint64_t>(numLevels);
@@ -62,37 +60,26 @@ public:
         attentionGM.SetGlobalBuffer((__gm__ DTYPE_ATTENTION_WEIGHTS *)attention_weights, castBatchSize * numQueries * numHeads * numLevels * numPoints);
         outputGM.SetGlobalBuffer((__gm__ DTYPE_OUTPUT *)output, castBatchSize * numQueries * numHeads * dim);
 
-        this->_pipe->InitBuffer(ValueBuffer, alignDim * FLOAT_SIZE);
-        this->_pipe->InitBuffer(AtomicAddBuffer, alignDim * FLOAT_SIZE);
-        this->_pipe->InitBuffer(TmpBuffer, alignDim * FLOAT_SIZE);
+        uint64_t dimBufferSize = alignDim * FLOAT_SIZE;
+        this->_pipe->InitBuffer(ValueBuffer, numPoints * dimBufferSize);
+        this->_pipe->InitBuffer(AtomicAddBuffer, dimBufferSize);
         this->_pipe->InitBuffer(SpatialShapesBuffer, alignLevels * FLOAT_SIZE * DOUBLE_NUM);
         this->_pipe->InitBuffer(LevelStartIndexBuffer, alignLevels * FLOAT_SIZE);
-        this->_pipe->InitBuffer(HeightLocationBuffer, alignLevels * numPoints * FLOAT_SIZE);
-        this->_pipe->InitBuffer(WidthLocationBuffer, alignLevels * numPoints * FLOAT_SIZE);
         this->_pipe->InitBuffer(AttentionWeightBuffer, alignLevels * numPoints * FLOAT_SIZE);
         this->_pipe->InitBuffer(TmpSamplingLocationBuffer, alignLevels * numPoints * FLOAT_SIZE * DOUBLE_NUM);
-        this->_pipe->InitBuffer(ClampBuffer, numPoints * alignLevels * FLOAT_SIZE);
-        this->_pipe->InitBuffer(SamplingLevelBuffer, numPoints * alignLevels * FLOAT_SIZE);
-        this->_pipe->InitBuffer(OutputBuffer, alignDim * FLOAT_SIZE);
+        this->_pipe->InitBuffer(OutputBuffer, dimBufferSize);
     }
 
     __aicore__ inline void Process()
     {
-        if (taskNumPerLoop > 0) {
+        if (taskNumPerCore > 0) {
             AllocLocalTensors();
             DuplicateAtomicAddTensor();
+            LevelStartIndexCopyIn();
+            SpatialShapesCopyIn();
             
-            for (uint32_t i = 0; i < loopCount; i++) {
-                bool isLastLoop = IsLastLoopJudgment(i);
-                int32_t loopStartIndex = LoopStartIndexCompute(i);
-
-                LevelStartIndexCopyIn();
-                SpatialShapesCopyIn();
-                PipeBarrier<PIPE_ALL>();
-
-                for (int32_t taskIndex = loopStartIndex; taskIndex < loopStartIndex + taskNumPerLoop; taskIndex++) {
-                    Compute(taskIndex, isLastLoop);
-                }
+            for (int32_t taskIndex = taskStartIndex; taskIndex < taskStartIndex + taskNumPerCore; taskIndex++) {
+                Compute(taskIndex);
             }
         }
     }
@@ -100,9 +87,6 @@ public:
 private:
     __aicore__ inline void AllocLocalTensors()
     {
-        SamplingLevelTensor = SamplingLevelBuffer.Get<float>();
-        HeightLocationTensor = HeightLocationBuffer.Get<DTYPE_SAMPLING_LOCATIONS>();
-        WidthLocationTensor = WidthLocationBuffer.Get<DTYPE_SAMPLING_LOCATIONS>();
         LevelStartIndexTensor = LevelStartIndexBuffer.Get<DTYPE_LEVEL_START_INDEX>();
         SpatialShapesTensor = SpatialShapesBuffer.Get<DTYPE_SPATIAL_SHAPES>();
         TmpSamplingLocationTensor = TmpSamplingLocationBuffer.Get<DTYPE_SAMPLING_LOCATIONS>();
@@ -110,8 +94,6 @@ private:
         AtomicAddTensor = AtomicAddBuffer.Get<float>();
         ValueTensor = ValueBuffer.Get<DTYPE_VALUE>();
         OutputTensor = OutputBuffer.Get<DTYPE_OUTPUT>();
-        ClampTensor = ClampBuffer.Get<float>();
-        TmpTensor = TmpBuffer.Get<float>();
     }
 
     __aicore__ inline void DuplicateAtomicAddTensor()
@@ -120,28 +102,6 @@ private:
         for (int32_t idx = dim; idx < alignDim; idx++) {
             AtomicAddTensor.SetValue(idx, ZERO_FLOAT_VALUE);
         }
-    }
-
-    __aicore__ inline bool IsLastLoopJudgment(uint32_t loopIndex)
-    {
-        bool isLastLoop;
-        if (loopIndex == loopCount - 1) {
-            isLastLoop = true;
-        } else {
-            isLastLoop = false;
-        }
-        return isLastLoop;
-    }
-
-    __aicore__ inline int32_t LoopStartIndexCompute(uint32_t loopIndex)
-    {
-        int32_t loopStartIndex;
-        if (blockIndex < lcoreNum) {
-            loopStartIndex = blockIndex * taskNumPerCore + loopIndex * taskNumPerLoop;
-        } else {
-            loopStartIndex = lcoreNum * taskNumPerLcore + (blockIndex - lcoreNum) * taskNumPerScore + loopIndex * taskNumPerLoop;
-        }
-        return loopStartIndex;
     }
 
     __aicore__ inline void LevelStartIndexCopyIn()
@@ -154,132 +114,83 @@ private:
         DataCopy(SpatialShapesTensor, spatialshapesGM[0], alignLevels * DOUBLE_NUM);
     }
 
-    __aicore__ inline void SamplingLocationsCopyIn(int32_t index)
+    __aicore__ inline void MultiHeadSamplingCopyIn(uint64_t copyIndex)
     {
-        DataCopy(TmpSamplingLocationTensor, samplingGM[static_cast<uint64_t>(index)], alignLevels * numPoints * DOUBLE_NUM);
-        PipeBarrier<PIPE_ALL>();
-        if (TmpSamplingLocationTensor.GetSize() >= 32) {
-            GatherMaskLocations();
-        } else {
-            DuplicateLocations();
+        DataCopy(TmpSamplingLocationTensor, samplingGM[copyIndex * DOUBLE_NUM], alignLevels * numPoints * DOUBLE_NUM);
+        DataCopy(AttentionWeightTensor, attentionGM[copyIndex], alignLevels * numPoints);
+    }
+
+    __aicore__ inline int32_t ScalarClamp(int32_t scalarValue, int32_t minValue, int32_t maxValue)
+    {
+        if (scalarValue < minValue) {
+            scalarValue = minValue;
         }
-    }
-
-    __aicore__ inline void GatherMaskLocations()
-    {
-        uint8_t src0BlockStride = 1;
-        uint8_t src1RepeatStride = 0;
-        uint16_t src0RepeatStride = 8;
-        uint16_t repeatTimes = TmpSamplingLocationTensor.GetSize() / (ALIGN_NUM * FLOAT_SIZE);
-        uint32_t height_pattern = 2;
-        uint32_t width_pattern = 1;
-        uint32_t mask = 0;
-        uint64_t rsvdCnt = 0;
-        
-        GatherMask(HeightLocationTensor, TmpSamplingLocationTensor, height_pattern, false, mask, {src0BlockStride, repeatTimes, src0RepeatStride, src1RepeatStride}, rsvdCnt);
-        GatherMask(WidthLocationTensor, TmpSamplingLocationTensor, width_pattern, false, mask, {src0BlockStride, repeatTimes, src0RepeatStride, src1RepeatStride}, rsvdCnt);
-        PipeBarrier<PIPE_V>();
-    }
-
-    __aicore__ inline void DuplicateLocations()
-    {
-        for (int32_t i = 0; i < (numLevels * numPoints * DOUBLE_NUM); i++) {
-            if (static_cast<int32_t>(i % DOUBLE_NUM) == 0) {
-                WidthLocationTensor.SetValue(static_cast<int32_t>(i / DOUBLE_NUM), TmpSamplingLocationTensor.GetValue(i));
-            } else {
-                HeightLocationTensor.SetValue(static_cast<int32_t>(i / DOUBLE_NUM), TmpSamplingLocationTensor.GetValue(i));
-            }
+        if (scalarValue > maxValue) {
+            scalarValue = maxValue;
         }
-        PipeBarrier<PIPE_V>();
-    }
-
-    __aicore__ inline void AttentionWeightCopyIn(int32_t index)
-    {
-        DataCopy(AttentionWeightTensor, attentionGM[static_cast<uint64_t>(index)], alignLevels * numPoints);
-        PipeBarrier<PIPE_ALL>();
-    }
-
-    __aicore__ inline void MultiHeadSamplingCopyIn(int32_t copyIndex)
-    {
-        SamplingLocationsCopyIn(copyIndex * DOUBLE_NUM);
-        AttentionWeightCopyIn(copyIndex);
-    }
-
-    __aicore__ inline void SamplingLocationsClamp(bool heightclamp, int32_t threshold)
-    {
-        if (heightclamp == true) {
-            ClampMax(ClampTensor, HeightLocationTensor, static_cast<float>(threshold - ONE_VALUE), numPoints * alignLevels);
-            ClampMin(HeightLocationTensor, ClampTensor, ZERO_FLOAT_VALUE, numPoints * alignLevels);
-        } else {
-            ClampMax(ClampTensor, WidthLocationTensor, static_cast<float>(threshold - ONE_VALUE), numPoints * alignLevels);
-            ClampMin(WidthLocationTensor, ClampTensor, ZERO_FLOAT_VALUE, numPoints * alignLevels);
-        }
-        PipeBarrier<PIPE_V>();
-    }
-
-    __aicore__ inline void SingleValueCopyIn(int32_t copyIndex)
-    {
-        DataCopy(ValueTensor, valueGM[static_cast<uint64_t>(copyIndex)], alignDim);
-        PipeBarrier<PIPE_ALL>();
+        return scalarValue;
     }
 
     __aicore__ inline void SingleValueCopyOut(int32_t copyIndex)
     {
-        Mul(OutputTensor, OutputTensor, AtomicAddTensor, alignDim);
-        PipeBarrier<PIPE_ALL>();
-
         SetAtomicAdd<float>();
         DataCopy(outputGM[static_cast<uint64_t>(copyIndex)], OutputTensor, alignDim);
         SetAtomicNone();
     }
 
-    __aicore__ inline void MultiScaleKernelAttnSampling(int32_t batchIndex, int32_t headIndex, int32_t queryIndex)
+    __aicore__ inline void MultiScaleKernelAttnSampling(int32_t valueCopyInPreIndex, int32_t valueCopyoutIndex)
     {
+        set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
         Duplicate(OutputTensor, ZERO_FLOAT_VALUE, alignDim);
 
         for (int32_t levelIndex = 0; levelIndex < numLevels; levelIndex++) {
-            SamplingLocationsClamp(true, SpatialShapesTensor.GetValue(levelIndex * DOUBLE_NUM));
-            SamplingLocationsClamp(false, SpatialShapesTensor.GetValue(levelIndex * DOUBLE_NUM + ONE_VALUE));
-            int32_t level_width = SpatialShapesTensor.GetValue(levelIndex * DOUBLE_NUM + ONE_VALUE);
-
+            int32_t levelWidth = SpatialShapesTensor.GetValue(levelIndex * DOUBLE_NUM + ONE_VALUE);
+            int32_t levelHeight = SpatialShapesTensor.GetValue(levelIndex * DOUBLE_NUM);
+            int32_t levelStartId = LevelStartIndexTensor.GetValue(levelIndex);
+            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
             for (int32_t pointIndex = 0; pointIndex < numPoints; pointIndex++) {
+                int32_t wLocation = TmpSamplingLocationTensor.GetValue((levelIndex * numPoints + pointIndex) * 2);
+                int32_t hLocation = TmpSamplingLocationTensor.GetValue((levelIndex * numPoints + pointIndex) * 2 + 1);
+                wLocation = ScalarClamp(wLocation, 0, levelWidth - 1);
+                hLocation = ScalarClamp(hLocation, 0, levelHeight - 1);
+                int32_t valueCopyinIndex = (valueCopyInPreIndex + (levelStartId + hLocation * levelWidth + wLocation)) * dim;
+                DataCopy(ValueTensor[pointIndex * alignDim], valueGM[static_cast<uint64_t>(valueCopyinIndex)], alignDim);
+                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
                 float pointAttentionWeight = AttentionWeightTensor.GetValue(levelIndex * numPoints + pointIndex);
-                int32_t wLocation = WidthLocationTensor.GetValue(levelIndex * numPoints + pointIndex);
-                int32_t hLocation = HeightLocationTensor.GetValue(levelIndex * numPoints + pointIndex);
-                int32_t levelStartId = LevelStartIndexTensor.GetValue(levelIndex);
-                int32_t valueCopyinIndex = batchIndex * numKeys * numHeads * dim + headIndex * numKeys * dim + (levelStartId + hLocation * level_width + wLocation) * dim;
-
-                PipeBarrier<PIPE_ALL>();
-                SingleValueCopyIn(valueCopyinIndex);
-                Muls(ValueTensor, ValueTensor, pointAttentionWeight, dim);
-                PipeBarrier<PIPE_V>();
-                Add(OutputTensor, ValueTensor, OutputTensor, dim);
+                Axpy(OutputTensor, ValueTensor[pointIndex * alignDim], pointAttentionWeight, dim);
             }
         }
-        int32_t valueCopyoutIndex = batchIndex * numQueries * numHeads * dim + queryIndex * numHeads * dim + headIndex * dim;
+        Mul(OutputTensor, OutputTensor, AtomicAddTensor, alignDim);
+        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
         SingleValueCopyOut(valueCopyoutIndex);
-        PipeBarrier<PIPE_ALL>();
     }
 
-    __aicore__ inline void Compute(int32_t sampling_index, bool isLastLoop)
+    __aicore__ inline void Compute(int32_t samplingIndex)
     {
-        int32_t headIndex = sampling_index % numHeads;
-        int32_t queryIndex = (sampling_index / numHeads) % numQueries;
-        int32_t batchIndex = sampling_index / numHeads / numQueries;
-        int32_t copyIndex = (batchIndex * numQueries * numHeads + queryIndex * numHeads + headIndex) * numLevels * numPoints;
+        int32_t headIndex = samplingIndex % numHeads;
+        int32_t queryIndex = (samplingIndex / numHeads) % numQueries;
+        int32_t batchIndex = samplingIndex / numHeads / numQueries;
 
-        MultiHeadSamplingCopyIn(copyIndex);
-        MultiScaleKernelAttnSampling(batchIndex, headIndex, queryIndex);
+        int32_t copyIndex = ((batchIndex * numQueries + queryIndex) * numHeads + headIndex) * numLevels * numPoints;
+        int32_t valueCopyInPreIndex = batchIndex * numKeys * numHeads + headIndex * numKeys;
+        int32_t valueCopyoutIndex = (batchIndex * numQueries * numHeads + queryIndex * numHeads + headIndex) * dim;
+
+        MultiHeadSamplingCopyIn(static_cast<uint64_t>(copyIndex));
+        MultiScaleKernelAttnSampling(valueCopyInPreIndex, valueCopyoutIndex);
     }
 
 private:
     TPipe *_pipe;
-    TBuf <TPosition::VECCALC> ValueBuffer, LevelStartIndexBuffer, SpatialShapesBuffer, HeightLocationBuffer, WidthLocationBuffer, AttentionWeightBuffer;
-    TBuf <TPosition::VECCALC> TmpSamplingLocationBuffer, SamplingLevelBuffer, ClampBuffer, AtomicAddBuffer, TmpBuffer;
+    TBuf <TPosition::VECCALC> ValueBuffer, LevelStartIndexBuffer, SpatialShapesBuffer, AttentionWeightBuffer;
+    TBuf <TPosition::VECCALC> TmpSamplingLocationBuffer, AtomicAddBuffer;
     TBuf <TPosition::VECCALC> OutputBuffer;
     LocalTensor<int32_t> LevelStartIndexTensor, SpatialShapesTensor;
-    LocalTensor<float> HeightLocationTensor, WidthLocationTensor, TmpSamplingLocationTensor, AttentionWeightTensor;
-    LocalTensor<float> SamplingLevelTensor, ClampTensor, AtomicAddTensor, TmpTensor;
+    LocalTensor<float> TmpSamplingLocationTensor, AttentionWeightTensor, AttentionWeightDuplicateTensor;
+    LocalTensor<float> AtomicAddTensor;
     LocalTensor<float> ValueTensor, OutputTensor;
 
     GlobalTensor<DTYPE_VALUE> valueGM;
@@ -291,9 +202,8 @@ private:
 
     uint64_t blockIndex;
     int32_t batchSize, numKeys, numHeads, numQueries, numLevels, numPoints, dim, alignLevels, alignDim, totalTaskNum, alignTaskNum, tailNum;
-    int32_t sampling_loop_count;
+    int32_t taskStartIndex;
     uint32_t blockDim, taskNumPerScore, taskNumPerLcore, scoreNum, lcoreNum, taskNumPerCore;
-    uint32_t ubSizeForLoop, loopCount, taskNumPerLoop, taskNumPerLoop_limit;
     uint64_t ubTotalSize;
 };
 
