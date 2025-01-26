@@ -444,10 +444,15 @@ def grid_sampler2d_v2(
     padding_mode: int,
     align_corners: bool,
 ) -> torch.Tensor: ...
+def npu_batch_matmul(
+    projection_mat: torch.Tensor,
+    pts_extend: torch.Tensor,
+) -> torch.Tensor: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
     "npu_three_interpolate_backward",
+    "npu_batch_matmul",
     "scatter_max_with_argmax_v2",
     "npu_scatter_max_backward",
     "npu_scatter",

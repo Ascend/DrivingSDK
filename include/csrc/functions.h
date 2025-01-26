@@ -263,4 +263,6 @@ at::Tensor npu_scatter_add(at::Tensor& src, at::Tensor& indices, c10::optional<a
     c10::optional<int> dim, c10::optional<int> dim_size);
 
 at::Tensor npu_scatter_add_grad(at::Tensor& grad_out, at::Tensor& index, int32_t dim);
+
+at::Tensor npu_batch_matmul(const at::Tensor& projection_mat, const at::Tensor& pts_extend);
 #endif // CSRC_FUNCTIONS_H_

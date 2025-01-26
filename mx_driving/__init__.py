@@ -53,6 +53,7 @@ from .ops.unique_voxel import unique_voxel
 from .ops.cal_anchors_heading import cal_anchors_heading
 from .ops.npu_gaussian import npu_gaussian
 from .ops.diff_iou_rotated import diff_iou_rotated_2d
+from .ops.npu_batch_matmul import npu_batch_matmul
 
 __all__ = [
     "RoIPointPool3d",
@@ -89,6 +90,7 @@ __all__ = [
     "npu_nms3d_normal",
     "npu_add_relu",
     "npu_deformable_aggregation",
+    "npu_batch_matmul",
     "deformable_aggregation",
     "npu_dynamic_scatter",
     "npu_max_pool2d",

@@ -215,4 +215,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // scatter_add_grad
     m.def("npu_scatter_add_grad", &npu_scatter_add_grad);
+
+    
+    // npu_batch_matmul
+    m.def("npu_batch_matmul", &npu_batch_matmul);
 }

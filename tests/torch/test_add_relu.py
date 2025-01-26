@@ -28,7 +28,7 @@ def gen_cpu_outputs(x, y):
     return cpu_result
 
 
-class TestPointsInBox(TestCase):  
+class TestAddRelu(TestCase):  
     @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `AddRelu` is only supported on 910B, skip this ut!")
     def test_npu_add_relu_three_dim(self, device="npu"):
         x, y = gen_inputs([1, 100, 3], np.float32)
