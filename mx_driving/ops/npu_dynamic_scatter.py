@@ -69,7 +69,7 @@ class DynamicScatterFunction(Function):
 dynamic_scatter = DynamicScatterFunction.apply
 
 
-def npu_dynamic_scatter(feats, coors, reduce_type):
+def npu_dynamic_scatter(feats, coors, reduce_type='max'):
     warnings.warn(
         "`npu_dynamic_scatter` will be deprecated in future. Please use `dynamic_scatter` instead.",
         DeprecationWarning,
