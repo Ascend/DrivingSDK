@@ -24,8 +24,10 @@ class DetectionConfig:
                  max_boxes_per_sample: int,
                  mean_ap_weight: int):
 
-        assert set(class_range.keys()) == set(DETECTION_NAMES), "Class count mismatch."
-        assert dist_th_tp in dist_ths, "dist_th_tp must be in set of dist_ths."
+        if set(class_range.keys()) != set(DETECTION_NAMES):
+            raise Exception("Class count mismatch.")
+        if dist_th_tp not in dist_ths:
+            raise Exception("dist_th_tp must be in set of dist_ths.")
 
         self.class_range = class_range
         self.dist_fcn = dist_fcn
@@ -94,18 +96,28 @@ class DetectionMetricData(MetricData):
                  attr_err: np.array):
 
         # Assert lengths.
-        assert len(recall) == self.nelem
-        assert len(precision) == self.nelem
-        assert len(confidence) == self.nelem
-        assert len(trans_err) == self.nelem
-        assert len(vel_err) == self.nelem
-        assert len(scale_err) == self.nelem
-        assert len(orient_err) == self.nelem
-        assert len(attr_err) == self.nelem
+        if len(recall) != self.nelem:
+            raise Exception("recall length is wrong.")
+        if len(precision) != self.nelem:
+            raise Exception("precision length is wrong.")
+        if len(confidence) != self.nelem:
+            raise Exception("confidence length is wrong.")
+        if len(trans_err) != self.nelem:
+            raise Exception("trans_err length is wrong.")
+        if len(vel_err) != self.nelem:
+            raise Exception("vel_err length is wrong.")
+        if len(scale_err) != self.nelem:
+            raise Exception("scale_err length is wrong.")
+        if len(orient_err) != self.nelem:
+            raise Exception("orient_err length is wrong.")
+        if len(attr_err) != self.nelem:
+            raise Exception("attr_err length is wrong.")
 
         # Assert ordering.
-        assert all(confidence == sorted(confidence, reverse=True))  # Confidences should be descending.
-        assert all(recall == sorted(recall))  # Recalls should be ascending.
+        if not all(confidence == sorted(confidence, reverse=True)):
+            raise Exception("Confidences should be descending.")
+        if not all(recall == sorted(recall)):
+            raise Exception("Recalls should be ascending.")
 
         # Set attributes explicitly to help IDEs figure out what is going on.
         self.recall = recall
@@ -329,14 +341,18 @@ class DetectionBox(EvalBox):
 
         super().__init__(sample_token, translation, size, rotation, velocity, ego_translation, num_pts)
 
-        assert detection_name is not None, 'Error: detection_name cannot be empty!'
-        assert detection_name in DETECTION_NAMES, 'Error: Unknown detection_name %s' % detection_name
+        if detection_name is None:
+            raise Exception("Error: detection_name cannot be empty!")
+        if detection_name not in DETECTION_NAMES:
+            raise Exception(f'Error: Unknown detection_name %s' % detection_name)
 
-        assert attribute_name in ATTRIBUTE_NAMES or attribute_name == '', \
-            'Error: Unknown attribute_name %s' % attribute_name
+        if attribute_name not in ATTRIBUTE_NAMES and attribute_name != '':
+            raise Exception(f'Error: Unknown attribute_name %s' % attribute_name)
 
-        assert isinstance(detection_score, float), 'Error: detection_score must be a float!'
-        assert not np.any(np.isnan(detection_score)), 'Error: detection_score may not be NaN!'
+        if not isinstance(detection_score, float):
+            raise Exception("Error: detection_score must be a float!")
+        if np.any(np.isnan(detection_score)):
+            raise Exception("Error: detection_score may not be NaN!")
 
         # Assign.
         self.detection_name = detection_name

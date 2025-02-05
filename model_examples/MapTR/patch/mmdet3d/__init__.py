@@ -23,27 +23,22 @@ mmcv_maximum_version = '1.7.2'
 mmcv_version = digit_version(mmcv.__version__)
 
 
-assert (mmcv_version >= digit_version(mmcv_minimum_version)
-        and mmcv_version <= digit_version(mmcv_maximum_version)), \
-    f'MMCV=={mmcv.__version__} is used but incompatible. ' \
-    f'Please install mmcv>={mmcv_minimum_version}, <={mmcv_maximum_version}.'
+if (mmcv_version < digit_version(mmcv_minimum_version)
+        or mmcv_version > digit_version(mmcv_maximum_version)):
+    raise Exception(f'MMCV=={mmcv.__version__} is used but incompatible. Please install mmcv>={mmcv_minimum_version}, <={mmcv_maximum_version}.')
 
 mmdet_minimum_version = '2.14.0'
 mmdet_maximum_version = '3.0.0'
 mmdet_version = digit_version(mmdet.__version__)
-assert (mmdet_version >= digit_version(mmdet_minimum_version)
-        and mmdet_version <= digit_version(mmdet_maximum_version)), \
-    f'MMDET=={mmdet.__version__} is used but incompatible. ' \
-    f'Please install mmdet>={mmdet_minimum_version}, ' \
-    f'<={mmdet_maximum_version}.'
+if (mmdet_version < digit_version(mmdet_minimum_version)
+        or mmdet_version > digit_version(mmdet_maximum_version)):
+    raise Exception(f'MMDET=={mmdet.__version__} is used but incompatible. Please install mmdet>={mmdet_minimum_version}, <={mmdet_maximum_version}.')
 
 mmseg_minimum_version = '0.14.1'
 mmseg_maximum_version = '1.0.0'
 mmseg_version = digit_version(mmseg.__version__)
-assert (mmseg_version >= digit_version(mmseg_minimum_version)
-        and mmseg_version <= digit_version(mmseg_maximum_version)), \
-    f'MMSEG=={mmseg.__version__} is used but incompatible. ' \
-    f'Please install mmseg>={mmseg_minimum_version}, ' \
-    f'<={mmseg_maximum_version}.'
+if (mmseg_version < digit_version(mmseg_minimum_version)
+        or mmseg_version > digit_version(mmseg_maximum_version)):
+    raise Exception(f'MMSEG=={mmseg.__version__} is used but incompatible. Please install mmseg>={mmseg_minimum_version}, <={mmseg_maximum_version}.')
 
 __all__ = ['__version__', 'short_version']

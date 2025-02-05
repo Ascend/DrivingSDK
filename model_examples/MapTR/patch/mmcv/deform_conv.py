@@ -82,7 +82,8 @@ class DeformConv2dFunction(Function):
             raise ValueError(
                 f'Expected 4D tensor as input, got {input.dim()}D tensor \
                   instead.')
-        assert bias is False, 'Only support bias is False.'
+        if bias is not False:
+            raise Exception("Only support bias is False.")
         ctx.stride = _pair(stride)
         ctx.padding = _pair(padding)
         ctx.dilation = _pair(dilation)
@@ -115,8 +116,8 @@ class DeformConv2dFunction(Function):
         ctx.bufs_ = [input.new_empty(0), input.new_empty(0)]  # columns, ones
 
         cur_im2col_step = min(ctx.im2col_step, input.size(0))
-        assert (input.size(0) % cur_im2col_step
-                ) == 0, 'batch size must be divisible by im2col_step'
+        if (input.size(0) % cur_im2col_step) != 0:
+            raise Exception("batch size must be divisible by im2col_step")
         ext_module.deform_conv_forward(
             input,
             weight,
@@ -150,8 +151,8 @@ class DeformConv2dFunction(Function):
         grad_input = grad_offset = grad_weight = None
 
         cur_im2col_step = min(ctx.im2col_step, input.size(0))
-        assert (input.size(0) % cur_im2col_step
-                ) == 0, 'batch size must be divisible by im2col_step'
+        if (input.size(0) % cur_im2col_step) != 0:
+            raise Exception("batch size must be divisible by im2col_step")
 
         grad_output = grad_output.contiguous()
         if ctx.needs_input_grad[0] or ctx.needs_input_grad[1]:
@@ -271,13 +272,12 @@ class DeformConv2d(nn.Module):
                  im2col_step: int = 32) -> None:
         super().__init__()
 
-        assert not bias, \
-            f'bias={bias} is not supported in DeformConv2d.'
-        assert in_channels % groups == 0, \
-            f'in_channels {in_channels} cannot be divisible by groups {groups}'
-        assert out_channels % groups == 0, \
-            f'out_channels {out_channels} cannot be divisible by groups \
-              {groups}'
+        if bias:
+            raise Exception(f'bias={bias} is not supported in DeformConv2d.')
+        if in_channels % groups != 0:
+            raise Exception(f'in_channels {in_channels} cannot be divisible by groups {groups}')
+        if out_channels % groups != 0:
+            raise Exception(f'out_channels {out_channels} cannot be divisible by groups \ {groups}')
 
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -470,8 +470,8 @@ if IS_MLU_AVAILABLE:
         """
 
         def __init__(self, *args, **kwargs):
-            assert digit_version(torchvision.__version__) >= digit_version(
-                '0.10.0a0'), 'the version of torchvision should be >= 0.10.0'
+            if digit_version(torchvision.__version__) < digit_version('0.10.0a0'):
+                raise Exception('the version of torchvision should be >= 0.10.0')
             super().__init__(*args, **kwargs)
 
             self.conv_offset = nn.Conv2d(
@@ -491,8 +491,8 @@ if IS_MLU_AVAILABLE:
 
         def forward(self, x: Tensor) -> Tensor:  # type: ignore
             cur_im2col_step = min(self.im2col_step, x.size(0))
-            assert (x.size(0) % cur_im2col_step
-                    ) == 0, 'batch size must be divisible by im2col_step'
+            if (x.size(0) % cur_im2col_step) != 0:
+                raise Exception('batch size must be divisible by im2col_step')
             offset = self.conv_offset(x)
             x = x.type_as(offset)
             weight = self.weight.type_as(x)
