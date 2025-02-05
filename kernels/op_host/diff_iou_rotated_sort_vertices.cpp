@@ -10,7 +10,7 @@ constexpr uint32_t BATCH_SIZE_IDX = 0;
 constexpr uint32_t NUM_BOXES_IDX = 1;
 constexpr uint32_t OUTPUT_VERTICES_COUNT = 9;
 constexpr uint32_t NUM_VALID_IDX = 2;
-constexpr uint32_t SINGLE_LOOP_TASK = 24;
+constexpr uint32_t SINGLE_LOOP_TASK = 64;
 }   // some const express
 
 namespace optiling {

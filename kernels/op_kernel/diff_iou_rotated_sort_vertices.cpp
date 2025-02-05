@@ -38,6 +38,9 @@ public:
         for (int32_t offset = taskOffset_; offset < endTaskOffset; offset += singleLoopTaskCount_) {
             uint32_t taskCount = min(singleLoopTaskCount_, endTaskOffset - offset);
 
+            SetFlag<HardEvent::V_MTE2>(eventVMTE2_);
+            WaitFlag<HardEvent::V_MTE2>(eventVMTE2_);
+
             CopyIn(offset, taskCount);
             
             SetFlag<HardEvent::MTE2_V>(eventMTE2V_);
@@ -66,7 +69,9 @@ private:
         this->singleLoopTaskCount_ = tiling->singleLoopTaskCount;
         rsvdCnt_ = singleLoopTaskCount_ * VERTICES_ALIGNED;
         repeatTimes_ = Ceil(singleLoopTaskCount_ * VERTICE_XY_ALIGNED, static_cast<uint32_t>(64));       // repeatTimes <= 255
-        
+        calCount_ = singleLoopTaskCount_ * VERTICES_ALIGNED;
+        singleLoopTaskCountAligned_ = Ceil(singleLoopTaskCount_, 8) * 8;
+
         broadCastSrcShape1_[0] = singleLoopTaskCount_;
         broadCastSrcShape1_[1] = 1;
 
@@ -90,13 +95,13 @@ private:
 
     __aicore__ inline void InitUB()
     {
-        pipe_->InitBuffer(verticesBuf_, singleLoopTaskCount_ * VERTICES_ALIGNED * FLOAT_BYTE_SIZE * 2);
-        pipe_->InitBuffer(posBuf_, singleLoopTaskCount_ * VERTICES_ALIGNED * FLOAT_BYTE_SIZE * 2);
-        pipe_->InitBuffer(outputBuf_, singleLoopTaskCount_ * VERTICES_ALIGNED * FLOAT_BYTE_SIZE * 2);
-        pipe_->InitBuffer(sortIdxBuf_, singleLoopTaskCount_ * VERTICES_ALIGNED * INT32_BYTE_SIZE * 3);
+        pipe_->InitBuffer(verticesBuf_, calCount_ * FLOAT_BYTE_SIZE * 2);
+        pipe_->InitBuffer(posBuf_, calCount_ * FLOAT_BYTE_SIZE * 2);
+        pipe_->InitBuffer(outputBuf_, calCount_ * FLOAT_BYTE_SIZE * 2);
+        pipe_->InitBuffer(sortIdxBuf_, calCount_ * INT32_BYTE_SIZE * 3);
         pipe_->InitBuffer(maskBuf_, singleLoopTaskCount_ * MASK_ALIGNED * FLOAT_BYTE_SIZE);
         pipe_->InitBuffer(numValidBuf_, Ceil(singleLoopTaskCount_ * INT32_BYTE_SIZE, UB_ALIGNED_BYTE_SIZE) * UB_ALIGNED_BYTE_SIZE);
-        pipe_->InitBuffer(argminBuf_, Ceil(singleLoopTaskCount_ * FLOAT_BYTE_SIZE, UB_ALIGNED_BYTE_SIZE) * UB_ALIGNED_BYTE_SIZE);
+        pipe_->InitBuffer(argminBuf_, Ceil(singleLoopTaskCount_ * FLOAT_BYTE_SIZE, UB_ALIGNED_BYTE_SIZE) * 2 * UB_ALIGNED_BYTE_SIZE);
         pipe_->InitBuffer(vecIdxBuf_, Ceil(singleLoopTaskCount_ * INT32_BYTE_SIZE, UB_ALIGNED_BYTE_SIZE) * UB_ALIGNED_BYTE_SIZE);
         pipe_->InitBuffer(minValBuf_, Ceil(singleLoopTaskCount_ * FLOAT_BYTE_SIZE, UB_ALIGNED_BYTE_SIZE) * UB_ALIGNED_BYTE_SIZE * 3);
 
@@ -106,11 +111,12 @@ private:
         posLocal_ = posBuf_.Get<float>();
         outputLocal_ = outputBuf_.Get<int32_t>();
         argminLocal_ = argminBuf_.Get<float>();
+        argminLocal1_ = argminLocal_[singleLoopTaskCountAligned_];
         vecIdxLocal_ = vecIdxBuf_.Get<int32_t>();
         minValLocal_ = minValBuf_.Get<float>();
         sortIdxLocal_ = sortIdxBuf_.Get<int32_t>();
-        sortIdxLocal1_ = sortIdxLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED];
-        sortIdxLocal2_ = sortIdxLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED * 2];
+        sortIdxLocal1_ = sortIdxLocal_[calCount_];
+        sortIdxLocal2_ = sortIdxLocal_[calCount_ * 2];
     }
 
     __aicore__ inline void InitEvent()
@@ -118,6 +124,7 @@ private:
         eventMTE2V_ = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
         eventVMTE3_ = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::V_MTE3));
         eventMTE3V_ = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE3_V));
+        eventVMTE2_ = static_cast<int32_t>(GetTPipePtr()->FetchEventID(HardEvent::V_MTE2));
     }
 
     __aicore__ inline void CopyIn(uint32_t offset, uint32_t taskCount);
@@ -132,9 +139,9 @@ private:
 private:
     uint16_t repeatTimes_;
     TPipe* pipe_;
-    int32_t eventMTE2V_, eventVMTE3_, eventMTE3V_;
+    int32_t eventMTE2V_, eventVMTE3_, eventMTE3V_, eventVMTE2_;
     uint32_t blkIdx_;
-    uint32_t coreTask_, taskOffset_, singleLoopTaskCount_;
+    uint32_t coreTask_, taskOffset_, singleLoopTaskCount_, calCount_, singleLoopTaskCountAligned_;
     uint32_t broadCastSrcShape1_[2];
     uint32_t broadCastDstShape1_[2];
     uint32_t broadCastSrcShape2_[2];
@@ -149,7 +156,7 @@ private:
 
     TBuf<TPosition::VECCALC> verticesBuf_, maskBuf_, numValidBuf_, sortIdxBuf_,
         posBuf_, argminBuf_, vecIdxBuf_, minValBuf_, outputBuf_;
-    LocalTensor<float> verticesLocal_, posLocal_, argminLocal_, maskLocal_, minValLocal_;
+    LocalTensor<float> verticesLocal_, posLocal_, argminLocal_, maskLocal_, minValLocal_, argminLocal1_;
     LocalTensor<int32_t> numValidLocal_, vecIdxLocal_, sortIdxLocal_, sortIdxLocal1_, sortIdxLocal2_, outputLocal_;
     DataCopyPadExtParams<float> verticesPadParams_{false, 0, 0, 0};
     DataCopyPadExtParams<float> maskPadParams_{false, 0, 0, 0};
@@ -177,79 +184,56 @@ __aicore__ inline void DiffIouRotatedSortVertices::CopyOut(uint32_t offset, uint
 __aicore__ inline void DiffIouRotatedSortVertices::TransferAndMask()
 {
     // xyxy... --> xx...yy...
+    Muls(maskLocal_, maskLocal_, -POSITIVE_INF, calCount_);
     uint8_t src1Pattern = 1;
     GatherMask(posLocal_, verticesLocal_, src1Pattern, false, mask_, { 1, repeatTimes_, 8, 0 }, rsvdCnt_);
+    Adds(maskLocal_, maskLocal_, static_cast<float>(POSITIVE_INF), calCount_);
     src1Pattern = 2;
-    GatherMask(posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], verticesLocal_, src1Pattern, false, mask_, { 1, repeatTimes_, 8, 0 }, rsvdCnt_);
-
-    // vertices[~mask] = INF
-    Muls(maskLocal_, maskLocal_, -POSITIVE_INF, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Adds(maskLocal_, maskLocal_, static_cast<float>(POSITIVE_INF), singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Add(posLocal_, maskLocal_, posLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    Add(posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], maskLocal_, posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
+    GatherMask(posLocal_[calCount_], verticesLocal_, src1Pattern, false, mask_, { 1, repeatTimes_, 8, 0 }, rsvdCnt_);
+    Add(posLocal_, maskLocal_, posLocal_, calCount_);
+    Add(posLocal_[calCount_], maskLocal_, posLocal_[calCount_], calCount_);
     // masked result store in posLocal_
 }
 
 __aicore__ inline void DiffIouRotatedSortVertices::ComputeArgmin()
 {
     // Compte argmin
-    WholeReduceMin<float>(argminLocal_, posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], VERTICES_COUNT, singleLoopTaskCount_, 1, 1, 4, ReduceOrder::ORDER_ONLY_INDEX);
+    WholeReduceMin<float>(argminLocal_, posLocal_[calCount_], VERTICES_COUNT, singleLoopTaskCount_, 1, 1, 4, ReduceOrder::ORDER_ONLY_INDEX);
     
     // modify the corr, through the min y pos vertice
-    PipeBarrier<PIPE_V>();
-    Muls(argminLocal_.ReinterpretCast<int32_t>(), argminLocal_.ReinterpretCast<int32_t>(), static_cast<int32_t>(FLOAT_BYTE_SIZE), singleLoopTaskCount_);
-    PipeBarrier<PIPE_V>();
-    Add(argminLocal_.ReinterpretCast<int32_t>(), argminLocal_.ReinterpretCast<int32_t>(), vecIdxLocal_, singleLoopTaskCount_);
-    Gather(minValLocal_, posLocal_, argminLocal_.ReinterpretCast<uint32_t>(), static_cast<uint32_t>(0), singleLoopTaskCount_);
-    Gather(minValLocal_[singleLoopTaskCount_], posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED],
-        argminLocal_.ReinterpretCast<uint32_t>(), static_cast<uint32_t>(0), singleLoopTaskCount_);
-    PipeBarrier<PIPE_V>();
+    Muls(argminLocal1_.ReinterpretCast<int32_t>(), argminLocal_.ReinterpretCast<int32_t>(), static_cast<int32_t>(FLOAT_BYTE_SIZE), singleLoopTaskCount_);
+    Add(argminLocal1_.ReinterpretCast<int32_t>(), argminLocal1_.ReinterpretCast<int32_t>(), vecIdxLocal_, singleLoopTaskCount_);
+    Gather(minValLocal_, posLocal_, argminLocal1_.ReinterpretCast<uint32_t>(), static_cast<uint32_t>(0), singleLoopTaskCount_);
+    Gather(minValLocal_[singleLoopTaskCount_], posLocal_[calCount_],
+        argminLocal1_.ReinterpretCast<uint32_t>(), static_cast<uint32_t>(0), singleLoopTaskCount_);
     BroadCast<float, 2, 1, false>(verticesLocal_, minValLocal_, broadCastDstShape1_, broadCastSrcShape1_);
-    PipeBarrier<PIPE_V>();
-    Sub(posLocal_, posLocal_, verticesLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
+    Sub(posLocal_, posLocal_, verticesLocal_, calCount_);
     BroadCast<float, 2, 1, false>(verticesLocal_, minValLocal_[singleLoopTaskCount_], broadCastDstShape1_, broadCastSrcShape1_);
-    PipeBarrier<PIPE_V>();
-    Sub(posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], verticesLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
+    Sub(posLocal_[calCount_], posLocal_[calCount_], verticesLocal_, calCount_);
     // store the result in posLocal_
 }
 
 __aicore__ inline void DiffIouRotatedSortVertices::ComputeRadian()
 {
-    Adds(posLocal_, posLocal_, static_cast<float>(EPS), singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Div(verticesLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED],
-        posLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    Adds(posLocal_, posLocal_, static_cast<float>(EPS), singleLoopTaskCount_ * VERTICES_ALIGNED);
-    Atan(verticesLocal_, verticesLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], singleLoopTaskCount_ * VERTICES_ALIGNED);
-    Sign(posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], posLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Muls(posLocal_, posLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], static_cast<float>(-1), singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Relu(posLocal_, posLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Muls(posLocal_, posLocal_, static_cast<float>(PI), singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Add(verticesLocal_, verticesLocal_, posLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
+    Adds(posLocal_, posLocal_, static_cast<float>(EPS), calCount_);
+    Div(verticesLocal_[calCount_], posLocal_[calCount_],
+        posLocal_, calCount_);
+    Atan(verticesLocal_, verticesLocal_[calCount_], calCount_);
+    Sign(posLocal_[calCount_], posLocal_, calCount_);
+    Mins(posLocal_[calCount_], posLocal_[calCount_], static_cast<float>(0), calCount_);
+    Muls(posLocal_, posLocal_[calCount_], static_cast<float>(-PI), calCount_);
+    Add(verticesLocal_, verticesLocal_, posLocal_, calCount_);
     // store the result in verticesLocal_
 }
 
 __aicore__ inline void DiffIouRotatedSortVertices::SortVertices()
 {
     // vertices_radian[~mask] = INF
-    Add(verticesLocal_, maskLocal_, verticesLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-
+    Add(verticesLocal_, maskLocal_, verticesLocal_, calCount_);
     // argsort
     Duplicate(verticesLocal_[VERTICES_COUNT], POSITIVE_INF, 8, singleLoopTaskCount_, 1, 4);    // 24 - 32 padding pos fill inf
-    PipeBarrier<PIPE_V>();
-    Muls(verticesLocal_, verticesLocal_, static_cast<float>(-1), singleLoopTaskCount_ * VERTICES_ALIGNED); // decending
-    PipeBarrier<PIPE_V>();
+    Muls(verticesLocal_, verticesLocal_, static_cast<float>(-1), calCount_); // decending
     Sort32(posLocal_, verticesLocal_, sortIdxLocal2_.ReinterpretCast<uint32_t>(), singleLoopTaskCount_);
-    PipeBarrier<PIPE_V>();
     uint8_t src1Pattern = 2;
     GatherMask(posLocal_, posLocal_, src1Pattern, false, mask_, { 1, repeatTimes_, 8, 0 }, rsvdCnt_);
     // store the result in posLocal_
@@ -258,32 +242,21 @@ __aicore__ inline void DiffIouRotatedSortVertices::SortVertices()
 __aicore__ inline void DiffIouRotatedSortVertices::SelectFrontNineIdx()
 {
     BroadCast<int32_t, 2, 1, false>(sortIdxLocal1_, numValidLocal_, broadCastDstShape1_, broadCastSrcShape1_);
-    PipeBarrier<PIPE_V>();
-    Sub(sortIdxLocal_, sortIdxLocal1_, sortIdxLocal2_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Cast(verticesLocal_, sortIdxLocal_, RoundMode::CAST_CEIL, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Sign(verticesLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], verticesLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Cast(sortIdxLocal_, verticesLocal_[singleLoopTaskCount_ * VERTICES_ALIGNED], RoundMode::CAST_CEIL, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Relu(sortIdxLocal_, sortIdxLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Mul(posLocal_.ReinterpretCast<int32_t>(), posLocal_.ReinterpretCast<int32_t>(), sortIdxLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    Muls(sortIdxLocal_, sortIdxLocal_, static_cast<int32_t>(-1), singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
-    Sub(argminLocal_.ReinterpretCast<int32_t>(), argminLocal_.ReinterpretCast<int32_t>(), vecIdxLocal_, singleLoopTaskCount_);
-    PipeBarrier<PIPE_V>();
-    Muls(argminLocal_, argminLocal_, 0.25f, singleLoopTaskCount_);
-    PipeBarrier<PIPE_V>();
-    Adds(sortIdxLocal_, sortIdxLocal_, static_cast<int32_t>(1), singleLoopTaskCount_ * VERTICES_ALIGNED);
+
+    Sub(sortIdxLocal_, sortIdxLocal1_, sortIdxLocal2_, calCount_);
+    Mins(sortIdxLocal_, sortIdxLocal_, static_cast<int32_t>(1), calCount_);
+    Maxs(sortIdxLocal_, sortIdxLocal_, static_cast<int32_t>(0), calCount_);
+
+    Mul(posLocal_.ReinterpretCast<int32_t>(), posLocal_.ReinterpretCast<int32_t>(), sortIdxLocal_, calCount_);
     BroadCast<int32_t, 2, 1, false>(sortIdxLocal1_, argminLocal_.ReinterpretCast<int32_t>(), broadCastDstShape1_, broadCastSrcShape1_);
-    PipeBarrier<PIPE_V>();
-    Mul(sortIdxLocal_, sortIdxLocal_, sortIdxLocal1_, singleLoopTaskCount_ * VERTICES_ALIGNED);
-    PipeBarrier<PIPE_V>();
+    
+    Muls(sortIdxLocal_, sortIdxLocal_, static_cast<int32_t>(-1), calCount_);
+    Adds(sortIdxLocal_, sortIdxLocal_, static_cast<int32_t>(1), calCount_);
+    Mul(sortIdxLocal_, sortIdxLocal_, sortIdxLocal1_, calCount_);
+
     SetFlag<HardEvent::MTE3_V>(eventMTE3V_);
     WaitFlag<HardEvent::MTE3_V>(eventMTE3V_);
-    Add(outputLocal_, posLocal_.ReinterpretCast<int32_t>(), sortIdxLocal_, singleLoopTaskCount_ * VERTICES_ALIGNED);
+    Add(outputLocal_, posLocal_.ReinterpretCast<int32_t>(), sortIdxLocal_, calCount_);
     // store the result in outputLocal_
 }
 
