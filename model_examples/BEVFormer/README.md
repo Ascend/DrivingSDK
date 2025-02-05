@@ -37,7 +37,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
   1. 源码编译安装 mmcv 1.x
      ```
-      git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+      git clone -b hccl1.x https://github.com/hust17yixuan/mmcv.git
       cp mmcv_config.patch mmcv
       cd mmcv
       git apply --reject mmcv_config.patch
