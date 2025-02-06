@@ -18,7 +18,7 @@ index e63bc91..9c48b33 100644
  echo "number of gpus: "${gpu_num}
  echo "config file: "${config}
 diff --git a/local_train.sh b/local_train.sh
-index d584c4c..952c727 100644
+index d584c4c..8802527 100644
 --- a/local_train.sh
 +++ b/local_train.sh
 @@ -1,8 +1,34 @@
@@ -744,7 +744,7 @@ index cf23848..e688d0b 100644
          scale_start_index,
 diff --git a/projects/mmdet3d_plugin/utils/__init__.py b/projects/mmdet3d_plugin/utils/__init__.py
 new file mode 100644
-index 0000000..6f211c1
+index 0000000..8e42dee
 --- /dev/null
 +++ b/projects/mmdet3d_plugin/utils/__init__.py
 @@ -0,0 +1,5 @@
@@ -1244,7 +1244,7 @@ index 565905e..6f7ed2c 100644
 +OMP_NUM_THREADS=16 MKL_NUM_THREADS=16 python3 -m torch.distributed.run --nproc_per_node=$GPUS --master_port=$PORT \
      $(dirname "$0")/train.py $CONFIG --launcher pytorch ${@:3}
 diff --git a/tools/test.py b/tools/test.py
-index 963e668..5ca85c3 100644
+index 963e668..dccb3f8 100644
 --- a/tools/test.py
 +++ b/tools/test.py
 @@ -6,7 +6,7 @@ import torch
@@ -1256,7 +1256,16 @@ index 963e668..5ca85c3 100644
  from mmcv.runner import (
      get_dist_info,
      init_dist,
-@@ -103,6 +103,7 @@ def parse_args():
+@@ -22,6 +22,8 @@ from mmdet.models import build_detector
+ from projects.mmdet3d_plugin.datasets.builder import build_dataloader
+ from projects.mmdet3d_plugin.apis.test import custom_multi_gpu_test
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ def parse_args():
+     parser = argparse.ArgumentParser(
+@@ -103,6 +105,7 @@ def parse_args():
          help="job launcher",
      )
      parser.add_argument("--local_rank", type=int, default=0)
@@ -1264,7 +1273,7 @@ index 963e668..5ca85c3 100644
      parser.add_argument("--result_file", type=str, default=None)
      parser.add_argument("--show_only", action="store_true")
      args = parser.parse_args()
-@@ -254,10 +255,10 @@ def main():
+@@ -254,10 +257,10 @@ def main():
      if args.result_file is not None:
          outputs = torch.load(args.result_file)
      elif not distributed:
@@ -1277,7 +1286,7 @@ index 963e668..5ca85c3 100644
              model.cuda(),
              device_ids=[torch.cuda.current_device()],
              broadcast_buffers=False,
-@@ -308,6 +309,7 @@ def main():
+@@ -308,6 +311,7 @@ def main():
  
  if __name__ == "__main__":
      torch.multiprocessing.set_start_method(

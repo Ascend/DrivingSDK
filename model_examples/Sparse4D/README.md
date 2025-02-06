@@ -9,6 +9,7 @@
 - [准备训练环境](#准备训练环境)
   - [安装昇腾环境](#安装昇腾环境)
   - [安装模型环境](#安装模型环境)
+  - [模型代码Patch](#模型代码patch)
 - [准备数据集](#准备数据集)
   - [预训练数据集](#预训练数据集)
   - [获取预训练权重](#获取预训练权重)
@@ -105,6 +106,19 @@
      pip install -e .
      ```
 
+## 模型代码Patch
+- Sparse4D官方仓库下载模型代码
+  ```shell
+  git clone https://github.com/HorizonRobotics/Sparse4D.git
+  cd $your_sparse4d_dir
+  git checkout c41df4bbf7bc82490f11ff55173abfcb3fb91425
+  ```
+
+- 将`Sparse4D.patch`文件拷贝到Sparse4D官方仓库根目录
+  ```shell
+  git apply Sparse4D.patch
+  ```
+
 # 准备数据集
 
 ## 预训练数据集
@@ -163,7 +177,7 @@
 |      竞品A      | 1p | - | - | 0.793 |   1      |
 |      竞品A      | 8p | 0.4534 | - | 0.777 |   100     |
 | Atlas 800T A2   | 1p | - | - | 1.321 |  1      |
-| Atlas 800T A2   | 8p | 0.4445 | - | 1.293 |     100     |
+| Atlas 800T A2   | 8p | 0.4571 | - | 1.221 |     100     |
 
 
 
