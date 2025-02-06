@@ -224,29 +224,35 @@ index 3fca7641..bcd052f1 100755
      --node_rank=$NODE_RANK \
      --master_addr=$MASTER_ADDR \
 diff --git a/tools/test.py b/tools/test.py
-index 4afc2559..a8bc9cf5 100644
+index 4afc2559..a3500eb7 100644
 --- a/tools/test.py
 +++ b/tools/test.py
-@@ -9,6 +9,9 @@ from mmengine.runner import Runner
+@@ -9,6 +9,12 @@ from mmengine.runner import Runner
  
  from mmdet3d.utils import replace_ceph_backend
  
++import torch
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
++torch.npu.config.allow_internal_format = False
++torch_npu.npu.set_compile_mode(jit_compile=False)
 +
  
  # TODO: support fuse_conv_bn and format_only
  def parse_args():
 diff --git a/tools/train.py b/tools/train.py
-index 6b9c3b08..ea8f0bb0 100644
+index 6b9c3b08..ef50926b 100644
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -11,6 +11,9 @@ from mmengine.runner import Runner
+@@ -11,6 +11,12 @@ from mmengine.runner import Runner
  
  from mmdet3d.utils import replace_ceph_backend
  
++import torch
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
++torch.npu.config.allow_internal_format = False
++torch_npu.npu.set_compile_mode(jit_compile=False)
 +
  
  def parse_args():
