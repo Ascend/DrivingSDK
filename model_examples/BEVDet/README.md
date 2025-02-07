@@ -15,7 +15,6 @@
 - [快速开始](#快速开始)
   - [训练模型](#训练模型)
   - [训练结果](#训练结果)
-- [公网地址说明](#公网地址说明)
 - [变更说明](#变更说明)
   - [FAQ](#faq)
 
@@ -69,8 +68,7 @@
 - 安装Driving SDK
 
   请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
-  <br>
- 【注意】请使用最新版本Driving SDK（包含bevpoolv3算子的版本）
+  >【注意】请使用最新版本Driving SDK（包含bevpoolv3算子的版本）
 
 - 安装基础依赖
 
@@ -81,24 +79,31 @@
   pip install -r requirements.txt
   ```
 
-- 安装mmcv
+- 源码安装mmcv
 
-  - 在mmcv官网获取[mmcv 1.x](https://github.com/open-mmlab/mmcv/tree/1.x)分支源码，解压至`$YOURMMCVPATH`。
-  - 通过git下载
-     ```shell
-        git clone -b 1.x https://github.com/open-mmlab/mmcv.git
-     ```
-  将`mmcv_replace`中的文件拷贝到`$YOURMMCVPATH/mmcv`覆盖原文件。运行以下命令
-     ```shell
-     cd $YOURMMCVPATH
-     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
-     ```
+  ```shell
+  git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+  cp mmcv.patch mmcv
+  cd mmcv
+  git apply mmcv.patch
+  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+  ```
+
 - 安装mmdet和mmsegmentation
   ```shell
   pip install mmdet==2.28.2
   pip install mmsegmentation==0.30.0
   ```
 
+- 模型代码更新
+  ```shell
+  git clone https://github.com/HuangJunJie2017/BEVDet.git
+  cp BEVDet.patch BEVDet
+  cd BEVDet
+  git checkout 58c2587a8f89a1927926f0bdb6cde2917c91a9a5
+  git apply BEVDet.patch
+  ```
+  
 # 准备数据集
 
 ## 预训练数据集
@@ -181,11 +186,9 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 | Atlas 800T A2 | 8p | 28.3 | 6.17 | 1.297秒|     24     |
 
 
-# 公网地址说明
-代码涉及公网地址参考 public_address_statement.md
-
 # 变更说明
-2024.11.25：首次发布。
+- 2024.11.25：首次发布。
+- 2025.2.7： 修改为以patch模式发布模型形式。
 
 ## FAQ
 暂无。
