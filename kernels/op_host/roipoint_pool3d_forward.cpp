@@ -190,6 +190,7 @@ public:
         this->AICore()
             .SetTiling(optiling::TilingForRoipointPool3dForward);
         this->AICore().AddConfig("ascend910b");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 
