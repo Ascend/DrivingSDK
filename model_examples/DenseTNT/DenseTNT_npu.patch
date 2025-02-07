@@ -99,7 +99,7 @@ index 7f5e435..4f6e66a 100644
              assert hidden_states_query.shape[1] == attention_mask.shape[1] \
                     and hidden_states_key.shape[1] == attention_mask.shape[2]
 diff --git a/src/modeling/vectornet.py b/src/modeling/vectornet.py
-index 502f936..3f8788e 100644
+index 502f936..23b88c4 100644
 --- a/src/modeling/vectornet.py
 +++ b/src/modeling/vectornet.py
 @@ -20,8 +20,8 @@ class NewSubGraph(nn.Module):
@@ -113,8 +113,30 @@ index 502f936..3f8788e 100644
          self.layers_4 = nn.ModuleList([GlobalGraph(hidden_size) for _ in range(depth)])
          self.layer_0_again = MLP(hidden_size)
  
+@@ -33,11 +33,18 @@ class NewSubGraph(nn.Module):
+         max_vector_num = hidden_states.shape[1]
+ 
+         attention_mask = torch.zeros([batch_size, max_vector_num, max_vector_num], device=device)
++        lengths_tensor = torch.tensor(lengths, device=device)
++        lengths_tensor = lengths_tensor.unsqueeze(1)
++        lengths_tensor = lengths_tensor.unsqueeze(1)
++        lengths_tensor = lengths_tensor.repeat(1, max_vector_num, max_vector_num)
++        range_tensor = torch.arange(max_vector_num, device=device)
++        range_tensor = range_tensor.unsqueeze(0)
++        range_tensor = range_tensor.unsqueeze(0)
++        range_tensor = range_tensor.repeat(batch_size, max_vector_num, 1)
++        mask = (range_tensor < lengths_tensor)
++        attention_mask.masked_fill_(mask, 1)
+         hidden_states = self.layer_0(hidden_states)
+         hidden_states = self.layer_0_again(hidden_states)
+-        for i in range(batch_size):
+-            assert lengths[i] > 0
+-            attention_mask[i, :lengths[i], :lengths[i]].fill_(1)
+ 
+         for layer_index, layer in enumerate(self.layers):
+             temp = hidden_states
 diff --git a/src/run.py b/src/run.py
-index 989fe1b..7369120 100644
+index 989fe1b..7f1431d 100644
 --- a/src/run.py
 +++ b/src/run.py
 @@ -14,6 +14,9 @@ from torch.utils.data import RandomSampler
@@ -127,14 +149,14 @@ index 989fe1b..7369120 100644
  os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
  
  
-@@ -203,6 +206,7 @@ def train_one_epoch(model, iter_bar, optimizer, device, args: utils.Args, i_epoc
+@@ -209,6 +212,7 @@ def run_training_process(rank, world_size, args, queue):
+         def setup(rank, world_size):
+             os.environ['MASTER_ADDR'] = 'localhost'
+             os.environ['MASTER_PORT'] = args.master_port
++            torch.npu.set_device(rank)
  
- 
- def run_training_process(rank, world_size, args, queue):
-+    torch.npu.set_device(rank)
-     if args.distributed_training:
-         print(f"Running DDP on rank {rank}.")
- 
+             # initialize the process group
+             dist.init_process_group("nccl", rank=rank, world_size=world_size)
 @@ -223,17 +227,17 @@ def run_training_process(rank, world_size, args, queue):
          model = VectorNet(args).to(rank)
  
