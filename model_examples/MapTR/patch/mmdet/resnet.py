@@ -28,8 +28,10 @@ class BasicBlock(BaseModule):
                  plugins=None,
                  init_cfg=None):
         super(BasicBlock, self).__init__(init_cfg)
-        assert dcn is None, 'Not implemented yet.'
-        assert plugins is None, 'Not implemented yet.'
+        if dcn is not None:
+            raise Exception('Not implemented yet.')
+        if plugins is not None:
+            raise Exception('Not implemented yet.')
 
         self.norm1_name, norm1 = build_norm_layer(norm_cfg, planes, postfix=1)
         self.norm2_name, norm2 = build_norm_layer(norm_cfg, planes, postfix=2)
@@ -117,12 +119,16 @@ class Bottleneck(BaseModule):
         it is "caffe", the stride-two layer is the first 1x1 conv layer.
         """
         super(Bottleneck, self).__init__(init_cfg)
-        assert style in ['pytorch', 'caffe']
-        assert dcn is None or isinstance(dcn, dict)
-        assert plugins is None or isinstance(plugins, list)
+        if style not in ['pytorch', 'caffe']:
+            raise Exception
+        if dcn is not None and not isinstance(dcn, dict):
+            raise Exception
+        if plugins is not None and not isinstance(plugins, list):
+            raise Exception
         if plugins is not None:
             allowed_position = ['after_conv1', 'after_conv2', 'after_conv3']
-            assert all(p['position'] in allowed_position for p in plugins)
+            if not all(p['position'] in allowed_position for p in plugins):
+                raise Exception
 
         self.inplanes = inplanes
         self.planes = planes
@@ -186,7 +192,8 @@ class Bottleneck(BaseModule):
                 dilation=dilation,
                 bias=False)
         else:
-            assert self.conv_cfg is None, 'conv_cfg must be None for DCN'
+            if self.conv_cfg is not None:
+                raise Exception('conv_cfg must be None for DCN')
             self.conv2 = build_conv_layer(
                 dcn,
                 planes,
@@ -227,7 +234,8 @@ class Bottleneck(BaseModule):
         Returns:
             list[str]: List of the names of plugin.
         """
-        assert isinstance(plugins, list)
+        if not isinstance(plugins, list):
+            raise Exception
         plugin_names = []
         for plugin in plugins:
             plugin = plugin.copy()
@@ -235,7 +243,8 @@ class Bottleneck(BaseModule):
                 plugin,
                 in_channels=in_channels,
                 postfix=plugin.pop('postfix', ''))
-            assert not hasattr(self, name), f'duplicate plugin {name}'
+            if hasattr(self, name):
+                raise Exception(f'duplicate plugin {name}')
             self.add_module(name, layer)
             plugin_names.append(name)
         return plugin_names
@@ -397,8 +406,8 @@ class ResNet(BaseModule):
             raise KeyError(f'invalid depth {depth} for resnet')
 
         block_init_cfg = None
-        assert not (init_cfg and pretrained), \
-            'init_cfg and pretrained cannot be setting at the same time'
+        if (init_cfg and pretrained):
+            raise Exception('init_cfg and pretrained cannot be setting at the same time')
         if isinstance(pretrained, str):
             warnings.warn('DeprecationWarning: pretrained is deprecated, '
                           'please use "init_cfg" instead')
@@ -433,12 +442,15 @@ class ResNet(BaseModule):
         self.stem_channels = stem_channels
         self.base_channels = base_channels
         self.num_stages = num_stages
-        assert num_stages >= 1 and num_stages <= 4
+        if num_stages < 1 or num_stages > 4:
+            raise Exception
         self.strides = strides
         self.dilations = dilations
-        assert len(strides) == len(dilations) == num_stages
+        if not (len(strides) == len(dilations) == num_stages):
+            raise Exception
         self.out_indices = out_indices
-        assert max(out_indices) < num_stages
+        if max(out_indices) >= num_stages:
+            raise Exception
         self.style = style
         self.deep_stem = deep_stem
         self.avg_down = avg_down
@@ -450,7 +462,8 @@ class ResNet(BaseModule):
         self.dcn = dcn
         self.stage_with_dcn = stage_with_dcn
         if dcn is not None:
-            assert len(stage_with_dcn) == num_stages
+            if len(stage_with_dcn) != num_stages:
+                raise Exception
         self.plugins = plugins
         self.block, stage_blocks = self.arch_settings[depth]
         self.stage_blocks = stage_blocks[:num_stages]
@@ -548,7 +561,8 @@ class ResNet(BaseModule):
         for plugin in plugins:
             plugin = plugin.copy()
             stages = plugin.pop('stages', None)
-            assert stages is None or len(stages) == self.num_stages
+            if stages is not None and len(stages) != self.num_stages:
+                raise Exception
             # whether to insert plugin into current stage
             if stages is None or stages[stage_idx]:
                 stage_plugins.append(plugin)
