@@ -9,7 +9,7 @@
 -   [LMDrive](#LMDrive)
     - [准备训练环境](#准备训练环境)
     - [快速开始](#快速开始)
-       - [训练任务](#训练任务) 
+       - [训练任务](#训练任务)
 -   [公网地址说明](#公网地址说明)
 -   [变更说明](#变更说明)
 -   [FAQ](#FAQ)
@@ -39,7 +39,7 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 
     ```
     url=https://gitee.com/ascend/ModelZoo-PyTorch.git
-    code_path=PyTorch/built-in/autonoumous_driving 
+    code_path=PyTorch/built-in/autonoumous_driving
     ```
 
 # LMDrive
@@ -66,6 +66,22 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 |       CANN        | 8.0.RC3  |
 |    昇腾NPU固件    | 24.1.RC3 |
 |    昇腾NPU驱动    | 24.1.RC3 |
+
+### 准备源代码
+
+- 克隆代码仓并应用补丁。
+
+```
+conda create -n lmdrive python=3.8
+conda activate lmdrive
+git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://github.com/opendilab/LMDrive.git
+cp -f {DrivingSDK_root_dir}/model_examples/LMDrive/npu.patch LMDrive
+cp -rf {DrivingSDK_root_dir}/model_examples/LMDrive/test LMDrive
+cd LMDrive
+git checkout 43fc2e9a914623fd6eec954a94aeca2d3966e3db
+git apply --whitespace=fix npu.patch
+```
 
 ### 环境配置
 
@@ -104,8 +120,6 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 - 在模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 
     ```
-    conda create -n lmdrive python=3.8
-    conda activate lmdrive
     cd vision_encoder
     pip3 install -r requirements.txt
     python setup.py develop # if you have installed timm before, please uninstall it
@@ -138,22 +152,8 @@ LMDrive
 ```
 - 完整数据集大小约2T，若设备内存不足，可仅下载一部分数据集作为测试。训练结果部分使用的数据集在LMDrive/LAVIS/dataset/dataset_used.txt中列出。
 
-> **说明：**  
-> 该数据集的训练过程脚本只作为一种参考示例。      
-
-### 准备源代码
-
-- 克隆代码仓并应用补丁。
-
-```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
-git clone github.com/opendilab/LMDrive
-cp -f {DrivingSDK_root_dir}/model_examples/LMDrive/npu.patch LMDrive
-cp -rf {DrivingSDK_root_dir}/model_examples/LMDrive/test LMDrive
-cd LMDrive
-git checkout 43fc2e9a914623fd6eec954a94aeca2d3966e3db
-git apply --whitespace=fix npu.patch
-```
+> **说明：**
+> 该数据集的训练过程脚本只作为一种参考示例。
 
 ### 准备预训练权重
 
@@ -162,9 +162,9 @@ git apply --whitespace=fix npu.patch
 - 在未联网或设有防火墙的环境中进行训练时，需要将bert-base-uncased模型的checkpoint下载至环境后更改以下文件：
 LMDrive/LAVIS/lavis/models/blip2_models/blip2.py：
 ```
- ln32： 
+ ln32：
    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", truncation_side=truncation_side)
- -> 
+ ->
    bert_tokenizer_path = 'path/to/bert-base-uncased/'
    tokenizer = BertTokenizer.from_pretrained(bert_tokenizer_path, local_files_only=True, truncation_side=truncation_side)
  ln49：
@@ -179,9 +179,9 @@ LMDrive/LAVIS/lavis/models/blip2_models/blip2.py：
 ```
 LMDrive/LAVIS/lavis/models/drive/blip2.py：
 ```
- ln32： 
+ ln32：
    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", truncation_side=truncation_side)
- -> 
+ ->
    bert_tokenizer_path = 'path/to/bert-base-uncased/'
    tokenizer = BertTokenizer.from_pretrained(bert_tokenizer_path, local_files_only=True, truncation_side=truncation_side)
  ln49：
@@ -224,12 +224,13 @@ LMDrive/LAVIS/lavis/models/drive/blip2.py：
 #### 训练结果
 | 芯片          | 卡数 | global batch size | Precision | epoch |  train loss   |  train waypoints loss  | FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :-------------------: |
-| 竞品A           |  8p  |         2         |   fp32    |  20   | 0.756 | 0.737 |         0.0127          |
-| Atlas 800T A2 |  8p  |         2         |   fp32    |  20   | 0.751 | 0.733 |         0.0075       |
+| 竞品A           |  8p  |         2         |   fp32    |  20   | 0.776 | 0.757 |         13.85       |
+| Atlas 800T A2 |  8p  |         2         |   fp32    |  20   | 0.764 | 0.744 |         8.02       |
 
 # 变更说明
 
 2024.12.20 首次发布
+2025.2.7 文档更新
 
 # FAQ
 

@@ -429,6 +429,14 @@ index 0000000..d89fe4d
 @@ -0,0 +1 @@
 +torchrun --nproc_per_node=8 ./LAVIS/train.py --cfg-path ./LAVIS/lavis/projects/lmdrive/notice_llama7b_visual_encoder_r50_seq40.yaml --options max_epoch=20
 \ No newline at end of file
+diff --git a/LAVIS/train_performance.sh b/LAVIS/train_performance.sh
+new file mode 100644
+index 0000000..9b7b08d
+--- /dev/null
++++ b/LAVIS/train_performance.sh
+@@ -0,0 +1 @@
++torchrun --nproc_per_node=8 ./LAVIS/train.py --cfg-path ./LAVIS/lavis/projects/lmdrive/notice_llama7b_visual_encoder_r50_seq40.yaml --options max_epoch=3
+\ No newline at end of file
 diff --git a/vision_encoder/requirements.txt b/vision_encoder/requirements.txt
 index 275433a..bd412fa 100644
 --- a/vision_encoder/requirements.txt
