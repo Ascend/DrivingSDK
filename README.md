@@ -167,6 +167,7 @@ out, argmax = scatter_max(updates, indices, out)
 | DenseTNT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT |【Test】|
 | Mask2Former | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Mask2Former |【Test】|
 | GameFormer | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer |【Test】|
+| VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品

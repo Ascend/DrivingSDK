@@ -1,0 +1,815 @@
+diff --git a/projects/configs/VAD/VAD_base_e2e_performance.py b/projects/configs/VAD/VAD_base_e2e_performance.py
+new file mode 100644
+index 0000000..14542e6
+--- /dev/null
++++ b/projects/configs/VAD/VAD_base_e2e_performance.py
+@@ -0,0 +1,440 @@
++_base_ = [
++    '../datasets/custom_nus-3d.py',
++    '../_base_/default_runtime.py'
++]
++#
++plugin = True
++plugin_dir = 'projects/mmdet3d_plugin/'
++
++# If point cloud range is changed, the models should also change their point
++# cloud range accordingly
++point_cloud_range = [-15.0, -30.0, -2.0, 15.0, 30.0, 2.0]
++voxel_size = [0.15, 0.15, 4]
++
++img_norm_cfg = dict(
++    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
++# For nuScenes we usually do 10-class detection
++class_names = [
++    'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
++    'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
++]
++num_classes = len(class_names)
++
++# map has classes: divider, ped_crossing, boundary
++map_classes = ['divider', 'ped_crossing', 'boundary']
++map_num_vec = 100
++map_fixed_ptsnum_per_gt_line = 20 # now only support fixed_pts > 0
++map_fixed_ptsnum_per_pred_line = 20
++map_eval_use_same_gt_sample_num_flag = True
++map_num_classes = len(map_classes)
++
++input_modality = dict(
++    use_lidar=False,
++    use_camera=True,
++    use_radar=False,
++    use_map=False,
++    use_external=True)
++
++_dim_ = 256
++_pos_dim_ = _dim_//2
++_ffn_dim_ = _dim_*2
++_num_levels_ = 4
++bev_h_ = 200
++bev_w_ = 200
++queue_length = 4 # each sequence contains `queue_length` frames.
++total_epochs = 1
++
++model = dict(
++    type='VAD',
++    use_grid_mask=True,
++    video_test_mode=True,
++    pretrained=dict(img='torchvision://resnet50'),
++    img_backbone=dict(
++        type='ResNet',
++        depth=50,
++        num_stages=4,
++        out_indices=(1, 2, 3),
++        frozen_stages=1,
++        norm_cfg=dict(type='BN', requires_grad=False),
++        norm_eval=True,
++        style='pytorch'),
++    img_neck=dict(
++        type='FPN',
++        in_channels=[512, 1024, 2048],
++        out_channels=_dim_,
++        start_level=0,
++        add_extra_convs='on_output',
++        num_outs=_num_levels_,
++        relu_before_extra_convs=True),
++    pts_bbox_head=dict(
++        type='VADHead',
++        map_thresh=0.5,
++        dis_thresh=0.2,
++        pe_normalization=True,
++        tot_epoch=total_epochs,
++        use_traj_lr_warmup=False,
++        query_thresh=0.0,
++        query_use_fix_pad=False,
++        ego_his_encoder=None,
++        ego_lcf_feat_idx=None,
++        valid_fut_ts=6,
++        ego_agent_decoder=dict(
++            type='CustomTransformerDecoder',
++            num_layers=1,
++            return_intermediate=False,
++            transformerlayers=dict(
++                type='BaseTransformerLayer',
++                attn_cfgs=[
++                    dict(
++                        type='MultiheadAttention',
++                        embed_dims=_dim_,
++                        num_heads=8,
++                        dropout=0.1),
++                ],
++                feedforward_channels=_ffn_dim_,
++                ffn_dropout=0.1,
++                operation_order=('cross_attn', 'norm', 'ffn', 'norm'))),
++        ego_map_decoder=dict(
++            type='CustomTransformerDecoder',
++            num_layers=1,
++            return_intermediate=False,
++            transformerlayers=dict(
++                type='BaseTransformerLayer',
++                attn_cfgs=[
++                    dict(
++                        type='MultiheadAttention',
++                        embed_dims=_dim_,
++                        num_heads=8,
++                        dropout=0.1),
++                ],
++                feedforward_channels=_ffn_dim_,
++                ffn_dropout=0.1,
++                operation_order=('cross_attn', 'norm', 'ffn', 'norm'))),
++        motion_decoder=dict(
++            type='CustomTransformerDecoder',
++            num_layers=1,
++            return_intermediate=False,
++            transformerlayers=dict(
++                type='BaseTransformerLayer',
++                attn_cfgs=[
++                    dict(
++                        type='MultiheadAttention',
++                        embed_dims=_dim_,
++                        num_heads=8,
++                        dropout=0.1),
++                ],
++                feedforward_channels=_ffn_dim_,
++                ffn_dropout=0.1,
++                operation_order=('cross_attn', 'norm', 'ffn', 'norm'))),
++        motion_map_decoder=dict(
++            type='CustomTransformerDecoder',
++            num_layers=1,
++            return_intermediate=False,
++            transformerlayers=dict(
++                type='BaseTransformerLayer',
++                attn_cfgs=[
++                    dict(
++                        type='MultiheadAttention',
++                        embed_dims=_dim_,
++                        num_heads=8,
++                        dropout=0.1),
++                ],
++                feedforward_channels=_ffn_dim_,
++                ffn_dropout=0.1,
++                operation_order=('cross_attn', 'norm', 'ffn', 'norm'))),
++        use_pe=True,
++        bev_h=bev_h_,
++        bev_w=bev_w_,
++        num_query=300,
++        num_classes=num_classes,
++        in_channels=_dim_,
++        sync_cls_avg_factor=True,
++        with_box_refine=True,
++        as_two_stage=False,
++        map_num_vec=map_num_vec,
++        map_num_classes=map_num_classes,
++        map_num_pts_per_vec=map_fixed_ptsnum_per_pred_line,
++        map_num_pts_per_gt_vec=map_fixed_ptsnum_per_gt_line,
++        map_query_embed_type='instance_pts',
++        map_transform_method='minmax',
++        map_gt_shift_pts_pattern='v2',
++        map_dir_interval=1,
++        map_code_size=2,
++        map_code_weights=[1.0, 1.0, 1.0, 1.0],
++        transformer=dict(
++            type='VADPerceptionTransformer',
++            map_num_vec=map_num_vec,
++            map_num_pts_per_vec=map_fixed_ptsnum_per_pred_line,
++            rotate_prev_bev=True,
++            use_shift=True,
++            use_can_bus=True,
++            embed_dims=_dim_,
++            encoder=dict(
++                type='BEVFormerEncoder',
++                num_layers=6,
++                pc_range=point_cloud_range,
++                num_points_in_pillar=4,
++                return_intermediate=False,
++                transformerlayers=dict(
++                    type='BEVFormerLayer',
++                    attn_cfgs=[
++                        dict(
++                            type='TemporalSelfAttention',
++                            embed_dims=_dim_,
++                            num_levels=1),
++                        dict(
++                            type='SpatialCrossAttention',
++                            pc_range=point_cloud_range,
++                            deformable_attention=dict(
++                                type='MSDeformableAttention3D',
++                                embed_dims=_dim_,
++                                num_points=8,
++                                num_levels=_num_levels_),
++                            embed_dims=_dim_,
++                        )
++                    ],
++                    feedforward_channels=_ffn_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
++                                     'ffn', 'norm'))),
++            decoder=dict(
++                type='DetectionTransformerDecoder',
++                num_layers=6,
++                return_intermediate=True,
++                transformerlayers=dict(
++                    type='DetrTransformerDecoderLayer',
++                    attn_cfgs=[
++                        dict(
++                            type='MultiheadAttention',
++                            embed_dims=_dim_,
++                            num_heads=8,
++                            dropout=0.1),
++                        dict(
++                            type='CustomMSDeformableAttention',
++                            embed_dims=_dim_,
++                            num_levels=1),
++                    ],
++                    feedforward_channels=_ffn_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
++                                     'ffn', 'norm'))),
++            map_decoder=dict(
++                type='MapDetectionTransformerDecoder',
++                num_layers=6,
++                return_intermediate=True,
++                transformerlayers=dict(
++                    type='DetrTransformerDecoderLayer',
++                    attn_cfgs=[
++                        dict(
++                            type='MultiheadAttention',
++                            embed_dims=_dim_,
++                            num_heads=8,
++                            dropout=0.1),
++                         dict(
++                            type='CustomMSDeformableAttention',
++                            embed_dims=_dim_,
++                            num_levels=1),
++                    ],
++                    feedforward_channels=_ffn_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
++                                     'ffn', 'norm')))),
++        bbox_coder=dict(
++            type='CustomNMSFreeCoder',
++            post_center_range=[-20, -35, -10.0, 20, 35, 10.0],
++            pc_range=point_cloud_range,
++            max_num=100,
++            voxel_size=voxel_size,
++            num_classes=num_classes),
++        map_bbox_coder=dict(
++            type='MapNMSFreeCoder',
++            post_center_range=[-20, -35, -20, -35, 20, 35, 20, 35],
++            pc_range=point_cloud_range,
++            max_num=50,
++            voxel_size=voxel_size,
++            num_classes=map_num_classes),
++        positional_encoding=dict(
++            type='LearnedPositionalEncoding',
++            num_feats=_pos_dim_,
++            row_num_embed=bev_h_,
++            col_num_embed=bev_w_,
++            ),
++        loss_cls=dict(
++            type='FocalLoss',
++            use_sigmoid=True,
++            gamma=2.0,
++            alpha=0.25,
++            loss_weight=2.0),
++        loss_bbox=dict(type='L1Loss', loss_weight=0.25),
++        loss_traj=dict(type='L1Loss', loss_weight=0.2),
++        loss_traj_cls=dict(
++            type='FocalLoss',
++            use_sigmoid=True,
++            gamma=2.0,
++            alpha=0.25,
++            loss_weight=0.2),
++        loss_iou=dict(type='GIoULoss', loss_weight=0.0),
++        loss_map_cls=dict(
++            type='FocalLoss',
++            use_sigmoid=True,
++            gamma=2.0,
++            alpha=0.25,
++            loss_weight=2.0),
++        loss_map_bbox=dict(type='L1Loss', loss_weight=0.0),
++        loss_map_iou=dict(type='GIoULoss', loss_weight=0.0),
++        loss_map_pts=dict(type='PtsL1Loss', loss_weight=1.0),
++        loss_map_dir=dict(type='PtsDirCosLoss', loss_weight=0.005),
++        loss_plan_reg=dict(type='L1Loss', loss_weight=1.0),
++        loss_plan_bound=dict(type='PlanMapBoundLoss', loss_weight=1.0, dis_thresh=1.0),
++        loss_plan_col=dict(type='PlanCollisionLoss', loss_weight=1.0),
++        loss_plan_dir=dict(type='PlanMapDirectionLoss', loss_weight=0.5)),
++    # model training and testing settings
++    train_cfg=dict(pts=dict(
++        grid_size=[512, 512, 1],
++        voxel_size=voxel_size,
++        point_cloud_range=point_cloud_range,
++        out_size_factor=4,
++        assigner=dict(
++            type='HungarianAssigner3D',
++            cls_cost=dict(type='FocalLossCost', weight=2.0),
++            reg_cost=dict(type='BBox3DL1Cost', weight=0.25),
++            iou_cost=dict(type='IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head.
++            pc_range=point_cloud_range),
++        map_assigner=dict(
++            type='MapHungarianAssigner3D',
++            cls_cost=dict(type='FocalLossCost', weight=2.0),
++            reg_cost=dict(type='BBoxL1Cost', weight=0.0, box_format='xywh'),
++            iou_cost=dict(type='IoUCost', iou_mode='giou', weight=0.0),
++            pts_cost=dict(type='OrderedPtsL1Cost', weight=1.0),
++            pc_range=point_cloud_range))))
++
++dataset_type = 'VADCustomNuScenesDataset'
++data_root = 'data/nuscenes/'
++file_client_args = dict(backend='disk')
++
++train_pipeline = [
++    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
++    dict(type='PhotoMetricDistortionMultiViewImage'),
++    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=True),
++    dict(type='CustomObjectRangeFilter', point_cloud_range=point_cloud_range),
++    dict(type='CustomObjectNameFilter', classes=class_names),
++    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
++    dict(type='RandomScaleImageMultiViewImage', scales=[0.8]),
++    dict(type='PadMultiViewImage', size_divisor=32),
++    dict(type='CustomDefaultFormatBundle3D', class_names=class_names, with_ego=True),
++    dict(type='CustomCollect3D',\
++         keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'ego_his_trajs',
++               'ego_fut_trajs', 'ego_fut_masks', 'ego_fut_cmd', 'ego_lcf_feat', 'gt_attr_labels'])
++]
++
++test_pipeline = [
++    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
++    dict(type='LoadPointsFromFile',
++         coord_type='LIDAR',
++         load_dim=5,
++         use_dim=5,
++         file_client_args=file_client_args),
++    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=True),
++    dict(type='CustomObjectRangeFilter', point_cloud_range=point_cloud_range),
++    dict(type='CustomObjectNameFilter', classes=class_names),
++    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
++    # dict(type='PadMultiViewImage', size_divisor=32),
++    dict(
++        type='MultiScaleFlipAug3D',
++        img_scale=(1600, 900),
++        pts_scale_ratio=1,
++        flip=False,
++        transforms=[
++            dict(type='RandomScaleImageMultiViewImage', scales=[0.8]),
++            dict(type='PadMultiViewImage', size_divisor=32),
++            dict(type='CustomDefaultFormatBundle3D', class_names=class_names, with_label=False, with_ego=True),
++            dict(type='CustomCollect3D',\
++                 keys=['points', 'gt_bboxes_3d', 'gt_labels_3d', 'img', 'fut_valid_flag',
++                       'ego_his_trajs', 'ego_fut_trajs', 'ego_fut_masks', 'ego_fut_cmd',
++                       'ego_lcf_feat', 'gt_attr_labels'])])
++]
++
++data = dict(
++    samples_per_gpu=1,
++    workers_per_gpu=4,
++    train=dict(
++        type=dataset_type,
++        data_root=data_root,
++        ann_file=data_root + 'vad_nuscenes_infos_temporal_train.pkl',
++        pipeline=train_pipeline,
++        classes=class_names,
++        modality=input_modality,
++        test_mode=False,
++        use_valid_flag=True,
++        bev_size=(bev_h_, bev_w_),
++        pc_range=point_cloud_range,
++        queue_length=queue_length,
++        map_classes=map_classes,
++        map_fixed_ptsnum_per_line=map_fixed_ptsnum_per_gt_line,
++        map_eval_use_same_gt_sample_num_flag=map_eval_use_same_gt_sample_num_flag,
++        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
++        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
++        box_type_3d='LiDAR',
++        custom_eval_version='vad_nusc_detection_cvpr_2019'),
++    val=dict(type=dataset_type,
++             data_root=data_root,
++             pc_range=point_cloud_range,
++             ann_file=data_root + 'vad_nuscenes_infos_temporal_val.pkl',
++             pipeline=test_pipeline,  bev_size=(bev_h_, bev_w_),
++             classes=class_names, modality=input_modality, samples_per_gpu=1,
++             map_classes=map_classes,
++             map_ann_file=data_root + 'nuscenes_map_anns_val.json',
++             map_fixed_ptsnum_per_line=map_fixed_ptsnum_per_gt_line,
++             map_eval_use_same_gt_sample_num_flag=map_eval_use_same_gt_sample_num_flag,
++             use_pkl_result=True,
++             custom_eval_version='vad_nusc_detection_cvpr_2019'),
++    test=dict(type=dataset_type,
++              data_root=data_root,
++              pc_range=point_cloud_range,
++              ann_file=data_root + 'vad_nuscenes_infos_temporal_val.pkl',
++              pipeline=test_pipeline, bev_size=(bev_h_, bev_w_),
++              classes=class_names, modality=input_modality, samples_per_gpu=1,
++              map_classes=map_classes,
++              map_ann_file=data_root + 'nuscenes_map_anns_val.json',
++              map_fixed_ptsnum_per_line=map_fixed_ptsnum_per_gt_line,
++              map_eval_use_same_gt_sample_num_flag=map_eval_use_same_gt_sample_num_flag,
++              use_pkl_result=True,
++              custom_eval_version='vad_nusc_detection_cvpr_2019'),
++    shuffler_sampler=dict(type='DistributedGroupSampler'),
++    nonshuffler_sampler=dict(type='DistributedSampler')
++)
++
++optimizer = dict(
++    type='AdamW',
++    lr=2e-4,
++    paramwise_cfg=dict(
++        custom_keys={
++            'img_backbone': dict(lr_mult=0.1),
++        }),
++    weight_decay=0.01)
++
++optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
++# learning policy
++lr_config = dict(
++    policy='CosineAnnealing',
++    warmup='linear',
++    warmup_iters=500,
++    warmup_ratio=1.0 / 3,
++    min_lr_ratio=1e-3)
++
++evaluation = dict(interval=total_epochs, pipeline=test_pipeline, metric='bbox', map_metric='chamfer')
++
++runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
++
++log_config = dict(
++    interval=50,
++    hooks=[
++        dict(type='TextLoggerHook'),
++        dict(type='TensorboardLoggerHook')
++    ])
++# fp16 = dict(loss_scale=512.)
++# find_unused_parameters = True
++checkpoint_config = dict(interval=1, max_keep_ckpts=total_epochs)
++
++
++custom_hooks = [dict(type='CustomSetEpochInfoHook')]
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/VAD/apis/mmdet_train.py b/projects/mmdet3d_plugin/VAD/apis/mmdet_train.py
+index 449d49d..9c17862 100644
+--- a/projects/mmdet3d_plugin/VAD/apis/mmdet_train.py
++++ b/projects/mmdet3d_plugin/VAD/apis/mmdet_train.py
+@@ -4,7 +4,7 @@ import warnings
+ import numpy as np
+ import torch
+ import torch.distributed as dist
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
+                          Fp16OptimizerHook, OptimizerHook, build_optimizer,
+                          build_runner, get_dist_info)
+@@ -67,22 +67,22 @@ def custom_train_detector(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+         if eval_model is not None:
+-            eval_model = MMDistributedDataParallel(
++            eval_model = NPUDistributedDataParallel(
+                 eval_model.cuda(),
+                 device_ids=[torch.cuda.current_device()],
+                 broadcast_buffers=False,
+                 find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+         if eval_model is not None:
+-            eval_model = MMDataParallel(
++            eval_model = NPUDataParallel(
+                 eval_model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+ 
+diff --git a/projects/mmdet3d_plugin/VAD/modules/decoder.py b/projects/mmdet3d_plugin/VAD/modules/decoder.py
+index 7d982ba..a60392f 100644
+--- a/projects/mmdet3d_plugin/VAD/modules/decoder.py
++++ b/projects/mmdet3d_plugin/VAD/modules/decoder.py
+@@ -24,6 +24,8 @@ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFuncti
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+ 
++from mx_driving.fused import multi_scale_deform_attn
++
+ 
+ def inverse_sigmoid(x, eps=1e-5):
+     """Inverse function of sigmoid.
+@@ -323,9 +325,9 @@ class CustomMSDeformableAttention(BaseModule):
+                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+             else:
+                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
++            output = multi_scale_deform_attn(
+                 value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++                attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/projects/mmdet3d_plugin/VAD/modules/spatial_cross_attention.py b/projects/mmdet3d_plugin/VAD/modules/spatial_cross_attention.py
+index 3362ea0..b693509 100644
+--- a/projects/mmdet3d_plugin/VAD/modules/spatial_cross_attention.py
++++ b/projects/mmdet3d_plugin/VAD/modules/spatial_cross_attention.py
+@@ -21,6 +21,7 @@ from projects.mmdet3d_plugin.models.utils.bricks import run_time
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+ 
++from mx_driving.fused import multi_scale_deform_attn
+ 
+ @ATTENTION.register_module()
+ class SpatialCrossAttention(BaseModule):
+@@ -381,9 +382,9 @@ class MSDeformableAttention3D(BaseModule):
+                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+             else:
+                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
++            output = multi_scale_deform_attn(
+                 value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++                attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/projects/mmdet3d_plugin/VAD/modules/temporal_self_attention.py b/projects/mmdet3d_plugin/VAD/modules/temporal_self_attention.py
+index f5151ad..4ea1a13 100644
+--- a/projects/mmdet3d_plugin/VAD/modules/temporal_self_attention.py
++++ b/projects/mmdet3d_plugin/VAD/modules/temporal_self_attention.py
+@@ -15,6 +15,8 @@ from mmcv.utils import ext_loader
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+ 
++from mx_driving.fused import multi_scale_deform_attn
++
+ 
+ @ATTENTION.register_module()
+ class TemporalSelfAttention(BaseModule):
+@@ -238,9 +240,9 @@ class TemporalSelfAttention(BaseModule):
+                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+             else:
+                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
++            output = multi_scale_deform_attn(
+                 value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++                attention_weights)
+         else:
+ 
+             output = multi_scale_deformable_attn_pytorch(
+diff --git a/projects/mmdet3d_plugin/core/bbox/structures/lidar_box3d.py b/projects/mmdet3d_plugin/core/bbox/structures/lidar_box3d.py
+index 22a595d..7695860 100644
+--- a/projects/mmdet3d_plugin/core/bbox/structures/lidar_box3d.py
++++ b/projects/mmdet3d_plugin/core/bbox/structures/lidar_box3d.py
+@@ -3,7 +3,7 @@ import numpy as np
+ import torch
+ 
+ from mmdet3d.core.points import BasePoints
+-from mmdet3d.ops.roiaware_pool3d import points_in_boxes_gpu
++from mx_driving import npu_points_in_box_all
+ from mmdet3d.core.bbox.structures.base_box3d import BaseInstance3DBoxes
+ from mmdet3d.core.bbox.structures.utils import limit_period, rotation_3d_in_axis
+ 
+@@ -273,7 +273,7 @@ class CustomLiDARInstance3DBoxes(BaseInstance3DBoxes):
+         Returns:
+             torch.Tensor: The index of box where each point are in.
+         """
+-        box_idx = points_in_boxes_gpu(
++        box_idx = npu_points_in_box_all(
+             points.unsqueeze(0),
+             self.tensor.unsqueeze(0).to(points.device)).squeeze(0)
+         return box_idx
+diff --git a/requirements.txt b/requirements.txt
+index 895499a..bdb4c7d 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,204 +1,6 @@
+-# This file may be used to create an environment using:
+-# $ conda create --name <env> --file <this file>
+-# platform: linux-64
+-_libgcc_mutex=0.1=main
+-_openmp_mutex=5.1=1_gnu
+-absl-py=1.3.0=pypi_0
+-addict=2.4.0=pypi_0
+-aidisdk=0.12.0=pypi_0
+-anyio=3.6.2=pypi_0
+-argon2-cffi=21.3.0=pypi_0
+-argon2-cffi-bindings=21.2.0=pypi_0
+-attrs=23.1.0=pypi_0
+-backcall=0.2.0=pypi_0
+-beautifulsoup4=4.12.2=pypi_0
+-black=23.3.0=pypi_0
+-bleach=6.0.0=pypi_0
+-boto3=1.26.133=pypi_0
+-botocore=1.29.133=pypi_0
+-ca-certificates=2023.01.10=h06a4308_0
+-cachetools=5.3.0=pypi_0
+-carla=0.9.12=pypi_0
+-certifi=2022.12.7=py37h06a4308_0
+-cffi=1.15.1=pypi_0
+-charset-normalizer=3.1.0=pypi_0
+-click=8.1.3=pypi_0
+-cycler=0.11.0=pypi_0
+-dataclass-type-validator=0.0.7=pypi_0
+-dataclasses-json=0.5.7=pypi_0
+-debugpy=1.6.7=pypi_0
+-decorator=5.1.1=pypi_0
+-defusedxml=0.7.1=pypi_0
+-descartes=1.1.0=pypi_0
+-dictor=0.1.11=pypi_0
+-dill=0.3.6=pypi_0
+-easydict=1.10=pypi_0
+-entrypoints=0.4=pypi_0
+-ephem=4.1.4=pypi_0
+-exceptiongroup=1.1.1=pypi_0
+-fastjsonschema=2.16.3=pypi_0
+-filelock=3.12.0=pypi_0
+-fire=0.5.0=pypi_0
+-flake8=3.9.2=pypi_0
+-fonttools=4.38.0=pypi_0
+-google-auth=2.15.0=pypi_0
+-google-auth-oauthlib=0.4.6=pypi_0
+-grpcio=1.54.0=pypi_0
+-huggingface-hub=0.13.4=pypi_0
+-idna=3.4=pypi_0
+-imageio=2.27.0=pypi_0
+-importlib-metadata=6.6.0=pypi_0
+-importlib-resources=5.12.0=pypi_0
+-iniconfig=2.0.0=pypi_0
+-ipykernel=6.16.2=pypi_0
+-ipython=7.34.0=pypi_0
+-ipython-genutils=0.2.0=pypi_0
+-ipywidgets=8.0.6=pypi_0
+-jedi=0.18.2=pypi_0
+-jinja2=3.1.2=pypi_0
+-jmespath=1.0.1=pypi_0
+-joblib=1.2.0=pypi_0
+-jsonschema=4.17.3=pypi_0
+-jupyter=1.0.0=pypi_0
+-jupyter-client=7.4.9=pypi_0
+-jupyter-console=6.6.3=pypi_0
+-jupyter-core=4.12.0=pypi_0
+-jupyter-server=1.24.0=pypi_0
+-jupyterlab-pygments=0.2.2=pypi_0
+-jupyterlab-widgets=3.0.7=pypi_0
+-kiwisolver=1.4.4=pypi_0
+-ld_impl_linux-64=2.38=h1181459_1
+-libffi=3.4.2=h6a678d5_6
+-libgcc-ng=11.2.0=h1234567_1
+-libgomp=11.2.0=h1234567_1
+-libstdcxx-ng=11.2.0=h1234567_1
+-llvmlite=0.31.0=pypi_0
+-lmdb=1.4.0=pypi_0
+-lyft-dataset-sdk=0.0.8=pypi_0
+-markdown=3.4.1=pypi_0
+-markupsafe=2.1.2=pypi_0
+-marshmallow=3.19.0=pypi_0
+-marshmallow-enum=1.5.1=pypi_0
+-matplotlib=3.5.3=pypi_0
+-matplotlib-inline=0.1.6=pypi_0
+-mccabe=0.6.1=pypi_0
+-mistune=2.0.5=pypi_0
+-mmcv-full=1.4.0=pypi_0
+-mmdet=2.14.0=pypi_0
+-mmdet3d=0.17.1=pypi_0
+-mmsegmentation=0.14.1=pypi_0
+-mypy-extensions=1.0.0=pypi_0
+-nbclassic=0.5.5=pypi_0
+-nbclient=0.7.3=pypi_0
+-nbconvert=7.3.1=pypi_0
+-nbformat=5.8.0=pypi_0
+-ncurses=6.4=h6a678d5_0
+-nest-asyncio=1.5.6=pypi_0
+-networkx=2.2=pypi_0
+-notebook=6.5.4=pypi_0
+-notebook-shim=0.2.2=pypi_0
+-numba=0.48.0=pypi_0
+-numpy=1.19.5=pypi_0
+-nuscenes-devkit=1.1.9=pypi_0
+-oauthlib=3.2.2=pypi_0
+-opencv-python=4.7.0.72=pypi_0
+-openssl=1.1.1t=h7f8727e_0
+-packaging=23.1=pypi_0
+-pandas=1.3.5=pypi_0
+-pandocfilters=1.5.0=pypi_0
+-parso=0.8.3=pypi_0
+-pathspec=0.11.1=pypi_0
+-pexpect=4.8.0=pypi_0
+-pickleshare=0.7.5=pypi_0
+-pillow=9.5.0=pypi_0
+-pip=23.1.2=pypi_0
+-pkgutil-resolve-name=1.3.10=pypi_0
+-platformdirs=3.2.0=pypi_0
+-plotly=5.14.1=pypi_0
+-pluggy=1.0.0=pypi_0
+-plyfile=0.7.4=pypi_0
+-prettytable=3.7.0=pypi_0
+-prometheus-client=0.16.0=pypi_0
+-prompt-toolkit=3.0.38=pypi_0
+-protobuf=3.20.3=pypi_0
+-psutil=5.9.5=pypi_0
+-ptyprocess=0.7.0=pypi_0
+-py-trees=0.8.3=pypi_0
+-pyasn1=0.5.0=pypi_0
+-pyasn1-modules=0.3.0=pypi_0
+-pycocotools=2.0.6=pypi_0
+-pycodestyle=2.7.0=pypi_0
+-pycparser=2.21=pypi_0
+-pycryptodome=3.17=pypi_0
+-pydot=1.4.2=pypi_0
+-pyflakes=2.3.1=pypi_0
+-pygame=2.3.0=pypi_0
+-pygments=2.15.1=pypi_0
+-pyparsing=3.0.9=pypi_0
+-pypika=0.48.9=pypi_0
+-pyquaternion=0.9.9=pypi_0
+-pyrsistent=0.19.3=pypi_0
+-pytest=7.3.1=pypi_0
+-pytest-runner=6.0.0=pypi_0
+-python=3.7.16=h7a1cb2a_0
+-python-dateutil=2.8.2=pypi_0
+-pytz=2023.3=pypi_0
+-pywavelets=1.3.0=pypi_0
+-pyyaml=6.0=pypi_0
+-pyzmq=25.0.2=pypi_0
+-qtconsole=5.4.2=pypi_0
+-qtpy=2.3.1=pypi_0
+-readline=8.2=h5eee18b_0
+-requests=2.28.2=pypi_0
+-requests-oauthlib=1.3.1=pypi_0
+-rsa=4.9=pypi_0
+-s3transfer=0.6.1=pypi_0
+-scikit-image=0.19.3=pypi_0
+-scikit-learn=1.0.2=pypi_0
+-scipy=1.7.3=pypi_0
+-send2trash=1.8.0=pypi_0
+-setuptools=61.2.0=pypi_0
+-shapely=2.0.1=pypi_0
+-similaritymeasures=0.7.0=pypi_0
+-simple-watchdog-timer=0.1.1=pypi_0
+-six=1.16.0=pypi_0
+-sniffio=1.3.0=pypi_0
+-soupsieve=2.4.1=pypi_0
+-sqlite=3.41.2=h5eee18b_0
+-sqlparse=0.4.4=pypi_0
+-tabulate=0.9.0=pypi_0
+-tenacity=8.2.2=pypi_0
+-tensorboard=2.9.0=pypi_0
+-tensorboard-data-server=0.6.1=pypi_0
+-tensorboard-plugin-wit=1.8.1=pypi_0
+-termcolor=2.2.0=pypi_0
+-terminado=0.17.1=pypi_0
+-terminaltables=3.1.10=pypi_0
+-threaded=4.1.0=pypi_0
+-threadpoolctl=3.1.0=pypi_0
+-tifffile=2021.11.2=pypi_0
+-timm=0.6.12=pypi_0
+-tinycss2=1.2.1=pypi_0
+-tk=8.6.12=h1ccaba5_0
+-tomli=2.0.1=pypi_0
+-torch=1.9.1+cu111=pypi_0
+-torchaudio=0.9.1=pypi_0
+-torchvision=0.10.1+cu111=pypi_0
+-tornado=6.2=pypi_0
+-tqdm=4.65.0=pypi_0
+-traitlets=5.9.0=pypi_0
+-typed-ast=1.5.4=pypi_0
+-typeguard=2.13.3=pypi_0
+-typing-extensions=4.5.0=pypi_0
+-typing-inspect=0.8.0=pypi_0
+-urllib3=1.26.15=pypi_0
+-wcwidth=0.2.6=pypi_0
+-webencodings=0.5.1=pypi_0
+-websocket-client=1.5.1=pypi_0
+-werkzeug=2.2.3=pypi_0
+-wheel=0.38.4=py37h06a4308_0
+-widgetsnbextension=4.0.7=pypi_0
+-xz=5.2.10=h5eee18b_1
+-yapf=0.33.0=pypi_0
+-zipp=3.15.0=pypi_0
+-zlib=1.2.13=h5eee18b_0
++numba==0.58.1
++numpy==1.23.0
++mmdet==2.28.0
++mmsegmentation==0.30.0
++IPython==8.11.0
++nuscenes-devkit==1.1.11
+\ No newline at end of file
+diff --git a/tools/train.py b/tools/train.py
+index 437fd7a..7e8fe6f 100755
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -35,6 +35,11 @@ cv2.setNumThreads(1)
+ import sys
+ sys.path.append('')
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
++torch.npu.config.allow_internal_format = False
++
+ 
+ def parse_args():
+     parser = argparse.ArgumentParser(description='Train a detector')
