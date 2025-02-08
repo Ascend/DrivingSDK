@@ -50,6 +50,8 @@ export DISABLE_L2_CACHE=0
 export CPU_AFFINITY_CONF=1
 #HCCL白名单开关,配置在使用HCCL时是否关闭通信白名单。1-关闭/0-开启
 export HCCL_WHITELIST_DISABLE=1
+# 减少显存占用
+export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
 
 echo "[INFO] Finish setting ENV VAR"
 
