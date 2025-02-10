@@ -40,7 +40,7 @@ if [ x"${etp_flag}" != x"true" ]; then
   source ${test_path_dir}/env_npu.sh
 fi
 
-bash ./MapTR/tools/dist_train.sh ./MapTR/projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py 8 \
+bash ./MapTR/tools/dist_train.sh ./MapTR/projects/configs/maptr/maptr_tiny_r50_1e_bevformer.py 8 \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 
@@ -57,7 +57,7 @@ CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
 # 结果打印，不需要修改
 echo "------------------ Final result ------------------"
 # 输出性能FPS，需要模型审视修改
-avg_time=`grep -a 'mmdet - INFO - Epoch '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "time: " '{print $2}' | awk -F ", " '{print $1}' | awk '{a+=$1} END {if (NR != 0) printf("%.3f",a/NR)}'`
+avg_time=`grep -o ", time: [0-9.]*" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -n +2 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}'`
 Iteration_time=$avg_time
 # 打印，不需要修改
 echo "Iteration time : $Iteration_time"
