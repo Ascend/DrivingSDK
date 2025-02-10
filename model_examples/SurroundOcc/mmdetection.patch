@@ -1,0 +1,45 @@
+diff --git a/mmdet/models/backbones/resnet.py b/mmdet/models/backbones/resnet.py
+index 1eaaae67..149d2d54 100644
+--- a/mmdet/models/backbones/resnet.py
++++ b/mmdet/models/backbones/resnet.py
+@@ -1,4 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
+ import warnings
+ 
+ import torch.nn as nn
+@@ -6,6 +7,9 @@ import torch.utils.checkpoint as cp
+ from mmcv.cnn import build_conv_layer, build_norm_layer, build_plugin_layer
+ from mmcv.runner import BaseModule
+ from torch.nn.modules.batchnorm import _BatchNorm
++import mx_driving.fused
++import torch
++import torch_npu
+ 
+ from ..builder import BACKBONES
+ from ..utils import ResLayer
+@@ -608,7 +612,6 @@ class ResNet(BaseModule):
+                 self.norm_cfg, stem_channels, postfix=1)
+             self.add_module(self.norm1_name, norm1)
+             self.relu = nn.ReLU(inplace=True)
+-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+ 
+     def _freeze_stages(self):
+         if self.frozen_stages >= 0:
+@@ -636,7 +639,7 @@ class ResNet(BaseModule):
+             x = self.conv1(x)
+             x = self.norm1(x)
+             x = self.relu(x)
+-        x = self.maxpool(x)
++        x = mx_driving.fused.npu_max_pool2d(x, 3, 2, 1)
+         outs = []
+         for i, layer_name in enumerate(self.res_layers):
+             res_layer = getattr(self, layer_name)
+@@ -660,7 +663,6 @@ class ResNet(BaseModule):
+ @BACKBONES.register_module()
+ class ResNetV1d(ResNet):
+     r"""ResNetV1d variant described in `Bag of Tricks
+-    <https://arxiv.org/pdf/1812.01187.pdf>`_.
+ 
+     Compared with default ResNet(ResNetV1b), ResNetV1d replaces the 7x7 conv in
+     the input stem with three 3x3 convs. And in the downsampling block, a 2x2

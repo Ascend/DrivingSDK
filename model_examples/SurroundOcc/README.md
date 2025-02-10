@@ -62,10 +62,8 @@
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 6.0.RC3  |
-|       CANN        | 8.0.RC3  |
-|    昇腾NPU固件    | 24.1.RC3 |
-|    昇腾NPU驱动    | 24.1.RC3 |
+| FrameworkPTAdaper | 6.0.0  |
+|       CANN        | 8.0.0  |
 
 - 克隆代码仓到当前目录并使用patch文件
 
@@ -76,53 +74,56 @@
     cd SurroundOcc
     git checkout 05263c6a8fe464a7f9d28358ff7196ba58dc0de6
     cp -f ../SurroundOcc_npu.patch .
-    git apply --reject SurroundOcc_npu.patch
+    git apply --reject --whitespace=fix SurroundOcc_npu.patch
     cp -rf ../test .
     ```
 
 
 - 安装mmdet3d
 
-  - 在应用过patch的模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
+  - 在应用过patch的模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录编译
 
     ```
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
+    cp -r ../mmdetection3d.patch mmdetection3d
     cd mmdetection3d
-    ```
-
-  - 在mmdetection3d目录下，修改代码
-
-    （1）删除requirements/runtime.txt中第3行 numba==0.53.0
-
-    （2）修改mmdet3d/____init____.py中第22行 mmcv_maximum_version = '1.7.0'为mmcv_maximum_version = '1.7.2'
-
-  - 安装包
-
-    ```
+    git apply --reject mmdetection3d.patch
     pip install -v -e .
+    cd ../
     ```
 
 - 安装mmcv
 
-  - 在应用过patch的模型根目录下，克隆mmcv仓，并进入mmcv目录安装
+  - 在应用过patch的模型根目录下，克隆mmcv仓，并进入mmcv目录安装编译
 
     ```
     git clone -b 1.x https://github.com/open-mmlab/mmcv
+    cp -r ../mmcv.patch mmcv
     cd mmcv
+    git apply --reject mmcv.patch
     MMCV_WITH_OPS=1 pip install -e . -v
+    cd ..
     ```
+
+- 安装mmdet
+
+  - 在应用过patch的模型根目录下，克隆mmdet仓，并进入mmdetection目录安装编译
+
+    ```
+    git clone -b v2.28.0 https://github.com/open-mmlab/mmdetection.git
+    cp ../mmdetection.patch mmdetection
+    cd mmdetection
+    git apply --reject mmdetection.patch
+    pip install -e .
+    cd ../
+    ```
+
 - 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 
   ```
   pip install -r requirements.txt
-  ```
-
-- 在当前python环境下执行'pip show pip'，得到三方包安装路径Location，记作location_path，在模型根目录下执行以下命令来替换patch。
-
-  ```
-  bash replace_patch.sh --packages_path=location_path
   ```
 
 
@@ -185,6 +186,8 @@ SurroundOcc
 2024.05.30：首次发布
 
 2024.10.30：性能优化
+
+2025.02.08：依赖仓实现patch安装
 
 # FAQ
 
