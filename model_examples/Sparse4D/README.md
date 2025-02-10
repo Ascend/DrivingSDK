@@ -9,7 +9,6 @@
 - [准备训练环境](#准备训练环境)
   - [安装昇腾环境](#安装昇腾环境)
   - [安装模型环境](#安装模型环境)
-  - [模型代码Patch](#模型代码patch)
 - [准备数据集](#准备数据集)
   - [预训练数据集](#预训练数据集)
   - [获取预训练权重](#获取预训练权重)
@@ -86,36 +85,28 @@
 
   ```shell
     git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+    cp mmcv.patch mmcv
+    cd mmcv
+    git apply mmcv.patch
+    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
   ```
-  将`mmcv.patch`文件拷贝到`$YOURMMCVPATH`。运行以下命令
-     ```shell
-     cd $YOURMMCVPATH
-     git apply mmcv.patch
-     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
-     ```
 
 - 源码安装mmdet
 
   ```shell
     git clone -b v2.28.2 https://github.com/open-mmlab/mmdetection.git
+    cp mmdet.patch mmdetection
+    cd mmdetection
+    git apply mmdet.patch
+    pip install -e .
   ```
-  将`mmdet.patch`文件拷贝到`$YOURMMDETPATH`。运行以下命令
-     ```shell
-     cd $YOURMMDETPATH
-     git apply mmdet.patch
-     pip install -e .
-     ```
 
-## 模型代码Patch
-- Sparse4D官方仓库下载模型代码
+- 模型代码Patch
   ```shell
   git clone https://github.com/HorizonRobotics/Sparse4D.git
-  cd $your_sparse4d_dir
+  cp Sparse4D.patch Sparse4D
+  cd Sparse4D
   git checkout c41df4bbf7bc82490f11ff55173abfcb3fb91425
-  ```
-
-- 将`Sparse4D.patch`文件拷贝到Sparse4D官方仓库根目录
-  ```shell
   git apply Sparse4D.patch
   ```
 

@@ -18,10 +18,10 @@ index e63bc91..9c48b33 100644
  echo "number of gpus: "${gpu_num}
  echo "config file: "${config}
 diff --git a/local_train.sh b/local_train.sh
-index d584c4c..8802527 100644
+index d584c4c..c972eb9 100644
 --- a/local_train.sh
 +++ b/local_train.sh
-@@ -1,8 +1,34 @@
+@@ -1,19 +1,65 @@
 -export CUDA_VISIBLE_DEVICES=0
 -export PYTHONPATH=$PYTHONPATH:./
 +#将Host日志输出到串口,0-关闭/1-开启
@@ -60,6 +60,39 @@ index d584c4c..8802527 100644
  echo "number of gpus: "${gpu_num}
  
  config=projects/configs/$1.py
++work_dir=work_dirs/$1
++
++#训练开始时间
++start_time=$(date +%s)
+ 
+ if [ ${gpu_num} -gt 1 ]
+ then
+     bash ./tools/dist_train.sh \
+         ${config} \
+         ${gpu_num} \
+-        --work-dir=work_dirs/$1
++        --work-dir=${work_dir}
+ else
+     python ./tools/train.py \
+         ${config}
+ fi
++
++#训练结束时间
++end_time=$(date +%s)
++e2e_time=$(( $end_time - $start_time ))
++
++log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
++batch_size=6
++
++#结果打印
++echo "------------------ Final result ------------------"
++#输出性能FPS
++FPS=`grep -E 'mmdet - INFO - (Iter|Epoch)' ${log_file} | awk -F " time: " '!/Epoch \[1\]\[1/ {print $NF}' | awk -F "," '{print $1}' | awk '{ sum += $0; n++} END { if (n > 0) print sum / n;}'`
++FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}' * '${gpu_num}' / '${FPS}'}'`
++#打印
++echo "Final Performance images/sec : $FPS"
++echo "E2E Training Duration sec : $e2e_time"
+\ No newline at end of file
 diff --git a/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py b/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
 index fdf075b..51bae30 100644
 --- a/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
