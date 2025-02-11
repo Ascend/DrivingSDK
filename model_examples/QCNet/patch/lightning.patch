@@ -1,0 +1,34 @@
+diff --git a/src/lightning/fabric/utilities/distributed.py b/src/lightning/fabric/utilities/distributed.py
+index 75b2f7c58..8fdf76bcd 100644
+--- a/src/lightning/fabric/utilities/distributed.py
++++ b/src/lightning/fabric/utilities/distributed.py
+@@ -195,16 +195,7 @@ def _sync_ddp(result: Tensor, group: Optional[Any] = None, reduce_op: Optional[U
+     group = torch.distributed.group.WORLD if group is None else group
+ 
+     op: Optional[ReduceOp]
+-    if isinstance(reduce_op, str):
+-        reduce_op = "avg" if reduce_op == "mean" else reduce_op
+-        if reduce_op.lower() == "avg" and torch.distributed.get_backend(group) == "gloo":
+-            # The GLOO backend does not support the `ReduceOp.AVG` operation
+-            op = ReduceOp.SUM  # type: ignore[assignment]
+-            divide_by_world_size = True
+-        else:
+-            op = getattr(ReduceOp, reduce_op.upper())
+-    else:
+-        op = reduce_op
++    op=ReduceOp.SUM
+ 
+     # HPU doesn't support Long types, forcefully set it to float
+     # TODO: move this to the `lightning_habana` package
+diff --git a/src/lightning/pytorch/accelerators/cuda.py b/src/lightning/pytorch/accelerators/cuda.py
+index 6df3bc6b4..09efcd1a3 100644
+--- a/src/lightning/pytorch/accelerators/cuda.py
++++ b/src/lightning/pytorch/accelerators/cuda.py
+@@ -43,7 +43,6 @@ class CUDAAccelerator(Accelerator):
+         """
+         if device.type != "cuda":
+             raise MisconfigurationException(f"Device should be GPU, got {device} instead")
+-        _check_cuda_matmul_precision(device)
+         torch.cuda.set_device(device)
+ 
+     @override

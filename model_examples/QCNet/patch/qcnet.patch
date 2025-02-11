@@ -1,0 +1,230 @@
+diff --git a/datamodules/argoverse_v2_datamodule.py b/datamodules/argoverse_v2_datamodule.py
+index 1b55133..2997824 100644
+--- a/datamodules/argoverse_v2_datamodule.py
++++ b/datamodules/argoverse_v2_datamodule.py
+@@ -13,7 +13,7 @@
+ # limitations under the License.
+ from typing import Callable, Optional
+ 
+-import pytorch_lightning as pl
++import lightning.pytorch as pl
+ from torch_geometric.loader import DataLoader
+ 
+ from datasets import ArgoverseV2Dataset
+diff --git a/layers/attention_layer.py b/layers/attention_layer.py
+index 3b62e71..3410c78 100644
+--- a/layers/attention_layer.py
++++ b/layers/attention_layer.py
+@@ -38,11 +38,9 @@ class AttentionLayer(MessagePassing):
+         self.scale = head_dim ** -0.5
+ 
+         self.to_q = nn.Linear(hidden_dim, head_dim * num_heads)
+-        self.to_k = nn.Linear(hidden_dim, head_dim * num_heads, bias=False)
+-        self.to_v = nn.Linear(hidden_dim, head_dim * num_heads)
++        self.to_kv = nn.Linear(hidden_dim, 2 * head_dim * num_heads, bias=False)
+         if has_pos_emb:
+-            self.to_k_r = nn.Linear(hidden_dim, head_dim * num_heads, bias=False)
+-            self.to_v_r = nn.Linear(hidden_dim, head_dim * num_heads)
++            self.to_kv_r = nn.Linear(hidden_dim, 2 * head_dim * num_heads, bias=False)
+         self.to_s = nn.Linear(hidden_dim, head_dim * num_heads)
+         self.to_g = nn.Linear(head_dim * num_heads + hidden_dim, head_dim * num_heads)
+         self.to_out = nn.Linear(head_dim * num_heads, hidden_dim)
+@@ -85,14 +83,14 @@ class AttentionLayer(MessagePassing):
+ 
+     def message(self,
+                 q_i: torch.Tensor,
+-                k_j: torch.Tensor,
+-                v_j: torch.Tensor,
++                kv_j: torch.Tensor,
+                 r: Optional[torch.Tensor],
+                 index: torch.Tensor,
+                 ptr: Optional[torch.Tensor]) -> torch.Tensor:
+         if self.has_pos_emb and r is not None:
+-            k_j = k_j + self.to_k_r(r).view(-1, self.num_heads, self.head_dim)
+-            v_j = v_j + self.to_v_r(r).view(-1, self.num_heads, self.head_dim)
++            kv_j = kv_j + self.to_kv_r(r).view(-1, self.num_heads, 2 * self.head_dim)
++        k_j = kv_j[:, :, :self.head_dim]
++        v_j = kv_j[:, :, self.head_dim:]
+         sim = (q_i * k_j).sum(dim=-1) * self.scale
+         attn = softmax(sim, index, ptr)
+         attn = self.attn_drop(attn)
+@@ -111,9 +109,8 @@ class AttentionLayer(MessagePassing):
+                     r: Optional[torch.Tensor],
+                     edge_index: torch.Tensor) -> torch.Tensor:
+         q = self.to_q(x_dst).view(-1, self.num_heads, self.head_dim)
+-        k = self.to_k(x_src).view(-1, self.num_heads, self.head_dim)
+-        v = self.to_v(x_src).view(-1, self.num_heads, self.head_dim)
+-        agg = self.propagate(edge_index=edge_index, x_dst=x_dst, q=q, k=k, v=v, r=r)
++        kv = self.to_kv(x_src).view(-1, self.num_heads, 2 * self.head_dim)
++        agg = self.propagate(edge_index=edge_index, x_dst=x_dst, q=q, kv=kv, r=r)
+         return self.to_out(agg)
+ 
+     def _ff_block(self, x: torch.Tensor) -> torch.Tensor:
+diff --git a/modules/qcnet_agent_encoder.py b/modules/qcnet_agent_encoder.py
+index 99d19a6..00bc9ad 100644
+--- a/modules/qcnet_agent_encoder.py
++++ b/modules/qcnet_agent_encoder.py
+@@ -145,10 +145,17 @@ class QCNetAgentEncoder(nn.Module):
+         pos_pl = pos_pl.repeat(self.num_historical_steps, 1)
+         orient_pl = orient_pl.repeat(self.num_historical_steps)
+         if isinstance(data, Batch):
+-            batch_s = torch.cat([data['agent']['batch'] + data.num_graphs * t
+-                                 for t in range(self.num_historical_steps)], dim=0)
+-            batch_pl = torch.cat([data['map_polygon']['batch'] + data.num_graphs * t
+-                                  for t in range(self.num_historical_steps)], dim=0)
++            agent_data = data['agent']['batch'].unsqueeze(dim = 0).repeat(self.num_historical_steps, 1)
++            agent_num = agent_data.shape[1]
++            time_range = data.num_graphs * torch.arange(self.num_historical_steps).to(device=pos_a.device)
++            time_range = time_range.unsqueeze(dim = 1).repeat(1, agent_num)
++            batch_s = (agent_data + time_range).reshape([-1])
++
++            map_data = data['map_polygon']['batch'].unsqueeze(dim = 0).repeat(self.num_historical_steps, 1)
++            map_num = map_data.shape[1]
++            time_range_map = data.num_graphs * torch.arange(self.num_historical_steps).to(device=pos_a.device)
++            time_range_map = time_range_map.unsqueeze(dim = 1).repeat(1, map_num)
++            batch_pl = (map_data + time_range_map).reshape([-1])
+         else:
+             batch_s = torch.arange(self.num_historical_steps,
+                                    device=pos_a.device).repeat_interleave(data['agent']['num_nodes'])
+diff --git a/modules/qcnet_decoder.py b/modules/qcnet_decoder.py
+index 32066a5..1d2e8cc 100644
+--- a/modules/qcnet_decoder.py
++++ b/modules/qcnet_decoder.py
+@@ -83,9 +83,10 @@ class QCNetDecoder(nn.Module):
+                                           num_freq_bands=num_freq_bands)
+         self.y_emb = FourierEmbedding(input_dim=output_dim + output_head, hidden_dim=hidden_dim,
+                                       num_freq_bands=num_freq_bands)
+-        self.traj_emb = nn.GRU(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=1, bias=True,
+-                               batch_first=False, dropout=0.0, bidirectional=False)
+-        self.traj_emb_h0 = nn.Parameter(torch.zeros(1, hidden_dim))
++        self.traj_emb_lstm = nn.LSTM(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=1, bias=True,
++                        batch_first=False, dropout=0.0, bidirectional=False)
++        self.lstm_h0 = nn.Parameter(torch.zeros([1, hidden_dim]))
++        self.lstm_c0 = nn.Parameter(torch.zeros([1, hidden_dim]))
+         self.t2m_propose_attn_layers = nn.ModuleList(
+             [AttentionLayer(hidden_dim=hidden_dim, num_heads=num_heads, head_dim=head_dim, dropout=dropout,
+                             bipartite=True, has_pos_emb=True) for _ in range(num_layers)]
+@@ -252,7 +253,9 @@ class QCNetDecoder(nn.Module):
+                                                              self.num_future_steps, 1))
+             m = self.y_emb(loc_propose_pos.detach().view(-1, self.output_dim))
+         m = m.reshape(-1, self.num_future_steps, self.hidden_dim).transpose(0, 1)
+-        m = self.traj_emb(m, self.traj_emb_h0.unsqueeze(1).repeat(1, m.size(1), 1))[1].squeeze(0)
++        m_ = self.traj_emb_lstm(m.float(), (self.lstm_h0.unsqueeze(1).repeat(1, m.size(1), 1),
++                                            self.lstm_c0.unsqueeze(1).repeat(1, m.size(1), 1)))[1]
++        m = m_[0].squeeze(0)
+         for i in range(self.num_layers):
+             m = self.t2m_refine_attn_layers[i]((x_t, m), r_t2m, edge_index_t2m)
+             m = m.reshape(-1, self.num_modes, self.hidden_dim).transpose(0, 1).reshape(-1, self.hidden_dim)
+diff --git a/predictors/qcnet.py b/predictors/qcnet.py
+index 35ee89e..4033139 100644
+--- a/predictors/qcnet.py
++++ b/predictors/qcnet.py
+@@ -11,12 +11,13 @@
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
++import time
+ from itertools import chain
+ from itertools import compress
+ from pathlib import Path
+ from typing import Optional
+ 
+-import pytorch_lightning as pl
++import lightning.pytorch as pl
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+@@ -152,6 +153,10 @@ class QCNet(pl.LightningModule):
+         self.MR = MR(max_guesses=6)
+ 
+         self.test_predictions = dict()
++        # for evaluating training speed
++        self.init_time = time.time()
++        self.profiling_step = 100
++        self.avg_train_time = 0.0
+ 
+     def forward(self, data: HeteroData):
+         scene_enc = self.encoder(data)
+@@ -200,6 +205,11 @@ class QCNet(pl.LightningModule):
+                                  prob=pi,
+                                  mask=reg_mask[:, -1:]) * cls_mask
+         cls_loss = cls_loss.sum() / cls_mask.sum().clamp_(min=1)
++        if batch_idx > 0 and batch_idx % self.profiling_step == 0:
++            self.avg_train_time = (time.time() - self.init_time) / self.profiling_step
++            self.init_time = time.time()
++            print(f"Average Training Time (step {batch_idx - self.profiling_step}-{batch_idx}): {self.avg_train_time:.3f}s")
++
+         self.log('train_reg_loss_propose', reg_loss_propose, prog_bar=False, on_step=True, on_epoch=True, batch_size=1)
+         self.log('train_reg_loss_refine', reg_loss_refine, prog_bar=False, on_step=True, on_epoch=True, batch_size=1)
+         self.log('train_cls_loss', cls_loss, prog_bar=False, on_step=True, on_epoch=True, batch_size=1)
+diff --git a/train_qcnet.py b/train_qcnet.py
+index 092b41c..0fcc46c 100644
+--- a/train_qcnet.py
++++ b/train_qcnet.py
+@@ -13,16 +13,22 @@
+ # limitations under the License.
+ from argparse import ArgumentParser
+ 
+-import pytorch_lightning as pl
+-from pytorch_lightning.callbacks import LearningRateMonitor
+-from pytorch_lightning.callbacks import ModelCheckpoint
+-from pytorch_lightning.strategies import DDPStrategy
++import lightning as L
++import lightning.pytorch as pl
++from lightning.pytorch.callbacks import LearningRateMonitor
++from lightning.pytorch.callbacks import ModelCheckpoint
++from lightning.pytorch.strategies import DDPStrategy
++from lightning.pytorch.trainer import Trainer
+ 
+ from datamodules import ArgoverseV2DataModule
+ from predictors import QCNet
+ 
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
+ if __name__ == '__main__':
+-    pl.seed_everything(2023, workers=True)
++    L.seed_everything(2023, workers=True)
+ 
+     parser = ArgumentParser()
+     parser.add_argument('--root', type=str, required=True)
+@@ -51,7 +57,7 @@ if __name__ == '__main__':
+     }[args.dataset](**vars(args))
+     model_checkpoint = ModelCheckpoint(monitor='val_minFDE', save_top_k=5, mode='min')
+     lr_monitor = LearningRateMonitor(logging_interval='epoch')
+-    trainer = pl.Trainer(accelerator=args.accelerator, devices=args.devices,
++    trainer = Trainer(accelerator=args.accelerator, devices=args.devices,
+                          strategy=DDPStrategy(find_unused_parameters=False, gradient_as_bucket_view=True),
+                          callbacks=[model_checkpoint, lr_monitor], max_epochs=args.max_epochs)
+     trainer.fit(model, datamodule)
+diff --git a/val.py b/val.py
+index 7491b8d..216e089 100644
+--- a/val.py
++++ b/val.py
+@@ -13,7 +13,8 @@
+ # limitations under the License.
+ from argparse import ArgumentParser
+ 
+-import pytorch_lightning as pl
++import lightning as L
++from lightning.pytorch.trainer import Trainer
+ from torch_geometric.loader import DataLoader
+ 
+ from datasets import ArgoverseV2Dataset
+@@ -21,7 +22,7 @@ from predictors import QCNet
+ from transforms import TargetBuilder
+ 
+ if __name__ == '__main__':
+-    pl.seed_everything(2023, workers=True)
++    L.seed_everything(2023, workers=True)
+ 
+     parser = ArgumentParser()
+     parser.add_argument('--model', type=str, required=True)
+@@ -44,5 +45,5 @@ if __name__ == '__main__':
+                      transform=TargetBuilder(model.num_historical_steps, model.num_future_steps))
+     dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers,
+                             pin_memory=args.pin_memory, persistent_workers=args.persistent_workers)
+-    trainer = pl.Trainer(accelerator=args.accelerator, devices=args.devices, strategy='ddp')
++    trainer = Trainer(accelerator=args.accelerator, devices=args.devices, strategy='ddp')
+     trainer.validate(model, dataloader)

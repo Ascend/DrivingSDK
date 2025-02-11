@@ -1,0 +1,38 @@
+diff --git a/torch_cluster/radius.py b/torch_cluster/radius.py
+index fd73b75..3569058 100644
+--- a/torch_cluster/radius.py
++++ b/torch_cluster/radius.py
+@@ -1,9 +1,10 @@
+ from typing import Optional
+ 
+ import torch
++import torch_npu
+ 
+ 
+-@torch.jit.script
++# @torch.jit.script
+ def radius(x: torch.Tensor, y: torch.Tensor, r: float,
+            batch_x: Optional[torch.Tensor] = None,
+            batch_y: Optional[torch.Tensor] = None, max_num_neighbors: int = 32,
+@@ -66,14 +67,16 @@ def radius(x: torch.Tensor, y: torch.Tensor, r: float,
+         assert batch_x is not None
+         assert batch_y is not None
+         arange = torch.arange(batch_size + 1, device=x.device)
+-        ptr_x = torch.bucketize(arange, batch_x)
+-        ptr_y = torch.bucketize(arange, batch_y)
++        ptr_x = torch.bucketize(arange, batch_x).cpu()
++        ptr_y = torch.bucketize(arange, batch_y).cpu()
+ 
+-    return torch.ops.torch_cluster.radius(x, y, ptr_x, ptr_y, r,
+-                                          max_num_neighbors, num_workers)
++    ori_device = x.device
++    
++    return torch.ops.torch_cluster.radius(x.cpu(), y.cpu(), ptr_x, ptr_y, r,
++                                          max_num_neighbors, num_workers).to(ori_device)
+ 
+ 
+-@torch.jit.script
++# @torch.jit.script
+ def radius_graph(x: torch.Tensor, r: float,
+                  batch: Optional[torch.Tensor] = None, loop: bool = False,
+                  max_num_neighbors: int = 32, flow: str = 'source_to_target',
