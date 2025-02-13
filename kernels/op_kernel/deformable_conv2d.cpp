@@ -3,7 +3,7 @@
 
 using namespace AscendC;
 
-constexpr MatmulConfig DEFORMABLE_CONV2D_CFG = GetMDLConfig(false, false, 2, false, false, false, true);
+constexpr MatmulConfig DEFORMABLE_CONV2D_CFG = GetNormalConfig();
 
 template<bool modulated>
 class DeformableConv2dKernel {
