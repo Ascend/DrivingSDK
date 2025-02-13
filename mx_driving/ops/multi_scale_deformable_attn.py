@@ -25,6 +25,7 @@ class MultiScaleDeformableAttnFunction(Function):
         value_level_start_index: torch.Tensor,
         sampling_locations: torch.Tensor,
         attention_weights: torch.Tensor,
+        **kwargs,
     ) -> torch.Tensor:
         value_spatial_shapes = value_spatial_shapes.int()
         value_level_start_index = value_level_start_index.int()

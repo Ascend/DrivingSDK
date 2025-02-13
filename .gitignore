@@ -5,3 +5,4 @@ cmake-build-debug
 build
 *.egg-info/
 .vscode/
+CMakeFiles

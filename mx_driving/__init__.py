@@ -1,7 +1,7 @@
 import os
 
 import mx_driving._C
-
+from .patcher import default_patcher_builder, patch_mmcv_version
 from .modules.roi_point_pool_3d import RoIPointPool3d
 from .modules.sparse_conv import SparseConv3d, SparseInverseConv3d, SubMConv3d
 from .modules.sparse_modules import SparseConvTensor, SparseModule, SparseSequential
@@ -95,6 +95,7 @@ __all__ = [
     "npu_dynamic_scatter",
     "npu_max_pool2d",
     "npu_nms3d",
+    "MultiScaleDeformableAttnFunction",
     "npu_points_in_box",
     "npu_points_in_box_all",
     "points_in_box",
