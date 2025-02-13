@@ -53,15 +53,11 @@ echo "Final Performance images/sec : $ActualFPS"
 #loss值，不需要修改
 ActualLoss=$(grep -o "loss: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
 
-#NDS值
-NDS=$(grep -o "pred_instances_3d_NuScenes/NDS: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
-
 #mAP值
-mAP=$(grep -o "pred_instances_3d_NuScenes/mAP: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
+mAP=$(grep -o "mAP: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
 
 #打印，不需要修改
 echo "Final Train Loss : ${ActualLoss}"
-echo "NDS : ${NDS}"
 echo "mAP : ${mAP}"
 echo "E2E Training Duration sec : $e2e_time"
 
