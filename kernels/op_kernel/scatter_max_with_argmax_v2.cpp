@@ -47,12 +47,12 @@ public:
             outLastTaskNum = tiling_data->outLastCoreLastNum;
         }
 
+        indicesEachBlock = BLOCK_SIZE / sizeof(DTYPE_INDICES);
+        dataEachBlock = BLOCK_SIZE / sizeof(DTYPE_UPDATES);
+
         outrepeat = AlignUp(outTaskNum / updatesTail, dataEachBlock);
         repeatTimes = (updatesTail + dataEachBlock - 1) / dataEachBlock;
         updatesTailCopy = AlignUp(updatesTail, dataEachBlock);
-
-        indicesEachBlock = BLOCK_SIZE / sizeof(DTYPE_INDICES);
-        dataEachBlock = BLOCK_SIZE / sizeof(DTYPE_UPDATES);
 
         uint64_t updatesTailMem = min(AlignUp(updatesTail, MAX_MASK), MAX_DEAL_NUM);
 
