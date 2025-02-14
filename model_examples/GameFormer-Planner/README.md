@@ -92,7 +92,7 @@
     git clone https://github.com/MCZhi/GameFormer-Planner.git && cd GameFormer-Planner
     git checkout c6f3a69b947edd0c3079e458275fc490520e8bde
     cp ../GameFormer-Planner_NPU.patch .
-    git apply GameFormer-Planner_NPU.patch
+    git apply --reject --whitespace=fix GameFormer-Planner_NPU.patch
     cd ..
     ```
 
@@ -135,12 +135,12 @@
     python GameFormer-Planner/data_process.py
     --data_path nuplan/dataset/nuplan-v1.1/splits/mini
     --map_path nuplan/dataset/maps
-    --save_path nuplan/processed_data
+    --save_path nuplan/nuplan_processed
     ```
     --scenarios_per_type和--total_scenarios可以用于控制生成数据点的数量，请根据原仓库的指引，生成150万个数据点，并用其中的十分之一作为Validation Set，剩余的部分作为Training Set。预处理完成之后数据排布如下所示：
     ```
     nuplan
-    └── processed_data
+    └── nuplan_processed
         ├── train
         │   ├── us-nv-las-vegas-strip_12b86ec515a15de0.npz
         │   ├── ...
