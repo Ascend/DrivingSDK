@@ -32,10 +32,10 @@
 
 |        软件类型       |   支持版本   |
 |:--------:|:--------:|
-| FrameworkPTAdapter | 6.0.0  |
-|       CANN        | 8.0.0  |
-|      昇腾NPU固件      | 24.1.0 |
-|      昇腾NPU驱动      | 24.1.0 |
+| FrameworkPTAdapter | 7.0.RC1  |
+|       CANN        | 8.1.RC1  |
+|      昇腾NPU固件      | 25.0.0 |
+|      昇腾NPU驱动      | 25.0.0 |
 
 ## 安装模型环境
 
@@ -122,6 +122,8 @@ data_root = 'data/cityscapes/'
 在 `mmsegmentation` 目录下进行数据预处理：
 
 ```
+# 安装相关依赖
+pip install cityscapesscripts
 # --nproc表示8个进程进行转换，也可以省略
 python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
 ```
@@ -176,11 +178,12 @@ python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
 |  芯片      | 卡数 | mIoU  | mAcc  | aAcc  |  FPS  | Max Iters |
 |:--------:|----|:-----:|:------:|:------:|:-----:|:---------:|
 |   竞品A    | 8p | 82.60 | 89.65 |   96.90   | 28.42 |   90000   |
-| Atlas 900 A2 PODc | 8p | 83.54 | 89.95 |   97.00   | 26.42 |   90000   |
+| Atlas 900 A2 PODc | 8p | 83.26 | 89.93 |   96.92   | 26.03 |   90000   |
 
 # 变更说明
 
 2025.01.10：首次发布。
+2025.02.15: Bug修复及Readme修改。
 
 ## FAQ
 

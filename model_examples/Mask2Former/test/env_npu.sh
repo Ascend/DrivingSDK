@@ -1,18 +1,3 @@
-#!/bin/bash
-CANN_INSTALL_PATH_CONF='/etc/Ascend/ascend_cann_install.info'
-
-if [ -f $CANN_INSTALL_PATH_CONF ]; then
-    CANN_INSTALL_PATH=$(cat $CANN_INSTALL_PATH_CONF | grep Install_Path | cut -d "=" -f 2)
-else
-    CANN_INSTALL_PATH="/usr/local/Ascend"
-fi
-
-if [ -d ${CANN_INSTALL_PATH}/ascend-toolkit/latest ]; then
-    source ${CANN_INSTALL_PATH}/ascend-toolkit/set_env.sh
-else
-    source ${CANN_INSTALL_PATH}/nnae/set_env.sh
-fi
-
 #设置Shape数据缓存
 export HOST_CACHE_CAPACITY=20
 #将Host日志输出到串口,0-关闭/1-开启

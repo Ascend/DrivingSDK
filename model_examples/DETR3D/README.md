@@ -102,7 +102,7 @@ code_path=model_examples/DETR3D
 
   ```
   git clone -b v2.28.0 https://github.com/open-mmlab/mmdetection.git
-  cd mmdetection3d
+  cd mmdetection
   cp -f ../mmdet.patch ./
   git apply --reject --whitespace=fix mmdet.patch
   pip install -e .
