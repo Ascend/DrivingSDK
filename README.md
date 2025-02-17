@@ -169,6 +169,7 @@ out, argmax = scatter_max(updates, indices, out)
 | GameFormer | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer |【Test】|
 | VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |【Test】|
 | QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |【Test】|
+| BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品

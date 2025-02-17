@@ -1,0 +1,25 @@
+diff --git a/mmdet3d/__init__.py b/mmdet3d/__init__.py
+index 643c39c9..001b2247 100644
+--- a/mmdet3d/__init__.py
++++ b/mmdet3d/__init__.py
+@@ -19,7 +19,7 @@ def digit_version(version_str):
+ 
+ 
+ mmcv_minimum_version = '1.5.2'
+-mmcv_maximum_version = '1.7.0'
++mmcv_maximum_version = '1.7.2'
+ mmcv_version = digit_version(mmcv.__version__)
+ 
+ 
+diff --git a/requirements/runtime.txt b/requirements/runtime.txt
+index 643cb0cd..9477f55c 100644
+--- a/requirements/runtime.txt
++++ b/requirements/runtime.txt
+@@ -1,6 +1,6 @@
+ lyft_dataset_sdk
+ networkx>=2.2,<2.3
+-numba==0.53.0
++numba
+ numpy
+ nuscenes-devkit
+ plyfile
