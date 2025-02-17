@@ -7,6 +7,7 @@ import mx_driving._C
 
 class ScatterMeanFunction(Function):
     @staticmethod
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(ctx, src, index, out=None, dim=0, dim_size=None):
         func = mx_driving._C.npu_scatter_mean
         res, count = func(src, index, out, dim, dim_size)

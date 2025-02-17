@@ -66,7 +66,7 @@ class SparseConvFunction(Function):
 
     @staticmethod
     @once_differentiable
-    # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
         feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
@@ -130,7 +130,7 @@ class SparseInverseConvFunction(Function):
 
     @staticmethod
     @once_differentiable
-    # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
         feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
@@ -183,8 +183,8 @@ class SubMConvFunction(Function):
 
     @staticmethod
     @once_differentiable
-    # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx = None) -> tuple:
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
         features, weight, output_iml2col, ouidx_offset = ctx.saved_tensors
         weight_grad = output_iml2col.T @ grad_out_features
         weight_shape = weight.shape
@@ -196,7 +196,7 @@ class SubMConvFunction(Function):
         grad_out_features_iml2col = mx_driving._C.npu_subm_sparse_conv3d_grad(ouidx_offset, valid_indices.int(), weight, grad_out_features,
                                                                               features.shape[0], ctx.kernel_size)
         grad_out_features_iml2col = grad_out_features_iml2col.view(features.shape[0], -1)
-        weight = weight.permute(0,1,2,4,3).contiguous()
+        weight = weight.permute(0, 1, 2, 4, 3).contiguous()
         weight_permute = weight.view(kernel_num*weight_shape[4], weight_shape[3])
         feature_grad = grad_out_features_iml2col @ weight_permute
         

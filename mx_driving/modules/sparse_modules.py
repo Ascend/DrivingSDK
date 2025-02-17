@@ -43,7 +43,7 @@ def _mean_update(vals: Union[int, List], m_vals: Union[int, List],
     if (t + 1) == 0:
         return outputs
     for val, m_val in zip(vals, m_vals):
-        output = t /  (t + 1) * m_val + 1 / float(t + 1) * val
+        output = t / (t + 1) * m_val + 1 / float(t + 1) * val
         outputs.append(output)
     if len(outputs) == 1:
         outputs = outputs[0]
@@ -111,7 +111,7 @@ class SparseSequential(SparseModule):
         if idx < 0:
             idx += len(self)
         it = iter(self._modules.values())
-        for i in range(idx):
+        for _ in range(idx):
             next(it)
         return next(it)
 
@@ -129,20 +129,20 @@ class SparseSequential(SparseModule):
                 raise KeyError('name exists')
         self.add_module(name, module)
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input_: torch.Tensor) -> torch.Tensor:
         for k, module in self._modules.items():
             if is_spconv_module(module):
-                if not isinstance(input, SparseConvTensor):
+                if not isinstance(input_, SparseConvTensor):
                     raise RuntimeError("input is not SparseConvTensor")
-                self._sparity_dict[k] = input.sparity
-                input = module(input)
+                self._sparity_dict[k] = input_.sparity
+                input_ = module(input_)
             else:
-                if isinstance(input, SparseConvTensor):
-                    if input.indices.shape[0] != 0:
-                        input.features = module(input.features)
+                if isinstance(input_, SparseConvTensor):
+                    if input_.indices.shape[0] != 0:
+                        input_.features = module(input_.features)
                 else:
-                    input = module(input)
-        return input
+                    input_ = module(input_)
+        return input_
 
     def fused(self):
         from .sparse_conv import SparseConvolution

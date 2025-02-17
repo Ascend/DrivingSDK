@@ -65,6 +65,7 @@ class RoIAwarePool3dFunction(Function):
         return pooled_features
 
     @staticmethod
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def backward(ctx: Any, grad_out: torch.Tensor):
         if (torch.numel(grad_out) == 0):
             raise Exception("Error! Input Tensor can not be a empty Tensor.\n")

@@ -17,25 +17,25 @@ import mx_driving._C
 class GridSampler2dV2(torch.autograd.Function):
     @staticmethod
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def forward(ctx, input, grid, mode, padding_mode, align_corners):
-        output = mx_driving._C.grid_sampler2d_v2(input, grid, mode, padding_mode, align_corners)
+    def forward(ctx, input_, grid, mode, padding_mode, align_corners):
+        output = mx_driving._C.grid_sampler2d_v2(input_, grid, mode, padding_mode, align_corners)
         return output
 
 
-def grid_sampler2d_v2(input, grid, mode="bilinear", padding_mode="zeros", align_corners=False):
-    if (torch.numel(input) == 0 or torch.numel(grid) == 0):
+def grid_sampler2d_v2(input_, grid, mode="bilinear", padding_mode="zeros", align_corners=False):
+    if (torch.numel(input_) == 0 or torch.numel(grid) == 0):
         raise Exception(f"mx_driving.grid_sampler2d_v2(): Input tensor and grid tensor can not be empty tensor.\n")
     if mode != "bilinear":
         warnings.warn(
             f"mx_driving.grid_sampler2d_v2(): Not support '{mode}' mode, will call torch.nn.functional.grid_sample()."
         )
-        output = torch.nn.functional.grid_sample(input, grid, mode, padding_mode, align_corners)
+        output = torch.nn.functional.grid_sample(input_, grid, mode, padding_mode, align_corners)
         return output
-    if input.size(1) > 128:
+    if input_.size(1) > 128:
         warnings.warn(
             f"mx_driving.grid_sampler2d_v2(): Not support for channel of input greater than 128, will call torch.nn.functional.grid_sample()."
         )
-        output = torch.nn.functional.grid_sample(input, grid, mode, padding_mode, align_corners)
+        output = torch.nn.functional.grid_sample(input_, grid, mode, padding_mode, align_corners)
         return output
     if (padding_mode != "zeros" and padding_mode != "border" and padding_mode != "reflection"):
         raise ValueError(
@@ -52,5 +52,5 @@ def grid_sampler2d_v2(input, grid, mode="bilinear", padding_mode="zeros", align_
     else:  # padding_mode == "reflection"
         padding_mode_enum = 2
 
-    output = GridSampler2dV2.apply(input, grid, mode_enum, padding_mode_enum, align_corners)
+    output = GridSampler2dV2.apply(input_, grid, mode_enum, padding_mode_enum, align_corners)
     return output
