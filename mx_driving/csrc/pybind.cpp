@@ -63,6 +63,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // nms3d
     m.def("nms3d", &nms3d);
 
+    // nms3d_on_sight
+    m.def("nms3d_on_sight", &nms3d_on_sight);
+
     // roated overlap
     m.def("npu_rotated_overlaps", &npu_rotated_overlaps, "npu_rotated_overlap NPU version");
 

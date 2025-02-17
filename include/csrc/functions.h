@@ -193,6 +193,8 @@ std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor& boxes, double 
 
 std::tuple<at::Tensor, at::Tensor> nms3d(const at::Tensor& boxes, double threshold);
 
+std::tuple<at::Tensor, at::Tensor> nms3d_on_sight(const at::Tensor& boxes, double threshold);
+
 at::Tensor npu_rotated_overlaps(const at::Tensor& self, const at::Tensor& query_boxes, bool trans);
 
 at::Tensor npu_rotated_iou(const at::Tensor& boxes, const at::Tensor& query_boxes, bool trans, int64_t mode,
