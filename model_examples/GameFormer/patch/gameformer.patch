@@ -21,7 +21,7 @@ index 87feff8..bc506ab 100644
              if detection.intersects(polygon):
                  vectorized_crosswalks[added_cross_walks, :polyline.shape[0]] = polyline
 diff --git a/interaction_prediction/train.py b/interaction_prediction/train.py
-index c2d7f0d..dde0c1f 100644
+index c2d7f0d..5723bbf 100644
 --- a/interaction_prediction/train.py
 +++ b/interaction_prediction/train.py
 @@ -1,5 +1,6 @@
@@ -67,21 +67,24 @@ index c2d7f0d..dde0c1f 100644
  
          if dist.get_rank() == 0:
              logging.info(
-@@ -62,10 +71,11 @@ def training_epoch(train_data, model, optimizer, epoch):
+@@ -62,10 +71,14 @@ def training_epoch(train_data, model, optimizer, epoch):
                  f"|Loss: {np.mean(epoch_loss):>.4f}|"+
                  f"Pred-1:ADE{np.mean(ADE):>.4f}-FDE{np.mean(FDE):>.4f}|"+
                  f"Pred-2:ADE{np.mean(ADEp):>.4f}-FDE{np.mean(FDEp):>.4f}|"+
 -                f"{(time.time()-start_time)/current:>.4f}s/sample"
 +                f"{avg_train_time:>.5f}s/sample"
                  )
-+    model_performance = 1 / np.mean(avg_train_times[-50:])
++    if len(avg_train_times) != 0: 
++        model_performance = 1 / np.mean(avg_train_times[-50:])
++    else:
++        model_performance = None
      
 -    return epoch_loss
 +    return epoch_loss, model_performance
  
  # define model validation epoch
  def validation_epoch(valid_data, model, epoch):
-@@ -133,16 +143,34 @@ def validation_epoch(valid_data, model, epoch):
+@@ -133,16 +146,34 @@ def validation_epoch(valid_data, model, epoch):
          current += args.batch_size
          if dist.get_rank() == 0:
              logging.info(
@@ -120,7 +123,7 @@ index c2d7f0d..dde0c1f 100644
  
  # Define model training process
  def main():
-@@ -173,7 +201,7 @@ def main():
+@@ -173,12 +204,11 @@ def main():
      model = DDP(model, device_ids=[local_rank], output_device=local_rank)
  
      # define optimizer and loss function
@@ -129,7 +132,13 @@ index c2d7f0d..dde0c1f 100644
      scheduler = optim.lr_scheduler.MultiStepLR(
                                              optimizer, 
                                              milestones=[20, 22, 24, 26, 28], 
-@@ -224,8 +252,8 @@ def main():
+-                                            gamma=0.5,
+-                                            verbose=True)
++                                            gamma=0.5)
+     
+     # load ckpts:
+     curr_ep = 0
+@@ -224,8 +254,8 @@ def main():
          train_data.sampler.set_epoch(epoch)
          valid_data.sampler.set_epoch(epoch)
  
@@ -140,7 +149,7 @@ index c2d7f0d..dde0c1f 100644
  
          # save to training log
          log = {
-@@ -235,6 +263,9 @@ def main():
+@@ -235,6 +265,9 @@ def main():
              }
  
          log.update(valid_metrics)
@@ -150,7 +159,7 @@ index c2d7f0d..dde0c1f 100644
  
          if dist.get_rank() == 0:
              # log & save
-@@ -260,12 +291,12 @@ def main():
+@@ -260,12 +293,12 @@ def main():
  
  if __name__ == "__main__":
      parser = argparse.ArgumentParser(description='Interaction Prediction Training')

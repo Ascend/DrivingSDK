@@ -36,7 +36,7 @@
 
 - 适配昇腾 AI 处理器的实现：
     ```
-    url=https://gitee.com/ascend/mxDriving.git
+    url=https://gitee.com/ascend/DrivingSDK.git
     code_path=model_examples/GameFormer
     ```
 
@@ -75,7 +75,7 @@
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件，并安装其它依赖项。
     ```
-    cd mxDriving/model_examples/GameFormer
+    cd DrivingSDK/model_examples/GameFormer
     conda create -n GameFormer python=3.9
     conda activate GameFormer
     pip install torch==2.1.0
@@ -87,12 +87,11 @@
 
     对于x86架构Linux系统：
     ```
-    pip install -r requirements_waymo.txt
     pip install waymo-open-dataset-tf-2-11-0==1.5.0
     ```
     对于arm64架构Linux系统，waymo官方并没有提供预先编译好whl包。为了方便用户使用，我们提供arm64系统编译的whl包，可以直接在华为云OBS上进行下载。
     ```
-    wget --no-check-certificate https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/mxDriving/packages/waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
+    wget --no-check-certificate https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/packages/waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     pip install -r requirements_waymo.txt
     pip install waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     ```
@@ -163,7 +162,7 @@
 本任务主要提供**单机8卡**的训练脚本。
 ### 开始训练
 
-- 在模型根目录下，运行训练脚本。
+- 在模型根目录下，运行训练脚本（请在脚本内自行修改训练集和测试集的路径，输出的日志位于GameFormer/interaction_prediction/train_log路径下）。
     ```
     # 8卡性能 (1 epoch)
     bash script/train_interaction_performance.sh 8
@@ -181,10 +180,12 @@
 # 变更说明
 
 2025.01.22：首次发布。
+2025.02.17：BUG修复。
 
 # FAQ
 
 1. Openexr包编译安装失败？
+
 在某些操作系统里，可能由于缺少依赖库的原因，pip install openexr执行失败，解决方案是升级gcc、g++、cmake版本，并且安装OpenEXR和OpenEXR-devel库。EulerOS/CentOS系统，执行以下命令：
     ```
     sudo yum makecache
@@ -208,3 +209,7 @@
     export GIT_SSL_NO_VERIFY=1
     pip install -r requirements_waymo.txt
     ```
+
+2. libc.so.6: version 'GLIBC_xxx' not found问题。
+
+这是由于操作系统的GLIBC版本过低，waymo-open-dataset库需要GLIBC的版本在2.31以上。可以通过**ldd --version**命令查看GLIBC版本，若小于2.31需升级系统的GLIBC库。
