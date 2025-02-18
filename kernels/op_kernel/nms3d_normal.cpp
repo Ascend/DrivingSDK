@@ -54,9 +54,8 @@ public:
                     DataCopy(maskGm[i * maskNum + start], oneLocal, dataAlign);
                     continue;
                 }
-                bool is_last = (isLastCore) && (j == loopTime - 1);
-                CopyIn(i, start, is_last);
-                Compute(i, start, is_last);
+                CopyIn(i, start);
+                Compute(i, start);
                 CopyOut(i, start);
             }
         }
@@ -64,7 +63,7 @@ public:
     }
 
 private:
-    __aicore__ inline void CopyIn(int32_t cur_box, int32_t com_box, bool is_last)
+    __aicore__ inline void CopyIn(int32_t cur_box, int32_t com_box)
     {
         LocalTensor<T> curLocal = inQueueCur.AllocTensor<T>();
         LocalTensor<T> boxLocal = inQueueBox.AllocTensor<T>();
@@ -73,9 +72,9 @@ private:
         inQueueCur.EnQue(curLocal);
         inQueueBox.EnQue(boxLocal);
     }
-    __aicore__ inline void Compute(int32_t cur_box, int32_t com_box, bool is_last)
+    __aicore__ inline void Compute(int32_t cur_box, int32_t com_box)
     {
-        uint32_t cmpNum = is_last ? tailNum : dataAlign;
+        uint32_t cmpNum = dataAlign;
         if constexpr (sizeof(T) == sizeof(half)) {
             LocalTensor<T> curLocal = inQueueCur.DeQue<T>();
             LocalTensor<T> boxLocal = inQueueBox.DeQue<T>();
