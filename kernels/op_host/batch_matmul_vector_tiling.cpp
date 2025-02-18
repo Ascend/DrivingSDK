@@ -1,3 +1,4 @@
+#include "ge/utils.h"
 #include "batch_matmul_vector_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
@@ -25,10 +26,15 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
     auto core_number = ascendplatformInfo.GetCoreNumAiv();
+    CHECK_NULLPTR(context->GetInputTensor(0));
     uint32_t totalresult = context->GetInputTensor(0)->GetShapeSize();
     auto projection_mat_shape = context->GetInputTensor(0)->GetStorageShape();
-    auto projection_matrix_dim4 = projection_mat_shape.GetDim(4);
-    auto projection_matrix_dim5 = projection_mat_shape.GetDim(5);
+    auto dimnum = projection_mat_shape.GetDimNum();
+    if (dimnum < 3) {
+        return ge::GRAPH_FAILED;
+    }
+    auto projection_matrix_dim4 = projection_mat_shape.GetDim(dimnum - 2);
+    auto projection_matrix_dim5 = projection_mat_shape.GetDim(dimnum - 1);
     uint32_t ptstotal = context->GetInputTensor(1)->GetShapeSize();
     if (projection_matrix_dim5 == 0) {
         return ge::GRAPH_FAILED;
@@ -96,12 +102,14 @@ public:
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("pts_extend")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Output("point_2d")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
