@@ -2,8 +2,8 @@
 Copyright (c) OpenMMLab. All rights reserved.
 Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 Modification by: Huawei Developers
-Modification date: 2024-10-06 
-Modification Description: 
+Modification date: 2024-10-06
+Modification Description:
 Modification 1. Add support for Ascend NPU
 """
 
@@ -29,8 +29,10 @@ class GaussianFunction(Function):
         pc_range_y,
         feature_map_size_x,
         feature_map_size_y,
-        norm_bbox,
-        with_velocity,
+        norm_bbox=True,
+        with_velocity=True,
+        flip_angle=False,
+        max_objs=500,
     ):
         if (torch.numel(boxes) == 0):
             raise Exception("Error! Input Tensor can not be an empty Tensor.\n")
@@ -47,8 +49,9 @@ class GaussianFunction(Function):
             feature_map_size_y,
             norm_bbox,
             with_velocity,
+            flip_angle,
+            max_objs
         )
         return result
-
 
 npu_gaussian = GaussianFunction.apply

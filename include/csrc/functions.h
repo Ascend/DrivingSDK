@@ -251,13 +251,13 @@ at::Tensor npu_subm_sparse_conv3d_grad(const at::Tensor& ouidx_offset, const at:
                                        at::IntArrayRef kernel_size);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_gaussian(const at::Tensor& boxes,
-    int32_t out_size_factor, float gaussian_overlap, int32_t min_radius, float voxel_size_x, float voxel_size_y,
-    float pc_range_x, float pc_range_y, int32_t feature_map_size_x, int32_t feature_map_size_y, bool norm_bbox,
-    bool with_velocity);
+    int32_t out_size_factor, float overlap, int32_t min_radius, float size_x, float size_y,
+    float range_x, float range_y, int32_t feature_map_size_x, int32_t feature_map_size_y,
+    bool norm_bbox, bool with_velocity, bool flip_angle, int32_t max_objs);
 
 at::Tensor diff_iou_rotated_sort_vertices(const at::Tensor& vertices, const at::Tensor& mask,
     const at::Tensor& num_valid);
-    
+
 at::Tensor grid_sampler2d_v2(const at::Tensor& input, const at::Tensor& grid, int64_t interpolation_mode,
     int64_t padding_mode, bool align_corners);
 
