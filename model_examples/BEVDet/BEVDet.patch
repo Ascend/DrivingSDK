@@ -1255,7 +1255,7 @@ index 0000000..ac99521
 +performance=0
 +
 +#基础参数
-+batch_size=1
++batch_size=8
 +#训练step
 +max_epochs=24
 +

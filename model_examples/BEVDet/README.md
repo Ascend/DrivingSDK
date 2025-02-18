@@ -75,7 +75,6 @@
   在模型源码包根目录下执行命令，安装模型需要的依赖。
   
   ```shell
-  pip install opencv-python==4.9.0.80
   pip install -r requirements.txt
   ```
 
@@ -87,12 +86,6 @@
   cd mmcv
   git apply mmcv.patch
   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
-  ```
-
-- 安装mmdet和mmsegmentation
-  ```shell
-  pip install mmdet==2.28.2
-  pip install mmsegmentation==0.30.0
   ```
 
 - 模型代码更新
@@ -181,9 +174,9 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 |      芯片       | 卡数 | mAP  | FPS | 平均step耗时 | Max epochs |
 |:-------------:|----|:----:|:----:|:----------:|:----------:|
 |      竞品A      | 1p |  -   | - | -             |   1      |
-|      竞品A      | 8p | 28.6 | 4.57  | 1.7489秒 |   24     |
+|      竞品A      | 8p | 28.6 | 36.56  | 1.7489秒 |   24     |
 | Atlas 800T A2 | 1p |  -   | | - | -               |  1      |
-| Atlas 800T A2 | 8p | 28.3 | 6.17 | 1.297秒|     24     |
+| Atlas 800T A2 | 8p | 28.3 | 49.36 | 1.297秒|     24     |
 
 
 # 变更说明
