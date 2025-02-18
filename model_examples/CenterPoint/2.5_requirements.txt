@@ -1,0 +1,17 @@
+numpy==1.23.5
+llvmlite==0.41.1
+numba==0.58.1
+tensorboardX==2.6.2.2
+easydict==1.13
+pyyaml==6.0.2
+scikit-image==0.21.0
+tqdm==4.67.1
+torchvision==0.20.1
+SharedArray==3.2.4
+opencv-python==4.11.0.86
+pyquaternion==0.9.9
+pccm==0.3.4
+torch_scatter==2.1.1
+opencv-python-headless
+av2==0.2.1
+kornia==0.5.8

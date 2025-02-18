@@ -360,7 +360,7 @@ python setup.py develop
 4. 安装数据处理相关依赖
     ```shell
     pip install nuscenes-devkit==1.0.5
-    pip install av2
+    pip install av2==0.2.1
     pip install kornia==0.5.8
     pip install opencv-python-headless --force-reinstall
     ```
@@ -442,6 +442,12 @@ yum -y install bc
 ```shell
 pip install protobuf
 ```
+### 在Pytorh 2.5, Python 3.10环境下，需要在1 基本环境准备 中使用CenterPoint路径下的2.5_requirements.txt进行依赖安装
+在CenterPoint路径下执行
+```shell
+pip install -r 2.5_requirements.txt
+```
 
 ## 版本说明
 [2024-12-23] **NEW:** CenterPoint3d模型在NPU设备首次适配.
+[2025-02-18] **NEW:** CenterPoint2d模型增加PT2.5相关依赖.
