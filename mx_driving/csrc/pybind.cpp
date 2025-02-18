@@ -213,6 +213,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // grid_sampler2d_v2
     m.def("grid_sampler2d_v2", &grid_sampler2d_v2);
 
+    // grid_sampler2d_v2_backward
+    m.def("grid_sampler2d_v2_backward", &grid_sampler2d_v2_backward);
+
     // scatter_add
     m.def("npu_scatter_add", &npu_scatter_add);
 

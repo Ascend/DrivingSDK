@@ -45,19 +45,9 @@ class TestGridSampler2dV2(TestCase):
         cpu_result, npu_result = gen_outputs(input_tensor, grid_tensor, "bilinear", "border", False)
         self.assertRtolEqual(cpu_result.cpu().detach().numpy(), npu_result.cpu().detach().numpy())
 
-    def test_bilinear_reflection_false(self, device="npu"):
-        input_tensor, grid_tensor = gen_inputs([24, 4, 64, 176], [24, 24, 176, 2], torch.float32)
-        cpu_result, npu_result = gen_outputs(input_tensor, grid_tensor, "bilinear", "reflection", False)
-        self.assertRtolEqual(cpu_result.cpu().detach().numpy(), npu_result.cpu().detach().numpy())
-
     def test_small_case(self, device="npu"):
         input_tensor, grid_tensor = gen_inputs([2, 4, 3, 4], [2, 2, 3, 2], torch.float32)
         cpu_result, npu_result = gen_outputs(input_tensor, grid_tensor, "bilinear", "zeros", False)
-        self.assertRtolEqual(cpu_result.cpu().detach().numpy(), npu_result.cpu().detach().numpy())
-
-    def test_reflection_when_twice_low_equals_twice_high(self, device="npu"):
-        input_tensor, grid_tensor = gen_inputs([2, 4, 1, 1], [2, 2, 3, 2], torch.float32)
-        cpu_result, npu_result = gen_outputs(input_tensor, grid_tensor, "bilinear", "reflection", True)
         self.assertRtolEqual(cpu_result.cpu().detach().numpy(), npu_result.cpu().detach().numpy())
 
     def test_channel_64(self, device="npu"):

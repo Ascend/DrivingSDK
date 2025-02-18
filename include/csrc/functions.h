@@ -261,6 +261,9 @@ at::Tensor diff_iou_rotated_sort_vertices(const at::Tensor& vertices, const at::
 at::Tensor grid_sampler2d_v2(const at::Tensor& input, const at::Tensor& grid, int64_t interpolation_mode,
     int64_t padding_mode, bool align_corners);
 
+std::tuple<at::Tensor, at::Tensor> grid_sampler2d_v2_backward(const at::Tensor& grad_output, const at::Tensor& input, const at::Tensor& grid,
+    int64_t interpolation_mode, int64_t padding_mode, bool align_corners);
+
 at::Tensor npu_scatter_add(at::Tensor& src, at::Tensor& indices, c10::optional<at::Tensor> out,
     c10::optional<int> dim, c10::optional<int> dim_size);
 

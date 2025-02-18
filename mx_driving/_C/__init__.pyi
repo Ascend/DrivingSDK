@@ -445,6 +445,14 @@ def grid_sampler2d_v2(
     padding_mode: int,
     align_corners: bool,
 ) -> torch.Tensor: ...
+def grid_sampler2d_v2_backward(
+        grad_output: torch.Tensor,
+        input: torch.Tensor,
+        grid: torch.Tensor,
+        interpolation_mode: int,
+        padding_mode: int,
+        align_corners: bool,
+) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_batch_matmul(
     projection_mat: torch.Tensor,
     pts_extend: torch.Tensor,
