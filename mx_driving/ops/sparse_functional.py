@@ -66,7 +66,7 @@ class SparseConvFunction(Function):
 
     @staticmethod
     @once_differentiable
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    # pylint: disable=too-many-return-values
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
         feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
@@ -130,7 +130,7 @@ class SparseInverseConvFunction(Function):
 
     @staticmethod
     @once_differentiable
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    # pylint: disable=too-many-return-values
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
         feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
@@ -183,7 +183,7 @@ class SubMConvFunction(Function):
 
     @staticmethod
     @once_differentiable
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    # pylint: disable=too-many-return-values
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
         features, weight, output_iml2col, ouidx_offset = ctx.saved_tensors
         weight_grad = output_iml2col.T @ grad_out_features

@@ -1,5 +1,6 @@
 """
 Copyright (c) OpenMMLab. All rights reserved.
+Copyright (c) Meta Platforms, Inc. and affiliates. All rights reserved.
 Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 Modification by: Huawei Developers
 Modification date: 2025-01-06
@@ -66,13 +67,12 @@ class DiffIouRotated(Module):
         mask2 = x - y * (line_to_x - x) / (line_to_y - y) > 0
         return (mask1 & mask2).sum(-1) % 2 == 1
 
-
     def _box_in_box(self, corners1: Tensor, corners2: Tensor) -> Tuple[Tensor, Tensor]:
         c1_in_2 = self._box1_in_box2(corners1, corners2)
         c2_in_1 = self._box1_in_box2(corners2, corners1)
         return c1_in_2, c2_in_1
 
-
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def _build_vertices(self, corners1: Tensor, corners2: Tensor, c1_in_2: Tensor,
                     c2_in_1: Tensor, intersections: Tensor,
                     valid_mask: Tensor) -> Tuple[Tensor, Tensor]:
@@ -83,7 +83,6 @@ class DiffIouRotated(Module):
             intersections.view([B, N, -1, 2])], dim=2)
         mask = torch.cat([c1_in_2, c2_in_1, valid_mask.view([B, N, -1])], dim=2)
         return vertices, mask
-
 
     def _sort_indices(self, vertices: Tensor, mask: Tensor) -> Tensor:
         num_valid = torch.sum(mask.int(), dim=2).int()
@@ -103,7 +102,6 @@ class DiffIouRotated(Module):
         area = torch.abs(total) / 2
         return area, selected
 
-
     def _oriented_box_intersection_2d(self, corners1: Tensor,
                                     corners2: Tensor) -> Tuple[Tensor, Tensor]:
         intersections, valid_mask = self._box_intersection(corners1, corners2)
@@ -112,7 +110,6 @@ class DiffIouRotated(Module):
                                         intersections, valid_mask)
         sorted_indices = self._sort_indices(vertices, mask)
         return self._calculate_area(sorted_indices, vertices)
-
 
     def _box2corners(self, box: Tensor) -> Tensor:
         B = box.size()[0]
@@ -132,7 +129,6 @@ class DiffIouRotated(Module):
         rotated[..., 0] += x
         rotated[..., 1] += y
         return rotated
-
 
     def forward(self, box1: Tensor, box2: Tensor) -> Tensor:
         corners1 = self._box2corners(box1)

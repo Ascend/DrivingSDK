@@ -118,6 +118,7 @@ from .ops.diff_iou_rotated import diff_iou_rotated_2d
 from .ops.npu_batch_matmul import npu_batch_matmul
 from .ops.nms3d_on_sight import nms3d_on_sight
 
+
 def _set_env():
     mx_driving_root = os.path.dirname(os.path.abspath(__file__))
     mx_driving_opp_path = os.path.join(mx_driving_root, "packages", "vendors", "customize")

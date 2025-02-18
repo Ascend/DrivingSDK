@@ -9,6 +9,7 @@ import mx_driving._C
 class AdsDeformableAggregation(Function):
 
     @staticmethod
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(
         ctx,
         mc_ms_feat: torch.Tensor,
