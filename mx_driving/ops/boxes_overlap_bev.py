@@ -47,25 +47,37 @@ class BoxesOverlapBev(torch.autograd.Function):
 
 
 def boxes_overlap_bev(boxes_a, boxes_b):
-    # BEVFusion version of boxes_overlap_bev
-    inp_format = "xyxyr"
     r_unit = "radian"
-    clockwise = False
-    mode = "overlap"
     aligned = False
-    margin = 1e-5
+    mode = "overlap"
+    if boxes_a.shape[-1] == 5:
+        # BEVFusion version of boxes_overlap_bev
+        inp_format = "xyxyr"
+        clockwise = False
+        margin = 1e-5
+    else:
+        # OpenPCDet and mmcv version of boxes_overlap_bev
+        inp_format = "xyzwhdr"
+        clockwise = True
+        margin = 1e-8
     return BoxesOverlapBev.apply(boxes_a, boxes_b, inp_format, r_unit, clockwise, mode, aligned, margin)
 
 
 def npu_boxes_overlap_bev(boxes_a, boxes_b):
-    # BEVFusion version of boxes_overlap_bev
     warnings.warn("`npu_boxes_overlap_bev` will be deprecated in future. Please use `boxes_overlap_bev` instead.", DeprecationWarning)
-    inp_format = "xyxyr"
     r_unit = "radian"
-    clockwise = False
-    mode = "overlap"
     aligned = False
-    margin = 1e-5
+    mode = "overlap"
+    if boxes_a.shape[-1] == 5:
+        # BEVFusion version of boxes_overlap_bev
+        inp_format = "xyxyr"
+        clockwise = False
+        margin = 1e-5
+    else:
+        # OpenPCDet and mmcv version of boxes_overlap_bev
+        inp_format = "xyzwhdr"
+        clockwise = True
+        margin = 1e-8
     return BoxesOverlapBev.apply(boxes_a, boxes_b, inp_format, r_unit, clockwise, mode, aligned, margin)
 
 
@@ -76,5 +88,5 @@ def boxes_iou_bev(boxes_a, boxes_b):
     clockwise = True
     mode = "iou"
     aligned = False
-    margin = 1e-2
+    margin = 1e-8
     return BoxesOverlapBev.apply(boxes_a, boxes_b, inp_format, r_unit, clockwise, mode, aligned, margin)

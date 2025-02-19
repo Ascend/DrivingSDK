@@ -478,7 +478,7 @@ class TestBoxesOverlapBev(TestCase):
         clockwise_list = [False, True]
         mode_list = ["overlap", "iou", "iof"]
         aligned_list = [False, True]
-        margin_list = [1e-5, 1e-2]
+        margin_list = [1e-5, 1e-8]
 
         cases = []
         for shape in shape_list:
@@ -538,7 +538,7 @@ class TestBoxesOverlapBev(TestCase):
         clockwise = True
         mode = "overlap"
         aligned = False
-        margin = 1e-2
+        margin = 1e-8
         
         cases = [
             [shape, inp_format, r_unit, clockwise, mode, aligned, margin]
@@ -565,7 +565,7 @@ class TestBoxesOverlapBev(TestCase):
         clockwise = True
         mode = "iou"
         aligned = False
-        margin = 1e-2
+        margin = 1e-8
         
         cases = [
             [shape, inp_format, r_unit, clockwise, mode, aligned, margin]

@@ -25,6 +25,8 @@ constexpr int32_t FORMAT_FLAG_XYZXYZR = 2;
 constexpr int32_t FORMAT_FLAG_XYZWHDR = 3;
 constexpr int32_t UNIT_FLAG_RADIAN = 0;
 constexpr int32_t UNIT_FLAG_DEGREE = 1;
+constexpr int32_t MODE_FLAG_OVERLAP = 0;
+constexpr int32_t MODE_FLAG_IOU = 1;
 constexpr float PI = 3.14159265358979323846;
 
 void check_npu(const at::Tensor& boxes_a, const at::Tensor& boxes_b)
@@ -72,6 +74,12 @@ at::Tensor npu_boxes_overlap_bev(const at::Tensor& boxes_a, const at::Tensor& bo
             {at::indexing::Slice(), -1},
             boxes_b.index({at::indexing::Slice(), -1}) * PI / 180);
         EXEC_NPU_CMD(aclnnBoxesOverlapBev, boxes_a_radian, boxes_b_radian, format_flag, clockwise, mode_flag, aligned, margin, res);
+        return res;
+    }
+
+    if (!aligned && format_flag == FORMAT_FLAG_XYZWHDR && clockwise && unit_flag == UNIT_FLAG_RADIAN &&
+            (mode_flag == MODE_FLAG_OVERLAP || mode_flag == MODE_FLAG_IOU)) {
+        EXEC_NPU_CMD(aclnnBoxesOverlapBevV1, boxes_a, boxes_b, format_flag, clockwise, mode_flag, aligned, margin, res);
         return res;
     }
 

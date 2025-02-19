@@ -457,6 +457,10 @@ def npu_batch_matmul(
     projection_mat: torch.Tensor,
     pts_extend: torch.Tensor,
 ) -> torch.Tensor: ...
+def boxes_iou_bev(
+    boxes_a: torch.Tensor,
+    boxes_b: torch.Tensor,
+) -> torch.Tensor: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
@@ -510,4 +514,5 @@ __all__ = [
     "npu_bev_pool_v3_backward",
     "cal_anchors_heading",
     "diff_iou_rotated_2d",
+    "boxes_iou_bev",
 ]
