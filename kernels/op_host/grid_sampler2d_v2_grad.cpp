@@ -12,7 +12,7 @@ using namespace std;
 namespace {
 
 constexpr int32_t FP32_BLOCK_NUM = 8;
-constexpr int32_t BILINEAR_DIVIDE_UB_NUM = 48;
+constexpr int32_t BILINEAR_DIVIDE_UB_NUM = 47;
 constexpr int32_t BUFFER_NUM = 2;
 
 constexpr int32_t FLOAT_SIZE = 4;

@@ -102,16 +102,13 @@ public:
         pipe->InitBuffer(selBuf3, calcCountPerLoop * sizeof(float));
         pipe->InitBuffer(selBuf4, calcCountPerLoop * sizeof(float));
 
-        pipe->InitBuffer(computeIndexBuf1, calcCountPerLoop * sizeof(int32_t));
         pipe->InitBuffer(computeIndexBuf2, calcCountPerLoop * sizeof(int32_t));
         pipe->InitBuffer(computeIndexBuf3, calcCountPerLoop * sizeof(int32_t));
         pipe->InitBuffer(computeIndexBuf4, calcCountPerLoop * sizeof(int32_t));
         pipe->InitBuffer(computeIndexBuf5, calcCountPerLoop * sizeof(int32_t));
 
-        pipe->InitBuffer(gixBuf, alignedChannel * sizeof(float));
-        pipe->InitBuffer(giyBuf, alignedChannel * sizeof(float));
-        pipe->InitBuffer(sumXBuf, alignedChannel * sizeof(float));
-        pipe->InitBuffer(sumYBuf, alignedChannel * sizeof(float));
+        pipe->InitBuffer(giCoorBuf, 2 * alignedChannel * sizeof(float));
+        pipe->InitBuffer(sumBuf,  2 * alignedChannel * sizeof(float));
     }
 
     __aicore__ inline void InitLocalTensor()
@@ -120,15 +117,13 @@ public:
         mask1Tensor = mask1Buf.Get<uint8_t>(maskNum);
         mask2Tensor = mask2Buf.Get<uint8_t>(maskNum);
         dupOneTensor = dupOneBuf.Get<float>(calcCountPerLoop);
-        tmpIndex = computeIndexBuf1.Get<int32_t>(calcCountPerLoop);
         selTensor1 = selBuf1.Get<float>(calcCountPerLoop);
         tmp1Tensor = tmp1Buf.Get<float>(calcCountPerLoop);
         tmp2Tensor = tmp2Buf.Get<float>(calcCountPerLoop);
         selTensor2 = selBuf2.Get<float>(calcCountPerLoop);
         selTensor3 = selBuf3.Get<float>(calcCountPerLoop);
         selTensor4 = selBuf4.Get<float>(calcCountPerLoop);
-        sumX = sumXBuf.Get<float>(alignedChannel);
-        sumY = sumYBuf.Get<float>(alignedChannel);
+        sum = sumBuf.Get<float>(2 * alignedChannel);
     }
 
     __aicore__ inline void Process()
@@ -231,8 +226,7 @@ private:
         LocalTensor<int32_t> ixInt = ixIntBuf.Get<int32_t>(coordPosition * calcCountPerLoop);
         LocalTensor<int32_t> iyInt = iyIntBuf.Get<int32_t>(coordPosition * calcCountPerLoop);
 
-        gixLocalTensor = gixBuf.Get<float>(alignedChannel);
-        giyLocalTensor = giyBuf.Get<float>(alignedChannel);
+        giCoorLocalTensor = giCoorBuf.Get<float>(2 * alignedChannel);
 
         Cast(ixInt[nwOffset], xTensor, RoundMode::CAST_FLOOR, computeCount);
         Cast(iyInt[nwOffset], yTensor, RoundMode::CAST_FLOOR, computeCount);
@@ -308,16 +302,15 @@ private:
                 ComputeGridGrad(iy[nwOffset], yTensor, ix[nwOffset], xTensor, gOutLocalTensor[cpInOffset], inputXLocalTensor[seCpInOffsetStart + cpInOffset], selTensor4, coorIndex);
                 ComputeXGrad(seIndex, se, coorIndex, ncBaseOffset, gOutLocalTensor[cpInOffset]);
 
-                ReduceSum<float>(sumY, sumY, sumY, channel);
-                ReduceSum<float>(sumX, sumX, sumX, channel);
+                ReduceSum<float>(sum, sum, sum, channel);
+                ReduceSum<float>(sum[alignedChannel], sum[alignedChannel], sum[alignedChannel], channel);
 
-                gix -= sumX.GetValue(0);
-                giy -= sumY.GetValue(0);
+                gix -= sum.GetValue(0);
+                giy -= sum[alignedChannel].GetValue(0);
 
                 dstLocal.SetValue(2 * coorIndex, gix * xGradIn.GetValue(coorIndex));
                 dstLocal.SetValue(2 * coorIndex + 1, giy * yGradIn.GetValue(coorIndex));
-                Duplicate<float>(sumX, 0, alignedChannel);
-                Duplicate<float>(sumY, 0, alignedChannel);
+                Duplicate<float>(sum, 0, 2 * alignedChannel);
                 gix = 0.f;
                 giy = 0.f;
             }
@@ -365,17 +358,15 @@ private:
                 ComputeGridGrad(iy[nwOffset], yTensor, ix[nwOffset], xTensor, gOutLocalTensor[cpInOffset], inputXLocalTensor[seCpInOffsetStart + cpInOffset], selTensor4, coorIndex);
                 ComputeXGrad(seIndex, se, coorIndex, ncBaseOffset, gOutLocalTensor[cpInOffset]);
 
-                ReduceSum<float>(sumY, sumY, sumY, channel);
-                ReduceSum<float>(sumX, sumX, sumX, channel);
+                ReduceSum<float>(sum, sum, sum, channel);
+                ReduceSum<float>(sum[alignedChannel], sum[alignedChannel], sum[alignedChannel], channel);
 
-                gix -= sumX.GetValue(0);
-                giy -= sumY.GetValue(0);
+                gix -= sum.GetValue(0);
+                giy -= sum[alignedChannel].GetValue(0);
 
                 dstLocal.SetValue(2 * coorIndex, gix * xGradIn.GetValue(coorIndex));
                 dstLocal.SetValue(2 * coorIndex + 1, giy * yGradIn.GetValue(coorIndex));
-
-                Duplicate<float>(sumX, 0, alignedChannel);
-                Duplicate<float>(sumY, 0, alignedChannel);
+                Duplicate<float>(sum, 0, 2 * alignedChannel);
                 gix = 0.f;
                 giy = 0.f;
             }
@@ -394,16 +385,14 @@ private:
         float yVal = xCoor1.GetValue(coorIndex) - xCoor2.GetValue(coorIndex);
         float flag = selTensor.GetValue(coorIndex);
 
-        Muls(giyLocalTensor, inputXLocalTensor, yVal, channel);
-        Mul(giyLocalTensor, gOutLocalTensor, giyLocalTensor, channel);
-        Muls(giyLocalTensor, giyLocalTensor, flag, channel);
+        Muls(giCoorLocalTensor[alignedChannel], inputXLocalTensor, yVal, channel);
+        Mul(giCoorLocalTensor[alignedChannel], gOutLocalTensor, giCoorLocalTensor[alignedChannel], channel);
 
-        Muls(gixLocalTensor, inputXLocalTensor, xVal, channel);
-        Mul(gixLocalTensor, gOutLocalTensor, gixLocalTensor, channel);
-        Muls(gixLocalTensor, gixLocalTensor, flag, channel);
+        Muls(giCoorLocalTensor, inputXLocalTensor, xVal, channel);
+        Mul(giCoorLocalTensor, gOutLocalTensor, giCoorLocalTensor, channel);
 
-        Add(sumY, giyLocalTensor, sumY, channel);
-        Add(sumX, gixLocalTensor, sumX, channel);
+        Muls(giCoorLocalTensor, giCoorLocalTensor, flag, 2 * alignedChannel);
+        Add(sum, giCoorLocalTensor, sum, 2 * alignedChannel);
     }
 
     __aicore__ inline void ComputeXGrad(LocalTensor<int32_t> srcIndex, LocalTensor<float> weight,
@@ -428,8 +417,7 @@ private:
     __aicore__ inline void DupValue()
     {
         Duplicate<float>(dupOneTensor, 1, calcCountPerLoop);
-        Duplicate<float>(sumX, 0, alignedChannel);
-        Duplicate<float>(sumY, 0, alignedChannel);
+        Duplicate<float>(sum, 0, 2 * alignedChannel);
     }
 
     __aicore__ inline void ComputeSourceIndex(
@@ -501,8 +489,8 @@ private:
         Mins(xCoor, xCoor, width - 1, calCount);
         Maxs(xCoor, xCoor, 0, calCount);
 
-        Muls(tmpIndex, yCoor, dxStrideH, calCount);
-        Add(dstIndex, tmpIndex, xCoor, calCount);
+        Muls(yCoor, yCoor, dxStrideH, calCount);
+        Add(dstIndex, yCoor, xCoor, calCount);
         Muls(dstIndex, dstIndex, channel, calCount);
     }
 
@@ -528,8 +516,8 @@ private:
     TBuf<TPosition::VECCALC> tmp1Buf, tmp2Buf;
     TBuf<TPosition::VECCALC> mask1Buf, mask2Buf;
     TBuf<TPosition::VECCALC> dupOneBuf, selBuf1, selBuf2, selBuf3, selBuf4;
-    TBuf<TPosition::VECCALC> computeIndexBuf1, computeIndexBuf2, computeIndexBuf3, computeIndexBuf4, computeIndexBuf5;
-    TBuf<TPosition::VECCALC> gixBuf, giyBuf, sumXBuf, sumYBuf;
+    TBuf<TPosition::VECCALC> computeIndexBuf2, computeIndexBuf3, computeIndexBuf4, computeIndexBuf5;
+    TBuf<TPosition::VECCALC> giCoorBuf, sumBuf;
 
     uint32_t batch, pNumPerCore, tailPNum;
     int32_t channel, alignedChannel, height, width;
@@ -554,9 +542,8 @@ private:
     LocalTensor<uint16_t> int8ToInt16Mask1, int8ToInt16Mask2;
     LocalTensor<float> dupOneTensor, selTensor1, selTensor2, selTensor3, selTensor4;
     LocalTensor<float> tmp1Tensor, tmp2Tensor;
-    LocalTensor<int32_t> tmpIndex;
-    LocalTensor<float> gixLocalTensor, giyLocalTensor;
-    LocalTensor<float> sumX, sumY;
+    LocalTensor<float> giCoorLocalTensor;
+    LocalTensor<float> sum;
 };
 
 extern "C" __global__ __aicore__ void grid_sampler2d_v2_grad(
