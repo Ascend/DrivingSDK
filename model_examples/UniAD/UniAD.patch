@@ -1,0 +1,1862 @@
+diff --git a/projects/configs/stage1_track_map/base_track_map.py b/projects/configs/stage1_track_map/base_track_map.py
+index 0f056d4..51b205f 100644
+--- a/projects/configs/stage1_track_map/base_track_map.py
++++ b/projects/configs/stage1_track_map/base_track_map.py
+@@ -555,7 +555,7 @@ data = dict(
+     nonshuffler_sampler=dict(type="DistributedSampler"),
+ )
+ optimizer = dict(
+-    type="AdamW",
++    type="NpuFusedAdamW",
+     lr=2e-4,
+     paramwise_cfg=dict(
+         custom_keys={
+@@ -564,7 +564,7 @@ optimizer = dict(
+     ),
+     weight_decay=0.01,
+ )
+-optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
++optimizer_config = dict(type='GradientCumulativeOptimizerHook', cumulative_iters=2, grad_clip=dict(max_norm=70, norm_type=2))
+ # learning policy
+ lr_config = dict(
+     policy="CosineAnnealing",
+@@ -573,15 +573,14 @@ lr_config = dict(
+     warmup_ratio=1.0 / 3,
+     min_lr_ratio=1e-3,
+ )
+-total_epochs = 6
++total_epochs = 4
+ evaluation = dict(
+-    interval=6,
++    interval=4,
+     pipeline=test_pipeline,
+-    planning_evaluation_strategy=planning_evaluation_strategy,
+ )
+ runner = dict(type="EpochBasedRunner", max_epochs=total_epochs)
+ log_config = dict(
+-    interval=10, hooks=[dict(type="TextLoggerHook"), dict(type="TensorboardLoggerHook")]
++    interval=1, hooks=[dict(type="TextLoggerHook"), dict(type="TensorboardLoggerHook")]
+ )
+ checkpoint_config = dict(interval=1)
+ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
+diff --git a/projects/configs/stage1_track_map/stage1_perf.py b/projects/configs/stage1_track_map/stage1_perf.py
+new file mode 100644
+index 0000000..38976cf
+--- /dev/null
++++ b/projects/configs/stage1_track_map/stage1_perf.py
+@@ -0,0 +1,588 @@
++_base_ = ["../_base_/datasets/nus-3d.py",
++          "../_base_/default_runtime.py"]
++
++# Update-2023-06-12: 
++# [Enhance] Update some freezing args of UniAD 
++# [Bugfix] Reproduce the from-scratch results of stage1
++# 1. Remove loss_past_traj in stage1 training
++# 2. Unfreeze neck and BN
++# --> Reproduced tracking result: AMOTA 0.393
++
++
++# Unfreeze neck and BN, the from-scratch results of stage1 could be reproduced
++plugin = True
++plugin_dir = "projects/mmdet3d_plugin/"
++# If point cloud range is changed, the models should also change their point
++# cloud range accordingly
++point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
++voxel_size = [0.2, 0.2, 8]
++patch_size = [102.4, 102.4]
++img_norm_cfg = dict(mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)
++# For nuScenes we usually do 10-class detection
++class_names = [
++    "car",
++    "truck",
++    "construction_vehicle",
++    "bus",
++    "trailer",
++    "barrier",
++    "motorcycle",
++    "bicycle",
++    "pedestrian",
++    "traffic_cone",
++]
++
++input_modality = dict(
++    use_lidar=False, use_camera=True, use_radar=False, use_map=False, use_external=True
++)
++_dim_ = 256
++_pos_dim_ = _dim_ // 2
++_ffn_dim_ = _dim_ * 2
++_num_levels_ = 4
++bev_h_ = 200
++bev_w_ = 200
++_feed_dim_ = _ffn_dim_
++_dim_half_ = _pos_dim_
++canvas_size = (bev_h_, bev_w_)
++
++# NOTE: You can change queue_length from 5 to 3 to save GPU memory, but at risk of performance drop.
++queue_length = 5  # each sequence contains `queue_length` frames.
++
++### traj prediction args ###
++predict_steps = 12
++predict_modes = 6
++fut_steps = 4
++past_steps = 4
++use_nonlinear_optimizer = True
++
++## occflow setting	
++occ_n_future = 4	
++occ_n_future_plan = 6
++occ_n_future_max = max([occ_n_future, occ_n_future_plan])	
++
++### planning ###
++planning_steps = 6
++use_col_optim = True
++# there exists multiple interpretations of the planning metric, where it differs between uniad and stp3/vad
++# uniad: computed at a particular time (e.g., L2 distance between the predicted and ground truth future trajectory at time 3.0s)
++# stp3: computed as the average up to a particular time (e.g., average L2 distance between the predicted and ground truth future trajectory up to 3.0s)
++planning_evaluation_strategy = "uniad"  # uniad or stp3
++
++### Occ args ### 
++occflow_grid_conf = {
++    'xbound': [-50.0, 50.0, 0.5],
++    'ybound': [-50.0, 50.0, 0.5],
++    'zbound': [-10.0, 10.0, 20.0],
++}
++
++# Other settings
++train_gt_iou_threshold=0.3
++
++model = dict(
++    type="UniAD",
++    gt_iou_threshold=train_gt_iou_threshold,
++    queue_length=queue_length,
++    use_grid_mask=True,
++    video_test_mode=True,
++    num_query=900,
++    num_classes=10,
++    pc_range=point_cloud_range,
++    img_backbone=dict(
++        type="ResNet",
++        depth=101,
++        num_stages=4,
++        out_indices=(1, 2, 3),
++        frozen_stages=4,
++        norm_cfg=dict(type="BN2d", requires_grad=False),
++        norm_eval=True,
++        style="caffe",
++        dcn=dict(
++            type="DCNv2", deform_groups=1, fallback_on_stride=False
++        ),  # original DCNv2 will print log when perform load_state_dict
++        stage_with_dcn=(False, False, True, True),
++    ),
++    img_neck=dict(
++        type="FPN",
++        in_channels=[512, 1024, 2048],
++        out_channels=_dim_,
++        start_level=0,
++        add_extra_convs="on_output",
++        num_outs=4,
++        relu_before_extra_convs=True,
++    ),
++    freeze_img_backbone=True,
++    freeze_img_neck=False,
++    freeze_bn=False,
++    score_thresh=0.4,
++    filter_score_thresh=0.35,
++    qim_args=dict(
++        qim_type="QIMBase",
++        merger_dropout=0,
++        update_query_pos=True,
++        fp_ratio=0.3,
++        random_drop=0.1,
++    ),  # hyper-param for query dropping mentioned in MOTR
++    mem_args=dict(
++        memory_bank_type="MemoryBank",
++        memory_bank_score_thresh=0.0,
++        memory_bank_len=4,
++    ),
++    loss_cfg=dict(
++        type="ClipMatcher",
++        num_classes=10,
++        weight_dict=None,
++        code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
++        assigner=dict(
++            type="HungarianAssigner3DTrack",
++            cls_cost=dict(type="FocalLossCost", weight=2.0),
++            reg_cost=dict(type="BBox3DL1Cost", weight=0.25),
++            pc_range=point_cloud_range,
++        ),
++        loss_cls=dict(
++            type="FocalLoss", use_sigmoid=True, gamma=2.0, alpha=0.25, loss_weight=2.0
++        ),
++        loss_bbox=dict(type="L1Loss", loss_weight=0.25),
++        loss_past_traj_weight=0.0,
++    ),  # loss cfg for tracking
++    pts_bbox_head=dict(
++        type="BEVFormerTrackHead",
++        bev_h=bev_h_,
++        bev_w=bev_w_,
++        num_query=900,
++        num_classes=10,
++        in_channels=_dim_,
++        sync_cls_avg_factor=True,
++        with_box_refine=True,
++        as_two_stage=False,
++        past_steps=past_steps,
++        fut_steps=fut_steps,
++        transformer=dict(
++            type="PerceptionTransformer",
++            rotate_prev_bev=True,
++            use_shift=True,
++            use_can_bus=True,
++            embed_dims=_dim_,
++            encoder=dict(
++                type="BEVFormerEncoder",
++                num_layers=6,
++                pc_range=point_cloud_range,
++                num_points_in_pillar=4,
++                return_intermediate=False,
++                transformerlayers=dict(
++                    type="BEVFormerLayer",
++                    attn_cfgs=[
++                        dict(
++                            type="TemporalSelfAttention", embed_dims=_dim_, num_levels=1
++                        ),
++                        dict(
++                            type="SpatialCrossAttention",
++                            pc_range=point_cloud_range,
++                            deformable_attention=dict(
++                                type="MSDeformableAttention3D",
++                                embed_dims=_dim_,
++                                num_points=8,
++                                num_levels=_num_levels_,
++                            ),
++                            embed_dims=_dim_,
++                        ),
++                    ],
++                    feedforward_channels=_ffn_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=(
++                        "self_attn",
++                        "norm",
++                        "cross_attn",
++                        "norm",
++                        "ffn",
++                        "norm",
++                    ),
++                ),
++            ),
++            decoder=dict(
++                type="DetectionTransformerDecoder",
++                num_layers=6,
++                return_intermediate=True,
++                transformerlayers=dict(
++                    type="DetrTransformerDecoderLayer",
++                    attn_cfgs=[
++                        dict(
++                            type="MultiheadAttention",
++                            embed_dims=_dim_,
++                            num_heads=8,
++                            dropout=0.1,
++                        ),
++                        dict(
++                            type="CustomMSDeformableAttention",
++                            embed_dims=_dim_,
++                            num_levels=1,
++                        ),
++                    ],
++                    feedforward_channels=_ffn_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=(
++                        "self_attn",
++                        "norm",
++                        "cross_attn",
++                        "norm",
++                        "ffn",
++                        "norm",
++                    ),
++                ),
++            ),
++        ),
++        bbox_coder=dict(
++            type="NMSFreeCoder",
++            post_center_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
++            pc_range=point_cloud_range,
++            max_num=300,
++            voxel_size=voxel_size,
++            num_classes=10,
++        ),
++        positional_encoding=dict(
++            type="LearnedPositionalEncoding",
++            num_feats=_pos_dim_,
++            row_num_embed=bev_h_,
++            col_num_embed=bev_w_,
++        ),
++        loss_cls=dict(
++            type="FocalLoss", use_sigmoid=True, gamma=2.0, alpha=0.25, loss_weight=2.0
++        ),
++        loss_bbox=dict(type="L1Loss", loss_weight=0.25),
++        loss_iou=dict(type="GIoULoss", loss_weight=0.0),
++    ),
++    seg_head=dict(
++        type='PansegformerHead',
++        bev_h=bev_h_,
++        bev_w=bev_w_,
++        canvas_size=canvas_size,
++        pc_range=point_cloud_range,
++        num_query=300,
++        num_classes=4,
++        num_things_classes=3,
++        num_stuff_classes=1,
++        in_channels=2048,
++        sync_cls_avg_factor=True,
++        as_two_stage=False,
++        with_box_refine=True,
++        transformer=dict(
++            type='SegDeformableTransformer',
++            encoder=dict(
++                type='DetrTransformerEncoder',
++                num_layers=6,
++                transformerlayers=dict(
++                    type='BaseTransformerLayer',
++                    attn_cfgs=dict(
++                        type='MultiScaleDeformableAttention',
++                        embed_dims=_dim_,
++                        num_levels=_num_levels_,
++                         ),
++                    feedforward_channels=_feed_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=('self_attn', 'norm', 'ffn', 'norm'))),
++            decoder=dict(
++                type='DeformableDetrTransformerDecoder',
++                num_layers=6,
++                return_intermediate=True,
++                transformerlayers=dict(
++                    type='DetrTransformerDecoderLayer',
++                    attn_cfgs=[
++                        dict(
++                            type='MultiheadAttention',
++                            embed_dims=_dim_,
++                            num_heads=8,
++                            dropout=0.1),
++                        dict(
++                            type='MultiScaleDeformableAttention',
++                            embed_dims=_dim_,
++                            num_levels=_num_levels_,
++                        )
++                    ],
++                    feedforward_channels=_feed_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
++                                     'ffn', 'norm')
++                ),
++            ),
++        ),
++        positional_encoding=dict(
++            type='SinePositionalEncoding',
++            num_feats=_dim_half_,
++            normalize=True,
++            offset=-0.5),
++        loss_cls=dict(
++            type='FocalLoss',
++            use_sigmoid=True,
++            gamma=2.0,
++            alpha=0.25,
++            loss_weight=2.0),
++        loss_bbox=dict(type='L1Loss', loss_weight=5.0),
++        loss_iou=dict(type='GIoULoss', loss_weight=2.0),
++        loss_mask=dict(type='DiceLoss', loss_weight=2.0),
++        thing_transformer_head=dict(type='SegMaskHead',d_model=_dim_,nhead=8,num_decoder_layers=4),
++        stuff_transformer_head=dict(type='SegMaskHead',d_model=_dim_,nhead=8,num_decoder_layers=6,self_attn=True),
++        train_cfg=dict(
++            assigner=dict(
++                type='HungarianAssigner',
++                cls_cost=dict(type='FocalLossCost', weight=2.0),
++                reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
++                iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0),
++                ),
++            assigner_with_mask=dict(
++                type='HungarianAssigner_multi_info',
++                cls_cost=dict(type='FocalLossCost', weight=2.0),
++                reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
++                iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0),
++                mask_cost=dict(type='DiceCost', weight=2.0),
++                ),
++            sampler =dict(type='PseudoSampler'),
++            sampler_with_mask =dict(type='PseudoSampler_segformer'),
++        ),
++    ),
++ 
++    # model training and testing settings
++    train_cfg=dict(
++        pts=dict(
++            grid_size=[512, 512, 1],
++            voxel_size=voxel_size,
++            point_cloud_range=point_cloud_range,
++            out_size_factor=4,
++            assigner=dict(
++                type="HungarianAssigner3D",
++                cls_cost=dict(type="FocalLossCost", weight=2.0),
++                reg_cost=dict(type="BBox3DL1Cost", weight=0.25),
++                iou_cost=dict(
++                    type="IoUCost", weight=0.0
++                ),  # Fake cost. This is just to make it compatible with DETR head.
++                pc_range=point_cloud_range,
++            ),
++        )
++    ),
++)
++dataset_type = "NuScenesE2EDataset"
++data_root = "data/nuscenes/"
++info_root = "data/infos/"
++file_client_args = dict(backend="disk")
++ann_file_train=info_root + f"nuscenes_infos_temporal_train.pkl"
++ann_file_val=info_root + f"nuscenes_infos_temporal_val.pkl"
++ann_file_test=info_root + f"nuscenes_infos_temporal_val.pkl"
++
++
++train_pipeline = [
++    dict(type="LoadMultiViewImageFromFilesInCeph", to_float32=True, file_client_args=file_client_args, img_root=data_root),
++    dict(type="PhotoMetricDistortionMultiViewImage"),
++    dict(
++        type="LoadAnnotations3D_E2E",
++        with_bbox_3d=True,
++        with_label_3d=True,
++        with_attr_label=False,
++
++        with_future_anns=True,  # occ_flow gt
++        with_ins_inds_3d=True,  # ins_inds 
++        ins_inds_add_1=True,    # ins_inds start from 1
++    ),
++
++    dict(type='GenerateOccFlowLabels', grid_conf=occflow_grid_conf, ignore_index=255, only_vehicle=True, 
++                                    filter_invisible=False),  # NOTE: Currently vis_token is not in pkl 
++
++    dict(type="ObjectRangeFilterTrack", point_cloud_range=point_cloud_range),
++    dict(type="ObjectNameFilterTrack", classes=class_names),
++    dict(type="NormalizeMultiviewImage", **img_norm_cfg),
++    dict(type="PadMultiViewImage", size_divisor=32),
++    dict(type="DefaultFormatBundle3D", class_names=class_names),
++    dict(
++        type="CustomCollect3D",
++        keys=[
++            "gt_bboxes_3d",
++            "gt_labels_3d",
++            "gt_inds",
++            "img",
++            "timestamp",
++            "l2g_r_mat",
++            "l2g_t",
++            "gt_fut_traj",
++            "gt_fut_traj_mask",
++            "gt_past_traj",
++            "gt_past_traj_mask",
++            "gt_sdc_bbox",
++            "gt_sdc_label",
++            "gt_sdc_fut_traj",
++            "gt_sdc_fut_traj_mask",
++            "gt_lane_labels",
++            "gt_lane_bboxes",
++            "gt_lane_masks",
++             # Occ gt
++            "gt_segmentation",
++            "gt_instance", 
++            "gt_centerness", 
++            "gt_offset", 
++            "gt_flow",
++            "gt_backward_flow",
++            "gt_occ_has_invalid_frame",
++            "gt_occ_img_is_valid",
++            # gt future bbox for plan	
++            "gt_future_boxes",	
++            "gt_future_labels",	
++            # planning	
++            "sdc_planning",	
++            "sdc_planning_mask",	
++            "command",
++        ],
++    ),
++]
++test_pipeline = [
++    dict(type='LoadMultiViewImageFromFilesInCeph', to_float32=True,
++            file_client_args=file_client_args, img_root=data_root),
++    dict(type="NormalizeMultiviewImage", **img_norm_cfg),
++    dict(type="PadMultiViewImage", size_divisor=32),
++    dict(type='LoadAnnotations3D_E2E', 
++         with_bbox_3d=False,
++         with_label_3d=False, 
++         with_attr_label=False,
++
++         with_future_anns=True,
++         with_ins_inds_3d=False,
++         ins_inds_add_1=True, # ins_inds start from 1
++         ),
++    dict(type='GenerateOccFlowLabels', grid_conf=occflow_grid_conf, ignore_index=255, only_vehicle=True, 
++                                       filter_invisible=False),
++    dict(
++        type="MultiScaleFlipAug3D",
++        img_scale=(1600, 900),
++        pts_scale_ratio=1,
++        flip=False,
++        transforms=[
++            dict(
++                type="DefaultFormatBundle3D", class_names=class_names, with_label=False
++            ),
++            dict(
++                type="CustomCollect3D", keys=[
++                                            "img",
++                                            "timestamp",
++                                            "l2g_r_mat",
++                                            "l2g_t",
++                                            "gt_lane_labels",
++                                            "gt_lane_bboxes",
++                                            "gt_lane_masks",
++                                            "gt_segmentation",
++                                            "gt_instance", 
++                                            "gt_centerness", 
++                                            "gt_offset", 
++                                            "gt_flow",
++                                            "gt_backward_flow",
++                                            "gt_occ_has_invalid_frame",
++                                            "gt_occ_img_is_valid",
++                                             # planning	
++                                            "sdc_planning",	
++                                            "sdc_planning_mask",	
++                                            "command",
++                                        ]
++            ),
++        ],
++    ),
++]
++data = dict(
++    samples_per_gpu=1,
++    workers_per_gpu=8,
++    train=dict(
++        type=dataset_type,
++        file_client_args=file_client_args,
++        data_root=data_root,
++        ann_file=ann_file_train,
++        pipeline=train_pipeline,
++        classes=class_names,
++        modality=input_modality,
++        test_mode=False,
++        use_valid_flag=True,
++        patch_size=patch_size,
++        canvas_size=canvas_size,
++        bev_size=(bev_h_, bev_w_),
++        queue_length=queue_length,
++        predict_steps=predict_steps,
++        past_steps=past_steps,
++        fut_steps=fut_steps,
++        use_nonlinear_optimizer=use_nonlinear_optimizer,
++
++        occ_receptive_field=3,
++        occ_n_future=occ_n_future_max,
++        occ_filter_invalid_sample=False,
++
++        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
++        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
++        box_type_3d="LiDAR",
++    ),
++    val=dict(
++        type=dataset_type,
++        file_client_args=file_client_args,
++        data_root=data_root,
++        ann_file=ann_file_val,
++        pipeline=test_pipeline,
++        patch_size=patch_size,
++        canvas_size=canvas_size,
++        bev_size=(bev_h_, bev_w_),
++        predict_steps=predict_steps,
++        past_steps=past_steps,
++        fut_steps=fut_steps,
++        use_nonlinear_optimizer=use_nonlinear_optimizer,
++        classes=class_names,
++        modality=input_modality,
++        samples_per_gpu=1,
++        eval_mod=['det', 'track', 'map'],
++
++        occ_receptive_field=3,
++        occ_n_future=occ_n_future_max,
++        occ_filter_invalid_sample=False,
++    ),
++    test=dict(
++        type=dataset_type,
++        file_client_args=file_client_args,
++        data_root=data_root,
++        test_mode=True,
++        ann_file=ann_file_test,
++        pipeline=test_pipeline,
++        patch_size=patch_size,
++        canvas_size=canvas_size,
++        bev_size=(bev_h_, bev_w_),
++        predict_steps=predict_steps,
++        past_steps=past_steps,
++        fut_steps=fut_steps,
++        occ_n_future=occ_n_future_max,
++        use_nonlinear_optimizer=use_nonlinear_optimizer,
++        classes=class_names,
++        modality=input_modality,
++        eval_mod=['det', 'map', 'track'],
++    ),
++    shuffler_sampler=dict(type="DistributedGroupSampler"),
++    nonshuffler_sampler=dict(type="DistributedSampler"),
++)
++optimizer = dict(
++    type="NpuFusedAdamW",
++    lr=2e-4,
++    paramwise_cfg=dict(
++        custom_keys={
++            "img_backbone": dict(lr_mult=0.1),
++        }
++    ),
++    weight_decay=0.01,
++)
++optimizer_config = dict(type='GradientCumulativeOptimizerHook', cumulative_iters=2, grad_clip=dict(max_norm=70, norm_type=2))
++# learning policy
++lr_config = dict(
++    policy="CosineAnnealing",
++    warmup="linear",
++    warmup_iters=500,
++    warmup_ratio=1.0 / 3,
++    min_lr_ratio=1e-3,
++)
++total_epochs = 1
++evaluation = dict(
++    interval=4,
++    pipeline=test_pipeline,
++)
++runner = dict(type="EpochBasedRunner", max_epochs=total_epochs)
++log_config = dict(
++    interval=1, hooks=[dict(type="TextLoggerHook"), dict(type="TensorboardLoggerHook")]
++)
++checkpoint_config = dict(interval=1)
++load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
++
++find_unused_parameters = True
+\ No newline at end of file
+diff --git a/projects/configs/stage2_e2e/base_e2e.py b/projects/configs/stage2_e2e/base_e2e.py
+index 9903440..c6df053 100644
+--- a/projects/configs/stage2_e2e/base_e2e.py
++++ b/projects/configs/stage2_e2e/base_e2e.py
+@@ -670,7 +670,7 @@ data = dict(
+     nonshuffler_sampler=dict(type="DistributedSampler"),
+ )
+ optimizer = dict(
+-    type="AdamW",
++    type="NpuFusedAdamW",
+     lr=2e-4,
+     paramwise_cfg=dict(
+         custom_keys={
+@@ -679,7 +679,7 @@ optimizer = dict(
+     ),
+     weight_decay=0.01,
+ )
+-optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
++optimizer_config = dict(type='GradientCumulativeOptimizerHook', cumulative_iters=2, grad_clip=dict(max_norm=70, norm_type=2))
+ # learning policy
+ lr_config = dict(
+     policy="CosineAnnealing",
+@@ -688,15 +688,14 @@ lr_config = dict(
+     warmup_ratio=1.0 / 3,
+     min_lr_ratio=1e-3,
+ )
+-total_epochs = 20
++total_epochs = 4
+ evaluation = dict(
+     interval=4,
+     pipeline=test_pipeline,
+-    planning_evaluation_strategy=planning_evaluation_strategy,
+ )
+ runner = dict(type="EpochBasedRunner", max_epochs=total_epochs)
+ log_config = dict(
+-    interval=10, hooks=[dict(type="TextLoggerHook"), dict(type="TensorboardLoggerHook")]
++    interval=1, hooks=[dict(type="TextLoggerHook"), dict(type="TensorboardLoggerHook")]
+ )
+ checkpoint_config = dict(interval=1)
+ load_from = "ckpts/uniad_base_track_map.pth"
+diff --git a/projects/configs/stage2_e2e/stage2_perf.py b/projects/configs/stage2_e2e/stage2_perf.py
+new file mode 100644
+index 0000000..9a91aa2
+--- /dev/null
++++ b/projects/configs/stage2_e2e/stage2_perf.py
+@@ -0,0 +1,703 @@
++_base_ = ["../_base_/datasets/nus-3d.py",
++          "../_base_/default_runtime.py"]
++
++# Update-2023-06-12: 
++# [Enhance] Update some freezing args of UniAD 
++plugin = True
++plugin_dir = "projects/mmdet3d_plugin/"
++# If point cloud range is changed, the models should also change their point
++# cloud range accordingly
++point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
++voxel_size = [0.2, 0.2, 8]
++patch_size = [102.4, 102.4]
++img_norm_cfg = dict(mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)
++# For nuScenes we usually do 10-class detection
++class_names = [
++    "car",
++    "truck",
++    "construction_vehicle",
++    "bus",
++    "trailer",
++    "barrier",
++    "motorcycle",
++    "bicycle",
++    "pedestrian",
++    "traffic_cone",
++]
++vehicle_id_list = [0, 1, 2, 3, 4, 6, 7]
++group_id_list = [[0,1,2,3,4], [6,7], [8], [5,9]]
++input_modality = dict(
++    use_lidar=False, use_camera=True, use_radar=False, use_map=False, use_external=True
++)
++_dim_ = 256
++_pos_dim_ = _dim_ // 2
++_ffn_dim_ = _dim_ * 2
++_num_levels_ = 4
++bev_h_ = 200
++bev_w_ = 200
++_feed_dim_ = _ffn_dim_
++_dim_half_ = _pos_dim_
++canvas_size = (bev_h_, bev_w_)
++queue_length = 3  # each sequence contains `queue_length` frames.
++
++### traj prediction args ###
++predict_steps = 12
++predict_modes = 6
++fut_steps = 4
++past_steps = 4
++use_nonlinear_optimizer = True
++
++## occflow setting	
++occ_n_future = 4	
++occ_n_future_plan = 6	
++occ_n_future_max = max([occ_n_future, occ_n_future_plan])	
++
++### planning ###
++planning_steps = 6
++use_col_optim = True
++# there exists multiple interpretations of the planning metric, where it differs between uniad and stp3/vad
++# uniad: computed at a particular time (e.g., L2 distance between the predicted and ground truth future trajectory at time 3.0s)
++# stp3: computed as the average up to a particular time (e.g., average L2 distance between the predicted and ground truth future trajectory up to 3.0s)
++planning_evaluation_strategy = "uniad"  # uniad or stp3
++
++### Occ args ### 
++occflow_grid_conf = {
++    'xbound': [-50.0, 50.0, 0.5],
++    'ybound': [-50.0, 50.0, 0.5],
++    'zbound': [-10.0, 10.0, 20.0],
++}
++
++# Other settings
++train_gt_iou_threshold=0.3
++
++model = dict(
++    type="UniAD",
++    gt_iou_threshold=train_gt_iou_threshold,
++    queue_length=queue_length,
++    use_grid_mask=True,
++    video_test_mode=True,
++    num_query=900,
++    num_classes=10,
++    vehicle_id_list=vehicle_id_list,
++    pc_range=point_cloud_range,
++    img_backbone=dict(
++        type="ResNet",
++        depth=101,
++        num_stages=4,
++        out_indices=(1, 2, 3),
++        frozen_stages=4,
++        norm_cfg=dict(type="BN2d", requires_grad=False),
++        norm_eval=True,
++        style="caffe",
++        dcn=dict(
++            type="DCNv2", deform_groups=1, fallback_on_stride=False
++        ),  # original DCNv2 will print log when perform load_state_dict
++        stage_with_dcn=(False, False, True, True),
++    ),
++    img_neck=dict(
++        type="FPN",
++        in_channels=[512, 1024, 2048],
++        out_channels=_dim_,
++        start_level=0,
++        add_extra_convs="on_output",
++        num_outs=4,
++        relu_before_extra_convs=True,
++    ),
++    freeze_img_backbone=True,
++    freeze_img_neck=True,
++    freeze_bn=True,
++    freeze_bev_encoder=True,
++    score_thresh=0.4,
++    filter_score_thresh=0.35,
++    qim_args=dict(
++        qim_type="QIMBase",
++        merger_dropout=0,
++        update_query_pos=True,
++        fp_ratio=0.3,
++        random_drop=0.1,
++    ),  # hyper-param for query dropping mentioned in MOTR
++    mem_args=dict(
++        memory_bank_type="MemoryBank",
++        memory_bank_score_thresh=0.0,
++        memory_bank_len=4,
++    ),
++    loss_cfg=dict(
++        type="ClipMatcher",
++        num_classes=10,
++        weight_dict=None,
++        code_weights=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.2, 0.2],
++        assigner=dict(
++            type="HungarianAssigner3DTrack",
++            cls_cost=dict(type="FocalLossCost", weight=2.0),
++            reg_cost=dict(type="BBox3DL1Cost", weight=0.25),
++            pc_range=point_cloud_range,
++        ),
++        loss_cls=dict(
++            type="FocalLoss", use_sigmoid=True, gamma=2.0, alpha=0.25, loss_weight=2.0
++        ),
++        loss_bbox=dict(type="L1Loss", loss_weight=0.25),
++    ),  # loss cfg for tracking
++    pts_bbox_head=dict(
++        type="BEVFormerTrackHead",
++        bev_h=bev_h_,
++        bev_w=bev_w_,
++        num_query=900,
++        num_classes=10,
++        in_channels=_dim_,
++        sync_cls_avg_factor=True,
++        with_box_refine=True,
++        as_two_stage=False,
++        past_steps=past_steps,
++        fut_steps=fut_steps,
++        transformer=dict(
++            type="PerceptionTransformer",
++            rotate_prev_bev=True,
++            use_shift=True,
++            use_can_bus=True,
++            embed_dims=_dim_,
++            encoder=dict(
++                type="BEVFormerEncoder",
++                num_layers=6,
++                pc_range=point_cloud_range,
++                num_points_in_pillar=4,
++                return_intermediate=False,
++                transformerlayers=dict(
++                    type="BEVFormerLayer",
++                    attn_cfgs=[
++                        dict(
++                            type="TemporalSelfAttention", embed_dims=_dim_, num_levels=1
++                        ),
++                        dict(
++                            type="SpatialCrossAttention",
++                            pc_range=point_cloud_range,
++                            deformable_attention=dict(
++                                type="MSDeformableAttention3D",
++                                embed_dims=_dim_,
++                                num_points=8,
++                                num_levels=_num_levels_,
++                            ),
++                            embed_dims=_dim_,
++                        ),
++                    ],
++                    feedforward_channels=_ffn_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=(
++                        "self_attn",
++                        "norm",
++                        "cross_attn",
++                        "norm",
++                        "ffn",
++                        "norm",
++                    ),
++                ),
++            ),
++            decoder=dict(
++                type="DetectionTransformerDecoder",
++                num_layers=6,
++                return_intermediate=True,
++                transformerlayers=dict(
++                    type="DetrTransformerDecoderLayer",
++                    attn_cfgs=[
++                        dict(
++                            type="MultiheadAttention",
++                            embed_dims=_dim_,
++                            num_heads=8,
++                            dropout=0.1,
++                        ),
++                        dict(
++                            type="CustomMSDeformableAttention",
++                            embed_dims=_dim_,
++                            num_levels=1,
++                        ),
++                    ],
++                    feedforward_channels=_ffn_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=(
++                        "self_attn",
++                        "norm",
++                        "cross_attn",
++                        "norm",
++                        "ffn",
++                        "norm",
++                    ),
++                ),
++            ),
++        ),
++        bbox_coder=dict(
++            type="NMSFreeCoder",
++            post_center_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
++            pc_range=point_cloud_range,
++            max_num=300,
++            voxel_size=voxel_size,
++            num_classes=10,
++        ),
++        positional_encoding=dict(
++            type="LearnedPositionalEncoding",
++            num_feats=_pos_dim_,
++            row_num_embed=bev_h_,
++            col_num_embed=bev_w_,
++        ),
++        loss_cls=dict(
++            type="FocalLoss", use_sigmoid=True, gamma=2.0, alpha=0.25, loss_weight=2.0
++        ),
++        loss_bbox=dict(type="L1Loss", loss_weight=0.25),
++        loss_iou=dict(type="GIoULoss", loss_weight=0.0),
++    ),
++    seg_head=dict(
++        type='PansegformerHead',
++        bev_h=bev_h_,
++        bev_w=bev_w_,
++        canvas_size=canvas_size,
++        pc_range=point_cloud_range,
++        num_query=300,
++        num_classes=4,
++        num_things_classes=3,
++        num_stuff_classes=1,
++        in_channels=2048,
++        sync_cls_avg_factor=True,
++        as_two_stage=False,
++        with_box_refine=True,
++        transformer=dict(
++            type='SegDeformableTransformer',
++            encoder=dict(
++                type='DetrTransformerEncoder',
++                num_layers=6,
++                transformerlayers=dict(
++                    type='BaseTransformerLayer',
++                    attn_cfgs=dict(
++                        type='MultiScaleDeformableAttention',
++                        embed_dims=_dim_,
++                        num_levels=_num_levels_,
++                         ),
++                    feedforward_channels=_feed_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=('self_attn', 'norm', 'ffn', 'norm'))),
++            decoder=dict(
++                type='DeformableDetrTransformerDecoder',
++                num_layers=6,
++                return_intermediate=True,
++                transformerlayers=dict(
++                    type='DetrTransformerDecoderLayer',
++                    attn_cfgs=[
++                        dict(
++                            type='MultiheadAttention',
++                            embed_dims=_dim_,
++                            num_heads=8,
++                            dropout=0.1),
++                        dict(
++                            type='MultiScaleDeformableAttention',
++                            embed_dims=_dim_,
++                            num_levels=_num_levels_,
++                        )
++                    ],
++                    feedforward_channels=_feed_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
++                                     'ffn', 'norm')
++                ),
++            ),
++        ),
++        positional_encoding=dict(
++            type='SinePositionalEncoding',
++            num_feats=_dim_half_,
++            normalize=True,
++            offset=-0.5),
++        loss_cls=dict(
++            type='FocalLoss',
++            use_sigmoid=True,
++            gamma=2.0,
++            alpha=0.25,
++            loss_weight=2.0),
++        loss_bbox=dict(type='L1Loss', loss_weight=5.0),
++        loss_iou=dict(type='GIoULoss', loss_weight=2.0),
++        loss_mask=dict(type='DiceLoss', loss_weight=2.0),
++        thing_transformer_head=dict(type='SegMaskHead',d_model=_dim_,nhead=8,num_decoder_layers=4),
++        stuff_transformer_head=dict(type='SegMaskHead',d_model=_dim_,nhead=8,num_decoder_layers=6,self_attn=True),
++        train_cfg=dict(
++            assigner=dict(
++                type='HungarianAssigner',
++                cls_cost=dict(type='FocalLossCost', weight=2.0),
++                reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
++                iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0),
++                ),
++            assigner_with_mask=dict(
++                type='HungarianAssigner_multi_info',
++                cls_cost=dict(type='FocalLossCost', weight=2.0),
++                reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
++                iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0),
++                mask_cost=dict(type='DiceCost', weight=2.0),
++                ),
++            sampler =dict(type='PseudoSampler'),
++            sampler_with_mask =dict(type='PseudoSampler_segformer'),
++        ),
++    ),
++    occ_head=dict(
++        type='OccHead',
++
++        grid_conf=occflow_grid_conf,
++        ignore_index=255,
++
++        bev_proj_dim=256,
++        bev_proj_nlayers=4,
++
++        # Transformer
++        attn_mask_thresh=0.3,
++        transformer_decoder=dict(
++            type='DetrTransformerDecoder',
++            return_intermediate=True,
++            num_layers=5,
++            transformerlayers=dict(
++                type='DetrTransformerDecoderLayer',
++                attn_cfgs=dict(
++                    type='MultiheadAttention',
++                    embed_dims=256,
++                    num_heads=8,
++                    attn_drop=0.0,
++                    proj_drop=0.0,
++                    dropout_layer=None,
++                    batch_first=False),
++                ffn_cfgs=dict(
++                    embed_dims=256,
++                    feedforward_channels=2048,  # change to 512
++                    num_fcs=2,
++                    act_cfg=dict(type='ReLU', inplace=True),
++                    ffn_drop=0.0,
++                    dropout_layer=None,
++                    add_identity=True),
++                feedforward_channels=2048,
++                operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
++                                 'ffn', 'norm')),
++            init_cfg=None),
++        # Query
++        query_dim=256,
++        query_mlp_layers=3,
++
++        aux_loss_weight=1.,
++        loss_mask=dict(
++            type='FieryBinarySegmentationLoss',
++            use_top_k=True,
++            top_k_ratio=0.25,
++            future_discount=0.95,
++            loss_weight=5.0,
++            ignore_index=255,
++        ),
++        loss_dice=dict(
++            type='DiceLossWithMasks',
++            use_sigmoid=True,
++            activate=True,
++            reduction='mean',
++            naive_dice=True,
++            eps=1.0,
++            ignore_index=255,
++            loss_weight=1.0),
++
++        
++        pan_eval=True,
++        test_seg_thresh=0.1,
++        test_with_track_score=True,
++    ),
++    motion_head=dict(
++        type='MotionHead',
++        bev_h=bev_h_,
++        bev_w=bev_w_,
++        num_query=300,
++        num_classes=10,
++        predict_steps=predict_steps,
++        predict_modes=predict_modes,
++        embed_dims=_dim_,
++        loss_traj=dict(type='TrajLoss', 
++            use_variance=True, 
++            cls_loss_weight=0.5, 	
++            nll_loss_weight=0.5, 	
++            loss_weight_minade=0., 	
++            loss_weight_minfde=0.25),
++        num_cls_fcs=3,
++        pc_range=point_cloud_range,
++        group_id_list=group_id_list,
++        num_anchor=6,
++        use_nonlinear_optimizer=use_nonlinear_optimizer,
++        anchor_info_path='data/others/motion_anchor_infos_mode6.pkl',
++        transformerlayers=dict(
++            type='MotionTransformerDecoder',
++            pc_range=point_cloud_range,
++            embed_dims=_dim_,
++            num_layers=3,
++            transformerlayers=dict(
++                type='MotionTransformerAttentionLayer',
++                batch_first=True,
++                attn_cfgs=[
++                    dict(
++                        type='MotionDeformableAttention',
++                        num_steps=predict_steps,
++                        embed_dims=_dim_,
++                        num_levels=1,
++                        num_heads=8,
++                        num_points=4,
++                        sample_index=-1),
++                ],
++
++                feedforward_channels=_ffn_dim_,
++                ffn_dropout=0.1,
++                operation_order=('cross_attn', 'norm', 'ffn', 'norm')),
++        ),
++    ),
++    planning_head=dict(
++        type='PlanningHeadSingleMode',
++        embed_dims=256,
++        planning_steps=planning_steps,
++        loss_planning=dict(type='PlanningLoss'),
++        loss_collision=[dict(type='CollisionLoss', delta=0.0, weight=2.5),
++                        dict(type='CollisionLoss', delta=0.5, weight=1.0),
++                        dict(type='CollisionLoss', delta=1.0, weight=0.25)],
++        use_col_optim=use_col_optim,
++        planning_eval=True,
++        with_adapter=True,
++    ),
++    # model training and testing settings
++    train_cfg=dict(
++        pts=dict(
++            grid_size=[512, 512, 1],
++            voxel_size=voxel_size,
++            point_cloud_range=point_cloud_range,
++            out_size_factor=4,
++            assigner=dict(
++                type="HungarianAssigner3D",
++                cls_cost=dict(type="FocalLossCost", weight=2.0),
++                reg_cost=dict(type="BBox3DL1Cost", weight=0.25),
++                iou_cost=dict(
++                    type="IoUCost", weight=0.0
++                ),  # Fake cost. This is just to make it compatible with DETR head.
++                pc_range=point_cloud_range,
++            ),
++        )
++    ),
++)
++dataset_type = "NuScenesE2EDataset"
++data_root = "data/nuscenes/"
++info_root = "data/infos/"
++file_client_args = dict(backend="disk")
++ann_file_train=info_root + f"nuscenes_infos_temporal_train.pkl"
++ann_file_val=info_root + f"nuscenes_infos_temporal_val.pkl"
++ann_file_test=info_root + f"nuscenes_infos_temporal_val.pkl"
++
++
++train_pipeline = [
++    dict(type="LoadMultiViewImageFromFilesInCeph", to_float32=True, file_client_args=file_client_args, img_root=data_root),
++    dict(type="PhotoMetricDistortionMultiViewImage"),
++    dict(
++        type="LoadAnnotations3D_E2E",
++        with_bbox_3d=True,
++        with_label_3d=True,
++        with_attr_label=False,
++
++        with_future_anns=True,  # occ_flow gt
++        with_ins_inds_3d=True,  # ins_inds 
++        ins_inds_add_1=True,    # ins_inds start from 1
++    ),
++
++    dict(type='GenerateOccFlowLabels', grid_conf=occflow_grid_conf, ignore_index=255, only_vehicle=True, 
++                                    filter_invisible=False),  # NOTE: Currently vis_token is not in pkl 
++
++    dict(type="ObjectRangeFilterTrack", point_cloud_range=point_cloud_range),
++    dict(type="ObjectNameFilterTrack", classes=class_names),
++    dict(type="NormalizeMultiviewImage", **img_norm_cfg),
++    dict(type="PadMultiViewImage", size_divisor=32),
++    dict(type="DefaultFormatBundle3D", class_names=class_names),
++    dict(
++        type="CustomCollect3D",
++        keys=[
++            "gt_bboxes_3d",
++            "gt_labels_3d",
++            "gt_inds",
++            "img",
++            "timestamp",
++            "l2g_r_mat",
++            "l2g_t",
++            "gt_fut_traj",
++            "gt_fut_traj_mask",
++            "gt_past_traj",
++            "gt_past_traj_mask",
++            "gt_sdc_bbox",
++            "gt_sdc_label",
++            "gt_sdc_fut_traj",
++            "gt_sdc_fut_traj_mask",
++            "gt_lane_labels",
++            "gt_lane_bboxes",
++            "gt_lane_masks",
++             # Occ gt
++            "gt_segmentation",
++            "gt_instance", 
++            "gt_centerness", 
++            "gt_offset", 
++            "gt_flow",
++            "gt_backward_flow",
++            "gt_occ_has_invalid_frame",	
++            "gt_occ_img_is_valid",	
++            # gt future bbox for plan	
++            "gt_future_boxes",	
++            "gt_future_labels",	
++            # planning	
++            "sdc_planning",	
++            "sdc_planning_mask",	
++            "command",
++        ],
++    ),
++]
++test_pipeline = [
++    dict(type='LoadMultiViewImageFromFilesInCeph', to_float32=True,
++            file_client_args=file_client_args, img_root=data_root),
++    dict(type="NormalizeMultiviewImage", **img_norm_cfg),
++    dict(type="PadMultiViewImage", size_divisor=32),
++    dict(type='LoadAnnotations3D_E2E', 
++         with_bbox_3d=False,
++         with_label_3d=False, 
++         with_attr_label=False,
++
++         with_future_anns=True,
++         with_ins_inds_3d=False,
++         ins_inds_add_1=True, # ins_inds start from 1
++         ),
++    dict(type='GenerateOccFlowLabels', grid_conf=occflow_grid_conf, ignore_index=255, only_vehicle=True, 
++                                       filter_invisible=False),
++    dict(
++        type="MultiScaleFlipAug3D",
++        img_scale=(1600, 900),
++        pts_scale_ratio=1,
++        flip=False,
++        transforms=[
++            dict(
++                type="DefaultFormatBundle3D", class_names=class_names, with_label=False
++            ),
++            dict(
++                type="CustomCollect3D", keys=[
++                                            "img",
++                                            "timestamp",
++                                            "l2g_r_mat",
++                                            "l2g_t",
++                                            "gt_lane_labels",
++                                            "gt_lane_bboxes",
++                                            "gt_lane_masks",
++                                            "gt_segmentation",
++                                            "gt_instance", 
++                                            "gt_centerness", 
++                                            "gt_offset", 
++                                            "gt_flow",
++                                            "gt_backward_flow",
++                                            "gt_occ_has_invalid_frame",	
++                                            "gt_occ_img_is_valid",	
++                                            # planning	
++                                            "sdc_planning",	
++                                            "sdc_planning_mask",	
++                                            "command",
++                                        ]
++            ),
++        ],
++    ),
++]
++data = dict(
++    samples_per_gpu=1,
++    workers_per_gpu=8,
++    train=dict(
++        type=dataset_type,
++        file_client_args=file_client_args,
++        data_root=data_root,
++        ann_file=ann_file_train,
++        pipeline=train_pipeline,
++        classes=class_names,
++        modality=input_modality,
++        test_mode=False,
++        use_valid_flag=True,
++        patch_size=patch_size,
++        canvas_size=canvas_size,
++        bev_size=(bev_h_, bev_w_),
++        queue_length=queue_length,
++        predict_steps=predict_steps,
++        past_steps=past_steps,
++        fut_steps=fut_steps,
++        use_nonlinear_optimizer=use_nonlinear_optimizer,
++
++        occ_receptive_field=3,
++        occ_n_future=occ_n_future_max,
++        occ_filter_invalid_sample=False,
++        
++        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
++        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
++        box_type_3d="LiDAR",
++    ),
++    val=dict(
++        type=dataset_type,
++        file_client_args=file_client_args,
++        data_root=data_root,
++        ann_file=ann_file_val,
++        pipeline=test_pipeline,
++        patch_size=patch_size,
++        canvas_size=canvas_size,
++        bev_size=(bev_h_, bev_w_),
++        predict_steps=predict_steps,
++        past_steps=past_steps,
++        fut_steps=fut_steps,
++        use_nonlinear_optimizer=use_nonlinear_optimizer,
++        classes=class_names,
++        modality=input_modality,
++        samples_per_gpu=1,
++        eval_mod=['det', 'map', 'track','motion'],
++        
++
++        occ_receptive_field=3,
++        occ_n_future=occ_n_future_max,
++        occ_filter_invalid_sample=False,
++    ),
++    test=dict(
++        type=dataset_type,
++        file_client_args=file_client_args,
++        data_root=data_root,
++        test_mode=True,
++        ann_file=ann_file_test,
++        pipeline=test_pipeline,
++        patch_size=patch_size,
++        canvas_size=canvas_size,
++        bev_size=(bev_h_, bev_w_),
++        predict_steps=predict_steps,
++        past_steps=past_steps,
++        fut_steps=fut_steps,
++        occ_n_future=occ_n_future_max,
++        use_nonlinear_optimizer=use_nonlinear_optimizer,
++        classes=class_names,
++        modality=input_modality,
++        eval_mod=['det', 'map', 'track','motion'],
++    ),
++    shuffler_sampler=dict(type="DistributedGroupSampler"),
++    nonshuffler_sampler=dict(type="DistributedSampler"),
++)
++optimizer = dict(
++    type="NpuFusedAdamW",
++    lr=2e-4,
++    paramwise_cfg=dict(
++        custom_keys={
++            "img_backbone": dict(lr_mult=0.1),
++        }
++    ),
++    weight_decay=0.01,
++)
++optimizer_config = dict(type='GradientCumulativeOptimizerHook', cumulative_iters=2, grad_clip=dict(max_norm=70, norm_type=2))
++# learning policy
++lr_config = dict(
++    policy="CosineAnnealing",
++    warmup="linear",
++    warmup_iters=500,
++    warmup_ratio=1.0 / 3,
++    min_lr_ratio=1e-3,
++)
++total_epochs = 1
++evaluation = dict(
++    interval=4,
++    pipeline=test_pipeline,
++)
++runner = dict(type="EpochBasedRunner", max_epochs=total_epochs)
++log_config = dict(
++    interval=1, hooks=[dict(type="TextLoggerHook"), dict(type="TensorboardLoggerHook")]
++)
++checkpoint_config = dict(interval=1)
++load_from = "ckpts/uniad_base_track_map.pth"
++
++find_unused_parameters = True
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/core/bbox/match_costs/match_cost.py b/projects/mmdet3d_plugin/core/bbox/match_costs/match_cost.py
+index d73b7e0..515ac1c 100755
+--- a/projects/mmdet3d_plugin/core/bbox/match_costs/match_cost.py
++++ b/projects/mmdet3d_plugin/core/bbox/match_costs/match_cost.py
+@@ -28,7 +28,7 @@ class BBox3DL1Cost(object):
+         return bbox_cost * self.weight
+ 
+ 
+-@MATCH_COST.register_module()
++@MATCH_COST.register_module(force=True)
+ class DiceCost(object):
+     """IoUCost.
+ 
+diff --git a/projects/mmdet3d_plugin/datasets/nuscenes_e2e_dataset.py b/projects/mmdet3d_plugin/datasets/nuscenes_e2e_dataset.py
+index c1b9392..88de6c3 100644
+--- a/projects/mmdet3d_plugin/datasets/nuscenes_e2e_dataset.py
++++ b/projects/mmdet3d_plugin/datasets/nuscenes_e2e_dataset.py
+@@ -1025,7 +1025,6 @@ class NuScenesE2EDataset(NuScenesDataset):
+             if 'planning_results_computed' in results.keys():
+                 planning_results_computed = results['planning_results_computed']
+                 planning_tab = PrettyTable()
+-                planning_tab.title = f"{planning_evaluation_strategy}'s definition planning metrics"
+                 planning_tab.field_names = [
+                     "metrics", "0.5s", "1.0s", "1.5s", "2.0s", "2.5s", "3.0s"]
+                 for key in planning_results_computed.keys():
+@@ -1033,14 +1032,7 @@ class NuScenesE2EDataset(NuScenesDataset):
+                     row_value = []
+                     row_value.append(key)
+                     for i in range(len(value)):
+-                        if planning_evaluation_strategy == "stp3":
+-                            row_value.append("%.4f" % float(value[: i + 1].mean()))
+-                        elif planning_evaluation_strategy == "uniad":
+                             row_value.append("%.4f" % float(value[i]))
+-                        else:
+-                            raise ValueError(
+-                                "planning_evaluation_strategy should be uniad or spt3"
+-                            )
+                     planning_tab.add_row(row_value)
+                 print(planning_tab)
+             results = results['bbox_results']  # get bbox_results
+diff --git a/projects/mmdet3d_plugin/losses/dice_loss.py b/projects/mmdet3d_plugin/losses/dice_loss.py
+index 3cb635f..50f6a13 100644
+--- a/projects/mmdet3d_plugin/losses/dice_loss.py
++++ b/projects/mmdet3d_plugin/losses/dice_loss.py
+@@ -1,5 +1,4 @@
+ import torch
+-import torch
+ import torch.nn as nn
+ 
+ from mmdet.models.losses.utils import weighted_loss
+@@ -21,7 +20,7 @@ def dice_loss(input, target,mask=None,eps=0.001):
+     d = (2 * a) / (b + c)
+     return 1 - d
+ 
+-@LOSSES.register_module()
++@LOSSES.register_module(force=True)
+ class DiceLoss(nn.Module):
+ 
+     def __init__(self, eps=1e-6, reduction='mean', loss_weight=1.0):
+diff --git a/projects/mmdet3d_plugin/losses/track_loss.py b/projects/mmdet3d_plugin/losses/track_loss.py
+index 549c5ae..09b8653 100644
+--- a/projects/mmdet3d_plugin/losses/track_loss.py
++++ b/projects/mmdet3d_plugin/losses/track_loss.py
+@@ -386,6 +386,9 @@ class ClipMatcher(nn.Module):
+         }
+         # step1. inherit and update the previous tracks.
+         num_disappear_track = 0
++        
++        track_instances.obj_idxes = track_instances.obj_idxes.cpu()
++        track_instances.matched_gt_idxes = track_instances.matched_gt_idxes.cpu()
+         for j in range(len(track_instances)):
+             obj_id = track_instances.obj_idxes[j].item()
+             # set new target idx.
+@@ -399,7 +402,9 @@ class ClipMatcher(nn.Module):
+                         j] = -1  # track-disappear case.
+             else:
+                 track_instances.matched_gt_idxes[j] = -1
+-
++        track_instances.obj_idxes = track_instances.obj_idxes.npu()
++        track_instances.matched_gt_idxes = track_instances.matched_gt_idxes.npu()
++        
+         full_track_idxes = torch.arange(
+             len(track_instances), dtype=torch.long).to(pred_logits_i.device)
+         # previsouly tracked, which is matched by rule
+diff --git a/projects/mmdet3d_plugin/losses/traj_loss.py b/projects/mmdet3d_plugin/losses/traj_loss.py
+index 87b26ca..5650b49 100644
+--- a/projects/mmdet3d_plugin/losses/traj_loss.py
++++ b/projects/mmdet3d_plugin/losses/traj_loss.py
+@@ -116,6 +116,7 @@ def min_ade(traj: torch.Tensor, traj_gt: torch.Tensor,
+     err = torch.pow(err, exponent=0.5)
+     err = torch.sum(err * (1 - masks_rpt), dim=2) / \
+         torch.clip(torch.sum((1 - masks_rpt), dim=2), min=1)
++    err = err.float()
+     err, inds = torch.min(err, dim=1)
+ 
+     return err, inds
+@@ -195,6 +196,7 @@ def min_fde(traj: torch.Tensor, traj_gt: torch.Tensor,
+     err = torch.pow(err, exponent=2)
+     err = torch.sum(err, dim=2)
+     err = torch.pow(err, exponent=0.5)
++    err = err.float()
+     err, inds = torch.min(err, dim=1)
+ 
+     return err, inds
+@@ -226,6 +228,7 @@ def miss_rate(
+     dist = torch.sum(dist, dim=3)
+     dist = torch.pow(dist, exponent=0.5)
+     dist[masks_rpt.bool()] = -math.inf
++    dist = dist.float()
+     dist, _ = torch.max(dist, dim=2)
+     dist, _ = torch.min(dist, dim=1)
+     m_r = torch.sum(torch.as_tensor(dist > dist_thresh)) / len(dist)
+diff --git a/projects/mmdet3d_plugin/models/utils/functional.py b/projects/mmdet3d_plugin/models/utils/functional.py
+index b4ae933..d5f31ee 100644
+--- a/projects/mmdet3d_plugin/models/utils/functional.py
++++ b/projects/mmdet3d_plugin/models/utils/functional.py
+@@ -100,6 +100,14 @@ def anchor_coordinate_transform(anchors, bbox_results, with_translation_transfor
+             rot_yaw = rot_2d(angle) # num_agents, 2, 2
+             rot_yaw = rot_yaw[:, None, None,:, :] # num_agents, 1, 1, 2, 2
+             transformed_anchors = rearrange(transformed_anchors, 'b g m t c -> b g m c t')  # 1, num_groups, num_modes, 12, 2 -> 1, num_groups, num_modes, 2, 12
++            
++            num_agents, _, _, _, _ = rot_yaw.shape
++            _, num_groups, num_modes, _, _ = transformed_anchors.shape
++            broadcast_shape1 = (num_agents, num_groups, num_modes, 2, 2)
++            broadcast_shape2 = (num_agents, num_groups, num_modes, 2, 12)
++            rot_yaw = rot_yaw.expand(broadcast_shape1)
++            transformed_anchors = transformed_anchors.expand(broadcast_shape2)
++
+             transformed_anchors = torch.matmul(rot_yaw, transformed_anchors)# -> num_agents, num_groups, num_modes, 12, 2
+             transformed_anchors = rearrange(transformed_anchors, 'b g m c t -> b g m t c')
+         if with_translation_transform:
+diff --git a/projects/mmdet3d_plugin/uniad/apis/mmdet_train.py b/projects/mmdet3d_plugin/uniad/apis/mmdet_train.py
+index 3439cde..4beadc1 100644
+--- a/projects/mmdet3d_plugin/uniad/apis/mmdet_train.py
++++ b/projects/mmdet3d_plugin/uniad/apis/mmdet_train.py
+@@ -4,7 +4,7 @@ import os
+ import numpy as np
+ import torch
+ import torch.distributed as dist
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
+                          Fp16OptimizerHook, OptimizerHook, build_optimizer,
+                          build_runner, get_dist_info)
+@@ -67,22 +67,22 @@ def custom_train_detector(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+         if eval_model is not None:
+-            eval_model = MMDistributedDataParallel(
++            eval_model = NPUDistributedDataParallel(
+                 eval_model.cuda(),
+                 device_ids=[torch.cuda.current_device()],
+                 broadcast_buffers=False,
+                 find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+         if eval_model is not None:
+-            eval_model = MMDataParallel(
++            eval_model = NPUDataParallel(
+                 eval_model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+ 
+diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/motion_head.py b/projects/mmdet3d_plugin/uniad/dense_heads/motion_head.py
+index dd3612a..7215ab8 100644
+--- a/projects/mmdet3d_plugin/uniad/dense_heads/motion_head.py
++++ b/projects/mmdet3d_plugin/uniad/dense_heads/motion_head.py
+@@ -467,6 +467,7 @@ class MotionHead(BaseMotionHead):
+         gt_fut_traj_mask_all = []
+         for i in range(num_imgs):
+             matched_gt_idx = all_matched_idxes[i]
++            matched_gt_idx = matched_gt_idx.detach().cpu()
+             valid_traj_masks = matched_gt_idx >= 0
+             matched_gt_fut_traj = gt_fut_traj[i][matched_gt_idx][valid_traj_masks]
+             matched_gt_fut_traj_mask = gt_fut_traj_mask[i][matched_gt_idx][valid_traj_masks]
+diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/motion_head_plugin/motion_deformable_attn.py b/projects/mmdet3d_plugin/uniad/dense_heads/motion_head_plugin/motion_deformable_attn.py
+index 9aaee7e..45e8dae 100644
+--- a/projects/mmdet3d_plugin/uniad/dense_heads/motion_head_plugin/motion_deformable_attn.py
++++ b/projects/mmdet3d_plugin/uniad/dense_heads/motion_head_plugin/motion_deformable_attn.py
+@@ -19,6 +19,7 @@ from mmcv.cnn.bricks.drop import build_dropout
+ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+ from mmcv.utils import ConfigDict, deprecated_api_warning
+ from projects.mmdet3d_plugin.uniad.modules.multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32
++import mx_driving.fused
+ 
+ 
+ @TRANSFORMER_LAYER.register_module()
+@@ -453,14 +454,8 @@ class MotionDeformableAttention(BaseModule):
+                 f' 2 or 4, but get {reference_trajs.shape[-1]} instead.')
+         if torch.cuda.is_available() and value.is_cuda:
+ 
+-            # using fp16 deformable attention is unstable because it performs many sum operations
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++                                                                         sampling_locations, attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/occ_head_plugin/metrics.py b/projects/mmdet3d_plugin/uniad/dense_heads/occ_head_plugin/metrics.py
+index aa61597..ae762f8 100644
+--- a/projects/mmdet3d_plugin/uniad/dense_heads/occ_head_plugin/metrics.py
++++ b/projects/mmdet3d_plugin/uniad/dense_heads/occ_head_plugin/metrics.py
+@@ -21,7 +21,7 @@ class IntersectionOverUnion(Metric):
+         reduction: str = 'none',
+         compute_on_step: bool = False,
+     ):
+-        super().__init__(compute_on_step=compute_on_step)
++        super().__init__()
+ 
+         self.n_classes = n_classes
+         self.ignore_index = ignore_index
+diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py b/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
+index fdcf079..b539347 100644
+--- a/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
++++ b/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
+@@ -108,7 +108,15 @@ class PlanningMetric(Metric):
+             m1 = torch.logical_and(m1, torch.logical_not(gt_box_coll))
+ 
+             ti = torch.arange(n_future)
++            
++            yi = yi.detach().cpu()
++            xi = xi.detach().cpu()
++            m1 = m1.detach().cpu()
++
+             obj_coll_sum[ti[m1]] += segmentation[i, ti[m1], yi[m1], xi[m1]].long()
++            
++            m2 = torch.logical_not(gt_box_coll)
++            m2 = m2.detach().cpu()
+ 
+             m2 = torch.logical_not(gt_box_coll)
+             box_coll = self.evaluate_single_coll(trajs[i], segmentation[i])
+diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py b/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py
+index ebfd3b8..a7ee677 100644
+--- a/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py
++++ b/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py
+@@ -291,6 +291,9 @@ class HungarianAssigner_filter(BaseAssigner):
+             assigned_labels[matched_row_inds] = gt_labels[matched_col_inds]
+             if i == 0:
+                 result = AssignResult(num_gts, assigned_gt_inds.clone(), None, labels=assigned_labels.clone())
++                
++            matched_row_inds = matched_row_inds.detach().cpu()
++            matched_col_inds = matched_col_inds.detach().cpu()
+             if cost[matched_row_inds,matched_col_inds].max()>=INF:
+                 break
+         pos_ind = assigned_gt_inds.gt(0).nonzero().squeeze(1)
+diff --git a/projects/mmdet3d_plugin/uniad/detectors/uniad_e2e.py b/projects/mmdet3d_plugin/uniad/detectors/uniad_e2e.py
+index 78a4a87..d87eb85 100644
+--- a/projects/mmdet3d_plugin/uniad/detectors/uniad_e2e.py
++++ b/projects/mmdet3d_plugin/uniad/detectors/uniad_e2e.py
+@@ -224,6 +224,7 @@ class UniAD(UniADTrack):
+             losses.update(losses_planning)
+         
+         for k,v in losses.items():
++            v = v.float()
+             losses[k] = torch.nan_to_num(v)
+         return losses
+     
+diff --git a/projects/mmdet3d_plugin/uniad/modules/decoder.py b/projects/mmdet3d_plugin/uniad/modules/decoder.py
+index 33024f8..b18d4f1 100644
+--- a/projects/mmdet3d_plugin/uniad/modules/decoder.py
++++ b/projects/mmdet3d_plugin/uniad/modules/decoder.py
+@@ -26,6 +26,7 @@ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
+ from mmcv.utils import ext_loader
+ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
+     MultiScaleDeformableAttnFunction_fp16
++import mx_driving.fused
+ 
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+@@ -324,14 +325,8 @@ class CustomMSDeformableAttention(BaseModule):
+                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
+         if torch.cuda.is_available() and value.is_cuda:
+ 
+-            # using fp16 deformable attention is unstable because it performs many sum operations
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++                                                                         sampling_locations, attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/projects/mmdet3d_plugin/uniad/modules/encoder.py b/projects/mmdet3d_plugin/uniad/modules/encoder.py
+index 6875233..5e84f20 100644
+--- a/projects/mmdet3d_plugin/uniad/modules/encoder.py
++++ b/projects/mmdet3d_plugin/uniad/modules/encoder.py
+@@ -117,8 +117,8 @@ class BEVFormerEncoder(TransformerLayerSequence):
+         lidar2img = lidar2img.view(
+             1, B, num_cam, 1, 4, 4).repeat(D, 1, 1, num_query, 1, 1)
+ 
+-        reference_points_cam = torch.matmul(lidar2img.to(torch.float32),
+-                                            reference_points.to(torch.float32)).squeeze(-1)
++        reference_points_cam = torch.mul(lidar2img.to(torch.float32),
++                                         reference_points.to(torch.float32).transpose(-1, -2)).sum(-1, keepdim=True).squeeze(-1)
+         eps = 1e-5
+ 
+         bev_mask = (reference_points_cam[..., 2:3] > eps)
+diff --git a/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py b/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
+index 77dfa91..584d0eb 100644
+--- a/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
++++ b/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
+@@ -23,6 +23,8 @@ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+ from mmcv.utils import ext_loader
+ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
+     MultiScaleDeformableAttnFunction_fp16
++import mx_driving.fused
++
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+ 
+@@ -382,13 +384,8 @@ class MSDeformableAttention3D(BaseModule):
+         #
+ 
+         if torch.cuda.is_available() and value.is_cuda:
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++                                                                         sampling_locations, attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/projects/mmdet3d_plugin/uniad/modules/temporal_self_attention.py b/projects/mmdet3d_plugin/uniad/modules/temporal_self_attention.py
+index f846b4b..5f65b63 100644
+--- a/projects/mmdet3d_plugin/uniad/modules/temporal_self_attention.py
++++ b/projects/mmdet3d_plugin/uniad/modules/temporal_self_attention.py
+@@ -17,6 +17,8 @@ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
+                         to_2tuple)
+ 
+ from mmcv.utils import ext_loader
++import mx_driving.fused
++
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+ 
+@@ -236,14 +238,8 @@ class TemporalSelfAttention(BaseModule):
+                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
+         if torch.cuda.is_available() and value.is_cuda:
+ 
+-            # using fp16 deformable attention is unstable because it performs many sum operations
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++                                                                         sampling_locations, attention_weights)
+         else:
+ 
+             output = multi_scale_deformable_attn_pytorch(
+diff --git a/projects/mmdet3d_plugin/uniad/modules/transformer.py b/projects/mmdet3d_plugin/uniad/modules/transformer.py
+index bb5fae8..adaf13e 100644
+--- a/projects/mmdet3d_plugin/uniad/modules/transformer.py
++++ b/projects/mmdet3d_plugin/uniad/modules/transformer.py
+@@ -14,7 +14,7 @@ from mmcv.runner.base_module import BaseModule
+ from mmdet.models.utils.builder import TRANSFORMER
+ from torch.nn.init import normal_
+ from mmcv.runner.base_module import BaseModule
+-from torchvision.transforms.functional import rotate
++from torchvision.transforms.functional import InterpolationMode, rotate
+ from .temporal_self_attention import TemporalSelfAttention
+ from .spatial_cross_attention import MSDeformableAttention3D
+ from .decoder import CustomMSDeformableAttention
+@@ -142,7 +142,7 @@ class PerceptionTransformer(BaseModule):
+                     rotation_angle = img_metas[i]['can_bus'][-1]
+                     tmp_prev_bev = prev_bev[:, i].reshape(
+                         bev_h, bev_w, -1).permute(2, 0, 1)
+-                    tmp_prev_bev = rotate(tmp_prev_bev, rotation_angle,
++                    tmp_prev_bev = rotate(tmp_prev_bev, rotation_angle, InterpolationMode.BILINEAR,
+                                           center=self.rotate_center)
+                     tmp_prev_bev = tmp_prev_bev.permute(1, 2, 0).reshape(
+                         bev_h * bev_w, 1, -1)
+diff --git a/requirements.txt b/requirements.txt
+index a005cc2..ed23bf6 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,6 +1,8 @@
++mmdet==2.28.0
++mmsegmentation==0.30.0
+ google-cloud-bigquery
+ motmetrics==1.1.3
+ einops==0.4.1
+-numpy==1.20.0
++numpy==1.23.0
+ casadi==3.5.5
+ pytorch-lightning==1.2.5
+\ No newline at end of file
+diff --git a/tools/test.py b/tools/test.py
+index d4bf51d..e83fec3 100755
+--- a/tools/test.py
++++ b/tools/test.py
+@@ -7,7 +7,7 @@ import os
+ import warnings
+ from mmcv import Config, DictAction
+ from mmcv.cnn import fuse_conv_bn
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
+                          wrap_fp16_model)
+ 
+@@ -224,7 +224,7 @@ def main():
+         # model = MMDataParallel(model, device_ids=[0])
+         # outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+     else:
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False)
+diff --git a/tools/train.py b/tools/train.py
+index f240c5a..24fe7da 100755
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -9,6 +9,7 @@ import copy
+ import os
+ import time
+ import warnings
++from mx_driving.patcher import default_patcher_builder
+ from mmcv import Config, DictAction
+ from mmcv.runner import get_dist_info, init_dist
+ from os import path as osp
+@@ -26,6 +27,10 @@ warnings.filterwarnings("ignore")
+ 
+ from mmcv.utils import TORCH_VERSION, digit_version
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
++torch.npu.config.allow_internal_format = False
+ 
+ def parse_args():
+     parser = argparse.ArgumentParser(description='Train a detector')
+@@ -253,4 +258,5 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    with default_patcher_builder.disable_patches("index").build():
++        main()
+diff --git a/tools/uniad_dist_train.sh b/tools/uniad_dist_train.sh
+index 2febf37..9a4431b 100755
+--- a/tools/uniad_dist_train.sh
++++ b/tools/uniad_dist_train.sh
+@@ -22,7 +22,7 @@ if [ ! -d ${WORK_DIR}logs ]; then
+ fi
+ 
+ PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
+-python -m torch.distributed.launch \
++torchrun \
+     --nproc_per_node=${GPUS_PER_NODE} \
+     --master_addr=${MASTER_ADDR} \
+     --master_port=${MASTER_PORT} \

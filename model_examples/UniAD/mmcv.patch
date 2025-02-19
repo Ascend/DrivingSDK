@@ -1,0 +1,100 @@
+diff --git a/mmcv/runner/hooks/optimizer.py b/mmcv/runner/hooks/optimizer.py
+index 93015475..8bd1722f 100644
+--- a/mmcv/runner/hooks/optimizer.py
++++ b/mmcv/runner/hooks/optimizer.py
+@@ -1,4 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
+ import copy
+ import logging
+ from collections import defaultdict
+@@ -52,11 +53,11 @@ class OptimizerHook(Hook):
+         self.grad_clip = grad_clip
+         self.detect_anomalous_params = detect_anomalous_params
+ 
+-    def clip_grads(self, params):
++    def clip_grads(self, params, runner):
+         params = list(
+             filter(lambda p: p.requires_grad and p.grad is not None, params))
+         if len(params) > 0:
+-            return clip_grad.clip_grad_norm_(params, **self.grad_clip)
++            return runner.optimizer.clip_grad_norm_fused_(**self.grad_clip)
+ 
+     def after_train_iter(self, runner):
+         runner.optimizer.zero_grad()
+@@ -65,7 +66,7 @@ class OptimizerHook(Hook):
+         runner.outputs['loss'].backward()
+ 
+         if self.grad_clip is not None:
+-            grad_norm = self.clip_grads(runner.model.parameters())
++            grad_norm = self.clip_grads(runner.model.parameters(), runner)
+             if grad_norm is not None:
+                 # Add grad norm to the logger
+                 runner.log_buffer.update({'grad_norm': float(grad_norm)},
+@@ -182,7 +183,7 @@ class GradientCumulativeOptimizerHook(OptimizerHook):
+                 or self.is_last_iter(runner)):
+ 
+             if self.grad_clip is not None:
+-                grad_norm = self.clip_grads(runner.model.parameters())
++                grad_norm = self.clip_grads(runner.model.parameters(), runner)
+                 if grad_norm is not None:
+                     # Add grad norm to the logger
+                     runner.log_buffer.update({'grad_norm': float(grad_norm)},
+@@ -291,7 +292,7 @@ if (TORCH_VERSION != 'parrots'
+             self.loss_scaler.unscale_(runner.optimizer)
+             # grad clip
+             if self.grad_clip is not None:
+-                grad_norm = self.clip_grads(runner.model.parameters())
++                grad_norm = self.clip_grads(runner.model.parameters(), runner)
+                 if grad_norm is not None:
+                     # Add grad norm to the logger
+                     runner.log_buffer.update({'grad_norm': float(grad_norm)},
+@@ -331,7 +332,7 @@ if (TORCH_VERSION != 'parrots'
+                 self.loss_scaler.unscale_(runner.optimizer)
+ 
+                 if self.grad_clip is not None:
+-                    grad_norm = self.clip_grads(runner.model.parameters())
++                    grad_norm = self.clip_grads(runner.model.parameters(), runner)
+                     if grad_norm is not None:
+                         # Add grad norm to the logger
+                         runner.log_buffer.update(
+@@ -477,7 +478,7 @@ else:
+                     if param.grad is not None:
+                         param.grad.div_(self.loss_scaler.loss_scale)
+                 if self.grad_clip is not None:
+-                    grad_norm = self.clip_grads(fp32_weights)
++                    grad_norm = self.clip_grads(fp32_weights, runner)
+                     if grad_norm is not None:
+                         # Add grad norm to the logger
+                         runner.log_buffer.update(
+@@ -534,7 +535,7 @@ else:
+                         if param.grad is not None:
+                             param.grad.div_(self.loss_scaler.loss_scale)
+                     if self.grad_clip is not None:
+-                        grad_norm = self.clip_grads(fp32_weights)
++                        grad_norm = self.clip_grads(fp32_weights, runner)
+                         if grad_norm is not None:
+                             # Add grad norm to the logger
+                             runner.log_buffer.update(
+@@ -557,4 +558,4 @@ else:
+ 
+                 # clear grads
+                 runner.model.zero_grad()
+-                runner.optimizer.zero_grad()
++                runner.optimizer.zero_grad()
+\ No newline at end of file
+diff --git a/requirements/runtime.txt b/requirements/runtime.txt
+index 66e90d67..ac9275d1 100644
+--- a/requirements/runtime.txt
++++ b/requirements/runtime.txt
+@@ -1,7 +1,7 @@
+ addict
+-numpy
++numpy==1.22.0
+ packaging
+ Pillow
+ pyyaml
+ regex;sys_platform=='win32'
+-yapf
++yapf
+\ No newline at end of file

@@ -1,0 +1,70 @@
+diff --git a/mmdet3d/__init__.py b/mmdet3d/__init__.py
+index 643c39c9..867b5d98 100644
+--- a/mmdet3d/__init__.py
++++ b/mmdet3d/__init__.py
+@@ -1,4 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
+ import mmcv
+ 
+ import mmdet
+@@ -19,7 +20,7 @@ def digit_version(version_str):
+ 
+ 
+ mmcv_minimum_version = '1.5.2'
+-mmcv_maximum_version = '1.7.0'
++mmcv_maximum_version = '1.8.0'
+ mmcv_version = digit_version(mmcv.__version__)
+ 
+ 
+@@ -46,4 +47,4 @@ assert (mmseg_version >= digit_version(mmseg_minimum_version)
+     f'Please install mmseg>={mmseg_minimum_version}, ' \
+     f'<={mmseg_maximum_version}.'
+ 
+-__all__ = ['__version__', 'short_version']
++__all__ = ['__version__', 'short_version']
+\ No newline at end of file
+diff --git a/mmdet3d/datasets/custom_3d.py b/mmdet3d/datasets/custom_3d.py
+index 9c6e3517..cc66c424 100644
+--- a/mmdet3d/datasets/custom_3d.py
++++ b/mmdet3d/datasets/custom_3d.py
+@@ -1,4 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
+ import tempfile
+ import warnings
+ from os import path as osp
+@@ -85,7 +86,7 @@ class Custom3DDataset(Dataset):
+         # load annotations
+         if hasattr(self.file_client, 'get_local_path'):
+             with self.file_client.get_local_path(self.ann_file) as local_path:
+-                self.data_infos = self.load_annotations(open(local_path, 'rb'))
++                self.data_infos = self.load_annotations(local_path)
+         else:
+             warnings.warn(
+                 'The used MMCV version does not have get_local_path. '
+@@ -445,4 +446,4 @@ class Custom3DDataset(Dataset):
+         otherwise group 0. In 3D datasets, they are all the same, thus are all
+         zeros.
+         """
+-        self.flag = np.zeros(len(self), dtype=np.uint8)
++        self.flag = np.zeros(len(self), dtype=np.uint8)
+\ No newline at end of file
+diff --git a/requirements/runtime.txt b/requirements/runtime.txt
+index 643cb0cd..d63a41fe 100644
+--- a/requirements/runtime.txt
++++ b/requirements/runtime.txt
+@@ -1,10 +1,9 @@
+ lyft_dataset_sdk
+ networkx>=2.2,<2.3
+-numba==0.53.0
+-numpy
++numpy==1.22.0
+ nuscenes-devkit
+ plyfile
+ scikit-image
+ # by default we also use tensorboard to log results
+ tensorboard
+-trimesh>=2.35.39,<2.35.40
++trimesh>=2.35.39,<2.35.40
+\ No newline at end of file
