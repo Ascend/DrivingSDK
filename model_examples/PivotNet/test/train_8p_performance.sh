@@ -56,6 +56,15 @@ CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'performance'
 
 #关键信息打印到${CaseName}.log中，不需要修改
 echo "------------------ Final result ------------------"
+echo "Network: ${Network}"
+echo "RankSize: ${WORLD_SIZE}"
+echo "BatchSize: ${BatchSize}"
+echo "DeviceType: ${DeviceType}"
+echo "CaseName: ${CaseName}"
+echo "E2E Training Duration sec: ${e2e_time}"
+echo "Final Performance sec/iter: ${avg_time}"
+echo "ActualFPS: ${ActualFPS}"
+
 echo "Network: ${Network}" >>${test_path_dir}/output/${CaseName}.log
 echo "RankSize: ${WORLD_SIZE}" >>${test_path_dir}/output/${CaseName}.log
 echo "BatchSize: ${BatchSize}" >>${test_path_dir}/output/${CaseName}.log

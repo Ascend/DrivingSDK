@@ -50,14 +50,21 @@ BatchSize=${batch_size}
 WORLD_SIZE=${world_size}
 DeviceType=$(uname -m)
 CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'performance'
+# 读取文件的最后部分
+last_part=$(grep -A 20 "AP-Performance" train_full_8p.log | tail -n 12)
 
 #关键信息打印到${CaseName}.log中，不需要修改
 echo "------------------ Final result ------------------"
+echo "Network: ${Network}"
+echo "RankSize: ${WORLD_SIZE}"
+echo "BatchSize: ${BatchSize}"
+echo "DeviceType: ${DeviceType}"
+echo "CaseName: ${CaseName}"
+echo "AP-Performance: ${last_part}"
+
 echo "Network: ${Network}" >>${test_path_dir}/output/${CaseName}.log
 echo "RankSize: ${WORLD_SIZE}" >>${test_path_dir}/output/${CaseName}.log
 echo "BatchSize: ${BatchSize}" >>${test_path_dir}/output/${CaseName}.log
 echo "DeviceType: ${DeviceType}" >>${test_path_dir}/output/${CaseName}.log
 echo "CaseName: ${CaseName}" >>${test_path_dir}/output/${CaseName}.log
-# 读取文件的最后部分
-last_part=$(grep -A 20 "AP-Performance" train_full_8p.log | tail -n 12)
 echo "AP-Performance: ${last_part}" >>${test_path_dir}/output/${CaseName}.log
