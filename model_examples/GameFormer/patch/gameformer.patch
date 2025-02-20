@@ -75,7 +75,7 @@ index c2d7f0d..5723bbf 100644
 +                f"{avg_train_time:>.5f}s/sample"
                  )
 +    if len(avg_train_times) != 0: 
-+        model_performance = 1 / np.mean(avg_train_times[-50:])
++        model_performance = np.mean(avg_train_times[-50:]) * args.batch_size
 +    else:
 +        model_performance = None
      
@@ -154,7 +154,7 @@ index c2d7f0d..5723bbf 100644
  
          log.update(valid_metrics)
 +        if dist.get_rank() == 0:
-+            logging.info(f"Model Performace (FPS): {model_performance}")
++            logging.info(f"Model Performace (Seconds/Step): {model_performance}")
 +            logging.info(f"Model Metric (ADE): {model_metric}")
  
          if dist.get_rank() == 0:
