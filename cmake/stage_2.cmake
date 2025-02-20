@@ -29,8 +29,12 @@ if(${COMPILE_WITH_XLA})
 endif()
 target_include_directories(
   _C
-  PRIVATE ${Python3_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include
-          ${TORCH_NPU_PATH}/include ${TORCH_PATH}/include
+  PRIVATE ${Python3_INCLUDE_DIRS} 
+          ${CMAKE_CURRENT_SOURCE_DIR}/include
+          ${TORCH_NPU_PATH}/include 
+          ${TORCH_NPU_PATH}/include/third_party/hccl/inc
+          ${TORCH_NPU_PATH}/include/third_party/acl/inc
+          ${TORCH_PATH}/include
           ${TORCH_PATH}/include/torch/csrc/api/include)
 target_compile_options(
   _C
