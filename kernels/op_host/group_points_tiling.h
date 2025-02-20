@@ -9,16 +9,21 @@
 namespace optiling {
 BEGIN_TILING_DATA_DEF(GroupPointsTilingData)
 
-TILING_DATA_FIELD_DEF(uint32_t, b);
-TILING_DATA_FIELD_DEF(uint32_t, c);
-TILING_DATA_FIELD_DEF(uint32_t, n);
+TILING_DATA_FIELD_DEF(uint32_t, batchSize);
+TILING_DATA_FIELD_DEF(uint32_t, cSize);
+TILING_DATA_FIELD_DEF(uint32_t, nSize);
 TILING_DATA_FIELD_DEF(uint32_t, npoints);
 TILING_DATA_FIELD_DEF(uint32_t, nsample);
 TILING_DATA_FIELD_DEF(uint32_t, cAligned);
-TILING_DATA_FIELD_DEF(uint32_t, indicesAligned);
-TILING_DATA_FIELD_DEF(uint32_t, average);
-TILING_DATA_FIELD_DEF(uint32_t, taskLast);
-TILING_DATA_FIELD_DEF(uint32_t, usedCoreNum);
+TILING_DATA_FIELD_DEF(uint32_t, maxUbTaskNum);
+TILING_DATA_FIELD_DEF(uint32_t, coreTaskNum);
+TILING_DATA_FIELD_DEF(uint32_t, lastCoreTaskNum);
+TILING_DATA_FIELD_DEF(uint32_t, mainCoreLoop);
+TILING_DATA_FIELD_DEF(uint32_t, mainCoreTail);
+TILING_DATA_FIELD_DEF(uint32_t, lastCoreLoop);
+TILING_DATA_FIELD_DEF(uint32_t, lastCoreTail);
+TILING_DATA_FIELD_DEF(uint32_t, lastCoreTailAligned);
+TILING_DATA_FIELD_DEF(uint32_t, useCoreNum);
 
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(GroupPoints, GroupPointsTilingData)

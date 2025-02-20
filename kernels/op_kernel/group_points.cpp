@@ -11,88 +11,111 @@ constexpr uint32_t BUFFER_NUM = 2;
 class KernelGroupPoints {
 public:
     __aicore__ inline KernelGroupPoints() {}
-    __aicore__ inline void Init(GM_ADDR points, GM_ADDR indices, GM_ADDR out, const GroupPointsTilingData* tiling_data)
+    __aicore__ inline void Init(GM_ADDR points, GM_ADDR indices, GM_ADDR out, const GroupPointsTilingData *tiling_data)
     {
-        b = tiling_data->b;
-        c = tiling_data->c;
-        n = tiling_data->n;
-        npoints = tiling_data->npoints;
-        nsample = tiling_data->nsample;
+        uint32_t batchSize_ = tiling_data->batchSize;
+        cSize_ = tiling_data->cSize;
+        nSize_ = tiling_data->nSize;
+        npoints_ = tiling_data->npoints;
+        nsample_ = tiling_data->nsample;
         cAligned = tiling_data->cAligned;
-        indicesAligned = tiling_data->indicesAligned;
-        average = tiling_data->average;
-        taskLast = tiling_data->taskLast;
-        usedCoreNum = tiling_data->usedCoreNum;
+        maxUbTaskNum = tiling_data->maxUbTaskNum;
+        coreTaskNum = tiling_data->coreTaskNum;
+        uint32_t lastCoreTaskNum = tiling_data->lastCoreTaskNum;
+        mainCoreLoop = tiling_data->mainCoreLoop;
+        mainCoreTail = tiling_data->mainCoreTail;
+        lastCoreLoop = tiling_data->lastCoreLoop;
+        lastCoreTail = tiling_data->lastCoreTail;
+        lastCoreTailAligned = tiling_data->lastCoreTailAligned;
+        useCoreNum = tiling_data->useCoreNum;
+        
+        uint64_t inputLength = static_cast<uint64_t>(batchSize_) * nSize_ * cSize_;
+        uint64_t indicesLength = static_cast<uint64_t>(batchSize_) * npoints_ * nsample_;
+        uint64_t outLength = indicesLength * cSize_;
 
-        ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
-
-        pointsLength = static_cast<uint64_t>(b) * n * c;
-        indicesLength = static_cast<uint64_t>(b) * npoints * nsample;
-        outLength = static_cast<uint64_t>(b) * npoints * nsample * c;
-
-        pointsGm.SetGlobalBuffer((__gm__ DTYPE_POINTS*)points, pointsLength);
+        inputGm.SetGlobalBuffer((__gm__ DTYPE_POINTS*)points, inputLength);
         indicesGm.SetGlobalBuffer((__gm__ DTYPE_INDICES*)indices, indicesLength);
         outGm.SetGlobalBuffer((__gm__ DTYPE_OUT*)out, outLength);
 
-        pipe.InitBuffer(pointsBuffer, cAligned * sizeof(DTYPE_POINTS));
-        pipe.InitBuffer(indicesBuffer, indicesAligned * sizeof(DTYPE_INDICES));
+        pipe.InitBuffer(inputBuffer, maxUbTaskNum * cAligned * sizeof(DTYPE_POINTS));
+        pipe.InitBuffer(indicesBuffer, maxUbTaskNum * sizeof(DTYPE_INDICES));
+
+        eventIDMTE2ToMTE3 = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::MTE2_MTE3));
+        eventIDMTE3ToMTE2 = static_cast<int32_t>(GetTPipePtr()->FetchEventID(AscendC::HardEvent::MTE3_MTE2));
     }
 
     __aicore__ inline void Process()
     {
-        uint64_t tmp = average;
-        uint64_t offset = tmp * GetBlockIdx() + taskLast;
-        if (GetBlockIdx() < taskLast) {
-            tmp = tmp + 1;
-            offset = tmp * GetBlockIdx();
+        uint32_t blockIdx = GetBlockIdx();
+        if (blockIdx > useCoreNum) {
+            return;
         }
-        for (uint64_t i = 0; i < tmp; i++) {
-            CopyInAndCopyOut(i, offset);
+
+        uint64_t taskOffset = blockIdx * coreTaskNum;
+        uint32_t loopCount = mainCoreLoop;
+        uint32_t tailTaskNum = mainCoreTail;
+        uint32_t tailTaskAligned = mainCoreTail; // have been set 64-aligned while mainCore
+        if (blockIdx == useCoreNum - 1) {
+            loopCount = lastCoreLoop;
+            tailTaskNum = lastCoreTail;
+            tailTaskAligned = lastCoreTailAligned;
+        }
+
+        for (int32_t i = 0; i < loopCount; i++) {
+            CopyInAndCopyOut(taskOffset, maxUbTaskNum, maxUbTaskNum);
+            taskOffset += maxUbTaskNum;
+        }
+        if (tailTaskNum != 0) {
+            CopyInAndCopyOut(taskOffset, tailTaskNum, tailTaskAligned);
         }
     }
 
 private:
-    __aicore__ inline void CopyInAndCopyOut(uint64_t progress, uint64_t offset)
+    __aicore__ inline void CopyInAndCopyOut(uint64_t taskOffset, uint32_t taskNum, uint32_t taskAligned)
     {
-        LocalTensor<DTYPE_POINTS> points_local = pointsBuffer.Get<DTYPE_POINTS>();
+        LocalTensor<DTYPE_POINTS> input_local = inputBuffer.Get<DTYPE_POINTS>();
         LocalTensor<DTYPE_INDICES> indices_local = indicesBuffer.Get<DTYPE_INDICES>();
-        pipe_barrier(PIPE_ALL);
-        DataCopy(indices_local, indicesGm[offset + progress], indicesAligned);
-        
-        uint32_t b_idx = (offset + progress) / (npoints * nsample);
-        uint32_t idx = indices_local.GetValue(0);
-        uint64_t src_idx = b_idx * n * c + idx * c;
-        uint64_t dst_idx = (offset + progress) * c;
-        pipe_barrier(PIPE_ALL);
-        DataCopy(points_local, pointsGm[src_idx], cAligned);
-        set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
 
-        DataCopyExtParams outCopyParams {1, static_cast<uint32_t>(c * sizeof(DTYPE_POINTS)), 0, 0, 0};
-        DataCopyPad(outGm[dst_idx], points_local, outCopyParams);
+        DataCopy(indices_local, indicesGm[taskOffset], taskAligned);
+        SetFlag<HardEvent::MTE3_MTE2>(eventIDMTE3ToMTE2);
+        WaitFlag<HardEvent::MTE3_MTE2>(eventIDMTE3ToMTE2);
+        
+        for (int32_t i = 0; i < taskNum; i++) {
+            uint32_t idx = indices_local.GetValue(i);
+            uint32_t b_idx = (taskOffset + i) / npoints_ / nsample_;
+            uint64_t src_idx = b_idx * nSize_ * cSize_ + idx * cSize_;
+            DataCopy(input_local[i * cAligned], inputGm[src_idx], cAligned);
+        }
+        SetFlag<HardEvent::MTE2_MTE3>(eventIDMTE2ToMTE3);
+        WaitFlag<HardEvent::MTE2_MTE3>(eventIDMTE2ToMTE3);
+
+        DataCopyExtParams outCopyParams {static_cast<uint16_t>(taskNum), static_cast<uint32_t>(cSize_ * sizeof(DTYPE_POINTS)), 0, 0, 0};
+        DataCopyPad(outGm[taskOffset * cSize_], input_local, outCopyParams);
     }
 
 private:
     TPipe pipe;
-    TBuf<TPosition::VECCALC> indicesBuffer, pointsBuffer;
-    GlobalTensor<DTYPE_POINTS> pointsGm;
+    TBuf<TPosition::VECCALC> indicesBuffer, inputBuffer;
+    GlobalTensor<DTYPE_POINTS> inputGm;
     GlobalTensor<DTYPE_INDICES> indicesGm;
     GlobalTensor<DTYPE_OUT> outGm;
 
-    uint64_t pointsLength;
-    uint64_t indicesLength;
-    uint64_t outLength;
-    uint32_t b;
-    uint32_t c;
-    uint32_t n;
-    uint32_t npoints;
-    uint32_t nsample;
+    uint32_t cSize_;
+    uint32_t nSize_;
+    uint32_t npoints_;
+    uint32_t nsample_;
     uint32_t cAligned;
-    uint32_t indicesAligned;
-    uint32_t average;
-    uint32_t taskLast;
-    uint32_t usedCoreNum;
-    DataCopyExtParams outCopyParams;
+    uint32_t maxUbTaskNum;
+    uint32_t coreTaskNum;
+    uint32_t mainCoreLoop;
+    uint32_t mainCoreTail;
+    uint32_t lastCoreLoop;
+    uint32_t lastCoreTail;
+    uint32_t lastCoreTailAligned;
+    uint32_t useCoreNum;
+
+    uint8_t eventIDMTE2ToMTE3;
+    uint8_t eventIDMTE3ToMTE2;
 };
 
 extern "C" __global__ __aicore__ void group_points(GM_ADDR points, GM_ADDR indices, GM_ADDR out, GM_ADDR workspace, GM_ADDR tiling)

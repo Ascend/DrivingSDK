@@ -77,7 +77,7 @@ static ge::graphStatus TilingForDeformableAggregation(gert::TilingContext* conte
     auto numGroups = getAttr(GROUPS_IDX);
 
     uint32_t alignNum = BYTE_BLOCK / SIZE_OF_FP32;
-    uint32_t cAligned = ceil_value(static_cast<uint32_t>(numEmbeds), alignNum);
+    uint32_t cAligned = CeilAlign(static_cast<uint32_t>(numEmbeds), alignNum);
 
     context->SetBlockDim(coreNum);
 

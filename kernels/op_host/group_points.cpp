@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "common.h"
 #include "group_points_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -22,7 +23,11 @@ constexpr uint32_t SINGLE_INDICES = 1;
 constexpr uint32_t BLOCK_SIZE = 32;
 constexpr uint32_t SIZE_OF_FP16 = 2;
 constexpr uint32_t SIZE_OF_FP32 = 4;
+constexpr uint32_t SIZE_OF_INT32 = 4;
 constexpr uint32_t BLOCK_INT32 = BLOCK_SIZE / SIZE_OF_FP32;
+constexpr uint32_t MIN_CORE_TASK = 64;
+constexpr uint32_t UB_TASK_BLOCK = BLOCK_SIZE / SIZE_OF_INT32;
+constexpr uint64_t RPC_WORKSIZE = 20 * 1024;
 
 constexpr size_t B_IDX = 0;
 constexpr size_t C_IDX = 1;
@@ -38,17 +43,26 @@ static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
-
+    // get platformInfo
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    static uint32_t core_num = ascendcPlatform.GetCoreNumAiv();
-    if (core_num == 0) {
+    auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfo);
+    auto inputInf = context->GetInputDesc(0);
+    if (inputInf == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
+    static uint32_t aivCoreNum = ascendplatformInfo.GetCoreNumAiv();
+    if (aivCoreNum == 0) {
+        return ge::GRAPH_FAILED;
+    }
+    uint64_t ubSize;
+    ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
+    uint64_t availableUbSize = ubSize - RPC_WORKSIZE;
+
+    // get attrs
     auto attrs = context->GetAttrs();
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
@@ -60,46 +74,59 @@ static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
         }
         return static_cast<int32_t>(*ptr);
     };
-    auto b = getAttr(B_IDX);
-    auto c = getAttr(C_IDX);
-    auto n = getAttr(N_IDX);
+    auto batchSize = getAttr(B_IDX);
+    auto cSize = getAttr(C_IDX);
+    auto nSize = getAttr(N_IDX);
     auto npoints = getAttr(NP_IDX);
     auto nsample = getAttr(NS_IDX);
+    auto dtype = inputInf->GetDataType();
+    uint32_t dtypeSize = (dtype == ge::DT_FLOAT) ? SIZE_OF_FP32 : SIZE_OF_FP16;
+    uint32_t elemAligned32B = BLOCK_SIZE / dtypeSize;
+    uint32_t totalTaskNum = batchSize * npoints * nsample;
 
-    auto inputInf = context->GetInputDesc(0);
-    if (inputInf == nullptr) {
+    uint32_t coreTaskNum = DivCeil(totalTaskNum, aivCoreNum);
+    coreTaskNum = CeilAlign(coreTaskNum, MIN_CORE_TASK);
+    if (coreTaskNum == 0) {
         return ge::GRAPH_FAILED;
     }
-    auto dtype = inputInf->GetDataType();
-    uint32_t alignNum = (dtype == ge::DT_FLOAT) ? BLOCK_SIZE / SIZE_OF_FP32 : BLOCK_SIZE / SIZE_OF_FP16;
-    uint32_t cAligned = (c + alignNum - 1) / alignNum * alignNum;
-    uint32_t indicesAligned = (SINGLE_INDICES + BLOCK_INT32 - 1) / BLOCK_INT32 * BLOCK_INT32;
-    uint32_t average = b * npoints * nsample / core_num;
-    uint32_t taskLast = b * npoints * nsample % core_num;
-    uint32_t usedCoreNum = core_num;
-    if (average == 0) {
-        usedCoreNum = taskLast;
-    }
+    uint32_t useCoreNum = DivCeil(totalTaskNum, coreTaskNum);
+    uint32_t lastCoreTaskNum = (totalTaskNum % coreTaskNum == 0) ? coreTaskNum : (totalTaskNum % coreTaskNum);
 
-    context->SetBlockDim(usedCoreNum);
-    tiling.set_b(b);
-    tiling.set_c(c);
-    tiling.set_n(n);
+    uint32_t cAligned = CeilAlign(static_cast<uint32_t>(cSize), elemAligned32B);
+    uint64_t singleTaskSize = cAligned * dtypeSize + SIZE_OF_INT32;
+    uint32_t maxUbTaskNum = FloorAlign(DivFloor(availableUbSize, singleTaskSize), static_cast<uint64_t>(UB_TASK_BLOCK));
+    if (maxUbTaskNum == 0) {
+        return ge::GRAPH_FAILED;
+    }
+    uint32_t lastCoreTailAligned = CeilAlign(lastCoreTaskNum % maxUbTaskNum, UB_TASK_BLOCK);
+
+    context->SetBlockDim(useCoreNum);
+    tiling.set_useCoreNum(useCoreNum);
+    tiling.set_batchSize(batchSize);
+    tiling.set_cSize(cSize);
+    tiling.set_nSize(nSize);
     tiling.set_npoints(npoints);
     tiling.set_nsample(nsample);
     tiling.set_cAligned(cAligned);
-    tiling.set_indicesAligned(indicesAligned);
-    tiling.set_average(average);
-    tiling.set_taskLast(taskLast);
-    tiling.set_usedCoreNum(usedCoreNum);
+    tiling.set_maxUbTaskNum(maxUbTaskNum);
+    tiling.set_coreTaskNum(coreTaskNum);
+    tiling.set_lastCoreTaskNum(lastCoreTaskNum);
+    tiling.set_mainCoreLoop(coreTaskNum / maxUbTaskNum);
+    tiling.set_mainCoreTail(coreTaskNum % maxUbTaskNum);
+    tiling.set_lastCoreLoop(lastCoreTaskNum / maxUbTaskNum);
+    tiling.set_lastCoreTail(lastCoreTaskNum % maxUbTaskNum);
+    tiling.set_lastCoreTailAligned(lastCoreTailAligned);
 
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
-
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    currentWorkspace[0] = 0;
     return ge::GRAPH_SUCCESS;
 }
 } // namespace optiling
@@ -119,16 +146,16 @@ static ge::graphStatus InferShapeForGroupPoints(gert::InferShapeContext* context
         }
         return static_cast<int32_t>(*ptr);
     };
-    auto b = getAttr(B_IDX);
+    auto batchSize = getAttr(B_IDX);
     auto npoints = getAttr(NP_IDX);
     auto nsample = getAttr(NS_IDX);
-    auto c = getAttr(C_IDX);
+    auto cSize = getAttr(C_IDX);
 
     gert::Shape* outShape = context->GetOutputShape(0);
     if (outShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    *outShape = {b * npoints * nsample, c};
+    *outShape = {batchSize * npoints * nsample, cSize};
     return GRAPH_SUCCESS;
 }
 

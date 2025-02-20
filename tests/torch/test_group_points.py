@@ -10,65 +10,60 @@ import mx_driving
 import mx_driving.point
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
-# 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+# pylint: disable=too-many-arguments,huawei-too-many-arguments
 @golden_data_cache(__file__)
 def cpu_gen_inputs(B, C, N, mean, std_dev, npoints, nsample, dtype):
-    np_points = np.random.normal(mean, std_dev, (B, C, N)).astype(dtype)
-    np_indices = np.random.randint(0, N, (B, npoints, nsample)).astype(np.int32)
-    np_out = np.zeros((B, C, npoints, nsample)).astype(dtype)
-
-    return np_points, np_indices, np_out
+    
+    torch_points = torch.normal(mean, std_dev, size=(B, C, N), dtype=dtype)
+    torch_indices = torch.randint(0, N, size=(B, npoints, nsample), dtype=torch.int32)
+    
+    return torch_points, torch_indices
 
 
 class TestGroupPoints(TestCase):
+    
     @golden_data_cache(__file__)
-    def cpu_group_points(self, points, indices, out):
+    def cpu_group_points(self, points, indices):
         
         B, npoints, nsample = indices.shape
-        features = points.transpose(0, 2, 1)
-        output = out.transpose(0, 2, 3, 1)
-        for b in range(B):
-            for np_ in range(npoints):
-                for ns in range(nsample):
-                    temp = features[b, indices[b, np_, ns], :]
-                    output[b, np_, ns, :] = temp
-        
-        output = output.transpose(0, 3, 1, 2)
+        features = points.transpose(1, 2)  # (B, N, C)
+
+        batch_indices = torch.arange(B, device=points.device).view(B, 1, 1).expand(-1, npoints, nsample)
+        output = features[batch_indices, indices, :]  # (B, npoints, nsample, C)
+        output = output.permute(0, 3, 1, 2)  # (B, npoints, nsample, C)
+    
         return output
 
-    @unittest.skipIf((DEVICE_NAME != 'Ascend910B'), "OP `GroupPoints` is only supported on 910B, skip this ut!")
     def test_group_points(self):
         
+        np.random.seed(1)
+        torch.manual_seed(1)
+        B_lists = [2, 173, 40, 173, 173]
+        C_lists = [3, 47, 16, 47, 147]
+        N_lists = [4, 9, 10, 20, 20]
+        np_lists = [3, 1, 8, 8, 17]
+        ns_lists = [4, 4, 8, 8, 19]
         dtype = [torch.float, torch.half]
-        astype = [np.float32, np.float16]
         
         for i in range(5):
             
-            np.random.seed(i)
-            B = np.random.randint(1, 500)
-            C = np.random.randint(1, 500)
-            N = np.random.randint(1, 500)
-            npoints = np.random.randint(1, 10)
-            nsample = np.random.randint(1, 10)
+            B, C, N, npoints, nsample = B_lists[i], C_lists[i], N_lists[i], np_lists[i], ns_lists[i]            
             mean = np.random.uniform(-100, 100)
             std_dev = np.random.uniform(0, 25)
 
             for j in range(2):
-                np_points, np_indices, np_out = cpu_gen_inputs(B, C, N, mean, std_dev, npoints, nsample, astype[j])
                 
-                th_points = torch.from_numpy(np_points).npu().to(dtype[j])
-                th_indices = torch.from_numpy(np_indices).int().npu()
+                th_points, th_indices = cpu_gen_inputs(B, C, N, mean, std_dev, npoints, nsample, dtype[j])
+                npu_points = th_points.npu()
+                npu_indices = th_indices.npu()
 
-                cpu_out = self.cpu_group_points(np_points, np_indices, np_out)
-                npu_out = mx_driving.point.npu_group_points(th_points, th_indices)
-                npu_out = mx_driving.point.group_points(th_points, th_indices)
-                out = mx_driving.group_points(th_points, th_indices)
+                cpu_out = self.cpu_group_points(th_points, th_indices)
+                npu_out = mx_driving.point.npu_group_points(npu_points, npu_indices)
+                npu_out = mx_driving.point.group_points(npu_points, npu_indices)
+                out = mx_driving.group_points(npu_points, npu_indices)
                 
-                self.assertRtolEqual(cpu_out, npu_out.cpu().numpy())
-                self.assertRtolEqual(cpu_out, out.cpu().numpy())
+                self.assertRtolEqual(cpu_out, npu_out.cpu())
+                self.assertRtolEqual(cpu_out, out.cpu())
 
 
 if __name__ == "__main__":

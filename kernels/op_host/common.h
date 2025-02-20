@@ -15,22 +15,46 @@ inline std::map<ge::DataType, uint64_t> kDataSizeMap = {
     {ge::DT_INT64, sizeof(int64_t)}
 };
 
+/**
+ * if b is 0, return a
+ */
 template<typename T>
-inline T ceil_multiple(T num, T block)
+inline T DivCeil(T a, T b)
 {
-    if (block == 0) {
+    if (b == 0) {
         return 0;
     }
-    return (num + block - 1) / block;
+    return (a + b - 1) / b;
 }
 
+/**
+ * if b is 0, return 0
+ */
 template<typename T>
-inline T ceil_value(T num, T block)
+inline T CeilAlign(T a, T b)
 {
-    if (block == 0) {
+    if (b == 0) {
         return 0;
     }
-    return ((num + block - 1) / block) * block;
+    return DivCeil(a, b) * b;
+}
+
+/**
+ * if b is 0, return a
+ */
+template<typename T>
+inline T DivFloor(T a, T b)
+{
+    return b == 0 ? a : a / b;
+}
+
+/**
+ * if b is 0, return 0
+ */
+template<typename T>
+inline T FloorAlign(T a, T b)
+{
+    return b == 0 ? 0 : a / b * b;
 }
 
 #endif // COMMON_H

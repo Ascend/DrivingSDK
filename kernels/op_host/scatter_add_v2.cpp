@@ -64,7 +64,7 @@ void ScatterAddTiling::ComputeTask(uint64_t ubOutNum, uint64_t outLineEachCore, 
         taskEachLineA = outLineEachCore;
         taskLastLineA = outLineEachCore;
     } else {
-        uint64_t taskNumTemp = ceil_multiple(outLineEachCore, ubOutNum);
+        uint64_t taskNumTemp = DivCeil(outLineEachCore, ubOutNum);
         taskNum = taskNumTemp;
         taskEachLineA = ubOutNum;
         taskLastLineA = outLineEachCore - ubOutNum * (taskNumTemp - 1);
@@ -129,12 +129,12 @@ ge::graphStatus ScatterAddTiling::ScatterAddNoTailTilingFunc(gert::TilingContext
             context->SetTilingKey(TILING_MODE_NO_TAIL_MULTIHEAD);
             ubOutNum = headNumEachTask * outNumEachHead;
             indicesDealNum = headNumEachTask * indicesEachHead;
-            taskNum = ceil_multiple(lineBigCore, headNumEachTask);
+            taskNum = DivCeil(lineBigCore, headNumEachTask);
             uint64_t headNumBigLast = lineBigCore - (taskNum - 1) * headNumEachTask;
             taskEachLine = headNumEachTask * outDimShape;
             taskLastLine = headNumBigLast * outDimShape;
 
-            taskNumLast = ceil_multiple(lineSmallCore, headNumEachTask);
+            taskNumLast = DivCeil(lineSmallCore, headNumEachTask);
             uint64_t headNumSmallLast = lineSmallCore - (taskNumLast - 1) * headNumEachTask;
             taskEachLineLast = taskEachLine;
             taskLastLineLast = headNumSmallLast * outDimShape;
@@ -153,8 +153,8 @@ ge::graphStatus ScatterAddTiling::ScatterAddNoTailTilingFunc(gert::TilingContext
         context->SetTilingKey(TILING_MODE_NO_TAIL);
         coreEachHead = std::min(coreNum / head, outDimShape);
         bigCoreNum = usedCoreNum;
-        outLineEachCore = ceil_multiple(outDimShape, coreEachHead);
-        coreEachHead = ceil_multiple(outDimShape, outLineEachCore);
+        outLineEachCore = DivCeil(outDimShape, coreEachHead);
+        coreEachHead = DivCeil(outDimShape, outLineEachCore);
         usedCoreNum = head * coreEachHead;
         outLineLastBigCore = outDimShape - outLineEachCore * (coreEachHead - 1);
         ComputeTask(ubOutNum, outLineEachCore, taskNum, taskEachLine, taskLastLine);
@@ -186,9 +186,9 @@ ge::graphStatus ScatterAddTiling::ScatterAddNormalTilingFunc(gert::TilingContext
 
     uint64_t dataLine = dimShape * head;
 
-    lineBigCore = ceil_multiple(dataLine, coreNum);
+    lineBigCore = DivCeil(dataLine, coreNum);
     lineSmallCore = lineBigCore - 1;
-    usedCoreNum = ceil_multiple(dataLine, lineBigCore);
+    usedCoreNum = DivCeil(dataLine, lineBigCore);
     bigCoreNum = dataLine - lineSmallCore * usedCoreNum;
 
     uint64_t indicesDealNum;
@@ -199,20 +199,20 @@ ge::graphStatus ScatterAddTiling::ScatterAddNormalTilingFunc(gert::TilingContext
     if (tail <= MAX_DEAL_NUM) {
         tilingMode = 1;
         dbTimes = 1;
-        ubTailNum = ceil_value(tail, dataEachBlock);
+        ubTailNum = CeilAlign(tail, dataEachBlock);
         taskEachLine = std::min(lineBigCore, ubSize / dataDsize / (ubTailNum + 1));
         taskEachLine = std::min(taskEachLine, MAX_COPY_PAD);
-        taskNum = ceil_multiple(lineBigCore, taskEachLine);
+        taskNum = DivCeil(lineBigCore, taskEachLine);
         taskLastLine = lineBigCore - taskEachLine * (taskNum - 1);
 
-        indicesDealNum = ceil_value(taskEachLine, dataEachBlock);
+        indicesDealNum = CeilAlign(taskEachLine, dataEachBlock);
         ubSrcNum = ubTailNum * taskEachLine;
     } else {
         tilingMode = 0;
         uint64_t totalTailUb = ubSize - taskEachLine * indicesDsize;
         dbTimes = std::min(totalTailUb / dataDsize / std::min(tail, MAX_DEAL_NUM), BUFFER_NUM_MAX);
 
-        uint64_t availIndicesSize = ubSize - std::min(ceil_value(tail, dataEachBlock), MAX_DEAL_NUM) * dataDsize * dbTimes;
+        uint64_t availIndicesSize = ubSize - std::min(CeilAlign(tail, dataEachBlock), MAX_DEAL_NUM) * dataDsize * dbTimes;
         ComputeTask(availIndicesSize / 4, lineBigCore, taskNum, taskEachLine, taskLastLine);
         indicesDealNum = std::min(availIndicesSize / BLOCK_SIZE * BLOCK_SIZE / indicesDsize, lineBigCore);
         if (dbTimes == 0) {
@@ -220,7 +220,7 @@ ge::graphStatus ScatterAddTiling::ScatterAddNormalTilingFunc(gert::TilingContext
         } else {
             ubTailNum = (ubSize - indicesDealNum * indicesDsize) / dbTimes / BLOCK_SIZE * dataEachBlock;
         }
-        ubTailNum = std::min(ubTailNum, ceil_value(tail, dataEachBlock));
+        ubTailNum = std::min(ubTailNum, CeilAlign(tail, dataEachBlock));
         ubSrcNum = ubTailNum * dbTimes;
     }
 

@@ -18,7 +18,7 @@ static void ComputeTaskNumForeLine(uint64_t ubOutNum, uint64_t outLineEachCore, 
         *taskEachLine = outLineEachCore;
         *taskLastLine = outLineEachCore;
     } else {
-        uint64_t taskNumTemp = ceil_multiple(outLineEachCore, ubOutNum);
+        uint64_t taskNumTemp = DivCeil(outLineEachCore, ubOutNum);
         *taskNum = taskNumTemp;
         *taskEachLine = ubOutNum;
         *taskLastLine = outLineEachCore - ubOutNum * (taskNumTemp - 1);
@@ -92,25 +92,25 @@ void ScatterAddGradTiling::SetUbSize(uint64_t headIndicesSize)
     if (headIndicesSize > INDICES_ONCE_DATANUM) {
         indexUbSize = INDICES_ONCE_DATANUM;
     } else {
-        indexUbSize = ceil_value(headIndicesSize, indexEachBlock);
+        indexUbSize = CeilAlign(headIndicesSize, indexEachBlock);
     }
     uint64_t ubAvailableSize = ubSize - indexUbSize * indexDsize * INDICES_UB_NUM;
-    gradOutUbSize = ceil_value(ubAvailableSize / GRADOUT_UB_NUM / gradDsize, dataEachBlock);
+    gradOutUbSize = CeilAlign(ubAvailableSize / GRADOUT_UB_NUM / gradDsize, dataEachBlock);
     return;
 }
 
 void ScatterAddGradTiling::SetHeadNumForTask(uint64_t headMaxTask, uint64_t coreNum)
 {
-    uint64_t headBigCore = ceil_multiple(paramsPre, coreNum);
+    uint64_t headBigCore = DivCeil(paramsPre, coreNum);
     uint64_t headSmallCore = headBigCore - 1;
     bigCoreNum = paramsPre - headSmallCore * coreNum;
 
     headTaskSmall = std::min(headMaxTask, headSmallCore);
-    taskNumSmall = ceil_multiple(headSmallCore, headTaskSmall);
+    taskNumSmall = DivCeil(headSmallCore, headTaskSmall);
     headLastTaskSmall = headSmallCore - (taskNumSmall - 1) * headTaskSmall;
 
     headTaskBig = std::min(headMaxTask, headBigCore);
-    taskNumBig = ceil_multiple(headBigCore, headTaskBig);
+    taskNumBig = DivCeil(headBigCore, headTaskBig);
     headLastTaskBig = headBigCore - (taskNumBig - 1) * headTaskBig;
 }
 
@@ -140,11 +140,11 @@ void ScatterAddGradTiling::SetModeNoTail(gert::TilingContext* context, int32_t g
             SetHeadNumForTask(headMaxTask, coreNum);
             gradOutUbSize = headTaskBig * headOutSize;
             indexUbSize = std::min((ubSize - gradOutUbSize * GRADOUT_UB_NUM * gradDsize) / INDICES_UB_NUM / indexDsize, headIndicesSize);
-            indexUbSize = ceil_value(indexUbSize, indexEachBlock);
+            indexUbSize = CeilAlign(indexUbSize, indexEachBlock);
         } else {
             context->SetTilingKey(DATA_LARGE_MODE);
             tilingMode = DATA_LARGE_MODE;
-            taskEachHead = ceil_multiple(headOutSize, gradOutUbSize);
+            taskEachHead = DivCeil(headOutSize, gradOutUbSize);
             auto taskNum = paramsPre * taskEachHead;
             taskNumSmall = taskNum / coreNum;
             taskNumBig = taskNumSmall + 1;
@@ -175,9 +175,9 @@ void ScatterAddGradTiling::SetModeLine(gert::TilingContext* context, int32_t gra
     auto body = paramsPro / tail;
     uint64_t dataLine = dimRange * paramsPre * body;
 
-    dataLineBigCore = ceil_multiple(dataLine, coreNum);
+    dataLineBigCore = DivCeil(dataLine, coreNum);
     dataLineSmallCore = dataLineBigCore - 1;
-    coreUsed = ceil_multiple(dataLine, dataLineBigCore);
+    coreUsed = DivCeil(dataLine, dataLineBigCore);
     bigCoreNum = dataLine - dataLineSmallCore * coreUsed;
 
     uint64_t ubTailNum;
@@ -188,20 +188,20 @@ void ScatterAddGradTiling::SetModeLine(gert::TilingContext* context, int32_t gra
 
     if (tail < MAX_DEAL_NUM) {
         tilingMode = 1;
-        ubTailNum =  ceil_value(tail, dataEachBlock);
+        ubTailNum =  CeilAlign(tail, dataEachBlock);
         taskEachLine = std::min(dataLineBigCore, ubSize / gradDsize / (ubTailNum + 1));
         taskEachLine = std::min(taskEachLine, MAX_COPY_PAD);
-        taskNum = ceil_multiple(dataLineBigCore, taskEachLine);
+        taskNum = DivCeil(dataLineBigCore, taskEachLine);
         taskLastLine = dataLineBigCore - taskEachLine * (taskNum - 1);
 
-        indexUbSize = ceil_value(taskEachLine, indexEachBlock);
-        gradOutUbSize = ceil_value(tail, dataEachBlock) * taskEachLine;
+        indexUbSize = CeilAlign(taskEachLine, indexEachBlock);
+        gradOutUbSize = CeilAlign(tail, dataEachBlock) * taskEachLine;
     } else {
         tilingMode = 0;
         uint64_t totalTailUb = ubSize - taskEachLine * indexDsize;
         dbTimes = std::min(totalTailUb / gradDsize / std::min(tail, MAX_DEAL_NUM), BUFFER_NUM_MAX);
 
-        auto availIndicesSize = ubSize - std::min(ceil_value(tail, dataEachBlock), MAX_DEAL_NUM) * dbTimes * gradDsize;
+        auto availIndicesSize = ubSize - std::min(CeilAlign(tail, dataEachBlock), MAX_DEAL_NUM) * dbTimes * gradDsize;
         ComputeTaskNumForeLine(availIndicesSize / indexDsize, dataLineBigCore, &taskNum, &taskEachLine, &taskLastLine);
 
         indexUbSize = std::min(availIndicesSize / indexDsize, dataLineBigCore);
@@ -210,7 +210,7 @@ void ScatterAddGradTiling::SetModeLine(gert::TilingContext* context, int32_t gra
         } else {
             ubTailNum = (ubSize - indexUbSize * indexDsize) / dbTimes / BLOCK_SIZE * indexEachBlock;
         }
-        ubTailNum = std::min(ubTailNum, ceil_value(tail, dataEachBlock));
+        ubTailNum = std::min(ubTailNum, CeilAlign(tail, dataEachBlock));
         gradOutUbSize = ubTailNum * dbTimes;
     }
     TilingData.set_taskNum(taskNum);

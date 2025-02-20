@@ -30,13 +30,9 @@ at::Tensor group_points(
 
     at::Tensor trans_features = points.transpose(1, 2);
     at::Tensor features = trans_features.contiguous();
-    features = features.view({b * n, c});
-    at::Tensor indices = idx.view({b * npoints * nsample});
-
     at::Tensor out = at::empty({b, c, npoints, nsample}, points.options());
-    out = out.view({b * npoints * nsample, c});
 
-    EXEC_NPU_CMD(aclnnGroupPoints, features, indices, b, c, n, npoints, nsample, out);
+    EXEC_NPU_CMD(aclnnGroupPoints, features, idx, b, c, n, npoints, nsample, out);
 
     at::Tensor output = out.view({b, npoints, nsample, c}).permute({0, 3, 1, 2});
     return output;
