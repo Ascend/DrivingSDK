@@ -170,6 +170,7 @@ out, argmax = scatter_max(updates, indices, out)
 | VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |【Test】|
 | QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |【Test】|
 | BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |【Test】|
+| MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |【Test】|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
