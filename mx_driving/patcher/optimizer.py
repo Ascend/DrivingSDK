@@ -147,7 +147,7 @@ def optimizer_hooks(mmcvhooks: ModuleType, options: Dict):
 
         @HOOKS.register_module(force=True)
         class Fp16OptimizerHook(OptimizerHook):
-
+            # pylint: disable=huawei-super-init-not-called
             def __init__(
                 self,
                 grad_clip: Optional[dict] = None,

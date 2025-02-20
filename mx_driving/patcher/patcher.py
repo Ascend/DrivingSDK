@@ -44,6 +44,7 @@ class Patcher:
                 except Exception as e:
                     warnings.warn(f"Failed to apply patch {patch.name} to module {module.__name__}: {e}")
 
+    # pylint: disable=add-staticmethod-or-classmethod-decorator
     def transfer_to_npu(self):
         import torch
         import torch_npu

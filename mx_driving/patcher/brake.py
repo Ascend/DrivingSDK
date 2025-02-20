@@ -28,6 +28,7 @@ def brake(runner: ModuleType, options: Dict):
             del self.data_batch
             self._iter += 1
             if self._iter == when_iter:
+                # pylint: disable=avoid-using-exit
                 sys.exit(0)
         self.call_hook("after_train_epoch")
         self._epoch += 1
@@ -38,6 +39,7 @@ def brake(runner: ModuleType, options: Dict):
         for idx, data_batch in enumerate(self.data_loader):
             self.run_iter(idx, data_batch)
             if self._iter == when_iter:
+                # pylint: disable=avoid-using-exit
                 sys.exit(0)
 
         self.runner.call_hook("after_train_epoch")
@@ -60,9 +62,11 @@ def brake(runner: ModuleType, options: Dict):
             data_batch = next(self.dataloader_iterator)
             self.run_iter(data_batch)
             if self._iter == when_iter:
+                # pylint: disable=avoid-using-exit
                 sys.exit(0)
 
             self._decide_current_val_interval()
+            # pylint: disable=too-many-boolean-expressions
             if (self.runner.val_loop is not None
                     and self._iter >= self.val_begin
                     and (self._iter % self.val_interval == 0

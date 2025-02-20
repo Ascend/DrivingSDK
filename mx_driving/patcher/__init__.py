@@ -26,6 +26,26 @@ Usage:
 
 """
 
+__all__ = [
+    "default_patcher_builder",
+    "msda",
+    "deform_conv2d",
+    "modulated_deform_conv2d",
+    "index",
+    "PatcherBuilder",
+    "Patcher",
+    "Patch",
+    "patch_mmcv_version",
+    "pseudo_sampler",
+    "numpy_type",
+    "ddp",
+    "resnet_add_relu",
+    "resnet_maxpool",
+    "nuscences_dataset",
+    "nuscences_metric",
+    "optimizer",
+]
+
 from mx_driving.patcher.distribute import ddp
 from mx_driving.patcher.mmcv import dc, mdc, msda, patch_mmcv_version
 from mx_driving.patcher.mmdet import pseudo_sampler, resnet_add_relu, resnet_maxpool
@@ -47,23 +67,3 @@ default_patcher_builder = (
     .add_module_patch("mmdet3d.datasets.nuscenes_dataset", Patch(nuscences_dataset))
     .add_module_patch("mmdet3d.evaluation.metrics", Patch(nuscences_metric))
 )
-
-__all__ = [
-    "default_patcher_builder",
-    "msda",
-    "deform_conv2d",
-    "modulated_deform_conv2d",
-    "index",
-    "PatcherBuilder",
-    "Patcher",
-    "Patch",
-    "patch_mmcv_version",
-    "pseudo_sampler",
-    "numpy_type",
-    "ddp",
-    "resnet_add_relu",
-    "resnet_maxpool",
-    "nuscences_dataset",
-    "nuscences_metric",
-    "optimizer",
-]

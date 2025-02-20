@@ -28,7 +28,7 @@ class BacthMatmulFunction(Function):
         grad = grad.expand(broadcast_shape).contiguous()
         dx = mx_driving._C.npu_batch_matmul(grad, pts_extend)
         dw = mx_driving._C.npu_batch_matmul(projection_mat, grad)
-        dw = dw.sum(dim=-2, keepdim = True)
+        dw = dw.sum(dim=-2, keepdim=True)
         return dx, dw
 
 

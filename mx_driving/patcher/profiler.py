@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 import time
 from types import ModuleType
@@ -66,16 +67,16 @@ def profiler(runner: ModuleType, options: Dict):
 
         self.runner.call_hook("after_train_epoch")
         self.runner._epoch += 1
-        
+
     def run(self) -> None:
-        self.runner.call_hook('before_train')
-        self.runner.call_hook('before_train_epoch')
+        self.runner.call_hook("before_train")
+        self.runner.call_hook("before_train_epoch")
         if self._iter > 0:
             print_log(
-                f'Advance dataloader {self._iter} steps to skip data '
-                'that has already been trained',
-                logger='current',
-                level=logging.WARNING)
+                f"Advance dataloader {self._iter} steps to skip data " "that has already been trained",
+                logger="current",
+                level=logging.WARNING,
+            )
             for _ in range(self._iter):
                 next(self.dataloader_iterator)
         with torch_npu.profiler.profile(
@@ -95,14 +96,16 @@ def profiler(runner: ModuleType, options: Dict):
                 prof.step()
 
                 self._decide_current_val_interval()
-                if (self.runner.val_loop is not None
-                        and self._iter >= self.val_begin
-                        and (self._iter % self.val_interval == 0
-                            or self._iter == self._max_iters)):
+                # pylint: disable=too-many-boolean-expressions
+                if (
+                    self.runner.val_loop is not None
+                    and self._iter >= self.val_begin
+                    and (self._iter % self.val_interval == 0 or self._iter == self._max_iters)
+                ):
                     self.runner.val_loop.run()
 
-        self.runner.call_hook('after_train_epoch')
-        self.runner.call_hook('after_train')
+        self.runner.call_hook("after_train_epoch")
+        self.runner.call_hook("after_train")
         return self.runner.model
 
     if hasattr(runner, "EpochBasedRunner"):
