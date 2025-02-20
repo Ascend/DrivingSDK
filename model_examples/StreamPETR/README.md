@@ -119,12 +119,25 @@ cd {DrivingSDK_root_dir}/model_examples/StreamPETR
 git clone https://github.com/open-mmlab/mmcv.git -b 1.x
 cd mmcv
 cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/distributed.py mmcv/parallel/distributed.py
+cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/text.py mmcv/runner/hooks/logger/text.py
 source {cann_root_dir}/set_env.sh
 MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
 pip show mmcv-full
 ```
 
-5. 安装mmdet3d
+5. 安装mmdet
+源码安装：
+```
+cd {DrivingSDK_root_dir}/model_examples/StreamPETR
+git clone -b v2.28.2 https://github.com/open-mmlab/mmdetection.git
+cd mmdetection
+cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/match_cost.py mmdet/core/bbox/match_costs/match_cost.py
+cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/pseudo_sampler.py mmdet/core/bbox/samplers/pseudo_sampler.py
+pip install -e .
+```
+
+
+6. 安装mmdet3d
 源码安装：
 在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
 ```
@@ -149,11 +162,83 @@ pip install -v -e .
 （1）第13行: dist_params = dict(backend='nccl') 改为 dist_params = dict(backend='hccl')
 
 
-6. 加入test相关文件
+7. 安装mindspeed
+源码安装：
+```
+cd {DrivingSDK_root_dir}/model_examples/StreamPETR
+git clone https://gitee.com/ascend/MindSpeed.git
+pip install -e MindSpeed
+```
+
+
+8. 安装tcmalloc动态库
+源码安装：
+```
+cd {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR
+mkdir gperftools
+cd gperftools
+wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+tar -zvxf gperftools-2.16.tar.gz
+cd gperftools-2.16
+./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+make
+make install
+echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+ldconfig
+export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+export PATH=/usr/local/lib/bin:$PATH
+export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+```
+
+
+9. 加入test相关文件
 ```
 cd {DrivingSDK_root_dir}/model_examples/StreamPETR
 cp -rf test StreamPETR
 ```
+
+10. 编译优化
+(1)python编译优化
+源码下载毕昇编译器：
+```
+ulimit -n 4096
+wget --no-check-certificate  https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/BiSheng%20Enterprise/BiSheng%20Enterprise%20203.0.0/BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
+export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
+```
+
+下载所需依赖：
+```
+wget --no-check-certificate https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
+tar -xvf mpdecimal-2.5.1.tar.gz
+cd mpdecimal-2.5.1
+bash ./configure --prefix=/path/to/install/mpdecimal
+make -j
+make install
+```
+
+使用python源码进行编译出包：
+源码下载地址：https://www.python.org/downloads/source/
+- 以3.8.17为例
+```
+tar -xvf Python-3.8.17.tgz
+cd Python-3.8.17
+export CC=clang
+export CXX=clang++
+```
+
+使用指令which python查看现有python安装路径/path/to/python
+
+```
+./configure --prefix=/path/to/python > --with-lto --enable-optimizations
+make -j
+make install
+```
+
+(2)pytorch、torchnpu编译优化
+参考编译优化官方文档完成pytorch\torch_npu编译优化
+官方文档：https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0061.html
 
 
 
@@ -238,10 +323,10 @@ tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_se
 
 #### 训练结果
 
-|     芯片      | 卡数 | global batch size | epoch   |   mAP    |      NDS     |    性能-单步迭代耗时(s)   |
-| :-----------: | :--: | :---------------: | :----: | :-------: | :---------: | :----------------------: |
-|     竞品A     |  8p   |        16         |  24    |  0.4822  |    0.5708    |           0.65          |
-| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |    0.5703   |            0.76          |
+|     芯片      | 卡数 | global batch size | epoch   |   mAP    |      NDS     |    性能-单步迭代耗时(s)   |    FPS    |
+| :-----------: | :--: | :---------------: | :----: | :-------: | :---------: | :----------------------: | :------: |
+|     竞品A     |  8p   |        16         |  24    |  0.4822  |    0.5708    |           0.63          |     25.397    |
+| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |    0.5703   |           0.70          |   22.857      |
 
 
 

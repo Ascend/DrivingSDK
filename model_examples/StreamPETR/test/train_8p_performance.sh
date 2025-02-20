@@ -88,16 +88,18 @@ CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
 # 结果打印，不需要修改
 echo "------------------ Final result ------------------"
 # 输出性能FPS，需要模型审视修改
-avg_time=`grep -a ' - mmdet - INFO - Iter '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | awk -F "time: " '{print $2}' | awk -F "," '{print $1}' | tail -n 20 | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
+avg_time=`grep -a ' - mmdet - INFO - Iter '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | awk -F "time: " '{print $2}' | awk -F "," '{print $1}' | awk 'NR>=2 && NR<=11' | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
 
 Iteration_time=$avg_time
+FPS= $BatchSize * $WORLD_SIZE / $Iteration_time
 # 打印，不需要修改
 echo "Iteration time : $Iteration_time"
+echo "FPS : $FPS"
 
 # 输出训练精度IoU,需要模型审视修改
 Training_loss=`grep -a ' - mmdet - INFO - Iter '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F ", loss: " '{print $2}' | awk -F "," '{print $1}' | awk '{last=$0} END {print last}'`
-MAP=`grep -a ' - mmdet - INFO - Iter(val) '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "/mAP: " '{print $2}' | awk '{last=$1} END {print last}'`
-NDS=`grep -a ' - mmdet - INFO - Iter(val) '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "/NDS: " '{print $2}' | awk -F "," '{print $1}' | awk '{last=$0} END {print last}'`
+MAP=` grep -a 'mAP:' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "mAP: " '{print $2}' | awk '{last=$1} END {print last}'`
+NDS=` grep -a 'NDS:' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "NDS: " '{print $2}' | awk '{last=$1} END {print last}'`
 
 # 打印，不需要修改
 echo "Training_loss : ${Training_loss}"
