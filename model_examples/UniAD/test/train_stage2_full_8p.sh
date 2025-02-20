@@ -66,12 +66,14 @@ lanes_iou=$(grep -a "mmdet - INFO - Epoch(val)" ${test_path_dir}/output/full/sta
 # 输出训练精度amotp,需要模型审视修改
 amotp=$(grep -a "mmdet - INFO - Epoch(val)" ${test_path_dir}/output/full/stage2/train_full.log  |tail -1|awk -F "amotp: " '{print $2}' |awk -F ", " '{print $1}'| awk -F ", " '{print $1}')
 
-# 打印，不需要修改
-echo "amota : ${amota}"
-echo "lanes_iou : ${lanes_iou}"
-echo "amotp : ${amotp}"
-echo "E2E Training Duration sec : $e2e_time"
+L2_eval=$(grep -a "|      L2     |" ${test_path_dir}/output/full/stage2/train_full.log | tail -1 | awk -F"[| ]+" '{sum=0; count=0; for(i=2; i<=NF; i++) {if($i ~ /^[0-9]+(\.[0-9]+)?$/) {sum+=$i; count++}}; if(count>0) print sum/count}')
 
+# 打印，不需要修改
+#echo "amota : ${amota}"
+#echo "lanes_iou : ${lanes_iou}"
+#echo "amotp : ${amotp}"
+#echo "E2E Training Duration sec : $e2e_time"
+echo "L2 : " ${L2_eval}
 
 # 训练总时长
 TrainingTime=`grep -a 'Time'  ${test_path_dir}/output/full/stage2/train_full.log|awk -F "Time: " '{print $2}'|awk -F "," '{print $1}'| awk '{a+=$1} END {printf("%.3f",a)}'`
@@ -82,9 +84,9 @@ echo "RankSize = ${WORLD_SIZE}" >>${test_path_dir}/output/full/stage2/${CaseName
 echo "BatchSize = ${BatchSize}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
 echo "DeviceType = ${DeviceType}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
 echo "CaseName = ${CaseName}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
-echo "AMOTA = ${amota}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
-echo "IoU-lane = ${lanes_iou}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
-echo "AMOTP = ${amotp}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
+#echo "AMOTA = ${amota}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
+#echo "IoU-lane = ${lanes_iou}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
+#echo "AMOTP = ${amotp}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
 echo "Iteration time = ${Iteration_time}" >>${test_path_dir}/output/full/stage2/${CaseName}_perf_report.log
 echo "TrainingTime = ${TrainingTime}" >>${test_path_dir}/output/full/stage2/${CaseName}_perf_report.log
 echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/full/stage2/${CaseName}_perf_report.log
