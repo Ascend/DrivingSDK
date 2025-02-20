@@ -270,4 +270,10 @@ at::Tensor npu_scatter_add(at::Tensor& src, at::Tensor& indices, c10::optional<a
 at::Tensor npu_scatter_add_grad(at::Tensor& grad_out, at::Tensor& index, int32_t dim);
 
 at::Tensor npu_batch_matmul(const at::Tensor& projection_mat, const at::Tensor& pts_extend);
+
+at::Tensor select_idx_with_mask(const at::Tensor& poly_line, const at::Tensor& min_idx, const at::Tensor& pt, const at::Tensor& back_idx);
+
+std::tuple<at::Tensor, at::Tensor> cartesian_to_frenet1(const at::Tensor& dist_vec);
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> calc_poly_start_end_sl(const at::Tensor& min_idx, const at::Tensor& poly_line, const at::Tensor& points, const at::Tensor& s_cum);
 #endif // CSRC_FUNCTIONS_H_

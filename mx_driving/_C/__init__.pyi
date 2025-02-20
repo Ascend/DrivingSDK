@@ -461,6 +461,10 @@ def boxes_iou_bev(
     boxes_a: torch.Tensor,
     boxes_b: torch.Tensor,
 ) -> torch.Tensor: ...
+def cartesian_to_frenet(
+    pt: torch.Tensor,
+    poly_line: torch.Tensor
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
@@ -515,4 +519,5 @@ __all__ = [
     "cal_anchors_heading",
     "diff_iou_rotated_2d",
     "boxes_iou_bev",
+    "cartesian_to_frenet",
 ]

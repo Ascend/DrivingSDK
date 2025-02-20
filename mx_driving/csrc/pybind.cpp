@@ -222,7 +222,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // scatter_add_grad
     m.def("npu_scatter_add_grad", &npu_scatter_add_grad);
 
-    
+    // select_idx_with_mask
+    m.def("select_idx_with_mask", &select_idx_with_mask);
+
+    // cartesian_to_frenet1
+    m.def("cartesian_to_frenet1", &cartesian_to_frenet1);
+
+    // calc_poly_start_end_sl
+    m.def("calc_poly_start_end_sl", &calc_poly_start_end_sl);
+
     // npu_batch_matmul
     m.def("npu_batch_matmul", &npu_batch_matmul);
 }
