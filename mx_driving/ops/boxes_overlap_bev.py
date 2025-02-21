@@ -50,16 +50,15 @@ def boxes_overlap_bev(boxes_a, boxes_b):
     r_unit = "radian"
     aligned = False
     mode = "overlap"
+    margin = 1e-5
     if boxes_a.shape[-1] == 5:
         # BEVFusion version of boxes_overlap_bev
         inp_format = "xyxyr"
         clockwise = False
-        margin = 1e-5
     else:
         # OpenPCDet and mmcv version of boxes_overlap_bev
         inp_format = "xyzwhdr"
         clockwise = True
-        margin = 1e-8
     return BoxesOverlapBev.apply(boxes_a, boxes_b, inp_format, r_unit, clockwise, mode, aligned, margin)
 
 
@@ -68,16 +67,15 @@ def npu_boxes_overlap_bev(boxes_a, boxes_b):
     r_unit = "radian"
     aligned = False
     mode = "overlap"
+    margin = 1e-5
     if boxes_a.shape[-1] == 5:
         # BEVFusion version of boxes_overlap_bev
         inp_format = "xyxyr"
         clockwise = False
-        margin = 1e-5
     else:
         # OpenPCDet and mmcv version of boxes_overlap_bev
         inp_format = "xyzwhdr"
         clockwise = True
-        margin = 1e-8
     return BoxesOverlapBev.apply(boxes_a, boxes_b, inp_format, r_unit, clockwise, mode, aligned, margin)
 
 
@@ -88,5 +86,5 @@ def boxes_iou_bev(boxes_a, boxes_b):
     clockwise = True
     mode = "iou"
     aligned = False
-    margin = 1e-8
+    margin = 1e-5
     return BoxesOverlapBev.apply(boxes_a, boxes_b, inp_format, r_unit, clockwise, mode, aligned, margin)

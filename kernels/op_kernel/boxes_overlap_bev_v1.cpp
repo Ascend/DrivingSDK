@@ -1,9 +1,3 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
- *
- * Function : z = x + y
- * This sample is a very basic sample that implements vector add on Ascend plaform.
- */
 #include "kernel_operator.h"
 #include "boxes_operator_utils.h"
 #include <type_traits>
@@ -88,15 +82,14 @@ public:
         pipe_->InitBuffer(boxAreaBuf_, 2 * tileTaskCountAligned_ * FLOAT_BYTE_SIZE);
 
         // tmp buf
-        pipe_->InitBuffer(tmpBuf_, 140 * tileTaskCountAligned_ * FLOAT_BYTE_SIZE);
+        pipe_->InitBuffer(tmpBuf_, 156 * tileTaskCountAligned_ * FLOAT_BYTE_SIZE);
 
         // some const var
         pipe_->InitBuffer(sortIdxBuf_, 32 * tileTaskCountAligned_ * FLOAT_BYTE_SIZE);
-        pipe_->InitBuffer(vecIdxBuf_, tileTaskCountAligned_ * FLOAT_BYTE_SIZE);
         pipe_->InitBuffer(patternBuf_, 5 * 64 * INT32_BYTE_SIZE);
         pipe_->InitBuffer(constCornersBuf_, 2 * 4 * tileTaskCountAligned_ * FLOAT_BYTE_SIZE);
-        pipe_->InitBuffer(gatherBuf_, 32 * tileTaskCountAligned_ * INT32_BYTE_SIZE + 16 * tileTaskCountAligned_ * INT32_BYTE_SIZE);
-        pipe_->InitBuffer(offsetBuf_, 8 * tileTaskCountAligned_ * INT32_BYTE_SIZE);
+        pipe_->InitBuffer(gatherBuf_, 64 * tileTaskCountAligned_ * INT32_BYTE_SIZE);
+        pipe_->InitBuffer(offsetBuf_, 16 * tileTaskCountAligned_ * INT32_BYTE_SIZE);
         
         // output buf
         pipe_->InitBuffer(outputBuf_, tileTaskCountAligned_ * FLOAT_BYTE_SIZE);
@@ -111,7 +104,6 @@ public:
         xConstCornersLocal_ = constCornersBuf_.Get<float>();
         yConstCornersLocal_ = xConstCornersLocal_[4 * tileTaskCountAligned_];
         numValidLocal_ = numValidBuf_.Get<int32_t>();
-        vecIdxLocal_ = vecIdxBuf_.Get<int32_t>();
         sortIdxLocal_ = sortIdxBuf_.Get<int32_t>();
         offsetLocal_ = offsetBuf_.Get<uint32_t>();
         outputLocal_ = outputBuf_.Get<float>();
@@ -132,7 +124,7 @@ public:
         maskLocal_  = maskBuf_.Get<float>();
         gatherOffsetLocal1_ = gatherBuf_.Get<uint32_t>();
         gatherOffsetLocal3_ = gatherOffsetLocal1_[32 * tileTaskCountAligned_];
-        gatherOffsetLocal4_ = gatherOffsetLocal1_[32 * tileTaskCountAligned_ + 8 * tileTaskCountAligned_];
+        gatherOffsetLocal4_ = gatherOffsetLocal1_[32 * tileTaskCountAligned_ + 16 * tileTaskCountAligned_];
         x1Local = box1ParsedLocal_[0 * tileTaskCountAligned_];
         y1Local = box1ParsedLocal_[4 * tileTaskCountAligned_];
         r1Local = box1ParsedLocal_[8 * tileTaskCountAligned_];
@@ -238,12 +230,10 @@ public:
         BroadCast<float, 2, 0, false>(yConstCornersLocal_, box2Local_, dstShape, srcShape);
 
         // init scatterOffsetLocal
-        
         uint32_t offset = 0u;
         Duplicate(gatherOffsetLocal1_[24], 0u, 8, tileTaskCount_, 1, 4);
         for (int32_t i = 0; i < tileTaskCount_; i++) {
             uint32_t offset2 = 0u;
-
             for (int32_t j = 0; j < 2; j++) {
                 gatherOffsetLocal1_.SetValue(i * 32 + j * 4 + 0, offset * 4 + offset2 + 0u);
                 gatherOffsetLocal1_.SetValue(i * 32 + j * 4 + 1, offset * 4 + offset2 + 4u);
@@ -260,15 +250,15 @@ public:
 
         offset = 0u;
         for (int32_t i = 0; i < tileTaskCount_; i++) {
-            for (int32_t j = 0; j < 8; j++) {
-                gatherOffsetLocal3_.SetValue(i * 8 + j, 4 * (i * 32 + j));
-                gatherOffsetLocal4_.SetValue(i * 8 + j, 4 * (i * 32 + j + 1));
+            for (int32_t j = 0; j < 16; j++) {
+                gatherOffsetLocal3_.SetValue(i * 16 + j, 4 * (i * 32 + j));
+                gatherOffsetLocal4_.SetValue(i * 16 + j, 4 * (i * 32 + j + 1));
             }
         }
         // init offset buf
         offset = 0u;
         for (int32_t i = 0; i < tileTaskCount_; i++) {
-            Duplicate(offsetLocal_[8 * i], offset, 8);
+            Duplicate(offsetLocal_[16 * i], offset, 16);
             offset += 32 * FLOAT_BYTE_SIZE;
         }
         
@@ -276,9 +266,7 @@ public:
         uint32_t srcShape1[2] = {1, VERTICES_ALIGNED};
         uint32_t dstShape1[2] = {tileTaskCount_, VERTICES_ALIGNED};
         LocalTensor<int32_t> tmpInt32Local = tmpLocal1_.ReinterpretCast<int32_t>();
-        CreateVecIndex(vecIdxLocal_, static_cast<int32_t>(0), tileTaskCount_);
         CreateVecIndex(tmpInt32Local, 0, VERTICES_ALIGNED, 1, 1, 4);
-        Muls(vecIdxLocal_, vecIdxLocal_, static_cast<int32_t>(VERTICES_ALIGNED * FLOAT_BYTE_SIZE + 0.0f), tileTaskCount_);
         BroadCast<int32_t, 2, 0, false>(sortIdxLocal_, tmpInt32Local, dstShape1, srcShape1);
     }
 
@@ -314,9 +302,7 @@ public:
         LocalTensor<int32_t> &sortedVerticesIdxLocal, LocalTensor<float> &tmpLocal, const uint32_t boxCount);
 private:
     TPipe* pipe_;
-    
     float margin_;
-    
     uint32_t M_, N_, tileCountN_, tileCountM_, tileN_, blkIdx_, tileTaskCount_, tileTaskCountAligned_, fourTileTaskCountAligned_,
         fourTileTaskCount_, modeFlag_, tileNAligned_, totalCoreCount_;
     GlobalTensor<float> box1Gm_, box2Gm_, outputGm_;
@@ -343,10 +329,9 @@ private:
     uint32_t eventMTE2V_, eventVMTE3_;
 
     LocalTensor<uint32_t> patternLocal_, gatherOffsetLocal1_, gatherOffsetLocal3_, gatherOffsetLocal4_, offsetLocal_;
-    LocalTensor<int32_t> numValidLocal_, sortIdxLocal_, vecIdxLocal_;
+    LocalTensor<int32_t> numValidLocal_, sortIdxLocal_;
 
-    TBuf<TPosition::VECCALC> box1Buf_, box2Buf_, patternBuf_, cornersBuf_, tmpBuf_, maskBuf_, constCornersBuf_, gatherBuf_, numValidBuf_, sortIdxBuf_,
-        vecIdxBuf_, offsetBuf_, outputBuf_, boxAreaBuf_;
+    TBuf<TPosition::VECCALC> box1Buf_, box2Buf_, patternBuf_, cornersBuf_, tmpBuf_, maskBuf_, constCornersBuf_, gatherBuf_, numValidBuf_, sortIdxBuf_, offsetBuf_, outputBuf_, boxAreaBuf_;
 };
 
 __aicore__ inline void KernelBoxesOverlapBevV1::CopyIn(LocalTensor<float>& boxLocal, GlobalTensor<float>& boxGlobal, const uint64_t globalTensorOffset, const uint32_t taskCount)
@@ -493,7 +478,7 @@ __aicore__ inline void KernelBoxesOverlapBevV1::Compute(uint32_t box2TaskCount)
     WholeReduceSum(numValidLocal_.ReinterpretCast<float>(), maskLocal_, 24u, curTaskSize, 1u, 1u, 4u);
     Cast(numValidLocal_, numValidLocal_.ReinterpretCast<float>(), RoundMode::CAST_CEIL, curTaskSize);
     
-    SortVertices(sortedVerticesIdxLocal, xVertices, yVertices, maskLocal_, numValidLocal_, vecIdxLocal_, sortIdxLocal_, tmpLocal, curTaskSize, false);
+    SortVertices(sortedVerticesIdxLocal, xVertices, yVertices, maskLocal_, numValidLocal_, sortIdxLocal_, tmpLocal, curTaskSize, false);
 
     Muls(sortedVerticesIdxLocal, sortedVerticesIdxLocal, static_cast<int32_t>(4), curTaskSize * VERTICES_ALIGNED);
 
@@ -723,32 +708,31 @@ __aicore__ inline void KernelBoxesOverlapBevV1::Intersection(LocalTensor<float>&
     }
 }
 
-/* 能优化 */
 __aicore__ inline void KernelBoxesOverlapBevV1::ComputeOverlapArea(LocalTensor<float> &overlapAreaLocal, LocalTensor<float> &xVertices, LocalTensor<float> &yVertices,
     LocalTensor<int32_t> &sortedVerticesIdxLocal, LocalTensor<float> &tmpLocal, const uint32_t boxCount)
 {
     LocalTensor<int32_t> sortedVerticesIdx1Local = tmpLocal.ReinterpretCast<int32_t>();
-    LocalTensor<int32_t> sortedVerticesIdx2Local = tmpLocal[8 * boxCount].ReinterpretCast<int32_t>();
-    LocalTensor<float> xVerticesSorted1Local = tmpLocal[16 * boxCount];
-    LocalTensor<float> xVerticesSorted2Local = tmpLocal[24 * boxCount];
-    LocalTensor<float> yVerticesSorted2Local = tmpLocal[32 * boxCount];
-    LocalTensor<float> yVerticesSorted1Local = tmpLocal[40 * boxCount];
+    LocalTensor<int32_t> sortedVerticesIdx2Local = tmpLocal[16 * boxCount].ReinterpretCast<int32_t>();
+    LocalTensor<float> xVerticesSorted1Local = tmpLocal[32 * boxCount];
+    LocalTensor<float> xVerticesSorted2Local = tmpLocal[48 * boxCount];
+    LocalTensor<float> yVerticesSorted2Local = tmpLocal[64 * boxCount];
+    LocalTensor<float> yVerticesSorted1Local = tmpLocal[80 * boxCount];
 
-    Gather(sortedVerticesIdx1Local, sortedVerticesIdxLocal, gatherOffsetLocal3_, 0u, 8 * boxCount);
-    Gather(sortedVerticesIdx2Local, sortedVerticesIdxLocal, gatherOffsetLocal4_, 0u, 8 * boxCount);
-    Add(sortedVerticesIdx1Local, sortedVerticesIdx1Local, offsetLocal_.ReinterpretCast<int32_t>(), 8 * boxCount);
-    Add(sortedVerticesIdx2Local, sortedVerticesIdx2Local, offsetLocal_.ReinterpretCast<int32_t>(), 8 * boxCount);
-    
-    Gather(xVerticesSorted1Local, xVertices, sortedVerticesIdx1Local.ReinterpretCast<uint32_t>(), 0u, 8 * boxCount);
-    Gather(yVerticesSorted1Local, yVertices, sortedVerticesIdx1Local.ReinterpretCast<uint32_t>(), 0u, 8 * boxCount);
-    Gather(xVerticesSorted2Local, xVertices, sortedVerticesIdx2Local.ReinterpretCast<uint32_t>(), 0u, 8 * boxCount);
-    Gather(yVerticesSorted2Local, yVertices, sortedVerticesIdx2Local.ReinterpretCast<uint32_t>(), 0u, 8 * boxCount);
+    Gather(sortedVerticesIdx1Local, sortedVerticesIdxLocal, gatherOffsetLocal3_, 0u, 16 * boxCount);
+    Gather(sortedVerticesIdx2Local, sortedVerticesIdxLocal, gatherOffsetLocal4_, 0u, 16 * boxCount);
+
+    Add(sortedVerticesIdx1Local, sortedVerticesIdx1Local, offsetLocal_.ReinterpretCast<int32_t>(), 16 * boxCount);
+    Add(sortedVerticesIdx2Local, sortedVerticesIdx2Local, offsetLocal_.ReinterpretCast<int32_t>(), 16 * boxCount);
+
+    Gather(xVerticesSorted1Local, xVertices, sortedVerticesIdx1Local.ReinterpretCast<uint32_t>(), 0u, 16 * boxCount);
+    Gather(yVerticesSorted1Local, yVertices, sortedVerticesIdx1Local.ReinterpretCast<uint32_t>(), 0u, 16 * boxCount);
+    Gather(xVerticesSorted2Local, xVertices, sortedVerticesIdx2Local.ReinterpretCast<uint32_t>(), 0u, 16 * boxCount);
+    Gather(yVerticesSorted2Local, yVertices, sortedVerticesIdx2Local.ReinterpretCast<uint32_t>(), 0u, 16 * boxCount);
     
     // Compute area
-    Mul(xVerticesSorted1Local, xVerticesSorted1Local, yVerticesSorted2Local, 16 * boxCount);
-
-    Sub(xVerticesSorted1Local, xVerticesSorted1Local, xVerticesSorted2Local, 8 * boxCount);
-    WholeReduceSum(xVerticesSorted1Local, xVerticesSorted1Local, 8u, boxCount, 1u, 1u, 1u);
+    Mul(xVerticesSorted1Local, xVerticesSorted1Local, yVerticesSorted2Local, 32 * boxCount);
+    Sub(xVerticesSorted1Local, xVerticesSorted1Local, xVerticesSorted2Local, 16 * boxCount);
+    WholeReduceSum(xVerticesSorted1Local, xVerticesSorted1Local, 12u, boxCount, 1u, 1u, 2u);
     Abs(overlapAreaLocal, xVerticesSorted1Local, boxCount);
     Muls(overlapAreaLocal, overlapAreaLocal, 0.5f, boxCount);
 }

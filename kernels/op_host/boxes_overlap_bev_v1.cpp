@@ -18,7 +18,7 @@ const uint32_t POS_ATTR_MARGIN = 4;
 const uint32_t BOXES_NUM_DIM = 0;
 const uint32_t BOXES_FORMAT_SIZE_DIM = 1;
 
-const uint32_t TILE_N_910B = 128;
+const uint32_t TILE_N_910B = 64;
 }   // some const express
 
 namespace optiling {

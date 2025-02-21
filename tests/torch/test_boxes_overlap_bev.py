@@ -478,7 +478,7 @@ class TestBoxesOverlapBev(TestCase):
         clockwise_list = [False, True]
         mode_list = ["overlap", "iou", "iof"]
         aligned_list = [False, True]
-        margin_list = [1e-5, 1e-8]
+        margin_list = [1e-5]
 
         cases = []
         for shape in shape_list:
@@ -538,7 +538,7 @@ class TestBoxesOverlapBev(TestCase):
         clockwise = True
         mode = "overlap"
         aligned = False
-        margin = 1e-8
+        margin = 1e-5
         
         cases = [
             [shape, inp_format, r_unit, clockwise, mode, aligned, margin]
@@ -565,7 +565,7 @@ class TestBoxesOverlapBev(TestCase):
         clockwise = True
         mode = "iou"
         aligned = False
-        margin = 1e-8
+        margin = 1e-5
         
         cases = [
             [shape, inp_format, r_unit, clockwise, mode, aligned, margin]
@@ -576,6 +576,53 @@ class TestBoxesOverlapBev(TestCase):
         for cpu_result, npu_result in test_results:
             self.check_precision(cpu_result, npu_result, 1e-4, 1e-4)
  
+    def test_vertex_on_the_edge_of_another_box_boxes_iou_bev(self):
+        # Test border case: A vertex of one box is on the edge of another box.
+        # Test API：
+        #   boxes_iou_bev（openpcdet）
+        inp_format = "xyzwhdr"
+        r_unit = "radian"
+        clockwise = True
+        mode = "iou"
+        aligned = False
+        margin = 1e-5
+        attrs = [aligned, inp_format, r_unit, clockwise, mode, margin]
+
+        boxes_a = torch.tensor([[-4.00859022, -1.48911846, -4.03531885, 54.45354843, 32.18401718, 72.94532776, -0.30569804]]).float()
+        boxes_b = torch.tensor([[4.47819042, -0.41671070, 2.13852501, 41.19421768, 90.91581726, 97.91353607, -1.82485271],
+                                [-2.35739970, 0.91445661, 2.31282878, 65.75810242, 95.59777069, 71.21990967, -2.56775522],
+                                [4.77410316e+00, 8.70089699e-03, 2.35944605e+00, 6.12022209e+01, 3.45858383e+01, 4.97487717e+01, -2.95076442e+00]]).float()
+
+        cpu_inputs = Inputs(boxes_a.cpu().numpy(), boxes_b.cpu().numpy())
+        npu_inputs = Inputs(boxes_a.npu(), boxes_b.npu())
+
+        cpu_results = self.cpu_to_exec(cpu_inputs, attrs)
+        npu_results = self.npu_to_exec(npu_inputs, attrs, "test_boxes_iou_bev_openpcdet")
+        self.check_precision(cpu_results, npu_results, 1e-4, 1e-4)
+    
+    def test_vertex_on_the_edge_of_another_box_boxes_overlap_bev(self):
+        # Test border case: A vertex of one box is on the edge of another box.
+        # Test API：
+        #   boxes_overlap_bev（mmcv）
+        inp_format = "xyzwhdr"
+        r_unit = "radian"
+        clockwise = True
+        mode = "overlap"
+        aligned = False
+        margin = 1e-5
+        attrs = [aligned, inp_format, r_unit, clockwise, mode, margin]
+
+        boxes_a = torch.tensor([[-4.00859022, -1.48911846, -4.03531885, 54.45354843, 32.18401718, 72.94532776, -0.30569804]]).float()
+        boxes_b = torch.tensor([[4.47819042, -0.41671070, 2.13852501, 41.19421768, 90.91581726, 97.91353607, -1.82485271],
+                                [-2.35739970, 0.91445661, 2.31282878, 65.75810242, 95.59777069, 71.21990967, -2.56775522],
+                                [4.77410316e+00, 8.70089699e-03, 2.35944605e+00, 6.12022209e+01, 3.45858383e+01, 4.97487717e+01, -2.95076442e+00]]).float()
+        
+        cpu_inputs = Inputs(boxes_a.cpu().numpy(), boxes_b.cpu().numpy())
+        npu_inputs = Inputs(boxes_a.npu(), boxes_b.npu())
+        
+        cpu_results = self.cpu_to_exec(cpu_inputs, attrs)
+        npu_results = self.npu_to_exec(npu_inputs, attrs, "test_boxes_overlap_bev_mmcv")
+        self.check_precision(cpu_results, npu_results, 1e-4, 1e-4)
  
 if __name__ == '__main__':
     run_tests()

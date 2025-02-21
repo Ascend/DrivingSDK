@@ -26,9 +26,7 @@ public:
     __aicore__ inline void Process()
     {
         // Compute some const idx
-        CreateVecIndex(vecIdxLocal_, static_cast<int32_t>(0), singleLoopTaskCount_);
         CreateVecIndex(sortIdxLocal1_, 0, VERTICES_ALIGNED, 1, 1, 4);
-        Muls(vecIdxLocal_, vecIdxLocal_, static_cast<int32_t>(VERTICES_ALIGNED * FLOAT_BYTE_SIZE + 0.0f), singleLoopTaskCount_);
         BroadCast<int32_t, 2, 0, false>(sortIdxLocal_, sortIdxLocal1_, broadCastDstShape2_, broadCastSrcShape2_);
         
         uint32_t endTaskOffset = taskOffset_ + coreTask_;
@@ -92,15 +90,13 @@ private:
         pipe_->InitBuffer(sortIdxBuf_, 2 * calCount_ * INT32_BYTE_SIZE);
         pipe_->InitBuffer(maskBuf_, singleLoopTaskCount_ * MASK_ALIGNED * FLOAT_BYTE_SIZE);
         pipe_->InitBuffer(numValidBuf_, Ceil(singleLoopTaskCountAligned_ * INT32_BYTE_SIZE, UB_ALIGNED_BYTE_SIZE) * UB_ALIGNED_BYTE_SIZE);
-        pipe_->InitBuffer(vecIdxBuf_, Ceil(singleLoopTaskCountAligned_ * INT32_BYTE_SIZE, UB_ALIGNED_BYTE_SIZE) * UB_ALIGNED_BYTE_SIZE);
-        pipe_->InitBuffer(tmpBuf_, singleLoopTaskCountAligned_ * 4 * FLOAT_BYTE_SIZE + 2 * singleLoopTaskCountAligned_ * VERTICES_ALIGNED * FLOAT_BYTE_SIZE);
+        pipe_->InitBuffer(tmpBuf_, 8 * singleLoopTaskCountAligned_ * FLOAT_BYTE_SIZE + 2 * VERTICES_ALIGNED * singleLoopTaskCountAligned_ * FLOAT_BYTE_SIZE);
 
         verticesLocal_ = verticesBuf_.Get<float>();
         maskLocal_ = maskBuf_.Get<float>();
         numValidLocal_ = numValidBuf_.Get<int32_t>();
         posLocal_ = posBuf_.Get<float>();
         outputLocal_ = outputBuf_.Get<int32_t>();
-        vecIdxLocal_ = vecIdxBuf_.Get<int32_t>();
         sortIdxLocal_ = sortIdxBuf_.Get<int32_t>();
         sortIdxLocal1_ = sortIdxLocal_[calCount_];
         tmpLocal_ = tmpBuf_.Get<float>();
@@ -135,9 +131,9 @@ private:
     GlobalTensor<int32_t> sortedIdxGm_;
 
     TBuf<TPosition::VECCALC> verticesBuf_, maskBuf_, numValidBuf_, sortIdxBuf_,
-        posBuf_, vecIdxBuf_, outputBuf_, tmpBuf_;
+        posBuf_, outputBuf_, tmpBuf_;
     LocalTensor<float> verticesLocal_, posLocal_, maskLocal_, tmpLocal_;
-    LocalTensor<int32_t> numValidLocal_, vecIdxLocal_, sortIdxLocal_, sortIdxLocal1_, outputLocal_;
+    LocalTensor<int32_t> numValidLocal_, sortIdxLocal_, sortIdxLocal1_, outputLocal_;
     DataCopyPadExtParams<float> verticesPadParams_{false, 0, 0, 0};
     DataCopyPadExtParams<float> maskPadParams_{false, 0, 0, 0};
     DataCopyPadExtParams<int32_t> numValidPadParams_{false, 0, 0, 0};
@@ -171,8 +167,7 @@ __aicore__ inline void DiffIouRotatedSortVertices::Compute()
     LocalTensor<float> xVertices = posLocal_;
     LocalTensor<float> yVertices = posLocal_[calCount_];
 
-    SortVertices(outputLocal_, xVertices, yVertices, maskLocal_, numValidLocal_,
-        vecIdxLocal_, sortIdxLocal_, tmpLocal_, singleLoopTaskCount_, true);
+    SortVertices(outputLocal_, xVertices, yVertices, maskLocal_, numValidLocal_, sortIdxLocal_, tmpLocal_, singleLoopTaskCount_, true);
 }
 
 extern "C" __global__ __aicore__ void diff_iou_rotated_sort_vertices(GM_ADDR vertices, GM_ADDR mask, GM_ADDR num_valid,
