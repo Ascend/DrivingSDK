@@ -29,9 +29,10 @@ Usage:
 __all__ = [
     "default_patcher_builder",
     "msda",
-    "deform_conv2d",
-    "modulated_deform_conv2d",
+    "dc",
+    "mdc",
     "index",
+    "batch_matmul",
     "PatcherBuilder",
     "Patcher",
     "Patch",
@@ -39,6 +40,7 @@ __all__ = [
     "pseudo_sampler",
     "numpy_type",
     "ddp",
+    "stream",
     "resnet_add_relu",
     "resnet_maxpool",
     "nuscences_dataset",
@@ -47,23 +49,24 @@ __all__ = [
 ]
 
 from mx_driving.patcher.distribute import ddp
+from mx_driving.patcher.functions import stream
 from mx_driving.patcher.mmcv import dc, mdc, msda, patch_mmcv_version
 from mx_driving.patcher.mmdet import pseudo_sampler, resnet_add_relu, resnet_maxpool
-from mx_driving.patcher.mmdet3d import nuscences_dataset, nuscences_metric
+from mx_driving.patcher.mmdet3d import nuscenes_dataset, nuscenes_metric
 from mx_driving.patcher.numpy import numpy_type
 from mx_driving.patcher.optimizer import optimizer_hooks, optimizer_wrapper
 from mx_driving.patcher.patcher import Patch, Patcher, PatcherBuilder
-from mx_driving.patcher.tensor import index
+from mx_driving.patcher.tensor import index, batch_matmul
 
 
 default_patcher_builder = (
     PatcherBuilder()
     .add_module_patch("mmcv.ops", Patch(msda), Patch(dc), Patch(mdc))
-    .add_module_patch("torch", Patch(index))
+    .add_module_patch("torch", Patch(index), Patch(batch_matmul))
     .add_module_patch("numpy", Patch(numpy_type))
     .add_module_patch("mmdet.core.bbox.samplers", Patch(pseudo_sampler))
-    .add_module_patch("mmcv.parallel", Patch(ddp))
+    .add_module_patch("mmcv.parallel", Patch(ddp), Patch(stream))
     .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
-    .add_module_patch("mmdet3d.datasets.nuscenes_dataset", Patch(nuscences_dataset))
-    .add_module_patch("mmdet3d.evaluation.metrics", Patch(nuscences_metric))
+    .add_module_patch("mmdet3d.datasets.nuscenes_dataset", Patch(nuscenes_dataset))
+    .add_module_patch("mmdet3d.evaluation.metrics", Patch(nuscenes_metric))
 )

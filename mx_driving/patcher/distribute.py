@@ -3,7 +3,7 @@ from types import ModuleType
 from typing import Dict
 
 
-def ddp(mmcvparraller: ModuleType, options: Dict):
-    if hasattr(mmcvparraller, "distributed"):
+def ddp(mmcvparallel: ModuleType, options: Dict):
+    if hasattr(mmcvparallel, "distributed"):
         import mmcv
-        mmcvparraller.distributed.MMDistributedDataParallel = mmcv.device.npu.NPUDistributedDataParallel
+        mmcvparallel.distributed.MMDistributedDataParallel = mmcv.device.npu.NPUDistributedDataParallel

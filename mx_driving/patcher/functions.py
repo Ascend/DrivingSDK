@@ -1,0 +1,26 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+from types import ModuleType
+from typing import Dict
+
+
+def stream(mmcvparallel: ModuleType, options: Dict):
+    @staticmethod
+    def new_forward(target_gpus: List[int], input: Union[List, Tensor]) -> tuple:
+        input_device = get_input_device(input)
+        streams = None
+        if input_device == -1 and target_gpus != [-1]:
+            # Perform CPU to GPU copies in a background stream
+            streams = [
+                _get_stream(torch.device("cuda", device))
+                for device in target_gpus
+            ]
+
+        outputs = scatter(input, target_gpus, streams)
+        # Synchronize with the copy stream
+        if streams is not None:
+            synchronize_stream(outputs, target_gpus, streams)
+
+        return tuple(outputs) if isinstance(outputs, list) else (outputs, )
+
+    if hasattr(mmcvparallel._functions, "Scatter"):
+        mmcvparallel._functions.Scatter.forward = new_forward

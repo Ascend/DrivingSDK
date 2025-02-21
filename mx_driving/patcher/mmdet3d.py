@@ -4,7 +4,7 @@ from types import ModuleType
 from typing import Dict, List, Tuple, Union
 
 
-def nuscences_dataset(mmdet3ddatasets: ModuleType, options: Dict):
+def nuscenes_dataset(mmdet3ddatasets: ModuleType, options: Dict):
     if hasattr(mmdet3ddatasets, "output_to_nusc_box"):
         import numpy as np
         import pyquaternion
@@ -36,7 +36,7 @@ def nuscences_dataset(mmdet3ddatasets: ModuleType, options: Dict):
         mmdet3ddatasets.output_to_nusc_box = output_to_nusc_box
 
 
-def nuscences_metric(mmdet3dmetrics: ModuleType, options: Dict):
+def nuscenes_metric(mmdet3dmetrics: ModuleType, options: Dict):
     if hasattr(mmdet3dmetrics, "output_to_nusc_box"):
         import numpy as np
         import pyquaternion
