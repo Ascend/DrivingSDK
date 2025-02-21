@@ -19,7 +19,7 @@ class CartesianToFrenet(Function):
         if (pt_shape_ori[:-2] != poly_line_shape_ori[:-2]):
             raise Exception("Point and poly_line must share the same batch size.")
 
-        if(len(pt_shape_ori) > 3):
+        if (len(pt_shape_ori) > 3):
             pt = pt.reshape(-1, pt_shape_ori[-2], pt_shape_ori[-1])
             poly_line = poly_line.reshape(-1, poly_line_shape_ori[-2], poly_line_shape_ori[-1])
 
@@ -36,7 +36,7 @@ class CartesianToFrenet(Function):
         min_idx = mx_driving._C.select_idx_with_mask(poly_line, min_idx, pt, back_idx)
         poly_start, poly_end, sl = mx_driving._C.calc_poly_start_end_sl(min_idx, poly_line, pt, s_cum)
 
-        if(len(pt_shape_ori) > 3):
+        if (len(pt_shape_ori) > 3):
             poly_start = poly_start.reshape(pt_shape_ori[:-2] + (-1, 2))
             poly_end = poly_end.reshape(poly_line_shape_ori[:-2] + (-1, 2))
             sl = sl.reshape(pt_shape_ori[:-2] + (-1, 2))
