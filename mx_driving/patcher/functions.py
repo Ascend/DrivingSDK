@@ -1,12 +1,13 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+# Copyright (c) OpenMMLab. All rights reserved.
 from types import ModuleType
 from typing import Dict
 
 
 def stream(mmcvparallel: ModuleType, options: Dict):
     @staticmethod
-    def new_forward(target_gpus: List[int], input: Union[List, Tensor]) -> tuple:
-        input_device = get_input_device(input)
+    def new_forward(target_gpus: List[int], input_: Union[List, Tensor]) -> tuple:
+        input_device = get_input_device(input_)
         streams = None
         if input_device == -1 and target_gpus != [-1]:
             # Perform CPU to GPU copies in a background stream
@@ -15,7 +16,7 @@ def stream(mmcvparallel: ModuleType, options: Dict):
                 for device in target_gpus
             ]
 
-        outputs = scatter(input, target_gpus, streams)
+        outputs = scatter(input_, target_gpus, streams)
         # Synchronize with the copy stream
         if streams is not None:
             synchronize_stream(outputs, target_gpus, streams)
