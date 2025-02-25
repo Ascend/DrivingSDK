@@ -63,7 +63,7 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
 | FrameworkPTAdaper | 7.0.0  |
 |       CANN        | 8.1.0 |
 
-- 克隆代码仓到当前目录并使用patch文件
+- 克隆代码仓到当前目录：
 
     ```
     git clone https://gitee.com/ascend/DrivingSDK.git -b master
@@ -71,15 +71,20 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
     git clone https://github.com/stepankonev/waymo-motion-prediction-challenge-2022-multipath-plus-plus.git
     cd waymo-motion-prediction-challenge-2022-multipath-plus-plus
     git checkout 359670b954431d8d26b6807cbd4e5aa1ebbf98dd
+    ```
+    将模型根目录记作`model-root-path`
+    
+- 使用 patch 文件：
+    ```
     cp -f ../MultiPath++.patch .
     git apply --reject --whitespace=fix MultiPath++.patch
     cp -rf ../test ./code/
     ```
 
 
-- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装 Driving SDK 加速库，安装 master 分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
 
-- 在应用过patch的模型根目录下，安装相关依赖。
+- 在应用过patch的模型根目录下，安装相关依赖：
 
   ```
   pip install -r requirements.txt
@@ -89,7 +94,7 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
 
 ### 准备数据集
 
-- 根据原仓**Code Usage**章节准备数据集，处理好的数据集目录及结构如下：
+- 根据原仓 **Code Usage** 章节准备数据集，处理好的数据集目录及结构如下：
 
 ```
 prerendered/
@@ -134,8 +139,8 @@ prerendered/
 #### 训练结果
 | 芯片          | 卡数 | global batch size | Precision | epoch |  loss   | 性能-单步迭代耗时(ms) |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :-------------------: |
-| 竞品A           |  1p  |         128         |   fp32    |  30   | 2.51 |     646         |
-| Atlas 800T A2 |  1p  |         128         |   fp32    |  30   | 2.52 |   856         |
+| 竞品A           |  1p  |         128         |   fp32    |  30   | 2.56 |     646         |
+| Atlas 800T A2 |  1p  |         128         |   fp32    |  30   | 2.53 |   856         |
 
 
 # 变更说明

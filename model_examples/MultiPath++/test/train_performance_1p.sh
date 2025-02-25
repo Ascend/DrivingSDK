@@ -64,8 +64,10 @@ e2e_time=$(( $end_time - $start_time ))
 echo "------------------ Final result ------------------"
 #输出性能，需要模型审视修改
 avg_training_time=`grep -a '2128/2128' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log |awk -F '[' '{print $2}'|awk -F '<' '{print $1}'|awk '{split($0,a,":");b+=a[1]*60+a[2];} END{printf "%d\n",int(b)}'`
+training_time_per_step=$((avg_training_time / 2128))
 #打印，不需要修改
 echo "Final Training Time per epoch : $avg_training_time"
+echo "Final Training Time per step : $training_time_per_step"
 echo "E2E Training Duration sec : $e2e_time"
 
 #性能看护结果汇总
@@ -77,6 +79,7 @@ CaseName=${Network}_bs${BatchSize}_${RANK_SIZE}'p'_'perf'
 #获取性能数据，不需要修改
 #吞吐量
 AvgTrainingTime=${avg_training_time}
+TrainingTimePerStep=${training_time_per_step}
 
 #关键信息打印到${CaseName}.log中，不需要修改
 echo "Network = ${Network}" > ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
@@ -85,5 +88,6 @@ echo "BatchSize = ${BatchSize}" >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/${C
 echo "DeviceType = ${DeviceType}" >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "CaseName = ${CaseName}" >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "AvgTrainingTime = ${AvgTrainingTime}" >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
+echo "TrainingTimePerStep = ${TrainingTimePerStep}" >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "E2ETrainingTime = ${e2e_time}" >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 
