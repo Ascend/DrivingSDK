@@ -74,6 +74,20 @@ class TestGridSampler2dV2Grad(TestCase):
         self.assertRtolEqual(inp_cpu.grad.cpu().numpy(), inp_npu.grad.cpu().numpy())
         self.assertRtolEqual(grid_cpu.grad.cpu().numpy(), grid_npu.grad.cpu().numpy())
 
+    def test_channel_128(self, device="npu"):
+        input_tensor, grid_tensor, inp_npu, grid_npu = gen_inputs([24, 64, 128, 176], [24, 24, 176, 2], torch.float32)
+        inp_cpu, grid_cpu, inp_npu, grid_npu = gen_outputs(input_tensor, grid_tensor, inp_npu, grid_npu, "bilinear",
+                                                           "zeros", False)
+        self.assertRtolEqual(inp_cpu.grad.cpu().numpy(), inp_npu.grad.cpu().numpy())
+        self.assertRtolEqual(grid_cpu.grad.cpu().numpy(), grid_npu.grad.cpu().numpy())
+
+    def test_channel_20(self, device="npu"):
+        input_tensor, grid_tensor, inp_npu, grid_npu = gen_inputs([24, 20, 20, 176], [24, 24, 176, 2], torch.float32)
+        inp_cpu, grid_cpu, inp_npu, grid_npu = gen_outputs(input_tensor, grid_tensor, inp_npu, grid_npu, "bilinear",
+                                                           "zeros", False)
+        self.assertRtolEqual(inp_cpu.grad.cpu().numpy(), inp_npu.grad.cpu().numpy())
+        self.assertRtolEqual(grid_cpu.grad.cpu().numpy(), grid_npu.grad.cpu().numpy())
+
 
 if __name__ == "__main__":
     run_tests()

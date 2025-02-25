@@ -22,9 +22,9 @@ constexpr int32_t COORD_POSITION = 4;
 constexpr int32_t CHANNEL_4 = 4;
 constexpr int32_t CHANNEL_16 = 16;
 constexpr int32_t CHANNEL_128 = 128;
-constexpr int32_t FP32_GROUP_SIZE_LE_4 = 118;
+constexpr int32_t FP32_GROUP_SIZE_LE_4 = 64;
 constexpr int32_t FP32_GROUP_SIZE_GT_4_LE_16 = 32;
-constexpr int32_t FP32_GROUP_SIZE_GT_16_LE_128 = 6;
+constexpr int32_t FP32_GROUP_SIZE_GT_16_LE_128 = 2;
 } // namespace
 
 namespace optiling {

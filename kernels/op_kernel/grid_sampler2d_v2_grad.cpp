@@ -286,6 +286,9 @@ private:
                 DataCopyPad(inputXLocalTensor[swCpInOffsetStart + cpInOffset], inputGm[1][ncBaseOffset + swPointIndex], copyParams, padParams);
                 DataCopyPad(inputXLocalTensor[seCpInOffsetStart + cpInOffset], inputGm[1][ncBaseOffset + sePointIndex], copyParams, padParams);
             }
+            event_t eventID1 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
+            set_flag(PIPE_MTE2, PIPE_V, eventID1);
+            wait_flag(PIPE_MTE2, PIPE_V, eventID1);
             for (int32_t k = 0; k < groupSize; k++) {
                 int32_t cpInOffset = alignedChannel * k;
                 int32_t coorIndex = groupOffset + k;
@@ -302,8 +305,8 @@ private:
                 ComputeGridGrad(iy[nwOffset], yTensor, ix[nwOffset], xTensor, gOutLocalTensor[cpInOffset], inputXLocalTensor[seCpInOffsetStart + cpInOffset], selTensor4, coorIndex);
                 ComputeXGrad(seIndex, se, coorIndex, ncBaseOffset, gOutLocalTensor[cpInOffset]);
 
-                ReduceSum<float>(sum, sum, sum, channel);
-                ReduceSum<float>(sum[alignedChannel], sum[alignedChannel], sum[alignedChannel], channel);
+                ReduceSum<float>(sum, sum, sum, alignedChannel);
+                ReduceSum<float>(sum[alignedChannel], sum[alignedChannel], sum[alignedChannel], alignedChannel);
 
                 gix -= sum.GetValue(0);
                 giy -= sum[alignedChannel].GetValue(0);
@@ -342,6 +345,9 @@ private:
                 DataCopyPad(inputXLocalTensor[swCpInOffsetStart + cpInOffset], inputGm[1][ncBaseOffset + swPointIndex], copyParams, padParams);
                 DataCopyPad(inputXLocalTensor[seCpInOffsetStart + cpInOffset], inputGm[1][ncBaseOffset + sePointIndex], copyParams, padParams);
             }
+            event_t eventID1 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
+            set_flag(PIPE_MTE2, PIPE_V, eventID1);
+            wait_flag(PIPE_MTE2, PIPE_V, eventID1);
             for (int32_t k = 0; k < tailNums; k++) {
                 int32_t cpInOffset = alignedChannel * k;
                 int32_t coorIndex = groupOffset + k;
@@ -358,8 +364,8 @@ private:
                 ComputeGridGrad(iy[nwOffset], yTensor, ix[nwOffset], xTensor, gOutLocalTensor[cpInOffset], inputXLocalTensor[seCpInOffsetStart + cpInOffset], selTensor4, coorIndex);
                 ComputeXGrad(seIndex, se, coorIndex, ncBaseOffset, gOutLocalTensor[cpInOffset]);
 
-                ReduceSum<float>(sum, sum, sum, channel);
-                ReduceSum<float>(sum[alignedChannel], sum[alignedChannel], sum[alignedChannel], channel);
+                ReduceSum<float>(sum, sum, sum, alignedChannel);
+                ReduceSum<float>(sum[alignedChannel], sum[alignedChannel], sum[alignedChannel], alignedChannel);
 
                 gix -= sum.GetValue(0);
                 giy -= sum[alignedChannel].GetValue(0);
@@ -385,14 +391,12 @@ private:
         float yVal = xCoor1.GetValue(coorIndex) - xCoor2.GetValue(coorIndex);
         float flag = selTensor.GetValue(coorIndex);
 
-        Muls(giCoorLocalTensor[alignedChannel], inputXLocalTensor, yVal, channel);
-        Mul(giCoorLocalTensor[alignedChannel], gOutLocalTensor, giCoorLocalTensor[alignedChannel], channel);
+        Muls(giCoorLocalTensor[alignedChannel], inputXLocalTensor, yVal, alignedChannel);
+        Mul(giCoorLocalTensor[alignedChannel], gOutLocalTensor, giCoorLocalTensor[alignedChannel], alignedChannel);
 
-        Muls(giCoorLocalTensor, inputXLocalTensor, xVal, channel);
-        Mul(giCoorLocalTensor, gOutLocalTensor, giCoorLocalTensor, channel);
-
-        Muls(giCoorLocalTensor, giCoorLocalTensor, flag, 2 * alignedChannel);
-        Add(sum, giCoorLocalTensor, sum, 2 * alignedChannel);
+        Muls(giCoorLocalTensor, inputXLocalTensor, xVal, alignedChannel);
+        Mul(giCoorLocalTensor, gOutLocalTensor, giCoorLocalTensor, alignedChannel);
+        Axpy(sum, giCoorLocalTensor, flag, 2 * alignedChannel);
     }
 
     __aicore__ inline void ComputeXGrad(LocalTensor<int32_t> srcIndex, LocalTensor<float> weight,
@@ -402,7 +406,7 @@ private:
         int64_t offset = ncOffset + srcIndex.GetValue(coorIndex);
 
         LocalTensor<float> localTensor = dataOutQueue[0].AllocTensor<float>();
-        Muls(localTensor, gOutLocalTensor, weightVal, channel);
+        Muls(localTensor, gOutLocalTensor, weightVal, alignedChannel);
         dataOutQueue[0].EnQue(localTensor);
         localTensor = dataOutQueue[0].DeQue<float>();
 
