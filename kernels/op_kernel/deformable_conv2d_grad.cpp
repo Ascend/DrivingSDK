@@ -2,16 +2,19 @@
 #include "lib/matmul_intf.h"
 
 using namespace AscendC;
+
+constexpr MatmulConfig DEFORMABLE_CONV2D_CFG = GetNormalConfig();
+
 template<bool modulated>
 class DeformableConv2dGradKernel {
 public:
-    using A0Type = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float>;
-    using A1Type = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, true>;
+    using A0Type = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, true>;
+    using A1Type = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float>;
     using BType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float>;
     using CType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, float>;
 
-    matmul::Matmul<A0Type, BType, CType> mm0_;
-    matmul::Matmul<A1Type, BType, CType> mm1_;
+    matmul::Matmul<A0Type, BType, CType, CType, DEFORMABLE_CONV2D_CFG> mm0_;
+    matmul::Matmul<A1Type, BType, CType, CType, DEFORMABLE_CONV2D_CFG> mm1_;
 
     __aicore__ inline DeformableConv2dGradKernel() = default;
 
@@ -48,9 +51,9 @@ protected:
     // from tiling
     uint64_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_;
     uint32_t usedBlkNum_;
-    int64_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_;
-
-    uint64_t rowOut_, kwIn_, rowIn_, rowOffset_, alignedRowOffset_, kernelSize_;
+    int64_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_, groups_;
+    uint64_t rowOut_, rowOutPerGroup_, kwIn_, kwInPerGroup_, rowIn_, rowOffset_, alignedRowOffset_, kernelSize_,
+        kernelPerGroup_, cInPerGroup_, rowInPerGroup_;
     uint16_t kwInBlk_, rowOffsetBlk_, doubleRowOffsetBlk_, cInBlk_;
     uint16_t rptTimes_, valRptTimes_;
     uint32_t blkIdx_;
@@ -61,7 +64,7 @@ protected:
 
     TEventID calEvt_, copyEvt_, cpFeatureEvt_;
 
-    DataCopyParams cpOneValParams_, cpDoubleValParams_;
+    DataCopyParams cpOneValParams_, cpDoubleValParams_, cpOffsetOutParams_;
     GatherMaskParams gatherParams_;
 
 private:
@@ -101,12 +104,18 @@ private:
         strideW_ = tilingData->strideW;
         dilationH_ = tilingData->dilationH;
         dilationW_ = tilingData->dilationW;
+        groups_ = tilingData->groups;
         usedBlkNum_ = tilingData->usedBlkNum;
         rowOut_ = wOut_ * cOut_;
+        rowOutPerGroup_ = rowOut_ / groups_;
         kwIn_ = kH_ * kW_ * cIn_;
         kwInBlk_ = Ceil(kwIn_, B32_DATA_NUM_PER_BLOCK);
         rowIn_ = wOut_ * kwIn_;
         rowOffset_ = wOut_ * kH_ * kW_;
+        kwInPerGroup_ = kwIn_ / groups_;
+        rowInPerGroup_ = rowIn_ / groups_;
+        cInPerGroup_ = cIn_ / groups_;
+        kernelPerGroup_ = cOut_ / groups_ * kwInPerGroup_;
         alignedRowOffset_ = AlignUp(rowOffset_, B32_DATA_NUM_PER_REPEAT);
         rowOffsetBlk_ = Ceil(rowOffset_, B32_DATA_NUM_PER_BLOCK);
         doubleRowOffsetBlk_ = Ceil(2 * rowOffset_, B32_DATA_NUM_PER_BLOCK);
@@ -114,7 +123,9 @@ private:
 
         cpOneValParams_.blockLen = cInBlk_;
         cpDoubleValParams_.blockLen = 2 * cInBlk_;
-
+        cpOffsetOutParams_.blockCount = kernelSize_;
+        cpOffsetOutParams_.blockLen = cInBlk_ / groups_;
+        cpOffsetOutParams_.dstStride = cInBlk_ - cInBlk_ / groups_;
         rptTimes_ = alignedRowOffset_ / B32_DATA_NUM_PER_REPEAT;
         valRptTimes_ = cIn_ / B32_DATA_NUM_PER_REPEAT;
         gatherParams_.repeatTimes = rptTimes_ * 2;
@@ -213,12 +224,29 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::PreProcess()
 template<bool modulated>
 __aicore__ inline void DeformableConv2dGradKernel<modulated>::ProcessCube(uint32_t taskIdx)
 {
-    mm0_.SetTensorA(gradYGm_[taskIdx * rowOut_]);
-    mm0_.SetTensorB(weightGm_);
-    mm0_.template IterateAll<false>(gradOffsetOutputGm_[taskIdx * rowIn_], 0, false, true);
-    mm1_.SetTensorA(gradYGm_[taskIdx * rowOut_], true);
-    mm1_.SetTensorB(offsetOutputGm_[taskIdx * rowIn_]);
-    mm1_.template IterateAll<false>(gradWeightGm_, true);
+    uint64_t aOffset = 0;
+    uint64_t bOffset = taskIdx * rowIn_;
+    uint64_t cOffset = taskIdx * rowOut_;
+    for (uint32_t i = 0; i < groups_ - 1; ++i) {
+        mm0_.SetTensorA(gradYGm_[cOffset], true);
+        mm0_.SetTensorB(weightGm_[aOffset]);
+        mm0_.template IterateAll<false>(gradOffsetOutputGm_[bOffset]);
+        aOffset += kernelPerGroup_;
+        bOffset += rowInPerGroup_;
+        cOffset += rowOutPerGroup_;
+    }
+    mm0_.SetTensorA(gradYGm_[cOffset], true);
+    mm0_.SetTensorB(weightGm_[aOffset]);
+    mm0_.template IterateAll<false>(gradOffsetOutputGm_[bOffset], 0, false, true);
+
+    for (uint32_t i = 0; i < groups_; ++i) {
+        mm1_.SetTensorA(gradYGm_[cOffset]);
+        mm1_.SetTensorB(offsetOutputGm_[bOffset]);
+        mm1_.template IterateAll<false>(gradWeightGm_[aOffset], true);
+        aOffset -= kernelPerGroup_;
+        bOffset -= rowInPerGroup_;
+        cOffset -= rowOutPerGroup_;
+    }
 }
 template<bool modulated>
 __aicore__ inline void DeformableConv2dGradKernel<modulated>::ProcessVector(uint32_t taskIdx)
@@ -250,11 +278,16 @@ __aicore__ inline void DeformableConv2dGradKernel<modulated>::ProcessVector(uint
 
     SetFlag<HardEvent::V_MTE2>(cpFeatureEvt_);
     for (uint32_t w = 0; w < wOut_; ++w) {
-        DataCopy(gradOffsetOutput, gradOffsetOutputGm_[gradOffsetIdx + w * kwIn_], {1, kwInBlk_, 0, 0});
+        for (uint32_t i = 0; i < groups_; ++i) {
+            DataCopy(gradOffsetOutput[i * cInPerGroup_], gradOffsetOutputGm_[gradOffsetIdx + rowInPerGroup_ * i],
+                cpOffsetOutParams_);
+        }
+
         SetFlag<HardEvent::MTE2_V>(copyEvt_);
         WaitFlag<HardEvent::MTE2_V>(copyEvt_);
         ComputeBilinearInterpolation(
             w, offset, offsetInt, mask, feature, weight, gradOffsetOutput, gradX, gradOffset, reducedValue);
+        gradOffsetIdx += kwInPerGroup_;
     }
     WaitFlag<HardEvent::V_MTE2>(cpFeatureEvt_);
 }

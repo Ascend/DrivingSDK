@@ -21,7 +21,7 @@ ge::graphStatus TilingForDeformableConv2dGrad(gert::TilingContext* context)
     CHECK_NULLPTR(xShapePtr);
     CHECK_NULLPTR(offsetShapePtr);
     CHECK_NULLPTR(weightShapePtr);
-    auto xShape = xShapePtr->GetStorageShape();      // n, cIn, hIn, wIn
+    auto xShape = xShapePtr->GetStorageShape();           // n, cIn, hIn, wIn
     auto offsetShape = offsetShapePtr->GetStorageShape(); // n, hOut, wOut, 2*kH*kW
     auto weightShape = weightShapePtr->GetStorageShape(); // kH, kW, cIn, cOut
 
@@ -39,16 +39,19 @@ ge::graphStatus TilingForDeformableConv2dGrad(gert::TilingContext* context)
     const auto* stridePtr = attrsPtr->GetListInt(1);
     const auto* paddingPtr = attrsPtr->GetListInt(2);
     const auto* dilationPtr = attrsPtr->GetListInt(3);
+    const auto* groupsPtr = attrsPtr->GetInt(4);
     const auto* modulatedPtr = attrsPtr->GetBool(6);
     CHECK_NULLPTR(kernelSizePtr)
     CHECK_NULLPTR(stridePtr)
     CHECK_NULLPTR(paddingPtr)
     CHECK_NULLPTR(dilationPtr)
     CHECK_NULLPTR(modulatedPtr)
+    CHECK_NULLPTR(groupsPtr)
     auto kernelSize = kernelSizePtr->GetData();
     auto stride = stridePtr->GetData();
     auto padding = paddingPtr->GetData();
     auto dilation = dilationPtr->GetData();
+    auto groups = *groupsPtr;
     uint64_t kH = kernelSize[0]; // NOTE: kernelSize[0]
     uint64_t kW = kernelSize[1];
 
@@ -56,11 +59,11 @@ ge::graphStatus TilingForDeformableConv2dGrad(gert::TilingContext* context)
 
     DeformableConv2dGradTilingData tilingData;
     matmul_tiling::MatmulApiTiling mm0Tiling(ascendPlatformInfo), mm1Tiling(ascendPlatformInfo);
-    mm0Tiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
+    mm0Tiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT, true);
     mm0Tiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mm0Tiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
-    mm0Tiling.SetShape(wOut, kH * kW * cIn, cOut);
-    mm0Tiling.SetOrgShape(wOut, kH * kW * cIn, cOut);
+    mm0Tiling.SetShape(wOut, kH * kW * cIn / groups, cOut / groups);
+    mm0Tiling.SetOrgShape(wOut, kH * kW * cIn / groups, cOut / groups);
     mm0Tiling.SetBias(false);
     mm0Tiling.SetBufferSpace(-1, -1, -1);
     if (mm0Tiling.GetTiling(tilingData.mm0TilingData) == -1) {
@@ -68,11 +71,11 @@ ge::graphStatus TilingForDeformableConv2dGrad(gert::TilingContext* context)
     }
 
     mm1Tiling.SetAType(
-        matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT, true);
+        matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mm1Tiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mm1Tiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
-    mm1Tiling.SetShape(cOut, kH * kW * cIn, wOut);
-    mm1Tiling.SetOrgShape(cOut, kH * kW * cIn, wOut);
+    mm1Tiling.SetShape(cOut / groups, kH * kW * cIn / groups, wOut);
+    mm1Tiling.SetOrgShape(cOut / groups, kH * kW * cIn / groups, wOut);
     mm1Tiling.SetBias(false);
     mm1Tiling.SetBufferSpace(-1, -1, -1);
     if (mm1Tiling.GetTiling(tilingData.mm1TilingData) == -1) {
@@ -94,6 +97,7 @@ ge::graphStatus TilingForDeformableConv2dGrad(gert::TilingContext* context)
     tilingData.set_strideW(stride[1]);
     tilingData.set_dilationH(dilation[0]);
     tilingData.set_dilationW(dilation[1]);
+    tilingData.set_groups(*groupsPtr);
     tilingData.set_usedBlkNum(aivNum);
 
     ADD_TILING_DATA(context, tilingData);

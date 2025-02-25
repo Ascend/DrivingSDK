@@ -28,8 +28,6 @@ public:
         InitBuffer();
         InitEvent();
 
-        mm_.SetTensorB(weightGm_, true);
-
         SetVectorMask<float>(FULL_MASK, FULL_MASK);
         SetAtomicNone();
     }
@@ -47,10 +45,11 @@ protected:
     // from tiling
     uint64_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_;
     uint32_t usedBlkNum_;
-    int64_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_;
-    uint64_t rowOut_, kwIn_, rowIn_, kernelSize_;
+    int64_t padH_, padW_, strideH_, strideW_, dilationH_, dilationW_, groups_;
+    uint64_t rowOut_, rowOutPerGroup_, kwIn_, kwInPerGroup_, rowIn_, kernelSize_, kernelPerGroup_, cInPerGroup_,
+        rowInPerGroup_;
     uint64_t rowOffset_, alignedRowOffset_, featureOffset_;
-    uint16_t kwInBlk_, rowOffsetBlk_, doubleRowOffsetBlk_, cInBlk_;
+    uint16_t rowOffsetBlk_, doubleRowOffsetBlk_, cInBlk_;
     uint16_t rptTimes_, valRptTimes_;
     uint32_t blkIdx_;
     uint32_t auxStart_, auxEnd_, start_, end_;
@@ -59,7 +58,7 @@ protected:
     TEventID calEvt_, copyEvt_;
 
     DataCopyParams cpOneValParams_, cpRowDoubleValParams_, cpColDoubleValParams_ {2, 0, 0, 0},
-        cpQuadValParams_ {2, 0, 0, 0};
+        cpQuadValParams_ {2, 0, 0, 0}, cpOffsetOutParams_;
     GatherMaskParams gatherParams_;
 
 private:
@@ -98,12 +97,17 @@ private:
         strideW_ = tilingData->strideW;
         dilationH_ = tilingData->dilationH;
         dilationW_ = tilingData->dilationW;
+        groups_ = tilingData->groups;
         usedBlkNum_ = tilingData->usedBlkNum;
         featureOffset_ = 4 * cIn_;
         rowOut_ = wOut_ * cOut_;
+        rowOutPerGroup_ = rowOut_ / groups_;
         kwIn_ = kernelSize_ * cIn_;
-        kwInBlk_ = Ceil(kwIn_, B32_DATA_NUM_PER_BLOCK);
         rowIn_ = wOut_ * kwIn_;
+        kwInPerGroup_ = kwIn_ / groups_;
+        rowInPerGroup_ = rowIn_ / groups_;
+        cInPerGroup_ = cIn_ / groups_;
+        kernelPerGroup_ = cOut_ / groups_ * kwInPerGroup_;
         rowOffset_ = wOut_ * kernelSize_;
         alignedRowOffset_ = AlignUp(rowOffset_, B32_DATA_NUM_PER_REPEAT);
         rowOffsetBlk_ = Ceil(rowOffset_, B32_DATA_NUM_PER_BLOCK);
@@ -117,7 +121,9 @@ private:
         cpColDoubleValParams_.dstStride = cInBlk_;
         cpQuadValParams_.blockLen = 2 * cInBlk_;
         cpQuadValParams_.srcStride = (wIn_ - 2) * cInBlk_;
-
+        cpOffsetOutParams_.blockCount = kernelSize_;
+        cpOffsetOutParams_.blockLen = cInBlk_ / groups_;
+        cpOffsetOutParams_.srcStride = cInBlk_ - cInBlk_ / groups_;
         rptTimes_ = alignedRowOffset_ / B32_DATA_NUM_PER_REPEAT;
         valRptTimes_ = cIn_ / B32_DATA_NUM_PER_REPEAT;
         gatherParams_.repeatTimes = rptTimes_ * 2;
@@ -205,8 +211,17 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::PreProcess()
 template<bool modulated>
 __aicore__ inline void DeformableConv2dKernel<modulated>::ProcessCube(uint32_t taskIdx)
 {
-    mm_.SetTensorA(offsetOutputGm_[taskIdx * rowIn_]);
-    mm_.template IterateAll<false>(yGm_[taskIdx * rowOut_]);
+    uint64_t aOffset = 0;
+    uint64_t bOffset = taskIdx * rowIn_;
+    uint64_t cOffset = taskIdx * rowOut_;
+    for (uint32_t i = 0; i < groups_; ++i) {
+        mm_.SetTensorA(weightGm_[aOffset]);
+        mm_.SetTensorB(offsetOutputGm_[bOffset], true);
+        mm_.template IterateAll<false>(yGm_[cOffset]);
+        aOffset += kernelPerGroup_;
+        bOffset += rowInPerGroup_;
+        cOffset += rowOutPerGroup_;
+    }
 }
 template<bool modulated>
 __aicore__ inline void DeformableConv2dKernel<modulated>::ProcessVector(uint32_t taskIdx)
@@ -429,8 +444,10 @@ __aicore__ inline void DeformableConv2dKernel<modulated>::ComputeBilinearInterpo
     }
     SetFlag<HardEvent::V_MTE3>(calEvt_);
     WaitFlag<HardEvent::V_MTE3>(calEvt_);
-    DataCopy(offsetOutputGm_[dstOffset_], offsetOutput, {1, kwInBlk_, 0, 0});
-    dstOffset_ += kwIn_;
+    for (uint32_t i = 0; i < groups_; ++i) {
+        DataCopy(offsetOutputGm_[dstOffset_ + rowInPerGroup_ * i], offsetOutput[i * cInPerGroup_], cpOffsetOutParams_);
+    }
+    dstOffset_ += kwInPerGroup_;
     WaitFlag<HardEvent::V_MTE2>(0);
     WaitFlag<HardEvent::V_MTE2>(1);
 }

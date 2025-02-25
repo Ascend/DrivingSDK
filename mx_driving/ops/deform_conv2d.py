@@ -29,6 +29,8 @@ class DeformConv2dFunction(Function):
         dilation: Union[int, Tuple[int, ...]] = 1,
         groups: int = 1,
         deformable_groups: int = 1,
+        bias=False,
+        im2col_step=32,
     ):
         ctx.kernel_size = [weight.size(2), weight.size(3)]
         ctx.stride = _pair(stride)
@@ -60,7 +62,7 @@ class DeformConv2dFunction(Function):
     # pylint: disable=huawei-too-many-arguments,too-many-return-values
     def backward(ctx, grad_out):
         nhwc_x, nhwc_offset, nhwc_weight, offset_output = ctx.saved_tensors
-        nhwc_grad_out = grad_out.permute(0, 2, 3, 1).contiguous()
+        nhwc_grad_out = grad_out.permute(0, 2, 1, 3).contiguous()
         grad_x, grad_weight, grad_offset = mx_driving._C.deformable_conv2d_backward(
             nhwc_x,
             nhwc_weight,

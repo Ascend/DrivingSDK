@@ -21,21 +21,31 @@ class TestDeformableConv2d(TestCase):
         return torch.from_numpy(input1)
 
     @golden_data_cache(__file__)
-    def get_fwd_golden(self, x, weight, offset):
-        return mmcv_deform_conv2d(x, offset, weight, 1, 1, 1)
+    def get_fwd_golden(self, x, weight, offset, groups):
+        return mmcv_deform_conv2d(x, offset, weight, 1, 1, 1, groups)
 
-    def test_deformable_conv2d(self):
-        N, cIn, cOut, K, hIn, wIn, hOut, wOut = 18, 512, 512, 3, 29, 50, 29, 50
+    def test_deformable_conv2d_single_grad(self):
+        N, cIn, cOut, K, hIn, wIn, hOut, wOut, groups = 18, 512, 512, 3, 29, 50, 29, 50, 1
 
         cpu_x = self.create_single_cpu_tensor([np.float32, 0, (N, cIn, hIn, wIn)], -5, 5)
-        cpu_w = self.create_single_cpu_tensor([np.float32, 0, (cOut, cIn, K, K)], -5, 5) * 0.01
+        cpu_w = self.create_single_cpu_tensor([np.float32, 0, (cOut, cIn // groups, K, K)], -5, 5) * 0.01
         cpu_o = self.create_single_cpu_tensor([np.float32, 0, (N, 2 * K * K, hOut, wOut)], -5, 5)
-        cpu_output = self.get_fwd_golden(cpu_x, cpu_w, cpu_o)
+        cpu_output = self.get_fwd_golden(cpu_x, cpu_w, cpu_o, groups)
 
-        output = deform_conv2d(cpu_x.npu(), cpu_o.npu(), cpu_w.npu(), 1, 1, 1)
+        output = deform_conv2d(cpu_x.npu(), cpu_o.npu(), cpu_w.npu(), 1, 1, 1, groups)
+        self.assertRtolEqual(output, cpu_output)
+
+    def test_deformable_conv2d_single_grad(self):
+        N, cIn, cOut, K, hIn, wIn, hOut, wOut, groups = 18, 512, 512, 3, 29, 50, 29, 50, 16
+
+        cpu_x = self.create_single_cpu_tensor([np.float32, 0, (N, cIn, hIn, wIn)], -5, 5)
+        cpu_w = self.create_single_cpu_tensor([np.float32, 0, (cOut, cIn // groups, K, K)], -5, 5) * 0.01
+        cpu_o = self.create_single_cpu_tensor([np.float32, 0, (N, 2 * K * K, hOut, wOut)], -5, 5)
+        cpu_output = self.get_fwd_golden(cpu_x, cpu_w, cpu_o, groups)
+
+        output = deform_conv2d(cpu_x.npu(), cpu_o.npu(), cpu_w.npu(), 1, 1, 1, groups)
         self.assertRtolEqual(output, cpu_output)
 
 
 if __name__ == "__main__":
-    torch.npu.conv.allow_hf32 = False
     run_tests()

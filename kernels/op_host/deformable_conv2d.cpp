@@ -46,16 +46,19 @@ static ge::graphStatus TilingForDeformableConv2d(gert::TilingContext* context)
     const auto* stridePtr = attrsPtr->GetListInt(1);
     const auto* paddingPtr = attrsPtr->GetListInt(2);
     const auto* dilationPtr = attrsPtr->GetListInt(3);
+    const auto* groupsPtr = attrsPtr->GetInt(4);
     const auto* modulatedPtr = attrsPtr->GetBool(6);
     CHECK_NULLPTR(kernelSizePtr)
     CHECK_NULLPTR(stridePtr)
     CHECK_NULLPTR(paddingPtr)
     CHECK_NULLPTR(dilationPtr)
     CHECK_NULLPTR(modulatedPtr)
+    CHECK_NULLPTR(groupsPtr)
     auto kernelSize = kernelSizePtr->GetData();
     auto stride = stridePtr->GetData();
     auto padding = paddingPtr->GetData();
     auto dilation = dilationPtr->GetData();
+    auto groups = *groupsPtr;
     uint64_t kH = kernelSize[0];
     uint64_t kW = kernelSize[1];
 
@@ -67,8 +70,8 @@ static ge::graphStatus TilingForDeformableConv2d(gert::TilingContext* context)
     mmTiling.SetBType(
         matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT, true);
     mmTiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
-    mmTiling.SetShape(wOut, cOut, kH * kW * cIn);
-    mmTiling.SetOrgShape(wOut, cOut, kH * kW * cIn);
+    mmTiling.SetShape(cOut / groups, wOut, kH * kW * cIn / groups);
+    mmTiling.SetOrgShape(cOut / groups, wOut, kH * kW * cIn / groups);
     mmTiling.SetBias(false);
     mmTiling.SetBufferSpace(-1, -1, -1);
     if (mmTiling.GetTiling(tilingData.mmTilingData) == -1) {
@@ -90,6 +93,7 @@ static ge::graphStatus TilingForDeformableConv2d(gert::TilingContext* context)
     tilingData.set_strideW(stride[1]);
     tilingData.set_dilationH(dilation[0]);
     tilingData.set_dilationW(dilation[1]);
+    tilingData.set_groups(groups);
     tilingData.set_usedBlkNum(aivNum);
 
     ADD_TILING_DATA(context, tilingData);

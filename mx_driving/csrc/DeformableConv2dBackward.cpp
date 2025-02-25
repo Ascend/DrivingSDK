@@ -28,6 +28,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> deformable_conv2d_backward(const 
     TORCH_CHECK(input.dim() == 4, "input must to be a 4D Tensor, but got: ", input.dim());
     TORCH_CHECK(offset.dim() == 4, "offset has to be a 4D Tensor, but got: ", offset.dim());
     TORCH_CHECK(weight.dim() == 4, "weight has to be a 4D Tensor, but got: ", offset.dim());
+    TORCH_CHECK(groups > 0, "groups must be greater than 0");
 
     const at::Tensor& bias = at::Tensor();
     const at::Tensor& grad_bias = at::Tensor();
@@ -41,7 +42,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> deformable_conv2d_backward(const 
     at::Tensor grad_input = at::zeros(input_sizes, input.options());
     at::Tensor grad_offset = at::empty(offset_sizes, offset.options());
     at::Tensor grad_weight = at::zeros(weight_sizes, weight.options());
-
+    
     bool modulated = false;
     bool with_bias = false;
 

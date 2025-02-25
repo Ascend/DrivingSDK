@@ -40,7 +40,9 @@ std::tuple<at::Tensor, at::Tensor> modulated_deformable_conv2d(const at::Tensor&
     uint32_t c_out = weight.size(0);
     uint32_t kh = weight.size(1);
     uint32_t kw = weight.size(2);
-
+    TORCH_CHECK(groups > 0, "groups must be greater than 0");
+    TORCH_CHECK(c_out % groups == 0, "weight's out channel should be divided by groups");
+    TORCH_CHECK(c_in % groups == 0, "input's channel should be divided by groups");
     bool modulated = true;
 
     at::Tensor output = at::empty({n, h_out, w_out, c_out}, input.options());

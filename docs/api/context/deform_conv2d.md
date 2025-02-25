@@ -16,7 +16,7 @@ mx_driving.fused.deform_conv2d(Tensor x, Tensor offset, Tensor weight, Union[int
 - `stride(Union)`：卷积步长。
 - `padding(Union)`：卷积的填充大小。
 - `dilation(Union)`：空洞卷积大小。
-- `groups(int)`：分组卷积大小，当前只支持1。
+- `groups(int)`：分组卷积大小，需要可以整除`c_in`, `w_in`。
 - `deformable_groups(int)`：将通道分成几组计算offsets，当前只支持1。
 ### 返回值
 - `output(Tensor)`：输出张量，数据类型为`float32`，shape 为 `(n, c_out, h_out, w_out)`，其中`n`为 batch size，`c_out`为输出通道，`h_out` 为输出特征图高，`w_out` 为输出特征图的宽。
