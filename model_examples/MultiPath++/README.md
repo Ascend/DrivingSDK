@@ -98,7 +98,7 @@ prerendered/
 ```   
 ### 修改config路径
 
-- 将 `code/configs/final_RoP_Cov_Single.yaml` 文件中第6行、第28行替换为处理好的数据集文件夹 training_sparse、validation_sparse 在当前机器上的绝对路径。
+- 将 `code/configs/final_RoP_Cov_Single.yaml` 文件中第6行、第28行替换为处理好的数据集文件夹 `training_sparse`、`validation_sparse` 在当前机器上的绝对路径。
 
 ## 快速开始
 
@@ -107,8 +107,14 @@ prerendered/
 本任务主要提供**单机**的**单卡**训练脚本。
 
 #### 开始训练
+- 进入应用过patch的模型根目录`model-root-path`。
 
-- 在应用过patch的模型根目录下的`code/`路径下，运行训练脚本。
+- 在`model-root-path`下创建保存模型checkpoints的文件夹。
+  ```
+  mkdir models
+  ```
+
+- 在`model-root-path`下的`code/`路径下，运行训练脚本。
 
      该模型支持单机单卡训练。
 
