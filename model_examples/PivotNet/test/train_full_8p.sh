@@ -38,6 +38,15 @@ end_time=$(date +%s)
 echo "end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
 e2e_time=$(( $end_time - $start_time ))
 
+# 模型整跑epoch的step数量
+total_step=106700
+
+# 单step训练时长
+avg_time=$(echo "scale=3; $e2e_time / $total_step" | bc | sed 's/^./0./')
+
+#吞吐量
+ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$avg_time'}')
+
 #性能看护结果汇总
 #训练用例信息，不需要修改
 BatchSize=${batch_size}
@@ -49,10 +58,10 @@ CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
 BatchSize=${batch_size}
 WORLD_SIZE=${world_size}
 DeviceType=$(uname -m)
-CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'performance'
-# 读取文件的最后部分
-last_part=$(grep -A 20 "AP-Performance" train_full_8p.log | tail -n 12)
-
+CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
+# 读取精度信息
+mAP_hard=$(awk -F'|' '/^\| Average/ { gsub(/ /, "", $7); print $7 }' ${output_path_dir}/train_full_8p.log)
+mAP_easy=$(awk -F'|' '/^\| Average/ { gsub(/ /, "", $8); print $8 }' ${output_path_dir}/train_full_8p.log)
 #关键信息打印到${CaseName}.log中，不需要修改
 echo "------------------ Final result ------------------"
 echo "Network: ${Network}"
@@ -60,11 +69,19 @@ echo "RankSize: ${WORLD_SIZE}"
 echo "BatchSize: ${BatchSize}"
 echo "DeviceType: ${DeviceType}"
 echo "CaseName: ${CaseName}"
-echo "AP-Performance: ${last_part}"
+echo "E2E Training Duration sec: ${e2e_time}"
+echo "Final Performance sec/iter: ${avg_time}"
+echo "ActualFPS: ${ActualFPS}"
+echo "mAP_hard: ${mAP_hard}"
+echo "mAP_easy: ${mAP_easy}"
 
 echo "Network: ${Network}" >>${test_path_dir}/output/${CaseName}.log
 echo "RankSize: ${WORLD_SIZE}" >>${test_path_dir}/output/${CaseName}.log
 echo "BatchSize: ${BatchSize}" >>${test_path_dir}/output/${CaseName}.log
 echo "DeviceType: ${DeviceType}" >>${test_path_dir}/output/${CaseName}.log
 echo "CaseName: ${CaseName}" >>${test_path_dir}/output/${CaseName}.log
-echo "AP-Performance: ${last_part}" >>${test_path_dir}/output/${CaseName}.log
+echo "E2E Training Duration sec: ${e2e_time}" >>${test_path_dir}/output/${CaseName}.log
+echo "Final Performance sec/iter: ${avg_time}" >>${test_path_dir}/output/${CaseName}.log
+echo "ActualFPS: ${ActualFPS}" >>${test_path_dir}/output/${CaseName}.log
+echo "mAP_hard: ${mAP_hard}" >>${test_path_dir}/output/${CaseName}.log
+echo "mAP_easy: ${mAP_easy}" >>${test_path_dir}/output/${CaseName}.log
