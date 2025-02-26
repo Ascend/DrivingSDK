@@ -186,7 +186,7 @@ private:
         CompareScalar(cmpLocal, centerFloat[copyLen], static_cast<float>(featureMapSizeY), CMPMODE::LT, AlignUp(copyLen, 64));
         Select(maskHalf, cmpLocal, maskHalf, (half)0.0, SELMODE::VSEL_TENSOR_SCALAR_MODE, copyLen);
         Cast(mask, maskHalf, RoundMode::CAST_NONE, copyLen);
-        CompareScalar(cmpLocal, maskHalf, (half)1.0, CMPMODE::EQ, AlignUp(copyLen, 64));
+        CompareScalar(cmpLocal, maskHalf, (half)1.0, CMPMODE::EQ, AlignUp(copyLen, 128));
         // ind
         Muls(indLocal, centerInt[copyLen], featureMapSizeX, copyLen);
         Add(indLocal, indLocal, centerInt, copyLen);
