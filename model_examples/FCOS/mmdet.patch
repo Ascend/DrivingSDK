@@ -1,5 +1,5 @@
 diff --git a/configs/fcos/fcos_r50-caffe_fpn_gn-head_1x_coco.py b/configs/fcos/fcos_r50-caffe_fpn_gn-head_1x_coco.py
-index 928a9b4c..48c52e78 100644
+index 928a9b4..72c8d6f 100644
 --- a/configs/fcos/fcos_r50-caffe_fpn_gn-head_1x_coco.py
 +++ b/configs/fcos/fcos_r50-caffe_fpn_gn-head_1x_coco.py
 @@ -70,6 +70,10 @@ param_scheduler = [
@@ -7,7 +7,7 @@ index 928a9b4c..48c52e78 100644
  # optimizer
  optim_wrapper = dict(
 -    optimizer=dict(lr=0.01),
-+    optimizer=dict(type='SGD', lr=0.01),
++    optimizer=dict(type='NpuFusedSGD', lr=0.01),
      paramwise_cfg=dict(bias_lr_mult=2., bias_decay_mult=0.),
      clip_grad=dict(max_norm=35, norm_type=2))
 +
@@ -15,11 +15,8 @@ index 928a9b4c..48c52e78 100644
 +train_cfg = dict(max_epochs=1)
 +env_cfg = dict(dist_cfg=dict(backend='hccl'))
 \ No newline at end of file
-diff --git a/mmdet.patch b/mmdet.patch
-new file mode 100644
-index 00000000..e69de29b
 diff --git a/mmdet/__init__.py b/mmdet/__init__.py
-index 3ac884ac..49589e46 100644
+index 3ac884a..49589e4 100644
 --- a/mmdet/__init__.py
 +++ b/mmdet/__init__.py
 @@ -6,7 +6,7 @@ from mmengine.utils import digit_version
@@ -32,7 +29,7 @@ index 3ac884ac..49589e46 100644
  
  mmengine_minimum_version = '0.7.1'
 diff --git a/mmdet/models/dense_heads/fcos_head.py b/mmdet/models/dense_heads/fcos_head.py
-index ba4d4640..4d00d1c0 100644
+index ba4d464..4d00d1c 100644
 --- a/mmdet/models/dense_heads/fcos_head.py
 +++ b/mmdet/models/dense_heads/fcos_head.py
 @@ -261,9 +261,11 @@ class FCOSHead(AnchorFreeHead):
@@ -97,7 +94,7 @@ index ba4d4640..4d00d1c0 100644
 +                top_bottom_two)
          return torch.sqrt(centerness_targets)
 diff --git a/mmdet/models/necks/fpg.py b/mmdet/models/necks/fpg.py
-index 73ee799b..40d123fa 100644
+index 73ee799..40d123f 100644
 --- a/mmdet/models/necks/fpg.py
 +++ b/mmdet/models/necks/fpg.py
 @@ -20,7 +20,7 @@ class Transition(BaseModule):
@@ -110,10 +107,10 @@ index 73ee799b..40d123fa 100644
  
  
 diff --git a/tools/train.py b/tools/train.py
-index 7e5b71fb..71ae4ffc 100644
+index 7e5b71f..d689231 100644
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -3,6 +3,11 @@ import argparse
+@@ -3,6 +3,14 @@ import argparse
  import os
  import os.path as osp
  
@@ -121,7 +118,18 @@ index 7e5b71fb..71ae4ffc 100644
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
 +torch_npu.npu.set_compile_mode(jit_compile=False)
++torch.npu.config.allow_internal_format = False
++from mx_driving.patcher.patcher import PatcherBuilder, Patch
++from mx_driving.patcher.mmdet import resnet_add_relu, resnet_maxpool
 +
  from mmengine.config import Config, DictAction
  from mmengine.registry import RUNNERS
  from mmengine.runner import Runner
+@@ -118,4 +126,6 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    pb = PatcherBuilder().add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
++    with pb.build():
++        main()
