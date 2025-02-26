@@ -67,10 +67,9 @@ code_path=model_examples/StreamPETR
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 6.0.RC3 |
-|       CANN        | 8.0.RC3 |
-|    昇腾NPU固件    | 24.1.RC3 |
-|    昇腾NPU驱动    | 24.1.RC3 |
+| FrameworkPTAdaper | 7.0.RC1 |
+|       CANN        | 8.1.RC1 |
+
 
 
 ### 安装模型环境
@@ -229,9 +228,11 @@ export CXX=clang++
 ```
 
 使用指令which python查看现有python安装路径/path/to/python
+- 以3.8.17为例
+python安装路径为/home/miniconda3/envs/petr/bin/python
 
 ```
-./configure --prefix=/path/to/python > --with-lto --enable-optimizations
+./configure --prefix=/home/miniconda3/envs/petr > --with-lto --enable-optimizations
 make -j
 make install
 ```
@@ -321,12 +322,19 @@ tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_se
 ```
 
 
-#### 训练结果
+#### 训练结果（使用10. 编译优化）
 
 |     芯片      | 卡数 | global batch size | epoch   |   mAP    |      NDS     |    性能-单步迭代耗时(s)   |    FPS    |
 | :-----------: | :--: | :---------------: | :----: | :-------: | :---------: | :----------------------: | :------: |
 |     竞品A     |  8p   |        16         |  24    |  0.4822  |    0.5708    |           0.63          |     25.397    |
 | Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |    0.5703   |           0.70          |   22.857      |
+
+
+训练结果（不使用10. 编译优化）
+|     芯片      | 卡数 | global batch size | epoch   |   mAP    |      NDS     |    性能-单步迭代耗时(s)   |    FPS    |
+| :-----------: | :--: | :---------------: | :----: | :-------: | :---------: | :----------------------: | :------: |
+|     竞品A     |  8p   |        16         |  24    |  0.4822  |    0.5708    |           0.63          |     25.397    |
+| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |    0.5703   |           0.84          |   19.047      |
 
 
 
