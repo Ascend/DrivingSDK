@@ -1,3 +1,58 @@
+diff --git a/mmcv/cnn/bricks/transformer.py b/mmcv/cnn/bricks/transformer.py
+index f7ba4d9f..71a41984 100644
+--- a/mmcv/cnn/bricks/transformer.py
++++ b/mmcv/cnn/bricks/transformer.py
+@@ -449,8 +449,7 @@ class MultiheadAttention(BaseModule):
+         self.num_heads = num_heads
+         self.batch_first = batch_first
+ 
+-        self.attn = nn.MultiheadAttention(embed_dims, num_heads, attn_drop,
+-                                          **kwargs)
++        self.attn = NpuFusedMultiheadAttention(embed_dims, num_heads, attn_drop, **kwargs)
+ 
+         self.proj_drop = nn.Dropout(proj_drop)
+         self.dropout_layer = build_dropout(
+@@ -550,6 +549,40 @@ class MultiheadAttention(BaseModule):
+ 
+         return identity + self.dropout_layer(self.proj_drop(out))
+ 
++import torch.nn as nn
++import torch.nn.functional as F
++import torch_npu
++from torch import Tensor
++from typing import Optional, Tuple, List, Callable, Union
++
++class NpuFusedMultiheadAttention(nn.Module):
++    def __init__(self,
++                 embed_dims,
++                 num_heads,
++                 dropout=0.0,
++                 **kwargs):
++        super().__init__()
++        self.embed_dims = embed_dims
++        self.num_heads = num_heads
++
++    @deprecated_api_warning({'residual': 'identity'}, cls_name='MultiheadAttention')
++    def forward(
++                self,
++                query,
++                key=None,
++                value=None,
++                identity=None,
++                query_pos=None,
++                key_pos=None,
++                key_padding_mask=None,
++                attn_mask=None,
++                need_weights: bool = True,
++                average_attn_weights: bool = True,
++                is_causal : bool = False):
++        
++        out = torch_npu.npu_fusion_attention(query, key, value, head_num=self.num_heads, input_layout="SBH")[0]
++
++        return out
+ 
+ @FEEDFORWARD_NETWORK.register_module()
+ class FFN(BaseModule):
 diff --git a/mmcv/runner/hooks/optimizer.py b/mmcv/runner/hooks/optimizer.py
 index 93015475..8bd1722f 100644
 --- a/mmcv/runner/hooks/optimizer.py

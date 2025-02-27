@@ -1443,27 +1443,78 @@ index 3cb635f..50f6a13 100644
  class DiceLoss(nn.Module):
  
      def __init__(self, eps=1e-6, reduction='mean', loss_weight=1.0):
+diff --git a/projects/mmdet3d_plugin/losses/planning_loss.py b/projects/mmdet3d_plugin/losses/planning_loss.py
+index 6d47070..f904258 100644
+--- a/projects/mmdet3d_plugin/losses/planning_loss.py
++++ b/projects/mmdet3d_plugin/losses/planning_loss.py
+@@ -54,6 +54,10 @@ class CollisionLoss(nn.Module):
+         return inter_sum * self.weight
+         
+     def inter_bbox(self, corners_a, corners_b):
++        device_stack = corners_a.device
++        corners_a = corners_a.cpu()
++        corners_b = corners_b.cpu()
++        
+         xa1, ya1 = torch.max(corners_a[:, 0]), torch.max(corners_a[:, 1])
+         xa2, ya2 = torch.min(corners_a[:, 0]), torch.min(corners_a[:, 1])
+         xb1, yb1 = torch.max(corners_b[:, 0]), torch.max(corners_b[:, 1])
+@@ -61,7 +65,9 @@ class CollisionLoss(nn.Module):
+         
+         xi1, yi1 = min(xa1, xb1), min(ya1, yb1)
+         xi2, yi2 = max(xa2, xb2), max(ya2, yb2)
+-        intersect = max((xi1 - xi2), xi1.new_zeros(1, ).to(xi1.device)) * max((yi1 - yi2), xi1.new_zeros(1,).to(xi1.device))
++
++        intersect = max((xi1 - xi2), xi1.new_zeros(1, )) * max((yi1 - yi2), xi1.new_zeros(1,))
++        intersect = intersect.to(device_stack)
+         return intersect
+ 
+     def to_corners(self, bbox):
 diff --git a/projects/mmdet3d_plugin/losses/track_loss.py b/projects/mmdet3d_plugin/losses/track_loss.py
-index 549c5ae..09b8653 100644
+index 549c5ae..c4d4711 100644
 --- a/projects/mmdet3d_plugin/losses/track_loss.py
 +++ b/projects/mmdet3d_plugin/losses/track_loss.py
-@@ -386,6 +386,9 @@ class ClipMatcher(nn.Module):
+@@ -386,20 +386,31 @@ class ClipMatcher(nn.Module):
          }
          # step1. inherit and update the previous tracks.
          num_disappear_track = 0
-+        
-+        track_instances.obj_idxes = track_instances.obj_idxes.cpu()
-+        track_instances.matched_gt_idxes = track_instances.matched_gt_idxes.cpu()
-         for j in range(len(track_instances)):
-             obj_id = track_instances.obj_idxes[j].item()
-             # set new target idx.
-@@ -399,7 +402,9 @@ class ClipMatcher(nn.Module):
-                         j] = -1  # track-disappear case.
-             else:
-                 track_instances.matched_gt_idxes[j] = -1
+-        for j in range(len(track_instances)):
+-            obj_id = track_instances.obj_idxes[j].item()
+-            # set new target idx.
+-            if obj_id >= 0:
+-                if obj_id in obj_idx_to_gt_idx:
+-                    track_instances.matched_gt_idxes[j] = obj_idx_to_gt_idx[
+-                        obj_id]
+-                else:
+-                    num_disappear_track += 1
+-                    track_instances.matched_gt_idxes[
+-                        j] = -1  # track-disappear case.
+-            else:
+-                track_instances.matched_gt_idxes[j] = -1
 -
-+        track_instances.obj_idxes = track_instances.obj_idxes.npu()
-+        track_instances.matched_gt_idxes = track_instances.matched_gt_idxes.npu()
++        
++        obj_idxes = track_instances.obj_idxes  
++        mask_valid = obj_idxes >= 0
++        
++        current_max = obj_idxes.max().item() if mask_valid.any() else 0
++        
++        lookup_size = max(current_max + 1, 1)  
++        lookup_table = torch.full((lookup_size,), -1, dtype=torch.long, device=track_instances.obj_idxes.device)
++        
++        if obj_idx_to_gt_idx:
++            keys = torch.tensor(list(obj_idx_to_gt_idx.keys()), dtype=torch.long, device=track_instances.obj_idxes.device)
++            valid_keys = keys[keys < lookup_size]  
++            valid_values = torch.tensor([obj_idx_to_gt_idx[k.item()] for k in valid_keys], device=track_instances.obj_idxes.device)
++            lookup_table[valid_keys] = valid_values
++        
++        matched_gt_idxes = torch.where(
++            mask_valid,
++            lookup_table[torch.clamp(obj_idxes, max=lookup_size-1)],  
++            torch.tensor(-1, dtype=torch.long, device=track_instances.obj_idxes.device)
++        )
++        
++        num_disappear_track = (mask_valid & (matched_gt_idxes == -1)).sum().item()
++        track_instances.matched_gt_idxes = matched_gt_idxes
++        
 +        
          full_track_idxes = torch.arange(
              len(track_instances), dtype=torch.long).to(pred_logits_i.device)
@@ -1610,25 +1661,27 @@ index aa61597..ae762f8 100644
          self.n_classes = n_classes
          self.ignore_index = ignore_index
 diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py b/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
-index fdcf079..b539347 100644
+index fdcf079..a52d3d6 100644
 --- a/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
 +++ b/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
-@@ -108,7 +108,15 @@ class PlanningMetric(Metric):
+@@ -108,9 +108,16 @@ class PlanningMetric(Metric):
              m1 = torch.logical_and(m1, torch.logical_not(gt_box_coll))
  
              ti = torch.arange(n_future)
+-            obj_coll_sum[ti[m1]] += segmentation[i, ti[m1], yi[m1], xi[m1]].long()
 +            
 +            yi = yi.detach().cpu()
 +            xi = xi.detach().cpu()
 +            m1 = m1.detach().cpu()
-+
-             obj_coll_sum[ti[m1]] += segmentation[i, ti[m1], yi[m1], xi[m1]].long()
-+            
-+            m2 = torch.logical_not(gt_box_coll)
-+            m2 = m2.detach().cpu()
  
++            obj_coll_sum[ti[m1]] += segmentation[i, ti[m1], yi[m1], xi[m1]].long()
++            
              m2 = torch.logical_not(gt_box_coll)
++            m2 = m2.detach().cpu()
++
              box_coll = self.evaluate_single_coll(trajs[i], segmentation[i])
+             obj_box_coll_sum[ti[m2]] += (box_coll[ti[m2]]).long()
+ 
 diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py b/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py
 index ebfd3b8..a7ee677 100644
 --- a/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py

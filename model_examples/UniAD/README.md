@@ -72,7 +72,6 @@
 
 
 - 安装mmcv
-
   ```
   git clone -b 1.x https://github.com/open-mmlab/mmcv.git
   cd mmcv
@@ -83,21 +82,23 @@
   ```
 
 - 源码安装mmdet3d
-
+   ```
   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
   cp -f ../mmdet3d.patch mmdetection3d
   cd mmdetection3d
   git apply --reject --whitespace=fix mmdet3d.patch
   pip install -r requirements/runtime.txt
   pip install -e .
+   ```
 
 - 准备模型源码
   ```
   git clone https://github.com/OpenDriveLab/UniAD.git
   cp -f UniAD.patch UniAD
+  cp -r test UniAD
   cd UniAD
   git checkout 7b5bf15e0e49522b6553ddc48e67833e8f5f0f52
-  git apply --reject --whitespace=fix UniAD.patch
+  git apply UniAD.patch
   pip install -r requirements.txt
   ```
 
@@ -177,12 +178,13 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 | stage1 | 竞品A           | 8p   | 1                 | fp32      | 5883          |
 | stage1 | Atlas 800T A2 | 8p   | 1                 | fp32      | 9883         |
 | stage2 | 竞品A           | 8p   | 1                 | fp32      | 3990          |
-| stage2 | Atlas 800T A2 | 8p   | 1                 | fp32      | 7848         |
+| stage2 | Atlas 800T A2 | 8p   | 1                 | fp32      | 7220         |
 
 
 # 变更说明
 
 2025.02.19：代码上仓，stage1性能0.6倍竞品，stage2性能0.5倍竞品。
+2025.02.26: stage2性能优化，消除部分free time, FA替换优化, stage2性能达到0.54倍竞品。
 
 # FAQ
 
