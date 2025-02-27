@@ -390,12 +390,9 @@ private:
         float xVal = yCoor1.GetValue(coorIndex) - yCoor2.GetValue(coorIndex);
         float yVal = xCoor1.GetValue(coorIndex) - xCoor2.GetValue(coorIndex);
         float flag = selTensor.GetValue(coorIndex);
-
-        Muls(giCoorLocalTensor[alignedChannel], inputXLocalTensor, yVal, alignedChannel);
-        Mul(giCoorLocalTensor[alignedChannel], gOutLocalTensor, giCoorLocalTensor[alignedChannel], alignedChannel);
-
-        Muls(giCoorLocalTensor, inputXLocalTensor, xVal, alignedChannel);
-        Mul(giCoorLocalTensor, gOutLocalTensor, giCoorLocalTensor, alignedChannel);
+        Mul(tmp1Tensor, inputXLocalTensor, gOutLocalTensor, alignedChannel);
+        Muls(giCoorLocalTensor, tmp1Tensor, xVal, alignedChannel);
+        Muls(giCoorLocalTensor[alignedChannel], tmp1Tensor, yVal, alignedChannel);
         Axpy(sum, giCoorLocalTensor, flag, 2 * alignedChannel);
     }
 
