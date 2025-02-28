@@ -12,6 +12,9 @@ Network="MultiPath++"
 #训练batch_size
 batch_size=128
 
+num_data=272286
+num_step=$((($num_data + $batch_size - 1) / $batch_size))
+
 ###############指定训练脚本执行路径###############
 # cd到与test文件夹同层级目录下执行脚本，提高兼容性；test_path_dir为包含test文件夹的路径
 cur_path=`pwd`
@@ -63,8 +66,8 @@ e2e_time=$(( $end_time - $start_time ))
 #结果打印，不需要修改
 echo "------------------ Final result ------------------"
 #输出性能，需要模型审视修改
-avg_training_time=`grep -a '2128/2128' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log |awk -F '[' '{print $2}'|awk -F '<' '{print $1}'|awk '{split($0,a,":");b+=a[1]*60+a[2];} END{printf "%d\n",int(b)}'`
-training_time_per_step=$((avg_training_time / 2128))
+avg_training_time=`grep -a "$num_step/$num_step" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log |awk -F '[' '{print $2}'|awk -F '<' '{print $1}'|awk '{split($0,a,":");b+=a[1]*60+a[2];} END{printf "%d\n",int(b)}'`
+training_time_per_step=$(awk "BEGIN {printf \"%.3f\", $avg_training_time / $num_step}")
 #打印，不需要修改
 echo "Final Training Time per epoch : $avg_training_time"
 echo "Final Training Time per step : $training_time_per_step"

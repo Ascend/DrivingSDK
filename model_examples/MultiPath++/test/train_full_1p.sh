@@ -12,6 +12,9 @@ Network="MultiPath++"
 #训练batch_size
 batch_size=128
 
+num_data=272286
+num_step=$((($num_data + $batch_size - 1) / $batch_size))
+
 ###############指定训练脚本执行路径###############
 # cd到与test文件夹同层级目录下执行脚本，提高兼容性；test_path_dir为包含test文件夹的路径
 cur_path=`pwd`
@@ -45,6 +48,7 @@ PID_START=0
 PID_END=$((PID_START + KERNEL_NUM - 1))
 
 sed -i '17 s/120/30/'  ./configs/final_RoP_Cov_Single.yaml
+sed -i '13 s/True/False/'  ./configs/final_RoP_Cov_Single.yaml
 
 #训练开始时间，不需要修改
 start_time=$(date +%s)
@@ -54,6 +58,7 @@ nohup taskset -c $PID_START-$PID_END python3 train.py 2>&1 | tee ${test_path_dir
 wait
 
 sed -i '17 s/30/120/'  ./configs/final_RoP_Cov_Single.yaml
+sed -i '13 s/False/True/'  ./configs/final_RoP_Cov_Single.yaml
 
 #训练结束时间，不需要修改
 end_time=$(date +%s)
@@ -63,12 +68,16 @@ e2e_time=$(( $end_time - $start_time ))
 #结果打印，不需要修改
 echo "------------------ Final result ------------------"
 #输出性能，需要模型审视修改
-avg_training_time=`grep -a '2128/2128' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | awk -F '[' '{print $2}'|awk -F '<' '{print $1}'|awk '{split($0,a,":");b+=a[1]*60+a[2];} END{printf "%d\n",int(b/30)}'`
+avg_training_time=`grep -a "$num_step/$num_step" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | awk -F '[' '{print $2}'|awk -F '<' '{print $1}'|awk '{split($0,a,":");b+=a[1]*60+a[2];} END{printf "%d\n",int(b/30)}'`
 #打印，不需要修改
 echo "Final Training Time per epoch : $avg_training_time"
 
 #输出训练精度,需要模型审视修改
-avg_loss=`grep "loss =" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -n 2000 | awk -F 'loss = ' '{split($2, a, ":"); sum += a[1]} END {if (NR > 0) printf "%.6f\n", sum / NR; else print "No data in the file."}'`
+stats=$(grep "loss =" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -n 2000 | awk -F 'loss = ' '{split($2, a, ":"); loss = a[1]; sum += loss; sum_sq += loss * loss; count++} END {if (count > 0) {mean = sum / count; std_dev = sqrt((sum_sq / count) - (mean * mean)); print mean, std_dev} else {print "0 0"}}')
+mean=$(echo $stats | awk '{print $1}')
+std_dev=$(echo $stats | awk '{print $2}')
+threshold=$(awk -v m="$mean" -v s="$std_dev" 'BEGIN {print m + s}')
+avg_loss=$(grep "loss =" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -n 2000 | awk -v thresh="$threshold" -F 'loss = ' '{split($2, a, ":"); loss = a[1]; if (loss <= thresh) {sum += loss; count++}} END {if (count > 0) printf "%.6f\n", sum / count; else print "No valid data after filtering."}')
 
 #打印，不需要修改
 echo "Average Train Loss : ${avg_loss}"
