@@ -1,0 +1,61 @@
+diff --git a/mmdet/core/bbox/match_costs/match_cost.py b/mmdet/core/bbox/match_costs/match_cost.py
+index 4342b024..00415f10 100644
+--- a/mmdet/core/bbox/match_costs/match_cost.py
++++ b/mmdet/core/bbox/match_costs/match_cost.py
+@@ -100,12 +100,11 @@ class FocalLossCost:
+             torch.Tensor: cls_cost value with weight
+         """
+         cls_pred = cls_pred.sigmoid()
+-        neg_cost = -(1 - cls_pred + self.eps).log() * (
+-            1 - self.alpha) * cls_pred.pow(self.gamma)
+-        pos_cost = -(cls_pred + self.eps).log() * self.alpha * (
+-            1 - cls_pred).pow(self.gamma)
++        tmp = 1 - cls_pred
++        neg_cost = (tmp + self.eps).log() * (1 - self.alpha) * cls_pred.pow(self.gamma)
++        pos_cost = (cls_pred + self.eps).log() * self.alpha * tmp.pow(self.gamma)
+ 
+-        cls_cost = pos_cost[:, gt_labels] - neg_cost[:, gt_labels]
++        cls_cost = (neg_cost- pos_cost)[:, gt_labels]
+         return cls_cost * self.weight
+ 
+     def _mask_focal_loss_cost(self, cls_pred, gt_labels):
+@@ -270,7 +269,9 @@ class DiceCost:
+         """
+         mask_preds = mask_preds.flatten(1)
+         gt_masks = gt_masks.flatten(1).float()
+-        numerator = 2 * torch.einsum('nc,mc->nm', mask_preds, gt_masks)
++        # numerator = 2 * torch.einsum('nc,mc->nm', mask_preds, gt_masks)
++        numerator = 2 * torch.mm(mask_preds, gt_masks.transpose(1, 0))
++        
+         if self.naive_dice:
+             denominator = mask_preds.sum(-1)[:, None] + \
+                 gt_masks.sum(-1)[None, :]
+@@ -335,8 +336,10 @@ class CrossEntropyLossCost:
+             cls_pred, torch.ones_like(cls_pred), reduction='none')
+         neg = F.binary_cross_entropy_with_logits(
+             cls_pred, torch.zeros_like(cls_pred), reduction='none')
+-        cls_cost = torch.einsum('nc,mc->nm', pos, gt_labels) + \
+-            torch.einsum('nc,mc->nm', neg, 1 - gt_labels)
++        # cls_cost = torch.einsum('nc,mc->nm', pos, gt_labels) + \
++        #     torch.einsum('nc,mc->nm', neg, 1 - gt_labels)
++        cls_cost = torch.mm(pos, gt_labels.transpose(1, 0)) + \
++            torch.mm(neg, (1 - gt_labels).transpose(1, 0))
+         cls_cost = cls_cost / n
+ 
+         return cls_cost
+diff --git a/mmdet/core/bbox/samplers/pseudo_sampler.py b/mmdet/core/bbox/samplers/pseudo_sampler.py
+index b5ce298e..a1794557 100644
+--- a/mmdet/core/bbox/samplers/pseudo_sampler.py
++++ b/mmdet/core/bbox/samplers/pseudo_sampler.py
+@@ -33,9 +33,9 @@ class PseudoSampler(BaseSampler):
+             :obj:`SamplingResult`: sampler results
+         """
+         pos_inds = torch.nonzero(
+-            assign_result.gt_inds > 0, as_tuple=False).squeeze(-1).unique()
++            assign_result.gt_inds > 0, as_tuple=False).squeeze(-1)
+         neg_inds = torch.nonzero(
+-            assign_result.gt_inds == 0, as_tuple=False).squeeze(-1).unique()
++            assign_result.gt_inds == 0, as_tuple=False).squeeze(-1)
+         gt_flags = bboxes.new_zeros(bboxes.shape[0], dtype=torch.uint8)
+         sampling_result = SamplingResult(pos_inds, neg_inds, bboxes, gt_bboxes,
+                                          assign_result, gt_flags)

@@ -37,7 +37,6 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 
 1. 安装基础依赖
   ```
-  pip install mmdet==2.26.0
   pip install mmsegmentation==0.29.1
   ```
 
@@ -51,7 +50,16 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
   ```
 
-3. 安装 mmdet3d
+3. 源码安装 mmdet 2.26.0
+    ```
+    git clone -b v2.26.0 https://github.com/open-mmlab/mmdetection.git
+    cp mmdet_config.patch mmdetection
+    cd mmdetection
+    git apply --reject mmdet_config.patch
+    pip install -e .
+    ```
+
+4. 安装 mmdet3d
   ```
   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
   cd mmdetection3d
@@ -60,7 +68,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   pip install -e .
   ```
 
-4. 设置LaneSegNet
+5. 设置LaneSegNet
   ```
   git clone https://github.com/OpenDriveLab/LaneSegNet.git
   cp -f lane_seg_net_config.patch LaneSegNet
@@ -70,7 +78,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   pip install -r requirements.txt
   ```
 
-5. 依赖配置
+6. 依赖配置
   ```
   pip install networkx==3.1
   pip insatll torchvision==0.16.0
@@ -79,7 +87,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   pip install numpy==1.24.0
   ```
 
-6. 安装Driving SDK加速库
+7. 安装Driving SDK加速库
   ```
   git clone https://gitee.com/ascend/DrivingSDK.git -b master
   cd mx_driving
