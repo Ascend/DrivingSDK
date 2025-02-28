@@ -6,7 +6,7 @@
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [BEVNeXt（在研版本）](#bevnext在研版本)
+- [BEVNeXt](#bevnext)
   - [准备训练环境](#准备训练环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [安装模型环境](#安装模型环境)
@@ -48,7 +48,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
     code_path=model_examples/BEVNeXt
     ```
 
-# BEVNeXt（在研版本）
+# BEVNeXt
 
 ## 准备训练环境
 
@@ -56,22 +56,13 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境，本仓已支持表1中软件版本。
 
-**表 1** 昇腾软件版本支持表
-
-|     软件类型      | 支持版本 |
-| :---------------: | :------: |
-| FrameworkPTAdaper | 7.0.RC1 |
-|       CANN        | 8.1.RC1 |
-|    昇腾NPU固件    | 25.0.RC1 |
-|    昇腾NPU驱动    | 25.0.RC1 |
-
-### 安装模型环境
-
-**表 2** 三方库版本支持表
+**表 1** 版本支持表
 
 | Torch_Version | 三方库依赖版本 |
 | :-----: | :------: |
 | PyTorch 2.1 | torchvision==0.16.0 |
+
+### 安装模型环境
 
 0. 激活 CANN 环境
 
@@ -177,29 +168,35 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 #### 开始训练
 
-- 在模型源码目录下运行训练脚本。其中，stage1 进行模型预热，stage2 加载 stage1 的权重结果进行训练。训练结果默认保存在模型源码目录下的 `work_dirs` 目录中。
+- 在模型源码目录下运行训练脚本。其中，stage1 进行模型预热，stage2 加载 stage1 的权重进行训练。
 
     ```
-    # 训练 1 epoch
+    # 单机 8 卡训练
     cd model_examples/BEVNeXt/BEVNeXt
     bash test/train_8p_stage1.sh  # 默认 2 epochs
-    bash test/train_8p_stage2.sh  # 默认 1 epoch
+    bash test/train_8p_stage2.sh  # 默认 4 epochs
 
-    # 获取精度结果
-    bash test/test_8p_eval.sh
+    # 运行评测脚本获取精度结果，默认 stage2 4 epochs
+    bash test/eval_bevnext.sh
     ```
+
+    > 注：当前配置下，训练结果默认保存在模型源码目录下的 `work_dirs` 目录中。如果修改了 stage1 的权重保存路径，请用户根据路径自行配置 `train_8p_stage2.sh` 中的 `stage1_ckpts_path`。如果修改了 stage2 的权重保存路径，请自行配置 `eval_bevnext.sh` 中的 `work_dir`（与 stage2 权重保存路径相同）。
 
 #### 训练结果
 
-| 芯片 | 卡数 | config | epoch | mAP(IoU=0.50:0.95) | Torch_Version |
-| ----------- | -- | -- | ---- | ---------------- | -- |
-|     竞品A     | 8p | stage2 | 1 | 0.3676 | PyTorch 2.1 |
-| Atlas 800T A2 | 8p | stage2 | 1 | 0.3670 | PyTorch 2.1 |
+| 芯片 | 卡数 | 阶段 | epoch | FPS | mAP | Torch_Version |
+| -- | -- | -- | -- | -- | -- | -- |
+|     竞品A     | 8p | stage1 | 2 | 36.643 | \ | PyTorch 2.1 |
+| Atlas 800T A2 | 8p | stage1 | 2 | 16.459 | \ | PyTorch 2.1 |
+|     竞品A     | 8p | stage2 | 4 | 11.371 | 0.4163 | PyTorch 2.1 |
+| Atlas 800T A2 | 8p | stage2 | 4 | 7.851 | 0.4180 | PyTorch 2.1 |
 
 # 变更说明
 
-2025.2.17：首次发布
+2025.2.17：首次发布。
+
+2025.2.27：性能优化，当前 stage1 性能为 0.45 倍竞品A，stage2 性能为 0.69 倍竞品A。
 
 # FAQ
 
-1. 目前还未做性能优化，且存在偶现的精度异常（在竞品A上训练也会出现），暂不推荐使用。
+1. 在竞品 A 与 Atlas 800T A2 机器上训练均存在偶现的精度异常，暂不推荐使用。

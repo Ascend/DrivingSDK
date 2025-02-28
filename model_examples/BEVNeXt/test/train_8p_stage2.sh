@@ -2,7 +2,7 @@
 # 模型配置
 export RANK_SIZE=8
 batch_size=8
-epochs=1
+epochs=4
 work_dir="work_dirs/bevnext-stage2"
 stage1_ckpts_path="work_dirs/bevnext-stage1/epoch_2_ema.pth"
 
@@ -34,6 +34,8 @@ else
     test_path_dir=${cur_path}/test
 fi
 
+mkdir -p ${work_dir}
+
 source ${test_path_dir}/env_npu.sh
 
 # 修改配置文件中的 load_from
@@ -42,11 +44,38 @@ sed -i "s|load_from = .*|load_from = '${stage1_ckpts_path}'|g" ./configs/bevnext
 sed -i "s|max_epochs=.*|max_epochs=${epochs})|g" ./configs/bevnext/bevnext-stage2.py
 
 # 开始训练
-echo "[BEVNeXt] Training stage2..."
-bash ./tools/dist_train.sh configs/bevnext/bevnext-stage2.py ${RANK_SIZE} --work-dir ${work_dir} --seed 0 &
+# 训练开始时间
+start_time=$(date +%s)
+echo "[BEVNeXt] Stage2 start_time=$(date -d @${start_time} "+%Y-%m-%d %H:%M:%S")"
+
+bash ./tools/dist_train.sh configs/bevnext/bevnext-stage2.py ${RANK_SIZE} --work-dir ${work_dir} --seed 0 \
+    > ${work_dir}/train_stage2_${RANK_SIZE}p_bs${batch_size}_epochs${epochs}.log 2>&1 &
 wait
 
 # 恢复配置文件中的 total_epochs
 sed -i "s|max_epochs=.*|max_epochs=12)|g" ./configs/bevnext/bevnext-stage2.py
 
-echo "[BEVNeXt] Train stage2 success."
+# 训练结束时间
+end_time=$(date +%s)
+echo "[BEVNeXt] Stage2 end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
+e2e_time=$(( $end_time - $start_time ))
+
+# 输出性能
+avg_time=`grep -o ", time: [0-9.]*" ${work_dir}/train_stage2_${RANK_SIZE}p_bs${batch_size}_epochs${epochs}.log | grep -o "[0-9.]*" | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
+avg_fps=`awk 'BEGIN{printf "%.3f\n", '$batch_size'*'${RANK_SIZE}'/'$avg_time'}'`
+
+# 结果打印
+echo "------------------ Final result ------------------"
+echo "[BEVNeXt] Stage2 E2E Training Duration sec : ${e2e_time}"
+echo "[BEVNeXt] Stage2 Final Performance images/sec : ${avg_fps}"
+echo "[BEVNeXt] Stage2 Train stage2 success."
+
+# 将关键信息打印到 ${case_name}.log 中
+echo "Network = ${network}" > ${work_dir}/${case_name}.log
+echo "DeviceType = ${device_type}" >> ${work_dir}/${case_name}.log
+echo "RankSize = ${RANK_SIZE}" >> ${work_dir}/${case_name}.log
+echo "BatchSize = ${batch_size}" >> ${work_dir}/${case_name}.log
+echo "CaseName = ${case_name}" >> ${work_dir}/${case_name}.log
+echo "E2ETrainingTime = ${e2e_time}" >> ${work_dir}/${case_name}.log
+echo "TrainingTime = ${avg_time}" >> ${work_dir}/${case_name}.log
+echo "averageFPS = ${avg_fps}" >> ${work_dir}/${case_name}.log
