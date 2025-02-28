@@ -205,6 +205,7 @@ wget --no-check-certificate  https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.c
 tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
 export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
 export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
+source {cann_root_dir}/set_env.sh
 ```
 
 下载所需依赖：

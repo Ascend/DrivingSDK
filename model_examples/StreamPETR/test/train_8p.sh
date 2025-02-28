@@ -95,12 +95,10 @@ Iteration_time=$avg_time
 echo "Iteration time : $Iteration_time"
 
 # 输出训练精度IoU,需要模型审视修改
-Training_loss=`grep -a ' - mmdet - INFO - Iter '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F ", loss: " '{print $2}' | awk -F "," '{print $1}' | awk '{last=$0} END {print last}'`
 MAP=` grep -a 'mAP:' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "mAP: " '{print $2}' | awk '{last=$1} END {print last}'`
 NDS=` grep -a 'NDS:' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "NDS: " '{print $2}' | awk '{last=$1} END {print last}'`
 
 # 打印，不需要修改
-echo "Training_loss : ${Training_loss}"
 echo "mAP : ${MAP}"
 echo "NDS : ${NDS}"
 echo "E2E Training Duration sec : $e2e_time"
