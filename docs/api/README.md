@@ -35,6 +35,7 @@
     - [boxes_iou_bev[beta]](./context/boxes_iou_bev[beta].md)
     - [nms3d](./context/nms3d.md)
     - [nms3d_normal](./context/nms3d_normal.md)
+    - [nms3d_on_sight](./context/nms3d_on_sight.md)
     - [npu_rotated_iou](./context/npu_rotated_iou.md)
     - [points_in_boxes_all](./context/points_in_boxes_all.md)
     - [points_in_box](./context/points_in_box.md)

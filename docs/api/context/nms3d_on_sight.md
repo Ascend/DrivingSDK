@@ -17,6 +17,7 @@ mx_driving.nms3d_on_sight(Tensor boxes, Tensor scores, float threshold) -> Tenso
 - heading的范围是(0, 1)
 - 0 < N <= 2500
 - 0 <= scores <= 1
+- -0.5 <= threshold <= 1
 - 由于距离相同时排序为不稳定排序，存在距离精度通过但索引精度错误问题，与竞品无法完全对齐。
 ### 支持的型号
 - Atlas A2 训练系列产品
