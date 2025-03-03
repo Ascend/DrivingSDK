@@ -53,6 +53,72 @@ index f7ba4d9f..71a41984 100644
  
  @FEEDFORWARD_NETWORK.register_module()
  class FFN(BaseModule):
+diff --git a/mmcv/ops/modulated_deform_conv.py b/mmcv/ops/modulated_deform_conv.py
+index 8a348e83..dcb8c087 100644
+--- a/mmcv/ops/modulated_deform_conv.py
++++ b/mmcv/ops/modulated_deform_conv.py
+@@ -1,4 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
+ import math
+ from typing import Optional, Tuple, Union
+ 
+@@ -322,8 +323,9 @@ class ModulatedDeformConv2dPack(ModulatedDeformConv2d):
+ 
+     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
+         out = self.conv_offset(x)
+-        o1, o2, mask = torch.chunk(out, 3, dim=1)
+-        offset = torch.cat((o1, o2), dim=1)
++        len1 = ((out.shape[1] + 2) // 3) * 2
++        len2 = out.shape[1] - len1
++        offset, mask = torch.split(out, [len1, len2], dim=1)
+         mask = torch.sigmoid(mask)
+         return modulated_deform_conv2d(x, offset, mask, self.weight, self.bias,
+                                        self.stride, self.padding,
+@@ -422,4 +424,4 @@ if IS_MLU_AVAILABLE:
+                 stride=self.stride,
+                 padding=self.padding,
+                 dilation=self.dilation,
+-                mask=mask)
++                mask=mask)
+\ No newline at end of file
+diff --git a/mmcv/ops/multi_scale_deform_attn.py b/mmcv/ops/multi_scale_deform_attn.py
+index 8c09cd2a..0107208f 100644
+--- a/mmcv/ops/multi_scale_deform_attn.py
++++ b/mmcv/ops/multi_scale_deform_attn.py
+@@ -1,4 +1,5 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
++# Copyright 2024 Huawei Technologies Co., Ltd
+ import math
+ import warnings
+ from typing import Optional, no_type_check
+@@ -15,6 +16,7 @@ from mmcv.cnn.bricks.registry import ATTENTION
+ from mmcv.runner import BaseModule
+ from mmcv.utils import IS_CUDA_AVAILABLE, IS_MLU_AVAILABLE, IS_NPU_AVAILABLE
+ from ..utils import ext_loader
++import mx_driving.fused
+ 
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+@@ -363,9 +365,8 @@ class MultiScaleDeformableAttention(BaseModule):
+         if ((IS_CUDA_AVAILABLE and value.is_cuda)
+                 or (IS_MLU_AVAILABLE and value.is_mlu)
+                 or (IS_NPU_AVAILABLE and value.device.type == 'npu')):
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = mx_driving.fused.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++                                                                         sampling_locations, attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+@@ -376,4 +377,4 @@ class MultiScaleDeformableAttention(BaseModule):
+             # (num_query, bs ,embed_dims)
+             output = output.permute(1, 0, 2)
+ 
+-        return self.dropout(output) + identity
++        return self.dropout(output) + identity
+\ No newline at end of file
 diff --git a/mmcv/runner/hooks/optimizer.py b/mmcv/runner/hooks/optimizer.py
 index 93015475..8bd1722f 100644
 --- a/mmcv/runner/hooks/optimizer.py
