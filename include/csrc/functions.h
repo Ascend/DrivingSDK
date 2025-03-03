@@ -276,4 +276,8 @@ at::Tensor select_idx_with_mask(const at::Tensor& poly_line, const at::Tensor& m
 std::tuple<at::Tensor, at::Tensor> cartesian_to_frenet1(const at::Tensor& dist_vec);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> calc_poly_start_end_sl(const at::Tensor& min_idx, const at::Tensor& poly_line, const at::Tensor& points, const at::Tensor& s_cum);
+
+at::Tensor npu_subm_sparse_conv3d_with_key(const at::Tensor& ouidx_offset, const at::Tensor& valid_indices,
+                                           const at::Tensor& weight, const at::Tensor& feature, int indices_number,
+                                           at::IntArrayRef kernel_size);
 #endif // CSRC_FUNCTIONS_H_

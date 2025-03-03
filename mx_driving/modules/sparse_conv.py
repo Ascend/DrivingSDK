@@ -185,7 +185,7 @@ class SparseConvolution(SparseModule):
 
     def forward(self, input_):
         if not isinstance(input_, SparseConvTensor):
-            raise RuntimeError("input is not SparseConvTensor")
+            raise RuntimeError("input_ is not SparseConvTensor")
         if self.inverse:
             out_spatial_shape = get_inverse_conv_output_size(
                 input_.spatial_shape, self.kernel_size, self.stride, self.padding, self.dilation, self.output_padding
@@ -230,29 +230,50 @@ class SparseConvolution(SparseModule):
                 self.bias,
             )
         else:
+            
             out_spatial_shape = input_.spatial_shape
             out_spatial_shape = [int(i) for i in out_spatial_shape]
             if not isinstance(out_spatial_shape, list):
                 out_spatial_shape = out_spatial_shape.tolist()
-            out_features, outidx = Fsp.indice_subm_conv(
-                input_.features,
-                input_.indices,
-                self.weight,
-                out_spatial_shape,
-                self.out_channels,
-                input_.batch_size,
-                self.kernel_size,
-                self.stride,
-                self.padding,
-                self.dilation,
-                self.groups,
-                self.bias,
-            )
+            indices_offset = input_.find_indice_pair(self.indice_key)
+            if indices_offset is None:
+                out_features, outidx, ouidx_offset = Fsp.indice_subm_conv(
+                    input_.features,
+                    input_.indices,
+                    self.weight,
+                    out_spatial_shape,
+                    self.out_channels,
+                    input_.batch_size,
+                    self.kernel_size,
+                    self.stride,
+                    self.padding,
+                    self.dilation,
+                    self.groups,
+                    self.bias,
+                )
+                input_.indice_dict[self.indice_key] = ouidx_offset
+            else:
+                out_features, outidx = Fsp.indice_subm_conv_with_key(
+                    input_.features,
+                    input_.indices,
+                    self.weight,
+                    indices_offset,
+                    out_spatial_shape,
+                    self.out_channels,
+                    input_.batch_size,
+                    self.kernel_size,
+                    self.stride,
+                    self.padding,
+                    self.dilation,
+                    self.groups,
+                    self.bias,
+                )
 
         if self.bias is not None:
             out_features += self.bias
 
         out_tensor = SparseConvTensor(out_features, outidx, out_spatial_shape, input_.batch_size)
+        out_tensor.indice_dict = input_.indice_dict
         return out_tensor
 
 
