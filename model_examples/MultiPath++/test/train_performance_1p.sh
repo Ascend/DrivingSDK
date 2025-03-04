@@ -12,7 +12,7 @@ Network="MultiPath++"
 #训练batch_size
 batch_size=128
 
-num_data=272286
+num_data=$(find $(sed -n '6p' ./configs/final_RoP_Cov_Single.yaml | awk -F': ' '{print $2}' | tr -d '"') -type f | wc -l)
 num_step=$((($num_data + $batch_size - 1) / $batch_size))
 
 ###############指定训练脚本执行路径###############

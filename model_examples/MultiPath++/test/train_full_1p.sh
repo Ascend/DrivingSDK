@@ -12,7 +12,7 @@ Network="MultiPath++"
 #训练batch_size
 batch_size=128
 
-num_data=272286
+num_data=$(find $(sed -n '6p' ./configs/final_RoP_Cov_Single.yaml | awk -F': ' '{print $2}' | tr -d '"') -type f | wc -l)
 num_step=$((($num_data + $batch_size - 1) / $batch_size))
 
 ###############指定训练脚本执行路径###############
@@ -48,7 +48,6 @@ PID_START=0
 PID_END=$((PID_START + KERNEL_NUM - 1))
 
 sed -i '17 s/120/30/'  ./configs/final_RoP_Cov_Single.yaml
-sed -i '13 s/True/False/'  ./configs/final_RoP_Cov_Single.yaml
 
 #训练开始时间，不需要修改
 start_time=$(date +%s)
@@ -58,7 +57,6 @@ nohup taskset -c $PID_START-$PID_END python3 train.py 2>&1 | tee ${test_path_dir
 wait
 
 sed -i '17 s/30/120/'  ./configs/final_RoP_Cov_Single.yaml
-sed -i '13 s/False/True/'  ./configs/final_RoP_Cov_Single.yaml
 
 #训练结束时间，不需要修改
 end_time=$(date +%s)
