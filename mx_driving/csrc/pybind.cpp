@@ -207,6 +207,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // npu_gaussian
     m.def("npu_gaussian", &npu_gaussian);
 
+    // npu_draw_gaussian_to_heatmap
+    m.def("npu_draw_gaussian_to_heatmap", &npu_draw_gaussian_to_heatmap);
+
+    // npu_assign_target_of_single_head
+    m.def("npu_assign_target_of_single_head", &npu_assign_target_of_single_head);
+
     // diff_iou_rotated_sort_vertices
     m.def("diff_iou_rotated_sort_vertices", &diff_iou_rotated_sort_vertices);
 

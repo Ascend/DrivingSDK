@@ -255,6 +255,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_gauss
     float range_x, float range_y, int32_t feature_map_size_x, int32_t feature_map_size_y,
     bool norm_bbox, bool with_velocity, bool flip_angle, int32_t max_objs);
 
+at::Tensor npu_draw_gaussian_to_heatmap(const at::Tensor& mask, const at::Tensor& cur_class_id, const at::Tensor& center_int, const at::Tensor& radius,
+    int64_t feature_map_size_x, int64_t feature_map_size_y, int64_t num_classes);
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_assign_target_of_single_head(const at::Tensor& boxes, const at::Tensor& cur_class_id,
+    int32_t num_classes, int32_t out_size_factor, float overlap, int32_t min_radius,
+    const std::vector<float> voxel_size, const std::vector<float> pc_range, at::IntArrayRef feature_map_size,
+    bool norm_bbox, bool with_velocity, bool flip_angle, int32_t max_objs);
+
 at::Tensor diff_iou_rotated_sort_vertices(const at::Tensor& vertices, const at::Tensor& mask,
     const at::Tensor& num_valid);
 

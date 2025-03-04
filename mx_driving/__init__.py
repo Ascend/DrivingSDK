@@ -56,6 +56,8 @@ __all__ = [
     "voxelization",
     "cal_anchors_heading",
     "npu_gaussian",
+    "npu_draw_gaussian_to_heatmap",
+    "npu_assign_target_of_single_head",
     "diff_iou_rotated_2d",
     "nms3d_on_sight",
     "cartesian_to_frenet",
@@ -115,6 +117,8 @@ from .ops.voxelization import voxelization
 from .ops.unique_voxel import unique_voxel
 from .ops.cal_anchors_heading import cal_anchors_heading
 from .ops.npu_gaussian import npu_gaussian
+from .ops.npu_draw_gaussian_to_heatmap import npu_draw_gaussian_to_heatmap
+from .ops.npu_assign_target_of_single_head import npu_assign_target_of_single_head
 from .ops.diff_iou_rotated import diff_iou_rotated_2d
 from .ops.npu_batch_matmul import npu_batch_matmul
 from .ops.nms3d_on_sight import nms3d_on_sight

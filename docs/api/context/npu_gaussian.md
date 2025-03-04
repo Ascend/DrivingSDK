@@ -1,8 +1,8 @@
-## npu_gaussian(beta)
+## npu_gaussian
 ### 接口原型
 ```python
 mx_driving.npu_gaussian(Tensor boxes, int out_size_factor, float gaussian_overlap, int min_radius, float voxel_size_x, float voxel_size_y, float pc_range_x,
-    float pc_range_y, int feature_map_size_x, int feature_map_size_y, bool norm_bbox, bool with_velocity) -> (Tensor center_int, Tensor radius, Tensor mask, Tensor ind, Tensor anno_box)
+    float pc_range_y, int feature_map_size_x, int feature_map_size_y, bool norm_bbox, bool with_velocity, bool flip_angle, int max_objs) -> (Tensor center_int, Tensor radius, Tensor mask, Tensor ind, Tensor anno_box)
 ```
 ### 功能描述
 实现`centerpoint_head.py`脚本中`get_targets_single`函数的部分功能，`draw_gaussian`函数未适配。
@@ -19,12 +19,14 @@ mx_driving.npu_gaussian(Tensor boxes, int out_size_factor, float gaussian_overla
 - `feature_map_size_y(int)`：y方向的BEV特征图的大小。
 - `norm_bbox(bool)`：是否对3D边界框的参数进行归一化。
 - `with_velocity(bool)`：是否在目标检测任务中引入速度信息。
+- `flip_angle(bool)`：是否在结果中将正弦余弦结果反转。
+- `max_objs(int)`：处理boxes数量的上限。
 ### 返回值
-- `center_int(Tensor)`：经过计算后的直角三角形斜边，数据类型为`int32`。
-- `radius(Tensor)`：经过计算后的高斯半径，数据类型为`int32`。
-- `mask(Tensor)`：经过计算后的直角三角形斜边，数据类型为`uint8`。
-- `ind(Tensor)`：经过计算后的直角三角形斜边，数据类型为`int64`。
-- `anno_box(Tensor)`：经过计算后的直角三角形斜边，数据类型为`float32`。
+- `center_int(Tensor)`：经过计算后的直角三角形斜边，数据类型为`int32`，shape为`[minObjs, 2]`。
+- `radius(Tensor)`：经过计算后的高斯半径，数据类型为`int32`，shape为`[minObjs]`。
+- `mask(Tensor)`：经过计算后的符合要求的boxes的掩码，数据类型为`uint8`，shape为`[max_objs]`。
+- `ind(Tensor)`：经过计算后的符合要求的boxes中心点的偏移量，数据类型为`int64`，shape为`[max_objs]`。
+- `anno_box(Tensor)`：经过计算后的直角三角形斜边，数据类型为`float32`，shape为`[max_objs, 10]`。
 ### 算子约束
 1. 若适配BEVDet模型，`W`应为9，其他模型（如需要）可能略有差别。
 2. 所有参数和模型的配置保持一致。
@@ -46,7 +48,8 @@ feature_map_size_x = 128
 feature_map_size_y = 128
 norm_bbox = True
 with_velocity = True
+flip_angle = True
 num_objs = 100
 boxes = -50 + 100 * torch.rand((num_objs, 9), dtype=torch.float32).npu()
-output = npu_gaussian(boxes, out_size_factor, gaussian_overlap, min_radius, voxel_size_x, voxel_size_y, pc_range_x, pc_range_y, feature_map_size_x, feature_map_size_y, norm_bbox, with_velocity)
+output = npu_gaussian(boxes, out_size_factor, gaussian_overlap, min_radius, voxel_size_x, voxel_size_y, pc_range_x, pc_range_y, feature_map_size_x, feature_map_size_y, norm_bbox, with_velocity, flip_angle)
 ```
