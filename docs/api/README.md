@@ -50,7 +50,7 @@
     - [modulated_deformable_conv2d](./context/modulated_deform_conv2d.md)
     - [npu_add_relu](./context/npu_add_relu.md)
     - [npu_max_pool2d](./context/npu_max_pool2d.md)
-    - [geometric_kernel_attention[beta]](./context/geometric_kernel_attention[beta].md)
+    - [geometric_kernel_attention](./context/geometric_kernel_attention.md)
     - [npu_gaussian](./context/npu_gaussian.md)
     - [npu_draw_gaussian_to_heatmap[beta]](./context/npu_draw_gaussian_to_heatmap[beta].md)
     - [npu_assign_target_of_single_head[beta]](./context/npu_assign_target_of_single_head[beta].md)
