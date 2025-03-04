@@ -49,7 +49,7 @@ if(BUILD_STAGE EQUAL 2)
             -fstack-protector-all
             -DTORCH_API_INCLUDE_EXTENSION_H
             -DTORCH_EXTENSION_NAME=_C
-            -D_GLIBCXX_USE_CXX11_ABI=0
+            -D_GLIBCXX_USE_CXX11_ABI=${ABI}
             -D__FILENAME__=__FILE__
             ${EXT_CXX_FLAGS})
 
