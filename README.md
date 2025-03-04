@@ -115,62 +115,40 @@ out, argmax = scatter_max(updates, indices, out)
 - [ ] 支持图模式
 
 ## 模型清单
-|  Model   | 链接  | 认证 |
+|  Model   | 链接  | Released |
 |  :----:  |  :----  | :----  |
-| MatrixVT  | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/autonoumous_driving/MatrixVT | 【Pass】 |
-| MobileNetV1  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV1_ID0094_for_PyTorch| 【Pass】 |
-| MobileNetV2  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV2_for_PyTorch| 【Pass】 |
-| YoloV5  |  https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov5_for_PyTorch_v7.0 | 【Pass】|
-| YoloV7  | https://gitee.com/ascend/modelzoo-GPL/tree/master/built-in/PyTorch/Official/cv/object_detection/Yolov7_for_PyTorch  |【Pass】|
-| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |【Test】|
-| YoloV9  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/detection/YOLOV9_for_PyTorch |【Test】|
-| YoloX  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/dev/cv/detection/YOLOX_ID2833_for_PyTorch |【Pass】|
-| Stable-Diffusion|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/diffusion/diffusers0.18.1|【Pass】 |
-| RegNet  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/RegNetX_ID4127_for_PyTorch |【Pass】 |
-| RepVGG  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/RepVGG |【Pass】 |
-| ViT  |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/vit_base_patch32_224|【Pass】 |
-| Resnet18|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/ACL_PyTorch/built-in/cv/Resnet18_for_PyTorch|【Pass】 |
-| Resnet50|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/ResNet50_ID4149_for_PyTorch|【Pass】 |
-| Mobilenetv3|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/classification/MobileNetV3-Large_ID1784_for_PyTorch|【Pass】 |
-| Faster-Mask-RCNN|https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/built-in/cv/detection/Faster_Mask_RCNN_for_PyTorch|【Pass】 |
-| Swin-Transformer  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/Swin-Transformer_for_PyTorch | 【Pass】|
-| CenterNet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterNet |【Pass】|
-| EfficientNet  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNet-B0_for_PyTorch |【Pass】|
-| EfficientNetV2 | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/classification/EfficientNetV2-B0_for_PyTorch |【Pass】|
-| SSD MobileNetV1  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/SSD-MobileNetV1 | 【Pass】|
-| U-net |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/UNet_for_PyTorch|【Pass】 |
-| FCN |https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch|【Pass】 |
-| BisenetV2  |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/BiSeNet_v2 | 【Pass】|
-| FCN |  https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/cv/semantic_segmentation/FCN-res18_for_Pytorch |【Pass】|
-| PETR | https://gitee.com/ascend/ModelZoo-PyTorch/tree/master/PyTorch/contrib/autonoumous_driving/PETR| 【Pass】|
-| PointPillar(2D)  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointPillar | 【Pass】|
-| CenterPoint(2D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |【Pass】|
-| BevFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFormer |【Pass】|
-| SurroundOcc  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc |【Pass】|
-| GameFormer-Planner  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner | 【Pass】|
-| StreamPETR  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/StreamPETR |【Test】|
-| BEVDet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet |【Test】|
-| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |【Test】|
-| TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |【Test】|
-| DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR |【Test】|
-| Deformable-DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR |【Test】|
-| LaneSegNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LaneSegNet |【Test】|
-| BEVFusion | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFusion |【Test】|
-| FCOS-resnet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS | 【Test】|
-| FCOS3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS3D | 【Test】|
-| MapTR |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTR| 【Test】|
-| UniAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD |【Test】|
-| PivotNet|https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PivotNet|【Test】|
-| CenterPoint(3D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |【Test】|
-| LMDrive  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LMDrive |【Test】|
-| DETR3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR3D |【Test】|
-| DenseTNT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT |【Test】|
-| Mask2Former | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Mask2Former |【Test】|
-| GameFormer | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer |【Test】|
-| VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |【Test】|
-| QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |【Test】|
-| BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |【Test】|
-| MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |【Test】|
+| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |Y|
+| BEVDepth  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDepth |Y|
+| Sparse4D  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Sparse4D |N|
+| CenterNet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterNet |Y|
+| PointPillar(2D)  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointPillar |Y|
+| CenterPoint(2D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |Y|
+| BevFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFormer |Y|
+| SurroundOcc  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc |Y|
+| GameFormer-Planner  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner |Y|
+| StreamPETR  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/StreamPETR |Y|
+| BEVDet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet |Y|
+| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |Y|
+| TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |Y|
+| DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR |Y|
+| Deformable-DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR |Y|
+| LaneSegNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LaneSegNet |Y|
+| BEVFusion | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFusion |Y|
+| FCOS-resnet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS |Y|
+| FCOS3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS3D |Y|
+| MapTR |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTR|Y|
+| UniAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD |Y|
+| PivotNet|https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PivotNet|Y|
+| CenterPoint(3D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |N|
+| LMDrive  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LMDrive |N|
+| DETR3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR3D |Y|
+| DenseTNT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT |Y|
+| Mask2Former | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Mask2Former |Y|
+| GameFormer | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer |Y|
+| VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |N|
+| QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |Y|
+| BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
+| MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |Y|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
@@ -255,12 +233,6 @@ out, argmax = scatter_max(updates, indices, out)
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
 
-
-### 示例模型公网地址声明
-|   模型名称   |   公网地址声明   |
-|-----------|----------|
-|UniAD|   [model_examples/UniAD/public_address_statement.md](./model_examples/UniAD/public_address_statement.md)|
-|BEVDet|   [model_examples/BEVDet/public_address_statement.md](./model_examples/BEVDet/public_address_statement.md)|
 
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，Driving SDK提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
