@@ -1,4 +1,4 @@
-## grid_sampler2d_v2[beta]
+## grid_sampler2d_v2
 
 ### 接口原型
 
