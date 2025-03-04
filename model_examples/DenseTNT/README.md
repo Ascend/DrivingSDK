@@ -38,10 +38,8 @@
 
 | 软件类型 | 支持列表 |
 | ------- | ------- |
-| FrameworkPTAdapter | 6.0.RC3 |
-| CANN | 8.0.RC3 |
-| 昇腾NPU固件 | 24.1.RC3 |
-| 昇腾NPU驱动 | 24.1.RC3  |
+| FrameworkPTAdapter | 7.0.0 |
+| CANN | 8.1.0 |
 
 1、激活 CANN 包环境：将 CANN 包所在目录记为 cann_root_dir，执行以下命令以激活环境：
 ```
@@ -124,11 +122,12 @@ bash test/train_8p_performance.sh --data_path='data/train' --output_path='argove
 | 芯片          | 卡数 | epoch | FDE | it/s  |
 | ------------- | ---- | ----- | ------------------ | ---- |
 | 竞品A         | 8p   | 16    | 5.158              | 3.712   |
-| Atlas 800T A2 | 8p   | 16    | 5.007              | 1.989   |
+| Atlas 800T A2 | 8p   | 16    | 5.007              | 2.191   |
 
 ## 变更说明
 
 2025.1.6：首次发布
+2025.3.4：性能优化，取消使用融合优化器
 
 ## FQA
 

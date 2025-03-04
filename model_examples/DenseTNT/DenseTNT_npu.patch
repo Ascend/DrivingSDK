@@ -136,7 +136,7 @@ index 502f936..23b88c4 100644
          for layer_index, layer in enumerate(self.layers):
              temp = hidden_states
 diff --git a/src/run.py b/src/run.py
-index 989fe1b..7f1431d 100644
+index 989fe1b..f4c92b6 100644
 --- a/src/run.py
 +++ b/src/run.py
 @@ -14,6 +14,9 @@ from torch.utils.data import RandomSampler
@@ -157,28 +157,6 @@ index 989fe1b..7f1431d 100644
  
              # initialize the process group
              dist.init_process_group("nccl", rank=rank, world_size=world_size)
-@@ -223,17 +227,17 @@ def run_training_process(rank, world_size, args, queue):
-         model = VectorNet(args).to(rank)
- 
-     if 'set_predict' in args.other_params:
--        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate)
-+        optimizer = torch_npu.optim.NpuFusedAdam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate)
-     elif 'complete_traj-3' in args.other_params:
-         prefix = 'module.' if isinstance(model, DDP) else ''
--        optimizer = torch.optim.Adam(
-+        optimizer = torch_npu.optim.NpuFusedAdam(
-             [each[1] for each in model.named_parameters() if not str(each[0]).startswith(f'{prefix}decoder.complete_traj')],
-             lr=args.learning_rate)
--        optimizer_2 = torch.optim.Adam(
-+        optimizer_2 = torch_npu.optim.NpuFusedAdam(
-             [each[1] for each in model.named_parameters() if str(each[0]).startswith(f'{prefix}decoder.complete_traj')],
-             lr=args.learning_rate)
-     else:
--        optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-+        optimizer = torch_npu.optim.NpuFusedAdam(model.parameters(), lr=args.learning_rate)
- 
-     if args.distributed_training:
-         if rank == 0:
 diff --git a/src/utils.py b/src/utils.py
 index 4290911..9b91d12 100644
 --- a/src/utils.py
