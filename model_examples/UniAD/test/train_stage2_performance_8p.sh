@@ -39,7 +39,7 @@ if [ x"${etp_flag}" != x"true" ]; then
 fi
 
 
-bash ./tools/uniad_dist_train.sh ./projects/configs/stage2_e2e/stage2_perf.py 8 \
+bash ./tools/uniad_dist_perf.sh ./projects/configs/stage2_e2e/base_e2e.py 8 \
     >$cur_path/test/output/perf/stage2/train_perf.log 2>&1 &
 wait
 
