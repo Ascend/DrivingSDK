@@ -493,7 +493,7 @@ index 7d982ba..a60392f 100644
  ext_module = ext_loader.load_ext(
      '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
  
-+from mx_driving.fused import multi_scale_deform_attn
++from mx_driving.fused import multi_scale_deformable_attn
 +
  
  def inverse_sigmoid(x, eps=1e-5):
@@ -503,7 +503,7 @@ index 7d982ba..a60392f 100644
              else:
                  MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
 -            output = MultiScaleDeformableAttnFunction.apply(
-+            output = multi_scale_deform_attn(
++            output = multi_scale_deformable_attn(
                  value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
 +                attention_weights)
@@ -518,7 +518,7 @@ index 3362ea0..b693509 100644
  ext_module = ext_loader.load_ext(
      '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
  
-+from mx_driving.fused import multi_scale_deform_attn
++from mx_driving.fused import multi_scale_deformable_attn
  
  @ATTENTION.register_module()
  class SpatialCrossAttention(BaseModule):
@@ -527,7 +527,7 @@ index 3362ea0..b693509 100644
              else:
                  MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
 -            output = MultiScaleDeformableAttnFunction.apply(
-+            output = multi_scale_deform_attn(
++            output = multi_scale_deformable_attn(
                  value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
 +                attention_weights)
@@ -542,7 +542,7 @@ index f5151ad..4ea1a13 100644
  ext_module = ext_loader.load_ext(
      '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
  
-+from mx_driving.fused import multi_scale_deform_attn
++from mx_driving.fused import multi_scale_deformable_attn
 +
  
  @ATTENTION.register_module()
@@ -552,7 +552,7 @@ index f5151ad..4ea1a13 100644
              else:
                  MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
 -            output = MultiScaleDeformableAttnFunction.apply(
-+            output = multi_scale_deform_attn(
++            output = multi_scale_deformable_attn(
                  value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
 +                attention_weights)
@@ -585,7 +585,7 @@ diff --git a/requirements.txt b/requirements.txt
 index 895499a..bdb4c7d 100644
 --- a/requirements.txt
 +++ b/requirements.txt
-@@ -1,204 +1,6 @@
+@@ -1,204 +1,7 @@
 -# This file may be used to create an environment using:
 -# $ conda create --name <env> --file <this file>
 -# platform: linux-64
@@ -790,6 +790,7 @@ index 895499a..bdb4c7d 100644
 -yapf=0.33.0=pypi_0
 -zipp=3.15.0=pypi_0
 -zlib=1.2.13=h5eee18b_0
++torchvision==0.16.0
 +numba==0.58.1
 +numpy==1.23.0
 +mmdet==2.28.0
