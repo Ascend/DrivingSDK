@@ -61,7 +61,7 @@ def profiler(runner: ModuleType, options: Dict):
             experimental_config=torch_npu.profiler._ExperimentalConfig(profiler_level=profiler_level),
             on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(path),
         ) as prof:
-            for idx, data_batch in enumerate(self.data_loader):
+            for idx, data_batch in enumerate(self.dataloader):
                 self.run_iter(idx, data_batch)
                 prof.step()
 

@@ -1,11 +1,18 @@
 #!/bin/bash
 
-#设置是否开启taskque,0-关闭/1-开启/2-优化
-export TASK_QUEUE_ENABLE=2
-#开启绑核
-export CPU_AFFINITY_CONF=1
-#设置hccl超时时间，单位：秒
-export HCCL_EXEC_TIMEOUT=8000
+# test_path_dir 为包含 test 文件夹的路径
+cur_path=`pwd`
+cur_path_last_diename=${cur_path##*/}
+if [ x"${cur_path_last_diename}" == x"test" ];then
+    test_path_dir=${cur_path}
+    # 若当前在 test 目录下，cd 到 test 同级目录
+    cd ..
+    cur_path=`pwd`
+else
+    test_path_dir=${cur_path}/test
+fi
+
+source ${test_path_dir}/env_npu.sh
 
 batch_size=2
 max_epochs=1

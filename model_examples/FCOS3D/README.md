@@ -1,4 +1,4 @@
-# FCOS for PyTorch
+# FCOS3D for PyTorch
 
 -   [概述](概述.md)
 -   [准备训练环境](准备训练环境.md)
@@ -73,22 +73,7 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
   cd ../
   ```
 
-2. 安装 mmengine
-
-  在 FCOS 根目录下，克隆 mmengine 仓，并进入 mmengine 目录应用 patch 后安装
-  
-  ```
-  pip uninstall mmengine
-  git clone -b v0.10.6 https://github.com/open-mmlab/mmengine.git
-  cd mmengine/
-  git checkout a8c74c346d2ef3e5501115529ba588accb5f2a03
-  cp ../mmengine.patch ./
-  git apply --reject --whitespace=fix mmengine.patch
-  pip install -e .
-  cd ../
-  ```
-
-3. 安装 mmdet
+2. 安装 mmdet
   
   ```
   git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
@@ -96,6 +81,16 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
   cp -f ../mmdet.patch ./
   git apply --reject --whitespace=fix mmdet.patch
   pip install -e .
+  ```
+
+3. 安装 mx_driving
+
+  在 DrivingSDK 根目录下安装 mx_driving
+  
+  ```
+  # 请先 cd 到 DrivingSDK 根目录
+  pip install -r requirements.txt
+  python setup.py develop --release
   ```
 
 4. 准备模型源码，安装 mmdetection3d
@@ -108,6 +103,8 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
   git checkout fe25f7a51d36e3702f961e198894580d83c4387b
   cp -f ../mmdetection3d.patch ./
   git apply --reject mmdetection3d.patch
+  cp -f ../dist_train_performance.sh tools/
+  cp -f ../train_performance.py tools/
   pip install -e .
   cp -r ../test/ ./
   ```
@@ -196,6 +193,12 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
      bash ./test/train_8p.sh --data_root=/home/datasets/nuscenes --max_epochs=1
      ```
 
+   - 单机8卡训练性能
+
+     ```
+     bash ./test/train_8p_performance.sh --data_root=/home/datasets/nuscenes --max_epochs=1
+     ```
+
   --data_path参数填写数据集路径，需写到数据集的一级目录。
 
   模型训练脚本参数说明如下。
@@ -224,6 +227,7 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
 2025.01.20: 首次提交。
 2025.02.05: 性能优化。
 2025.02.18: 新增性能FPS计算，并添加到日志中。
+2025.03.04: 新增性能测试脚本，大幅提升性能测试效率。
 
 ## FAQ
 
