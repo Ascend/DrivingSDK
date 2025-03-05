@@ -1,4 +1,4 @@
-## boxes_iou_bev[beta]
+## boxes_iou_bev
 ### 接口原型
 ```python
 mx_driving.boxes_iou_bev(Tensor boxes_a, Tensor boxes_b) -> Tensor

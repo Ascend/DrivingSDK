@@ -1,59 +1,218 @@
-# Driving SDK API 汇总
-
-
-- 通用
-    - [hypot](./context/hypot.md)
-    - [scatter_max](./context/scatter_max.md)
-    - [three_interpolate](./context/three_interpolate.md)
-    - [knn](./context/knn.md)
-    - [three_nn](./context/three_nn.md)
-    - [scatter_mean](./context/scatter_mean.md)
-    - [assign_score_withk](./context/assign_score_withk.md)
-    - [furthest_point_sampling](./context/furthest_point_sampling.md)
-    - [furthest_point_sample_with_dist](./context/furthest_point_sample_with_dist.md)
-    - [group_points](./context/group_points.md)
-    - [unique_voxel](./context/unique_voxel.md)
-    - [scatter_add](./context/scatter_add.md)
-- 采样
-    - [roipoint_pool3d](./context/roipoint_pool3d.md)
-    - [roiaware_pool3d](./context/roiaware_pool3d.md)
-    - [npu_voxel_pooling_train](./context/npu_voxel_pooling_train.md)
-    - [bev_pool](./context/bev_pool_v1.md)
-    - [bev_pool_v2](./context/bev_pool_v2.md)
-    - [bev_pool_v3[beta]](./context/bev_pool_v3[beta].md)
-    - [roi_align_rotated](./context/roi_align_rotated.md)
-    - [border_align](./context/border_align.md)
-    - [pixel_group](./context/pixel_group.md)
-    - [grid_sampler2d_v2](./context/grid_sampler2d_v2.md)
-- 体素化
-    - [voxelization](./context/voxelization.md)
-    - [dynamic_scatter](./context/dynamic_scatter.md)
-- 检测
-    - [boxes_overlap_bev](./context/boxes_overlap_bev.md)
-    - [box_iou_quadri](./context/box_iou_quadri.md)
-    - [box_iou_rotated[beta]](./context/box_iou_rotated[beta].md)
-    - [boxes_iou_bev[beta]](./context/boxes_iou_bev[beta].md)
-    - [nms3d](./context/nms3d.md)
-    - [nms3d_normal](./context/nms3d_normal.md)
-    - [nms3d_on_sight](./context/nms3d_on_sight.md)
-    - [npu_rotated_iou](./context/npu_rotated_iou.md)
-    - [points_in_boxes_all](./context/points_in_boxes_all.md)
-    - [points_in_box](./context/points_in_box.md)
-- 稀疏
-    - [SparseConv3d](./context/SparseConv3d.md)
-    - [SubmSparseConv3d](./context/SubMConv3d.md)
-    - [SparseInverseConv3d[beta]](./context/SparseInverseConv3d[beta].md)
-- 融合
-    - [multi_scale_deformable_attn](./context/multi_scale_deformable_attn.md)
-    - [deformable_aggregation](./context/deformable_aggregation.md)
-    - [deformable_conv2d](./context/deform_conv2d.md)
-    - [modulated_deformable_conv2d](./context/modulated_deform_conv2d.md)
-    - [npu_add_relu](./context/npu_add_relu.md)
-    - [npu_max_pool2d](./context/npu_max_pool2d.md)
-    - [geometric_kernel_attention](./context/geometric_kernel_attention.md)
-    - [npu_gaussian](./context/npu_gaussian.md)
-    - [npu_draw_gaussian_to_heatmap[beta]](./context/npu_draw_gaussian_to_heatmap[beta].md)
-    - [npu_assign_target_of_single_head[beta]](./context/npu_assign_target_of_single_head[beta].md)
-    - [npu_fused_bias_leaky_relu](./context/npu_fused_bias_leaky_relu.md)
-    - [npu_batch_matmul](./context/npu_batch_matmul.md)
-    - [cartesian_to_frenet](./context/cartesian_to_frenet.md)
+<table align=center>
+    <tr>
+        <td align=center>api类型</td>
+        <td align=center>api名称</td>
+        <td align=center>Released</td>
+    </tr>
+    <tr>
+        <td rowspan=12>通用</td>
+        <td align=center><a href=./context/hypot.md>hypot</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/scatter_max.md>scatter_max</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/three_interpolate.md>three_interpolate</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/knn.md>knn</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/three_nn.md>three_nn</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/scatter_mean.md>scatter_mean</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/assign_score_withk.md>assign_score_withk</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/furthest_point_sampling.md>furthest_point_sampling</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/furthest_point_sample_with_dist.md>furthest_point_sample_with_dist</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/group_points.md>group_points</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/unique_voxel.md>unique_voxel</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/scatter_add.md>scatter_add</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td rowspan=10>采样</td>
+        <td align=center><a href=./context/roipoint_pool3d.md>roipoint_pool3d</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/roiaware_pool3d.md>roiaware_pool3d</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_voxel_pooling_train.md>npu_voxel_pooling_train</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/bev_pool.md>bev_pool</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/bev_pool_v2.md>bev_pool_v2</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/bev_pool_v3[beta].md>bev_pool_v3[beta]</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/roi_align_rotated.md>roi_align_rotated</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/border_align.md>border_align</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/pixel_group.md>pixel_group</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/grid_sampler2d_v2.md>grid_sampler2d_v2</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td rowspan=2>体素化</td>
+        <td align=center><a href=./context/voxelization.md>voxelization</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/dynamic_scatter.md>dynamic_scatter</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td rowspan=10>检测</td>
+        <td align=center><a href=./context/boxes_overlap_bev.md>boxes_overlap_bev</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/box_iou_quadri.md>box_iou_quadri</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/box_iou_rotated[beta].md>box_iou_rotated[beta]</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/boxes_iou_bev.md>boxes_iou_bev</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/nms3d.md>nms3d</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/nms3d_normal.md>nms3d_normal</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/nms3d_on_sight.md>nms3d_on_sight</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_rotated_iou.md>npu_rotated_iou</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/points_in_boxes_all.md>points_in_boxes_all</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/points_in_box.md>points_in_box</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+    <tr>
+        <td rowspan=3>稀疏</td>
+        <td align=center><a href=./context/SparseConv3d.md>SparseConv3d</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/SubmSparseConv3d.md>SubmSparseConv3d</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/SparseInverseConv3d[beta].md>SparseInverseConv3d[beta]</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td rowspan=14>融合</td>
+        <td align=center><a href=./context/multi_scale_deformable_attn.md>multi_scale_deformable_attn</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/deformable_aggregation.md>deformable_aggregation</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/deformable_conv2d.md>deformable_conv2d</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/modulated_deformable_conv2d.md>modulated_deformable_conv2d</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_add_relu.md>npu_add_relu</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_max_pool2d.md>npu_max_pool2d</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/geometric_kernel_attention.md>geometric_kernel_attention</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_gaussian.md>npu_gaussian</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_draw_gaussian_to_heatmap[beta].md>npu_draw_gaussian_to_heatmap[beta]</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_assign_target_of_single_head[beta].md>npu_assign_target_of_single_head[beta]</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_fused_bias_leaky_relu.md>npu_fused_bias_leaky_relu</a></td>
+        <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_batch_matmul.md>npu_batch_matmul</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/cartesian_to_frenet.md>cartesian_to_frenet</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/cal_anchors_heading.md>cal_anchors_heading</a></td>
+        <td align=center>N</td>
+    </tr>
+</table>

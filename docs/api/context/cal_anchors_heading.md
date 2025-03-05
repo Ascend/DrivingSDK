@@ -1,4 +1,4 @@
-## cal_anchors_heading[beta]
+## cal_anchors_heading
 ### 接口原型
 ```python
 mx_driving.cal_anchors_heading(Tensor anchors, Tensor origin_pos) -> Tensor
