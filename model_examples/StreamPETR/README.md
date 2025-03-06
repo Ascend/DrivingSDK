@@ -15,7 +15,6 @@
   - [快速开始](#快速开始)
     - [开始训练](#开始训练)
     - [训练结果](#训练结果)
-- [公网地址说明](#公网地址说明)
 - [变更说明](#变更说明)
 - [FAQ](#FAQ)
 
@@ -171,7 +170,7 @@ pip install -e MindSpeed
 
 
 8. 安装tcmalloc动态库
-源码安装：
+通用版本源码安装(可适用OS: openEuler)：
 ```
 cd {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR
 mkdir gperftools
@@ -187,6 +186,26 @@ ldconfig
 export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
 export PATH=/usr/local/lib/bin:$PATH
 export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+```
+
+注：需要安装OS对应tcmalloc版本
+- 以ubuntu为例：
+下载以下三个文件：
+   - libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+   - libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+   - libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+(参考下载链接：http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)
+
+安装：
+```
+sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+find /usr -name libtcmalloc.so*
+```
+将find指令输出路径记作 libtcmalloc_root_dir
+```
+export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
 ```
 
 
