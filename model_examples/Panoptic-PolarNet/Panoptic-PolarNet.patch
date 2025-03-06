@@ -1,0 +1,456 @@
+diff --git a/configs/SemanticKITTI_model/Panoptic-PolarNet.yaml b/configs/SemanticKITTI_model/Panoptic-PolarNet.yaml
+index 0f3e79d..f4fac33 100644
+--- a/configs/SemanticKITTI_model/Panoptic-PolarNet.yaml
++++ b/configs/SemanticKITTI_model/Panoptic-PolarNet.yaml
+@@ -35,7 +35,7 @@ model:
+     offset_loss: L1
+     center_loss_weight: 100
+     offset_loss_weight: 10
+-    enable_SAP: True
++    enable_SAP: False
+     SAP:
+         start_epoch: 30
+-        rate: 0.01
+\ No newline at end of file
++        rate: 0.01
+diff --git a/dataloader/dataset.py b/dataloader/dataset.py
+index a92921b..28a0d8e 100644
+--- a/dataloader/dataset.py
++++ b/dataloader/dataset.py
+@@ -17,6 +17,8 @@ from torch.utils import data
+ from .process_panoptic import PanopticLabelGenerator
+ from .instance_augmentation import instance_augmentation
+ 
++from logs import plog
++
+ class SemKITTI(data.Dataset):
+     def __init__(self, data_path, imageset = 'train', return_ref = False, instance_pkl_path ='data'):
+         self.return_ref = return_ref
+@@ -189,7 +191,7 @@ class voxel_dataset(data.Dataset):
+         cur_grid_size = self.grid_size
+         
+         intervals = crop_range/(cur_grid_size-1)
+-        if (intervals==0).any(): print("Zero interval!")
++        if (intervals==0).any(): plog.logger.info("Zero interval!")
+         
+         grid_ind = (np.floor((np.clip(xyz,min_bound,max_bound)-min_bound)/intervals)).astype(np.int)
+ 
+@@ -330,7 +332,7 @@ class spherical_dataset(data.Dataset):
+         cur_grid_size = self.grid_size
+         intervals = crop_range/(cur_grid_size-1)
+ 
+-        if (intervals==0).any(): print("Zero interval!")
++        if (intervals==0).any(): plog.logger.info("Zero interval!")
+         grid_ind = (np.floor((np.clip(xyz_pol,min_bound,max_bound)-min_bound)/intervals)).astype(np.int)
+ 
+         current_grid = grid_ind[:np.size(labels)]
+diff --git a/instance_preprocess.py b/instance_preprocess.py
+index cc76a3d..7f0488e 100644
+--- a/instance_preprocess.py
++++ b/instance_preprocess.py
+@@ -2,6 +2,7 @@
+ # -*- coding: utf-8 -*-
+ import argparse
+ from dataloader.dataset import SemKITTI
++from logs import plog
+ 
+ if __name__ == '__main__':
+     # instance preprocessing
+@@ -13,4 +14,4 @@ if __name__ == '__main__':
+ 
+     train_pt_dataset = SemKITTI(args.data_path + '/sequences/', imageset = 'train', return_ref = True)
+     train_pt_dataset.save_instance(args.out_path)
+-    print('instance preprocessing finished.')
+\ No newline at end of file
++    plog.logger.info('instance preprocessing finished.')
+\ No newline at end of file
+diff --git a/logs/plog.py b/logs/plog.py
+new file mode 100644
+index 0000000..e3c9bef
+--- /dev/null
++++ b/logs/plog.py
+@@ -0,0 +1,22 @@
++import logging
++
++# 创建一个日志记录器，默认名称为'root'
++logger = logging.getLogger('my_logger')
++logger.setLevel(logging.DEBUG) # 设置日志记录器的日志级别为DEBUG，意味着DEBUG及以上级别的日志都会被记录
++
++# 创建一个handler，用于写入日志文件
++fh = logging.FileHandler('Train_Panopric-PolarNet.log')
++fh.setLevel(logging.DEBUG) # 可以为handler单独设置级别
++
++# 再创建一个handler，用于将日志输出到控制台
++ch = logging.StreamHandler()
++ch.setLevel(logging.DEBUG) # 控制台输出DEBUG及以上级别的日志
++
++# 定义handler的输出格式
++formatter = logging.Formatter('[%(levelname)s][%(asctime)s][%(filename)s:%(lineno)d] %(funcName)s - %(message)s')
++fh.setFormatter(formatter)
++ch.setFormatter(formatter)
++
++# 给日志记录器添加handler
++logger.addHandler(fh)
++logger.addHandler(ch)
+diff --git a/network/instance_post_processing.py b/network/instance_post_processing.py
+index 0346019..4e74fda 100755
+--- a/network/instance_post_processing.py
++++ b/network/instance_post_processing.py
+@@ -2,7 +2,9 @@
+ # -*- coding: utf-8 -*-
+ import torch
+ import torch.nn.functional as F
+-import torch_scatter
++import mx_driving
++
++from logs import plog
+ 
+ 
+ def find_instance_center(ctr_hmp, threshold=0.1, nms_kernel=5, top_k=None, polar=False):
+@@ -153,7 +155,8 @@ def merge_semantic_and_instance(sem_seg, sem, ins_seg, label_divisor, thing_list
+     ins_seg = torch.unsqueeze(ins_seg,3).expand_as(sem_seg)
+     thing_mask = (ins_seg > 0) & semantic_thing_seg & thing_seg
+     if not torch.nonzero(thing_mask).size(0) == 0:
+-        sem_sum = torch_scatter.scatter_add(sem.permute(0,2,3,4,1)[thing_mask],ins_seg[thing_mask],dim=0)
++        # 选取特定区域特征相加
++        sem_sum = mx_driving.scatter_add(sem.permute(0,2,3,4,1)[thing_mask], ins_seg[thing_mask].type(torch.int32), None, 0)
+         class_id = torch.argmax(sem_sum[:,:max(thing_list)],dim=1)
+         sem_seg[thing_mask] = (ins_seg[thing_mask] * label_divisor) + class_id[ins_seg[thing_mask]]+1
+     else:
+diff --git a/network/loss.py b/network/loss.py
+index a114a94..a031ce9 100644
+--- a/network/loss.py
++++ b/network/loss.py
+@@ -4,6 +4,7 @@
+ import numpy as np
+ import torch
+ from .lovasz_losses import lovasz_softmax
++from logs import plog
+ 
+ def _neg_loss(pred, gt):
+     ''' Modified focal loss. Exactly the same as CornerNet.
+diff --git a/network/ptBEV.py b/network/ptBEV.py
+index 936ed48..0a4e247 100644
+--- a/network/ptBEV.py
++++ b/network/ptBEV.py
+@@ -6,7 +6,8 @@ import torch.nn.functional as F
+ import numpy as np
+ import numba as nb
+ import multiprocessing
+-import torch_scatter
++from logs import plog
++import mx_driving
+ 
+ class ptBEVnet(nn.Module):
+     
+@@ -73,6 +74,8 @@ class ptBEVnet(nn.Module):
+ 
+         cat_pt_fea = torch.cat(pt_fea,dim = 0)
+         cat_pt_ind = torch.cat(cat_pt_ind,dim = 0)
++
++        cat_pt_ind = cat_pt_ind.type(torch.int32)
+         pt_num = cat_pt_ind.shape[0]
+ 
+         # shuffle the data
+@@ -81,10 +84,13 @@ class ptBEVnet(nn.Module):
+         cat_pt_ind = cat_pt_ind[shuffled_ind,:]
+         
+         # unique xy grid index
+-        unq, unq_inv, unq_cnt = torch.unique(cat_pt_ind,return_inverse=True, return_counts=True, dim=0)
+-        unq = unq.type(torch.int64)
+-        
++        unq, unq_inv, unq_cnt = torch.unique(cat_pt_ind.to('cpu'), return_inverse=True, return_counts=True, dim=0)
++        unq = unq.to('npu')
++        unq_inv = unq_inv.to('npu')
++        unq_cnt = unq_cnt.to('npu')
++
+         # subsample pts
++        unq_inv = unq_inv.type(torch.int32)
+         if self.pt_selection == 'random':
+             grp_ind = grp_range_torch(unq_cnt,cur_dev)[torch.argsort(torch.argsort(unq_inv))]
+             remain_ind = grp_ind < self.max_pt
+@@ -109,6 +115,7 @@ class ptBEVnet(nn.Module):
+                     remain_ind[i_inds[FPS_results[count]]] = True
+                     count += 1
+             
++        
+         cat_pt_fea = cat_pt_fea[remain_ind,:]
+         cat_pt_ind = cat_pt_ind[remain_ind,:]
+         unq_inv = unq_inv[remain_ind]
+@@ -119,7 +126,7 @@ class ptBEVnet(nn.Module):
+             processed_cat_pt_fea = self.PPmodel(cat_pt_fea)
+         
+         if self.pt_pooling == 'max':
+-            pooled_data = torch_scatter.scatter_max(processed_cat_pt_fea, unq_inv, dim=0)[0]
++            pooled_data = mx_driving.scatter_max(processed_cat_pt_fea.float(), unq_inv)[0]
+         else: raise NotImplementedError
+         
+         if self.fea_compre:
+@@ -139,12 +146,13 @@ class ptBEVnet(nn.Module):
+         
+         # run through network
+         sem_prediction, center, offset = self.BEV_model(out_data)
+-       
++        
+         return sem_prediction, center, offset
+     
+ def grp_range_torch(a,dev):
++    a = a.type(torch.int32)
+     idx = torch.cumsum(a,0)
+-    id_arr = torch.ones(idx[-1],dtype = torch.int64,device=dev)
++    id_arr = torch.ones(idx[-1],dtype = torch.int32,device=dev)
+     id_arr[0] = 0
+     id_arr[idx[:-1]] = -a[:-1]+1
+     return torch.cumsum(id_arr,0)
+@@ -183,4 +191,5 @@ def nb_greedy_FPS(xyz,K):
+         candidates_ind[next_ind] = True
+         remain_ind[next_ind] = False
+         
+-    return candidates_ind
+\ No newline at end of file
++    return candidates_ind
++
+diff --git a/requirements.txt b/requirements.txt
+index e19b023..6448a28 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,9 +1,7 @@
+-numpy
+-torch>=1.7.0
++numpy==1.23.3
+ tqdm
+ pyyaml
+ numba>=0.39.0
+-torch_scatter>=1.3.1
+ Cython
+ scipy
+-dropblock
+\ No newline at end of file
++dropblock
+diff --git a/test_pretrain.py b/test_pretrain.py
+index 8ad1d63..9c5fcc1 100644
+--- a/test_pretrain.py
++++ b/test_pretrain.py
+@@ -10,6 +10,7 @@ import torch
+ import torch.optim as optim
+ from tqdm import tqdm
+ import errno
++from logs import plog
+ 
+ from network.BEV_Unet import BEV_Unet
+ from network.ptBEV import ptBEVnet
+@@ -57,7 +58,7 @@ def main(args):
+     if os.path.exists(pretrained_model):
+         my_model.load_state_dict(torch.load(pretrained_model))
+     pytorch_total_params = sum(p.numel() for p in my_model.parameters())
+-    print('params: ',pytorch_total_params)
++    plog.logger.info('params: ',pytorch_total_params)
+     my_model.to(pytorch_device)
+     my_model.eval()
+ 
+@@ -82,9 +83,9 @@ def main(args):
+                                                     num_workers = 4)
+ 
+     # validation
+-    print('*'*80)
+-    print('Test network performance on validation split')
+-    print('*'*80)
++    plog.logger.info('*****************************************************')
++    plog.logger.info('Test network performance on validation split')
++    plog.logger.info('*****************************************************')
+     pbar = tqdm(total=len(val_dataset_loader))
+     time_list = []
+     pp_time_list = []
+@@ -129,21 +130,21 @@ def main(args):
+     
+     class_PQ, class_SQ, class_RQ, class_all_PQ, class_all_SQ, class_all_RQ = evaluator.getPQ()
+     miou,ious = evaluator.getSemIoU()
+-    print('Validation per class PQ, SQ, RQ and IoU: ')
++    plog.logger.info('Validation per class PQ, SQ, RQ and IoU: ')
+     for class_name, class_pq, class_sq, class_rq, class_iou in zip(unique_label_str,class_all_PQ[1:],class_all_SQ[1:],class_all_RQ[1:],ious[1:]):
+-        print('%15s : %6.2f%%  %6.2f%%  %6.2f%%  %6.2f%%' % (class_name, class_pq*100, class_sq*100, class_rq*100, class_iou*100))
++        plog.logger.info('%15s : %6.2f%%  %6.2f%%  %6.2f%%  %6.2f%%' % (class_name, class_pq*100, class_sq*100, class_rq*100, class_iou*100))
+     pbar.close()
+-    print('Current val PQ is %.3f' %
++    plog.logger.info('Current val PQ is %.3f' %
+         (class_PQ*100))               
+-    print('Current val miou is %.3f'%
++    plog.logger.info('Current val miou is %.3f'%
+         (miou*100))
+-    print('Inference time per %d is %.4f seconds\n, postprocessing time is %.4f seconds per scan' %
++    plog.logger.info('Inference time per %d is %.4f seconds\n, postprocessing time is %.4f seconds per scan' %
+         (test_batch_size,np.mean(time_list),np.mean(pp_time_list)))
+     
+     # test
+-    print('*'*80)
+-    print('Generate predictions for test split')
+-    print('*'*80)
++    plog.logger.info('*'*80)
++    plog.logger.info('Generate predictions for test split')
++    plog.logger.info('*'*80)
+     pbar = tqdm(total=len(test_dataset_loader))
+     with torch.no_grad():
+         for i_iter_test,(test_vox_fea,_,_,_,test_grid,_,_,test_pt_fea,test_index) in enumerate(test_dataset_loader):
+@@ -180,8 +181,8 @@ def main(args):
+             del test_pt_fea_ten,test_grid_ten,test_pt_fea,predict_labels,center,offset
+             pbar.update(1)
+     pbar.close()
+-    print('Predicted test labels are saved in %s. Need to be shifted to original label format before submitting to the Competition website.' % output_path)
+-    print('Remapping script can be found in semantic-kitti-api.')
++    plog.logger.info('Predicted test labels are saved in %s. Need to be shifted to original label format before submitting to the Competition website.' % output_path)
++    plog.logger.info('Remapping script can be found in semantic-kitti-api.')
+ 
+ if __name__ == '__main__':
+     # Testing settings
+@@ -195,6 +196,6 @@ if __name__ == '__main__':
+         new_args = yaml.safe_load(s)
+     args = merge_configs(args,new_args)
+ 
+-    print(' '.join(sys.argv))
+-    print(args)
++    plog.logger.info(' '.join(sys.argv))
++    plog.logger.info(args)
+     main(args)
+\ No newline at end of file
+diff --git a/train.py b/train.py
+index bcf0240..c177a83 100644
+--- a/train.py
++++ b/train.py
+@@ -8,6 +8,9 @@ import yaml
+ import torch
+ import torch.optim as optim
+ from tqdm import tqdm
++from logs import plog
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ from network.BEV_Unet import BEV_Unet
+ from network.ptBEV import ptBEVnet
+@@ -46,7 +49,7 @@ def main(args):
+     compression_model = args['dataset']['grid_size'][2]
+     grid_size = args['dataset']['grid_size']
+     visibility = args['model']['visibility']
+-    pytorch_device = torch.device('cuda:0')
++    pytorch_device = torch.device('npu:0')
+     if args['model']['polar']:
+         fea_dim = 9
+         circular_padding = True
+@@ -96,7 +99,9 @@ def main(args):
+     epoch=0
+     best_val_PQ=0
+     start_training=False
++    
+     my_model.train()
++    
+     global_iter = 0
+     exce_counter = 0
+     evaluator = PanopticEval(len(unique_label)+1, None, [0], min_points=50)
+@@ -106,6 +111,11 @@ def main(args):
+         for i_iter,(train_vox_fea,train_label_tensor,train_gt_center,train_gt_offset,train_grid,_,_,train_pt_fea) in enumerate(train_dataset_loader):
+             # validation
+             if global_iter % check_iter == 0:
++                # 计算 FPS 并打印
++                if pbar.n > 0:
++                    average_time_per_iteration = pbar.format_dict["elapsed"] / pbar.n
++                    FPS = train_batch_size * 1 / average_time_per_iteration
++                    plog.logger.info(f"Final Performance images/sec (FPS) : {FPS}")
+                 my_model.eval()
+                 evaluator.reset()
+                 with torch.no_grad():
+@@ -135,26 +145,28 @@ def main(args):
+                             panoptic = panoptic_labels[0,val_grid[count][:,0],val_grid[count][:,1],val_grid[count][:,2]]
+                             evaluator.addBatch(panoptic & 0xFFFF,panoptic,np.squeeze(val_pt_labels[count]),np.squeeze(val_pt_ints[count]))
+                         del val_vox_label,val_pt_fea_ten,val_label_tensor,val_grid_ten,val_gt_center,val_gt_center_tensor,val_gt_offset,val_gt_offset_tensor,predict_labels,center,offset,panoptic_labels,center_points
++                
+                 my_model.train()
++                
+                 class_PQ, class_SQ, class_RQ, class_all_PQ, class_all_SQ, class_all_RQ = evaluator.getPQ()
+                 miou,ious = evaluator.getSemIoU()
+-                print('Validation per class PQ, SQ, RQ and IoU: ')
++                plog.logger.info('Validation per class PQ, SQ, RQ and IoU: ')
+                 for class_name, class_pq, class_sq, class_rq, class_iou in zip(unique_label_str,class_all_PQ[1:],class_all_SQ[1:],class_all_RQ[1:],ious[1:]):
+-                    print('%15s : %6.2f%%  %6.2f%%  %6.2f%%  %6.2f%%' % (class_name, class_pq*100, class_sq*100, class_rq*100, class_iou*100))                                  
++                    plog.logger.info('%15s : %6.2f%%  %6.2f%%  %6.2f%%  %6.2f%%' % (class_name, class_pq*100, class_sq*100, class_rq*100, class_iou*100))                                  
+                 # save model if performance is improved
+                 if best_val_PQ<class_PQ:
+                     best_val_PQ=class_PQ
+                     torch.save(my_model.state_dict(), model_save_path)
+-                print('Current val PQ is %.3f while the best val PQ is %.3f' %
++                plog.logger.info('Current val PQ is %.3f while the best val PQ is %.3f' %
+                     (class_PQ*100,best_val_PQ*100))               
+-                print('Current val miou is %.3f'%
++                plog.logger.info('Current val miou is %.3f'%
+                     (miou*100))
+ 
+                 if start_training:
+                     sem_l ,hm_l, os_l = np.mean(loss_fn.lost_dict['semantic_loss']), np.mean(loss_fn.lost_dict['heatmap_loss']), np.mean(loss_fn.lost_dict['offset_loss'])
+-                    print('epoch %d iter %5d, loss: %.3f, semantic loss: %.3f, heatmap loss: %.3f, offset loss: %.3f\n' %
++                    plog.logger.info('epoch %d iter %5d, loss: %.3f, semantic loss: %.3f, heatmap loss: %.3f, offset loss: %.3f\n' %
+                         (epoch, i_iter, sem_l+hm_l+os_l, sem_l, hm_l, os_l))
+-                print('%d exceptions encountered during last training\n' %
++                plog.logger.info('%d exceptions encountered during last training\n' %
+                     exce_counter)
+                 exce_counter = 0
+                 loss_fn.reset_loss_dict()
+@@ -207,7 +219,7 @@ def main(args):
+                 optimizer.step()
+             except Exception as error: 
+                 if exce_counter == 0:
+-                    print(error)
++                    plog.logger.error(error)
+                 exce_counter += 1
+             
+             # zero the parameter gradients
+@@ -231,6 +243,6 @@ if __name__ == '__main__':
+         new_args = yaml.safe_load(s)
+     args = merge_configs(args,new_args)
+ 
+-    print(' '.join(sys.argv))
+-    print(args)
+-    main(args)
+\ No newline at end of file
++    plog.logger.info(' '.join(sys.argv))
++    plog.logger.info(args)
++    main(args)
+diff --git a/utils/eval_pq.py b/utils/eval_pq.py
+index 8cc74f0..094ad72 100644
+--- a/utils/eval_pq.py
++++ b/utils/eval_pq.py
+@@ -1,6 +1,7 @@
+ #!/usr/bin/env python3
+ import numpy as np
+ import time
++from logs import plog
+ 
+ 
+ class PanopticEval:
+@@ -15,8 +16,8 @@ class PanopticEval:
+     self.ignore = np.array(ignore, dtype=np.int64)
+     self.include = np.array([n for n in range(self.n_classes) if n not in self.ignore], dtype=np.int64)
+ 
+-    print("[PANOPTIC EVAL] IGNORE: ", self.ignore)
+-    print("[PANOPTIC EVAL] INCLUDE: ", self.include)
++    plog.logger.info(f"[PANOPTIC EVAL] IGNORE: {self.ignore}")
++    plog.logger.info(f"[PANOPTIC EVAL] INCLUDE: {self.include}")
+ 
+     self.reset()
+     self.offset = offset  # largest number of instances in a given scan
+@@ -262,10 +263,10 @@ if __name__ == "__main__":
+   # Class person 	 PQ: 0.5833333333333333 SQ: 0.875 RQ: 0.6666666666666666 IoU: 0.8571428571428571
+   # Class dog 	 PQ: 0.0 SQ: 0.0 RQ: 0.0 IoU: 0.0
+ 
+-  print("TOTALS")
+-  print("PQ:", pq.item(), pq.item() == 0.47916666666666663)
+-  print("SQ:", sq.item(), sq.item() == 0.5520833333333333)
+-  print("RQ:", rq.item(), rq.item() == 0.6666666666666666)
+-  print("IoU:", iou.item(), iou.item() == 0.5476190476190476)
++  plog.logger.info("TOTALS")
++  plog.logger.info(f"PQ: {pq.item()}, {pq.item() == 0.47916666666666663}")
++  plog.logger.info(f"SQ: {sq.item()}, {sq.item() == 0.5520833333333333}")
++  plog.logger.info(f"RQ: {rq.item()}, {rq.item() == 0.6666666666666666}")
++  priplog.logger.infont(f"IoU: {iou.item()}, {iou.item() == 0.5476190476190476}")
+   for i, (pq, sq, rq, iou) in enumerate(zip(all_pq, all_sq, all_rq, all_iou)):
+-    print("Class", cl_strings[i], "\t", "PQ:", pq.item(), "SQ:", sq.item(), "RQ:", rq.item(), "IoU:", iou.item())
+\ No newline at end of file
++    plog.logger.info(f"Class {cl_strings[i]}  PQ: {pq.item()} SQ: {sq.item()} RQ: {rq.item()} IoU: {iou.item()}")
+\ No newline at end of file

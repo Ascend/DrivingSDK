@@ -151,6 +151,7 @@ out, argmax = scatter_max(updates, indices, out)
 | BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
 | MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |Y|
 | SalsaNext | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SalsaNext |N|
+| Panoptic-PolarNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet |N|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
