@@ -119,6 +119,20 @@ index 8c09cd2a..0107208f 100644
 -        return self.dropout(output) + identity
 +        return self.dropout(output) + identity
 \ No newline at end of file
+diff --git a/mmcv/parallel/distributed.py b/mmcv/parallel/distributed.py
+index bf34cb59..f0dfecc9 100644
+--- a/mmcv/parallel/distributed.py
++++ b/mmcv/parallel/distributed.py
+@@ -156,8 +156,7 @@ class MMDistributedDataParallel(DistributedDataParallel):
+         Returns:
+             Any: Forward result of :attr:`module`.
+         """
+-        module_to_run = self._replicated_tensor_module if \
+-            self._use_replicated_tensor_module else self.module
++        module_to_run = self.module
+ 
+         if self.device_ids:
+             inputs, kwargs = self.to_kwargs(  # type: ignore
 diff --git a/mmcv/runner/hooks/optimizer.py b/mmcv/runner/hooks/optimizer.py
 index 93015475..8bd1722f 100644
 --- a/mmcv/runner/hooks/optimizer.py
