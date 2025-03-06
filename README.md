@@ -127,6 +127,7 @@ out, argmax = scatter_max(updates, indices, out)
 | SurroundOcc  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc |Y|
 | GameFormer-Planner  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner |Y|
 | StreamPETR  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/StreamPETR |Y|
+| Senna  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Senna |N|
 | BEVDet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet |Y|
 | PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |Y|
 | TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |Y|
@@ -146,7 +147,7 @@ out, argmax = scatter_max(updates, indices, out)
 | Mask2Former | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Mask2Former |Y|
 | GameFormer | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer |Y|
 | VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |N|
-| QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |Y|
+| QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |N|
 | BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
 | MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |Y|
 | SalsaNext | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SalsaNext |N|

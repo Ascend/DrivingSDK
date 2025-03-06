@@ -1,0 +1,195 @@
+diff --git a/data_tools/senna_qa_utils.py b/data_tools/senna_qa_utils.py
+index b38775b..8ac5ac0 100644
+--- a/data_tools/senna_qa_utils.py
++++ b/data_tools/senna_qa_utils.py
+@@ -3,10 +3,12 @@ import re
+ import requests
+ from io import BytesIO
+ 
+-import torch
++import torch, torch_npu
+ import numpy as np
+ from PIL import Image
+ 
++from torch_npu.contrib import transfer_to_npu
++
+ from llava.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, \
+     DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN, IMAGE_PLACEHOLDER
+ from llava.conversation import conv_templates, SeparatorStyle
+diff --git a/eval_tools/senna_plan_cmd_eval_multi_img.py b/eval_tools/senna_plan_cmd_eval_multi_img.py
+index 49c606b..006bf35 100644
+--- a/eval_tools/senna_plan_cmd_eval_multi_img.py
++++ b/eval_tools/senna_plan_cmd_eval_multi_img.py
+@@ -6,7 +6,7 @@ from llava.model.builder import load_pretrained_model, load_senna_pretrained_mod
+ from llava.mm_utils import get_model_name_from_path
+ 
+ from data_tools.senna_qa_utils import eval_multi_img_model_wo_init
+-
++from torch_npu.contrib import transfer_to_npu
+ 
+ eval_data_path = '/path/to/your/eval/data/eval_plan_qa.json'
+ model_path = "/path/to/the/model"
+diff --git a/eval_tools/senna_plan_cmd_eval_multi_img.sh b/eval_tools/senna_plan_cmd_eval_multi_img.sh
+index 024b1b3..46dcc01 100644
+--- a/eval_tools/senna_plan_cmd_eval_multi_img.sh
++++ b/eval_tools/senna_plan_cmd_eval_multi_img.sh
+@@ -1,4 +1,4 @@
+ export PYTHONPATH=/path/to/Senna:$PYTHONPATH
+ export PATH=/path/to/your/python/bin:$PATH
+ 
+-CUDA_VISIBLE_DEVICES=1 python eval_tools/senna_plan_cmd_eval_multi_img.py
++python eval_tools/senna_plan_cmd_eval_multi_img.py
+diff --git a/llava/model/language_model/__pycache__/llava_llama.cpython-310.pyc b/llava/model/language_model/__pycache__/llava_llama.cpython-310.pyc
+index fa18755..418dace 100644
+Binary files a/llava/model/language_model/__pycache__/llava_llama.cpython-310.pyc and b/llava/model/language_model/__pycache__/llava_llama.cpython-310.pyc differ
+diff --git a/llava/model/language_model/__pycache__/llava_mpt.cpython-310.pyc b/llava/model/language_model/__pycache__/llava_mpt.cpython-310.pyc
+index d2982c1..980e090 100644
+Binary files a/llava/model/language_model/__pycache__/llava_mpt.cpython-310.pyc and b/llava/model/language_model/__pycache__/llava_mpt.cpython-310.pyc differ
+diff --git a/llava/senna/senna_llava_llama.py b/llava/senna/senna_llava_llama.py
+index 8fa159c..c2db4bd 100644
+--- a/llava/senna/senna_llava_llama.py
++++ b/llava/senna/senna_llava_llama.py
+@@ -5,6 +5,7 @@ Senna VLM model, modified from LLaVA.
+ from typing import List, Optional, Tuple, Union
+ 
+ import torch
++import torch_npu
+ import torch.nn as nn
+ from transformers import AutoConfig, AutoModelForCausalLM, \
+                          LlamaConfig, LlamaModel, LlamaForCausalLM
+@@ -14,6 +15,7 @@ from transformers.generation.utils import GenerateOutput
+ from llava.senna.senna_llava_arch import LlavaMetaModel, LlavaMetaForCausalLM
+ from llava.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX
+ 
++from torch_npu.contrib import transfer_to_npu
+ 
+ class LlavaConfig(LlamaConfig):
+     model_type = "llava_llama"
+diff --git a/requirements.txt b/requirements.txt
+index f1df450..57617c5 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,6 +1,5 @@
+ absl-py==2.1.0
+ accelerate==0.29.2
+-aidisdk==0.18.0
+ aiohttp==3.9.5
+ aiohttp-cors==0.7.0
+ aiomultiprocess==0.9.1
+@@ -72,7 +71,6 @@ msgpack==1.0.8
+ multidict==6.0.5
+ multiprocess==0.70.15
+ mypy-extensions==1.0.0
+-netron==7.6.6
+ networkx==3.3
+ ninja==1.11.1.1
+ nltk==3.8.1
+@@ -108,7 +106,6 @@ python-dateutil==2.9.0.post0
+ python-dotenv==1.0.1
+ pytz==2024.1
+ PyYAML==6.0.1
+-ray==2.12.0
+ referencing==0.35.0
+ regex==2023.12.25
+ requests==2.31.0
+@@ -137,13 +134,9 @@ textual==0.58.0
+ tiktoken==0.6.0
+ timeout-decorator==0.5.0
+ tokenizers==0.13.3
+-torch==2.0.1+cu118
+-torchaudio==2.0.2+cu118
+-torchvision==0.15.2+cu118
+ tqdm==4.66.2
+ transformers==4.31.0
+ transformers-stream-generator==0.0.4
+-triton==2.0.0
+ trl==0.7.6
+ typeguard==2.13.3
+ typing-inspect==0.9.0
+diff --git a/train_tools/pretrain_senna_llava.sh b/train_tools/pretrain_senna_llava.sh
+index 6fc10a0..5cee25f 100644
+--- a/train_tools/pretrain_senna_llava.sh
++++ b/train_tools/pretrain_senna_llava.sh
+@@ -1,6 +1,6 @@
+ #!/bin/bash
+ 
+-MODEL_PATH="/path/to/your/model/directory/"
++MODEL="/path/to/your/model/directory/"
+ DATA="/path/to/your/data/directory/blip_laion_cc_sbu_558k.json"
+ IMAGE_DATA="/path/to/your/data/directory/LAION-CC-SBU-558k"
+ OUT_DIR="/path/to/your/output/directory/"
+@@ -12,16 +12,10 @@ echo "Setup environments..."
+ export NCCL_P2P_DISABLE="1"
+ export NCCL_IB_DISABLE="1"
+ 
+-
+-# add python envs & data dir to workspace
+-ln -s /cluster_home/custom_data/data/Senna/data .
+-ln -s /cluster_home/custom_data/data/Senna/checkpoints .
+-
+-
+ # specify the python path
+ export PATH=/path/to/your/python//bin:$PATH
+ 
+-
++cd /path/to/senna
+ deepspeed llava/senna/train_senna_llava_laion_pretrain.py \
+     --deepspeed llava/zero2.json \
+     --freeze_img_adapter False \
+@@ -36,7 +30,7 @@ deepspeed llava/senna/train_senna_llava_laion_pretrain.py \
+     --mm_vision_select_layer -2 \
+     --mm_use_im_start_end False \
+     --mm_use_im_patch_token False \
+-    --bf16 True \
++    --bf16 False \
+     --output_dir $OUT_DIR \
+     --num_train_epochs 1 \
+     --per_device_train_batch_size 32 \
+diff --git a/train_tools/train_senna_llava.sh b/train_tools/train_senna_llava.sh
+index 29a897f..497a946 100644
+--- a/train_tools/train_senna_llava.sh
++++ b/train_tools/train_senna_llava.sh
+@@ -1,6 +1,6 @@
+ #!/bin/bash
+ 
+-MODEL_PATH="/path/to/your/model/directory/"
++MODEL="/path/to/your/model/directory/"
+ DATA="/path/to/your/data/directory/your_finetune_qa_data.json"
+ OUT_DIR="/path/to/your/output/directory/"
+ 
+@@ -8,19 +8,11 @@ cd ${WORKING_PATH}
+ 
+ # setup environments
+ echo "Setup environments..."
+-export NCCL_P2P_DISABLE="1"
+-export NCCL_IB_DISABLE="1"
+-
+-
+-# add python envs & data dir to workspace
+-ln -s /cluster_home/custom_data/data/Senna/data .
+-ln -s /cluster_home/custom_data/data/Senna/checkpoints .
+-
+ 
+ # specify the python path
+ export PATH=/path/to/your/python//bin:$PATH
+ 
+-
++cd /path/to/senna
+ deepspeed llava/senna/train_senna_llava_multi_img.py \
+     --deepspeed llava/zero3.json \
+     --freeze_img_adapter False \
+@@ -35,11 +27,11 @@ deepspeed llava/senna/train_senna_llava_multi_img.py \
+     --mm_use_im_patch_token False \
+     --image_aspect_ratio pad \
+     --group_by_modality_length True \
+-    --bf16 True \
++    --bf16 False \
+     --output_dir $OUT_DIR \
+     --num_train_epochs 1 \
+-    --per_device_train_batch_size 8 \
+-    --per_device_eval_batch_size 8 \
++    --per_device_train_batch_size 2 \
++    --per_device_eval_batch_size 2 \
+     --gradient_accumulation_steps 3 \
+     --evaluation_strategy "no" \
+     --save_strategy "steps" \
