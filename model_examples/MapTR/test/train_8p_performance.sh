@@ -50,7 +50,7 @@ end_time=$(date +%s)
 e2e_time=$(( $end_time - $start_time ))
 
 # 训练用例信息，不需要修改
-BatchSize=8
+BatchSize=4
 DeviceType=$(uname -m)
 CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
 

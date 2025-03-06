@@ -101,8 +101,50 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   ```
   bash replace_patch.sh --packages_path=location_path
   ```
+6. 根据操作系统，安装tcmalloc动态库。
 
-6. 模型代码更新
+  - OpenEular系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+  ```
+  mkdir gperftools
+  cd gperftools
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -zvxf gperftools-2.16.tar.gz
+  cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make
+  make install
+  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+  ldconfig
+  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+  export PATH=/usr/local/lib/bin:$PATH
+  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+  - Ubuntu系统
+
+  参考[下载链接](http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)，下载三个文件。
+
+    libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+
+    libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+    
+    libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+  
+  安装三个文件：
+  ```
+  sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+  sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+  sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+  find /usr -name libtcmalloc.so*
+  ```
+
+  将find指令的输出路径记为libtomalloc_dir，执行下列文件使用tcmalloc动态库。
+  ```
+  export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
+  ```
+7. 模型代码更新
+
   ```
   git clone https://github.com/hustvl/MapTR.git
   cp MapTR.patch MapTR
@@ -167,7 +209,7 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 
 1. 在模型根目录下，运行训练脚本。
    
-   该模型支持单机8卡训练。
+   该模型支持单机8卡、多机多卡训练。
    
    - 单机8卡精度训练
    
@@ -181,6 +223,36 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
    bash test/train_8p_performance.sh
    ```
 
+   - 多机多卡精度训练
+
+   以双机举例，假设每台机器8卡，则总共有16卡。
+
+   记主节点为master_addr，通信端口为port。
+
+   主节点拉起训练的脚本为：
+
+   ```
+   bash test/nnodes_train_8p.sh 2 0 port master_addr
+   ```
+
+   副节点拉起训练的脚本为：
+   ```
+   bash test/nnodes_train_8p.sh 2 1 PORT MASTER_ADDR
+   ```
+
+   - 多机多卡性能训练
+
+   主节点拉起训练的脚本为：
+
+   ```
+   bash test/nnodes_train_8p_performance.sh 2 0 port master_addr
+   ```
+
+   副节点拉起训练的脚本为：
+   ```
+   bash test/nnodes_train_8p_performance.sh 2 1 port master_addr
+   ```
+
 #### 训练结果
 
 | 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-单步迭代耗时(ms) |
@@ -188,10 +260,12 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 | 竞品A           |  8p  |         32         |   fp32    |  24   | 48.7 |         -          |
 | Atlas 800T A2 |  8p  |         32         |   fp32    |  24   | 48.5 |         -          |
 | 竞品A           |  8p  |         32         |   fp32    |  1   | - |         929          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  1   | - |         1124          |
+| Atlas 800T A2 |  8p  |         32         |   fp32    |  1   | - |         1048          |
 
 
 # 变更说明
+
+2025.03.04：进一步优化模型性能，更新性能数据。增加多机多卡训练脚本。
 
 2025.02.21：优化模型性能，更新性能数据。
 

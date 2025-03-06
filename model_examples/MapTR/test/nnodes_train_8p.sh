@@ -6,10 +6,10 @@ WORLD_SIZE=8
 WORK_DIR=""
 LOAD_FROM=""
 
-NNODES=${NNODES:-1}
-NODE_RANK=${NODE_RANK:-0}
-PORT=${PORT:-29500}
-MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
+NNODES=$1
+NODE_RANK=$2
+PORT=$3
+MASTER_ADDR=$4
 
 ###############指定训练脚本执行路径###############
 # cd到与test文件夹同层级目录下执行脚本，提高兼容性；test_path_dir为包含test文件夹的路径
@@ -40,7 +40,7 @@ if [ x"${etp_flag}" != x"true" ]; then
   source ${test_path_dir}/env_npu.sh
 fi
 
-bash ./MapTR/tools/dist_train.sh ./MapTR/projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py 8 \
+bash ./MapTR/tools/nnodes_dist_train.sh ./MapTR/projects/configs/maptr/maptr_tiny_r50_24e_bevformer.py 8 ${NNODES} ${NODE_RANK} ${PORT} ${MASTER_ADDR}\
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 

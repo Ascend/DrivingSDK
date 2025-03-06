@@ -1,3 +1,22 @@
+diff --git a/tools/nnodes_dist_train.sh b/tools/nnodes_dist_train.sh
+new file mode 100644
+index 0000000..2119f6e
+--- /dev/null
++++ b/tools/nnodes_dist_train.sh
+@@ -0,0 +1,13 @@
++#!/usr/bin/env bash
++
++CONFIG=$1
++GPUS=$2
++NNODES=$3
++NODE_RANK=$4
++PORT=$5
++MASTER_ADDR=$6
++
++PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
++python3 -m torch.distributed.launch --nnodes=$NNODES --node_rank=$NODE_RANK --master_addr=$MASTER_ADDR \
++        --use_env --nproc_per_node=$GPUS --master_port=$PORT \
++    $(dirname "$0")/train.py $CONFIG --launcher pytorch --deterministic
 diff --git a/projects/configs/maptr/maptr_nano_r18_110e.py b/projects/configs/maptr/maptr_nano_r18_110e.py
 index aba45e3..7cc06ce 100644
 --- a/projects/configs/maptr/maptr_nano_r18_110e.py
