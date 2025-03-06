@@ -109,8 +109,13 @@
      ```
       pip show pytorch_lightning
      ```
-      找到pytorch_lightning的安装路径，然后将源码根目录下面lightning.patch文件复制到pytorch_lightning安装路径下。
-    
+      找到pytorch_lightning的安装路径，初始化pytorch_lightning代码仓并提交一个commit记录，然后将源码根目录下面lightning.patch文件复制到pytorch_lightning安装路径下。
+      ```
+      git init
+      git add .
+      git commit -m "Initialize pytorch-lightning" 
+      ```
+      
       ```
       cp -f lightning.patch {pytorch_lightning_install_path}/pytorch_lightning/
       cd {pytorch_lightning_install_path}/pytorch_lightning/
