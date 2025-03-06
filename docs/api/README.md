@@ -216,3 +216,9 @@
         <td align=center>N</td>
     </tr>
 </table>
+
+</br>
+
+## FAQ
+1. Released标注为N代表使用场景受限，仅针对本仓库上模型
+2. 标注为beta的算子为初版，未经过测试验证
