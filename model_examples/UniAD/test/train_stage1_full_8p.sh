@@ -38,6 +38,9 @@ if [ x"${etp_flag}" != x"true" ]; then
   source ${test_path_dir}/env_npu.sh
 fi
 
+python_path=$(pip show torch |grep Location|awk -F ': ' '{print $2}')
+cp -f ./nuscenes_need/mot.py ${python_path}/nuscenes/eval/tracking/mot.py
+
 bash ./tools/uniad_dist_train.sh ./projects/configs/stage1_track_map/base_track_map.py 8 \
     >$cur_path/test/output/full/stage1/train_full.log 2>&1 &
 wait
