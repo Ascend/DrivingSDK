@@ -2,7 +2,7 @@
 # 模型配置
 export RANK_SIZE=8
 batch_size=8
-epochs=4
+epochs=12
 work_dir="work_dirs/bevnext-stage2"
 stage1_ckpts_path="work_dirs/bevnext-stage1/epoch_2_ema.pth"
 

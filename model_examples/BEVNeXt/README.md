@@ -174,9 +174,9 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
     # 单机 8 卡训练
     cd model_examples/BEVNeXt/BEVNeXt
     bash test/train_8p_stage1.sh  # 默认 2 epochs
-    bash test/train_8p_stage2.sh  # 默认 4 epochs
+    bash test/train_8p_stage2.sh  # 默认 12 epochs
 
-    # 运行评测脚本获取精度结果，默认 stage2 4 epochs
+    # 运行评测脚本获取精度结果，默认 stage2 12 epochs
     bash test/eval_bevnext.sh
     ```
 
@@ -187,15 +187,17 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 | 芯片 | 卡数 | 阶段 | epoch | FPS | mAP | Torch_Version |
 | -- | -- | -- | -- | -- | -- | -- |
 |     竞品A     | 8p | stage1 | 2 | 36.643 | \ | PyTorch 2.1 |
-| Atlas 800T A2 | 8p | stage1 | 2 | 16.459 | \ | PyTorch 2.1 |
-|     竞品A     | 8p | stage2 | 4 | 11.371 | 0.4163 | PyTorch 2.1 |
-| Atlas 800T A2 | 8p | stage2 | 4 | 7.851 | 0.4180 | PyTorch 2.1 |
+| Atlas 800T A2 | 8p | stage1 | 2 | 16.568 | \ | PyTorch 2.1 |
+|     竞品A     | 8p | stage2 | 12 | 11.651 | 0.4313 | PyTorch 2.1 |
+| Atlas 800T A2 | 8p | stage2 | 12 | 7.572 | 0.4316 | PyTorch 2.1 |
 
 # 变更说明
 
 2025.2.17：首次发布。
 
-2025.2.27：性能优化，当前 stage1 性能为 0.45 倍竞品A，stage2 性能为 0.69 倍竞品A。
+2025.2.27：性能优化，当前 stage1 性能为 0.45 倍竞品A，stage2（4 epochs）性能为 0.69 倍竞品A。
+
+2025.3.10：更新训练脚本中的 `epochs` 默认值为 12；更新完整训练 12 epochs 性能和精度数据，当前 stage1 性能为 0.4x 倍竞品A，stage2 性能为 0.6x 倍竞品A。
 
 # FAQ
 

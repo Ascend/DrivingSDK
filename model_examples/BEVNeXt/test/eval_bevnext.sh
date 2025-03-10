@@ -1,7 +1,7 @@
 #!/bin/bash
 # 模型配置
 export RANK_SIZE=8
-epochs=4
+epochs=12
 work_dir="work_dirs/bevnext-stage2"
 
 # 获取传入的参数，重新赋值对应参数
