@@ -113,9 +113,10 @@ pip install -r requirements.txt
 
 安装NPU适配bitsandbytes版本：
 (1)下载源码并创建所需文件
+将使用的昇腾芯片型号记作 Ascend_version
 ```
 cd ..
-./bitsandbytes_npu.sh
+./bitsandbytes_npu.sh "{Ascend_version}"
 ```
 (2)安装：
 将环境目录记作 env_root_dir
