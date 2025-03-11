@@ -288,7 +288,7 @@ index 6869f6c..77eb58d 100644
      with np.errstate(divide="ignore"):
          errors = nn.functional.log_softmax(confidences, dim=1) + \
 diff --git a/code/model/modules.py b/code/model/modules.py
-index d7f63e8..c658717 100644
+index d7f63e8..a2d464f 100644
 --- a/code/model/modules.py
 +++ b/code/model/modules.py
 @@ -2,8 +2,12 @@ import math
@@ -362,7 +362,7 @@ index d7f63e8..c658717 100644
          return running_mean_c
  
  
-@@ -160,29 +164,29 @@ class Decoder(nn.Module):
+@@ -160,27 +164,27 @@ class Decoder(nn.Module):
      
      def forward(self, target_scatter_numbers, target_scatter_idx, final_embedding, batch_size):
          # assert torch.isfinite(self._learned_anchor_embeddings).all()
@@ -394,11 +394,8 @@ index d7f63e8..c658717 100644
 -        assert torch.isfinite(c).all()
 +        # assert torch.isfinite(c).all()
          probas = res[:, :, -1]
--        assert torch.isfinite(probas).all()
-+        # assert torch.isfinite(probas).all()
+         assert torch.isfinite(probas).all()
          if self._config["trainable_cov"]:
-             # http://www.inference.org.uk/mackay/covariance.pdf
-             covariance_matrices = (torch.cat([
 @@ -276,8 +280,8 @@ class EM(nn.Module):
          B = diff.unsqueeze(-1)
          C = precision_matrices6[:, :, self._selector, :, :].unsqueeze(2)
