@@ -1,44 +1,8 @@
-diff --git a/README.md b/README.md
-index d6fa0cc..80d107c 100644
---- a/README.md
-+++ b/README.md
-@@ -5,6 +5,7 @@
- 
- 
- ## News
-+- **2024.07.01** DAL is accepted to ECCV24.
- - **2023.11.08** Support DAL for 3D object detection with LiDAR-camera fusion. [[Arxiv](https://arxiv.org/abs/2311.07152)]
- 
- - [History](./docs/en/news.md)
 diff --git a/configs/_base_/default_runtime.py b/configs/_base_/default_runtime.py
-index 5fc198b..701888c 100644
+index 5fc198b..576738c 100644
 --- a/configs/_base_/default_runtime.py
 +++ b/configs/_base_/default_runtime.py
-@@ -1,16 +1,30 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- checkpoint_config = dict(interval=1)
- # yapf:disable push
- # By default we use textlogger hook and tensorboard
- # For more loggers see
- # https://mmcv.readthedocs.io/en/latest/api.html#mmcv.runner.LoggerHook
- log_config = dict(
--    interval=50,
-+    interval=1,
-     hooks=[
-         dict(type='TextLoggerHook'),
+@@ -10,7 +10,7 @@ log_config = dict(
          dict(type='TensorboardLoggerHook')
      ])
  # yapf:enable
@@ -48,28 +12,10 @@ index 5fc198b..701888c 100644
  work_dir = None
  load_from = None
 diff --git a/configs/bevdet/bevdet-r50-4d-depth-cbgs.py b/configs/bevdet/bevdet-r50-4d-depth-cbgs.py
-index 5aa3ee8..ab15d57 100644
+index 5aa3ee8..4cadb8b 100644
 --- a/configs/bevdet/bevdet-r50-4d-depth-cbgs.py
 +++ b/configs/bevdet/bevdet-r50-4d-depth-cbgs.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) Phigent Robotics. All rights reserved.
- # align_after_view_transfromation=True
- # mAP: 0.3605
-@@ -301,7 +315,7 @@ for key in ['val', 'test']:
+@@ -301,7 +301,7 @@ for key in ['val', 'test']:
  data['train']['dataset'].update(share_data_config)
  
  # Optimizer
@@ -79,28 +25,10 @@ index 5aa3ee8..ab15d57 100644
  lr_config = dict(
      policy='step',
 diff --git a/configs/bevdet/bevdet-r50.py b/configs/bevdet/bevdet-r50.py
-index ea3bf8b..ac11737 100644
+index ea3bf8b..31293ed 100644
 --- a/configs/bevdet/bevdet-r50.py
 +++ b/configs/bevdet/bevdet-r50.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) Phigent Robotics. All rights reserved.
- 
- # mAP: 0.2828
-@@ -234,7 +248,7 @@ test_data_config = dict(
+@@ -234,7 +234,7 @@ test_data_config = dict(
  
  data = dict(
      samples_per_gpu=8,
@@ -109,7 +37,7 @@ index ea3bf8b..ac11737 100644
      train=dict(
          data_root=data_root,
          ann_file=data_root + 'bevdetv3-nuscenes_infos_train.pkl',
-@@ -252,7 +266,7 @@ for key in ['train', 'val', 'test']:
+@@ -252,7 +252,7 @@ for key in ['train', 'val', 'test']:
      data[key].update(share_data_config)
  
  # Optimizer
@@ -119,25 +47,10 @@ index ea3bf8b..ac11737 100644
  lr_config = dict(
      policy='step',
 diff --git a/mmdet3d/__init__.py b/mmdet3d/__init__.py
-index 643c39c..154c8e0 100644
+index 643c39c..0cf030f 100644
 --- a/mmdet3d/__init__.py
 +++ b/mmdet3d/__init__.py
-@@ -1,8 +1,21 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) OpenMMLab. All rights reserved.
+@@ -2,7 +2,6 @@
  import mmcv
  
  import mmdet
@@ -145,7 +58,7 @@ index 643c39c..154c8e0 100644
  from .version import __version__, short_version
  
  
-@@ -19,7 +32,7 @@ def digit_version(version_str):
+@@ -19,7 +18,7 @@ def digit_version(version_str):
  
  
  mmcv_minimum_version = '1.5.2'
@@ -154,7 +67,7 @@ index 643c39c..154c8e0 100644
  mmcv_version = digit_version(mmcv.__version__)
  
  
-@@ -39,11 +52,5 @@ assert (mmdet_version >= digit_version(mmdet_minimum_version)
+@@ -39,11 +38,5 @@ assert (mmdet_version >= digit_version(mmdet_minimum_version)
  
  mmseg_minimum_version = '0.20.0'
  mmseg_maximum_version = '1.0.0'
@@ -224,208 +137,11 @@ index 0b85670..168b207 100644
  __all__ = ['MEGVIIEMAHook', 'is_parallel', 'SequentialControlHook',
 -           'SyncbnControlHook']
 +           'SyncbnControlHook', 'ProfilerHookNPU']
-diff --git a/mmdet3d/core/hook/profiler_hook_npu.py b/mmdet3d/core/hook/profiler_hook_npu.py
-new file mode 100644
-index 0000000..82ce3f4
---- /dev/null
-+++ b/mmdet3d/core/hook/profiler_hook_npu.py
-@@ -0,0 +1,173 @@
-+# Copyright (c) OpenMMLab. All rights reserved.
-+import os.path as osp
-+import warnings
-+from typing import Callable, List, Optional, Union
-+
-+import torch
-+import torch_npu
-+
-+from mmcv.runner import master_only
-+from mmcv.runner import HOOKS, Hook
-+
-+
-+@HOOKS.register_module()
-+class ProfilerHookNPU(Hook):
-+    """
-+    Profiling Hook NPU Version
-+    Example:
-+        dict(
-+            type='ProfilerHookNPU',
-+            by_epoch=True if runner['type'] == "EpochBasedRunner" else False,
-+            activities=['cpu', 'npu'],
-+            with_stack=True, # 采集torch op的函数调用栈的开关,会占用较多空间
-+            record_shapes=False, # 采集torch op的input shape和input type的开关
-+            profile_memory=True, # 采集memory相关数据的开关
-+            on_trace_ready="/your/path/",
-+            schedule={'wait': 10, 'warmup': 1, 'active': 1, 'repeat': 1, 'skip_first': 10},
-+            priority='NORMAL',
-+        )
-+    """
-+
-+    def __init__(self,
-+                 by_epoch: bool = True,
-+                 profile_iters: int = 1,
-+                 activities: Optional[list] = None,
-+                 schedule: Optional[dict] = None,
-+                 on_trace_ready: Optional[Union[str, dict]] = None,
-+                 record_shapes: bool = False,
-+                 profile_memory: bool = False,
-+                 with_stack: bool = False,
-+                 with_flops: bool = False,
-+                 json_trace_path: Optional[str] = None) -> None:
-+        try:
-+            from torch_npu import profiler  # torch version >= 1.8.1
-+        except ImportError as e:
-+            raise ImportError('Import torch_npu profiler error!') from e
-+
-+        if not isinstance(by_epoch, bool):
-+            raise ValueError(
-+                '``by_epoch`` should be a boolean.')
-+        self.by_epoch = by_epoch
-+
-+        if profile_iters < 1:
-+            raise ValueError('profile_iters should be greater than 0, but got '
-+                             f'{profile_iters}')
-+        self.profile_iters = profile_iters
-+
-+        if activities is None:
-+            activities = ['cpu', 'npu']
-+        else:
-+            if not isinstance(activities, list):
-+                raise ValueError(
-+                    f'activities should be list, but got {type(activities)}')
-+        self.activities = []
-+        for activity in activities:
-+            activity = activity.lower()
-+            if activity == 'cpu':
-+                self.activities.append(profiler.ProfilerActivity.CPU)
-+            elif activity == 'npu':
-+                self.activities.append(profiler.ProfilerActivity.NPU)
-+            else:
-+                raise ValueError(
-+                    f'activity should be "cpu" or "npu", but got {activity}')
-+
-+        if schedule is not None:
-+            self.schedule = profiler.schedule(**schedule)
-+        else:
-+            self.schedule = None
-+
-+        self.on_trace_ready = torch_npu.profiler.tensorboard_trace_handler(on_trace_ready)
-+        self.record_shapes = record_shapes
-+        self.profile_memory = profile_memory
-+        self.with_stack = with_stack
-+        self.with_flops = with_flops
-+        self.json_trace_path = json_trace_path
-+
-+    @master_only
-+    def before_run(self, runner):
-+        if self.by_epoch and runner.max_epochs < self.profile_iters:
-+            raise ValueError('self.profile_iters should not be greater than '
-+                             f'{runner.max_epochs}')
-+
-+        if not self.by_epoch and runner.max_iters < self.profile_iters:
-+            raise ValueError('self.profile_iters should not be greater than '
-+                             f'{runner.max_iters}')
-+
-+        if callable(self.on_trace_ready):  # handler
-+            _on_trace_ready = self.on_trace_ready
-+        elif isinstance(self.on_trace_ready, dict):  # config of handler
-+            trace_cfg = self.on_trace_ready.copy()
-+            trace_type = trace_cfg.pop('type')  # log_trace handler
-+            if trace_type == 'log_trace':
-+
-+                def _log_handler(prof):
-+                    print(prof.key_averages().table(**trace_cfg))
-+
-+                _on_trace_ready = _log_handler
-+            elif trace_type == 'tb_trace':  # tensorboard_trace handler
-+                try:
-+                    import torch_tb_profiler  # noqa: F401
-+                except ImportError as e:
-+                    raise ImportError('please run "pip install '
-+                                      'torch-tb-profiler" to install '
-+                                      'torch_tb_profiler') from e
-+                if 'dir_name' not in trace_cfg:
-+                    trace_cfg['dir_name'] = osp.join(runner.work_dir,
-+                                                     'tf_tracing_logs')
-+                elif not osp.isabs(trace_cfg['dir_name']):
-+                    trace_cfg['dir_name'] = osp.join(runner.work_dir,
-+                                                     trace_cfg['dir_name'])
-+                runner.logger.info(
-+                    'tracing files of ProfilerHook will be saved to '
-+                    f"{trace_cfg['dir_name']}.")
-+                _on_trace_ready = torch.profiler.tensorboard_trace_handler(
-+                    **trace_cfg)
-+            else:
-+                raise ValueError('trace_type should be "log_trace" or '
-+                                 f'"tb_trace", but got {trace_type}')
-+        elif self.on_trace_ready is None:
-+            _on_trace_ready = None  # type: ignore
-+        else:
-+            raise ValueError('on_trace_ready should be handler, dict or None, '
-+                             f'but got {type(self.on_trace_ready)}')
-+
-+        if self.by_epoch and runner.max_epochs > 1:
-+            warnings.warn(f'profiler will profile {runner.max_epochs} epochs '
-+                          'instead of 1 epoch. Since profiler will slow down '
-+                          'the training, it is recommended to train 1 epoch '
-+                          'with ProfilerHook and adjust your setting according'
-+                          ' to the profiler summary. During normal training '
-+                          '(epoch > 1), you may disable the ProfilerHook.')
-+
-+        experimental_config = torch_npu.profiler._ExperimentalConfig(
-+        profiler_level=torch_npu.profiler.ProfilerLevel.Level2)
-+        
-+        self.profiler = torch_npu.profiler.profile(
-+            activities=self.activities,
-+            schedule=self.schedule,
-+            on_trace_ready=_on_trace_ready,
-+            record_shapes=self.record_shapes,
-+            profile_memory=self.profile_memory,
-+            with_stack=self.with_stack,
-+            experimental_config=experimental_config,
-+            with_flops=self.with_flops)
-+
-+        self.profiler.__enter__()
-+        runner.logger.info('npu profiler is profiling...')
-+
-+    @master_only
-+    def after_train_epoch(self, runner):
-+        if self.by_epoch and runner.epoch == self.profile_iters - 1:
-+            runner.logger.info('profiler may take a few minutes...')
-+            self.profiler.__exit__(None, None, None)
-+            if self.json_trace_path is not None:
-+                self.profiler.export_chrome_trace(self.json_trace_path)
-+
-+    @master_only
-+    def after_train_iter(self, runner):
-+        self.profiler.step()
-+        if not self.by_epoch and runner.iter == self.profile_iters - 1:
-+            runner.logger.info('profiler may take a few minutes...')
-+            self.profiler.__exit__(None, None, None)
-+            if self.json_trace_path is not None:
-+                self.profiler.export_chrome_trace(self.json_trace_path)
 diff --git a/mmdet3d/datasets/pipelines/loading.py b/mmdet3d/datasets/pipelines/loading.py
-index b9357ff..0b8d118 100644
+index b9357ff..3f23888 100644
 --- a/mmdet3d/datasets/pipelines/loading.py
 +++ b/mmdet3d/datasets/pipelines/loading.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) OpenMMLab. All rights reserved.
- import os
- 
-@@ -1163,7 +1177,7 @@ class LoadAnnotations(object):
+@@ -1163,7 +1163,7 @@ class LoadAnnotations(object):
  
      def __call__(self, results):
          gt_boxes, gt_labels = results['ann_infos']
@@ -435,28 +151,10 @@ index b9357ff..0b8d118 100644
              gt_boxes = torch.zeros(0, 9)
          results['gt_bboxes_3d'] = \
 diff --git a/mmdet3d/datasets/pipelines/transforms_3d.py b/mmdet3d/datasets/pipelines/transforms_3d.py
-index a960dd3..970175e 100644
+index a960dd3..a52a1d8 100644
 --- a/mmdet3d/datasets/pipelines/transforms_3d.py
 +++ b/mmdet3d/datasets/pipelines/transforms_3d.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) OpenMMLab. All rights reserved.
- import random
- import warnings
-@@ -519,7 +533,7 @@ class ObjectSample(object):
+@@ -519,7 +519,7 @@ class ObjectSample(object):
                  input_dict['img'] = sampled_dict['img']
          gt_bboxes_ignore = np.ones_like(gt_labels_3d)
          gt_bboxes_ignore[num_exist:] = 0
@@ -465,7 +163,7 @@ index a960dd3..970175e 100644
          input_dict['gt_bboxes_ignore'] = gt_bboxes_ignore
          input_dict['gt_bboxes_3d'] = gt_bboxes_3d
          input_dict['gt_labels_3d'] = gt_labels_3d.astype(np.int64)
-@@ -924,14 +938,14 @@ class ObjectRangeFilter(object):
+@@ -924,14 +924,14 @@ class ObjectRangeFilter(object):
  
          if 'gt_bboxes_ignore' in input_dict:
              gt_bboxes_ignore = input_dict['gt_bboxes_ignore']
@@ -482,29 +180,20 @@ index a960dd3..970175e 100644
  
          # limit rad to [-pi, pi]
          gt_bboxes_3d.limit_yaw(offset=0.5, period=2 * np.pi)
-diff --git a/mmdet3d/datasets/waymo_dataset.py b/mmdet3d/datasets/waymo_dataset.py
-index 6e204df..11505be 100644
---- a/mmdet3d/datasets/waymo_dataset.py
-+++ b/mmdet3d/datasets/waymo_dataset.py
-@@ -298,10 +298,9 @@ class WaymoDataset(KittiDataset):
-                 data_format='waymo')
-             import subprocess
-             ret_bytes = subprocess.check_output(
--                'mmdet3d/core/evaluation/waymo_utils/' +
--                f'compute_detection_metrics_main {pklfile_prefix}.bin ' +
--                f'{waymo_root}/gt.bin',
--                shell=True)
-+                ['mmdet3d/core/evaluation/waymo_utils/compute_detection_metrics_main',
-+                 f'{pklfile_prefix}.bin',
-+                 f'{waymo_root}/gt.bin'])
-             ret_texts = ret_bytes.decode('utf-8')
-             print_log(ret_texts)
-             # parse the text to get ap_dict
 diff --git a/mmdet3d/models/dense_heads/centerpoint_head.py b/mmdet3d/models/dense_heads/centerpoint_head.py
-index f6a58ab..e5cae7f 100644
+index f6a58ab..d6faf27 100644
 --- a/mmdet3d/models/dense_heads/centerpoint_head.py
 +++ b/mmdet3d/models/dense_heads/centerpoint_head.py
-@@ -101,7 +101,7 @@ class SeparateHead(BaseModule):
+@@ -14,6 +14,8 @@ from mmdet3d.models.utils import clip_sigmoid
+ from mmdet.core import build_bbox_coder, multi_apply, reduce_mean
+ from ..builder import HEADS, build_loss
+ 
++from mx_driving import npu_gaussian
++
+ 
+ @HEADS.register_module()
+ class SeparateHead(BaseModule):
+@@ -101,7 +103,7 @@ class SeparateHead(BaseModule):
          Returns:
              dict[str: torch.Tensor]: contains the following keys:
  
@@ -513,7 +202,7 @@ index f6a58ab..e5cae7f 100644
                      shape of [B, 2, H, W].
                  -height (torch.Tensor): Height value with the
                      shape of [B, 1, H, W].
-@@ -217,7 +217,7 @@ class DCNSeparateHead(BaseModule):
+@@ -217,7 +219,7 @@ class DCNSeparateHead(BaseModule):
          Returns:
              dict[str: torch.Tensor]: contains the following keys:
  
@@ -522,35 +211,24 @@ index f6a58ab..e5cae7f 100644
                      shape of [B, 2, H, W].
                  -height (torch.Tensor): Height value with the
                      shape of [B, 1, H, W].
-@@ -453,9 +453,10 @@ class CenterHead(BaseModule):
-                     are valid.
-         """
-         device = gt_labels_3d.device
-+        gt_labels_3d = gt_labels_3d.cpu()
-         gt_bboxes_3d = torch.cat(
-             (gt_bboxes_3d.gravity_center, gt_bboxes_3d.tensor[:, 3:]),
--            dim=1).to(device)
-+            dim=1)
-         max_objs = self.train_cfg['max_objs'] * self.train_cfg['dense_reg']
-         grid_size = torch.tensor(self.train_cfg['grid_size'])
-         pc_range = torch.tensor(self.train_cfg['point_cloud_range'])
-@@ -483,8 +484,8 @@ class CenterHead(BaseModule):
-                 task_box.append(gt_bboxes_3d[m])
-                 # 0 is background for each task, so we need to add 1 here.
-                 task_class.append(gt_labels_3d[m] + 1 - flag2)
--            task_boxes.append(torch.cat(task_box, axis=0).to(device))
--            task_classes.append(torch.cat(task_class).long().to(device))
-+            task_boxes.append(torch.cat(task_box, axis=0))
-+            task_classes.append(torch.cat(task_class).long())
-             flag2 += len(mask)
-         draw_gaussian = draw_heatmap_gaussian
-         heatmaps, anno_boxes, inds, masks = [], [], [], []
-@@ -506,11 +507,13 @@ class CenterHead(BaseModule):
+@@ -506,82 +508,37 @@ class CenterHead(BaseModule):
  
              num_objs = min(task_boxes[idx].shape[0], max_objs)
  
 +            temp_classes = task_classes[idx]
 +            temp_boxes = task_boxes[idx]
++            center_int, radius, mask, ind, anno_box = npu_gaussian(temp_boxes,
++                                                                   self.train_cfg['out_size_factor'],
++                                                                   self.train_cfg['gaussian_overlap'],
++                                                                   self.train_cfg['min_radius'],
++                                                                   voxel_size[0],
++                                                                   voxel_size[1],
++                                                                   pc_range[0],
++                                                                   pc_range[1],
++                                                                   feature_map_size[0],
++                                                                   feature_map_size[1],
++                                                                   self.norm_bbox,
++                                                                   self.with_velocity)
              for k in range(num_objs):
 -                cls_id = task_classes[idx][k] - 1
 +                cls_id = temp_classes[k] - 1
@@ -562,101 +240,84 @@ index f6a58ab..e5cae7f 100644
                  width = width / voxel_size[0] / self.train_cfg[
                      'out_size_factor']
                  length = length / voxel_size[1] / self.train_cfg[
-@@ -524,8 +527,7 @@ class CenterHead(BaseModule):
+                     'out_size_factor']
  
-                     # be really careful for the coordinate system of
-                     # your box annotation.
+                 if width > 0 and length > 0:
+-                    radius = gaussian_radius(
+-                        (length, width),
+-                        min_overlap=self.train_cfg['gaussian_overlap'])
+-                    radius = max(self.train_cfg['min_radius'], int(radius))
+-
+-                    # be really careful for the coordinate system of
+-                    # your box annotation.
 -                    x, y, z = task_boxes[idx][k][0], task_boxes[idx][k][
 -                        1], task_boxes[idx][k][2]
-+                    x, y, z = temp_boxes[k][0], temp_boxes[k][1], temp_boxes[k][2]
- 
-                     coor_x = (
-                         x - pc_range[0]
-@@ -535,8 +537,7 @@ class CenterHead(BaseModule):
-                     ) / voxel_size[1] / self.train_cfg['out_size_factor']
- 
-                     center = torch.tensor([coor_x, coor_y],
+-
+-                    coor_x = (
+-                        x - pc_range[0]
+-                    ) / voxel_size[0] / self.train_cfg['out_size_factor']
+-                    coor_y = (
+-                        y - pc_range[1]
+-                    ) / voxel_size[1] / self.train_cfg['out_size_factor']
+-
+-                    center = torch.tensor([coor_x, coor_y],
 -                                          dtype=torch.float32,
 -                                          device=device)
-+                                          dtype=torch.float32)
-                     center_int = center.to(torch.int32)
- 
-                     # throw out not in range objects to avoid out of array
-@@ -547,23 +548,23 @@ class CenterHead(BaseModule):
- 
-                     draw_gaussian(heatmap[cls_id], center_int, radius)
- 
+-                    center_int = center.to(torch.int32)
+-
+-                    # throw out not in range objects to avoid out of array
+-                    # area when creating the heatmap
+-                    if not (0 <= center_int[0] < feature_map_size[0]
+-                            and 0 <= center_int[1] < feature_map_size[1]):
+-                        continue
+-
+-                    draw_gaussian(heatmap[cls_id], center_int, radius)
+-
 -                    new_idx = k
-+                    
-                     x, y = center_int[0], center_int[1]
- 
-                     assert (y * feature_map_size[0] + x <
-                             feature_map_size[0] * feature_map_size[1])
- 
+-                    x, y = center_int[0], center_int[1]
+-
+-                    assert (y * feature_map_size[0] + x <
+-                            feature_map_size[0] * feature_map_size[1])
+-
 -                    ind[new_idx] = y * feature_map_size[0] + x
 -                    mask[new_idx] = 1
-+                    ind[k] = y * feature_map_size[0] + x
-+                    mask[k] = 1
-                     # TODO: support other outdoor dataset
+-                    # TODO: support other outdoor dataset
 -                    rot = task_boxes[idx][k][6]
 -                    box_dim = task_boxes[idx][k][3:6]
-+                    rot = temp_boxes[k][6]
-+                    box_dim = temp_boxes[k][3:6]
-                     if self.norm_bbox:
-                         box_dim = box_dim.log()
-                     if self.with_velocity:
+-                    if self.norm_bbox:
+-                        box_dim = box_dim.log()
+-                    if self.with_velocity:
 -                        vx, vy = task_boxes[idx][k][7:]
 -                        anno_box[new_idx] = torch.cat([
 -                            center - torch.tensor([x, y], device=device),
-+                        vx, vy = temp_boxes[k][7:]
-+                        anno_box[k] = torch.cat([
-+                            center - torch.tensor([x, y]),
-                             z.unsqueeze(0), box_dim,
-                             torch.sin(rot).unsqueeze(0),
-                             torch.cos(rot).unsqueeze(0),
-@@ -571,17 +572,16 @@ class CenterHead(BaseModule):
-                             vy.unsqueeze(0)
-                         ])
-                     else:
+-                            z.unsqueeze(0), box_dim,
+-                            torch.sin(rot).unsqueeze(0),
+-                            torch.cos(rot).unsqueeze(0),
+-                            vx.unsqueeze(0),
+-                            vy.unsqueeze(0)
+-                        ])
+-                    else:
 -                        anno_box[new_idx] = torch.cat([
 -                            center - torch.tensor([x, y], device=device),
-+                        anno_box[k] = torch.cat([
-+                            center - torch.tensor([x, y]),
-                             z.unsqueeze(0), box_dim,
-                             torch.sin(rot).unsqueeze(0),
-                             torch.cos(rot).unsqueeze(0)
-                         ])
+-                            z.unsqueeze(0), box_dim,
+-                            torch.sin(rot).unsqueeze(0),
+-                            torch.cos(rot).unsqueeze(0)
+-                        ])
 -
--            heatmaps.append(heatmap)
--            anno_boxes.append(anno_box)
--            masks.append(mask)
--            inds.append(ind)
-+            heatmaps.append(heatmap.to(device))
-+            anno_boxes.append(anno_box.to(device))
-+            masks.append(mask.to(device))
-+            inds.append(ind.to(device))
++                    draw_gaussian(heatmap[cls_id], center_int[k], radius[k].item())
+             heatmaps.append(heatmap)
+             anno_boxes.append(anno_box)
+             masks.append(mask)
+             inds.append(ind)
++
          return heatmaps, anno_boxes, inds, masks
  
      def loss(self, gt_bboxes_3d, gt_labels_3d, preds_dicts, **kwargs):
 diff --git a/mmdet3d/models/detectors/__init__.py b/mmdet3d/models/detectors/__init__.py
-index afc800c..bda1e24 100644
+index afc800c..3bf7046 100644
 --- a/mmdet3d/models/detectors/__init__.py
 +++ b/mmdet3d/models/detectors/__init__.py
-@@ -1,9 +1,22 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
+@@ -1,9 +1,8 @@
  # Copyright (c) OpenMMLab. All rights reserved.
  from .base import Base3DDetector
 -from .bevdet import BEVDepth4D, BEVDet, BEVDet4D, BEVDetTRT, BEVStereo4D
@@ -667,7 +328,7 @@ index afc800c..bda1e24 100644
  from .dynamic_voxelnet import DynamicVoxelNet
  from .fcos_mono3d import FCOSMono3D
  from .groupfree3dnet import GroupFree3DNet
-@@ -28,5 +41,5 @@ __all__ = [
+@@ -28,5 +27,5 @@ __all__ = [
      'CenterPoint', 'SSD3DNet', 'ImVoteNet', 'SingleStageMono3DDetector',
      'FCOSMono3D', 'ImVoxelNet', 'GroupFree3DNet', 'PointRCNN', 'SMOKEMono3D',
      'MinkSingleStage3DDetector', 'SASSD', 'BEVDet', 'BEVDet4D', 'BEVDepth4D',
@@ -675,26 +336,10 @@ index afc800c..bda1e24 100644
 +    'BEVStereo4D', 'BEVStereo4DOCC'
  ]
 diff --git a/mmdet3d/models/detectors/bevdet.py b/mmdet3d/models/detectors/bevdet.py
-index ad1154e..1aa42e3 100644
+index ad1154e..13c68e1 100644
 --- a/mmdet3d/models/detectors/bevdet.py
 +++ b/mmdet3d/models/detectors/bevdet.py
-@@ -1,9 +1,22 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) Phigent Robotics. All rights reserved.
- import torch
+@@ -3,7 +3,6 @@ import torch
  import torch.nn.functional as F
  from mmcv.runner import force_fp32
  
@@ -702,7 +347,7 @@ index ad1154e..1aa42e3 100644
  from mmdet.models import DETECTORS
  from .. import builder
  from .centerpoint import CenterPoint
-@@ -215,58 +228,6 @@ class BEVDet(CenterPoint):
+@@ -215,58 +214,6 @@ class BEVDet(CenterPoint):
          return outs
  
  
@@ -761,7 +406,7 @@ index ad1154e..1aa42e3 100644
  @DETECTORS.register_module()
  class BEVDet4D(BEVDet):
      r"""BEVDet4D paradigm for multi-camera 3D object detection.
-@@ -630,7 +591,7 @@ class BEVStereo4D(BEVDepth4D):
+@@ -630,7 +577,7 @@ class BEVStereo4D(BEVDepth4D):
              [x, sensor2keyego, ego2global, intrin, post_rot, post_tran, bda,
               mlp_input], metas)
          if self.pre_process:
@@ -771,28 +416,10 @@ index ad1154e..1aa42e3 100644
  
      def extract_img_feat(self,
 diff --git a/mmdet3d/models/detectors/bevdet_occ.py b/mmdet3d/models/detectors/bevdet_occ.py
-index 37efdb6..f42dab2 100644
+index 37efdb6..52acada 100644
 --- a/mmdet3d/models/detectors/bevdet_occ.py
 +++ b/mmdet3d/models/detectors/bevdet_occ.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) Phigent Robotics. All rights reserved.
- from .bevdet import BEVStereo4D
- 
-@@ -29,7 +43,7 @@ class BEVStereo4DOCC(BEVStereo4D):
+@@ -29,7 +29,7 @@ class BEVStereo4DOCC(BEVStereo4D):
                          kernel_size=3,
                          stride=1,
                          padding=1,
@@ -801,7 +428,7 @@ index 37efdb6..f42dab2 100644
                          conv_cfg=dict(type='Conv3d'))
          self.use_predicter =use_predicter
          if use_predicter:
-@@ -124,7 +138,7 @@ class BEVStereo4DOCC(BEVStereo4D):
+@@ -124,7 +124,7 @@ class BEVStereo4DOCC(BEVStereo4D):
          loss_depth = self.img_view_transformer.get_depth_loss(gt_depth, depth)
          losses['loss_depth'] = loss_depth
  
@@ -810,51 +437,11 @@ index 37efdb6..f42dab2 100644
          if self.use_predicter:
              occ_pred = self.predicter(occ_pred)
          voxel_semantics = kwargs['voxel_semantics']
-diff --git a/mmdet3d/models/necks/lss_fpn.py b/mmdet3d/models/necks/lss_fpn.py
-index c38cab9..251387d 100644
---- a/mmdet3d/models/necks/lss_fpn.py
-+++ b/mmdet3d/models/necks/lss_fpn.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) Phigent Robotics. All rights reserved.
- 
- import torch
 diff --git a/mmdet3d/models/necks/view_transformer.py b/mmdet3d/models/necks/view_transformer.py
-index ec03722..9be37d9 100644
+index ec03722..cc786a5 100644
 --- a/mmdet3d/models/necks/view_transformer.py
 +++ b/mmdet3d/models/necks/view_transformer.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) OpenMMLab. All rights reserved.
- import torch
- import torch.nn as nn
-@@ -7,12 +21,10 @@ from mmcv.runner import BaseModule, force_fp32
+@@ -7,12 +7,10 @@ from mmcv.runner import BaseModule, force_fp32
  from torch.cuda.amp.autocast_mode import autocast
  from torch.utils.checkpoint import checkpoint
  
@@ -868,7 +455,7 @@ index ec03722..9be37d9 100644
  
  @NECKS.register_module()
  class LSSViewTransformer(BaseModule):
-@@ -165,19 +177,19 @@ class LSSViewTransformer(BaseModule):
+@@ -165,19 +163,19 @@ class LSSViewTransformer(BaseModule):
          # post-transformation
          # B x N x D x H x W x 3
          points = self.frustum.to(sensor2ego) - post_trans.view(B, N, 1, 1, 1, 3)
@@ -897,7 +484,7 @@ index ec03722..9be37d9 100644
  
      def init_acceleration_v2(self, coor):
          """Pre-compute the necessary information in acceleration including the
-@@ -190,20 +202,14 @@ class LSSViewTransformer(BaseModule):
+@@ -190,20 +188,14 @@ class LSSViewTransformer(BaseModule):
                  (B, N_cams, D, H, W, C).
          """
  
@@ -920,19 +507,19 @@ index ec03722..9be37d9 100644
          if ranks_feat is None:
              print('warning ---> no points within the predefined '
                    'bev receptive field')
-@@ -219,9 +225,8 @@ class LSSViewTransformer(BaseModule):
+@@ -219,9 +211,8 @@ class LSSViewTransformer(BaseModule):
          bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
                            int(self.grid_size[1]), int(self.grid_size[0]),
                            feat.shape[-1])  # (B, Z, Y, X, C)
 -        bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
 -                               bev_feat_shape, interval_starts,
 -                               interval_lengths)
-+        bev_feat = bev_pool_v3(depth, feat, ranks_depth, ranks_feat, 
++        bev_feat = bev_pool_v3(depth, feat, ranks_depth, ranks_feat,
 +                               ranks_bev, bev_feat_shape)
          # collapse Z
          if self.collapse_z:
              bev_feat = torch.cat(bev_feat.unbind(dim=2), 1)
-@@ -270,22 +275,8 @@ class LSSViewTransformer(BaseModule):
+@@ -270,22 +261,8 @@ class LSSViewTransformer(BaseModule):
              self.grid_size[2] * self.grid_size[1] * self.grid_size[0])
          ranks_bev += coor[:, 2] * (self.grid_size[1] * self.grid_size[0])
          ranks_bev += coor[:, 1] * self.grid_size[0] + coor[:, 0]
@@ -956,7 +543,7 @@ index ec03722..9be37d9 100644
  
      def pre_compute(self, input):
          if self.initial_flag:
-@@ -304,10 +295,9 @@ class LSSViewTransformer(BaseModule):
+@@ -304,10 +281,9 @@ class LSSViewTransformer(BaseModule):
              bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
                                int(self.grid_size[1]), int(self.grid_size[0]),
                                feat.shape[-1])  # (B, Z, Y, X, C)
@@ -969,6 +556,45 @@ index ec03722..9be37d9 100644
  
              bev_feat = bev_feat.squeeze(2)
          else:
+@@ -585,25 +561,30 @@ class DepthNet(nn.Module):
+     def gen_grid(self, metas, B, N, D, H, W, hi, wi):
+         frustum = metas['frustum']
+         points = frustum - metas['post_trans'].view(B, N, 1, 1, 1, 3)
+-        points = torch.inverse(metas['post_rots']).view(B, N, 1, 1, 1, 3, 3) \
++        ori_shape = points.shape
++        points = points.view(B, N, -1, 3)
++        points = torch.inverse(metas['post_rots']).view(B, N, 1, 3, 3) \
+             .matmul(points.unsqueeze(-1))
+         points = torch.cat(
+-            (points[..., :2, :] * points[..., 2:3, :], points[..., 2:3, :]), 5)
++            (points[..., :2, :] * points[..., 2:3, :], points[..., 2:3, :]), 3)
+ 
+         rots = metas['k2s_sensor'][:, :, :3, :3].contiguous()
+         trans = metas['k2s_sensor'][:, :, :3, 3].contiguous()
+         combine = rots.matmul(torch.inverse(metas['intrins']))
+ 
+-        points = combine.view(B, N, 1, 1, 1, 3, 3).matmul(points)
+-        points += trans.view(B, N, 1, 1, 1, 3, 1)
+-        neg_mask = points[..., 2, 0] < 1e-3
+-        points = metas['intrins'].view(B, N, 1, 1, 1, 3, 3).matmul(points)
++        points = combine.view(B, N, 1, 3, 3).matmul(points)
++        points += trans.view(B, N, 1, 3, 1)
++        neg_mask = (points.view(ori_shape))[..., 2, 0] < 1e-3
++        points = metas['intrins'].view(B, N, 1, 3, 3).matmul(points)
+         points = points[..., :2, :] / points[..., 2:3, :]
+ 
+-        points = metas['post_rots'][...,:2,:2].view(B, N, 1, 1, 1, 2, 2).matmul(
++        points = metas['post_rots'][...,:2,:2].view(B, N, 1, 2, 2).matmul(
+             points).squeeze(-1)
+-        points += metas['post_trans'][...,:2].view(B, N, 1, 1, 1, 2)
++        points += metas['post_trans'][...,:2].view(B, N, 1, 2)
+ 
++        new_shape = list(ori_shape)
++        new_shape[-1] = 2
++        points = points.view(new_shape)
+         px = points[..., 0] / (wi - 1.0) * 2.0 - 1.0
+         py = points[..., 1] / (hi - 1.0) * 2.0 - 1.0
+         px[neg_mask] = -2
 diff --git a/mmdet3d/ops/paconv/paconv.py b/mmdet3d/ops/paconv/paconv.py
 index bda8bfe..9015b9e 100644
 --- a/mmdet3d/ops/paconv/paconv.py
@@ -982,419 +608,6 @@ index bda8bfe..9015b9e 100644
  
          scores = scores.permute(0, 2, 3, 1)  # (B, N, K, M)
  
-diff --git a/mmdet3d/utils/setup_env.py b/mmdet3d/utils/setup_env.py
-index 8812cb7..9842ac2 100644
---- a/mmdet3d/utils/setup_env.py
-+++ b/mmdet3d/utils/setup_env.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) OpenMMLab. All rights reserved.
- import os
- import platform
-diff --git a/test/env_npu.sh b/test/env_npu.sh
-new file mode 100644
-index 0000000..bb3b249
---- /dev/null
-+++ b/test/env_npu.sh
-@@ -0,0 +1,52 @@
-+#!/bin/bash
-+CANN_INSTALL_PATH_CONF='/etc/Ascend/ascend_cann_install.info'
-+
-+if [ -f $CANN_INSTALL_PATH_CONF ]; then
-+    CANN_INSTALL_PATH=$(cat $CANN_INSTALL_PATH_CONF | grep Install_Path | cut -d "=" -f 2)
-+else
-+    CANN_INSTALL_PATH="/usr/local/Ascend"
-+fi
-+
-+if [ -d ${CANN_INSTALL_PATH}/ascend-toolkit/latest ]; then
-+    source ${CANN_INSTALL_PATH}/ascend-toolkit/set_env.sh
-+else
-+    source ${CANN_INSTALL_PATH}/nnae/set_env.sh
-+fi
-+
-+
-+#将Host日志输出到串口,0-关闭/1-开启
-+export ASCEND_SLOG_PRINT_TO_STDOUT=0
-+#设置默认日志级别,0-debug/1-info/2-warning/3-error
-+export ASCEND_GLOBAL_LOG_LEVEL=3
-+#设置Event日志开启标志,0-关闭/1-开启
-+export ASCEND_GLOBAL_EVENT_ENABLE=0
-+#设置是否开启taskque,0-关闭/1-开启
-+export TASK_QUEUE_ENABLE=2
-+#设置是否开启PTCopy,0-关闭/1-开启
-+export PTCOPY_ENABLE=1
-+#设置是否开启combined标志,0-关闭/1-开启
-+export COMBINED_ENABLE=1
-+#设置特殊场景是否需要重新编译,不需要修改
-+export DYNAMIC_OP="ADD#MUL"
-+#HCCL白名单开关,1-关闭/0-开启
-+export HCCL_WHITELIST_DISABLE=1
-+export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
-+
-+#开启绑核
-+export CPU_AFFINITY_CONF=1
-+
-+export OMP_NUM_THREADS=16
-+export MKL_NUM_THREADS=16
-+
-+#设置device侧日志登记为error
-+msnpureport -g error -d 0
-+msnpureport -g error -d 1
-+msnpureport -g error -d 2
-+msnpureport -g error -d 3
-+msnpureport -g error -d 4
-+msnpureport -g error -d 5
-+msnpureport -g error -d 6
-+msnpureport -g error -d 7
-+#关闭Device侧Event日志
-+msnpureport -e disable
-+
-diff --git a/test/train_1p.sh b/test/train_1p.sh
-new file mode 100644
-index 0000000..3d9b518
---- /dev/null
-+++ b/test/train_1p.sh
-@@ -0,0 +1,168 @@
-+#!/bin/bash
-+
-+#当前路径
-+cur_path=`pwd`
-+# 指定训练所使用的npu device卡id
-+device_id=0
-+
-+#集合通信参数
-+export RANK_SIZE=1
-+export JOB_ID=10087
-+RANK_ID_START=0
-+
-+performance=0
-+
-+#基础参数
-+batch_size=1
-+#训练step
-+max_epochs=24
-+
-+
-+# 帮助信息
-+if [[ $1 == --help || $1 == -h ]];then
-+    echo"usage:./train_1p.sh <args>"
-+    echo " "
-+    echo "parameter explain:
-+    --py_config               train config
-+    --performance              switch to performance mode when != 0
-+    --work_dir                 set output dir for training
-+    -h/--help		             show help message
-+    "
-+    exit 1
-+fi
-+
-+#参数校验
-+for para in $*
-+do
-+    if [[ $para == --py_config* ]];then
-+        py_config=`echo ${para#*=}`
-+    elif [[ $para == --performance* ]];then
-+        performance=`echo ${para#*=}`
-+    elif [[ $para == --work_dir* ]];then
-+        work_dir=`echo ${para#*=}`
-+    fi
-+done
-+
-+if (($performance!=0)); then
-+    max_epochs=1
-+fi
-+
-+#校验是否传入py_config
-+if [[ $py_config == "" ]];then
-+    echo "[Error] para \"py_config\" must be config"
-+    exit 1
-+fi
-+
-+#配置名称
-+config_name=`echo $py_config | awk -F "/" '{print $NF}' | awk -F "." '{print $1}'`
-+#网络名称
-+Network=$config_name
-+
-+# 校验是否指定了device_id,分动态分配device_id与手动指定device_id
-+if [ $ASCEND_DEVICE_ID ];then
-+    echo "device id is ${ASCEND_DEVICE_ID}"
-+elif [ ${device_id} ];then
-+    export ASCEND_DEVICE_ID=${device_id}
-+    echo "device id is ${ASCEND_DEVICE_ID}"
-+else
-+    "[Error] device id must be config"
-+    exit 1
-+fi
-+
-+if [[ $work_dir == "" ]];then
-+    work_dir="output/train_1p/$config_name"
-+else
-+    work_dir="${work_dir}/train_1p/$config_name"
-+fi
-+
-+test_path_dir=$cur_path
-+ASCEND_DEVICE_ID=$device_id
-+export ASCEND_RT_VISIBLE_DEVICES=$ASCEND_DEVICE_ID
-+if [ ! -d ${test_path_dir}/output ];then
-+    mkdir ${test_path_dir}/output
-+fi
-+if [ -d ${test_path_dir}/output/${ASCEND_DEVICE_ID} ];then
-+    rm -rf ${test_path_dir}/output/${ASCEND_DEVICE_ID}
-+    mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID/ckpt
-+else
-+    mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID/ckpt
-+fi
-+
-+
-+#训练开始时间
-+start_time=$(date +%s)
-+# 非平台场景时source 环境变量
-+check_etp_flag=`env | grep etp_running_flag`
-+etp_flag=`echo ${check_etp_flag#*=}`
-+if [ x"${etp_flag}" != x"true" ];then
-+    source ${test_path_dir}/test/env_npu.sh
-+fi
-+
-+
-+#设置环境变量
-+echo "Device ID: $ASCEND_DEVICE_ID"
-+export RANK_ID=$RANK_ID
-+export WORLD_SIZE=1
-+
-+bash ./tools/dist_train.sh ${py_config} ${WORLD_SIZE} \
-+--work-dir ${work_dir} \
-+--cfg-options runner.max_epochs=$max_epochs
-+
-+
-+#训练结束时间
-+end_time=$(date +%s)
-+e2e_time=$(( $end_time - $start_time ))
-+
-+log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
-+
-+#结果打印
-+echo "------------------ Final result ------------------"
-+#输出性能FPS
-+FPS=`grep -a 'Epoch '  ${log_file}|awk -F " time: " '!/Epoch \[1\]\[1/ {print $NF}'|awk -F " " '{print $1}' | awk '{ sum += $0; n++} END { if (n > 0) print sum / n;}'`
-+FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'/'${FPS}'}'`
-+#打印
-+echo "Final Performance images/sec : $FPS"
-+echo "E2E Training Duration sec : $e2e_time"
-+
-+#性能看护结果汇总
-+#训练用例信息
-+DeviceType=`uname -m`
-+CaseName=${Network}_bs${batch_size}_${RANK_SIZE}'p'_'map'
-+
-+##获取性能数据
-+#吞吐量
-+ActualFPS=${FPS}
-+#单迭代训练时长
-+TrainingTime=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'*1000/'${FPS}'}'`
-+echo "TrainingTime for step(ms) : $TrainingTime"
-+
-+#从train_$ASCEND_DEVICE_ID.log提取Loss到train_${CaseName}_loss.txt中
-+grep "Epoch " ${log_file}|awk -F "loss: " '!/Epoch \[1\]\[1/ {print $NF}' | awk -F "," '{print $1}' >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt
-+
-+#最后一个迭代loss值
-+ActualLoss=`awk 'END {print}' ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt`
-+
-+#关键信息打印到${CaseName}.log中
-+echo "Network = ${Network}" >  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "RankSize = ${RANK_SIZE}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "BatchSize = ${batch_size}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "DeviceType = ${DeviceType}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "CaseName = ${CaseName}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "ActualFPS = ${ActualFPS}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "TrainingTime = ${TrainingTime}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "ActualLoss = ${ActualLoss}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "E2ETrainingTime = ${e2e_time}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+
-+# 性能任务控制
-+if (($performance==0));then
-+  eval_log_file=`echo ${test_path_dir}/output/$ASCEND_DEVICE_ID/eval_${CaseName}.log`
-+  chmod +x ./tools/dist_test.sh
-+  nohup ./tools/dist_test.sh ${py_config} ${work_dir}/epoch_${max_epochs}_ema.pth 8 --eval mAP >> ${eval_log_file} 2>&1 &
-+  wait
-+  #输出训练精度
-+  train_accuracy=`grep -a 'mAP: ' ${eval_log_file}|awk 'END {print}'|awk -F " " '{print $NF}'`
-+  #打印
-+  echo "Final Train Accuracy : ${train_accuracy}"
-+  echo "mAP = ${train_accuracy}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+fi
-+
-diff --git a/test/train_8p.sh b/test/train_8p.sh
-new file mode 100644
-index 0000000..ac99521
---- /dev/null
-+++ b/test/train_8p.sh
-@@ -0,0 +1,153 @@
-+#!/bin/bash
-+
-+#当前路径
-+cur_path=`pwd`
-+
-+#集合通信参数
-+export RANK_SIZE=8
-+export JOB_ID=10087
-+RANK_ID_START=0
-+
-+performance=0
-+
-+#基础参数
-+batch_size=8
-+#训练step
-+max_epochs=24
-+
-+# 帮助信息
-+if [[ $1 == --help || $1 == -h ]];then
-+    echo"usage:./train_8p.sh <args>"
-+    echo " "
-+    echo "parameter explain:
-+    --py_config               train config
-+    --performance              switch to performance mode when != 0
-+    --work_dir                 set output dir for training
-+    -h/--help		             show help message
-+    "
-+    exit 1
-+fi
-+
-+#参数校验
-+for para in $*
-+do
-+    if [[ $para == --py_config* ]];then
-+        py_config=`echo ${para#*=}`
-+    elif [[ $para == --performance* ]];then
-+        performance=`echo ${para#*=}`
-+    elif [[ $para == --work_dir* ]];then
-+        work_dir=`echo ${para#*=}`
-+    fi
-+done
-+
-+if (($performance!=0)); then
-+    max_epochs=1
-+fi
-+
-+#校验是否传入py_config
-+if [[ $py_config == "" ]];then
-+    echo "[Error] para \"py_config\" must be config"
-+    exit 1
-+fi
-+
-+#配置名称
-+config_name=`echo $py_config | awk -F "/" '{print $NF}' | awk -F "." '{print $1}'`
-+#网络名称，同配置名称
-+Network=$config_name
-+
-+if [[ $work_dir == "" ]];then
-+    work_dir="output/train_8p/$config_name"
-+else
-+    work_dir="${work_dir}/train_8p/$config_name"
-+fi
-+
-+test_path_dir=$cur_path
-+ASCEND_DEVICE_ID=0
-+
-+if [ ! -d ${test_path_dir}/output ];then
-+    mkdir ${test_path_dir}/output
-+fi
-+if [ -d ${test_path_dir}/output/${ASCEND_DEVICE_ID} ];then
-+    rm -rf ${test_path_dir}/output/${ASCEND_DEVICE_ID}
-+    mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID/ckpt
-+else
-+    mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID/ckpt
-+fi
-+
-+
-+#训练开始时间
-+start_time=$(date +%s)
-+# 非平台场景时source 环境变量
-+check_etp_flag=`env | grep etp_running_flag`
-+etp_flag=`echo ${check_etp_flag#*=}`
-+if [ x"${etp_flag}" != x"true" ];then
-+    source ${test_path_dir}/test/env_npu.sh
-+fi
-+
-+
-+#设置环境变量
-+echo "Device ID: $ASCEND_DEVICE_ID"
-+export RANK_ID=$RANK_ID
-+export WORLD_SIZE=8
-+
-+bash ./tools/dist_train.sh ${py_config} ${WORLD_SIZE} \
-+--work-dir ${work_dir} \
-+--cfg-options runner.max_epochs=$max_epochs
-+
-+
-+#训练结束时间
-+end_time=$(date +%s)
-+e2e_time=$(( $end_time - $start_time ))
-+
-+log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
-+
-+#结果打印
-+echo "------------------ Final result ------------------"
-+#输出性能FPS
-+FPS=`grep -a 'Epoch '  ${log_file}|awk -F " time: " '!/Epoch \[1\]\[1/ {print $NF}'|awk -F " " '{print $1}' | awk '{ sum += $0; n++} END { if (n > 0) print sum / n;}'`
-+FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'*8/'${FPS}'}'`
-+#打印
-+echo "Final Performance images/sec : $FPS"
-+echo "E2E Training Duration sec : $e2e_time"
-+
-+#性能看护结果汇总
-+#训练用例信息
-+DeviceType=`uname -m`
-+CaseName=${Network}_bs${batch_size}_${RANK_SIZE}'p'_'map'
-+
-+##获取性能数据
-+#吞吐量
-+ActualFPS=${FPS}
-+#单迭代训练时长
-+TrainingTime=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'*1000*8/'${FPS}'}'`
-+echo "TrainingTime for step(ms) : $TrainingTime"
-+
-+#从train_$ASCEND_DEVICE_ID.log提取Loss到train_${CaseName}_loss.txt中
-+grep "Epoch " ${log_file}|awk -F "loss: " '!/Epoch \[1\]\[1/ {print $NF}' | awk -F "," '{print $1}' >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt
-+
-+#最后一个迭代loss值
-+ActualLoss=`awk 'END {print}' ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt`
-+
-+#关键信息打印到${CaseName}.log中
-+echo "Network = ${Network}" >  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "RankSize = ${RANK_SIZE}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "BatchSize = ${batch_size}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "DeviceType = ${DeviceType}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "CaseName = ${CaseName}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "ActualFPS = ${ActualFPS}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "TrainingTime = ${TrainingTime}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "ActualLoss = ${ActualLoss}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "E2ETrainingTime = ${e2e_time}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+
-+# 性能任务控制
-+if (($performance==0));then
-+  eval_log_file=`echo ${test_path_dir}/output/$ASCEND_DEVICE_ID/eval_${CaseName}.log`
-+  chmod +x ./tools/dist_test.sh
-+  nohup ./tools/dist_test.sh ${py_config} ${work_dir}/epoch_${max_epochs}_ema.pth 8 --eval mAP >> ${eval_log_file} 2>&1 &
-+  wait
-+  #输出训练精度
-+  train_accuracy=`grep -a 'mAP: ' ${eval_log_file}|awk 'END {print}'|awk -F " " '{print $NF}'`
-+  #打印
-+  echo "Final Train Accuracy : ${train_accuracy}"
-+  echo "mAP = ${train_accuracy}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+fi
 diff --git a/tests/test_utils/test_box3d.py b/tests/test_utils/test_box3d.py
 index 69d8b31..5149884 100644
 --- a/tests/test_utils/test_box3d.py
@@ -1409,28 +622,10 @@ index 69d8b31..5149884 100644
      boxes_1 = DepthInstance3DBoxes(np_boxes)
      assert torch.allclose(boxes_1.tensor, torch.from_numpy(np_boxes))
 diff --git a/tools/deployment/mmdet3d_handler.py b/tools/deployment/mmdet3d_handler.py
-index 8b526cd..1e8f6b5 100644
+index 8b526cd..dd5699f 100644
 --- a/tools/deployment/mmdet3d_handler.py
 +++ b/tools/deployment/mmdet3d_handler.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) OpenMMLab. All rights reserved.
- import base64
- import os
-@@ -30,10 +44,9 @@ class MMdet3dHandler(BaseHandler):
+@@ -30,10 +30,9 @@ class MMdet3dHandler(BaseHandler):
                  pertaining to the model artifacts parameters.
          """
          properties = context.system_properties
@@ -1470,28 +665,10 @@ index aa71bf4..c45b84d 100755
      --node_rank=$NODE_RANK \
      --master_addr=$MASTER_ADDR \
 diff --git a/tools/test.py b/tools/test.py
-index c669247..4ea3f6d 100644
+index c669247..904623e 100644
 --- a/tools/test.py
 +++ b/tools/test.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) OpenMMLab. All rights reserved.
- import argparse
- import os
-@@ -7,7 +21,7 @@ import mmcv
+@@ -7,7 +7,7 @@ import mmcv
  import torch
  from mmcv import Config, DictAction
  from mmcv.cnn import fuse_conv_bn
@@ -1500,7 +677,7 @@ index c669247..4ea3f6d 100644
  from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
                           wrap_fp16_model)
  
-@@ -18,6 +32,9 @@ from mmdet3d.models import build_model
+@@ -18,6 +18,9 @@ from mmdet3d.models import build_model
  from mmdet.apis import multi_gpu_test, set_random_seed
  from mmdet.datasets import replace_ImageToTensor
  
@@ -1510,7 +687,7 @@ index c669247..4ea3f6d 100644
  if mmdet.__version__ > '2.23.0':
      # If mmdet version > 2.23.0, setup_multi_processes would be imported and
      # used from mmdet instead of mmdet3d.
-@@ -116,6 +133,7 @@ def parse_args():
+@@ -116,6 +119,7 @@ def parse_args():
          choices=['none', 'pytorch', 'slurm', 'mpi'],
          default='none',
          help='job launcher')
@@ -1518,7 +695,7 @@ index c669247..4ea3f6d 100644
      parser.add_argument('--local_rank', type=int, default=0)
      args = parser.parse_args()
      if 'LOCAL_RANK' not in os.environ:
-@@ -235,10 +253,10 @@ def main():
+@@ -235,10 +239,10 @@ def main():
          model.PALETTE = dataset.PALETTE
  
      if not distributed:
@@ -1532,28 +709,10 @@ index c669247..4ea3f6d 100644
              device_ids=[torch.cuda.current_device()],
              broadcast_buffers=False)
 diff --git a/tools/train.py b/tools/train.py
-index 72a1579..8e7d17a 100644
+index 72a1579..21ae95e 100644
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -1,3 +1,17 @@
-+# Copyright 2024 Huawei Technologies Co., Ltd
-+#
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
- # Copyright (c) OpenMMLab. All rights reserved.
- from __future__ import division
- import argparse
-@@ -22,6 +36,9 @@ from mmdet3d.utils import collect_env, get_root_logger
+@@ -22,6 +22,9 @@ from mmdet3d.utils import collect_env, get_root_logger
  from mmdet.apis import set_random_seed
  from mmseg import __version__ as mmseg_version
  
@@ -1563,7 +722,7 @@ index 72a1579..8e7d17a 100644
  try:
      # If mmdet version > 2.20.0, setup_multi_processes would be imported and
      # used from mmdet instead of mmdet3d.
-@@ -93,6 +110,7 @@ def parse_args():
+@@ -93,6 +96,7 @@ def parse_args():
          choices=['none', 'pytorch', 'slurm', 'mpi'],
          default='none',
          help='job launcher')

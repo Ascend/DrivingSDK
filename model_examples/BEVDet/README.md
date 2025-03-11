@@ -13,7 +13,8 @@
   - [预训练数据集](#预训练数据集)
   - [获取预训练权重](#获取预训练权重)
 - [快速开始](#快速开始)
-  - [训练模型](#训练模型)
+  - [模型训练](#模型训练)
+  - [模型验证](#模型验证)
   - [训练结果](#训练结果)
 - [变更说明](#变更说明)
   - [FAQ](#faq)
@@ -131,7 +132,7 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 
 # 快速开始
 
-## 训练模型
+## 模型训练
 
 1. 进入解压后的源码包根目录。
 
@@ -166,6 +167,16 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 
    训练完成后，权重文件保存在当前路径下，并输出模型训练精度和性能信息。
 
+## 模型验证
+
+  ```shell
+  py_config=configs/bevdet/bevdet-r50.py
+  max_epochs=24
+  eval_log_file=eval.log
+  bash ./tools/dist_test.sh ${py_config} train_output_dir/epoch_${max_epochs}_ema.pth 8 --eval mAP | tee ${eval_log_file}
+     
+  ``` 
+
 
 ## 训练结果
 
@@ -176,12 +187,13 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 |      竞品A      | 1p |  -   | - | -             |   1      |
 |      竞品A      | 8p | 28.6 | 36.56  | 1.7489秒 |   24     |
 | Atlas 800T A2 | 1p |  -   | | - | -               |  1      |
-| Atlas 800T A2 | 8p | 28.3 | 49.36 | 1.297秒|     24     |
+| Atlas 800T A2 | 8p | 28.3 | 51.87 | 1.2338秒|     24     |
 
 
 # 变更说明
 - 2024.11.25：首次发布。
 - 2025.2.7： 修改为以patch模式发布模型形式。
+- 2025.2.25：应用高斯融合算子提升模型性能
 
 ## FAQ
 暂无。
