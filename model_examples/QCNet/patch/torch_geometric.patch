@@ -1,48 +1,21 @@
 diff --git a/torch_geometric/utils/scatter.py b/torch_geometric/utils/scatter.py
-index a75f1fe..f114e1f 100644
+index a75f1fe36..0aa8fe916 100644
 --- a/torch_geometric/utils/scatter.py
 +++ b/torch_geometric/utils/scatter.py
-@@ -6,146 +6,57 @@ from torch import Tensor
- 
+@@ -7,6 +7,9 @@ from torch import Tensor
  import torch_geometric.typing
  from torch_geometric.typing import torch_scatter
-+from torch_scatter.utils import broadcast
  
--major, minor, _ = torch.__version__.split('.', maxsplit=2)
--major, minor = int(major), int(minor)
--has_pytorch112 = major > 1 or (major == 1 and minor >= 12)
--
--if has_pytorch112:  # pragma: no cover
--
--    warnings.filterwarnings('ignore', '.*is in beta and the API may change.*')
--
--    def broadcast(src: Tensor, ref: Tensor, dim: int) -> Tensor:
--        size = [1] * ref.dim()
--        size[dim] = -1
--        return src.view(size).expand_as(ref)
--
--    def scatter(src: Tensor, index: Tensor, dim: int = 0,
--                dim_size: Optional[int] = None, reduce: str = 'sum') -> Tensor:
--        r"""Reduces all values from the :obj:`src` tensor at the indices
--        specified in the :obj:`index` tensor along a given dimension
--        :obj:`dim`. See the `documentation
--        <https://pytorch-scatter.readthedocs.io/en/latest/functions/
--        scatter.html>`__ of the :obj:`torch_scatter` package for more
--        information.
--
--        Args:
--            src (torch.Tensor): The source tensor.
--            index (torch.Tensor): The index tensor.
--            dim (int, optional): The dimension along which to index.
--                (default: :obj:`0`)
--            dim_size (int, optional): The size of the output tensor at
--                dimension :obj:`dim`. If set to :obj:`None`, will create a
--                minimal-sized output tensor according to
--                :obj:`index.max() + 1`. (default: :obj:`None`)
--            reduce (str, optional): The reduce operation (:obj:`"sum"`,
--                :obj:`"mean"`, :obj:`"mul"`, :obj:`"min"` or :obj:`"max"`).
--                (default: :obj:`"sum"`)
--        """
++import torch_npu
++import mx_driving
++
+ major, minor, _ = torch.__version__.split('.', maxsplit=2)
+ major, minor = int(major), int(minor)
+ has_pytorch112 = major > 1 or (major == 1 and minor >= 12)
+@@ -42,87 +45,19 @@ if has_pytorch112:  # pragma: no cover
+                 :obj:`"mean"`, :obj:`"mul"`, :obj:`"min"` or :obj:`"max"`).
+                 (default: :obj:`"sum"`)
+         """
 -        if index.dim() != 1:
 -            raise ValueError(f"The `index` argument must be one-dimensional "
 -                             f"(got {index.dim()} dimensions)")
@@ -65,19 +38,14 @@ index a75f1fe..f114e1f 100644
 -        # "min"/"max" reductions since it does not compute additional arg
 -        # indices, but is therefore way slower in its backward implementation.
 -        # More insights can be found in `test/utils/test_scatter.py`.
-+import torch_npu
-+import mx_driving
- 
-+def scatter_sum(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
-+                out: Optional[torch.Tensor] = None,
-+                dim_size: Optional[int] = None) -> torch.Tensor:
-+    
-+    if out is None:
-         size = list(src.size())
+-
+-        size = list(src.size())
 -        size[dim] = dim_size
 -
 -        # For "sum" and "mean" reduction, we make use of `scatter_add_`:
--        if reduce == 'sum' or reduce == 'add':
++        if not torch_geometric.typing.WITH_TORCH_SCATTER:
++            raise ImportError("'scatter' requires the 'torch-scatter' package")
+         if reduce == 'sum' or reduce == 'add':
 -            index = broadcast(index, src, dim)
 -            return src.new_zeros(size).scatter_add_(dim, index, src)
 -
@@ -124,77 +92,35 @@ index a75f1fe..f114e1f 100644
 -                return src.new_ones(size).scatter_reduce_(
 -                    dim, index, src, reduce='prod', include_self=True)
 -
--            return torch_scatter.scatter(src, index, dim, dim_size=dim_size,
++            return mx_driving.scatter_add(src.float(), index.to(torch.int32), None, dim, dim_size)
++        elif reduce == 'mean':
++            return mx_driving.scatter_mean(src.float(), index.to(torch.int32), None, dim, dim_size)
++        elif reduce == 'max':
++            return mx_driving.scatter_max(src.float(), index.to(torch.int32), None)[0]
++        else:
+             return torch_scatter.scatter(src, index, dim, dim_size=dim_size,
 -                                         reduce='mul')
 -
 -        raise ValueError(f"Encountered invalid `reduce` argument '{reduce}'")
++                                        reduce=reduce)
+ 
+ else:
 -
--else:
--
--    def scatter(src: Tensor, index: Tensor, dim: int = 0,
--                dim_size: Optional[int] = None, reduce: str = 'sum') -> Tensor:
--        r"""Reduces all values from the :obj:`src` tensor at the indices
--        specified in the :obj:`index` tensor along a given dimension
--        :obj:`dim`. See the `documentation
--        <https://pytorch-scatter.readthedocs.io/en/latest/functions/
--        scatter.html>`_ of the :obj:`torch_scatter` package for more
--        information.
--
--        Args:
--            src (torch.Tensor): The source tensor.
--            index (torch.Tensor): The index tensor.
--            dim (int, optional): The dimension along which to index.
--                (default: :obj:`0`)
--            dim_size (int, optional): The size of the output tensor at
--                dimension :obj:`dim`. If set to :obj:`None`, will create a
--                minimal-sized output tensor according to
--                :obj:`index.max() + 1`. (default: :obj:`None`)
--            reduce (str, optional): The reduce operation (:obj:`"sum"`,
--                :obj:`"mean"`, :obj:`"mul"`, :obj:`"min"` or :obj:`"max"`).
--                (default: :obj:`"sum"`)
--        """
--        if not torch_geometric.typing.WITH_TORCH_SCATTER:
--            raise ImportError("'scatter' requires the 'torch-scatter' package")
-+        if dim_size is not None:
-+            size[dim] = dim_size
-+        elif index.numel() == 0:
-+            size[dim] = 0
+     def scatter(src: Tensor, index: Tensor, dim: int = 0,
+                 dim_size: Optional[int] = None, reduce: str = 'sum') -> Tensor:
+         r"""Reduces all values from the :obj:`src` tensor at the indices
+@@ -147,5 +82,12 @@ else:
+         """
+         if not torch_geometric.typing.WITH_TORCH_SCATTER:
+             raise ImportError("'scatter' requires the 'torch-scatter' package")
+-        return torch_scatter.scatter(src, index, dim, dim_size=dim_size,
+-                                     reduce=reduce)
++        if reduce == 'sum' or reduce == 'add':
++            return mx_driving.scatter_add(src.float(), index.to(torch.int32), None, dim, dim_size)
++        elif reduce == 'mean':
++            return mx_driving.scatter_mean(src.float(), index.to(torch.int32), None, dim, dim_size)
++        elif reduce == 'max':
++            return mx_driving.scatter_max(src.float(), index.to(torch.int32), None)[0]
 +        else:
-+            size[dim] = int(index.max()) + 1
-+        out = torch.zeros(size, dtype=src.dtype, device=src.device)
-+        
-+        return out.index_add_(dim, index, src)
-+
-+def scatter(src: Tensor, index: Tensor, dim: int = 0,
-+            dim_size: Optional[int] = None, reduce: str = 'sum') -> Tensor:
-+    r"""Reduces all values from the :obj:`src` tensor at the indices
-+    specified in the :obj:`index` tensor along a given dimension
-+    :obj:`dim`. See the `documentation
-+    <https://pytorch-scatter.readthedocs.io/en/latest/functions/
-+    scatter.html>`_ of the :obj:`torch_scatter` package for more
-+    information.
-+
-+    Args:
-+        src (torch.Tensor): The source tensor.
-+        index (torch.Tensor): The index tensor.
-+        dim (int, optional): The dimension along which to index.
-+            (default: :obj:`0`)
-+        dim_size (int, optional): The size of the output tensor at
-+            dimension :obj:`dim`. If set to :obj:`None`, will create a
-+            minimal-sized output tensor according to
-+            :obj:`index.max() + 1`. (default: :obj:`None`)
-+        reduce (str, optional): The reduce operation (:obj:`"sum"`,
-+            :obj:`"mean"`, :obj:`"mul"`, :obj:`"min"` or :obj:`"max"`).
-+            (default: :obj:`"sum"`)
-+    """
-+    if not torch_geometric.typing.WITH_TORCH_SCATTER:
-+        raise ImportError("'scatter' requires the 'torch-scatter' package")
-+    if reduce == 'sum' or reduce == 'add':
-+        return scatter_sum(src, index, dim, None, dim_size)
-+    elif reduce == 'mean':
-+        return mx_driving.scatter_mean(src.float(), index.to(torch.int32), None, dim, dim_size)
-+    elif reduce == 'max':
-+        return mx_driving.scatter_max(src.float(), index.to(torch.int32), None)[0]
-+    else:
-         return torch_scatter.scatter(src, index, dim, dim_size=dim_size,
-                                      reduce=reduce)
++            return torch_scatter.scatter(src, index, dim, dim_size=dim_size,
++                                        reduce=reduce)
