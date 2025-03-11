@@ -1,9 +1,9 @@
 diff --git a/nuscenes_need/mot.py b/nuscenes_need/mot.py
 new file mode 100644
-index 0000000..b5fa216
+index 0000000..9d5bc61
 --- /dev/null
 +++ b/nuscenes_need/mot.py
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,139 @@
 +"""
 +nuScenes dev-kit.
 +Code written by Holger Caesar, Caglayan Dicle and Oscar Beijbom, 2019.
@@ -11,7 +11,6 @@ index 0000000..b5fa216
 +This code is based on:
 +
 +py-motmetrics at:
-+https://github.com/cheind/py-motmetrics
 +"""
 +from collections import OrderedDict
 +from itertools import count
@@ -695,10 +694,10 @@ index a005cc2..2f7d36a 100644
 \ No newline at end of file
 diff --git a/tools/perf.py b/tools/perf.py
 new file mode 100644
-index 0000000..8844358
+index 0000000..ba382ce
 --- /dev/null
 +++ b/tools/perf.py
-@@ -0,0 +1,262 @@
+@@ -0,0 +1,260 @@
 +from __future__ import division
 +
 +import argparse
@@ -860,7 +859,6 @@ index 0000000..8844358
 +    if digit_version(TORCH_VERSION) == digit_version('1.8.1') and cfg.optimizer['type'] == 'AdamW':
 +        cfg.optimizer['type'] = 'AdamW2' # fix bug in Adamw
 +    if args.autoscale_lr:
-+        # apply the linear scaling rule (https://arxiv.org/abs/1706.02677)
 +        cfg.optimizer['lr'] = cfg.optimizer['lr'] * len(cfg.gpu_ids) / 8
 +
 +    # init distributed env first, since logger depends on the dist info.
@@ -932,7 +930,6 @@ index 0000000..8844358
 +            val_dataset.pipeline = cfg.data.train.pipeline
 +        # set test_mode=False here in deep copied config
 +        # which do not affect AP/AR calculation later
-+        # refer to https://mmdetection3d.readthedocs.io/en/latest/tutorials/customize_runtime.html#customize-workflow  # noqa
 +        val_dataset.test_mode = False
 +        datasets.append(build_dataset(val_dataset))
 +    if cfg.checkpoint_config is not None:

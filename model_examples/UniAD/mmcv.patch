@@ -1,18 +1,8 @@
 diff --git a/mmcv/cnn/bricks/transformer.py b/mmcv/cnn/bricks/transformer.py
-index f7ba4d9f..71a41984 100644
+index f7ba4d9f..29cfc884 100644
 --- a/mmcv/cnn/bricks/transformer.py
 +++ b/mmcv/cnn/bricks/transformer.py
-@@ -449,8 +449,7 @@ class MultiheadAttention(BaseModule):
-         self.num_heads = num_heads
-         self.batch_first = batch_first
- 
--        self.attn = nn.MultiheadAttention(embed_dims, num_heads, attn_drop,
--                                          **kwargs)
-+        self.attn = NpuFusedMultiheadAttention(embed_dims, num_heads, attn_drop, **kwargs)
- 
-         self.proj_drop = nn.Dropout(proj_drop)
-         self.dropout_layer = build_dropout(
-@@ -550,6 +549,40 @@ class MultiheadAttention(BaseModule):
+@@ -550,6 +550,40 @@ class MultiheadAttention(BaseModule):
  
          return identity + self.dropout_layer(self.proj_drop(out))
  
