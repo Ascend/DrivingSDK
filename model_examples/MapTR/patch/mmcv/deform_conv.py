@@ -229,14 +229,12 @@ class DeformConv2d(nn.Module):
     Applies a deformable 2D convolution over an input signal composed of
     several input planes. DeformConv2d was described in the paper
     `Deformable Convolutional Networks
-    <https://arxiv.org/pdf/1703.06211.pdf>`_
 
     Note:
         The argument ``im2col_step`` was added in version 1.3.17, which means
         number of samples processed by the ``im2col_cuda_kernel`` per call.
         It enables users to define ``batch_size`` and ``im2col_step`` more
         flexibly and solved `issue mmcv#1440
-        <https://github.com/open-mmlab/mmcv/issues/1440>`_.
 
     Args:
         in_channels (int): Number of channels in the input image.

@@ -151,8 +151,6 @@ class MMDistributedDataParallel(DistributedDataParallel):
         ``MMDistributedDataParallel`` overrides this method to call
         :meth:`to_kwargs` explicitly.
 
-        See more information in `<https://github.com/open-mmlab/mmsegmentation/issues/1742>`_.  # noqa: E501
-
         Returns:
             Any: Forward result of :attr:`module`.
         """
