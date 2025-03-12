@@ -1,5 +1,5 @@
 diff --git a/mmdet/models/backbones/resnet.py b/mmdet/models/backbones/resnet.py
-index 1eaaae67..149d2d54 100644
+index 1eaaae67..adc8e328 100644
 --- a/mmdet/models/backbones/resnet.py
 +++ b/mmdet/models/backbones/resnet.py
 @@ -1,4 +1,5 @@
@@ -35,11 +35,3 @@ index 1eaaae67..149d2d54 100644
          outs = []
          for i, layer_name in enumerate(self.res_layers):
              res_layer = getattr(self, layer_name)
-@@ -660,7 +663,6 @@ class ResNet(BaseModule):
- @BACKBONES.register_module()
- class ResNetV1d(ResNet):
-     r"""ResNetV1d variant described in `Bag of Tricks
--    <https://arxiv.org/pdf/1812.01187.pdf>`_.
- 
-     Compared with default ResNet(ResNetV1b), ResNetV1d replaces the 7x7 conv in
-     the input stem with three 3x3 convs. And in the downsampling block, a 2x2
