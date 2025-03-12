@@ -73,10 +73,10 @@
 
     ```
     git clone https://github.com/Robertwyq/PanoOcc.git
-    git checkout 3d93b119fcced35612af05587b395e8b38d8271f
     cp panoocc.patch PanoOcc
     cp -r test/ PanoOcc/
     cd PanoOcc
+    git checkout 3d93b119fcced35612af05587b395e8b38d8271f
     git apply --reject --whitespace=fix panoocc.patch
     cd ../
     ```
@@ -194,6 +194,8 @@
 # 变更说明
 
 2024.09.10：首次发布。
+
+2025.03.11：删除公网地址。
 
 # FAQ
 
