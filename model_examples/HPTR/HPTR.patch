@@ -1,0 +1,352 @@
+diff --git a/bash/pack_h5.sh b/bash/pack_h5.sh
+index f73f680..4eb543a 100644
+--- a/bash/pack_h5.sh
++++ b/bash/pack_h5.sh
+@@ -12,7 +12,7 @@ trap "echo sigterm recieved, exiting!" SIGTERM
+ 
+ run () {
+ python -u src/pack_h5_womd.py --dataset=training \
+---out-dir=/cluster/scratch/zhejzhan/h5_womd_hptr \
++--out-dir=./dataset/h5_womd_hptr \
+ --data-dir=/cluster/scratch/zhejzhan/womd_scenario_v_1_2_0
+ }
+ 
+@@ -28,8 +28,8 @@ python -u src/pack_h5_womd.py --dataset=training \
+ # --data-dir=/cluster/scratch/zhejzhan/av2_motion
+ # }
+ 
+-source /cluster/project/cvl/zhejzhan/apps/miniconda3/etc/profile.d/conda.sh
+-conda activate hptr # for av2: conda activate hptr_av2
++# source /cluster/project/cvl/zhejzhan/apps/miniconda3/etc/profile.d/conda.sh
++# conda activate hptr # for av2: conda activate hptr_av2
+ 
+ echo Running on host: `hostname`
+ echo In directory: `pwd`
+diff --git a/bash/train_av2.sh b/bash/train_av2.sh
+new file mode 100755
+index 0000000..2146524
+--- /dev/null
++++ b/bash/train_av2.sh
+@@ -0,0 +1,46 @@
++#!/bin/bash
++#SBATCH --output=./logs/%j.out
++#SBATCH --error=./logs/%j.out
++#SBATCH --time=120:00:00
++#SBATCH -n 1
++#SBATCH --cpus-per-task=12
++#SBATCH --mem-per-cpu=5000
++#SBATCH --tmp=200000
++#SBATCH --gpus=rtx_2080_ti:4
++#SBATCH --open-mode=truncate
++
++trap "echo sigterm recieved, exiting!" SIGTERM
++
++cur_path=$(pwd)
++
++DATASET_DIR="h5_av2_hptr" 
++run () {
++python -u src/run.py \
++trainer=av2 \
++model=scr_av2 \
++datamodule=h5_av2 \
++loggers.wandb.name="hptr_av2" \
++loggers.wandb.project="hptr_train" \
++loggers.wandb.entity="YOUR_ENTITY" \
++datamodule.data_dir=${cur_path}/${DATASET_DIR} \
++hydra.run.dir='./logs/av2'
++}
++
++# ! To resume training.
++# resume.checkpoint=YOUR_WANDB_RUN_NAME:latest \
++
++echo Running on host: `hostname`
++echo In directory: `pwd`
++echo Starting on: `date`
++
++type run
++echo START: `date`
++run &
++wait
++echo DONE: `date`
++
++mkdir -p ./logs/slurm
++mv ./logs/$SLURM_JOB_ID.out ./logs/slurm/$SLURM_JOB_ID.out
++
++echo finished at: `date`
++exit 0;
+diff --git a/bash/train.sh b/bash/train_womd.sh
+similarity index 60%
+rename from bash/train.sh
+rename to bash/train_womd.sh
+index c87a6c6..e8e37c5 100755
+--- a/bash/train.sh
++++ b/bash/train_womd.sh
+@@ -11,6 +11,8 @@
+ 
+ trap "echo sigterm recieved, exiting!" SIGTERM
+ 
++cur_path=$(pwd)
++
+ DATASET_DIR="h5_womd_hptr" 
+ run () {
+ python -u src/run.py \
+@@ -20,33 +22,17 @@ datamodule=h5_womd \
+ loggers.wandb.name="hptr_womd" \
+ loggers.wandb.project="hptr_train" \
+ loggers.wandb.entity="YOUR_ENTITY" \
+-datamodule.data_dir=${TMPDIR}/datasets \
+-hydra.run.dir='/cluster/scratch/zhejzhan/logs/${now:%Y-%m-%d}/${now:%H-%M-%S}'
++datamodule.data_dir=${cur_path}/${DATASET_DIR} \
++hydra.run.dir='./logs/womd'
+ }
+ 
+-# ! For AV2 dataset.
+-# DATASET_DIR="h5_av2_hptr" 
+-# trainer=av2 \
+-# model=scr_av2 \
+-# datamodule=h5_av2 \
+-
+ # ! To resume training.
+ # resume.checkpoint=YOUR_WANDB_RUN_NAME:latest \
+ 
+-
+-source /cluster/project/cvl/zhejzhan/apps/miniconda3/etc/profile.d/conda.sh
+-conda activate hptr
+-
+ echo Running on host: `hostname`
+ echo In directory: `pwd`
+ echo Starting on: `date`
+ 
+-echo START copying data: `date`
+-mkdir $TMPDIR/datasets
+-cp /cluster/scratch/zhejzhan/$DATASET_DIR/training.h5 $TMPDIR/datasets/
+-cp /cluster/scratch/zhejzhan/$DATASET_DIR/validation.h5 $TMPDIR/datasets/
+-echo DONE copying: `date`
+-
+ type run
+ echo START: `date`
+ run &
+diff --git a/configs/callbacks/wandb.yaml b/configs/callbacks/wandb.yaml
+index 70fcb35..46cf0c9 100644
+--- a/configs/callbacks/wandb.yaml
++++ b/configs/callbacks/wandb.yaml
+@@ -3,11 +3,11 @@ model_checkpoint:
+   dirpath: "checkpoints/"
+   filename: "{epoch:02d}"
+   monitor: "val/loss" # name of the logged metric which determines when model is improving
+-  save_top_k: 1 # save k best models (determined by above metric)
++  save_top_k: 10 # save k best models (determined by above metric)
+   save_last: True # additionaly always save model from last epoch
+   mode: "min" # can be "max" or "min"
+   verbose: True
+-  save_only_best: True # if True, only save best model according to "monitor" metric
++  save_only_best: False # if True, only save best model according to "monitor" metric
+ 
+ lr_monitor:
+   _target_: pytorch_lightning.callbacks.LearningRateMonitor
+diff --git a/configs/datamodule/h5_av2.yaml b/configs/datamodule/h5_av2.yaml
+index 525143f..b579b9a 100644
+--- a/configs/datamodule/h5_av2.yaml
++++ b/configs/datamodule/h5_av2.yaml
+@@ -6,5 +6,5 @@ filename_val: validation
+ filename_test: testing
+ n_agent: 64
+ 
+-batch_size: 3
++batch_size: 8
+ num_workers: 4
+diff --git a/configs/datamodule/h5_womd.yaml b/configs/datamodule/h5_womd.yaml
+index 41da3f1..1f57ca2 100644
+--- a/configs/datamodule/h5_womd.yaml
++++ b/configs/datamodule/h5_womd.yaml
+@@ -6,5 +6,5 @@ filename_val: validation
+ filename_test: testing
+ n_agent: 64
+ 
+-batch_size: 3
++batch_size: 8
+ num_workers: 4
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+index 0000000..517ef27
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1,17 @@
++pip==22.2.2
++tensorflow-cpu-aws==2.11.0
++numpy==1.23.2
++torchvision==0.16.0 
++matplotlib==3.5.3 
++absl-py==1.4.0 
++google-auth==2.15.0 
++pillow==9.2.0
++hydra-core==1.1.1 
++pytorch-lightning==1.5.10 
++wandb==0.13.6
++setuptools==59.5.0 
++gym==0.21.0
++opencv-python==4.6.0.66
++transforms3d==0.4.2
++decorator
++
+diff --git a/src/models/metrics/waymo.py b/src/models/metrics/waymo.py
+index d3f956f..acf3d3b 100644
+--- a/src/models/metrics/waymo.py
++++ b/src/models/metrics/waymo.py
+@@ -239,7 +239,8 @@ class WaymoMetrics(Metric):
+             counter_PEDESTRIAN = 0.0
+             counter_CYCLIST = 0.0
+             for i, m_name in enumerate(self.metrics_names):  # e.g. TYPE_CYCLIST_15
+-                out_dict[f"waymo_metrics/{self.prefix}_{m_type}_{m_name}"] = values[i]
++                tensor_value = torch.tensor(values[i], dtype=torch.float32)
++                out_dict[f"waymo_metrics/{self.prefix}_{m_type}_{m_name}"] = tensor_value
+                 if "VEHICLE" in m_name:
+                     sum_VEHICLE += values[i]
+                     counter_VEHICLE += 1
+@@ -249,12 +250,19 @@ class WaymoMetrics(Metric):
+                 elif "CYCLIST" in m_name:
+                     sum_CYCLIST += values[i]
+                     counter_CYCLIST += 1
+-            out_dict[f"{self.prefix}/{m_type}"] = values.mean()
+-            out_dict[f"{self.prefix}/veh/{m_type}"] = sum_VEHICLE / counter_VEHICLE
+-            out_dict[f"{self.prefix}/ped/{m_type}"] = sum_PEDESTRIAN / counter_PEDESTRIAN
+-            out_dict[f"{self.prefix}/cyc/{m_type}"] = sum_CYCLIST / counter_CYCLIST
+-        out_dict[f"{self.prefix}/brier_minADE"] = ops_inputs["brier_minADE"].mean()
+-        out_dict[f"{self.prefix}/brier_minFDE"] = ops_inputs["brier_minFDE"].mean()
++            mean_value = torch.tensor(values.mean(), dtype=torch.float32)
++            out_dict[f"{self.prefix}/{m_type}"] = mean_value
++            veh_mean = torch.tensor(sum_VEHICLE / counter_VEHICLE, dtype=torch.float32)
++            out_dict[f"{self.prefix}/veh/{m_type}"] = veh_mean
++            ped_mean = torch.tensor(sum_PEDESTRIAN / counter_PEDESTRIAN, dtype=torch.float32)
++            out_dict[f"{self.prefix}/ped/{m_type}"] = ped_mean
++            cyc_mean = torch.tensor(sum_CYCLIST / counter_CYCLIST, dtype=torch.float32)
++            out_dict[f"{self.prefix}/cyc/{m_type}"] = cyc_mean
++        brier_minADE_mean = ops_inputs["brier_minADE"].mean().to(torch.float32)
++        out_dict[f"{self.prefix}/brier_minADE"] = brier_minADE_mean
++        brier_minFDE_mean = ops_inputs["brier_minFDE"].mean().to(torch.float32)
++        out_dict[f"{self.prefix}/brier_minFDE"] = brier_minFDE_mean
++
+         return out_dict
+ 
+     @staticmethod
+diff --git a/src/pl_modules/waymo_motion.py b/src/pl_modules/waymo_motion.py
+index 4d95230..29b45eb 100644
+--- a/src/pl_modules/waymo_motion.py
++++ b/src/pl_modules/waymo_motion.py
+@@ -130,37 +130,44 @@ class WaymoMotion(LightningModule):
+         self._save_to_submission_files(pred_dict, batch)
+ 
+         # ! visualization
+-        if self.global_rank == 0 and (batch_idx < self.hparams.n_video_batch):
+-            vis_eps_idx = list(range(min(pred_dict["waymo_valid"].shape[0], 3)))
+-            # log all preds only for the first batch
+-            k_to_log = min(pred_dict["waymo_trajs"].shape[-2], 6) if batch_idx == 0 else 1
+-            videos, images = self.save_visualizations(
+-                prefix="scene",
+-                step_current=self.hparams.time_step_current,
+-                step_gt=self.hparams.time_step_end,
+-                step_end=self.hparams.time_step_end,
+-                batch_idx=batch_idx,
+-                batch=batch,
+-                pred_valid=pred_dict["waymo_valid"],
+-                pred_trajs=pred_dict["waymo_trajs"],
+-                pred_scores=pred_dict["waymo_scores"],
+-                pred_yaw_bbox=pred_dict["waymo_yaw_bbox"],
+-                k_to_log=k_to_log,
+-                vis_eps_idx=vis_eps_idx,
+-                save_im=True,
+-            )
+-            for p, im in images.items():
+-                self.logger[0].experiment.log({p: wandb.Image(p)}, commit=False)
+-            for p in videos.keys():
+-                self.logger[0].experiment.log({p: wandb.Video(p)}, commit=False)
++        # if self.global_rank == 0 and (batch_idx < self.hparams.n_video_batch):
++        #     vis_eps_idx = list(range(min(pred_dict["waymo_valid"].shape[0], 3)))
++        #     # log all preds only for the first batch
++        #     k_to_log = min(pred_dict["waymo_trajs"].shape[-2], 6) if batch_idx == 0 else 1
++        #     videos, images = self.save_visualizations(
++        #         prefix="scene",
++        #         step_current=self.hparams.time_step_current,
++        #         step_gt=self.hparams.time_step_end,
++        #         step_end=self.hparams.time_step_end,
++        #         batch_idx=batch_idx,
++        #         batch=batch,
++        #         pred_valid=pred_dict["waymo_valid"],
++        #         pred_trajs=pred_dict["waymo_trajs"],
++        #         pred_scores=pred_dict["waymo_scores"],
++        #         pred_yaw_bbox=pred_dict["waymo_yaw_bbox"],
++        #         k_to_log=k_to_log,
++        #         vis_eps_idx=vis_eps_idx,
++        #         save_im=True,
++        #     )
++        #     for p, im in images.items():
++        #         self.logger[0].experiment.log({p: wandb.Image(p)}, commit=False)
++        #     for p in videos.keys():
++        #         self.logger[0].experiment.log({p: wandb.Video(p)}, commit=False)
+ 
+     def validation_epoch_end(self, outputs):
+         epoch_waymo_metrics = self.waymo_metric.compute_waymo_motion_metrics()
+         epoch_waymo_metrics["epoch"] = self.current_epoch
+         for k, v in epoch_waymo_metrics.items():
++            if isinstance(v, torch.Tensor) and v.dtype == torch.float64:
++                epoch_waymo_metrics[k] = v.to(torch.float32)
+             self.log(k, v, on_epoch=True)
+-        self.log("val/loss", -epoch_waymo_metrics[f"{self.waymo_metric.prefix}/mean_average_precision"])
+-
++        metric_key = f"{self.waymo_metric.prefix}/mean_average_precision"
++        if isinstance(epoch_waymo_metrics[metric_key], torch.Tensor) and epoch_waymo_metrics[metric_key].dtype == torch.float64:
++            val_loss = -epoch_waymo_metrics[metric_key].to(torch.float32)
++        else:
++            val_loss = -epoch_waymo_metrics[metric_key]
++        self.log("val/loss", val_loss)
++        
+         if self.global_rank == 0:
+             self.sub_womd.save_sub_files(self.logger[0])
+             self.sub_av2.save_sub_files(self.logger[0])
+diff --git a/src/run.py b/src/run.py
+index 1246af6..a899f0e 100644
+--- a/src/run.py
++++ b/src/run.py
+@@ -5,8 +5,11 @@ from omegaconf import DictConfig
+ from typing import List
+ from pytorch_lightning import seed_everything, LightningDataModule, LightningModule, Trainer, Callback
+ from pytorch_lightning.loggers import LightningLoggerBase
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import os
+ 
++os.environ["WANDB_DISABLED"] = "true"
+ 
+ def download_checkpoint(loggers, wb_ckpt) -> None:
+     if os.environ.get("LOCAL_RANK", 0) == 0:
+diff --git a/src/utils/transform_utils.py b/src/utils/transform_utils.py
+index 177a996..978172b 100644
+--- a/src/utils/transform_utils.py
++++ b/src/utils/transform_utils.py
+@@ -48,7 +48,7 @@ def get_so2_from_se2(transform_se3: np.ndarray) -> np.ndarray:
+     Returns:
+         rotation component in so2
+     """
+-    rotation = np.eye(3, dtype=np.float64)
++    rotation = np.eye(3, dtype=np.float32)
+     rotation[:2, :2] = transform_se3[:2, :2]
+     return rotation
+ 
+@@ -108,7 +108,7 @@ def get_transformation_matrix(agent_translation_m: np.ndarray, agent_yaw: float)
+     """
+ 
+     # Translate world to ego by applying the negative ego translation.
+-    world_to_agent_in_2d = np.eye(3, dtype=np.float64)
++    world_to_agent_in_2d = np.eye(3, dtype=np.float32)
+     world_to_agent_in_2d[0:2, 2] = -agent_translation_m[0:2]
+ 
+     # Rotate counter-clockwise by negative yaw to align world such that ego faces right.
+@@ -168,7 +168,7 @@ def torch_pos2global(in_pos: Tensor, local_pos: Tensor, local_rot: Tensor) -> Te
+     Returns:
+         out_pos: [..., M, 2]
+     """
+-    return torch.matmul(in_pos.double(), local_rot.transpose(-1, -2).double()) + local_pos.double()
++    return torch.matmul(in_pos.float(), local_rot.transpose(-1, -2).float()) + local_pos.float()
+ 
+ 
+ def torch_dir2local(in_dir: Tensor, local_rot: Tensor) -> Tensor:
