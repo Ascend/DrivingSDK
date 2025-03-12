@@ -26,8 +26,8 @@ public:
     {
         InitTask(tiling_data);
         InitGM(mc_ms_feat, spatial_shape, scale_start_index,
-               sampling_location, weights, grad_output,
-               grad_mc_ms_feat, grad_sampling_location, grad_weights);
+            sampling_location, weights, grad_output,
+            grad_mc_ms_feat, grad_sampling_location, grad_weights);
         InitBuffer();
         InitEvent();
     }
@@ -59,8 +59,8 @@ private:
     }
 
     __aicore__ inline void InitGM(GM_ADDR mc_ms_feat, GM_ADDR spatial_shape, GM_ADDR scale_start_index,
-                                  GM_ADDR sampling_location, GM_ADDR weights, GM_ADDR grad_output,
-                                  GM_ADDR grad_mc_ms_feat, GM_ADDR grad_sampling_location, GM_ADDR grad_weights)
+                                GM_ADDR sampling_location, GM_ADDR weights, GM_ADDR grad_output,
+                                GM_ADDR grad_mc_ms_feat, GM_ADDR grad_sampling_location, GM_ADDR grad_weights)
     {
         int64_t samplingLocationOffset = taskOffset * pts_ * cam_ * 2;
         int64_t weightOffset = taskOffset * pts_ * cam_ * scale_ * group_;
@@ -77,9 +77,9 @@ private:
 
     __aicore__ inline void InitBuffer()
     {
-        uint64_t singleWeightOffset = pts_ * cam_ * scale_ * group_;
-        uint64_t samplingOffset = singleProcessTaskLen_ * pts_ * cam_ * 2;
-        pipe_->InitBuffer(weightQue_, singleProcessTaskLen_ * singleWeightOffset * sizeof(float));
+        uint64_t singleWeightOffset = cam_ * scale_ * group_;
+        uint64_t samplingOffset = pts_ * cam_ * 2;
+        pipe_->InitBuffer(weightQue_, AlignUp(singleWeightOffset, B32_DATA_NUM_PER_BLOCK) * sizeof(float));
         pipe_->InitBuffer(gradOutputQue_, singleProcessTaskLen_ * numEmbeds * sizeof(float));
         pipe_->InitBuffer(scaleStartLocationQue_, AlignUp(cam_ * scale_, B32_DATA_NUM_PER_BLOCK) * sizeof(int32_t));
         pipe_->InitBuffer(samplingLocationQue_, AlignUp(samplingOffset, B32_DATA_NUM_PER_BLOCK) * sizeof(float));
@@ -104,16 +104,13 @@ private:
 
     __aicore__ inline void ProcessSingle(uint64_t taskIdx, uint32_t actualWeightNum)
     {
-        uint64_t singleWeightOffset = pts_ * cam_ * scale_ * group_;
-        int32_t weightNum = AlignUp(actualWeightNum * singleWeightOffset, B32_DATA_NUM_PER_BLOCK);
+        uint64_t singleWeightOffset = cam_ * scale_ * group_;
+        uint32_t weightCopyLen = AlignUp(singleWeightOffset, B32_DATA_NUM_PER_BLOCK);
         int32_t gradOuputNum = AlignUp(actualWeightNum * numEmbeds, B32_DATA_NUM_PER_BLOCK);
-        int32_t samplingLocationNum = AlignUp(actualWeightNum * pts_ * cam_ * 2, B32_DATA_NUM_PER_BLOCK);
+        int32_t samplingLocationNum = AlignUp(pts_ * cam_ * 2, B32_DATA_NUM_PER_BLOCK);
         int32_t scaleStartNum = AlignUp(cam_ * scale_, B32_DATA_NUM_PER_BLOCK);
         int32_t spatialShapeNum = AlignUp(cam_ * scale_ * 2, B32_DATA_NUM_PER_BLOCK);
-
-        uint64_t weightGmOffset = taskIdx * singleProcessTaskLen_ * singleWeightOffset;
         uint64_t gradOutputOffset = taskIdx * singleProcessTaskLen_ * numEmbeds;
-        uint64_t samplingLocationOffset = taskIdx * singleProcessTaskLen_ * pts_ * cam_ * 2;
 
         LocalTensor<float> weight = weightQue_.Get<float>();
         LocalTensor<float> gradOutput = gradOutputQue_.Get<float>();
@@ -129,20 +126,29 @@ private:
         LocalTensor<float> gradSamplingLocation = gradSamplingQue_.Get<float>();
         LocalTensor<float> tmpLocation = sumTmp_.Get<float>();
 
-        Duplicate(gradSamplingLocation, (float)0, singleProcessTaskLen_ * pts_ * cam_ * 8);
-        DataCopy(weight, weightGm[weightGmOffset], weightNum);
+        SetFlag<HardEvent::V_MTE2>(vToMTE2EvtID_);
+        WaitFlag<HardEvent::V_MTE2>(vToMTE2EvtID_);
         DataCopy(gradOutput, outputGradGm[gradOutputOffset], gradOuputNum);
-        DataCopy(samplingLocation, samplingLocationGm[samplingLocationOffset], samplingLocationNum);
+        
         DataCopy(scaleStartLocation, scaleStartLocationGm, scaleStartNum);
         DataCopy(spatialShape, spatialShapeGm, spatialShapeNum);
-        
-        pipe_barrier(PIPE_ALL);
         for (int32_t weightNumId = 0; weightNumId < actualWeightNum; weightNumId++) {
             int64_t curBatch = (taskOffset + taskIdx * singleProcessTaskLen_ + weightNumId)  / numAnchors;
             int64_t featOffset = curBatch * numFeat * numEmbeds;
+            uint64_t samplingLocationOffset = (taskIdx * singleProcessTaskLen_ + weightNumId) * pts_ * cam_ * 2;
+            DataCopy(samplingLocation, samplingLocationGm[samplingLocationOffset], samplingLocationNum);
+            SetFlag<HardEvent::MTE3_V>(mte3ToVEvtID_);
+            WaitFlag<HardEvent::MTE3_V>(mte3ToVEvtID_);
+            Duplicate(gradSamplingLocation, (float)0, pts_ * cam_ * 8);
             for (int32_t ptsId = 0; ptsId < pts_; ptsId++) {
+                uint64_t weightGmOffset = ((taskIdx * singleProcessTaskLen_ + weightNumId) * pts_ + ptsId) * singleWeightOffset;
+                SetFlag<HardEvent::V_MTE2>(vToMTE2EvtID_);
+                WaitFlag<HardEvent::V_MTE2>(vToMTE2EvtID_);
+                DataCopy(weight, weightGm[weightGmOffset], weightCopyLen);
+                SetFlag<HardEvent::MTE2_V>(cpInEvtID_);
+                WaitFlag<HardEvent::MTE2_V>(cpInEvtID_);
                 for (int32_t camId = 0; camId < cam_; camId++) {
-                    int32_t locOffset = weightNumId * pts_ * cam_ + ptsId * cam_ + camId;
+                    int32_t locOffset = ptsId * cam_ + camId;
                     float locW = samplingLocation.GetValue(locOffset * 2);
                     float locH = samplingLocation.GetValue(locOffset * 2 + 1);
                     if (locW <= 0 || locW >= 1 ||  locH <=0 || locH >=1) {
@@ -179,18 +185,29 @@ private:
                         uint64_t ptr3 = featureOffset + hHighPtrOffset + wLowPtrOffset;
                         uint64_t ptr4 = featureOffset + hHighPtrOffset + wHighPtrOffset;
 
-                        uint64_t weightOffset = (locOffset * scale_ + scaleId) * group_;
+                        uint64_t weightOffset = (camId * scale_ + scaleId) * group_;
                         uint64_t gradOuputBaseOffset = weightNumId * numEmbeds;
                         uint32_t dstShape_[2] = {group_, totalGroups};
                         uint32_t srcShape_[2] = {group_, 1};
+
+                        Duplicate(vLocal, (float)0, numEmbeds * 4);
+
+                        SetFlag<HardEvent::V_MTE2>(vToMTE2EvtID_);
+                        WaitFlag<HardEvent::V_MTE2>(vToMTE2EvtID_);
+
+                        SetFlag<HardEvent::MTE3_V>(mte3ToVEvtID_);
+                        WaitFlag<HardEvent::MTE3_V>(mte3ToVEvtID_);
+
                         BroadCast<float, 2, 1>(topGradMcMsFeatLocal, weight[weightOffset], dstShape_, srcShape_);
                         Mul(topGradMcMsFeatLocal, topGradMcMsFeatLocal, gradOutput[gradOuputBaseOffset], numEmbeds);
                         Muls(topGradMcMsFeatLocal[numEmbeds], topGradMcMsFeatLocal, w1, numEmbeds);
                         Muls(topGradMcMsFeatLocal[numEmbeds * 2], topGradMcMsFeatLocal, w2, numEmbeds);
                         Muls(topGradMcMsFeatLocal[numEmbeds * 3], topGradMcMsFeatLocal, w3, numEmbeds);
                         Muls(topGradMcMsFeatLocal[numEmbeds * 4], topGradMcMsFeatLocal, w4, numEmbeds);
-                        Duplicate(vLocal, (float)0, numEmbeds * 4);
-                        pipe_barrier(PIPE_ALL);
+
+                        SetFlag<HardEvent::V_MTE3>(vToOutEvtID_);
+                        WaitFlag<HardEvent::V_MTE3>(vToOutEvtID_);
+
                         SetAtomicAdd<float>();
                         if (hLow >= 0 && wLow >=0) {
                             DataCopy(gradMcMsFeatGm[featOffset + ptr1], topGradMcMsFeatLocal[numEmbeds], numEmbeds);
@@ -212,6 +229,7 @@ private:
 
                         SetFlag<HardEvent::MTE2_V>(cpInEvtID_);
                         WaitFlag<HardEvent::MTE2_V>(cpInEvtID_);
+
                         Muls(featureLocal, vLocal, w1, numEmbeds);
                         Muls(featureLocal[numEmbeds], vLocal[numEmbeds], w2, numEmbeds);
                         Muls(featureLocal[numEmbeds * 2], vLocal[numEmbeds * 2], w3, numEmbeds);
@@ -220,14 +238,18 @@ private:
                         Add(featureLocal[numEmbeds * 2], featureLocal[numEmbeds * 2], featureLocal[numEmbeds * 3], numEmbeds);
                         Add(featureLocal, featureLocal, featureLocal[numEmbeds * 2], numEmbeds);
                         Mul(featureLocal, featureLocal, gradOutput[gradOuputBaseOffset], numEmbeds);
+
+                        SetFlag<HardEvent::MTE3_V>(mte3ToVEvtID_);
+                        WaitFlag<HardEvent::MTE3_V>(mte3ToVEvtID_);
+
                         Sum(featureLocal_, featureLocal, {group_, totalGroups, totalGroups});
 
                         SetFlag<HardEvent::V_MTE3>(vToOutEvtID_);
                         WaitFlag<HardEvent::V_MTE3>(vToOutEvtID_);
+
                         SetAtomicAdd<float>();
                         DataCopy(gradWeightsGm[weightGmOffset + weightOffset], featureLocal_, group_);
                         SetAtomicNone();
-                        pipe_barrier(PIPE_ALL);
 
                         Muls(pointGradWeightLocal, vLocal, hw, numEmbeds);
                         Muls(pointGradWeightLocal[numEmbeds * 2], vLocal[numEmbeds], lw, numEmbeds);
@@ -249,20 +271,14 @@ private:
                         Muls(pointGradWeightLocal[numEmbeds], pointGradWeightLocal[numEmbeds], (float)h, numEmbeds);
                         Sum(tmpLocation, pointGradWeightLocal, {2, numEmbeds, numEmbeds});
                         Add(gradSamplingLocation[locOffset * 8], gradSamplingLocation[locOffset * 8], tmpLocation, 8);
-                        SetFlag<HardEvent::V_MTE2>(vToMTE2EvtID_);
-                        WaitFlag<HardEvent::V_MTE2>(vToMTE2EvtID_);
-                        SetFlag<HardEvent::MTE3_V>(mte3ToVEvtID_);
-                        WaitFlag<HardEvent::MTE3_V>(mte3ToVEvtID_);
                     }
-                    pipe_barrier(PIPE_ALL);
                 }
-                pipe_barrier(PIPE_ALL);
             }
-            pipe_barrier(PIPE_ALL);
+            SetFlag<HardEvent::V_MTE3>(vToOutEvtID_);
+            WaitFlag<HardEvent::V_MTE3>(vToOutEvtID_);
+            DataCopyExtParams copyParams {1, (uint32_t)(pts_ * cam_ * 8 * sizeof(float)), 0, 0, 0};
+            DataCopyPad(gradSamplingLocationGm[samplingLocationOffset * 4], gradSamplingLocation, copyParams);
         }
-        DataCopyExtParams copyParams {1, (uint32_t)(actualWeightNum * pts_ * cam_ * 8 * sizeof(float)), 0, 0, 0};
-        DataCopyPad(gradSamplingLocationGm[samplingLocationOffset * 4], gradSamplingLocation, copyParams);
-        pipe_barrier(PIPE_ALL);
     }
 
 private:
@@ -278,7 +294,7 @@ private:
     int64_t taskOffset;
     TEventID cpInEvtID_, cpOutEvtID_, vToOutEvtID_, vToMTE2EvtID_, mte3ToVEvtID_;
 };
- 
+
 __aicore__ inline void KernelDeformableAggregationGrad::Process()
 {
     for (uint32_t i = 0; i < taskRepeatTimes; ++i) {
@@ -287,7 +303,6 @@ __aicore__ inline void KernelDeformableAggregationGrad::Process()
             actualWeightNum = (totalTaskNum_ - 1) % singleProcessTaskLen_ + 1;
         }
         ProcessSingle(i, actualWeightNum);
-        pipe_barrier(PIPE_ALL);
     }
 }
 
@@ -321,3 +336,4 @@ extern "C" __global__ __aicore__ void deformable_aggregation_grad(
     );
     op.Process();
 }
+ 

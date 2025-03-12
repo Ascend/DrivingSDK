@@ -23,10 +23,12 @@ public:
         numScales_ = tiling_data->numScales;
         numGroups_ = tiling_data->numGroups;
         cAligned_ = tiling_data->cAligned;
+        memoryFlag_ = tiling_data->memoryFlag;
         coreNum_ = tiling_data->coreNum;
         numChannels_ = numEmbeds_ / numGroups_;
 
-        weightBufSize_ = AlignUp(numPoints_ * numCams_ * numScales_ * numGroups_, blockAlign_);
+        weightBufSize_ = memoryFlag_ ? numPoints_ * numCams_ * numScales_ * numGroups_ : numCams_ * numScales_ * numGroups_;
+        weightBufSize_ = AlignUp(weightBufSize_, blockAlign_);
         locBufSize_ = AlignUp(numPoints_ * numCams_ * 2, blockAlign_);
         scaleStartBufSize_ = AlignUp(numCams_ * numScales_, blockAlign_);
         spatialShapeBufSize_ = AlignUp(numCams_ * numScales_ * 2, blockAlign_);
@@ -95,17 +97,27 @@ public:
     {
         uint32_t batchIdx = taskIdx / numAnchors_;
         uint32_t anchorIdx = taskIdx % numAnchors_;
-        uint32_t locationOffsetGm = (batchIdx * numAnchors_ +
+        uint64_t refOffsetGm = (batchIdx * numAnchors_ + anchorIdx) * numEmbeds_;
+        uint64_t locationOffsetGm = (batchIdx * numAnchors_ +
                                      anchorIdx) * numPoints_ * numCams_ * 2;
-        uint32_t weightOffsetGm = (batchIdx * numAnchors_ +
-                                   anchorIdx) * numPoints_ * numCams_ * numScales_ * numGroups_;
-        uint32_t refOffsetGm = (batchIdx * numAnchors_ + anchorIdx) * numEmbeds_;
-        SetFlag<HardEvent::V_MTE2>(0);
-        WaitFlag<HardEvent::V_MTE2>(0);
-        DataCopy(weightLocal_, weightsGm_[weightOffsetGm], weightBufSize_);
+        if (memoryFlag_) {
+            uint64_t weightOffsetGm = (batchIdx * numAnchors_ +
+                                       anchorIdx) * numPoints_ * numCams_ * numScales_ * numGroups_;
+            SetFlag<HardEvent::V_MTE2>(0);
+            WaitFlag<HardEvent::V_MTE2>(0);
+            DataCopy(weightLocal_, weightsGm_[weightOffsetGm], weightBufSize_);
+        }
         DataCopy(locationLocal_, samplingLocationGm_[locationOffsetGm], locBufSize_);
         Duplicate(resLocal_, 0.0f, cAligned_);
         for (uint32_t pointIdx = 0; pointIdx < numPoints_; ++pointIdx) {
+            if (!memoryFlag_) {
+                uint64_t weightOffsetGm = (batchIdx * numAnchors_ * numPoints_ +
+                                           anchorIdx * numPoints_ + pointIdx) * numCams_ * numScales_ * numGroups_;
+                SetFlag<HardEvent::V_MTE2>(0);
+                WaitFlag<HardEvent::V_MTE2>(0);
+                DataCopy(weightLocal_, weightsGm_[weightOffsetGm], weightBufSize_);
+            }
+            uint32_t weightBaseOffsetLocal = memoryFlag_ ? pointIdx * numCams_ * numScales_ * numGroups_ : 0;
             for (uint32_t camIdx = 0; camIdx < numCams_; ++camIdx) {
                 uint32_t locationOffsetLocal = (pointIdx * numCams_ + camIdx) * 2;
                 DTYPE_F locW = locationLocal_.GetValue(locationOffsetLocal);
@@ -117,9 +129,7 @@ public:
                     continue;
                 }
                 for (uint32_t scaleIdx = 0; scaleIdx < numScales_; ++scaleIdx) {
-                    uint32_t weightOffsetLocal = (pointIdx * numCams_ * numScales_ +
-                                                  camIdx * numScales_ +
-                                                  scaleIdx) * numGroups_;
+                    uint32_t weightOffsetLocal = weightBaseOffsetLocal + (camIdx * numScales_ + scaleIdx) * numGroups_;
                     uint32_t scaleStartOffset = camIdx * numScales_ + scaleIdx;
                     uint32_t spatialShapeOffset = scaleStartOffset * 2;
                     uint32_t scaleStartIdx = scaleStartLocal_.GetValue(scaleStartOffset);
@@ -190,8 +200,7 @@ public:
                     Axpy(vLocal_[v1Offset_ * cAligned_], vLocal_[v4Offset_ * cAligned_], w4, cAligned_);
                     
                     BroadCast<DTYPE_F, 2, 1>(weightMulLocal_, weightLocal_[weightOffsetLocal], dstShape_, srcShape_);
-                    Mul(vLocal_[v1Offset_ * cAligned_], vLocal_[v1Offset_ * cAligned_], weightMulLocal_, cAligned_);
-                    Add(resLocal_, resLocal_, vLocal_[v1Offset_ * cAligned_], cAligned_);
+                    MulAddDst(resLocal_, vLocal_[v1Offset_ * cAligned_], weightMulLocal_, cAligned_);
                 }
             }
         }
@@ -215,6 +224,7 @@ private:
     LocalTensor<DTYPE_I> spatialShapeLocal_, scaleStartLocal_;
     LocalTensor<DTYPE_F> vLocal_, weightMulLocal_, resLocal_;
 
+    bool memoryFlag_;
     uint32_t basePtr_, realPtr_;
     uint32_t coreNum_, curBlockIdx_;
     uint32_t taskNum_, taskNumPerCore_, startOffset_, endOffset_;

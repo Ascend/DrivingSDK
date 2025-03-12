@@ -16,6 +16,7 @@ TILING_DATA_FIELD_DEF(uint32_t, numCams);
 TILING_DATA_FIELD_DEF(uint32_t, numScales);
 TILING_DATA_FIELD_DEF(uint32_t, numGroups);
 TILING_DATA_FIELD_DEF(uint32_t, cAligned);
+TILING_DATA_FIELD_DEF(uint32_t, memoryFlag);
 TILING_DATA_FIELD_DEF(uint32_t, coreNum);
 END_TILING_DATA_DEF;
 

@@ -90,8 +90,8 @@ static ge::graphStatus TilingForDeformableAggregationGrad(gert::TilingContext* c
 
     uint64_t ubSize;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
-    uint64_t usedUbSize = (10 * 1024 + 22 * numEmbeds) * SIZE_OF_FP32;
-    uint32_t singleProcessTaskLen = (ubSize - usedUbSize) / SIZE_OF_FP32 / (numPoints * numCams * numScale * numGroups + numEmbeds + numPoints * numCams * 10);
+    uint64_t usedUbSize = (10 * 1024 + 22 * numEmbeds + numCams * numScale * numGroups + numPoints * numCams * 10) * SIZE_OF_FP32;
+    uint32_t singleProcessTaskLen = (ubSize - usedUbSize) / SIZE_OF_FP32 / (numEmbeds);
 
     context->SetBlockDim(usedCoreNum);
     tiling.set_usedCoreNum(usedCoreNum);

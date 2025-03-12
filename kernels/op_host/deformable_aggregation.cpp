@@ -79,6 +79,13 @@ static ge::graphStatus TilingForDeformableAggregation(gert::TilingContext* conte
     uint32_t alignNum = BYTE_BLOCK / SIZE_OF_FP32;
     uint32_t cAligned = CeilAlign(static_cast<uint32_t>(numEmbeds), alignNum);
 
+    uint64_t ubSize;
+    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
+    // 计算除weightBuf_所占空间以外的其他ub大小，并流出预留量(16 * 1024)
+    uint64_t usedUbSize = (16 * 1024 + 6 * cAligned + numPoints * numCams * 2 + numCams * numScales * 3) * SIZE_OF_FP32;
+    // 判断weightBuf_是否能放下包括numPoints大小的数据，分情况在不同位置进行数据搬运
+    bool memoryFlag = (ubSize - usedUbSize) > numPoints * numCams * numScales * numGroups * SIZE_OF_FP32;
+
     context->SetBlockDim(coreNum);
 
     tiling.set_bs(bs);
@@ -90,6 +97,7 @@ static ge::graphStatus TilingForDeformableAggregation(gert::TilingContext* conte
     tiling.set_numScales(numScales);
     tiling.set_numGroups(numGroups);
     tiling.set_cAligned(cAligned);
+    tiling.set_memoryFlag(memoryFlag);
     tiling.set_coreNum(coreNum);
 
     if (context->GetRawTilingData() == nullptr) {
