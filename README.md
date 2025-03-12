@@ -207,8 +207,7 @@ out, argmax = scatter_max(updates, indices, out)
 2. Driving SDK在运行异常时(如输入校验异常（请参考api文档说明），环境变量配置错误，算子执行报错等)会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括通过设定算子同步执行、查看CANN日志、解析生成的Core Dump文件等方式。
 ## 公网地址声明
 
-在Driving SDK的配置文件和脚本中存在[公网地址](#公网地址)。
-
+Driving SDK代码中包含公网地址声明如下表所示：
 ### 公网地址
 
 |   类型   |   开源代码地址   | 文件名                                 |   公网IP地址/公网URL地址/域名/邮箱地址   | 用途说明                          |
@@ -220,7 +219,7 @@ out, argmax = scatter_max(updates, indices, out)
 |   自研   |   不涉及   | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于打包whl的url入参                 |
 |   自研   |   不涉及   | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于打包whl的url入参                 |
 |   自研   |   不涉及   | ci/docker/X86/install_obs.sh     |   https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_amd64.tar.gz   | obs下载链接                 |
-|   自研   |   不涉及   | ci/docker/ARM/install_obs.sh     |   https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_amd64.tar.gz   | obs下载链接                 |
+|   自研   |   不涉及   | ci/docker/ARM/install_obs.sh     |   https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_arm64.tar.gz   | obs下载链接                 |
 |   自研   |   不涉及   | ci/build.sh   |   https://gitee.com/ascend/pytorch.git   | 编译脚本根据torch_npu仓库地址拉取代码进行编译   |
 |   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |   https://makeself.io/   | makeself主页  |
 |   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |   http://www.gnu.org/copyleft/gpl.html   | license  |
@@ -235,6 +234,8 @@ out, argmax = scatter_max(updates, indices, out)
 |   自研   |   不涉及   | LICENSE | http://www.apache.org/licenses/LICENSE-2.0 | apache license 2.0 |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
+|   开源引入   |   https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip   | 源模型失效数据下载链接                  |
+|   开源引入   |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip   | 模型必要数据下载                |
 
 
 ## 公开接口声明
