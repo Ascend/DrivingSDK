@@ -106,7 +106,6 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
      - 运行脚本：
 
        ~~~
-       cp -f patch/get_pascal_voc.sh ./src/tools/get_pascal_voc.sh
        cd ./src/tools/
        bash get_pascal_voc.sh
        ~~~

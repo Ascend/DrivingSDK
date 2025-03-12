@@ -16240,6 +16240,23 @@ index 3711e04..c897010 100644
 +    coco_eval.evaluate()
 +    coco_eval.accumulate()
 +    coco_eval.summarize()
+diff --git a/src/tools/get_pascal_voc.sh b/src/tools/get_pascal_voc.sh
+index 02d9b3c..cac9148 100644
+--- a/src/tools/get_pascal_voc.sh
++++ b/src/tools/get_pascal_voc.sh
+@@ -18,9 +18,9 @@ rm VOCdevkit_18-May-2011.tar
+ mkdir images
+ cp VOCdevkit/VOC2007/JPEGImages/* images/
+ cp VOCdevkit/VOC2012/JPEGImages/* images/
+-wget https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip
+-unzip PASCAL_VOC.zip
+-rm PASCAL_VOC.zip
++wget https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip
++unzip external_PASCAL_VOC.zip
++rm external_PASCAL_VOC.zip
+ mv PASCAL_VOC annotations/
+ cd ..
+ python merge_pascal_json.py
 diff --git a/src/tools/kitti_eval/evaluate_object_3d.cpp b/src/tools/kitti_eval/evaluate_object_3d.cpp
 index aa990dd..70326a0 100644
 --- a/src/tools/kitti_eval/evaluate_object_3d.cpp
