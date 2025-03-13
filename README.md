@@ -217,26 +217,12 @@ Driving SDK代码中包含公网地址声明如下表所示：
 |   自研   |   不涉及   | ci/docker/X86/Dockerfile            |   https://mirrors.huaweicloud.com/repository/pypi/simple   | docker配置文件，用于配置pip源           |   |
 |   自研   |   不涉及   | ci/docker/ARM/install_cann.sh     |   https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN   | cann包下载地址    |
 |   自研   |   不涉及   | ci/docker/x86/install_cann.sh     |   https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN   | cann包下载地址    |
-|   自研   |   不涉及   | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于打包whl的url入参                 |
-|   自研   |   不涉及   | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于打包whl的url入参                 |
-|   自研   |   不涉及   | ci/docker/X86/install_obs.sh     |   https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_amd64.tar.gz   | obs下载链接                 |
 |   自研   |   不涉及   | ci/docker/ARM/install_obs.sh     |   https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_arm64.tar.gz   | obs下载链接                 |
-|   自研   |   不涉及   | ci/build.sh   |   https://gitee.com/ascend/pytorch.git   | 编译脚本根据torch_npu仓库地址拉取代码进行编译   |
-|   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |   https://makeself.io/   | makeself主页  |
-|   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |   http://www.gnu.org/copyleft/gpl.html   | license  |
-|   自研   |   不涉及   | cmake/util/makeself/makeself.sh   |  https://www.etalabs.net/sh_tricks.html   | 接口文档  |
-|   自研   |   不涉及   | Third_Party_Open_Source__Software_Notice |  foss@huawei.com | license 请求邮箱 |
-|   自研   |   不涉及   | cmake/util/makeself/makeself.sh | megastep@megastep.org | makeself 作者联系邮箱 |
-|   自研   |   不涉及   | cmake/util/makeself/makeself.lsm | megastep@megastep.org | makeself 作者联系邮箱 |
-|   自研   |   不涉及   | cmake/util/makeself/makeself-header.sh | foss@huawei.com | license |
-|   自研   |   不涉及   | cmake/util/makeself/makeself.1 |  megastep@megastep.org | makeself 作者联系邮箱 |
-|   自研   |   不涉及   | cmake/util/makeself/makeself.1 |  fenio@o2.pl | makeself 主页原开发作者的邮箱 |
-|   自研   |   不涉及   | LICENSE | http://www.apache.org/licenses/ | apache license |
-|   自研   |   不涉及   | LICENSE | http://www.apache.org/licenses/LICENSE-2.0 | apache license 2.0 |
+|   自研   |   不涉及   | ci/docker/X86/install_obs.sh     |   https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_amd64.tar.gz   | obs下载链接                 |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/ARM/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
 |   开源引入   |   https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip   | 源模型失效数据下载链接                  |
-|   开源引入   |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip   | 模型必要数据下载                |
+|   开源引入   |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip   | 模型必要数据下载链接                |
 
 
 ## 公开接口声明
