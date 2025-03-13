@@ -61,7 +61,7 @@ echo "E2E Duration sec : $e2e_time"
 
 # 训练总时长
 txt=$(sed 's/\r/\n/g' $cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log |tac| awk '/Validating: 0it/{flag=1; next} flag && /Epoch 0/{print; exit}')
-TrainingTime=$(echo $txt | awk -F'[][]' '{split($2, a, "<"); split(a[1], t, ":"); print t[1]*60 + t[2]}')
+TrainingTime=$(echo "$txt" | awk -F'[][]' '{split($2, a, "<"); split(a[1], t, ":"); if (length(t) == 3) {print t[1]*3600 + t[2]*60 + t[3];} else if (length(t) == 2) {print t[1]*60 + t[2];}}')
 echo "Training time per epoch : $TrainingTime"
 
 # 输出单步耗时，需要模型审视修改

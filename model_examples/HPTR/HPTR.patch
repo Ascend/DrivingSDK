@@ -24,7 +24,7 @@ index f73f680..4eb543a 100644
  echo In directory: `pwd`
 diff --git a/bash/train_av2.sh b/bash/train_av2.sh
 new file mode 100755
-index 0000000..2146524
+index 0000000..f74265e
 --- /dev/null
 +++ b/bash/train_av2.sh
 @@ -0,0 +1,46 @@
@@ -43,7 +43,7 @@ index 0000000..2146524
 +
 +cur_path=$(pwd)
 +
-+DATASET_DIR="h5_av2_hptr" 
++DATASET_DIR="h5_av2_hptr"
 +run () {
 +python -u src/run.py \
 +trainer=av2 \
@@ -168,27 +168,26 @@ index 41da3f1..1f57ca2 100644
  num_workers: 4
 diff --git a/requirements.txt b/requirements.txt
 new file mode 100644
-index 0000000..517ef27
+index 0000000..07a5449
 --- /dev/null
 +++ b/requirements.txt
-@@ -0,0 +1,17 @@
-+pip==22.2.2
+@@ -0,0 +1,16 @@
 +tensorflow-cpu-aws==2.11.0
 +numpy==1.23.2
-+torchvision==0.16.0 
-+matplotlib==3.5.3 
-+absl-py==1.4.0 
-+google-auth==2.15.0 
++torchvision==0.16.0
++matplotlib==3.5.3
++absl-py==1.4.0
++google-auth==2.15.0
 +pillow==9.2.0
-+hydra-core==1.1.1 
-+pytorch-lightning==1.5.10 
++hydra-core==1.1.1
++pytorch-lightning==1.5.10
++torch==2.1.0
++torch_npu==2.1.0
 +wandb==0.13.6
-+setuptools==59.5.0 
-+gym==0.21.0
 +opencv-python==4.6.0.66
++gym==0.22.0
 +transforms3d==0.4.2
-+decorator
-+
++decorator==5.2.1
 diff --git a/src/models/metrics/waymo.py b/src/models/metrics/waymo.py
 index d3f956f..acf3d3b 100644
 --- a/src/models/metrics/waymo.py
@@ -230,10 +229,10 @@ index d3f956f..acf3d3b 100644
  
      @staticmethod
 diff --git a/src/pl_modules/waymo_motion.py b/src/pl_modules/waymo_motion.py
-index 4d95230..29b45eb 100644
+index 4d95230..f300cf2 100644
 --- a/src/pl_modules/waymo_motion.py
 +++ b/src/pl_modules/waymo_motion.py
-@@ -130,37 +130,44 @@ class WaymoMotion(LightningModule):
+@@ -130,36 +130,43 @@ class WaymoMotion(LightningModule):
          self._save_to_submission_files(pred_dict, batch)
  
          # ! visualization
@@ -292,17 +291,15 @@ index 4d95230..29b45eb 100644
 +                epoch_waymo_metrics[k] = v.to(torch.float32)
              self.log(k, v, on_epoch=True)
 -        self.log("val/loss", -epoch_waymo_metrics[f"{self.waymo_metric.prefix}/mean_average_precision"])
--
 +        metric_key = f"{self.waymo_metric.prefix}/mean_average_precision"
 +        if isinstance(epoch_waymo_metrics[metric_key], torch.Tensor) and epoch_waymo_metrics[metric_key].dtype == torch.float64:
 +            val_loss = -epoch_waymo_metrics[metric_key].to(torch.float32)
 +        else:
 +            val_loss = -epoch_waymo_metrics[metric_key]
 +        self.log("val/loss", val_loss)
-+        
+ 
          if self.global_rank == 0:
              self.sub_womd.save_sub_files(self.logger[0])
-             self.sub_av2.save_sub_files(self.logger[0])
 diff --git a/src/run.py b/src/run.py
 index 1246af6..a899f0e 100644
 --- a/src/run.py
