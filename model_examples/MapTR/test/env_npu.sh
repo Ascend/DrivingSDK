@@ -23,6 +23,8 @@ export HOST_CACHE_CAPACITY=20
 export COMBINED_ENABLE=1
 # 启用可扩展内存段分配策略
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+# 启用多流复用
+export MULTI_STREAM_MEMORY_REUSE=1
 
 #设置device侧日志登记为error
 msnpureport -g error -d 0

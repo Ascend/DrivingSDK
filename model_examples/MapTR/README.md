@@ -143,7 +143,58 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   ```
   export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
   ```
-7. 模型代码更新
+7. 编译优化
+  编译优化是指通过毕昇编译器的LTO和PGO编译优化技术，源码构建编译Python、PyTorch、torch_npu（Ascend Extension for PyTorch）三个组件，有效提升程序性能。
+
+  本节介绍Python编译优化方式，并提供PyTorch和torch_npu的编译优化指导链接。采用编译优化后的性能见“训练结果”小节。
+
+  - 安装毕昇编译器
+
+  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器。
+  ```
+  wget https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/BiSheng%20Enterprise/BiSheng%20Enterprise%20203.0.0/BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+  tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+  export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
+  export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
+  source {cann_root_dir}/set_env.sh
+  ```
+
+  - 安装依赖
+  ```
+  wget --no-check-certificate https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
+  tar -xvf mpdecimal-2.5.1.tar.gz
+  cd mpdecimal-2.5.1
+  bash ./configure --prefix=/path/to/install/mpdecimal
+  make -j
+  make install
+  ```
+
+  - 获取Python源码并编译优化
+
+  执行以下指令获取Python版本及安装目录，将Python安装路径记为python_path。
+  ```
+  python -V
+  which python
+  ```
+
+  在[Python源码下载地址](https://www.python.org/downloads/source/)下载对应版本的Python源码并解压。
+  
+  以Python 3.8.17为例：
+  ```
+  tar -xvf Python-3.8.17.tgz
+  cd Python-3.8.17
+  export CC=clang
+  export CXX=clang++
+  ./configure --prefix=python_path > --with-lto --enable-optimizations
+  make -j
+  make install
+  ```
+
+  - Pytorch和torch_npu编译优化
+
+  可参考[Pytorch编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0064.html)和[torch_npu编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0065.html)操作。
+
+8. 模型代码更新
 
   ```
   git clone https://github.com/hustvl/MapTR.git
@@ -260,10 +311,13 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 | 竞品A           |  8p  |         32         |   fp32    |  24   | 48.7 |         -          |
 | Atlas 800T A2 |  8p  |         32         |   fp32    |  24   | 48.5 |         -          |
 | 竞品A           |  8p  |         32         |   fp32    |  1   | - |         929          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  1   | - |         1048          |
+| Atlas 800T A2 |  8p  |         32         |   fp32    |  1（编译优化前）   | - |         1015          |
+| Atlas 800T A2 |  8p  |         32         |   fp32    |  1（Python编译优化）   | - |         983          |
 
 
 # 变更说明
+
+2025.03.10：增加编译优化性能。
 
 2025.03.04：进一步优化模型性能，更新性能数据。增加多机多卡训练脚本。
 
