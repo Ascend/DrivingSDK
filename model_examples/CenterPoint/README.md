@@ -339,6 +339,9 @@ cd ./OpenPCDet/
 python setup.py develop
 ```
 
+#### 2.7 高性能内存库替换
+参考昇腾官方指导文档，下载高性能内存库并导入环境变量[参考链接](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0067.html)
+
 ### 准备数据集
 1. 下载nuScenes数据集，请自行前往nuScenes官方网站下载3D目标检测数据集
 2. 下载训练数据集data目录
@@ -394,15 +397,15 @@ python setup.py develop
 训练精度结果展示表
 | Exp | mATE | mASE | mAOE | mAVE | mAAE | mAP | NDS |
 | - | - | - | - | - | - | - | - |
-| 8p-竞品A | 28.80 | 25.43 | 37.27 | 21.55 | 18.24 | 59.22 | 66.48 |
-| 8p-Atlas 800T A2 | 28.81 | 25.35 | 38.46 | 21.00 | 17.82 | 59.16 | 66.44 |
+| 8p-竞品A | 28.80 | 25.43 | 37.27 | 21.55 | 18.24 | 58.65 | 66.22 |
+| 8p-Atlas 800T A2 | 28.81 | 25.35 | 38.46 | 21.00 | 17.82 | 58.34 | 66.11 |
 
 #### 性能
 训练性能结果展示表
 | Exp | FPS |
 | - | - |
 | 8p-竞品A | 51.61 |
-| 8p-Atlas 800T A2| 22.37 |
+| 8p-Atlas 800T A2| 28.881 |
 
 ## FAQ
 ### ImportError:/usr/local/gcc-7.5.0/lib64/libgomp.so.1:cannot allocate memory in static TLS block,
@@ -451,3 +454,4 @@ pip install -r 2.5_requirements.txt
 ## 版本说明
 [2024-12-23] **NEW:** CenterPoint3d模型在NPU设备首次适配.
 [2025-02-18] **NEW:** CenterPoint2d模型增加PT2.5相关依赖.
+[2025-03-12] **NEW:** CenterPoint仓CenterHead模块性能优化，并提供高性能内存库安装指导，更新了CenterPoint3d的性能数据

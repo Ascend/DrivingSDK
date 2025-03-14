@@ -19,6 +19,7 @@ RANK_ID_START=0
 
 #绑核
 export CPU_AFFINITY_CONF=1
+export TASK_QUEUE_ENABLE=2
 
 #基础参数，需要模型审视修改
 #网络名称，同目录名称
@@ -72,6 +73,7 @@ nohup python -m torch.distributed.launch \
           train.py \
           --launcher pytorch \
           --cfg_file ${cfg_file} \
+          --epochs 1 \
           --logger_iter_interva 1 > ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 

@@ -19,6 +19,7 @@ RANK_ID_START=0
 
 #绑核
 export CPU_AFFINITY_CONF=1
+export TASK_QUEUE_ENABLE=2
 
 #基础参数，需要模型审视修改
 #网络名称，同目录名称
