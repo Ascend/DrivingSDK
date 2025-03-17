@@ -39,9 +39,16 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。
 
+**表 1** 昇腾软件版本支持表
+
+|     软件类型      | 支持版本 |
+| :---------------: | :------: |
+| FrameworkPTAdaper | 7.0.0 |
+|       CANN        | 8.1.RC1 |
+
 - 当前模型支持的 PyTorch 版本和已知三方库依赖如下表所示。
 
-  **表 1**  版本支持表
+  **表 2**  版本支持表
 
   | Torch_Version | 三方库依赖版本 |
   | -------- | ------- |

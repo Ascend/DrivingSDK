@@ -51,6 +51,10 @@ bash ci/build.sh --python=3.8
 | branch_v6.0.0-RC3    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-6.0.rc3|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.3.1|v2.3.1-6.0.rc3|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.4.0|v2.4.0-6.0.rc3|
+| branch_v6.0.0    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-6.0.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.3.1|v2.3.1-6.0.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.4.0|v2.4.0-6.0.0|
+
 
 3. 安装Driving SDK。
 ```shell+

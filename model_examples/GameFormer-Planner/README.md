@@ -40,7 +40,7 @@
     code_path=model_examples/GameFormer-Planner
     ```
 
-# GameFormer-Planner（在研版本）
+# GameFormer-Planner
 
 ## 准备训练环境
 
@@ -52,10 +52,9 @@
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 6.0.RC3  |
-|       CANN        | 8.0.RC3  |
-|    昇腾NPU固件    | 24.1.RC2 |
-|    昇腾NPU驱动    | 24.1.RC2 |
+| FrameworkPTAdaper | 6.0.0 |
+|       CANN        | 8.0.0  |
+
 
 ### 安装模型环境
 

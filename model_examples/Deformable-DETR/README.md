@@ -32,10 +32,8 @@
 
 | 软件类型 | 支持列表 |
 | ------- | ------- |
-| FrameworkPTAdapter | 6.0.RC3 |
-| CANN | 8.0.RC3 |
-| 昇腾NPU固件 | 24.1.RC3 |
-| 昇腾NPU驱动 | 24.1.RC3  |
+| FrameworkPTAdapter | 6.0.0 |
+| CANN | 8.0.0 |
 
 1、激活 CANN 包环境：将 CANN 包所在目录记为 cann_root_dir，执行以下命令以激活环境：
 ```

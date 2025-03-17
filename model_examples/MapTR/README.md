@@ -57,10 +57,8 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 6.0.RC3  |
-|       CANN        | 8.0.RC3  |
-|    昇腾NPU固件    | 24.1.RC3 |
-|    昇腾NPU驱动    | 24.1.RC3 |
+| FrameworkPTAdaper | 7.0.0  |
+|       CANN        | 8.1.RC1  |
 
 1. 安装mmdet3d
   

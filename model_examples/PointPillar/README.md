@@ -24,9 +24,21 @@ code_path=model_examples/PointPillar
 
 
 ## PointPillar
-### 准备环境
 
-  **表 1**  版本支持表
+### 安装昇腾环境
+
+请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境，本仓已支持表1中软件版本。
+
+**表 1** 昇腾软件版本支持表
+
+|     软件类型      | 支持版本 |
+| :---------------: | :------: |
+| FrameworkPTAdaper | 6.0.0 |
+|       CANN        | 8.0.0 |
+
+### 安装模型环境
+
+  **表 2**  版本支持表
 
   | Torch_Version      | 三方库依赖版本                                 |
   | :--------: | :----------------------------------------------------------: |

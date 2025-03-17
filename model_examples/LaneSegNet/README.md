@@ -5,9 +5,22 @@
 
 ## 准备环境
 
+### 安装昇腾环境
+
+  请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境，本仓已支持表1中软件版本。
+
+  **表 1**  昇腾软件版本支持表
+
+|     软件类型      | 支持版本 |
+| :---------------: | :------: |
+| FrameworkPTAdaper | 7.0.0  |
+|       CANN        | 8.1.RC1 |
+
+### 安装模型环境
+
 - 当前模型支持的 PyTorch 版本如下表所示。
 
-  **表 1**  版本支持表
+  **表 2**  版本支持表
 
   | Torch_Version | 
   | :--------: | 

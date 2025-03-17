@@ -59,10 +59,8 @@ code_path=model_examples/DETR3D
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 在研版本 |
-|       CANN        | 在研版本 |
-|    昇腾NPU固件    | 在研版本 |
-|    昇腾NPU驱动    | 在研版本 |
+| FrameworkPTAdaper | 7.0.0 |
+|       CANN        | 8.1.RC1 |
 
 ### 安装模型环境
 

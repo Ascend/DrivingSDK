@@ -35,10 +35,8 @@
 
 |        软件类型       |   支持版本   |
 |:--------:|:--------:|
-| FrameworkPTAdapter | 7.0.RC1.B020  |
-|       CANN        | 8.1.RC1.B020  |
-|      昇腾NPU固件      | 25.0.rc1.b020 |
-|      昇腾NPU驱动      | 25.0.rc1.b020 |
+| FrameworkPTAdapter | 7.0.0  |
+|       CANN        | 8.1.RC1  |
 
 ## 准备环境
 

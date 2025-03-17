@@ -61,7 +61,7 @@
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
   |    PyTorch     |  2.1   |
-  |    Driving SDK   | latest |
+  |    Driving SDK   | 6.0.0 |
   |      mmcv      |  1.x   |
   |     mmdet      | 2.28.2 |
   | mmsegmentation | 0.30.0 |

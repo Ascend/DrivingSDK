@@ -25,15 +25,22 @@ code_path=model_examples/CenterPoint
 
 ## Centerpoint
 ### 准备环境
-**表1** 版本支持表
+#### 安装昇腾环境
+请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
+  
+  **表 1**  昇腾软件版本支持表
+
+  |        软件类型        |   支持版本   |
+  |:------------------:|:--------:|
+  | FrameworkPTAdapter | 6.0.0  |
+  |       CANN         | 8.0.0  |
+
+### 安装模型环境
+**表 2** 版本支持表
 
 | Torch_Version | 三方库依赖版本            |
 | - |--------------------|
 | PyTorch 2.1.0 | torchvision 0.16.0 |
-
-- 环境准备指导。
-
-    请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
 #### 0. 克隆代码仓到当前目录并使用patch文件
 

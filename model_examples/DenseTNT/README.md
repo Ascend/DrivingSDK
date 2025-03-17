@@ -39,7 +39,7 @@
 | 软件类型 | 支持列表 |
 | ------- | ------- |
 | FrameworkPTAdapter | 7.0.0 |
-| CANN | 8.1.0 |
+| CANN | 8.1.RC1 |
 
 1、激活 CANN 包环境：将 CANN 包所在目录记为 cann_root_dir，执行以下命令以激活环境：
 ```
