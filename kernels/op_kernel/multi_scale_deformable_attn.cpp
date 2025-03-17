@@ -6,8 +6,8 @@
 #include "kernel_utils.h"
 #include "msda.h"
 
-template<bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnKernel<aligned>::ComputeBilinearInterpolation(
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::ComputeBilinearInterpolation(
     const LocalTensor<uint64_t>& validFlag, const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location,
     const LocalTensor<int32_t>& loc, const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production,
     const LocalTensor<float>& value, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
@@ -15,14 +15,14 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned>::ComputeBilinearI
     const LocalTensor<float>& output)
 {
     WaitFlag<HardEvent::V_MTE2>(this->biEvt_);
-    for (uint32_t head = 0; head < this->numHeads_; ++head) {
+    for (uint32_t head = 0; head < this->outerLoops_; ++head) {
         uint64_t valid = validFlag.GetValue(head);
         uint64_t bottomInvalid = validFlag.GetValue(head + 2 * this->validFlagMaskLen_ / 8);
         uint64_t topInvalid = validFlag.GetValue(head + 3 * this->validFlagMaskLen_ / 8);
         uint32_t outOffset = head * this->alignedEmbedDims_;
         uint32_t baseIdx = head * this->alignedOneHeadNum_;
         WaitFlag<HardEvent::V_MTE2>(0);
-        for (int32_t i = ScalarGetSFFValue<1>(valid); i < this->oneHeadNum_ && i >= 0;
+        for (int32_t i = ScalarGetSFFValue<1>(valid); i < this->innerLoops_ && i >= 0;
             i = ScalarGetSFFValue<1>(valid)) {
             valid = sbitset0(valid, i);
             uint32_t idx = baseIdx + i;
@@ -38,10 +38,10 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned>::ComputeBilinearI
         }
         for (uint32_t i = 0; i < 4; ++i) {
             Brcb(cornerWeightBrc[i * this->alignedCornerEmbedDims_], weight[baseIdx + i * this->alignedOneQueryNum_],
-                this->alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK,
+                (fastMode ? this->alignedOneQueryNum_ : this->alignedOneHeadNum_) / B32_DATA_NUM_PER_BLOCK,
                 {this->embedBlk_, static_cast<uint16_t>(8 * this->embedBlk_)});
         }
-        for (int32_t i = ScalarGetSFFValue<0>(bottomInvalid); i < this->oneHeadNum_ && i >= 0;
+        for (int32_t i = ScalarGetSFFValue<0>(bottomInvalid); i < this->innerLoops_ && i >= 0;
             i = ScalarGetSFFValue<0>(bottomInvalid)) {
             bottomInvalid = sbitset1(bottomInvalid, i);
             uint32_t idx = baseIdx + i;
@@ -57,7 +57,7 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned>::ComputeBilinearI
                     this->valueGm_[gmOffset + this->outDims_], this->cpOneValParams_);
             }
         }
-        for (int32_t i = ScalarGetSFFValue<0>(topInvalid); i < this->oneHeadNum_ && i >= 0;
+        for (int32_t i = ScalarGetSFFValue<0>(topInvalid); i < this->innerLoops_ && i >= 0;
             i = ScalarGetSFFValue<0>(topInvalid)) {
             topInvalid = sbitset1(topInvalid, i);
             uint32_t idx = baseIdx + i;
@@ -100,22 +100,34 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned>::ComputeBilinearI
         }
         SetFlag<HardEvent::V_MTE2>(0);
 
+        Add<float>(cornerWeightBrc, cornerWeightBrc[2 * this->alignedCornerEmbedDims_], cornerWeightBrc,
+            2 * this->alignedCornerEmbedDims_);
+        Add<float>(cornerWeightBrc, cornerWeightBrc[this->alignedCornerEmbedDims_], cornerWeightBrc,
+            this->alignedCornerEmbedDims_);
+
         SetVectorMask<float>(0, this->embedMask_);
-        Add<float, false>(cornerWeightBrc, cornerWeightBrc[this->alignedEmbedDims_], cornerWeightBrc, MASK_PLACEHOLDER,
-            4 * this->oneHeadNum_ - 1, {1, 1, 1, 0, static_cast<uint8_t>(this->embedBlk_), 0});
         if (unlikely(head == 0)) {
             WaitFlag<HardEvent::MTE3_V>(0);
             Duplicate<float, false>(
                 output, 0.f, MASK_PLACEHOLDER, this->numHeads_, 1, static_cast<uint8_t>(this->embedBlk_));
         }
-        Adds<float, false>(output[outOffset], cornerWeightBrc, 0, MASK_PLACEHOLDER, 1, {1, 1, 0, 0});
+        if (fastMode) {
+            for (uint32_t i = 0; i < this->numHeads_; ++i) {
+                Add<float, false>(output[outOffset], cornerWeightBrc[outOffset * this->oneHeadNum_], output[outOffset],
+                    MASK_PLACEHOLDER, this->oneHeadNum_, {1, 1, 1, 0, static_cast<uint8_t>(this->embedBlk_), 0});
+                outOffset += this->alignedEmbedDims_;
+            }
+        } else {
+            Add<float, false>(output[outOffset], cornerWeightBrc, output[outOffset], MASK_PLACEHOLDER,
+                this->oneHeadNum_, {1, 1, 1, 0, static_cast<uint8_t>(this->embedBlk_), 0});
+        }
         ResetMask();
     }
     SetFlag<HardEvent::V_MTE3>(0);
 }
 
-template<bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnKernel<aligned>::Process()
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Process()
 {
     LocalTensor<float> locationFloat = this->locationQue_.template Get<float>();
     LocalTensor<int32_t> locationInt = this->locationQue_.template Get<int32_t>();
@@ -168,13 +180,21 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn(GM_ADDR value,
 {
     TPipe pipe;
     GET_TILING_DATA(tilingData, tiling);
-    if (TILING_KEY_IS(1)) {
-        MultiScaleDeformableAttnKernel<true> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
+    if (TILING_KEY_IS(11)) {
+        MultiScaleDeformableAttnKernel<true, true> op(value, valueSpatialShapes, valueLevelStartIndex,
+            samplingLocations, attentionWeights, output, &tilingData, &pipe);
         op.Process();
-    } else if (TILING_KEY_IS(0)) {
-        MultiScaleDeformableAttnKernel<false> op(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations,
-            attentionWeights, output, &tilingData, &pipe);
+    } else if (TILING_KEY_IS(01)) {
+        MultiScaleDeformableAttnKernel<false, true> op(value, valueSpatialShapes, valueLevelStartIndex,
+            samplingLocations, attentionWeights, output, &tilingData, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(10)) {
+        MultiScaleDeformableAttnKernel<true, false> op(value, valueSpatialShapes, valueLevelStartIndex,
+            samplingLocations, attentionWeights, output, &tilingData, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(00)) {
+        MultiScaleDeformableAttnKernel<false, false> op(value, valueSpatialShapes, valueLevelStartIndex,
+            samplingLocations, attentionWeights, output, &tilingData, &pipe);
         op.Process();
     }
 }

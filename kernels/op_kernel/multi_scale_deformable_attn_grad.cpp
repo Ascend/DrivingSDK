@@ -23,8 +23,8 @@
 #include "msda.h"
 
 
-template<bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned>::ComputeBilinearInterpolation(
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::ComputeBilinearInterpolation(
     const LocalTensor<uint64_t>& validFlag, const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location,
     const LocalTensor<int32_t>& loc, const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production,
     const LocalTensor<float>& value, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
@@ -168,11 +168,11 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned>::ComputeBilin
     }
 }
 
-template<bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned>::ComputeGrad(const LocalTensor<float>& production,
-    const LocalTensor<float>& locFloat, const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
-    const LocalTensor<float>& gradLocation, const LocalTensor<float>& gradAttentionWeight,
-    const LocalTensor<uint32_t>& gatherOffset, uint32_t taskIdx)
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::ComputeGrad(
+    const LocalTensor<float>& production, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
+    const LocalTensor<float>& attentionWeight, const LocalTensor<float>& gradLocation,
+    const LocalTensor<float>& gradAttentionWeight, const LocalTensor<uint32_t>& gatherOffset, uint32_t taskIdx)
 {
     uint64_t sampleOffset = taskIdx * this->oneQueryNum_;
     Mul<float, false>(production, weight, production, MASK_PLACEHOLDER, 4 * this->qryRpt_, {1, 1, 1, 8, 8, 8});
@@ -201,8 +201,8 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned>::ComputeGrad(
     SetFlag<HardEvent::MTE3_V>(1);
 }
 
-template<bool aligned>
-__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned>::Process()
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Process()
 {
     LocalTensor<uint32_t> gatherOffset = this->gatherOffsetBuf_.template Get<uint32_t>();
     LocalTensor<float> locationFloat = this->locationQue_.template Get<float>();
@@ -266,15 +266,25 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn_grad(GM_ADDR v
 {
     TPipe pipe;
     GET_TILING_DATA(tiling_datas, tiling_data);
-    if (TILING_KEY_IS(1)) {
-        MultiScaleDeformableAttnGradKernel<true> op(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm,
-            attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas,
-            &pipe);
+    if (TILING_KEY_IS(10)) {
+        MultiScaleDeformableAttnGradKernel<true, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
         op.Process();
-    } else if (TILING_KEY_IS(0)) {
-        MultiScaleDeformableAttnGradKernel<false> op(value_gm, spatial_shapes_gm, level_start_index_gm, sampling_loc_gm,
-            attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm, &tiling_datas,
-            &pipe);
+    } else if (TILING_KEY_IS(00)) {
+        MultiScaleDeformableAttnGradKernel<false, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(11)) {
+        MultiScaleDeformableAttnGradKernel<true, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
+        op.Process();
+    } else if (TILING_KEY_IS(01)) {
+        MultiScaleDeformableAttnGradKernel<false, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+            sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
+            &tiling_datas, &pipe);
         op.Process();
     }
 }

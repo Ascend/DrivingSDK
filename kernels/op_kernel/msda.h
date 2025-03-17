@@ -23,10 +23,12 @@
  */
 
 #include "kernel_operator.h"
+#include "kernel_tpipe_impl.h"
+#include "kernel_utils.h"
 
 using namespace AscendC;
 
-template<bool aligned, bool forward>
+template<bool aligned, bool forward, bool fastMode>
 class MSDABaseKernel {
 public:
     __aicore__ inline MSDABaseKernel() = delete;
@@ -69,18 +71,29 @@ protected:
 
         oneHeadNum_ = numLevels_ * numPoints_;
         alignedEmbedDims_ = AlignUp(embedDims_, B32_DATA_NUM_PER_BLOCK);
-        alignedOneHeadNum_ = B32_DATA_NUM_PER_REPEAT;
-        alignedOneQueryNum_ = numHeads_ * alignedOneHeadNum_;
-        alignedCornerEmbedDims_ = oneHeadNum_ * alignedEmbedDims_;
+        if constexpr (fastMode) {
+            alignedOneHeadNum_ = oneHeadNum_;
+            alignedCornerEmbedDims_ = numHeads_ * oneHeadNum_ * alignedEmbedDims_;
+            qryRpt_ = 1;
+            brcRpt_ = DivCeil(4 * numHeads_ * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
+            outerLoops_ = 1;
+            innerLoops_ = numHeads_ * oneHeadNum_;
+        } else {
+            alignedOneHeadNum_ = B32_DATA_NUM_PER_REPEAT;
+            alignedCornerEmbedDims_ = oneHeadNum_ * alignedEmbedDims_;
+            qryRpt_ = numHeads_;
+            brcRpt_ = DivCeil(4 * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
+            outerLoops_ = numHeads_;
+            innerLoops_ = oneHeadNum_;
+        }
+        alignedOneQueryNum_ = AlignUp(numHeads_ * alignedOneHeadNum_, B32_DATA_NUM_PER_REPEAT);
         alignedHeadEmbedDims_ = numHeads_ * alignedEmbedDims_;
         outDims_ = numHeads_ * embedDims_;
         embedBlk_ = DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
         outBlk_ = numHeads_ * embedBlk_;
         embedMask_ = embedDims_ < 64 ? (1UL << embedDims_) - 1 : FULL_MASK;
         queryBlk_ = alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK;
-        qryRpt_ = numHeads_;
         cornerRpt_ = DivCeil(4 * alignedCornerEmbedDims_, B32_DATA_NUM_PER_REPEAT);
-        brcRpt_ = DivCeil(4 * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
 
         cpRowDoubleParams_.dstStride =
             alignedCornerEmbedDims_ / B32_DATA_NUM_PER_BLOCK - DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
@@ -97,14 +110,21 @@ protected:
             cpOutParams_.blockLen = embedDims_ * B32_BYTE_SIZE;
         }
 
-        cpSampleParams_.blockCount = numHeads_;
-        cpSampleParams_.blockLen = oneHeadNum_ * B32_BYTE_SIZE;
-        cpSampleParams_.dstStride =
-            alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
-        cpDoubleSampleParams_.blockCount = numHeads_;
-        cpDoubleSampleParams_.blockLen = 2 * oneHeadNum_ * B32_BYTE_SIZE;
-        cpDoubleSampleParams_.dstStride =
-            2 * alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(2 * oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
+        if (fastMode) {
+            cpSampleParams_.blockCount = 1;
+            cpSampleParams_.blockLen = numHeads_ * oneHeadNum_ * B32_BYTE_SIZE;
+            cpDoubleSampleParams_.blockCount = 1;
+            cpDoubleSampleParams_.blockLen = 2 * numHeads_ * oneHeadNum_ * B32_BYTE_SIZE;
+        } else {
+            cpSampleParams_.blockCount = numHeads_;
+            cpSampleParams_.blockLen = oneHeadNum_ * B32_BYTE_SIZE;
+            cpSampleParams_.dstStride =
+                alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
+            cpDoubleSampleParams_.blockCount = numHeads_;
+            cpDoubleSampleParams_.blockLen = 2 * oneHeadNum_ * B32_BYTE_SIZE;
+            cpDoubleSampleParams_.dstStride =
+                2 * alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(2 * oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
+        }
 
         gatherParams_.repeatTimes = qryRpt_ * 2;
     }
@@ -231,6 +251,7 @@ protected:
     uint64_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, realLevels_;
     uint32_t alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_, alignedHeadEmbedDims_;
     uint32_t oneHeadNum_, oneQueryNum_;
+    uint32_t outerLoops_, innerLoops_;
     uint16_t tailBrcBlk_, queryBlk_, embedBlk_, outBlk_;
     uint16_t brcRpt_, qryRpt_, cornerRpt_;
     uint64_t embedMask_;
@@ -241,8 +262,8 @@ protected:
     GatherMaskParams gatherParams_;
 };
 
-template<bool aligned, bool forward>
-__aicore__ inline void MSDABaseKernel<aligned, forward>::ComputeLocation(uint32_t taskIdx,
+template<bool aligned, bool forward, bool fastMode>
+__aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeLocation(uint32_t taskIdx,
     const LocalTensor<float>& locationFloat, const LocalTensor<int32_t>& locationInt,
     const LocalTensor<float>& shapeFloat, const LocalTensor<int32_t>& shapeInt, const LocalTensor<float>& locFloat,
     const LocalTensor<int32_t>& locInt, const LocalTensor<int32_t>& offsetInt, const LocalTensor<uint8_t>& validFlag)
@@ -259,9 +280,21 @@ __aicore__ inline void MSDABaseKernel<aligned, forward>::ComputeLocation(uint32_
     Mul<float, false>(locationFloat, locationFloat, shapeFloat, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 1, 8, 8, 8});
     Adds<float, false>(locFloat, locationFloat, 0.5f, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
     Cast<int32_t, float, false>(locInt, locFloat, RoundMode::CAST_FLOOR, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+    // fix the precesion issue of the floor operation(0.9999f -> 1.0f)
+    Cast<float, int32_t, false>(
+        locFloat[2 * alignedOneQueryNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+    Compare<float, uint8_t, false>(validFlag, locFloat[2 * alignedOneQueryNum_], locFloat, CMPMODE::GT,
+        MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 1, 8, 8, 8});
+    Adds<int32_t, false>(locFloat[2 * alignedOneQueryNum_].ReinterpretCast<int32_t>(), locInt, 0, MASK_PLACEHOLDER,
+        2 * qryRpt_, {1, 1, 8, 8});
+    Adds<int32_t, false>(locInt, locInt, -1, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+    Select<float, uint8_t, false>(locInt.ReinterpretCast<float>(), validFlag, locInt.ReinterpretCast<float>(),
+        locFloat[2 * alignedOneQueryNum_], SELMODE::VSEL_TENSOR_TENSOR_MODE, 64, 2 * qryRpt_, {1, 1, 1, 8, 8, 8});
+    // fix end
     Cast<float, int32_t, false>(
         locFloat[2 * alignedOneQueryNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
     Adds<int32_t, false>(locInt, locInt, -1, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+
     Mul<int32_t, false>(
         locationInt, locInt[alignedOneQueryNum_], shapeInt, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
     Add<int32_t, false>(locationInt, locInt, locationInt, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
@@ -321,8 +354,8 @@ __aicore__ inline void MSDABaseKernel<aligned, forward>::ComputeLocation(uint32_
     SetFlag<HardEvent::V_MTE2>(biEvt_);
 }
 
-template<bool aligned, bool forward>
-__aicore__ inline void MSDABaseKernel<aligned, forward>::ComputeWeight(const LocalTensor<float>& locFloat,
+template<bool aligned, bool forward, bool fastMode>
+__aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeWeight(const LocalTensor<float>& locFloat,
     const LocalTensor<float>& shapes, const LocalTensor<float>& production, const LocalTensor<float>& weight,
     const LocalTensor<float>& attentionWeight)
 {
@@ -375,15 +408,15 @@ __aicore__ inline void MSDABaseKernel<aligned, forward>::ComputeWeight(const Loc
     SetFlag<HardEvent::V_MTE2>(copyEvt_);
 }
 
-template<bool aligned>
-class MultiScaleDeformableAttnKernel : MSDABaseKernel<aligned, true> {
+template<bool aligned, bool fastMode>
+class MultiScaleDeformableAttnKernel : MSDABaseKernel<aligned, true, fastMode> {
 public:
     __aicore__ inline MultiScaleDeformableAttnKernel() = delete;
 
     __aicore__ inline MultiScaleDeformableAttnKernel(GM_ADDR value, GM_ADDR valueSpatialShapes,
         GM_ADDR valueLevelStartIndex, GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR output,
         const MultiScaleDeformableAttnTilingData* tilingData, TPipe* pipe)
-        : MSDABaseKernel<aligned, true>(
+        : MSDABaseKernel<aligned, true, fastMode>(
               value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, tilingData, pipe)
     {
         outputGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(output));
@@ -411,8 +444,8 @@ private:
         const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output);
 };
 
-template<bool aligned>
-class MultiScaleDeformableAttnGradKernel : MSDABaseKernel<aligned, false> {
+template<bool aligned, bool fastMode>
+class MultiScaleDeformableAttnGradKernel : MSDABaseKernel<aligned, false, fastMode> {
 public:
     __aicore__ inline MultiScaleDeformableAttnGradKernel() = delete;
 
@@ -420,7 +453,7 @@ public:
         GM_ADDR valueLevelStartIndex, GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR gradOutput,
         GM_ADDR gradValue, GM_ADDR gradSamplingLocations, GM_ADDR gradAttentionWeights,
         const MultiScaleDeformableAttnTilingData* tilingData, TPipe* pipe)
-        : MSDABaseKernel<aligned, false>(
+        : MSDABaseKernel<aligned, false, fastMode>(
               value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, tilingData, pipe)
     {
         gradOutGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradOutput));

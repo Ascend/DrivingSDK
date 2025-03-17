@@ -23,6 +23,7 @@ const uint32_t REAL_LEVEL_DIM = 3;
 const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
 const uint32_t B32_DATA_NUM_PER_BLOCK = 8;
+const uint32_t B32_DATA_NUM_PER_REPEAT = 64;
 } // namespace
 
 namespace optiling {
@@ -49,8 +50,9 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     uint64_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
     uint64_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
     bool aligned = embedDims % B32_DATA_NUM_PER_BLOCK == 0;
+    bool fastMode = numHeads * numLevels * numPoints <= B32_DATA_NUM_PER_REPEAT;
 
-    context->SetTilingKey(aligned ? 1 : 0);
+    context->SetTilingKey((aligned ? 1 : 0) * 10 + (fastMode ? 1 : 0));
 
     tiling.set_batchSize(valueShape.GetDim(BATCH_SIZE_DIM));
     tiling.set_numKeys(valueShape.GetDim(NUM_KEYS_DIM));
