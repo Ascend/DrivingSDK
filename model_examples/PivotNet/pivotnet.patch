@@ -63,13 +63,13 @@ index 4ecc69f..4128b3a 100644
  
  
 diff --git a/mapmaster/engine/executor.py b/mapmaster/engine/executor.py
-index a7bcf4c..f6a65b7 100644
+index a7bcf4c..501986c 100644
 --- a/mapmaster/engine/executor.py
 +++ b/mapmaster/engine/executor.py
-@@ -1,14 +1,19 @@
- import os
- import torch
- from tqdm import tqdm
+@@ -1,17 +1,22 @@
+-import os
+-import torch
+-from tqdm import tqdm
 -from typing import Sequence
 -from mapmaster.engine.experiment import BaseExp
 -from mapmaster.utils.misc import get_rank, synchronize
@@ -78,6 +78,12 @@ index a7bcf4c..f6a65b7 100644
 -__all__ = ["Callback", "BaseExecutor", "Trainer", "BeMapNetEvaluator"]
 -
 -
+-class Callback:
+-
+-    # callback enabled rank list
++import os
++import torch
++from tqdm import tqdm
 +from typing import Sequence
 +from mapmaster.engine.experiment import BaseExp
 +from mapmaster.utils.misc import get_rank, synchronize
@@ -91,9 +97,12 @@ index a7bcf4c..f6a65b7 100644
 +__all__ = ["Callback", "BaseExecutor", "Trainer", "BeMapNetEvaluator"]
 +
 +
- class Callback:
++class Callback:
++
++    # callback enabled rank list
+     # None means callback is always enabled
+     enabled_rank = None
  
-     # callback enabled rank list
 diff --git a/mapmaster/models/bev_decoder/deform_transformer/deform_transformer.py b/mapmaster/models/bev_decoder/deform_transformer/deform_transformer.py
 index 28f9ea1..87dbcf7 100644
 --- a/mapmaster/models/bev_decoder/deform_transformer/deform_transformer.py
@@ -109,13 +118,16 @@ index 28f9ea1..87dbcf7 100644
              cams.append(cam_coords)
          cams = torch.stack(cams, dim=0)  # (6, 3, N) Coordinates in Camera Frame
 diff --git a/mapmaster/models/bev_decoder/deform_transformer/ops/modules/ms_deform_attn.py b/mapmaster/models/bev_decoder/deform_transformer/ops/modules/ms_deform_attn.py
-index c091ed6..11cb948 100644
+index c091ed6..487e6f8 100644
 --- a/mapmaster/models/bev_decoder/deform_transformer/ops/modules/ms_deform_attn.py
 +++ b/mapmaster/models/bev_decoder/deform_transformer/ops/modules/ms_deform_attn.py
-@@ -15,14 +15,14 @@ import math
+@@ -12,20 +12,20 @@ from __future__ import division
  
- import torch
- from torch import nn
+ import warnings
+ import math
+-
+-import torch
+-from torch import nn
 -import torch.nn.functional as F
 -from torch.nn.init import xavier_uniform_, constant_
 -
@@ -124,6 +136,12 @@ index c091ed6..11cb948 100644
 -
 -def _is_power_of_2(n):
 -    if (not isinstance(n, int)) or (n < 0):
+-        raise ValueError("invalid input for _is_power_of_2: {} (type: {})".format(n, type(n)))
+-    return (n & (n - 1) == 0) and n != 0
+-
++
++import torch
++from torch import nn
 +import torch.nn.functional as F
 +from torch.nn.init import xavier_uniform_, constant_
 +
@@ -132,13 +150,19 @@ index c091ed6..11cb948 100644
 +
 +def _is_power_of_2(n):
 +    if (not isinstance(n, int)) or (n < 0):
-         raise ValueError("invalid input for _is_power_of_2: {} (type: {})".format(n, type(n)))
-     return (n & (n - 1) == 0) and n != 0
++        raise ValueError("invalid input for _is_power_of_2: {} (type: {})".format(n, type(n)))
++    return (n & (n - 1) == 0) and n != 0
++
  
-@@ -125,16 +125,16 @@ class MSDeformAttn(nn.Module):
-                 + sampling_offsets / self.n_points * reference_points[:, :, None, :, None, 2:] * 0.5
-             )
-         else:
+ class MSDeformAttn(nn.Module):
+     def __init__(self, d_model=256, n_levels=4, n_heads=8, n_points=4):
+@@ -122,19 +122,19 @@ class MSDeformAttn(nn.Module):
+         elif reference_points.shape[-1] == 4:
+             sampling_locations = (
+                 reference_points[:, :, None, :, None, :2]
+-                + sampling_offsets / self.n_points * reference_points[:, :, None, :, None, 2:] * 0.5
+-            )
+-        else:
 -            raise ValueError(
 -                "Last dim of reference_points must be 2 or 4, but get {} instead.".format(reference_points.shape[-1])
 -            )
@@ -152,6 +176,9 @@ index c091ed6..11cb948 100644
 -        )
 -        output = self.output_proj(output)
 -        return output
++                + sampling_offsets / self.n_points * reference_points[:, :, None, :, None, 2:] * 0.5
++            )
++        else:
 +            raise ValueError(
 +                "Last dim of reference_points must be 2 or 4, but get {} instead.".format(reference_points.shape[-1])
 +            )
@@ -166,25 +193,26 @@ index c091ed6..11cb948 100644
 +        output = self.output_proj(output)
 +        return output
 diff --git a/mapmaster/models/output_head/line_matching.py b/mapmaster/models/output_head/line_matching.py
-index c690ffb..c4988e5 100644
+index c690ffb..8c47f85 100644
 --- a/mapmaster/models/output_head/line_matching.py
 +++ b/mapmaster/models/output_head/line_matching.py
-@@ -1,33 +1,66 @@
+@@ -1,33 +1,67 @@
  import numpy as np
- 
++import torch
++
 +# def seq_matching_dist_parallel(cost, gt_lens, coe_endpts=0):
 +#     # Time complexity: O(m*n)
 +#     bs, m, n = cost.shape
 +#     assert m <= n
-+#     min_cost = np.ones((bs, m, n)) * np.inf  
++#     min_cost = np.ones((bs, m, n)) * np.inf
 +#     mem_sort_value = np.ones((bs, m, n)) * np.inf  # v[i][j] = np.min(min_cost[i][:j+1])
 +
 +#     # initialization
 +#     for j in range(0, n):
 +#         if j == 0:
-+#             min_cost[:, 0, j] = cost[:, 0, j] 
++#             min_cost[:, 0, j] = cost[:, 0, j]
 +#         mem_sort_value[:, 0, j] = min_cost[:, 0, 0]
-+        
++
 +#     for i in range(1, m):
 +#         for j in range(i, n):
 +#             min_cost[:, i, j] = mem_sort_value[:, i-1, j-1] + cost[:, i, j]
@@ -200,7 +228,7 @@ index c690ffb..c4988e5 100644
 +#     xs, ys, zs = indexes[:, 0], indexes[:, 1], indexes[:, 2]
 +#     res_cost = min_cost[xs, ys, zs] + (cost[xs, 0, 0] + cost[xs, ys, zs]) * coe_endpts
 +#     return  res_cost / (indexes[:, 1]+1+coe_endpts*2)
-+
+ 
  def seq_matching_dist_parallel(cost, gt_lens, coe_endpts=0):
 +    if cost.device.type != 'npu':
 +        cost = cost.to('npu')
@@ -234,6 +262,14 @@ index c690ffb..c4988e5 100644
 -            indexes_inv = np.array(1-indexes, dtype=np.bool)
 -            mem_sort_value[indexes, i, j] = min_cost[indexes, i, j]
 -            mem_sort_value[indexes_inv, i, j] = mem_sort_value[indexes_inv, i, j-1]
+-
+-    indexes = []
+-    for i, ll in enumerate(gt_lens):
+-        indexes.append([i, ll-1, n-1])
+-    indexes = np.array(indexes)
+-    xs, ys, zs = indexes[:, 0], indexes[:, 1], indexes[:, 2]
+-    res_cost = min_cost[xs, ys, zs] + (cost[xs, 0, 0] + cost[xs, ys, zs]) * coe_endpts
+-    return  res_cost / (indexes[:, 1]+1+coe_endpts*2)
 +        # 计算 min_cost[:, i, i:]
 +        min_cost[:, i, i:] = mem_sort_value[:, i-1, i-1:-1] + cost[:, i, i:]
 +        mem_sort_value[:, i, i:], _ = torch.cummin(min_cost[:, i, i:], dim=-1)
@@ -245,20 +281,13 @@ index c690ffb..c4988e5 100644
 +    res_min_cost = min_cost[batch_idx, ys, zs]
 +    endpoint_cost = (cost[batch_idx, 0, 0] + cost[batch_idx, ys, zs]) * coe_endpts
 +    denominator = gt_lens.to(res_min_cost.dtype) + coe_endpts * 2
- 
--    indexes = []
--    for i, ll in enumerate(gt_lens):
--        indexes.append([i, ll-1, n-1])
--    indexes = np.array(indexes)
--    xs, ys, zs = indexes[:, 0], indexes[:, 1], indexes[:, 2]
--    res_cost = min_cost[xs, ys, zs] + (cost[xs, 0, 0] + cost[xs, ys, zs]) * coe_endpts
--    return  res_cost / (indexes[:, 1]+1+coe_endpts*2)
++
 +    return (res_min_cost + endpoint_cost) / denominator
  
  def pivot_dynamic_matching(cost: np.array):
      # Time complexity: O(m*n)
 diff --git a/mapmaster/models/output_head/pivot_post_processor.py b/mapmaster/models/output_head/pivot_post_processor.py
-index cc49dcc..1447c68 100644
+index cc49dcc..42e8646 100644
 --- a/mapmaster/models/output_head/pivot_post_processor.py
 +++ b/mapmaster/models/output_head/pivot_post_processor.py
 @@ -56,15 +56,24 @@ class HungarianMatcher(nn.Module):
@@ -269,7 +298,7 @@ index cc49dcc..1447c68 100644
 -                    gt_pts_mask[i][:ll] = 1
 +                # for i, ll in enumerate(targets[0]["valid_len"][cid]):
 +                #     gt_pts_mask[i][:ll] = 1
-+                
++
 +                valid_lens = torch.tensor(targets[0]["valid_len"][cid], device=gt_pts.device, dtype=torch.long)
 +                row_indices = torch.arange(n_pt, device=gt_pts.device).expand(len(valid_lens), -1)
 +                gt_pts_mask = (row_indices < valid_lens.unsqueeze(1)).to(dtype=torch.float32)
@@ -277,12 +306,12 @@ index cc49dcc..1447c68 100644
                  gt_pts_mask = gt_pts_mask.unsqueeze(1).unsqueeze(-1).repeat(1, dt_num, 1, n_pt).flatten(0, 1)   
                  cost_mat_seqmatching = torch.cdist(gt_pts, dt_pts, p=1) * gt_pts_mask                # [n_gt*n_dt, n_pts, n_pts]
 +                # cost_mat_seqmatching = seq_matching_dist_parallel(
-+                #     cost_mat_seqmatching.detach().cpu().numpy(), 
-+                #     gt_lens, 
++                #     cost_mat_seqmatching.detach().cpu().numpy(),
++                #     gt_lens,
 +                #     self.coe_endpts).reshape(gt_num, dt_num).transpose(1, 0)  #[n_gt, n_dt]
                  cost_mat_seqmatching = seq_matching_dist_parallel(
 -                    cost_mat_seqmatching.detach().cpu().numpy(), 
-+                    cost_mat_seqmatching, 
++                    cost_mat_seqmatching,
                      gt_lens, 
                      self.coe_endpts).reshape(gt_num, dt_num).transpose(1, 0)  #[n_gt, n_dt]
 -                cost_mat_seqmatching = torch.from_numpy(cost_mat_seqmatching).to(cost_mat_mask.device)
@@ -311,7 +340,7 @@ index cc49dcc..1447c68 100644
 +    #         ratio = i / num_len
 +    #         res[i-1] = (1 - ratio) * start_pt + ratio * end_pt
 +    #     return res
-+    
++
      @staticmethod
      def interpolate(start_pt, end_pt, inter_num):
 -        res = torch.zeros((inter_num, 2), dtype=start_pt.dtype, device=start_pt.device)
@@ -327,28 +356,33 @@ index cc49dcc..1447c68 100644
      def criterion_instance_labels(self, outputs, targets, matching_indices):
          loss_labels = 0
 diff --git a/requirement.txt b/requirement.txt
-index 7120c16..e058068 100644
+index 7120c16..8e55b13 100644
 --- a/requirement.txt
 +++ b/requirement.txt
 @@ -1,12 +1,14 @@
 -clearml
 -loguru
 -Ninja
-+torchvision==0.16.0
-+decorator
-+clearml
-+loguru
-+Ninja
- numba
- opencv-contrib-python
- pandas
- scikit-image
- tabulate
+-numba
+-opencv-contrib-python
+-pandas
+-scikit-image
+-tabulate
 -tensorboardX
 -Pillow==9.4.0
 -numpy==1.23.5
 -visvalingamwyatt=0.2.0
 \ No newline at end of file
++torchvision==0.16.0
++decorator
++clearml
++loguru
++Ninja
++numba
++opencv-contrib-python
++pandas
++scikit-image
++tabulate
 +tensorboardX
 +Pillow==9.4.0
 +numpy==1.23.5
@@ -369,13 +403,14 @@ index ee8c865..6a7ddb8 100644
  case "$1" in
      "train")
 diff --git a/tools/evaluation/cd.py b/tools/evaluation/cd.py
-index 9edf001..b42499d 100644
+index 9edf001..1e67cd3 100644
 --- a/tools/evaluation/cd.py
 +++ b/tools/evaluation/cd.py
-@@ -2,13 +2,14 @@ import torch
- 
- def chamfer_distance(source_pc, target_pc, threshold, cum=False, bidirectional=True):
-     torch.backends.cuda.matmul.allow_tf32 = False
+@@ -1,17 +1,18 @@
+ import torch
+-
+-def chamfer_distance(source_pc, target_pc, threshold, cum=False, bidirectional=True):
+-    torch.backends.cuda.matmul.allow_tf32 = False
 -    torch.backends.cudnn.allow_tf32 = False
 -    # dist = torch.cdist(source_pc.float(), target_pc.float())
 -    # dist = torch.cdist(source_pc.float(), target_pc.float(), compute_mode='donot_use_mm_for_euclid_dist')
@@ -383,6 +418,12 @@ index 9edf001..b42499d 100644
 -    dist1, _ = torch.min(dist, 2)
 -    dist2, _ = torch.min(dist, 1)
 -    if cum:
+-        len1 = dist1.shape[-1]
+-        len2 = dist2.shape[-1]
+-        dist1 = dist1.sum(-1)
++
++def chamfer_distance(source_pc, target_pc, threshold, cum=False, bidirectional=True):
++    torch.backends.cuda.matmul.allow_tf32 = False
 +    torch.backends.cudnn.allow_tf32 = False
 +    # dist = torch.cdist(source_pc.float(), target_pc.float())
 +    # dist = torch.cdist(source_pc.float(), target_pc.float(), compute_mode='donot_use_mm_for_euclid_dist')
@@ -391,17 +432,23 @@ index 9edf001..b42499d 100644
 +    dist1, _ = torch.min(dist, 2)
 +    dist2, _ = torch.min(dist, 1)
 +    if cum:
-         len1 = dist1.shape[-1]
-         len2 = dist2.shape[-1]
-         dist1 = dist1.sum(-1)
++        len1 = dist1.shape[-1]
++        len2 = dist2.shape[-1]
++        dist1 = dist1.sum(-1)
+         dist2 = dist2.sum(-1)
+         return dist1, dist2, len1, len2
+     dist1 = dist1.mean(-1)
 diff --git a/tools/evaluation/eval.py b/tools/evaluation/eval.py
-index d85a976..22e0486 100644
+index d85a976..5c79f41 100644
 --- a/tools/evaluation/eval.py
 +++ b/tools/evaluation/eval.py
-@@ -4,13 +4,14 @@ import torch
- import numpy as np
- import pickle as pkl
- from tqdm import tqdm
+@@ -1,19 +1,20 @@
+ import os
+ import sys
+ import torch
+-import numpy as np
+-import pickle as pkl
+-from tqdm import tqdm
 -from tabulate import tabulate
 -from torch.utils.data import Dataset, DataLoader
 -from ap import instance_mask_ap as get_batch_ap
@@ -409,6 +456,12 @@ index d85a976..22e0486 100644
 -
 -class BeMapNetResultForNuScenes(Dataset):
 -    def __init__(self, gt_dir, dt_dir, val_txt):
+-        self.gt_dir, self.dt_dir = gt_dir, dt_dir
+-        self.tokens = [fname.strip().split('.')[0] for fname in open(val_txt).readlines()]        
+-        self.max_line_count = 100
++import numpy as np
++import pickle as pkl
++from tqdm import tqdm
 +from tabulate import tabulate
 +from torch.utils.data import Dataset, DataLoader
 +from ap import instance_mask_ap as get_batch_ap
@@ -417,6 +470,9 @@ index d85a976..22e0486 100644
 +
 +class BeMapNetResultForNuScenes(Dataset):
 +    def __init__(self, gt_dir, dt_dir, val_txt):
-         self.gt_dir, self.dt_dir = gt_dir, dt_dir
-         self.tokens = [fname.strip().split('.')[0] for fname in open(val_txt).readlines()]        
-         self.max_line_count = 100
++        self.gt_dir, self.dt_dir = gt_dir, dt_dir
++        self.tokens = [fname.strip().split('.')[0] for fname in open(val_txt).readlines()]
++        self.max_line_count = 100
+ 
+     def __getitem__(self, idx):
+         token = self.tokens[idx]
