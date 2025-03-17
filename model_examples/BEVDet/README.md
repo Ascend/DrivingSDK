@@ -92,6 +92,7 @@
 - 模型代码更新
   ```shell
   git clone https://github.com/HuangJunJie2017/BEVDet.git
+  cp -r test BEVDet
   cp BEVDet.patch BEVDet
   cd BEVDet
   git checkout 58c2587a8f89a1927926f0bdb6cde2917c91a9a5

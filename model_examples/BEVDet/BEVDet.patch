@@ -124,19 +124,6 @@ index 4d97026..be10ecd 100644
              model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
  
      # build runner
-diff --git a/mmdet3d/core/hook/__init__.py b/mmdet3d/core/hook/__init__.py
-index 0b85670..168b207 100644
---- a/mmdet3d/core/hook/__init__.py
-+++ b/mmdet3d/core/hook/__init__.py
-@@ -3,6 +3,7 @@ from .ema import MEGVIIEMAHook
- from .utils import is_parallel
- from .sequentialcontrol import SequentialControlHook
- from .syncbncontrol import SyncbnControlHook
-+from .profiler_hook_npu import ProfilerHookNPU
- 
- __all__ = ['MEGVIIEMAHook', 'is_parallel', 'SequentialControlHook',
--           'SyncbnControlHook']
-+           'SyncbnControlHook', 'ProfilerHookNPU']
 diff --git a/mmdet3d/datasets/pipelines/loading.py b/mmdet3d/datasets/pipelines/loading.py
 index b9357ff..3f23888 100644
 --- a/mmdet3d/datasets/pipelines/loading.py
