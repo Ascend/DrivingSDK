@@ -205,6 +205,8 @@ cd model_examples/PivotNet
 
 2024.12.20：首次发布
 
+2025.03.17：性能优化
+
 # FAQ
 
 无
