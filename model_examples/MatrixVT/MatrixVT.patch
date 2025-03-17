@@ -1,0 +1,645 @@
+diff --git a/bevdepth/datasets/nusc_det_dataset.py b/bevdepth/datasets/nusc_det_dataset.py
+index 43e73d8..44a881a 100644
+--- a/bevdepth/datasets/nusc_det_dataset.py
++++ b/bevdepth/datasets/nusc_det_dataset.py
+@@ -118,7 +118,6 @@ def depth_transform(cam_depth, resize, resize_dims, crop, flip, rotate):
+     Returns:
+         np array: [h/down_ratio, w/down_ratio, d]
+     """
+-
+     H, W = resize_dims
+     cam_depth[:, :2] = cam_depth[:, :2] * resize
+     cam_depth[:, 0] -= crop[0]
+@@ -396,15 +395,6 @@ class NuscDetDataset(Dataset):
+         sweep_sensor2sensor_mats = list()
+         sweep_timestamps = list()
+         sweep_lidar_depth = list()
+-        if self.return_depth or self.use_fusion:
+-            sweep_lidar_points = list()
+-            for lidar_info in lidar_infos:
+-                lidar_path = lidar_info['LIDAR_TOP']['filename']
+-                lidar_points = np.fromfile(os.path.join(
+-                    self.data_root, lidar_path),
+-                                           dtype=np.float32,
+-                                           count=-1).reshape(-1, 5)[..., :4]
+-                sweep_lidar_points.append(lidar_points)
+         for cam in cams:
+             imgs = list()
+             sensor2ego_mats = list()
+@@ -479,9 +469,11 @@ class NuscDetDataset(Dataset):
+                 intrin_mat[:3, :3] = torch.Tensor(
+                     cam_info[cam]['calibrated_sensor']['camera_intrinsic'])
+                 if self.return_depth and (self.use_fusion or sweep_idx == 0):
+-                    point_depth = self.get_lidar_depth(
+-                        sweep_lidar_points[sweep_idx], img,
+-                        lidar_infos[sweep_idx], cam_info[cam])
++                    file_name = os.path.split(cam_info[cam]['filename'])[-1]
++                    point_depth = np.fromfile(os.path.join(
++                        self.data_root, 'depth_gt', f'{file_name}.bin'),
++                        dtype=np.float32,
++                        count=-1).reshape(-1, 3)
+                     point_depth_augmented = depth_transform(
+                         point_depth, resize, self.ida_aug_conf['final_dim'],
+                         crop, flip, rotate_ida)
+diff --git a/bevdepth/exps/base_cli.py b/bevdepth/exps/base_cli.py
+index cc887f7..78e0061 100644
+--- a/bevdepth/exps/base_cli.py
++++ b/bevdepth/exps/base_cli.py
+@@ -1,4 +1,19 @@
+ # Copyright (c) Megvii Inc. All rights reserved.
++# coding=utf-8
++# Copyright 2023 Huawei Technologies Co., Ltd
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
+ import os
+ from argparse import ArgumentParser
+ 
+@@ -32,16 +47,15 @@ def run_cli(model_class=BEVDepthLightningModel,
+                                default=0,
+                                help='seed for initializing training.')
+     parent_parser.add_argument('--ckpt_path', type=str)
++    parent_parser.add_argument('--learning_rate', type=float)
+     parser = BEVDepthLightningModel.add_model_specific_args(parent_parser)
+     parser.set_defaults(profiler='simple',
+                         deterministic=False,
+-                        max_epochs=extra_trainer_config_args.get('epochs', 24),
+                         accelerator='ddp',
+                         num_sanity_val_steps=0,
+                         gradient_clip_val=5,
+                         limit_val_batches=0,
+                         enable_checkpointing=True,
+-                        precision=16,
+                         default_root_dir=os.path.join('./outputs/', exp_name))
+     args = parser.parse_args()
+     if args.seed is not None:
+diff --git a/bevdepth/exps/nuscenes/MatrixVT/matrixvt_bev_depth_lss_r50_256x704_128x128_24e_ema.py b/bevdepth/exps/nuscenes/MatrixVT/matrixvt_bev_depth_lss_r50_256x704_128x128_24e_ema.py
+index cc6ad5d..4c65fc6 100644
+--- a/bevdepth/exps/nuscenes/MatrixVT/matrixvt_bev_depth_lss_r50_256x704_128x128_24e_ema.py
++++ b/bevdepth/exps/nuscenes/MatrixVT/matrixvt_bev_depth_lss_r50_256x704_128x128_24e_ema.py
+@@ -1,11 +1,32 @@
+ # Copyright (c) Megvii Inc. All rights reserved.
++# coding=utf-8
++# Copyright 2023 Huawei Technologies Co., Ltd
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++import os
++import psutil
++from functools import partial
+ # isort: skip_file
+ from bevdepth.exps.base_cli import run_cli
+ # Basic Experiment
+ from bevdepth.exps.nuscenes.mv.bev_depth_lss_r50_256x704_128x128_24e_ema import \
+     BEVDepthLightningModel as BaseExp # noqa
++from bevdepth.datasets.nusc_det_dataset import NuscDetDataset, collate_fn
+ # new model
+ from bevdepth.models.matrixvt_det import MatrixVT_Det
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ 
+ class MatrixVT_Exp(BaseExp):
+@@ -17,8 +38,17 @@ class MatrixVT_Exp(BaseExp):
+                                   is_train_depth=True)
+         self.data_use_cbgs = True
+ 
++    def configure_optimizers(self):
++        lr = self.basic_lr_per_img * \
++            self.batch_size_per_device * self.gpus
++        optimizer = torch_npu.optim.NpuFusedAdamW(self.model.parameters(),
++                                      lr=lr,
++                                      weight_decay=1e-7)
++        return [optimizer]
++
+ 
+ if __name__ == '__main__':
++    torch_npu.npu.set_compile_mode(jit_compile=False)
+     run_cli(
+         MatrixVT_Exp,
+         'matrixvt_bev_depth_lss_r50_256x704_128x128_24e_ema_cbgs',
+diff --git a/bevdepth/exps/nuscenes/base_exp.py b/bevdepth/exps/nuscenes/base_exp.py
+index 6c4ffdb..d6b5ad7 100644
+--- a/bevdepth/exps/nuscenes/base_exp.py
++++ b/bevdepth/exps/nuscenes/base_exp.py
+@@ -1,4 +1,19 @@
++# coding=utf-8
+ # Copyright (c) Megvii Inc. All rights reserved.
++# Copyright 2023 Huawei Technologies Co., Ltd
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
+ import os
+ from functools import partial
+ 
+@@ -10,7 +25,7 @@ import torch.utils.data
+ import torch.utils.data.distributed
+ import torchvision.models as models
+ from pytorch_lightning.core import LightningModule
+-from torch.cuda.amp.autocast_mode import autocast
++from torch_npu.npu.amp.autocast_mode import autocast
+ from torch.optim.lr_scheduler import MultiStepLR
+ 
+ from bevdepth.datasets.nusc_det_dataset import NuscDetDataset, collate_fn
+@@ -187,6 +202,7 @@ class BEVDepthLightningModel(LightningModule):
+ 
+     def __init__(self,
+                  gpus: int = 1,
++                 learning_rate = 2e-4 / 64,
+                  data_root='data/nuScenes',
+                  eval_interval=1,
+                  batch_size_per_device=8,
+@@ -203,7 +219,7 @@ class BEVDepthLightningModel(LightningModule):
+         self.eval_interval = eval_interval
+         self.batch_size_per_device = batch_size_per_device
+         self.data_root = data_root
+-        self.basic_lr_per_img = 2e-4 / 64
++        self.basic_lr_per_img = learning_rate
+         self.class_names = class_names
+         self.backbone_conf = backbone_conf
+         self.head_conf = head_conf
+@@ -308,7 +324,7 @@ class BEVDepthLightningModel(LightningModule):
+         gt_depths = torch.where(
+             (gt_depths < self.depth_channels + 1) & (gt_depths >= 0.0),
+             gt_depths, torch.zeros_like(gt_depths))
+-        gt_depths = F.one_hot(gt_depths.long(),
++        gt_depths = F.one_hot(gt_depths.int(),
+                               num_classes=self.depth_channels + 1).view(
+                                   -1, self.depth_channels + 1)[:, 1:]
+ 
+@@ -397,8 +413,9 @@ class BEVDepthLightningModel(LightningModule):
+         train_loader = torch.utils.data.DataLoader(
+             train_dataset,
+             batch_size=self.batch_size_per_device,
+-            num_workers=4,
++            num_workers=8,
+             drop_last=True,
++            pin_memory=False,
+             shuffle=False,
+             collate_fn=partial(collate_fn,
+                                is_return_depth=self.data_return_depth
+diff --git a/bevdepth/layers/backbones/base_lss_fpn.py b/bevdepth/layers/backbones/base_lss_fpn.py
+index c776334..68e0bea 100644
+--- a/bevdepth/layers/backbones/base_lss_fpn.py
++++ b/bevdepth/layers/backbones/base_lss_fpn.py
+@@ -1,3 +1,16 @@
++# Copyright 2024 Huawei Technologies Co., Ltd
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
+ # Copyright (c) Megvii Inc. All rights reserved.
+ import torch
+ import torch.nn.functional as F
+@@ -6,7 +19,7 @@ from mmdet3d.models import build_neck
+ from mmdet.models import build_backbone
+ from mmdet.models.backbones.resnet import BasicBlock
+ from torch import nn
+-from torch.cuda.amp.autocast_mode import autocast
++from torch_npu.npu.amp.autocast_mode import autocast
+ 
+ try:
+     from bevdepth.ops.voxel_pooling_inference import voxel_pooling_inference
+@@ -93,7 +106,7 @@ class ASPP(nn.Module):
+                                bias=False)
+         self.bn1 = BatchNorm(mid_channels)
+         self.relu = nn.ReLU()
+-        self.dropout = nn.Dropout(0.5)
++        self.dropout = nn.Dropout(0.0)
+         self._init_weight()
+ 
+     def forward(self, x):
+@@ -440,22 +453,24 @@ class BaseLSSFPN(nn.Module):
+         # undo post-transformation
+         # B x N x D x H x W x 3
+         points = self.frustum
+-        ida_mat = ida_mat.view(batch_size, num_cams, 1, 1, 1, 4, 4)
++        D, H, W, _ = points.shape
++        ida_mat = ida_mat.view(batch_size * num_cams, 1, 1, 1, 4, 4)
+         points = ida_mat.inverse().matmul(points.unsqueeze(-1))
+         # cam_to_ego
+         points = torch.cat(
+-            (points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3],
+-             points[:, :, :, :, :, 2:]), 5)
++            (points[:, :, :, :, :2] * points[:, :, :, :, 2:3],
++             points[:, :, :, :, 2:]), 4)
+ 
+         combine = sensor2ego_mat.matmul(torch.inverse(intrin_mat))
+-        points = combine.view(batch_size, num_cams, 1, 1, 1, 4,
++        points = combine.view(batch_size * num_cams, 1, 1, 1, 4,
+                               4).matmul(points)
+         if bda_mat is not None:
+             bda_mat = bda_mat.unsqueeze(1).repeat(1, num_cams, 1, 1).view(
+-                batch_size, num_cams, 1, 1, 1, 4, 4)
++                batch_size * num_cams, 1, 1, 1, 4, 4)
+             points = (bda_mat @ points).squeeze(-1)
+         else:
+             points = points.squeeze(-1)
++        points = points.reshape(batch_size, num_cams, D, H, W, -1)
+         return points[..., :3]
+ 
+     def get_cam_feats(self, imgs):
+diff --git a/bevdepth/layers/backbones/matrixvt.py b/bevdepth/layers/backbones/matrixvt.py
+index 6192bb2..a5261ad 100644
+--- a/bevdepth/layers/backbones/matrixvt.py
++++ b/bevdepth/layers/backbones/matrixvt.py
+@@ -1,7 +1,20 @@
++# Copyright 2024 Huawei Technologies Co., Ltd
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
+ # Copyright (c) Megvii Inc. All rights reserved.
+ import torch
+ from torch import nn
+-from torch.cuda.amp import autocast
++from torch_npu.npu.amp.autocast_mode import autocast
+ 
+ from bevdepth.layers.backbones.base_lss_fpn import BaseLSSFPN
+ 
+@@ -272,14 +285,18 @@ class MatrixVT(BaseLSSFPN):
+         geom_uni = self.bev_anchors[None].repeat([B, 1, 1, 1])  # B,128,128,2
+         B, L, L, _ = geom_uni.shape
+ 
+-        circle_map = geom_uni.new_zeros((B, D, L * L))
++        circle_map = geom_uni.new_zeros((B, D, L * L), device='cpu')
++
++        ray_map = geom_uni.new_zeros((B, Nc * W, L * L), device='cpu')
++        geom_idx_cpu = geom_idx.cpu()
+ 
+-        ray_map = geom_uni.new_zeros((B, Nc * W, L * L))
+         for b in range(B):
+             for dir in range(Nc * W):
+-                ray_map[b, dir, geom_idx[b, dir]] += 1
++                ray_map[b, dir, geom_idx_cpu[b, dir]] += 1
+             for d in range(D):
+-                circle_map[b, d, geom_idx[b, :, d]] += 1
++                circle_map[b, d, geom_idx_cpu[b, :, d]] += 1
++        circle_map = circle_map.to(geom_uni.device)
++        ray_map = ray_map.to(geom_uni.device)
+         null_point = int((bev_size / 2) * (bev_size + 1))
+         circle_map[..., null_point] = 0
+         ray_map[..., null_point] = 0
+diff --git a/bevdepth/layers/heads/bev_depth_head.py b/bevdepth/layers/heads/bev_depth_head.py
+index 2cf77d0..b106a2b 100644
+--- a/bevdepth/layers/heads/bev_depth_head.py
++++ b/bevdepth/layers/heads/bev_depth_head.py
+@@ -1,3 +1,16 @@
++# Copyright 2024 Huawei Technologies Co., Ltd
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
+ """Inherited from `https://github.com/open-mmlab/mmdetection3d/blob/master/mmdet3d/models/dense_heads/centerpoint_head.py`"""  # noqa
+ import numba
+ import numpy as np
+@@ -8,7 +21,7 @@ from mmdet3d.models.dense_heads.centerpoint_head import CenterHead, circle_nms
+ from mmdet3d.models.utils import clip_sigmoid
+ from mmdet.core import reduce_mean
+ from mmdet.models import build_backbone
+-from torch.cuda.amp import autocast
++from torch_npu.npu.amp.autocast_mode import autocast
+ 
+ __all__ = ['BEVDepthHead']
+ 
+@@ -212,32 +225,35 @@ class BEVDepthHead(CenterHead):
+                 # 0 is background for each task, so we need to add 1 here.
+                 task_class.append(gt_labels_3d[m] + 1 - flag2)
+             task_boxes.append(
+-                torch.cat(task_box, axis=0).to(gt_bboxes_3d.device))
++                torch.cat(task_box, axis=0))
+             task_classes.append(
+-                torch.cat(task_class).long().to(gt_bboxes_3d.device))
++                torch.cat(task_class).int())
+             flag2 += len(mask)
+         draw_gaussian = draw_heatmap_gaussian
+         heatmaps, anno_boxes, inds, masks = [], [], [], []
++        feature_map_size = feature_map_size.cpu().numpy().tolist()
+ 
+         for idx, task_head in enumerate(self.task_heads):
+             heatmap = gt_bboxes_3d.new_zeros(
+                 (len(self.class_names[idx]), feature_map_size[1],
+                  feature_map_size[0]),
+-                device='cuda')
++                device='cpu')
+ 
+             anno_box = gt_bboxes_3d.new_zeros(
+                 (max_objs, len(self.train_cfg['code_weights'])),
+                 dtype=torch.float32,
+-                device='cuda')
++                device='cpu')
+ 
+             ind = gt_labels_3d.new_zeros((max_objs),
+-                                         dtype=torch.int64,
+-                                         device='cuda')
++                                         dtype=torch.int32,
++                                         device='cpu')
+             mask = gt_bboxes_3d.new_zeros((max_objs),
+                                           dtype=torch.uint8,
+-                                          device='cuda')
++                                          device='cpu')
+ 
+             num_objs = min(task_boxes[idx].shape[0], max_objs)
++            task_classes[idx] = task_classes[idx].cpu()
++            task_boxes[idx] = task_boxes[idx].cpu()
+ 
+             for k in range(num_objs):
+                 cls_id = task_classes[idx][k] - 1
+@@ -269,7 +285,7 @@ class BEVDepthHead(CenterHead):
+ 
+                     center = torch.tensor([coor_x, coor_y],
+                                           dtype=torch.float32,
+-                                          device='cuda')
++                                          device='cpu')
+                     center_int = center.to(torch.int32)
+ 
+                     # throw out not in range objects to avoid out of array
+@@ -297,7 +313,7 @@ class BEVDepthHead(CenterHead):
+                         box_dim = box_dim.log()
+                     if len(task_boxes[idx][k]) > 7:
+                         anno_box[new_idx] = torch.cat([
+-                            center - torch.tensor([x, y], device='cuda'),
++                            center - torch.tensor([x, y], device='cpu'),
+                             z.unsqueeze(0),
+                             box_dim,
+                             torch.sin(rot).unsqueeze(0),
+@@ -307,16 +323,16 @@ class BEVDepthHead(CenterHead):
+                         ])
+                     else:
+                         anno_box[new_idx] = torch.cat([
+-                            center - torch.tensor([x, y], device='cuda'),
++                            center - torch.tensor([x, y], device='cpu'),
+                             z.unsqueeze(0), box_dim,
+                             torch.sin(rot).unsqueeze(0),
+                             torch.cos(rot).unsqueeze(0)
+                         ])
+ 
+-            heatmaps.append(heatmap)
+-            anno_boxes.append(anno_box)
+-            masks.append(mask)
+-            inds.append(ind)
++            heatmaps.append(heatmap.cuda())
++            anno_boxes.append(anno_box.cuda())
++            masks.append(mask.cuda())
++            inds.append(ind.cuda())
+         return heatmaps, anno_boxes, inds, masks
+ 
+     def loss(self, targets, preds_dicts, **kwargs):
+@@ -459,7 +475,7 @@ class BEVDepthHead(CenterHead):
+                             self.test_cfg['thresh_scale'][task_id],
+                             post_max_size=self.test_cfg['post_max_size'],
+                         ),
+-                        dtype=torch.long,
++                        dtype=torch.int,
+                         device=boxes.device,
+                     )
+ 
+diff --git a/requirements.txt b/requirements.txt
+index 26546cd..75c67a3 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,12 +1,14 @@
+-numba
+-numpy
++numba==0.58.1
++numpy<=1.23.5
+ nuscenes-devkit
+ opencv-python-headless
+ pandas
+-pytorch-lightning==1.6.0
++pytorch-lightning==1.6.5
+ scikit-image
+ scipy
+ setuptools==59.5.0
+ tensorboardX
+-torch==1.9.0
+-torchvision==0.10.0
++torchvision==0.12.0
++mmdet==2.28.0
++mmsegmentation==0.30.0
++protobuf==3.20.1
+\ No newline at end of file
+diff --git a/scripts/gen_depth_gt.py b/scripts/gen_depth_gt.py
+new file mode 100644
+index 0000000..4855ff2
+--- /dev/null
++++ b/scripts/gen_depth_gt.py
+@@ -0,0 +1,115 @@
++import os
++from multiprocessing import Pool
++
++import mmcv
++import numpy as np
++from nuscenes.utils.data_classes import LidarPointCloud
++from nuscenes.utils.geometry_utils import view_points
++from pyquaternion import Quaternion
++
++
++# https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/nuscenes.py#L834
++def map_pointcloud_to_image(
++    pc,
++    im,
++    lidar_calibrated_sensor,
++    lidar_ego_pose,
++    cam_calibrated_sensor,
++    cam_ego_pose,
++    min_dist: float = 0.0,
++):
++
++    # Points live in the point sensor frame. So they need to be
++    # transformed via global to the image plane.
++    # First step: transform the pointcloud to the ego vehicle
++    # frame for the timestamp of the sweep.
++
++    pc = LidarPointCloud(pc.T)
++    pc.rotate(Quaternion(lidar_calibrated_sensor['rotation']).rotation_matrix)
++    pc.translate(np.array(lidar_calibrated_sensor['translation']))
++
++    # Second step: transform from ego to the global frame.
++    pc.rotate(Quaternion(lidar_ego_pose['rotation']).rotation_matrix)
++    pc.translate(np.array(lidar_ego_pose['translation']))
++
++    # Third step: transform from global into the ego vehicle
++    # frame for the timestamp of the image.
++    pc.translate(-np.array(cam_ego_pose['translation']))
++    pc.rotate(Quaternion(cam_ego_pose['rotation']).rotation_matrix.T)
++
++    # Fourth step: transform from ego into the camera.
++    pc.translate(-np.array(cam_calibrated_sensor['translation']))
++    pc.rotate(Quaternion(cam_calibrated_sensor['rotation']).rotation_matrix.T)
++
++    # Fifth step: actually take a "picture" of the point cloud.
++    # Grab the depths (camera frame z axis points away from the camera).
++    depths = pc.points[2, :]
++    coloring = depths
++
++    # Take the actual picture (matrix multiplication with camera-matrix
++    # + renormalization).
++    points = view_points(pc.points[:3, :],
++                         np.array(cam_calibrated_sensor['camera_intrinsic']),
++                         normalize=True)
++
++    # Remove points that are either outside or behind the camera.
++    # Leave a margin of 1 pixel for aesthetic reasons. Also make
++    # sure points are at least 1m in front of the camera to avoid
++    # seeing the lidar points on the camera casing for non-keyframes
++    # which are slightly out of sync.
++    mask = np.ones(depths.shape[0], dtype=bool)
++    mask = np.logical_and(mask, depths > min_dist)
++    mask = np.logical_and(mask, points[0, :] > 1)
++    mask = np.logical_and(mask, points[0, :] < im.shape[1] - 1)
++    mask = np.logical_and(mask, points[1, :] > 1)
++    mask = np.logical_and(mask, points[1, :] < im.shape[0] - 1)
++    points = points[:, mask]
++    coloring = coloring[mask]
++
++    return points, coloring
++
++
++data_root = 'data/nuScenes'
++info_path = 'data/nuScenes/nuscenes_infos_train.pkl'
++# data3d_nusc = NuscMVDetData()
++
++lidar_key = 'LIDAR_TOP'
++cam_keys = [
++    'CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT',
++    'CAM_BACK', 'CAM_BACK_LEFT'
++]
++
++
++def worker(info):
++    lidar_path = info['lidar_infos'][lidar_key]['filename']
++    points = np.fromfile(os.path.join(data_root, lidar_path),
++                         dtype=np.float32,
++                         count=-1).reshape(-1, 5)[..., :4]
++    lidar_calibrated_sensor = info['lidar_infos'][lidar_key][
++        'calibrated_sensor']
++    lidar_ego_pose = info['lidar_infos'][lidar_key]['ego_pose']
++    for i, cam_key in enumerate(cam_keys):
++        cam_calibrated_sensor = info['cam_infos'][cam_key]['calibrated_sensor']
++        cam_ego_pose = info['cam_infos'][cam_key]['ego_pose']
++        img = mmcv.imread(
++            os.path.join(data_root, info['cam_infos'][cam_key]['filename']))
++        pts_img, depth = map_pointcloud_to_image(
++            points.copy(), img, lidar_calibrated_sensor.copy(),
++            lidar_ego_pose.copy(), cam_calibrated_sensor, cam_ego_pose)
++        file_name = os.path.split(info['cam_infos'][cam_key]['filename'])[-1]
++        np.concatenate([pts_img[:2, :].T, depth[:, None]],
++                       axis=1).astype(np.float32).flatten().tofile(
++                           os.path.join(data_root, 'depth_gt',
++                                        f'{file_name}.bin'))
++    # plt.savefig(f"{sample_idx}")
++
++
++if __name__ == '__main__':
++    po = Pool(24)
++    mmcv.mkdir_or_exist(os.path.join(data_root, 'depth_gt'))
++    infos = mmcv.load(info_path)
++    # import ipdb; ipdb.set_trace()
++    for info in infos:
++        po.apply_async(func=worker, args=(info, ))
++    po.close()
++    po.join()
+\ No newline at end of file
+diff --git a/setup.py b/setup.py
+index e8070cc..e41ead8 100644
+--- a/setup.py
++++ b/setup.py
+@@ -19,19 +19,10 @@ def make_cuda_ext(name,
+     define_macros = []
+     extra_compile_args = {'cxx': [] + extra_args}
+ 
+-    if torch.cuda.is_available() or os.getenv('FORCE_CUDA', '0') == '1':
+-        define_macros += [('WITH_CUDA', None)]
+-        extension = CUDAExtension
+-        extra_compile_args['nvcc'] = extra_args + [
+-            '-D__CUDA_NO_HALF_OPERATORS__',
+-            '-D__CUDA_NO_HALF_CONVERSIONS__',
+-            '-D__CUDA_NO_HALF2_OPERATORS__',
+-        ]
+-        sources += sources_cuda
+-    else:
+-        print('Compiling {} without CUDA'.format(name))
+-        extension = CppExtension
+-        # raise EnvironmentError('CUDA is required to compile MMDetection!')
++
++    print('Compiling {} without CUDA'.format(name))
++    extension = CppExtension
++    # raise EnvironmentError('CUDA is required to compile MMDetection!')
+ 
+     return extension(
+         name='{}.{}'.format(module, name),
+@@ -57,19 +48,5 @@ setup(
+         'Operating System :: OS Independent',
+     ],
+     install_requires=[],
+-    ext_modules=[
+-        make_cuda_ext(
+-            name='voxel_pooling_train_ext',
+-            module='bevdepth.ops.voxel_pooling_train',
+-            sources=['src/voxel_pooling_train_forward.cpp'],
+-            sources_cuda=['src/voxel_pooling_train_forward_cuda.cu'],
+-        ),
+-        make_cuda_ext(
+-            name='voxel_pooling_inference_ext',
+-            module='bevdepth.ops.voxel_pooling_inference',
+-            sources=['src/voxel_pooling_inference_forward.cpp'],
+-            sources_cuda=['src/voxel_pooling_inference_forward_cuda.cu'],
+-        ),
+-    ],
+     cmdclass={'build_ext': BuildExtension},
+ )

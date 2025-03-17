@@ -153,6 +153,7 @@ out, argmax = scatter_max(updates, indices, out)
 | SalsaNext | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SalsaNext |N|
 | Panoptic-PolarNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet |N|
 | HPTR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HPTR |N|
+| MatrixVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MatrixVT |N|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
