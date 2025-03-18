@@ -32,7 +32,7 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
     const LocalTensor<float>& gradOut)
 {
     WaitFlag<HardEvent::V_MTE2>(this->biEvt_);
-    for (uint32_t head = 0; head < this->numHeads_; ++head) {
+    for (uint32_t head = 0; head < this->outerLoops_; ++head) {
         uint64_t valid = validFlag.GetValue(head);
         uint64_t bottomInvalid = validFlag.GetValue(head + 2 * this->validFlagMaskLen_ / 8);
         uint64_t topInvalid = validFlag.GetValue(head + 3 * this->validFlagMaskLen_ / 8);
@@ -46,7 +46,7 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
         WaitFlag<HardEvent::MTE3_V>(0);
         for (uint32_t i = 0; i < 4; ++i) {
             Brcb(cornerWeightBrc[i * this->alignedCornerEmbedDims_], weight[baseIdx + i * this->alignedOneQueryNum_],
-                this->alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK,
+                (fastMode ? this->alignedOneQueryNum_ : this->alignedOneHeadNum_) / B32_DATA_NUM_PER_BLOCK,
                 {this->embedBlk_, static_cast<uint16_t>(8 * this->embedBlk_)});
         }
         for (uint32_t i = 1; i < this->embedBlk_; ++i) {
@@ -56,25 +56,14 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
                     static_cast<uint8_t>(8 * this->embedBlk_)});
         }
         SetVectorMask<float>(0, this->embedMask_);
-        if (unlikely(this->oneHeadNum_ == 64)) {
-            Mul<float, false>(cornerWeightBrc, cornerWeightBrc, gradOut[outOffset], MASK_PLACEHOLDER,
-                2 * this->oneHeadNum_,
-                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
-            Mul<float, false>(cornerWeightBrc[2 * this->alignedCornerEmbedDims_],
-                cornerWeightBrc[2 * this->alignedCornerEmbedDims_], gradOut[outOffset], MASK_PLACEHOLDER,
-                2 * this->oneHeadNum_,
-                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
-        } else {
-            Mul<float, false>(cornerWeightBrc, cornerWeightBrc, gradOut[outOffset], MASK_PLACEHOLDER,
-                4 * this->oneHeadNum_,
-                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
-        }
+        GradMul(cornerWeightBrc, gradOut, outOffset);
+
         SetFlag<HardEvent::V_MTE3>(0);
 
         WaitFlag<HardEvent::V_MTE3>(0);
         WaitFlag<HardEvent::V_MTE2>(0);
         SetAtomicAdd<float>();
-        for (int32_t i = ScalarGetSFFValue<1>(valid); i < this->oneHeadNum_ && i >= 0;
+        for (int32_t i = ScalarGetSFFValue<1>(valid); i < this->innerLoops_ && i >= 0;
             i = ScalarGetSFFValue<1>(valid)) {
             valid = sbitset0(valid, i);
             uint32_t idx = baseIdx + i;
@@ -90,7 +79,7 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
                 cornerWeightBrc[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
                 cpGradRowDoubleParams_);
         }
-        for (int32_t i = ScalarGetSFFValue<0>(bottomInvalid); i < this->oneHeadNum_ && i >= 0;
+        for (int32_t i = ScalarGetSFFValue<0>(bottomInvalid); i < this->innerLoops_ && i >= 0;
             i = ScalarGetSFFValue<0>(bottomInvalid)) {
             bottomInvalid = sbitset1(bottomInvalid, i);
             uint32_t idx = baseIdx + i;
@@ -110,7 +99,7 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
                     cornerWeightBrc[i * this->alignedEmbedDims_ + this->alignedCornerEmbedDims_], cpGradOneValParams_);
             }
         }
-        for (int32_t i = ScalarGetSFFValue<0>(topInvalid); i < this->oneHeadNum_ && i >= 0;
+        for (int32_t i = ScalarGetSFFValue<0>(topInvalid); i < this->innerLoops_ && i >= 0;
             i = ScalarGetSFFValue<0>(topInvalid)) {
             topInvalid = sbitset1(topInvalid, i);
             uint32_t idx = baseIdx + i;
@@ -138,22 +127,14 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
         SetFlag<HardEvent::MTE3_V>(0);
 
         WaitFlag<HardEvent::MTE2_V>(0);
-        if (unlikely(this->oneHeadNum_ == 64)) {
-            Mul<float, false>(value, value, gradOut[outOffset], MASK_PLACEHOLDER, 2 * this->oneHeadNum_,
-                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
-            Mul<float, false>(value[2 * this->alignedCornerEmbedDims_], value[2 * this->alignedCornerEmbedDims_],
-                gradOut[outOffset], MASK_PLACEHOLDER, 2 * this->oneHeadNum_,
-                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
-        } else {
-            Mul<float, false>(value, value, gradOut[outOffset], MASK_PLACEHOLDER, 4 * this->oneHeadNum_,
-                {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
-        }
-        if (head == this->numHeads_ - 1) {
+        GradMul(value, gradOut, outOffset);
+
+        if (head == this->outerLoops_ - 1) {
             SetFlag<HardEvent::V_MTE2>(1);
         }
         for (uint32_t i = 0; i < 4; ++i) {
             WholeReduceSum<float, false>(weight[baseIdx + i * this->alignedOneQueryNum_],
-                value[i * this->alignedCornerEmbedDims_], MASK_PLACEHOLDER, this->oneHeadNum_, 1, 1, this->embedBlk_);
+                value[i * this->alignedCornerEmbedDims_], MASK_PLACEHOLDER, this->innerLoops_, 1, 1, this->embedBlk_);
         }
         ResetMask();
 
@@ -277,12 +258,12 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn_grad(GM_ADDR v
             &tiling_datas, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(11)) {
-        MultiScaleDeformableAttnGradKernel<true, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+        MultiScaleDeformableAttnGradKernel<true, true> op(value_gm, spatial_shapes_gm, level_start_index_gm,
             sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
             &tiling_datas, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(01)) {
-        MultiScaleDeformableAttnGradKernel<false, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,
+        MultiScaleDeformableAttnGradKernel<false, true> op(value_gm, spatial_shapes_gm, level_start_index_gm,
             sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
             &tiling_datas, &pipe);
         op.Process();

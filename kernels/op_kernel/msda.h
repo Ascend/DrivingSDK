@@ -473,14 +473,21 @@ public:
             cpGradRowDoubleParams_.dstStride = (this->outDims_ - this->embedDims_) * B32_BYTE_SIZE;
         }
 
-        cpGradSampleParams_.blockCount = this->numHeads_;
-        cpGradSampleParams_.blockLen = this->oneHeadNum_ * B32_BYTE_SIZE;
-        cpGradSampleParams_.srcStride =
-            this->alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(this->oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
-        cpGradDoubleSampleParams_.blockCount = this->numHeads_;
-        cpGradDoubleSampleParams_.blockLen = 2 * this->oneHeadNum_ * B32_BYTE_SIZE;
-        cpGradDoubleSampleParams_.srcStride = 2 * this->alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK -
-                                              DivCeil(2 * this->oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
+        if (fastMode) {
+            cpGradSampleParams_.blockCount = 1;
+            cpGradSampleParams_.blockLen = this->numHeads_ * this->oneHeadNum_ * B32_BYTE_SIZE;
+            cpGradDoubleSampleParams_.blockCount = 1;
+            cpGradDoubleSampleParams_.blockLen = 2 * this->numHeads_ * this->oneHeadNum_ * B32_BYTE_SIZE;
+        } else {
+            cpGradSampleParams_.blockCount = this->numHeads_;
+            cpGradSampleParams_.blockLen = this->oneHeadNum_ * B32_BYTE_SIZE;
+            cpGradSampleParams_.srcStride =
+                this->alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(this->oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
+            cpGradDoubleSampleParams_.blockCount = this->numHeads_;
+            cpGradDoubleSampleParams_.blockLen = 2 * this->oneHeadNum_ * B32_BYTE_SIZE;
+            cpGradDoubleSampleParams_.srcStride = 2 * this->alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK -
+                                                  DivCeil(2 * this->oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
+        }
     }
 
     __aicore__ inline void Process();
@@ -507,6 +514,27 @@ private:
             DataCopyPad(gradOut, gradOutGm_[taskIdx * this->outDims_], this->cpOutParams_, {});
         }
         SetFlag<HardEvent::MTE2_V>(1);
+    }
+
+    __aicore__ inline void GradMul(const LocalTensor<float>& dst, const LocalTensor<float>& gradOut, uint32_t outOffset)
+    {
+        for (uint32_t i = 0; i < 4; ++i) {
+            uint32_t outerOffset = i * this->alignedCornerEmbedDims_;
+            uint32_t offset = outOffset;
+            if (fastMode) {
+                for (uint32_t j = 0; j < this->numHeads_; ++j) {
+                    uint32_t innerOffset = outerOffset + offset * this->oneHeadNum_;
+                    Mul<float, false>(dst[innerOffset], dst[innerOffset], gradOut[offset], MASK_PLACEHOLDER,
+                        this->oneHeadNum_,
+                        {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
+                    offset += this->alignedEmbedDims_;
+                }
+            } else {
+                Mul<float, false>(dst[outerOffset], dst[outerOffset], gradOut[outOffset], MASK_PLACEHOLDER,
+                    this->oneHeadNum_,
+                    {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
+            }
+        }
     }
 
     __aicore__ inline void ComputeBilinearInterpolation(const LocalTensor<uint64_t>& validFlag,
