@@ -45,12 +45,12 @@ std::tuple<at::Tensor, at::Tensor> modulated_deformable_conv2d(const at::Tensor&
     TORCH_CHECK(c_in % groups == 0, "input's channel should be divided by groups");
     bool modulated = true;
 
-    at::Tensor output = at::empty({n, h_out, w_out, c_out}, input.options());
-    at::Tensor offset_output = at::empty({n, h_out, w_out, kh * kw * c_in}, input.options());
+    at::Tensor output = at::empty({n, h_out, c_out, w_out}, input.options());
+    at::Tensor offset_output = at::empty({n, h_out, w_out, groups, kh * kw * c_in / groups}, input.options());
 
     EXEC_NPU_CMD(aclnnDeformableConv2d, input, weight, bias, offset, mask, kernel_size, stride, padding, dilation,
         groups, deformable_groups, modulated, with_bias, output, offset_output);
 
-    output = output.permute({0, 3, 1, 2});
+    output = output.permute({0, 2, 1, 3});
     return std::tie(output, offset_output);
 }

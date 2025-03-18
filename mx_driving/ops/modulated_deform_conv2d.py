@@ -8,12 +8,14 @@ Modification 1. Add support for Ascend NPU
 """
 
 from typing import Optional, Tuple, Union
+
 import torch
+import torch_npu
 from torch import nn
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
-import torch_npu
+
 import mx_driving._C
 
 
@@ -67,7 +69,7 @@ class ModulatedDeformConv2dFunction(Function):
     # pylint: disable=huawei-too-many-arguments,too-many-return-values
     def backward(ctx, grad_out):
         nhwc_x, nhwc_offset, nhwc_weight, nhwc_mask, offset_output = ctx.saved_tensors
-        nhwc_grad_out = grad_out.permute(0, 2, 3, 1).contiguous()
+        nhwc_grad_out = grad_out.permute(0, 2, 1, 3).contiguous()
         grad_x, grad_weight, _, grad_offset, grad_mask = mx_driving._C.modulated_deformable_conv2d_backward(
             nhwc_x,
             nhwc_offset,
