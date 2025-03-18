@@ -1,0 +1,672 @@
+diff --git a/projects/configs/flashocc/flashocc-r50.py b/projects/configs/flashocc/flashocc-r50.py
+index ff4d67f..0f63e93 100644
+--- a/projects/configs/flashocc/flashocc-r50.py
++++ b/projects/configs/flashocc/flashocc-r50.py
+@@ -201,7 +201,7 @@ for key in ['val', 'train', 'test']:
+     data[key].update(share_data_config)
+ 
+ # Optimizer
+-optimizer = dict(type='AdamW', lr=1e-4, weight_decay=1e-2)
++optimizer = dict(type='NpuFusedAdamW', lr=1e-4, weight_decay=1e-2)
+ optimizer_config = dict(grad_clip=dict(max_norm=5, norm_type=2))
+ lr_config = dict(
+     policy='step',
+diff --git a/projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408_4x4_2e-4.py b/projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408_4x4_2e-4.py
+index 3785cd1..c01f9a9 100644
+--- a/projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408_4x4_2e-4.py
++++ b/projects/configs/flashocc/flashocc-stbase-4d-stereo-512x1408_4x4_2e-4.py
+@@ -114,7 +114,7 @@ model = dict(
+         use_mask=True,
+         num_classes=18,
+         use_predicter=True,
+-        class_wise=False,
++        class_balance=False,
+         loss_occ=dict(
+             type='CrossEntropyLoss',
+             use_sigmoid=False,
+@@ -229,7 +229,7 @@ for key in ['val', 'train', 'test']:
+     data[key].update(share_data_config)
+ 
+ # Optimizer
+-optimizer = dict(type='AdamW', lr=2e-4, weight_decay=1e-2)
++optimizer = dict(type='NpuFusedAdamW', lr=2e-4, weight_decay=1e-2)
+ optimizer_config = dict(grad_clip=dict(max_norm=5, norm_type=2))
+ lr_config = dict(
+     policy='step',
+diff --git a/projects/mmdet3d_plugin/core/evaluation/ray_metrics.py b/projects/mmdet3d_plugin/core/evaluation/ray_metrics.py
+index e90f7bf..f40770a 100644
+--- a/projects/mmdet3d_plugin/core/evaluation/ray_metrics.py
++++ b/projects/mmdet3d_plugin/core/evaluation/ray_metrics.py
+@@ -10,7 +10,7 @@ from prettytable import PrettyTable
+ from .ray_pq import Metric_RayPQ
+ 
+ 
+-dvr = load("dvr", sources=["lib/dvr/dvr.cpp", "lib/dvr/dvr.cu"], verbose=True, extra_cuda_cflags=['-allow-unsupported-compiler'])
++# dvr = load("dvr", sources=["lib/dvr/dvr.cpp", "lib/dvr/dvr.cu"], verbose=True, extra_cuda_cflags=['-allow-unsupported-compiler'])
+ _pc_range = [-40, -40, -1.0, 40, 40, 5.4]
+ _voxel_size = 0.4
+ 
+diff --git a/projects/mmdet3d_plugin/models/necks/view_transformer.py b/projects/mmdet3d_plugin/models/necks/view_transformer.py
+index 0ab03f4..571d096 100644
+--- a/projects/mmdet3d_plugin/models/necks/view_transformer.py
++++ b/projects/mmdet3d_plugin/models/necks/view_transformer.py
+@@ -3,10 +3,10 @@ import torch
+ import torch.nn as nn
+ from mmcv.runner import BaseModule, force_fp32
+ from mmdet3d.models.builder import NECKS
+-from ...ops import bev_pool_v2
+ from ..model_utils import DepthNet
+ from torch.cuda.amp.autocast_mode import autocast
+ import torch.nn.functional as F
++from mx_driving import bev_pool_v3
+ 
+ 
+ @NECKS.register_module(force=True)
+@@ -210,9 +210,7 @@ class LSSViewTransformer(BaseModule):
+                 (B, N_cams, D, H, W, C).
+         """
+ 
+-        ranks_bev, ranks_depth, ranks_feat, \
+-            interval_starts, interval_lengths = \
+-            self.voxel_pooling_prepare_v2(coor)
++        ranks_bev, ranks_depth, ranks_feat = self.voxel_pooling_prepare_v2(coor)
+         # ranks_bev: (N_points, ),
+         # ranks_depth: (N_points, ),
+         # ranks_feat: (N_points, ),
+@@ -222,8 +220,6 @@ class LSSViewTransformer(BaseModule):
+         self.ranks_bev = ranks_bev.int().contiguous()
+         self.ranks_feat = ranks_feat.int().contiguous()
+         self.ranks_depth = ranks_depth.int().contiguous()
+-        self.interval_starts = interval_starts.int().contiguous()
+-        self.interval_lengths = interval_lengths.int().contiguous()
+ 
+     def voxel_pooling_v2(self, coor, depth, feat):
+         """
+@@ -234,9 +230,7 @@ class LSSViewTransformer(BaseModule):
+         Returns:
+             bev_feat: (B, C*Dz(=1), Dy, Dx)
+         """
+-        ranks_bev, ranks_depth, ranks_feat, \
+-            interval_starts, interval_lengths = \
+-            self.voxel_pooling_prepare_v2(coor)
++        ranks_bev, ranks_depth, ranks_feat = self.voxel_pooling_prepare_v2(coor)
+         # ranks_bev: (N_points, ),
+         # ranks_depth: (N_points, ),
+         # ranks_feat: (N_points, ),
+@@ -258,9 +252,8 @@ class LSSViewTransformer(BaseModule):
+         bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                           int(self.grid_size[1]), int(self.grid_size[0]),
+                           feat.shape[-1])       # (B, Dz, Dy, Dx, C)
+-        bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+-                               bev_feat_shape, interval_starts,
+-                               interval_lengths)    # (B, C, Dz, Dy, Dx)
++        bev_feat = bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev,
++                               bev_feat_shape)    # (B, C, Dz, Dy, Dx)
+         # collapse Z
+         if self.collapse_z:
+             bev_feat = torch.cat(bev_feat.unbind(dim=2), 1)     # (B, C*Dz, Dy, Dx)
+@@ -307,11 +300,13 @@ class LSSViewTransformer(BaseModule):
+                (coor[:, 1] >= 0) & (coor[:, 1] < self.grid_size[1]) & \
+                (coor[:, 2] >= 0) & (coor[:, 2] < self.grid_size[2])
+         if len(kept) == 0:
+-            return None, None, None, None, None
++            return None, None, None
+ 
+-        # (N_points, 4), (N_points, ), (N_points, )
+-        coor, ranks_depth, ranks_feat = \
+-            coor[kept], ranks_depth[kept], ranks_feat[kept]
++        # (N_points, 4), (N_points, ), (N_points, )            
++        kept_coor_mask = kept.unsqueeze(-1).expand_as(coor)
++        coor = torch.masked_select(coor, kept_coor_mask).view(-1, 4)
++        ranks_depth = torch.masked_select(ranks_depth, kept)
++        ranks_feat = torch.masked_select(ranks_feat, kept)
+ 
+         # get tensors from the same voxel next to each other
+         ranks_bev = coor[:, 3] * (
+@@ -320,21 +315,9 @@ class LSSViewTransformer(BaseModule):
+         ranks_bev += coor[:, 1] * self.grid_size[0] + coor[:, 0]
+         order = ranks_bev.argsort()
+         # (N_points, ), (N_points, ), (N_points, )
+-        ranks_bev, ranks_depth, ranks_feat = \
+-            ranks_bev[order], ranks_depth[order], ranks_feat[order]
+-
+-        kept = torch.ones(
+-            ranks_bev.shape[0], device=ranks_bev.device, dtype=torch.bool)
+-        kept[1:] = ranks_bev[1:] != ranks_bev[:-1]
+-        interval_starts = torch.where(kept)[0].int()
+-        if len(interval_starts) == 0:
+-            return None, None, None, None, None
+-        interval_lengths = torch.zeros_like(interval_starts)
+-        interval_lengths[:-1] = interval_starts[1:] - interval_starts[:-1]
+-        interval_lengths[-1] = ranks_bev.shape[0] - interval_starts[-1]
++
+         return ranks_bev.int().contiguous(), ranks_depth.int().contiguous(
+-        ), ranks_feat.int().contiguous(), interval_starts.int().contiguous(
+-        ), interval_lengths.int().contiguous()
++        ), ranks_feat.int().contiguous()
+ 
+     def pre_compute(self, input):
+         if self.initial_flag:
+@@ -369,10 +352,9 @@ class LSSViewTransformer(BaseModule):
+             bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                               int(self.grid_size[1]), int(self.grid_size[0]),
+                               feat.shape[-1])   # (B, Dz, Dy, Dx, C)
+-            bev_feat = bev_pool_v2(depth, feat, self.ranks_depth,
++            bev_feat = bev_pool_v3(depth, feat, self.ranks_depth,
+                                    self.ranks_feat, self.ranks_bev,
+-                                   bev_feat_shape, self.interval_starts,
+-                                   self.interval_lengths)   # (B, C, Dz, Dy, Dx)
++                                   bev_feat_shape)   # (B, C, Dz, Dy, Dx)
+ 
+             bev_feat = bev_feat.squeeze(2)      # (B, C, Dy, Dx)
+         else:
+diff --git a/projects/mmdet3d_plugin/ops/__init__.py b/projects/mmdet3d_plugin/ops/__init__.py
+index 53a6016..6009563 100644
+--- a/projects/mmdet3d_plugin/ops/__init__.py
++++ b/projects/mmdet3d_plugin/ops/__init__.py
+@@ -1,5 +1,4 @@
+ from .bev_pool import bev_pool
+ from .bev_pool_v2 import bev_pool_v2, TRTBEVPoolv2
+-from .nearest_assign import nearest_assign
+ 
+-__all__ = ['bev_pool', 'bev_pool_v2', 'TRTBEVPoolv2', 'nearest_assign']
+\ No newline at end of file
++__all__ = ['bev_pool', 'bev_pool_v2', 'TRTBEVPoolv2']
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/ops/bev_pool/bev_pool.py b/projects/mmdet3d_plugin/ops/bev_pool/bev_pool.py
+index 747b213..4747b85 100644
+--- a/projects/mmdet3d_plugin/ops/bev_pool/bev_pool.py
++++ b/projects/mmdet3d_plugin/ops/bev_pool/bev_pool.py
+@@ -1,126 +1,92 @@
+ import torch
+ 
+-from . import bev_pool_ext
++import mx_driving._C
+ 
+ 
+-class QuickBevPoolingCuda(torch.autograd.Function):
++class BEVPool(torch.autograd.Function):
+     @staticmethod
+-    def forward(ctx, feats, coords, ranks, B, D, H, W, pooling_method):
+-        """
+-        Args:
+-            ctx:
+-            feats: (N, C)
+-            coords: (N, 4)   4: (x_id, y_id, z_id, batch_id)
+-            ranks:  (N, )  eg: (0, 0, 1, 1, 1, 2, 2)
+-            B:
+-            D:
+-            H:
+-            W:
+-        Returns:
+-            out: (B, D, H, W, C)
+-        """
+-        kept = torch.ones(feats.shape[0], device=feats.device, dtype=torch.bool)    # (N, )
+-        kept[1:] = ranks[1:] != ranks[:-1]      # 边界点=1, 其余为0（pillar id发生变化）    eg:(1, 0, 1, 0, 0, 1, 0)
+-        interval_starts = torch.where(kept)[0].int()    # 该pillar的起始位置  (N_pillar, )    eg: (0, 2, 5)
+-        interval_lengths = torch.zeros_like(interval_starts)    # pillar包含points的数量  (N_pillar, )  eg: (0, 0, 0)
+-        interval_lengths[:-1] = interval_starts[1:] - interval_starts[:-1]   # eg: (0, 2, 5)
+-        interval_lengths[-1] = feats.shape[0] - interval_starts[-1]     # eg: (0, 3, 2)
+-        coords = coords.int()
++    # pylint: disable=too-many-arguments,huawei-too-many-arguments
++    def forward(ctx, feat, geom_feat, ranks, B, D, H, W):
++        kept = torch.ones(feat.shape[0], device=feat.device, dtype=torch.bool)
++        kept[1:] = ranks[1:] != ranks[:-1]
++        interval_starts = torch.where(kept)[0].int()
++        interval_lengths = torch.zeros_like(interval_starts, dtype=torch.int32)
++        interval_lengths[:-1] = interval_starts[1:] - interval_starts[:-1]
++        interval_lengths[-1] = feat.shape[0] - interval_starts[-1]
++        geom_feat = geom_feat.int()
+ 
+-        if pooling_method == 'sum':
+-            out = bev_pool_ext.bev_sum_pool_forward(
+-                feats,      # (N, C)
+-                coords,     # (N, 4)   4: (x_id, y_id, z_id, batch_id)
+-                interval_lengths,   # (N_pillar, )
+-                interval_starts,    # (N_pillar, )
+-                B,
+-                D,
+-                H,
+-                W,
+-            )
+-        elif pooling_method == 'max':
+-            out = bev_pool_ext.bev_max_pool_forward(
+-                feats,      # (N, C)
+-                coords,     # (N, 4)   4: (x_id, y_id, z_id, batch_id)
+-                interval_lengths,   # (N_pillar, )
+-                interval_starts,    # (N_pillar, )
+-                B,
+-                D,
+-                H,
+-                W,
+-            )
++        out = mx_driving._C.npu_bev_pool(
++            feat,
++            geom_feat,
++            interval_lengths,
++            interval_starts,
++            B,
++            D,
++            H,
++            W,
++        )
+ 
+-        ctx.save_for_backward(interval_starts, interval_lengths, coords)
++        ctx.save_for_backward(interval_starts, interval_lengths, geom_feat)
+         ctx.saved_shapes = B, D, H, W
+-        ctx.pooling_method = pooling_method
+         return out
+ 
+     @staticmethod
+-    def backward(ctx, out_grad):
+-        """
+-        Args:
+-            ctx:
+-            out_grad: (B, D, H, W, C)
+-
+-        Returns:
+-            x_grad: (N, C)
+-        """
+-        # (N_pillar, ),  (N_pillar, ),  (N, 4)   4: (x_id, y_id, z_id, batch_id)
+-        interval_starts, interval_lengths, geom_coords = ctx.saved_tensors
++    # pylint: disable=too-many-return-values
++    def backward(ctx, grad_out):
++        interval_starts, interval_lengths, geom_feat = ctx.saved_tensors
+         B, D, H, W = ctx.saved_shapes
+-        pooling_method = ctx.pooling_method
+ 
+-        out_grad = out_grad.contiguous()
+-        if pooling_method == 'sum':
+-            x_grad = bev_pool_ext.bev_sum_pool_backward(
+-                out_grad,               # (B, D, H, W, C)
+-                geom_coords,            # (N, 4)   4: (x_id, y_id, z_id, batch_id)
+-                interval_lengths,       # (N_pillar, )
+-                interval_starts,        # (N_pillar, )
+-                B,
+-                D,
+-                H,
+-                W,
+-            )   # (N, C)
+-        elif pooling_method == 'max':
+-            x_grad = bev_pool_ext.bev_max_pool_backward(
+-                out_grad,               # (B, D, H, W, C)
+-                geom_coords,            # (N, 4)   4: (x_id, y_id, z_id, batch_id)
+-                interval_lengths,       # (N_pillar, )
+-                interval_starts,        # (N_pillar, )
+-                B,
+-                D,
+-                H,
+-                W,
+-            )   # (N, C)
++        grad_out = grad_out.contiguous()
++        grad_feat = mx_driving._C.npu_bev_pool_backward(
++            grad_out,
++            geom_feat,
++            interval_lengths,
++            interval_starts,
++            B,
++            D,
++            H,
++            W,
++        )
+ 
+-        return x_grad, None, None, None, None, None, None, None
++        return grad_feat, None, None, None, None, None, None
+ 
+ 
+-def bev_pool(feats, coords, B, D, H, W, pooling_method='sum'):
++# pylint: disable=too-many-arguments,huawei-too-many-arguments
++def bev_pool(feat, geom_feat, B, D, H, W):
+     """
++    bev_pool is a function that pools the features in the BEV (Bird's Eye View) format.
++    Please refer to the paper "BEVFusion: Multi-Task Multi-Sensor Fusion with Unified Bird's-Eye View Representation"
++    for more details.
+     Args:
+-        feats: (N, C)
+-        coords: (N, 4)  4: (x_id, y_id, z_id, batch_id)
+-        B:
+-        D:  Dz
+-        H:  Dy
+-        W:  Dx
++        feat (Tensor): The input feature tensor with shape (N, C).
++        geom_feat (Tensor): The geometry feature tensor with shape (N, 4). The 4 elements are (h, w, d, b).
++        B (int): The number of batch in the BEV.
++        D (int): The number of depth in the BEV.
++        H (int): The height of the BEV.
++        W (int): The width of the BEV.
+     Returns:
+-        bev_features: (B, C, D, H, W)
++        bev_pooled_feat (Tensor): The pooled feature tensor with shape (B, C, D, H, W).
++    Constraints:
++        - The number of features and geometry features should be the same.
++        - B * D * H * W * C <= 2^31, B, D <= 8, H, W <= 256, C <= 1024, for best practice.
++        - C <= 1024
++    Usage:
++        >>> import torch, torch_npu
++        >>> from mx_driving.perception.fused import bev_pool
++        >>> feat = torch.rand(4, 256).npu()
++        >>> feat.requires_grad_()
++        >>> geom_feat = torch.tensor([[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 2], [0, 0, 0, 3]], dtype=torch.int32).npu()
++        >>> bev_pooled_feat = bev_pool(feat, geom_feat, 4, 1, 256, 256)
++        >>> loss = bev_pooled_feat.sum()
++        >>> loss.backward()
+     """
+-    assert feats.shape[0] == coords.shape[0]
++    if feat.shape[0] != geom_feat.shape[0]:
++        raise ValueError("The number of features and geometry features should be the same.")
+ 
+-    ranks = (
+-        coords[:, 0] * (H * D * B)
+-        + coords[:, 1] * (D * B)
+-        + coords[:, 2] * B
+-        + coords[:, 3]
+-    )       # (N, )
+-    indices = ranks.argsort()   # (N, )
+-    # (N, C), (N, 4), (N, )
+-    feats, coords, ranks = feats[indices], coords[indices], ranks[indices]
++    ranks = geom_feat[:, 0] * (W * D * B) + geom_feat[:, 1] * (D * B) + geom_feat[:, 2] * B + geom_feat[:, 3]
++    indices = ranks.argsort()
++    feat, geom_feat, ranks = feat[indices], geom_feat[indices], ranks[indices]
+ 
+-    x = QuickBevPoolingCuda.apply(feats, coords, ranks, B, D, H, W, pooling_method)     # (B, D, H, W, C)
+-    x = x.permute(0, 4, 1, 2, 3).contiguous()   # (B, C, D, H, W)
+-    return x
++    out = BEVPool.apply(feat, geom_feat, ranks, B, D, H, W)
++    out = out.permute(0, 4, 1, 2, 3).contiguous()
++    return out
+diff --git a/projects/mmdet3d_plugin/ops/bev_pool_v2/bev_pool.py b/projects/mmdet3d_plugin/ops/bev_pool_v2/bev_pool.py
+index fe9090e..cbd0912 100644
+--- a/projects/mmdet3d_plugin/ops/bev_pool_v2/bev_pool.py
++++ b/projects/mmdet3d_plugin/ops/bev_pool_v2/bev_pool.py
+@@ -3,57 +3,46 @@
+ import numpy as np
+ import torch
+ 
+-from . import bev_pool_v2_ext
++import mx_driving._C
++from mx_driving import bev_pool_v3
+ 
+-__all__ = ['bev_pool_v2', 'TRTBEVPoolv2']
+ 
+-
+-class QuickCumsumCuda(torch.autograd.Function):
+-    r"""BEVPoolv2 implementation for Lift-Splat-Shoot view transformation.
+-
+-    Please refer to the `paper <https://arxiv.org/abs/2211.17111>`_
+-    """
++class BEVPoolV2(torch.autograd.Function):
+     @staticmethod
+-    def forward(ctx, depth, feat, ranks_depth, ranks_feat, ranks_bev,
+-                bev_feat_shape, interval_starts, interval_lengths):
+-        ranks_bev = ranks_bev.int()     # (N_points, ),
+-        depth = depth.contiguous().float()  # (B, N, D, fH, fW)
+-        feat = feat.contiguous().float()    # (B, N, fH, fW, C)
+-        ranks_depth = ranks_depth.contiguous().int()    # (N_points, ),
+-        ranks_feat = ranks_feat.contiguous().int()      # (N_points, ),
+-        interval_lengths = interval_lengths.contiguous().int()  # (N_pillar, )
+-        interval_starts = interval_starts.contiguous().int()    # (N_pillar, )
+-
+-        out = feat.new_zeros(bev_feat_shape)    # (B, D_Z, D_Y, D_X, C)
+-
+-        bev_pool_v2_ext.bev_pool_v2_forward(
+-            depth,
+-            feat,
+-            out,
+-            ranks_depth,
+-            ranks_feat,
+-            ranks_bev,
+-            interval_lengths,
+-            interval_starts,
++    # pylint: disable=too-many-arguments,huawei-too-many-arguments
++    def forward(
++        ctx, depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths
++    ):
++        ranks_bev = ranks_bev.int()
++        depth = depth.contiguous().float()
++        feat = feat.contiguous().float()
++        ranks_depth = ranks_depth.contiguous().int()
++        ranks_feat = ranks_feat.contiguous().int()
++        interval_lengths = interval_lengths.contiguous().int()
++        interval_starts = interval_starts.contiguous().int()
++
++        (B, D, H, W, C) = bev_feat_shape
++        out = mx_driving._C.npu_bev_pool_v2(
++            depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_lengths, interval_starts, B, D, H, W
+         )
+ 
+         ctx.save_for_backward(ranks_bev, depth, feat, ranks_feat, ranks_depth)
++        ctx.saved_shapes = B, D, H, W
+         return out
+ 
+     @staticmethod
+-    def backward(ctx, out_grad):
++    # pylint: disable=too-many-return-values
++    def backward(ctx, grad_out):
+         ranks_bev, depth, feat, ranks_feat, ranks_depth = ctx.saved_tensors
++        B, D, H, W = ctx.saved_shapes
+ 
+         order = ranks_feat.argsort()
+-        ranks_feat, ranks_depth, ranks_bev = \
+-            ranks_feat[order], ranks_depth[order], ranks_bev[order]
+-        kept = torch.ones(
+-            ranks_bev.shape[0], device=ranks_bev.device, dtype=torch.bool)
++        ranks_feat, ranks_depth, ranks_bev = ranks_feat[order], ranks_depth[order], ranks_bev[order]
++        kept = torch.ones(ranks_bev.shape[0], device=ranks_bev.device, dtype=torch.bool)
+         kept[1:] = ranks_feat[1:] != ranks_feat[:-1]
+         interval_starts_bp = torch.where(kept)[0].int()
+         interval_lengths_bp = torch.zeros_like(interval_starts_bp)
+-        interval_lengths_bp[:-1] = interval_starts_bp[
+-            1:] - interval_starts_bp[:-1]
++        interval_lengths_bp[:-1] = interval_starts_bp[1:] - interval_starts_bp[:-1]
+         interval_lengths_bp[-1] = ranks_bev.shape[0] - interval_starts_bp[-1]
+ 
+         depth = depth.contiguous()
+@@ -63,14 +52,10 @@ class QuickCumsumCuda(torch.autograd.Function):
+         ranks_bev = ranks_bev.contiguous()
+         interval_lengths_bp = interval_lengths_bp.contiguous()
+         interval_starts_bp = interval_starts_bp.contiguous()
++        grad_out = grad_out.contiguous()
+ 
+-        depth_grad = depth.new_zeros(depth.shape)
+-        feat_grad = feat.new_zeros(feat.shape)
+-        out_grad = out_grad.contiguous()
+-        bev_pool_v2_ext.bev_pool_v2_backward(
+-            out_grad,
+-            depth_grad,
+-            feat_grad,
++        grad_depth, grad_feat = mx_driving._C.npu_bev_pool_v2_backward(
++            grad_out,
+             depth,
+             feat,
+             ranks_depth,
+@@ -78,31 +63,55 @@ class QuickCumsumCuda(torch.autograd.Function):
+             ranks_bev,
+             interval_lengths_bp,
+             interval_starts_bp,
++            B,
++            D,
++            H,
++            W,
+         )
+-        return depth_grad, feat_grad, None, None, None, None, None, \
+-            None, None, None
++        return grad_depth, grad_feat, None, None, None, None, None, None
+ 
+ 
+-def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+-                bev_feat_shape, interval_starts, interval_lengths):
++# pylint: disable=too-many-arguments,huawei-too-many-arguments
++def bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths):
+     """
++    bev_pool_v2 is a function that performs a pooling operation on the BEV.
++    Please refer to the paper `BEVDet: High-performance Multi-camera 3D Object Detection in Bird-Eye-View`
++    for more details.
+     Args:
+-        depth: (B, N, D, fH, fW)
+-        feat:  (B, N, fH, fW, C)
+-        ranks_depth: (N_points, ),
+-        ranks_feat:  (N_points, ),
+-        ranks_bev:   (N_points, ),
+-        bev_feat_shape: (B, D_Z, D_Y, D_X, C)
+-        interval_starts: (N_pillar, )
+-        interval_lengths: (N_pillar, )
+-
++        depth: The depth tensor, with shape [B, N, D, H, W].
++        feat: The feature tensor, with shape [B, N, H, W, C].
++        ranks_depth: The ranks of the depth tensor, with shape [N_RANKS].
++        ranks_feat: The ranks of the feature tensor, with shape [N_RANKS].
++        ranks_bev: The ranks of the BEV tensor, with shape [N_RANKS].
++        bev_feat_shape: The shape of the BEV feature tensor, list of [B, D, H, W, C].
++        interval_starts: The interval starts tensor, with shape [N_INTERVALS].
++        interval_lengths: The interval lengths tensor, with shape [N_INTERVALS].
+     Returns:
+-        x: bev feature in shape (B, C, Dz, Dy, Dx)
++        The pooled tensor, with shape [B, C, D, H, W].
++    Constraints:
++        - B * D * H * W * C <= 2^31, B, D <= 8, H, W <= 256, C <= 1024, for best practice.
++        - C <= 1024
++        - N_RANKS <= 2^21
++    Usage:
++        >>> import torch, torch_npu
++        >>> from mx_driving.perception.fused import bev_pool_v2
++        >>> depth = torch.rand(2, 1, 8, 256, 256).npu()
++        >>> feat = torch.rand(2, 1, 256, 256, 64).npu()
++        >>> feat.requires_grad_()
++        >>> ranks_depth = torch.tensor([0, 1], dtype=torch.int32).npu()
++        >>> ranks_feat = torch.tensor([0, 1], dtype=torch.int32).npu()
++        >>> ranks_bev = torch.tensor([0, 1], dtype=torch.int32).npu()
++        >>> bev_feat_shape = [2, 8, 256, 256, 64]
++        >>> interval_starts = torch.tensor([0], dtype=torch.int32).npu()
++        >>> interval_lengths = torch.tensor([2], dtype=torch.int32).npu()
++        >>> out = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths)
++        >>> loss = out.sum()
++        >>> loss.backward()
+     """
+-    x = QuickCumsumCuda.apply(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+-                              bev_feat_shape, interval_starts,
+-                              interval_lengths)      # (B, Dz, Dy, Dx, C)
+-    x = x.permute(0, 4, 1, 2, 3).contiguous()        # (B, C, Dz, Dy, Dx)
++    x = BEVPoolV2.apply(
++        depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape, interval_starts, interval_lengths
++    )
++    x = x.permute(0, 4, 1, 2, 3).contiguous()
+     return x
+ 
+ 
+@@ -151,7 +160,7 @@ class TRTBEVPoolv2(torch.autograd.Function):
+         depth = depth.unsqueeze(0)
+         bev_feat_shape = (depth.shape[0], output_z, output_height, output_width,
+                           feat.shape[-1])  # (B, Z, Y, X, C)
+-        bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
++        bev_feat = bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+                                bev_feat_shape, interval_starts,
+                                interval_lengths)
+         if output_z == 1:
+diff --git a/requirements/runtime.txt b/requirements/runtime.txt
+index 643cb0c..070f6a6 100644
+--- a/requirements/runtime.txt
++++ b/requirements/runtime.txt
+@@ -1,7 +1,9 @@
++setuptools==59.5.0
++mmsegmentation==0.29.1
+ lyft_dataset_sdk
+ networkx>=2.2,<2.3
+ numba==0.53.0
+-numpy
++numpy==1.23.5
+ nuscenes-devkit
+ plyfile
+ scikit-image
+diff --git a/requirements/tests.txt b/requirements/tests.txt
+index 303cc37..23f9d95 100644
+--- a/requirements/tests.txt
++++ b/requirements/tests.txt
+@@ -10,4 +10,4 @@ pytest-cov
+ pytest-runner
+ ubelt
+ xdoctest >= 0.10.0
+-yapf
++yapf==0.40.1
+diff --git a/tools/test.py b/tools/test.py
+index e5f2063..5de21be 100644
+--- a/tools/test.py
++++ b/tools/test.py
+@@ -5,9 +5,11 @@ import warnings
+ 
+ import mmcv
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from mmcv import Config, DictAction
+ from mmcv.cnn import fuse_conv_bn
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
+                          wrap_fp16_model)
+ 
+@@ -116,7 +118,7 @@ def parse_args():
+         choices=['none', 'pytorch', 'slurm', 'mpi'],
+         default='none',
+         help='job launcher')
+-    parser.add_argument('--local_rank', type=int, default=0)
++    parser.add_argument('--local-rank', type=int, default=0)
+     args = parser.parse_args()
+     if 'LOCAL_RANK' not in os.environ:
+         os.environ['LOCAL_RANK'] = str(args.local_rank)
+@@ -256,10 +258,10 @@ def main():
+         model.PALETTE = dataset.PALETTE
+ 
+     if not distributed:
+-        model = MMDataParallel(model, device_ids=cfg.gpu_ids)
++        model = NPUDataParallel(model, device_ids=cfg.gpu_ids)
+         outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+     else:
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False)
+@@ -287,4 +289,9 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    from mx_driving.patcher.patcher import PatcherBuilder, Patch
++    from mx_driving.patcher.tensor import batch_matmul
++    
++    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul))
++    with pb.build():
++        main()
+diff --git a/tools/train.py b/tools/train.py
+index 4c89d46..fcb955a 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -9,6 +9,8 @@ from os import path as osp
+ 
+ import mmcv
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import torch.distributed as dist
+ from mmcv import Config, DictAction
+ from mmcv.runner import get_dist_info, init_dist
+@@ -93,7 +95,7 @@ def parse_args():
+         choices=['none', 'pytorch', 'slurm', 'mpi'],
+         default='none',
+         help='job launcher')
+-    parser.add_argument('--local_rank', type=int, default=0)
++    parser.add_argument('--local-rank', type=int, default=0)
+     parser.add_argument(
+         '--autoscale-lr',
+         action='store_true',
+@@ -283,4 +285,9 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    from mx_driving.patcher.patcher import PatcherBuilder, Patch
++    from mx_driving.patcher.tensor import batch_matmul
++    
++    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul))
++    with pb.build():
++        main()

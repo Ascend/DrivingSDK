@@ -1,0 +1,71 @@
+diff --git a/configs/_base_/default_runtime.py b/configs/_base_/default_runtime.py
+index 5fc198bb..bfb78f55 100644
+--- a/configs/_base_/default_runtime.py
++++ b/configs/_base_/default_runtime.py
+@@ -4,7 +4,7 @@ checkpoint_config = dict(interval=1)
+ # For more loggers see
+ # https://mmcv.readthedocs.io/en/latest/api.html#mmcv.runner.LoggerHook
+ log_config = dict(
+-    interval=50,
++    interval=1,
+     hooks=[
+         dict(type='TextLoggerHook'),
+         dict(type='TensorboardLoggerHook')
+diff --git a/mmdet3d/__init__.py b/mmdet3d/__init__.py
+index 643c39c9..001b2247 100644
+--- a/mmdet3d/__init__.py
++++ b/mmdet3d/__init__.py
+@@ -19,7 +19,7 @@ def digit_version(version_str):
+ 
+ 
+ mmcv_minimum_version = '1.5.2'
+-mmcv_maximum_version = '1.7.0'
++mmcv_maximum_version = '1.7.2'
+ mmcv_version = digit_version(mmcv.__version__)
+ 
+ 
+diff --git a/mmdet3d/apis/train.py b/mmdet3d/apis/train.py
+index 4d970264..be10ecd0 100644
+--- a/mmdet3d/apis/train.py
++++ b/mmdet3d/apis/train.py
+@@ -4,7 +4,7 @@ import warnings
+ 
+ import numpy as np
+ import torch
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
+                          Fp16OptimizerHook, OptimizerHook, build_optimizer,
+                          build_runner, get_dist_info)
+@@ -103,13 +103,13 @@ def train_segmentor(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+     # build runner
+@@ -223,13 +223,13 @@ def train_detector(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+     # build runner
