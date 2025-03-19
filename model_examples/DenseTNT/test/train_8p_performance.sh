@@ -48,9 +48,9 @@ export ASCEND_SLOG_PRINT_TO_STDOUT=0
 export ASCEND_GLOBAL_LOG_LEVEL=3
 #设置Host侧Event日志开启标志,0-关闭/1-开启
 export ASCEND_GLOBAL_EVENT_ENABLE=0
-#设置是否开启taskque,0-关闭/1-开启/2-优化
+#设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2
-# 绑核
+#设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 #使能高性能内存库
 export LD_PRELOAD=$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so

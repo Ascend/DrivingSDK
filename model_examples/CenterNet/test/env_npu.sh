@@ -20,10 +20,8 @@ export ASCEND_SLOG_PRINT_TO_STDOUT=0
 export ASCEND_GLOBAL_LOG_LEVEL=3
 #设置Host侧Event日志开启标志,0-关闭/1-开启
 export ASCEND_GLOBAL_EVENT_ENABLE=0
-#设置是否开启taskque,0-关闭/1-开启
+#设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=1
-#设置是否开启PTCopy,0-关闭/1-开启
-export PTCOPY_ENABLE=1
 #设置是否开启combined标志,0-关闭/1-开启
 export COMBINED_ENABLE=1
 #设置特殊场景是否需要重新编译,不需要修改

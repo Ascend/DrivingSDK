@@ -31,14 +31,13 @@ export ASCEND_SLOG_PRINT_TO_STDOUT=0
 export ASCEND_GLOBAL_LOG_LEVEL=3
 #设置Event日志开启标志,0-关闭/1-开启
 export ASCEND_GLOBAL_EVENT_ENABLE=0
-#设置是否开启taskque,0-关闭/1-开启
+#设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=1
-#设置是否开启PTCopy,0-关闭/1-开启
-export PTCOPY_ENABLE=1
 #设置是否开启combined标志,0-关闭/1-开启
 export COMBINED_ENABLE=1
 #设置特殊场景是否需要重新编译,不需要修改
 export DYNAMIC_OP="ADD#MUL"
 #HCCL白名单开关,1-关闭/0-开启
 export HCCL_WHITELIST_DISABLE=1
+#配置HCCL的初始化root通信网卡IP
 export HCCL_IF_IP=$(hostname -I |awk '{print $1}')

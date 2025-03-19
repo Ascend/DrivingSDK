@@ -8,10 +8,11 @@ msnpureport -g error -d 5
 msnpureport -g error -d 6
 msnpureport -g error -d 7
 
+#启用可扩展内存段分配策略
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 #设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2
-#设置是否开启均匀绑核,0-关闭/1-开启
+#设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 
 path_lib=$(python3 -c """

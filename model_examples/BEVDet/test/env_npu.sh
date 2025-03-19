@@ -22,17 +22,16 @@ export ASCEND_GLOBAL_LOG_LEVEL=3
 export ASCEND_GLOBAL_EVENT_ENABLE=0
 #设置是否开启taskque,0-关闭/1-开启
 export TASK_QUEUE_ENABLE=2
-#设置是否开启PTCopy,0-关闭/1-开启
-export PTCOPY_ENABLE=1
 #设置是否开启combined标志,0-关闭/1-开启
 export COMBINED_ENABLE=1
 #设置特殊场景是否需要重新编译,不需要修改
 export DYNAMIC_OP="ADD#MUL"
 #HCCL白名单开关,1-关闭/0-开启
 export HCCL_WHITELIST_DISABLE=1
+#配置HCCL的初始化root通信网卡IP
 export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
 
-#开启绑核
+#设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 
 export OMP_NUM_THREADS=16

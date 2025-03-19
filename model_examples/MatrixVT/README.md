@@ -57,10 +57,8 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
 
 |        软件类型       |   支持版本   |
 |:--------:|:--------:|
-| FrameworkPTAdapter | 7.0.RC1  |
+| FrameworkPTAdapter | 7.0.0  |
 |       CANN        | 8.1.RC1  |
-|      昇腾NPU固件      | 25.0.rc1 |
-|      昇腾NPU驱动      | 25.0.rc1 |
 
 ## 准备环境
 

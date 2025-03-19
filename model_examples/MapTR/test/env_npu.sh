@@ -13,17 +13,17 @@ else
     source ${CANN_INSTALL_PATH}/nnae/set_env.sh
 fi
 
-# 绑核
+# 设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
-# 是否开启taskque
+# 设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2
-# 设置shape数据缓存
+# 设置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
 export HOST_CACHE_CAPACITY=20
-# 开启combined标志
+# 设置是否开启combined标志,0-关闭/1-开启
 export COMBINED_ENABLE=1
 # 启用可扩展内存段分配策略
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-# 启用多流复用
+# 启用多流复用，降低集合通信跨流依赖内存延迟释放带来的内存峰值上升
 export MULTI_STREAM_MEMORY_REUSE=1
 
 #设置device侧日志登记为error

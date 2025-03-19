@@ -24,7 +24,7 @@ export HCCL_ASYNC_ERROR_HANDLING=0
 #设置执行HCCL超时时间，防止验证超时
 export HCCL_EXEC_TIMEOUT=9000
 
-#设置是否开启均匀绑核,0-关闭/1-开启
+#设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 #设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2

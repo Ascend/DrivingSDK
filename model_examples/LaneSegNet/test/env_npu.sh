@@ -8,12 +8,12 @@ msnpureport -g error -d 5
 msnpureport -g error -d 6
 msnpureport -g error -d 7
 
+#å¯ç”¨å¯æ‰©å±•å†…å­˜æ®µåˆ†é…ç­–ç•¥
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-#ÉèÖÃÊÇ·ñ¿ªÆôtaskque,0-¹Ø±Õ/1-¿ªÆô/2-Á÷Ë®ÓÅ»¯
+#è®¾ç½®æ˜¯å¦å¼€å¯taskque,0-å…³é—­/1-å¼€å¯/2-æµæ°´ä¼˜åŒ–
 export TASK_QUEUE_ENABLE=2
-#ÉèÖÃÊÇ·ñ¿ªÆô¾ùÔÈ°óºË,0-¹Ø±Õ/1-¿ªÆô
+#è®¾ç½®æ˜¯å¦å¼€å¯å‡åŒ€ç»‘æ ¸,0-å…³é—­/1-å¼€å¯ç²—ç²’åº¦ç»‘æ ¸/2-å¼€å¯ç»†ç²’åº¦ç»‘æ ¸
 export CPU_AFFINITY_CONF=1
-export TORCH_HCCL_ENABLE_MONITORING=0
 
 path_lib=$(python3 -c """
 import sys

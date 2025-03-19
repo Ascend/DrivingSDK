@@ -54,15 +54,17 @@ export ASCEND_GLOBAL_EVENT_ENABLE=0
 
 # HCCL 白名单开关, 1-关闭/0-开启
 export HCCL_WHITELIST_DISABLE=1
+#配置HCCL的初始化root通信网卡IP
 export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
+#配置不同设备之间socket建链过程的等待时间，取值范围[120, 7200]，默认120，单位s
 export HCCL_CONNECT_TIMEOUT=1200
 
-# 设置是否开启 taskque, 0-关闭/1-开启
+#设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2
-# 绑核
+#设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 
-# 设置 Shape 数据缓存
+#设置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
 export HOST_CACHE_CAPACITY=20
 # 设置是否开启 combined 标志, 0-关闭/1-开启
 export COMBINED_ENABLE=1
