@@ -213,7 +213,12 @@ export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
 ```
 cd {DrivingSDK_root_dir}/model_examples/StreamPETR
 cp -rf test StreamPETR
+mv StreamPETR/test/testfunc.sh StreamPETR
+mv StreamPETR/test/backfunc.sh StreamPETR
+chmod 777 StreamPETR/testfunc.sh
+chmod 777 StreamPETR/backfunc.sh
 ```
+最后将环境路径加入testfunc.sh和backfunc.sh中的第二行 file_path
 
 10. 编译优化
 (1)python编译优化
@@ -344,17 +349,17 @@ tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_se
 
 #### 训练结果（使用10. 编译优化）
 
-|     芯片      | 卡数 | global batch size | epoch   |   mAP    |      NDS     |    性能-单步迭代耗时(s)   |    FPS    |
-| :-----------: | :--: | :---------------: | :----: | :-------: | :---------: | :----------------------: | :------: |
-|     竞品A     |  8p   |        16         |  24    |  0.4822  |    0.5708    |           0.63          |     25.397    |
-| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |    0.5703   |           0.70          |   22.857      |
+|     芯片      | 卡数 | global batch size | epoch   |   mAP    |    性能-单步迭代耗时(s)   |    FPS    |
+| :-----------: | :--: | :---------------: | :----: | :-------: | :----------------------: | :------: |
+|     竞品A     |  8p   |        16         |  24    |  0.4822  |           0.63          |     25.397    |
+| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |           0.67          |   23.880      |
 
 
 训练结果（不使用10. 编译优化）
-|     芯片      | 卡数 | global batch size | epoch   |   mAP    |      NDS     |    性能-单步迭代耗时(s)   |    FPS    |
-| :-----------: | :--: | :---------------: | :----: | :-------: | :---------: | :----------------------: | :------: |
-|     竞品A     |  8p   |        16         |  24    |  0.4822  |    0.5708    |           0.63          |     25.397    |
-| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |    0.5703   |           0.84          |   19.047      |
+|     芯片      | 卡数 | global batch size | epoch   |   mAP    |    性能-单步迭代耗时(s)   |    FPS    |
+| :-----------: | :--: | :---------------: | :----: | :-------: | :----------------------: | :------: |
+|     竞品A     |  8p   |        16         |  24    |  0.4822  |           0.63          |     25.397    |
+| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |           0.84          |   19.047      |
 
 
 

@@ -73,7 +73,7 @@ export COMBINED_ENABLE=1
 start_time=$(date +%s)
 # 非平台场景时source 环境变量
 
-tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e_performance.py 8 --work-dir work_dirs/report_vision \
+tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e_performance.py 8 --work-dir work_dirs/report_vision --no-validate \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 
@@ -98,13 +98,7 @@ FPS=$(awk BEGIN'{print ('$BatchSize' * '$WORLD_SIZE') / '$Iteration_time'}')
 echo "Iteration time : $Iteration_time"
 echo "FPS : $FPS"
 
-# 输出训练精度IoU,需要模型审视修改
-MAP=` grep -a 'mAP:' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "mAP: " '{print $2}' | awk '{last=$1} END {print last}'`
-NDS=` grep -a 'NDS:' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "NDS: " '{print $2}' | awk '{last=$1} END {print last}'`
-
 # 打印，不需要修改
-echo "mAP : ${MAP}"
-echo "NDS : ${NDS}"
 echo "E2E Training Duration sec : $e2e_time"
 
 
@@ -114,8 +108,5 @@ echo "RankSize = ${WORLD_SIZE}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${Ca
 echo "BatchSize = ${BatchSize}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "DeviceType = ${DeviceType}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "CaseName = ${CaseName}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-echo "TrainingLoss = ${Training_loss}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-echo "mAP = ${MAP}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-echo "NDS = ${NDS}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "Iterationtime = ${Iteration_time}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}_perf_report.log
 echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}_perf_report.log

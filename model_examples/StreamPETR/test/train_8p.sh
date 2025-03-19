@@ -71,11 +71,21 @@ export HOST_CACHE_CAPACITY=20
 export COMBINED_ENABLE=1
 
 start_time=$(date +%s)
-# 非平台场景时source 环境变量
 
-tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e.py 8 --work-dir work_dirs/report_vision \
+tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e.py 8 --work-dir work_dirs/report_vision --no-validate \
+    >$cur_path/test/output/${ASCEND_DEVICE_ID}/train1_${ASCEND_DEVICE_ID}.log 2>&1 &
+wait
+
+#运行脚本修改_function文件，加入代码定义新函数获取device，使得运行eval脚本
+./testfunc.sh
+
+tools/dist_test.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e.py work_dirs/report_vision/latest.pth 8 --eval bbox \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
+
+#运行脚本退回，使_function文件退回至初始内容
+./backfunc.sh
+
 
 
 # 训练结束时间，不需要修改
@@ -89,12 +99,6 @@ CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
 
 # 结果打印，不需要修改
 echo "------------------ Final result ------------------"
-# 输出性能FPS，需要模型审视修改
-avg_time=`grep -a ' - mmdet - INFO - Iter '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | awk -F "time: " '{print $2}' | awk -F "," '{print $1}' | awk 'NR>=3 && NR<=14' | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
-
-Iteration_time=$avg_time
-# 打印，不需要修改
-echo "Iteration time : $Iteration_time"
 
 # 输出训练精度IoU,需要模型审视修改
 MAP=` grep -a 'mAP:' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "mAP: " '{print $2}' | awk '{last=$1} END {print last}'`
@@ -112,8 +116,6 @@ echo "RankSize = ${WORLD_SIZE}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${Ca
 echo "BatchSize = ${BatchSize}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "DeviceType = ${DeviceType}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "CaseName = ${CaseName}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-echo "TrainingLoss = ${Training_loss}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "mAP = ${MAP}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "NDS = ${NDS}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-echo "Iterationtime = ${Iteration_time}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}_perf_report.log
 echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}_perf_report.log
