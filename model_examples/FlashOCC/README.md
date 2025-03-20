@@ -66,10 +66,19 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
     source {cann_root_dir}/set_env.sh
     ```
 
-1. 安装基础依赖
+1. 准备模型源码及安装基础依赖
+
+    在当前目录下，克隆并准备 FlashOCC 源码
 
     ```
+    git clone https://github.com/Yzichen/FlashOCC.git
+    cp flashocc.patch FlashOCC
+    cp -r test/ FlashOCC/
+    cd FlashOCC
+    git checkout 4084861d8d605bb01df55fcbc8072036055aa625
+    git apply --reject --whitespace=fix flashocc.patch
     pip install -r requirements/runtime.txt
+    cd ../
     ```
 
 2. 源码编译安装 mmcv
@@ -99,17 +108,12 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
     cd ../
     ```
 
-4. 准备模型源码及安装mmdet3d
+4. 安装 mmdet3d
 
-    在当前目录下，克隆并准备 FlashOCC 源码
+    克隆 mmdet3d 仓，并进入 mmdet3d 目录编译安装
 
     ```
-    git clone https://github.com/Yzichen/FlashOCC.git
-    cp flashocc.patch FlashOCC
-    cp -r test/ FlashOCC/
     cd FlashOCC
-    git checkout 4084861d8d605bb01df55fcbc8072036055aa625
-    git apply --reject --whitespace=fix flashocc.patch
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
     cp ../mmdet3d.patch mmdetection3d
     cd mmdetection3d
