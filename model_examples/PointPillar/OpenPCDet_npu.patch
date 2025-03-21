@@ -151713,10 +151713,10 @@ index 1e13396..47a9cb4 100644
  
  class RoIPointPool3d(nn.Module):
 diff --git a/pcdet/utils/common_utils.py b/pcdet/utils/common_utils.py
-index af70728..a060dcd 100644
+index af70728..672ba35 100644
 --- a/pcdet/utils/common_utils.py
 +++ b/pcdet/utils/common_utils.py
-@@ -159,33 +159,6 @@ def keep_arrays_by_name(gt_names, used_classes):
+@@ -159,36 +159,9 @@ def keep_arrays_by_name(gt_names, used_classes):
      return inds
  
  
@@ -151749,7 +151749,11 @@ index af70728..a060dcd 100644
 -
  def init_dist_pytorch(tcp_port, local_rank, backend='nccl'):
      if mp.get_start_method(allow_none=True) is None:
-         mp.set_start_method('spawn')
+-        mp.set_start_method('spawn')
++        mp.set_start_method('fork')
+     # os.environ['MASTER_PORT'] = str(tcp_port)
+     # os.environ['MASTER_ADDR'] = 'localhost'
+     num_gpus = torch.cuda.device_count()
 diff --git a/pcdet/utils/spconv_utils.py b/pcdet/utils/spconv_utils.py
 index c38f899..cba5688 100644
 --- a/pcdet/utils/spconv_utils.py
