@@ -18,7 +18,7 @@ import mx_driving._C
 class GridSampler2dV2Function(Function):
     @staticmethod
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def forward(ctx, input_tensor, grid_tensor, mode, padding_mode, align_corners):
+    def forward(ctx, input_tensor, grid_tensor, mode='bilinear', padding_mode='zeros', align_corners=False):
         if (torch.numel(input_tensor) == 0 or torch.numel(grid_tensor) == 0):
             raise Exception(f"mx_driving.grid_sampler2d_v2(): Input tensor and grid tensor can not be empty tensor.\n")
         if input_tensor.size(1) > 128:
