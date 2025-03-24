@@ -366,7 +366,8 @@ tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_se
 
 # 变更说明
 
-2024.12.24：首次发布
+2024.12.24: 首次发布。
+2025.3.21: 模型性能优化。
 
 # FAQ
 Q1：在安装模型环境中的步骤10：(2)pytorch、torchnpu编译优化。其作用是什么？<br>

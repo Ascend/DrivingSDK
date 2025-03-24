@@ -1,6 +1,6 @@
 diff --git a/patch/distributed.py b/patch/distributed.py
 new file mode 100644
-index 0000000..f0dfecc
+index 0000000..e8f437c
 --- /dev/null
 +++ b/patch/distributed.py
 @@ -0,0 +1,166 @@
@@ -157,7 +157,7 @@ index 0000000..f0dfecc
 +        ``MMDistributedDataParallel`` overrides this method to call
 +        :meth:`to_kwargs` explicitly.
 +
-+        See more information in `<https://github.com/open-mmlab/mmsegmentation/issues/1742>`_.  # noqa: E501
++        
 +
 +        Returns:
 +            Any: Forward result of :attr:`module`.
@@ -869,7 +869,7 @@ index 0000000..d916864
 +                        '`self.keep_local=False`')
 diff --git a/patch/transformer.py b/patch/transformer.py
 new file mode 100644
-index 0000000..14afcd4
+index 0000000..6d7abe6
 --- /dev/null
 +++ b/patch/transformer.py
 @@ -0,0 +1,944 @@
@@ -1115,7 +1115,7 @@ index 0000000..14afcd4
 +                input_w = input_w + pad_w
 +                input_size = (input_h, input_w)
 +
-+            # https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html
++            
 +            h_out = (input_size[0] + 2 * padding[0] - dilation[0] *
 +                     (kernel_size[0] - 1) - 1) // stride[0] + 1
 +            w_out = (input_size[1] + 2 * padding[1] - dilation[1] *
@@ -1513,7 +1513,7 @@ index 0000000..14afcd4
 +    named `attn_cfgs`. It is worth mentioning that it supports `prenorm`
 +    when you specifying `norm` as the first element of `operation_order`.
 +    More details about the `prenorm`: `On Layer Normalization in the
-+    Transformer Architecture <https://arxiv.org/abs/2002.04745>`_ .
++    Transformer Architecture 
 +
 +    Args:
 +        attn_cfgs (list[`mmcv.ConfigDict`] | obj:`mmcv.ConfigDict` | None )):
@@ -2314,6 +2314,20 @@ index 0000000..6f27fa1
 +export ACLNN_CACHE_LIMIT=1000000
 +export OMP_PROC_BIND=false
 \ No newline at end of file
+diff --git a/tools/test.py b/tools/test.py
+index d48206c..dc8da62 100755
+--- a/tools/test.py
++++ b/tools/test.py
+@@ -13,7 +13,8 @@ from mmcv.cnn import fuse_conv_bn
+ from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
+ from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
+                          wrap_fp16_model)
+-
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from mmdet3d.apis import single_gpu_test
+ from mmdet3d.datasets import build_dataset
+ from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 diff --git a/tools/train.py b/tools/train.py
 index 23ad6a2..d138f9d 100755
 --- a/tools/train.py
