@@ -240,6 +240,3 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
 ## FAQ
 
 1. 若出现无法找到datasets包的问题，本模型使用的是lib目录下的本地文件，请删除环境中同名三方库。
-# 公网地址说明
-
-代码涉及公网地址参考 public_address_statement.md
