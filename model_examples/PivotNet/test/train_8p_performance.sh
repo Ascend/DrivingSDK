@@ -42,7 +42,7 @@ e2e_time=$(( $end_time - $start_time ))
 total_step=3517
 
 # 单迭代训练时长
-avg_time=$(echo "scale=3; $e2e_time / $total_step" | bc)
+avg_time=$(echo "scale=3; $e2e_time / $total_step" | bc | sed 's/^\./0./')
 
 #吞吐量
 ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$avg_time'}')
