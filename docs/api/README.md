@@ -215,6 +215,10 @@
         <td align=center><a href=./context/cal_anchors_heading.md>cal_anchors_heading</a></td>
         <td align=center>N</td>
     </tr>
+    <tr>
+        <td align=center><a href=./context/diff_iou_rotated.md>diff_iou_rotated</a></td>
+        <td align=center>Y</td>
+    </tr>
 </table>
 
 </br>
