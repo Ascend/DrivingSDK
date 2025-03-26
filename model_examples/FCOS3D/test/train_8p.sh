@@ -41,5 +41,32 @@ if [ ! -d "data" ]; then
 fi
 ln -nsf $data_root data/nuscenes
 
+# 在 test 目录下创建 output，用于存放日志文件
+output_path_dir=${test_path_dir}/output
+mkdir -p ${output_path_dir}
+log_path=${output_path_dir}/train_8p_${batch_size}bs_${max_epochs}epochs.log
+echo "log path is ${log_path}"
+rm -f ${log_path}
+
+# 训练开始时间
+start_time=$(date +%s)
+echo "[FCOS3D] start_time=$(date -d @${start_time} "+%Y-%m-%d %H:%M:%S")"
+
 export RANK_SIZE=8
-PORT=29888 bash tools/dist_train.sh configs/fcos3d/fcos3d_r101-caffe-dcn_fpn_head-gn_8xb2-1x_nus-mono3d.py 8 --amp --cfg-options train_dataloader.batch_size=${batch_size} train_cfg.max_epochs=${max_epochs}
+PORT=29888 bash tools/dist_train.sh configs/fcos3d/fcos3d_r101-caffe-dcn_fpn_head-gn_8xb2-1x_nus-mono3d.py 8 \
+    --cfg-options train_dataloader.batch_size=${batch_size} train_cfg.max_epochs=${max_epochs} \
+    > ${log_path} 2>&1 &
+wait
+
+# 训练结束时间
+end_time=$(date +%s)
+echo "[FCOS3D] end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
+e2e_time=$(( $end_time - $start_time ))
+echo "E2ETrainingTime = ${e2e_time}"
+
+step_time=$(grep -o "  time: [0-9.]*" ${log_path} | tail -n 19 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
+FPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$step_time'}')
+
+# 打印性能
+echo "Final Performance images/sec (FPS) : ${FPS}"
+echo "FPS = ${FPS}" >>${log_path}

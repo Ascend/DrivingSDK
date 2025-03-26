@@ -56,9 +56,15 @@ echo "[FCOS3D] start_time=$(date -d @${start_time} "+%Y-%m-%d %H:%M:%S")"
 export RANK_SIZE=8
 # 为了缩短跑性能时长，调用 tools/dist_train_performance.sh 以实现训练 1000 步中断
 PORT=29888 bash tools/dist_train_performance.sh configs/fcos3d/fcos3d_r101-caffe-dcn_fpn_head-gn_8xb2-1x_nus-mono3d.py ${world_size} \
-    --amp --cfg-options train_dataloader.batch_size=${batch_size} train_cfg.max_epochs=${max_epochs} \
+    --cfg-options train_dataloader.batch_size=${batch_size} train_cfg.max_epochs=${max_epochs} \
     > ${log_path} 2>&1 &
 wait
+
+# 训练结束时间
+end_time=$(date +%s)
+echo "[FCOS3D] end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
+e2e_time=$(( $end_time - $start_time ))
+echo "E2ETrainingTime = ${e2e_time}"
 
 step_time=$(grep -o "  time: [0-9.]*" ${log_path} | tail -n 19 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
 FPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$step_time'}')
