@@ -341,11 +341,6 @@ bash test/train_8p.sh
 bash test/train_8p_performance.sh
 ```
 
-若以上命令执行出错，执行以下命令：
-```
-source tools/env_model.sh
-tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e.py 8 --work-dir work_dirs/report_vision
-```
 
 
 #### 训练结果（使用10. 编译优化）
