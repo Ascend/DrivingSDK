@@ -65,15 +65,11 @@ export TASK_QUEUE_ENABLE=2
 #设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 
-#设置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
-export HOST_CACHE_CAPACITY=20
-#设置是否开启 combined 标志, 0-关闭/1-开启
-export COMBINED_ENABLE=1
 
 start_time=$(date +%s)
 # 非平台场景时source 环境变量
 
-tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e_performance.py 8 --work-dir work_dirs/report_vision --no-validate \
+bash tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e_performance.py 8 --work-dir work_dirs/report_vision --no-validate \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 

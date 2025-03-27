@@ -118,6 +118,7 @@ git clone https://github.com/open-mmlab/mmcv.git -b 1.x
 cd mmcv
 cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/distributed.py mmcv/parallel/distributed.py
 cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/text.py mmcv/runner/hooks/logger/text.py
+cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/transformer.py mmcv/cnn/bricks/transformer.py
 source {cann_root_dir}/set_env.sh
 MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
 pip show mmcv-full
@@ -340,11 +341,6 @@ bash test/train_8p.sh
 bash test/train_8p_performance.sh
 ```
 
-若以上命令执行出错，执行以下命令：
-```
-source tools/env_model.sh
-tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e.py 8 --work-dir work_dirs/report_vision
-```
 
 
 #### 训练结果（使用10. 编译优化）
@@ -352,20 +348,21 @@ tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_se
 |     芯片      | 卡数 | global batch size | epoch   |   mAP    |    性能-单步迭代耗时(s)   |    FPS    |
 | :-----------: | :--: | :---------------: | :----: | :-------: | :----------------------: | :------: |
 |     竞品A     |  8p   |        16         |  24    |  0.4822  |           0.63          |     25.397    |
-| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |           0.67          |   23.880      |
+| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |           0.615          |   26.016      |
 
 
 训练结果（不使用10. 编译优化）
 |     芯片      | 卡数 | global batch size | epoch   |   mAP    |    性能-单步迭代耗时(s)   |    FPS    |
 | :-----------: | :--: | :---------------: | :----: | :-------: | :----------------------: | :------: |
 |     竞品A     |  8p   |        16         |  24    |  0.4822  |           0.63          |     25.397    |
-| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |           0.84          |   19.047      |
+| Atlas 800T A2 |  8p   |        16         |  24   |   0.4803  |           0.79          |   20.253      |
 
 
 
 # 变更说明
 
-2024.12.24：首次发布
+2024.12.24: 首次发布。
+2025.3.21: 模型性能优化。
 
 # FAQ
 Q1：在安装模型环境中的步骤10：(2)pytorch、torchnpu编译优化。其作用是什么？<br>
