@@ -78,6 +78,19 @@ index bf34cb59..f0dfecc9 100644
  
          if self.device_ids:
              inputs, kwargs = self.to_kwargs(  # type: ignore
+diff --git a/mmcv/runner/dist_utils.py b/mmcv/runner/dist_utils.py
+index c061b3c1..656cd069 100644
+--- a/mmcv/runner/dist_utils.py
++++ b/mmcv/runner/dist_utils.py
+@@ -36,7 +36,7 @@ def _is_free_port(port: int) -> bool:
+ 
+ def init_dist(launcher: str, backend: str = 'nccl', **kwargs) -> None:
+     if mp.get_start_method(allow_none=True) is None:
+-        mp.set_start_method('spawn')
++        mp.set_start_method('fork')
+     if launcher == 'pytorch':
+         _init_dist_pytorch(backend, **kwargs)
+     elif launcher == 'mpi':
 diff --git a/mmcv/runner/hooks/optimizer.py b/mmcv/runner/hooks/optimizer.py
 index 93015475..8bd1722f 100644
 --- a/mmcv/runner/hooks/optimizer.py
