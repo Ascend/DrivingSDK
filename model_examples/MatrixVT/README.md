@@ -67,7 +67,7 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
   **表 2**  版本支持表
 
   |  三方库  |  支持版本  |
-  |:------:|:--------:| 
+  |:------:|:--------:|
   |  PyTorch  | 2.1.0  |
   |  TorchVision  | 0.12.0  |
   |    mmcv   | 1.7.2  |
@@ -75,7 +75,7 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
   |   mmdet   |   2.28.0  |
   | mmsegmentation | 0.30.0 |
   | pytorch-lightning | 1.6.5 |
-  
+
 - 安装依赖
 
   首先进入模型目录：
@@ -83,9 +83,9 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
   ```
   cd DrivingSDK/model_examples/MatrixVT
   ```
-  
+
   1. 下载包含 `BEVDepth` 模型的原始仓库代码，并执行如下命令：
-      
+
       ```
       git clone https://github.com/Megvii-BaseDetection/BEVDepth.git
       # 拷贝训练脚本和环境配置文件
@@ -131,16 +131,16 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
       ```
       git init
       git add .
-      git commit -m "Initialize pytorch-lightning" 
+      git commit -m "Initialize pytorch-lightning"
       ```
-     
+
       ```
       cp -f lightning.patch {pytorch_lightning_install_path}/pytorch_lightning/
       cd {pytorch_lightning_install_path}/pytorch_lightning/
       git apply lightning.patch
-      ``` 
+      ```
 
-  5. 请参考 [Driving SDK 使用说明](https://gitee.com/ascend/DrivingSDK/blob/master/README.md) 编译并安装 `Driving SDK` 包, 参考`从源码安装`章节。
+  5. 请参考 [Driving SDK 使用说明](https://gitee.com/ascend/DrivingSDK/blob/branch_v7.0.RC1/README.md) 编译并安装 `Driving SDK` 包, 参考`从源码安装`章节。
 
   6.  返回BEVDepth模型根目录
       ```shell
@@ -174,9 +174,9 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
        │   │   ├── v1.0-test
        |   |   ├── v1.0-trainval
        ```
-       
-       > **说明：**  
-       该数据集的训练过程脚本只作为一种参考示例。      
+
+       > **说明：**
+       该数据集的训练过程脚本只作为一种参考示例。
 
 
 # 开始训练
@@ -203,7 +203,7 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
      > 注：当前配置下，不需要修改train_full_8p.sh中的ckpt路径，如果涉及到epoch的变化，请用户根据路径自行配置ckpt。
 
      模型训练脚本参数说明如下。
-   
+
      ```
      matrixvt_bev_depth_lss_r50_256x704_128x128_24e_ema.py
      --seed                              // 随机种子
@@ -219,14 +219,14 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
 # 训练结果
 ## 精度
 
-| 芯片       | 卡数 | mAP   |  NDS   | batch_size | AMP_Type | Torch_Version | 
+| 芯片       | 卡数 | mAP   |  NDS   | batch_size | AMP_Type | Torch_Version |
 |----------|:--:|:------:|:------:|:----------:|:--------:|:-------------:|
 | 竞品A     | 8p | 0.3299 | 0.4141 | 64 | fp16 | 2.1 |
 | Atlas 800T A2 | 8p | 0.3275 | 0.4049 | 64 | fp16 | 2.1 |
 
 ## 性能
 
-| 芯片       | 卡数 | FPS  | Each epoch time  | batch_size | AMP_Type | Torch_Version | 
+| 芯片       | 卡数 | FPS  | Each epoch time  | batch_size | AMP_Type | Torch_Version |
 |----------|:--:|:----:|:----:|:----:|:--------:|:-------------:|
 | 竞品A      | 8p | 36.89 | 1.00 h | 64 | fp16 | 2.1 |
 | Atlas 800T A2 | 8p | 46.19 | 0.80 h | 64| fp16 | 2.1 |

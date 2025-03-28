@@ -99,7 +99,7 @@ conda activate senna
 
 3. 克隆代码仓并使用patch文件
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
 cd DrivingSDK/model_examples/Senna
 chmod -R 777 run.sh
 ./run.sh
@@ -127,7 +127,7 @@ source {cann_root_dir}/set_env.sh
 bash deploy.sh
 python setup.py install
 ```
-最后在路径：/{env_root_dir}/lib/python3.10/site-packages/bitsandbytes-0.45.4-py3.10-linux-aarch64.egg/bitsandbytes/下创建文件_version.py，并加入__version__ = "0.45.4" 
+最后在路径：/{env_root_dir}/lib/python3.10/site-packages/bitsandbytes-0.45.4-py3.10-linux-aarch64.egg/bitsandbytes/下创建文件_version.py，并加入__version__ = "0.45.4"
 
 
 ### 准备数据集

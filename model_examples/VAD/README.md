@@ -9,7 +9,7 @@
 -   [VAD](#VAD)
     - [准备训练环境](#准备训练环境)
     - [快速开始](#快速开始)
-       - [训练任务](#训练任务) 
+       - [训练任务](#训练任务)
 -   [公网地址说明](#公网地址说明)
 -   [变更说明](#变更说明)
 -   [FAQ](#FAQ)
@@ -66,7 +66,7 @@ VAD是一个向量化端到端的自动驾驶网络，将驾驶场景建模完�
 - 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
     cd DrivingSDK/model_examples/VAD
     git clone https://github.com/hustvl/VAD.git
     cd VAD
@@ -100,7 +100,7 @@ VAD是一个向量化端到端的自动驾驶网络，将驾驶场景建模完�
     MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
     ```
-- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装Driving SDK加速库，安装branch_v7.0.RC1分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下，安装相关依赖。
 
@@ -133,15 +133,15 @@ VAD
 |   |   ├── vad_nuscenes_infos_temporal_val.pkl
 ```
 
-> **说明：**  
-> 该数据集的训练过程脚本只作为一种参考示例。      
+> **说明：**
+> 该数据集的训练过程脚本只作为一种参考示例。
 
 ### 准备预训练权重
 
 - 在应用过patch的模型根目录下创建ckpts文件夹并下载预训练权重。
 ```
 mkdir ckpts
-cd ckpts 
+cd ckpts
 wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 ```
 

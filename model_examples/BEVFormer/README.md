@@ -21,7 +21,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 ## 安装昇腾环境
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   支持版本   |
@@ -36,9 +36,9 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
   **表 2**  版本支持表
 
   | Torch_Version      |
-  | :--------: | 
-  | PyTorch 2.1 | 
-  
+  | :--------: |
+  | PyTorch 2.1 |
+
 - 安装依赖。
 
   1. 源码编译安装 mmcv 1.x
@@ -68,7 +68,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
      pip install -e .
      ```
   4. 安装 detectron2
-     ``` 
+     ```
      python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
      ```
   5. 安装其他依赖
@@ -85,7 +85,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
      cd ../
      ```
   7. 安装Driving SDK加速库
-    参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+    参考：https://gitee.com/ascend/DrivingSDK/blob/branch_v7.0.RC1/README.md
 
 ## 准备数据集
 

@@ -9,7 +9,7 @@
 -   [SurroundOcc](#SurroundOcc)
     - [准备训练环境](#准备训练环境)
     - [快速开始](#快速开始)
-       - [训练任务](#训练任务) 
+       - [训练任务](#训练任务)
 -   [公网地址说明](#公网地址说明)
 -   [变更说明](#变更说明)
 -   [FAQ](#FAQ)
@@ -68,7 +68,7 @@
 - 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
     cd DrivingSDK/model_examples/SurroundOcc
     git clone https://github.com/weiyithu/SurroundOcc.git
     cd SurroundOcc
@@ -118,7 +118,7 @@
     cd ../
     ```
 
-- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装Driving SDK加速库，安装branch_v7.0.RC1分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 
@@ -141,8 +141,8 @@ SurroundOcc
 │   ├── nuscenes_infos_val.pkl
 ```
 
-> **说明：**  
-> 该数据集的训练过程脚本只作为一种参考示例。      
+> **说明：**
+> 该数据集的训练过程脚本只作为一种参考示例。
 
 ### 准备预训练权重
 

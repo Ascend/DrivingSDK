@@ -55,7 +55,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 ### 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   支持版本   |
@@ -127,7 +127,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 6. 安装 Driving SDK 加速库
 
-    参考官方文档：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+    参考官方文档：https://gitee.com/ascend/DrivingSDK/blob/branch_v7.0.RC1/README.md
 
 ### 准备数据集
 

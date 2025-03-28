@@ -22,14 +22,14 @@
 
   **表 2**  版本支持表
 
-  | Torch_Version | 
-  | :--------: | 
-  | PyTorch 2.1 | 
-  
+  | Torch_Version |
+  | :--------: |
+  | PyTorch 2.1 |
+
 - 环境准备指导。
 
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》搭建torch环境。
-  
+
 ## 代码实现
 
 - 参考实现：
@@ -102,7 +102,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 
 7. 安装Driving SDK加速库
   ```
-  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
   cd mx_driving
   bash ci/build.sh --python=3.8
   cd dist
@@ -111,12 +111,12 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 
 ## 准备数据集
 
-Following [OpenLane-V2 repo](https://github.com/OpenDriveLab/OpenLane-V2/blob/v2.1.0/data) to download the **Image** and the **Map Element Bucket** data. Run the following script to collect data for this repo. 
+Following [OpenLane-V2 repo](https://github.com/OpenDriveLab/OpenLane-V2/blob/v2.1.0/data) to download the **Image** and the **Map Element Bucket** data. Run the following script to collect data for this repo.
 
 > [!IMPORTANT]
-> 
+>
 > :exclamation: Please note that the script for generating LaneSegNet data is not the same as the OpenLane-V2 Map Element Bucket. The `*_lanesegnet.pkl` is not the same as the `*_ls.pkl`.
-> 
+>
 > :bell: The `Map Element Bucket` has been updated as of October 2023. Please ensure you download the most recent data.
 
 ```bash

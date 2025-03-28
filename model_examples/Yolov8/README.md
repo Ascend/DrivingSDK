@@ -62,13 +62,13 @@ YOLOv8（You Only Look Once version 8）是YOLO系列算法中的第八个版本
 
   2. 安装Driving SDK加速库
   ```
-  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
   cd mx_driving
   bash ci/build.sh --python=3.8
   cd dist
   pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
   ```
-  
+
   3. 对应的环境变量添加至 test/env_npu.sh 文件中。
 
 ## 准备数据集
@@ -80,7 +80,7 @@ YOLOv8（You Only Look Once version 8）是YOLO系列算法中的第八个版本
   |-- annotations
   |-- images
       |-- train2017
-      |-- val2017   
+      |-- val2017
   |-- labels
       |-- train2017
       |-- val2017

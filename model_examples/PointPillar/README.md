@@ -52,7 +52,7 @@ code_path=model_examples/PointPillar
   #### 0. 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git
+    git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
     cd DrivingSDK/model_examples/PointPillar
     git clone https://github.com/open-mmlab/OpenPCDet.git
     cd OpenPCDet

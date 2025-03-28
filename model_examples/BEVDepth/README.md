@@ -45,7 +45,7 @@
   **表 2**  版本支持表
 
   |  三方库  |  支持版本  |
-  |:------:|:--------:| 
+  |:------:|:--------:|
   |  PyTorch  | 2.1.0  |
   |  TorchVision  | 0.12.0  |
   |    mmcv   | 1.7.2  |
@@ -53,9 +53,9 @@
   |   mmdet   |   2.28.0  |
   | mmsegmentation | 0.30.0 |
   | pytorch-lightning | 1.6.5 |
-  
-  
-  
+
+
+
 - 安装依赖
 
   首先进入模型目录：
@@ -63,9 +63,9 @@
   ```
   cd DrivingSDK/model_examples/BEVDepth
   ```
-  
+
   1. 下载包含 `BEVDepth` 模型的原始仓库代码，并执行如下命令：
-    
+
       ```
       git clone https://github.com/Megvii-BaseDetection/BEVDepth.git
       # 拷贝训练脚本和环境配置文件
@@ -111,16 +111,16 @@
       ```
       git init
       git add .
-      git commit -m "Initialize pytorch-lightning" 
+      git commit -m "Initialize pytorch-lightning"
       ```
-      
+
       ```
       cp -f lightning.patch {pytorch_lightning_install_path}/pytorch_lightning/
       cd {pytorch_lightning_install_path}/pytorch_lightning/
       git apply lightning.patch
-      ``` 
+      ```
 
-  5. 请参考 [Driving SDK 使用说明](https://gitee.com/ascend/DrivingSDK/blob/master/README.md) 编译并安装 `Driving SDK` 包, 参考`从源码安装`章节。
+  5. 请参考 [Driving SDK 使用说明](https://gitee.com/ascend/DrivingSDK/blob/branch_v7.0.RC1/README.md) 编译并安装 `Driving SDK` 包, 参考`从源码安装`章节。
 
   6.  返回BEVDepth模型根目录
       ```shell
@@ -167,10 +167,10 @@
        |   |   ├── depth_gt
        |   |   ├── nuscenes_infos_train.pkl
        |   |   ├── nuscenes_infos_val.pkl
-       |   |   ├── nuscenes_infos_test.pkl  
+       |   |   ├── nuscenes_infos_test.pkl
       ```
-       > **说明：**  
-       该数据集的训练过程脚本只作为一种参考示例。      
+       > **说明：**
+       该数据集的训练过程脚本只作为一种参考示例。
 
 
 # 开始训练
@@ -193,7 +193,7 @@
      > 注：当前配置下，不需要修改train_full_8p.sh中的ckpt路径，如果涉及到epoch的变化，请用户根据路径自行配置ckpt。
 
      模型训练脚本参数说明如下。
-   
+
      ```
      bev_depth_lss_r50_256x704_128x128_24e_2key.py
      --seed                              // 随机种子

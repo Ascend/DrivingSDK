@@ -73,7 +73,7 @@ code_path=model_examples/SalsaNext
 - 克隆代码仓并应用补丁。
 
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
 git clone https://github.com/TiagoCortinhal/SalsaNext.git
 cp -f {DrivingSDK_root_dir}/model_examples/SalsaNext/npu.patch SalsaNext
 cp -rf {DrivingSDK_root_dir}/model_examples/SalsaNext/test SalsaNext

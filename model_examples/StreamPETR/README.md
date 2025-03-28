@@ -97,7 +97,7 @@ conda activate streampetr
 
 3. 克隆代码仓并使用patch文件
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
 cd DrivingSDK/model_examples/StreamPETR
 chmod -R 777 run.sh
 ./run.sh

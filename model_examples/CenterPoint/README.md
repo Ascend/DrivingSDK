@@ -27,7 +27,7 @@ code_path=model_examples/CenterPoint
 ### 准备环境
 #### 安装昇腾环境
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   支持版本   |
@@ -45,7 +45,7 @@ code_path=model_examples/CenterPoint
 #### 0. 克隆代码仓到当前目录并使用patch文件
 
 ```
-    git clone https://gitee.com/ascend/DrivingSDK.git
+    git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
     cd DrivingSDK/model_examples/CenterPoint
     git clone https://github.com/open-mmlab/OpenPCDet.git
     cd OpenPCDet
@@ -251,7 +251,7 @@ python setup.py develop
 #### 0. 克隆代码仓到当前目录并使用patch文件
 
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git
+git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
 cd DrivingSDK/model_examples/CenterPoint
 git clone https://github.com/open-mmlab/OpenPCDet.git
 cd OpenPCDet

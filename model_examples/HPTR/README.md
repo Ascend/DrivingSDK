@@ -7,7 +7,7 @@
 - [代码实现](#代码实现)
 - [准备训练环境](#准备训练环境)
 - [快速开始](#快速开始)
-    - [训练任务](#训练任务) 
+    - [训练任务](#训练任务)
     - [开始训练](#开始训练)
     - [训练结果](#训练结果)
 -   [变更说明](#变更说明)
@@ -63,14 +63,14 @@ HPTR 是一种用于自动驾驶实时运动预测的层次化Transformer模型�
 - 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
     cd DrivingSDK/model_examples/HPTR
     git clone https://github.com/zhejz/HPTR.git
     cd HPTR
     git checkout d2c1cb31ff5138ebf4b2490e2689c2f9da962120
     ```
     将模型根目录记作 `model-root-path`
-    
+
 - 使用 patch 文件：
     ```
     cp -f ../HPTR.patch .
@@ -79,7 +79,7 @@ HPTR 是一种用于自动驾驶实时运动预测的层次化Transformer模型�
     ```
 
 
-- 安装 Driving SDK 加速库，安装 master 分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装 Driving SDK 加速库，安装 branch_v7.0.RC1 分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下，安装相关依赖：
 
@@ -112,7 +112,7 @@ HPTR
 ├──h5_av2_hptr/
    ├── training.h5
    ├── validation.h5
-```   
+```
 
 ### 修改训练数据集
 
