@@ -21,7 +21,10 @@ public:
         kernelSizeAlign = AlignUp(kernelSize, idxBlockNum);
         kernelICAlign = AlignUp(kernelIC, valueBlockNum);
         uint64_t beginOffset = curBlockIdx * vectorCoreTask;
-        uint64_t initLen = Ceiling(featureCubeTilingData.M, usedVectorCoreNum);
+        if (usedVectorCoreNum <= 0) {
+            return ;
+        }
+        uint64_t initLen = featureCubeTilingData.M / usedVectorCoreNum;
 
         indicesOffsetGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INDICES_OFFSET *>(indices_offset) + beginOffset);
         formerSortedIndicesGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INDICES_OFFSET *>(former_sorted_indices));
@@ -43,7 +46,13 @@ public:
         // workspace Init
         featureInitGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_FEATURE *>(workspace) + initLen * curBlockIdx * kernelSize * kernelOC);
         const float zeros = 0.0;
-        InitGlobalMemory(featureInitGm, initLen * kernelSize * kernelOC, zeros);
+        if (curBlockIdx < usedVectorCoreNum) {
+            if (usedVectorCoreNum - 1 != curBlockIdx) {
+                InitGlobalMemory(featureInitGm, initLen * kernelSize * kernelOC, zeros);
+            } else {
+                InitGlobalMemory(featureInitGm, (featureCubeTilingData.M - initLen * curBlockIdx) * kernelSize * kernelOC, zeros);
+            }
+        }
         SyncAll();
 
         uint64_t featureSingleCoreM, featureSingleCoreN, featureSingleCoreK;
