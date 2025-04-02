@@ -149,9 +149,10 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
   ```
 7. 编译优化
+
   编译优化是指通过毕昇编译器的LTO和PGO编译优化技术，源码构建编译Python、PyTorch、torch_npu（Ascend Extension for PyTorch）三个组件，有效提升程序性能。
 
-  本节介绍Python编译优化方式，并提供PyTorch和torch_npu的编译优化指导链接。采用编译优化后的性能见“训练结果”小节。
+  本节介绍Python、Torch和torch_npu LTO编译优化方式，采用编译优化后的性能见“训练结果”小节。
 
   - 安装毕昇编译器
 
@@ -197,7 +198,75 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
 
   - Pytorch和torch_npu编译优化
 
-  可参考[Pytorch编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0064.html)和[torch_npu编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0065.html)操作。
+  推荐Pytorch和torch_npu采用专有镜像编译。
+
+  1） 创建编译优化基础镜像。以arm的镜像为例：
+
+  - arm镜像地址：
+      https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/docker_images/pytorcharm_compile.tar.gz
+
+    将镜像的image_id记为image_id，将创建容器时的宿主机路径和容器路径分别记为path1和path2：
+    ```
+    docker load -i pytorcharm_compile.tar.gz
+    docker images // 查看镜像的image_id
+    docker run -it --network=host image_id -v path1:path2 bash // 创建容器
+    ```
+
+  2） 在编译优化基础镜像中配置环境，以python3.8为例，如果使用其他版本的python3.8需修改python3软链接：
+  ```
+  cd /usr/local/bin/
+  ln -s /opt/_internal/cpython-3.7.17/bin/pip3.7 pip3.7
+  ln -s /opt/_internal/cpython-3.8.17/bin/pip3.8 pip3.8
+  ln -s /opt/internal/cpython-3.9.17/bin/pip3.9 pip3.9
+  ln -s python3.8 python3
+  ```
+
+  3） 按照“安装毕昇编译器”一节在编译优化基础镜像中使能毕昇编译器。
+
+  4） 下载Torch源码。以torch2.1.0为例：
+
+  ```
+  git clone -b v2.1.0 https://github.com/pytorch/pytorch.git pytorch-2.1.0
+  cd pytorch-2.1.0
+  git submodule sync
+  git submodule update --init --recursive
+  cd pytorch-2.1.0
+  pip install -r requirements.txt
+  ```
+
+  打开CMakeLists.txt文件，注释第921行：
+  ```
+  append_cxx_flag_if_supported("-Werror=cast-function-type" CMAKE_FXX_FLAGS) 
+  ```
+  屏蔽告警错误。
+
+  5） 配置编译参数，设置环境变量，并进行LTO优化编译。
+  ```
+  export CMAKE_C_FLAGS="-flto=thin -fuse-ld=lld"
+  export CMAKE_CXX_FLAGS="-flto=thin -fuse-ld=lld"
+  export CC=clang
+  export CXX=clang++
+  export USE_XNNPACK=0 
+  export OMP_PROC_BIND=false
+  git clean -dfx
+  python3 setup.py bdist_wheel
+  ```
+
+  6） 安装Torch，并下载torch_npu源码，进行LTO优化编译。以torch2.1.0配套的torch_npu为例：
+
+  ```
+  pip3.8 install /dist/*.whl --force-reinstall --no-deps
+  cd ../
+  git clone -b v2.1.0 https://gitee.com/ascend/pytorch.git torch_npu
+  cd torch_npu
+  git clean -dfx
+  bash ci/build.sh --python=3.8 --enable_lto
+  ```
+
+  7） 在模型所使用的Python环境下，安装LTO优化编译的Torch和torch_npu包。将LTO编译优化生成的torch包和torch_npu包路径分别记为torch_path和torch_npu_path：
+  ```
+  pip install torch_path/*.whl torch_npu_path/*.whl --force-reinstall --no-deps
+  ```
 
 8. 模型代码更新
 
@@ -311,18 +380,19 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 
 #### 训练结果
 
-| 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-单步迭代耗时(ms) |
+| 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :-------------------: |
 | 竞品A           |  8p  |         32         |   fp32    |  24   | 48.7 |         -          |
 | Atlas 800T A2 |  8p  |         32         |   fp32    |  24   | 48.5 |         -          |
-| 竞品A           |  8p  |         32         |   fp32    |  1   | - |         929          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  1（编译优化前）   | - |         1015          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  1（Python编译优化）   | - |         983          |
+| 竞品A           |  8p  |         32         |   fp32    |  1   | - |         33.20          |
+| Atlas 800T A2 |  8p  |         32         |   fp32    |  1   | - |         34.85          |
 
 
 # 变更说明
 
-2025.03.10：增加编译优化性能。
+2025.03.31：优化模型性能计算脚本，增加Python&Torch&torch_npu编译优化性能。
+
+2025.03.10：增加Python编译优化性能。
 
 2025.03.04：进一步优化模型性能，更新性能数据。增加多机多卡训练脚本。
 
