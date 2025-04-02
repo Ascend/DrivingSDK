@@ -104,7 +104,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td rowspan=10>检测</td>
+        <td rowspan=11>检测</td>
         <td align=center><a href=./context/boxes_overlap_bev.md>boxes_overlap_bev</a></td>
         <td align=center>Y</td>
     </tr>
@@ -143,6 +143,10 @@
     <tr>
         <td align=center><a href=./context/points_in_box.md>points_in_box</a></td>
         <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/diff_iou_rotated.md>diff_iou_rotated</a></td>
+        <td align=center>Y</td>
     </tr>
     <tr>
     <tr>
@@ -214,10 +218,6 @@
     <tr>
         <td align=center><a href=./context/cal_anchors_heading.md>cal_anchors_heading</a></td>
         <td align=center>N</td>
-    </tr>
-    <tr>
-        <td align=center><a href=./context/diff_iou_rotated.md>diff_iou_rotated</a></td>
-        <td align=center>Y</td>
     </tr>
 </table>
 
