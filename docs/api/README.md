@@ -42,7 +42,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/group_points.md>group_points</a></td>
+        <td align=center><a href=./context/group_points[beta].md>group_points[beta]</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
@@ -67,7 +67,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/bev_pool.md>bev_pool</a></td>
+        <td align=center><a href=./context/bev_pool_v1.md>bev_pool_v1</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
@@ -75,7 +75,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/bev_pool_v3[beta].md>bev_pool_v3[beta]</a></td>
+        <td align=center><a href=./context/bev_pool_v3.md>bev_pool_v3</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
@@ -133,7 +133,7 @@
         <td align=center>Y</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/npu_rotated_iou.md>npu_rotated_iou</a></td>
+        <td align=center><a href=./context/npu_rotated_iou[beta].md>npu_rotated_iou[beta]</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
@@ -155,7 +155,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/SubmSparseConv3d.md>SubmSparseConv3d</a></td>
+        <td align=center><a href=./context/SubMConv3d.md>SubMConv3d</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
@@ -172,11 +172,11 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/deformable_conv2d.md>deformable_conv2d</a></td>
+        <td align=center><a href=./context/deform_conv2d.md>deform_conv2d</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/modulated_deformable_conv2d.md>modulated_deformable_conv2d</a></td>
+        <td align=center><a href=./context/modulated_deform_conv2d.md>modulated_deform_conv2d</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
@@ -208,7 +208,7 @@
         <td align=center>Y</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/npu_batch_matmul.md>npu_batch_matmul</a></td>
+        <td align=center><a href=./context/npu_batch_matmul[beta].md>npu_batch_matmul[beta]</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
