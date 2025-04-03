@@ -145,7 +145,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/diff_iou_rotated.md>diff_iou_rotated</a></td>
+        <td align=center><a href=./context/diff_iou_rotated_2d.md>diff_iou_rotated_2d</a></td>
         <td align=center>Y</td>
     </tr>
     <tr>
