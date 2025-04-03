@@ -20,7 +20,7 @@ mx_driving.npu_gaussian(Tensor boxes, int out_size_factor, float gaussian_overla
 - `norm_bbox(bool)`：是否对3D边界框的参数进行归一化。
 - `with_velocity(bool)`：是否在目标检测任务中引入速度信息。
 - `flip_angle(bool)`：是否在结果中将正弦余弦结果反转。
-- `max_objs(int)`：处理boxes数量的上限。
+- `max_objs(int)`：处理boxes数量的上限，BEVDet模型中为500。
 ### 返回值
 - `center_int(Tensor)`：经过计算后的直角三角形斜边，数据类型为`int32`，shape为`[minObjs, 2]`。
 - `radius(Tensor)`：经过计算后的高斯半径，数据类型为`int32`，shape为`[minObjs]`。
@@ -28,7 +28,7 @@ mx_driving.npu_gaussian(Tensor boxes, int out_size_factor, float gaussian_overla
 - `ind(Tensor)`：经过计算后的符合要求的boxes中心点的偏移量，数据类型为`int64`，shape为`[max_objs]`。
 - `anno_box(Tensor)`：经过计算后的直角三角形斜边，数据类型为`float32`，shape为`[max_objs, 10]`。
 ### 算子约束
-1. 若适配BEVDet模型，`W`应为9，其他模型（如需要）可能略有差别。
+1. 若适配BEVDet模型，`W`应为9。
 2. 所有参数和模型的配置保持一致。
 ### 支持的型号
 - Atlas A2 训练系列产品

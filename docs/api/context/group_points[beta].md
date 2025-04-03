@@ -1,4 +1,4 @@
-## group_points
+## group_points[beta]
 ### 接口原型
 ```python
 mx_driving.group_points(Tensor features, Tensor indices) -> Tensor
