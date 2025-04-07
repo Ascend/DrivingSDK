@@ -20,7 +20,7 @@ mx_driving.spconv.SparseConv3d(in_channels, out_channels, kernel_size, stride=1,
 - `indice_key(str)`：该输入用于复用之前计算的索引信息
 - `mode(str)`：区分了`mmcv`和`spconv`两种不同框架下的稀疏卷积
 ### 返回值
-- `SparseConvTensor`：存储了输出的特征值`out_feature`，对应索引位置`out_indices`和对应的spatital_shape。
+- `SparseConvTensor(Tensor)`：存储了输出的特征值`out_feature`，对应索引位置`out_indices`和对应的spatital_shape。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 约束说明

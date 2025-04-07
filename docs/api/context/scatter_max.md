@@ -13,12 +13,12 @@ $$out_i = max(out_i, max_j(updates_j))$$
 $$argmax_i = argmax_j(updates_j)$$
 这里，$i = indices_j$。
 ### 参数说明
-- `updates`：更新源张量，数据类型为`float32`。
-- `indices`：索引张量，数据类型为`int32`。
-- `out`：被更新张量，数据类型为`float32`，默认为`None`。
+- `updates(Tensor)`：更新源张量，数据类型为`float32`。
+- `indices(Tensor)`：索引张量，数据类型为`int32`。
+- `out(Tensor)`：被更新张量，数据类型为`float32`，默认为`None`。
 ### 返回值
-- `out`：更新后的张量，数据类型为`float32`。
-- `argmax`：最大值对应的索引张量，数据类型为`int32`。
+- `out(Tensor)`：更新后的张量，数据类型为`float32`。
+- `argmax(Tensor)`：最大值对应的索引张量，数据类型为`int32`。
 ### 算子约束
 - `updates`的第0维外其余轴合轴后必须32字节对齐。
 - `indices`的维度必须为`1`，`indices`第0维的长度必须与`updates`第0维的长度相同。

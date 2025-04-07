@@ -6,7 +6,7 @@ mx_driving.unique_voxel(Tensor voxels) -> int, Tensor, Tensor, Tensor, Tensor
 ### 功能描述
 对输入的点云数据进行去重处理。
 ### 参数说明
-- `voxels (Tensor)`：数据语义为索引，数据类型为`int32`，shape为`[N]`。
+- `voxels(Tensor)`：数据语义为索引，数据类型为`int32`，shape为`[N]`。
 ### 返回值
 - `num_voxels(int)`, 体素数量。
 - `uni_voxels(Tensor)`，去重后的体素数据，数据类型为`int32`，shape为`[num_voxels]`。

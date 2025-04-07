@@ -18,7 +18,7 @@ mx_driving.detection.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans
 - `v_threshold(float)`：顶点判断的容忍阈值。
 - `e_threshold(float)`：边相交判断的容忍阈值。
 ### 返回值
-- `Tensor`：IoU张量，数据类型为`float32, float16`，`is_cross`为`True`时形状为`[B, N, M]，反之则为`[B, N]`。
+- `output(Tensor)`：IoU张量，数据类型为`float32, float16`，`is_cross`为`True`时形状为`[B, N, M]，反之则为`[B, N]`。
 ### 约束说明
 - `mode`的取值范围为`{0, 1}`。
 ### 支持的型号

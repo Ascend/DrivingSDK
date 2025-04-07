@@ -17,7 +17,7 @@ mx_driving.detection.npu_nms3d_normal(Tensor boxes, Tensor scores, float: iou_th
 - `scores(Tensor)`：评分张量，数据类型为`float32, float16`。shape 为`[N]`。
 - `iou_threshold(float)`：IoU阈值。
 ### 返回值
-- `Tensor`：NMS后的框张量，数据类型为`int32`。
+- `output(Tensor)`：NMS后的框张量，数据类型为`int32`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例

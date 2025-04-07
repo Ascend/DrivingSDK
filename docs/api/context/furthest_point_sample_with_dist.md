@@ -13,7 +13,7 @@ mx_driving.point.furthest_point_sample_with_dist(Tensor points, int num_points) 
 - `points(Tensor)`：点云数据，表示各点间的距离，数据类型为`float32`。shape为`[B, N, N]`。其中`B`为batch size，`N`为点的数量。
 - `num_points(int)`：采样点的数量。
 ### 返回值
-- `Tensor`：采样后的点云数据，数据类型为`float32`。shape为`[B, num_points]`。
+- `output(Tensor)`：采样后的点云数据，数据类型为`float32`。shape为`[B, num_points]`。
 ### 约束说明
 1. 性能在N值较大的场景下较优。
 ### 支持的型号

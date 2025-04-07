@@ -11,7 +11,7 @@ mx_driving.box_iou_rotated(Tensor boxes_a, Tensor boxes_b, str mode='iou', bool 
 - `mode (str)`：取值为`"iou"`时，计算IoU（intersection over union）；取值为`"iof"`时，计算IoF（intersection over foregroud）。
 - `aligned (bool)`：取值为`True`时，只计算配对的box之间的结果；取值为`False`时，计算每对box之间的结果。
 ### 返回值
-- `ious(Tensor)`：包含两组bounding boxes的IoU（`mode="iou"`）或IoF（`mode="iof"`）的张量，数据类型为`float32`。shape为`[M]`（`aligned=True`）或`[M, N]`（`aligned=False`）。
+- `ious (Tensor)`：包含两组bounding boxes的IoU（`mode="iou"`）或IoF（`mode="iof"`）的张量，数据类型为`float32`。shape为`[M]`（`aligned=True`）或`[M, N]`（`aligned=False`）。
 ### 约束说明
 - `mode`的取值范围为`{'iou', 'iof'}`。
 - 当`aligned=False`时，`boxes_a`数量`M`与`boxes_b`数量`N`的乘积不超过9亿。

@@ -13,7 +13,7 @@ mx_driving.common.hypot(Tensor input, Tensor other) -> Tensor
 - `input(Tensor)`：代表直角三角形第一条直角边的输入张量，数据类型为`float32`。
 - `other(Tensor)`：代表直角三角形第二条直角边的输入张量，数据类型为`float32`。
 ### 返回值
-- `Tensor`：经过计算后的直角三角形斜边，数据类型为`float32`。
+- `output(Tensor)`：经过计算后的直角三角形斜边，数据类型为`float32`。
 ### 算子约束
 1. input和other的shape必须是可广播的。
 ### 支持的型号
