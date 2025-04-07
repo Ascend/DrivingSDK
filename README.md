@@ -121,7 +121,7 @@ out, argmax = scatter_max(updates, indices, out)
 ## 模型清单
 |  Model   | 链接  | Released |
 |  :----:  |  :----  | :----  |
-| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/Yolov8 |Y|
+| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/Yolov8 |N|
 | BEVDepth  |https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/BEVDepth |Y|
 | Sparse4D  |  https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/Sparse4D |N|
 | CenterNet  |  https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/CenterNet |Y|
@@ -133,7 +133,7 @@ out, argmax = scatter_max(updates, indices, out)
 | StreamPETR  | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/StreamPETR |Y|
 | Senna  | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/Senna |N|
 | BEVDet  |  https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/BEVDet |Y|
-| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/PanoOcc |Y|
+| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/PanoOcc |N|
 | TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/TPVFormer |Y|
 | DETR | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/DETR |Y|
 | Deformable-DETR | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/Deformable-DETR |Y|
@@ -144,7 +144,7 @@ out, argmax = scatter_max(updates, indices, out)
 | MapTR |https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/MapTR|Y|
 | UniAD | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/UniAD |Y|
 | PivotNet|https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/PivotNet|Y|
-| CenterPoint(3D)  | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/CenterPoint |N|
+| CenterPoint(3D)  | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/CenterPoint |Y|
 | LMDrive  | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/LMDrive |N|
 | DETR3D | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/DETR3D |Y|
 | DenseTNT | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/DenseTNT |Y|
@@ -157,7 +157,7 @@ out, argmax = scatter_max(updates, indices, out)
 | SalsaNext | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/SalsaNext |N|
 | Panoptic-PolarNet | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/Panoptic-PolarNet |N|
 | HPTR | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/HPTR |N|
-| MatrixVT | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/MatrixVT |N|
+| MatrixVT | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/MatrixVT |Y|
 | FlashOCC | https://gitee.com/ascend/DrivingSDK/tree/branch_v7.0.RC1/model_examples/FlashOCC |N|
 
 # 支持的产品型号
