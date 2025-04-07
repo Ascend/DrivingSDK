@@ -15,8 +15,8 @@ mx_driving.detection.pixel_group(Tensor score, Tensor mask, Tensor embedding, Te
 - `embedding (Tensor)`：特征向量，数据类型为`float32`，shape为`[Height, Width, Embedding_dim]`。
 - `kernel_label (Tensor)`：像素的实例标签，数据类型为`int32`，shape为`[Height, Width]`。
 - `kernel_contour (Tensor)`：内核的边界像素，数据类型为`uint8`，shape为`[Height, Width]`。
-- `kernel_region_num`：不同内核（分组）的数量，数据类型为`int`。
-- `distance_threshold`：嵌入向量的距离阈值，数据类型为`float`。
+- `kernel_region_num (int)`：不同内核（分组）的数量，数据类型为`int`。
+- `distance_threshold (float)`：嵌入向量的距离阈值，数据类型为`float`。
 ### 返回值
 - `pixel_assignment (List)`：像素的分组信息，数据类型为`float32`，length为入参`kernel_region_num`。
 ### 约束说明

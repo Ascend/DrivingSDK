@@ -9,7 +9,7 @@ mx_driving.boxes_iou_bev(Tensor boxes_a, Tensor boxes_b) -> Tensor
 - `boxes_a (Tensor)`：第一组bounding boxes，数据类型为`float32`。shape为`[M, 7]`。其中`7`分别代表`x_center, y_center, z_center, dx, dy, dz, angle`, `x_center, y_center, z_center`代表box的中心点坐标，`dx, dy, dz`代表box的长宽高，`angle`代表box的弧度制旋转角。
 - `boxes_b (Tensor)`：第二组bounding boxes，数据类型为`float32`。shape为`[N, 7]`。其中`7`分别代表`x_center, y_center, z_center, dx, dy, dz, angle`, `x_center, y_center, z_center`代表box的中心点坐标，`dx, dy, dz`代表box的长宽高，`angle`代表box的弧度制旋转角。
 ### 返回值
-- `ious(Tensor)`：包含两组bounding boxes的IoU的张量，数据类型为`float32`。shape为`[M, N]`。
+- `ious (Tensor)`：包含两组bounding boxes的IoU的张量，数据类型为`float32`。shape为`[M, N]`。
 ### 约束说明
 - `angle`的值在`[-pi, pi]`之间。
 - `boxes_a`数量`M`与`boxes_b`数量`N`的乘积不超过9亿。

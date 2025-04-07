@@ -21,7 +21,7 @@ mx_driving.detection.roi_align_rotated(Tensor feature_map, Tensor rois, float: s
 - `aligned(bool)`：是否对齐，数据类型为`bool`。值为`True`时，表示对齐, 值为`False`时，表示不对齐。
 - `clockwise(bool)`：旋转候选框的旋转方向，数据类型为`bool`。值为`True`时，表示逆时针旋转，值为`False`时，表示顺时针旋转。
 ### 返回值
-- `Tensor`：池化特征图张量，数据类型为`float32`，形状为`[n, C, pooled_height, pooled_width]`。
+- `output(Tensor)`：池化特征图张量，数据类型为`float32`，形状为`[n, C, pooled_height, pooled_width]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例

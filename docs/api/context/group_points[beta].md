@@ -11,8 +11,8 @@ mx_driving.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
 ### 功能描述
 点云数据按照索引重新分组。
 ### 参数说明
-- `features`：需要被插值的特征，数据类型为`float32`，维度为（B, C, N）。
-- `indices`：获取目标特征计算的索引，数据类型为`int32`，维度为（B, npoints, nsample）。
+- `features(Tensor)`：需要被插值的特征，数据类型为`float32`，维度为（B, C, N）。
+- `indices(Tensor)`：获取目标特征计算的索引，数据类型为`int32`，维度为（B, npoints, nsample）。
 ### 返回值
 - `output(Tensor)`：分组后的点云数据，数据类型为`float32`。shape为`[B, C, npoints, nsample]`。
 ### 约束说明

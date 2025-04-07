@@ -9,8 +9,8 @@ mx_driving.scatter_add(Tensor src, Tensor indices, int dim=0， Tensor out=None,
 - `src (Tensor)`：源张量 (Tensor)，数据类型为`float32`。
 - `indices (Tensor)`：索引张量 (Tensor)，数据类型为`int32`。
 - `out (Tensor)`：被更新张量 (Tensor)，数据类型为`float32`，可选入参，默认为`None`，输入`out`不为`None`时，`out`中的元素参与求和的计算。
-- `dim`：指定的维度，表示按照哪个维度进行分组求和计算，数据类型为`int32`，可选入参，默认取值为`0`。
-- `dim_size`：输出张量在`dim`维的长度，数据类型为`int32`，可选入参，默认为`None`，该参数仅在输入`out`为`None`时生效。
+- `dim (int)`：指定的维度，表示按照哪个维度进行分组求和计算，数据类型为`int32`，可选入参，默认取值为`0`。
+- `dim_size (int)`：输出张量在`dim`维的长度，数据类型为`int32`，可选入参，默认为`None`，该参数仅在输入`out`为`None`时生效。
 ### 返回值
 - `out (Tensor)`：求和后的张量 (Tensor)，数据类型为`float32`。
 ### 算子约束

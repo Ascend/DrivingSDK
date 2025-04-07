@@ -9,7 +9,7 @@ mx_driving.diff_iou_rotated_2d(Tensor boxes_a, Tensor boxes_b) -> Tensor
 - `boxes_a (Tensor)`：第一组bounding boxes，数据类型为`float32`。shape为`[B, N, 5]`。其中 `B` 代表 BatchSize， `N` 代表每个 BatchSize 包含的检测框，`5`分别代表`x_center, y_center, dx, dy, angle`, `x_center, y_center`代表box的中心点坐标，`dx, dy`代表box的长宽，`angle`代表box的弧度制旋转角。
 - `boxes_b (Tensor)`：第二组bounding boxes，数据类型为`float32`。shape为`[B, N, 5]`。其中 `B` 代表 BatchSize， `N` 代表每个 BatchSize 包含的检测框，`5`分别代表`x_center, y_center, dx, dy, angle`, `x_center, y_center`代表box的中心点坐标，`dx, dy`代表box的长宽，`angle`代表box的弧度制旋转角。
 ### 返回值
-- `ious(Tensor)`：包含两组bounding boxes的IoU的张量，数据类型为`float32`。shape为`[B, N]`。
+- `ious (Tensor)`：包含两组bounding boxes的IoU的张量，数据类型为`float32`。shape为`[B, N]`。
 ### 约束说明
 - `angle`的值在`[-pi, pi]`之间
 - B 在`[1, 1024]`之间
