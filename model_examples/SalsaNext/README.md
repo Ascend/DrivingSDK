@@ -75,8 +75,9 @@ code_path=model_examples/SalsaNext
 ```
 git clone https://gitee.com/ascend/DrivingSDK.git -b master
 git clone https://github.com/TiagoCortinhal/SalsaNext.git
-cp -f {DrivingSDK_root_dir}/model_examples/SalsaNext/npu.patch SalsaNext
+cp -f {DrivingSDK_root_dir}/model_examples/SalsaNext/salsanext.patch SalsaNext
 cp -rf {DrivingSDK_root_dir}/model_examples/SalsaNext/test SalsaNext
+cp -rf {DrivingSDK_root_dir}/model_examples/SalsaNext/train SalsaNext
 cd SalsaNext
 git checkout 7548c124b48f0259cdc40e98dfc3aeeadca6070c
 git apply --whitespace=fix salsanext.patch
@@ -148,7 +149,7 @@ git apply --whitespace=fix salsanext.patch
    ```
 
    使用pip指令安装模型所需的其他代码库:
-   matplotlib==3.9.4, tensorflow==2.18.0, numpy==1.23.0, datasets==3.3.2
+   pip install -r requirements.txt
 
 
 ## 快速开始
@@ -169,7 +170,7 @@ git apply --whitespace=fix salsanext.patch
 - 单机8卡性能
 
   ```
-  # epoch = 3
+  # epoch = 20
   bash test/train_8p_performance.sh -d /数据集路径/ -a ./salsanext.yml -l ./
   ```
 
@@ -190,12 +191,14 @@ git apply --whitespace=fix salsanext.patch
 
 |  芯片      | 卡数 |  Max epochs  | mIoU | FPS |
 |:--------:|----|:------:|:----:|:----------:|
-|   竞品A    | 8p | 150 | 0.597 | 412 |
-| Atlas 800T A2 | 8p | 150 | 0.583 | 201 |
+|   竞品A    | 8p | 150 | 0.577 | 30.2 |
+| Atlas 800T A2 | 8p | 150 | 0.581 | 22.9 |
 
 # 变更说明
 
 2025.03.06：首次发布。
+
+2025.04.08：修改性能测试脚本错误，刷新性能数据，优化loss函数提高训练速度
 
 ## FAQ
 暂无。

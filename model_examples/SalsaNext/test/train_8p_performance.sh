@@ -115,7 +115,7 @@ do
 done
 echo $PORT
 
-me=3
+me=20
 nohup python -m torch.distributed.launch \
           --nproc_per_node=${RANK_SIZE} \
           --rdzv_endpoint=localhost:${PORT} \
@@ -129,7 +129,7 @@ echo "end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
 e2e_time=$(( $end_time - $start_time ))
 
 # 从 log 中获取性能
-avg_time=`grep "Time avg per batch" ${output_path_dir}/train_8p_performance.log | tail -n 5 | grep -oP "[0-9]+\.[0-9]+" | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
+avg_time=`grep "Epoch" ${output_path_dir}/train_8p_performance.log | tail -n 5 | awk -F "Time " '{print $2}' | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
 echo "avg_time : ${avg_time}"
 # 从 log 中获取精度
 mAP=`grep "IoU avg *" ${output_path_dir}/train_8p_performance.log |awk -F "=" '{print $NF}'|awk 'END {print}'`

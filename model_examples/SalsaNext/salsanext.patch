@@ -1,3 +1,16 @@
+diff --git a/salsanext.yml b/salsanext.yml
+index f6c71e1..ff315e0 100644
+--- a/salsanext.yml
++++ b/salsanext.yml
+@@ -4,7 +4,7 @@
+ train:
+   loss: "xentropy"       # must be either xentropy or iou
+   max_epochs: 150
+-  lr: 0.01              # sgd learning rate
++  lr: 0.0283             # sgd learning rate
+   wup_epochs: 1          # warmup during first XX epochs (can be float)
+   momentum: 0.9          # sgd momentum
+   lr_decay: 0.99         # learning rate decay per epoch after initial cycle (from min lr)
 diff --git a/train.sh b/train.sh
 index 73ec0d4..5d5b61a 100755
 --- a/train.sh
@@ -169,55 +182,8 @@ index b28afa1..047d917 100644
    def get_train_batch(self):
      scans = self.trainiter.next()
      return scans
-diff --git a/train/tasks/semantic/modules/Lovasz_Softmax.py b/train/tasks/semantic/modules/Lovasz_Softmax.py
-index 2b41541..9935d24 100644
---- a/train/tasks/semantic/modules/Lovasz_Softmax.py
-+++ b/train/tasks/semantic/modules/Lovasz_Softmax.py
-@@ -53,15 +53,16 @@ def mean(l, ignore_nan=False, empty=0):
-     return acc / n
- 
- 
--def lovasz_grad(gt_sorted):
-+def lovasz_grad(gt_sorted, arange):
-     """
-     Computes gradient of the Lovasz extension w.r.t sorted errors
-     See Alg. 1 in paper
-     """
-     p = len(gt_sorted)
-     gts = gt_sorted.sum()
-+
-     intersection = gts - gt_sorted.float().cumsum(0)
--    union = gts + (1 - gt_sorted).float().cumsum(0)
-+    union = intersection + arange
-     jaccard = 1. - intersection / union
-     if p > 1:  # cover 1-pixel case
-         jaccard[1:p] = jaccard[1:p] - jaccard[0:-1]
-@@ -98,6 +99,7 @@ def lovasz_softmax_flat(probas, labels, classes='present'):
-         return probas * 0.
-     C = probas.size(1)
-     losses = []
-+    arange = torch.arange(labels.size(0)).to(device=labels.device) + 1
-     class_to_sum = list(range(C)) if classes in ['all', 'present'] else classes
-     for c in class_to_sum:
-         fg = (labels == c).float()  # foreground for class c
-@@ -113,7 +115,7 @@ def lovasz_softmax_flat(probas, labels, classes='present'):
-         errors_sorted, perm = torch.sort(errors, 0, descending=True)
-         perm = perm.data
-         fg_sorted = fg[perm]
--        losses.append(torch.dot(errors_sorted, Variable(lovasz_grad(fg_sorted))))
-+        losses.append(torch.dot(errors_sorted, Variable(lovasz_grad(fg_sorted, arange))))
-     return mean(losses)
- 
- 
-@@ -144,4 +146,4 @@ class Lovasz_softmax(nn.Module):
-         self.ignore = ignore
- 
-     def forward(self, probas, labels):
--        return lovasz_softmax(probas, labels, self.classes, self.per_image, self.ignore)
-+        return lovasz_softmax(probas, labels, self.classes, self.per_image, self.ignore)
-\ No newline at end of file
 diff --git a/train/tasks/semantic/modules/trainer.py b/train/tasks/semantic/modules/trainer.py
-index 28e2d6a..18f4b63 100644
+index 28e2d6a..3dec688 100644
 --- a/train/tasks/semantic/modules/trainer.py
 +++ b/train/tasks/semantic/modules/trainer.py
 @@ -6,6 +6,8 @@ import time
@@ -279,7 +245,7 @@ index 28e2d6a..18f4b63 100644
 +        else:
 +            self.max_epochs = self.ARCH['train']['max_epochs']
 +
-+        self.batch_size = self.ARCH["train"]["batch_size"] // torch.npu.device_count()
++        self.batch_size = self.ARCH["train"]["batch_size"]
 +
          # put logger where it belongs
  
@@ -718,21 +684,22 @@ index 040c850..a15c02a 100644
              print("KNN Infered seq", path_seq, "scan", path_name,
                    "in", res, "sec")
 diff --git a/train/tasks/semantic/train.py b/train/tasks/semantic/train.py
-index 00b1730..e8acf9c 100755
+index 00b1730..fb4f42c 100755
 --- a/train/tasks/semantic/train.py
 +++ b/train/tasks/semantic/train.py
-@@ -17,6 +17,10 @@ from tasks.semantic.modules.SalsaNext import *
+@@ -17,6 +17,11 @@ from tasks.semantic.modules.SalsaNext import *
  import math
  from decimal import Decimal
  
 +import torch
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
++from tasks.semantic.patch import salsa_next_patcher_builder
 +
  def remove_exponent(d):
      return d.quantize(Decimal(1)) if d == d.to_integral() else d.normalize()
  
-@@ -90,6 +94,13 @@ if __name__ == '__main__':
+@@ -90,6 +95,13 @@ if __name__ == '__main__':
          const=True, default=False,
          help='Set this if you want to use the Uncertainty Version'
      )
@@ -746,7 +713,7 @@ index 00b1730..e8acf9c 100755
  
      FLAGS, unparsed = parser.parse_known_args()
      FLAGS.log = FLAGS.log + '/logs/' + datetime.datetime.now().strftime("%Y-%-m-%d-%H:%M") + FLAGS.name
-@@ -138,7 +149,7 @@ if __name__ == '__main__':
+@@ -138,7 +150,7 @@ if __name__ == '__main__':
              FLAGS.pretrained = None
              if os.path.isdir(FLAGS.log):
                  if os.listdir(FLAGS.log):
@@ -755,10 +722,12 @@ index 00b1730..e8acf9c 100755
                      if answer == 'n':
                          quit()
                      else:
-@@ -173,5 +184,5 @@ if __name__ == '__main__':
+@@ -173,5 +185,6 @@ if __name__ == '__main__':
          quit()
  
      # create trainer and start the training
 -    trainer = Trainer(ARCH, DATA, FLAGS.dataset, FLAGS.log, FLAGS.pretrained,FLAGS.uncertainty)
-+    trainer = Trainer(ARCH, DATA, FLAGS.dataset, FLAGS.log, FLAGS.pretrained, FLAGS.uncertainty, FLAGS.max_epochs)
-     trainer.train()
+-    trainer.train()
++    with salsa_next_patcher_builder.build():
++        trainer = Trainer(ARCH, DATA, FLAGS.dataset, FLAGS.log, FLAGS.pretrained, FLAGS.uncertainty, FLAGS.max_epochs)
++        trainer.train()
