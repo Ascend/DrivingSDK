@@ -242,4 +242,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // npu_subm_sparse_conv3d_with_key
     m.def("npu_subm_sparse_conv3d_with_key", &npu_subm_sparse_conv3d_with_key);
+
+    // min_area_polygons
+    m.def("min_area_polygons", &min_area_polygons);
 }

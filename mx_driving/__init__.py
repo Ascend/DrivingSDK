@@ -61,6 +61,7 @@ __all__ = [
     "diff_iou_rotated_2d",
     "nms3d_on_sight",
     "cartesian_to_frenet",
+    "min_area_polygons"
 ]
 
 import os
@@ -124,6 +125,7 @@ from .ops.npu_batch_matmul import npu_batch_matmul
 from .ops.nms3d_on_sight import nms3d_on_sight
 from .ops.cartesian_to_frenet import cartesian_to_frenet
 from .patcher import default_patcher_builder, patch_mmcv_version
+from .ops.min_area_polygons import min_area_polygons
 
 
 def _set_env():

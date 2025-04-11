@@ -465,6 +465,9 @@ def cartesian_to_frenet(
     pt: torch.Tensor,
     poly_line: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: ...
+def min_area_polygons(
+    pointsets: torch.Tensor
+) -> torch.Tensor: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
@@ -520,4 +523,5 @@ __all__ = [
     "diff_iou_rotated_2d",
     "boxes_iou_bev",
     "cartesian_to_frenet",
+    "min_area_polygons",
 ]

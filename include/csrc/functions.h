@@ -288,4 +288,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> calc_poly_start_end_sl(const at::
 at::Tensor npu_subm_sparse_conv3d_with_key(const at::Tensor& ouidx_offset, const at::Tensor& valid_indices,
                                            const at::Tensor& weight, const at::Tensor& feature, int indices_number,
                                            at::IntArrayRef kernel_size);
+
+at::Tensor min_area_polygons(const at::Tensor& pointsets);
 #endif // CSRC_FUNCTIONS_H_

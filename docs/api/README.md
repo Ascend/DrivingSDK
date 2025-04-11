@@ -104,7 +104,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td rowspan=11>检测</td>
+        <td rowspan=12>检测</td>
         <td align=center><a href=./context/boxes_overlap_bev.md>boxes_overlap_bev</a></td>
         <td align=center>Y</td>
     </tr>
@@ -149,6 +149,9 @@
         <td align=center>Y</td>
     </tr>
     <tr>
+        <td align=center><a href=./context/min_area_polygons[beta].md>min_area_polygons[beta]</a></td>
+        <td align=center>N</td>
+    </tr>
     <tr>
         <td rowspan=3>稀疏</td>
         <td align=center><a href=./context/SparseConv3d.md>SparseConv3d</a></td>
