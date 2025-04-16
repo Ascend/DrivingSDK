@@ -6,12 +6,10 @@
 using namespace AscendC;
 
 
-constexpr uint32_t BUFFER_NUM = 2;
-
 class KernelGroupPoints {
 public:
     __aicore__ inline KernelGroupPoints() {}
-    __aicore__ inline void Init(GM_ADDR points, GM_ADDR indices, GM_ADDR out, const GroupPointsTilingData *tiling_data)
+    __aicore__ inline void Init(GM_ADDR points, GM_ADDR indices, GM_ADDR out, const GroupPointsTilingData* tiling_data)
     {
         uint32_t batchSize_ = tiling_data->batchSize;
         cSize_ = tiling_data->cSize;
@@ -21,14 +19,13 @@ public:
         cAligned = tiling_data->cAligned;
         maxUbTaskNum = tiling_data->maxUbTaskNum;
         coreTaskNum = tiling_data->coreTaskNum;
-        uint32_t lastCoreTaskNum = tiling_data->lastCoreTaskNum;
         mainCoreLoop = tiling_data->mainCoreLoop;
         mainCoreTail = tiling_data->mainCoreTail;
         lastCoreLoop = tiling_data->lastCoreLoop;
         lastCoreTail = tiling_data->lastCoreTail;
         lastCoreTailAligned = tiling_data->lastCoreTailAligned;
         useCoreNum = tiling_data->useCoreNum;
-        
+
         uint64_t inputLength = static_cast<uint64_t>(batchSize_) * nSize_ * cSize_;
         uint64_t indicesLength = static_cast<uint64_t>(batchSize_) * npoints_ * nsample_;
         uint64_t outLength = indicesLength * cSize_;
@@ -54,7 +51,7 @@ public:
         uint64_t taskOffset = blockIdx * coreTaskNum;
         uint32_t loopCount = mainCoreLoop;
         uint32_t tailTaskNum = mainCoreTail;
-        uint32_t tailTaskAligned = mainCoreTail; // have been set 64-aligned while mainCore
+        uint32_t tailTaskAligned = mainCoreTail; // have been set 64-aligned in mainCore
         if (blockIdx == useCoreNum - 1) {
             loopCount = lastCoreLoop;
             tailTaskNum = lastCoreTail;
@@ -79,7 +76,7 @@ private:
         DataCopy(indices_local, indicesGm[taskOffset], taskAligned);
         SetFlag<HardEvent::MTE3_MTE2>(eventIDMTE3ToMTE2);
         WaitFlag<HardEvent::MTE3_MTE2>(eventIDMTE3ToMTE2);
-        
+
         for (int32_t i = 0; i < taskNum; i++) {
             uint32_t idx = indices_local.GetValue(i);
             uint32_t b_idx = (taskOffset + i) / npoints_ / nsample_;
@@ -89,7 +86,8 @@ private:
         SetFlag<HardEvent::MTE2_MTE3>(eventIDMTE2ToMTE3);
         WaitFlag<HardEvent::MTE2_MTE3>(eventIDMTE2ToMTE3);
 
-        DataCopyExtParams outCopyParams {static_cast<uint16_t>(taskNum), static_cast<uint32_t>(cSize_ * sizeof(DTYPE_POINTS)), 0, 0, 0};
+        DataCopyExtParams outCopyParams {
+            static_cast<uint16_t>(taskNum), static_cast<uint32_t>(cSize_ * sizeof(DTYPE_POINTS)), 0, 0, 0};
         DataCopyPad(outGm[taskOffset * cSize_], input_local, outCopyParams);
     }
 
@@ -118,7 +116,8 @@ private:
     uint8_t eventIDMTE3ToMTE2;
 };
 
-extern "C" __global__ __aicore__ void group_points(GM_ADDR points, GM_ADDR indices, GM_ADDR out, GM_ADDR workspace, GM_ADDR tiling)
+extern "C" __global__ __aicore__ void group_points(
+    GM_ADDR points, GM_ADDR indices, GM_ADDR out, GM_ADDR workspace, GM_ADDR tiling)
 {
     GET_TILING_DATA(tiling_data, tiling);
     KernelGroupPoints op;

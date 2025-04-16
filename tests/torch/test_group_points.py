@@ -38,14 +38,14 @@ class TestGroupPoints(TestCase):
         
         np.random.seed(1)
         torch.manual_seed(1)
-        B_lists = [2, 173, 40, 173, 173]
-        C_lists = [3, 47, 16, 47, 147]
-        N_lists = [4, 9, 10, 20, 20]
-        np_lists = [3, 1, 8, 8, 17]
-        ns_lists = [4, 4, 8, 8, 19]
+        B_lists = [2, 173, 40, 173, 173, 87]
+        C_lists = [3, 47, 16, 47, 147, 11]
+        N_lists = [4, 9, 10, 20, 20, 49]
+        np_lists = [3, 1, 8, 8, 17, 207]
+        ns_lists = [4, 4, 8, 8, 19, 81]
         dtype = [torch.float, torch.half]
         
-        for i in range(5):
+        for i in range(len(B_lists)):
             
             B, C, N, npoints, nsample = B_lists[i], C_lists[i], N_lists[i], np_lists[i], ns_lists[i]            
             mean = np.random.uniform(-100, 100)

@@ -28,6 +28,7 @@ constexpr uint32_t BLOCK_INT32 = BLOCK_SIZE / SIZE_OF_FP32;
 constexpr uint32_t MIN_CORE_TASK = 64;
 constexpr uint32_t UB_TASK_BLOCK = BLOCK_SIZE / SIZE_OF_INT32;
 constexpr uint64_t RPC_WORKSIZE = 20 * 1024;
+constexpr uint64_t MAX_COPY_BLOCK_COUNT = 4095;
 
 constexpr size_t B_IDX = 0;
 constexpr size_t C_IDX = 1;
@@ -94,7 +95,8 @@ static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
 
     uint32_t cAligned = CeilAlign(static_cast<uint32_t>(cSize), elemAligned32B);
     uint64_t singleTaskSize = cAligned * dtypeSize + SIZE_OF_INT32;
-    uint32_t maxUbTaskNum = FloorAlign(DivFloor(availableUbSize, singleTaskSize), static_cast<uint64_t>(UB_TASK_BLOCK));
+    uint32_t maxUbTaskNum = FloorAlign(std::min(MAX_COPY_BLOCK_COUNT, DivFloor(availableUbSize, singleTaskSize)),
+        static_cast<uint64_t>(UB_TASK_BLOCK));
     if (maxUbTaskNum == 0) {
         return ge::GRAPH_FAILED;
     }
@@ -122,7 +124,7 @@ static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
     }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
         return ge::GRAPH_FAILED;
     }
