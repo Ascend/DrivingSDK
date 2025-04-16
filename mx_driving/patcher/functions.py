@@ -1,10 +1,17 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 # Copyright (c) OpenMMLab. All rights reserved.
 from types import ModuleType
-from typing import Dict
+from typing import List, Optional, Union, Dict
+import torch
+from torch import Tensor
 
 
 def stream(mmcvparallel: ModuleType, options: Dict):
+    get_input_device = mmcvparallel._functions.get_input_device
+    scatter = mmcvparallel._functions.scatter
+    synchronize_stream = mmcvparallel._functions.synchronize_stream
+    _get_stream = mmcvparallel._functions._get_stream
+
     @staticmethod
     def new_forward(target_gpus: List[int], input_: Union[List, Tensor]) -> tuple:
         input_device = get_input_device(input_)

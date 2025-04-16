@@ -44,8 +44,8 @@ __all__ = [
     "stream",
     "resnet_add_relu",
     "resnet_maxpool",
-    "nuscences_dataset",
-    "nuscences_metric",
+    "nuscenes_dataset",
+    "nuscenes_metric",
     "nuscenes_mot_metric",
     "optimizer",
 ]
