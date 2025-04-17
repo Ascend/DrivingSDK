@@ -1,8 +1,14 @@
 approvers:
 - wangxiaoxin-sherie
 - liu_zhi_xu
+- hua-yuxiu
+- zhangchenrui2
 reviewers:
 - zhuguodong1
 - captainjing
+- he-yujie1
+- zhang_qianqian46
+- zhangchenrui2
+- hua-yuxiu
 options:
   no_parent_owners: true
