@@ -5,8 +5,6 @@ import time
 import warnings
 from types import ModuleType
 from typing import Dict, Optional, Union, List, Tuple
-import mmcv
-from torch.utils.data import DataLoader
 
 
 def brake(runner: ModuleType, options: Dict):
@@ -80,8 +78,12 @@ def brake(runner: ModuleType, options: Dict):
         self.runner.call_hook('after_train')
         return self.runner.model
 
-    IterLoader = runner.iter_based_runner.IterLoader
-    get_host_info = runner.iter_based_runner.get_host_info
+    try:
+        IterLoader = runner.iter_based_runner.IterLoader
+        get_host_info = runner.iter_based_runner.get_host_info
+        DataLoader = runner.iter_based_runner.DataLoader
+    except AttributeError:
+        DataLoader = None
 
     def run_iter(self,
                  data_loaders: List[DataLoader],
