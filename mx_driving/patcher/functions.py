@@ -2,8 +2,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from types import ModuleType
 from typing import List, Optional, Union, Dict
-import torch
-from torch import Tensor
 
 
 def stream(mmcvparallel: ModuleType, options: Dict):
@@ -11,6 +9,8 @@ def stream(mmcvparallel: ModuleType, options: Dict):
     scatter = mmcvparallel._functions.scatter
     synchronize_stream = mmcvparallel._functions.synchronize_stream
     _get_stream = mmcvparallel._functions._get_stream
+    Tensor = mmcvparallel._functions.Tensor
+    
 
     @staticmethod
     def new_forward(target_gpus: List[int], input_: Union[List, Tensor]) -> tuple:
@@ -19,7 +19,7 @@ def stream(mmcvparallel: ModuleType, options: Dict):
         if input_device == -1 and target_gpus != [-1]:
             # Perform CPU to GPU copies in a background stream
             streams = [
-                _get_stream(torch.device("cuda", device))
+                _get_stream(mmcvparallel._functions.torch.device("cuda", device))
                 for device in target_gpus
             ]
 

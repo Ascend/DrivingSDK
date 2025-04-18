@@ -3,9 +3,6 @@
 from types import ModuleType
 from typing import Dict, Optional, Union
 
-from torch import Tensor
-import torch.nn as nn
-
 
 def optimizer_hooks(mmcvhooks: ModuleType, options: Dict):
     """
@@ -14,11 +11,13 @@ def optimizer_hooks(mmcvhooks: ModuleType, options: Dict):
     patch module: "mmcv.runner.hooks"
     """
     if hasattr(mmcvhooks, "optimizer"):
-        import logging
-        from mmcv.runner.hooks import HOOKS, Hook
-        from mmcv.utils import _BatchNorm
-        from torch.npu.amp import GradScaler
-        from mmcv.runner.fp16_utils import wrap_fp16_model
+        logging = mmcvhooks.optimizer.logging
+        HOOKS = mmcvhooks.optimizer.HOOKS
+        Hook = mmcvhooks.optimizer.Hook
+        _BatchNorm = mmcvhooks.optimizer._BatchNorm
+        GradScaler = mmcvhooks.optimizer.GradScaler
+        wrap_fp16_model = mmcvhooks.optimizer.wrap_fp16_model
+        Tensor = mmcvhooks.optimizer.Tensor
 
         @HOOKS.register_module(force=True)
         class OptimizerHook(Hook):
@@ -85,7 +84,7 @@ def optimizer_hooks(mmcvhooks: ModuleType, options: Dict):
                 self.remainder_iters = 0
                 self.initialized = False
 
-            def has_batch_norm(self, module: nn.Module) -> bool:
+            def has_batch_norm(self, module: mmcvhooks.optimizer.nn.Module) -> bool:
                 if isinstance(module, _BatchNorm):
                     return True
                 for m in module.children():
@@ -180,7 +179,7 @@ def optimizer_hooks(mmcvhooks: ModuleType, options: Dict):
                     scaler_state_dict = runner.meta["fp16"]["loss_scaler"]
                     self.loss_scaler.load_state_dict(scaler_state_dict)
 
-            def copy_grads_to_fp32(self, fp16_net: nn.Module, fp32_weights: Tensor) -> None:
+            def copy_grads_to_fp32(self, fp16_net: mmcvhooks.optimizer.nn.Module, fp32_weights: Tensor) -> None:
                 """Copy gradients from fp16 model to fp32 weight copy."""
                 for fp32_param, fp16_param in zip(fp32_weights, fp16_net.parameters()):
                     if fp16_param.grad is not None:
@@ -188,7 +187,7 @@ def optimizer_hooks(mmcvhooks: ModuleType, options: Dict):
                             fp32_param.grad = fp32_param.data.new(fp32_param.size())
                         fp32_param.grad.copy_(fp16_param.grad)
 
-            def copy_params_to_fp16(self, fp16_net: nn.Module, fp32_weights: Tensor) -> None:
+            def copy_params_to_fp16(self, fp16_net: mmcvhooks.optimizer.nn.Module, fp32_weights: Tensor) -> None:
                 """Copy updated params from fp32 weight copy to fp16 model."""
                 for fp16_param, fp32_param in zip(fp16_net.parameters(), fp32_weights):
                     fp16_param.data.copy_(fp32_param.data)
