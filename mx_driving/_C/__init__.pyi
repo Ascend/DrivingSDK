@@ -157,23 +157,6 @@ def modulated_deformable_conv2d_backward(
     groups: int,
     deformable_groups: int,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: ...
-def npu_subm_sparse_conv3d(
-    feature: torch.Tensor,
-    indices: torch.Tensor,
-    weight: torch.Tensor,
-    kernel_size: Tuple[int, int, int],
-    out_channel: int,
-    outSpatialShape: Tuple[int, int, int],
-    batch_size: int,
-    temp: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: ...
-def npu_subm_sparse_conv3d_grad(
-    ouidx_offset: torch.Tensor,
-    valid_indices: torch.Tensor,
-    weight: torch.Tensor,
-    grad: torch.Tensor,
-    indices_number: int,
-    kernel_size: Tuple[int, int, int]) -> torch.Tensor: ...
 def multi_to_sparse(
     out_features: torch.Tensor,
     unique_indices_offset: torch.Tensor,
@@ -215,9 +198,6 @@ def npu_sparse_conv3d_grad(
     feature: torch.Tensor,
     weight: torch.Tensor,
     grad: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]: ...
-def npu_prepare_subm_conv3d(
-    flattenIndices: torch.Tensor, outSpatialShape: Tuple[int, int, int], batch_size: int
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def nms3d_normal(boxes: torch.Tensor, nms_overlap_thresh: float) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def nms3d(boxes: torch.Tensor, threshold: float) -> Tuple[torch.Tensor, torch.Tensor]: ...
@@ -495,8 +475,6 @@ __all__ = [
     "modulated_deformable_conv2d",
     "deformable_conv2d_backward",
     "modulated_deformable_conv2d_backward",
-    "npu_subm_sparse_conv3d",
-    "npu_subm_sparse_conv3d_grad",
     "nms3d_normal",
     "nms3d",
     "nms3d_on_sight",

@@ -139,8 +139,38 @@ class SparseInverseConvFunction(Function):
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None, None
 
 
-class SubMConvFunction(Function):
+def generate_map(coors, spatial_shape, bs):
+    spatial_shape_size = spatial_shape[0] * spatial_shape[1] * spatial_shape[2]
 
+    if spatial_shape_size * bs > 200000000:
+        spatial_shape1 = (spatial_shape[1] * spatial_shape[0])
+        new_coors1 = spatial_shape1 * coors[:, 0] + spatial_shape[1] * coors[:, 1] + coors[:, 2]
+        map1 = torch.full((spatial_shape1 * bs, ), -1, dtype=torch.int32, device=coors.device)
+
+        map1[new_coors1] = 1
+        mask = (map1 != -1)
+        map1Length = map1[mask].shape[0]
+        map1[mask] = torch.arange(map1Length, dtype=torch.int32, device=coors.device)
+
+        map2 = torch.full((map1Length, spatial_shape[2]), -1, dtype=torch.int32, device=coors.device)
+        map2[map1[new_coors1], coors[:, 3]] = torch.arange(new_coors1.numel(), dtype=torch.int32, device=coors.device)
+        return map1, map2
+    else:
+        flatten_indices = (
+            coors[:, 0] * spatial_shape_size
+            + coors[:, 1] * (spatial_shape[1] * spatial_shape[2])
+            + coors[:, 2] * (spatial_shape[2])
+            + coors[:, 3]
+        )
+
+        map1 = torch.full((spatial_shape_size * bs, ), -1,
+            dtype=torch.int32, device=coors.device)
+
+        map1[flatten_indices] = torch.arange(flatten_indices.numel(), dtype=torch.int32, device=coors.device)
+        return map1, torch.Tensor([]).int()
+
+
+class SubMConvFunction(Function):
     @staticmethod
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(
@@ -158,27 +188,15 @@ class SubMConvFunction(Function):
         groups,
         bias,
     ) -> torch.Tensor:
-        device = features.device
         weight = weight.data
-        # calculate the index pair
-        indices_long = indices.long()
-        flatten_indices = (
-            indices_long[:, 0] * out_spatial_shape[0] * out_spatial_shape[1] * out_spatial_shape[2]
-            + indices_long[:, 1] * out_spatial_shape[1] * out_spatial_shape[2]
-            + indices_long[:, 2] * out_spatial_shape[2]
-            + indices_long[:, 3]
-        )
-        temp, ordered_indices = mx_driving._C.npu_prepare_subm_conv3d(flatten_indices, out_spatial_shape, batch_size)
-        temp[flatten_indices] = ordered_indices
-        output_iml2col, outidx_pair, ouidx_offset = mx_driving._C.npu_subm_sparse_conv3d(
-            features, indices, weight, kernel_size, out_channels, out_spatial_shape, batch_size, temp
-        )
-        weight_flatten = weight.view(kernel_size[0] * kernel_size[1] * kernel_size[2] * features.shape[1], out_channels)
-        output_iml2col = output_iml2col.view(features.shape[0], -1)
-        out_features = output_iml2col @ weight_flatten
+        map1, map2 = generate_map(indices, out_spatial_shape, batch_size)
+        output_iml2col, indices_offset = mx_driving._C.npu_subm_sparse_conv3d_v2(features, indices, map1, map2, kernel_size,
+            features.shape[1], out_spatial_shape, batch_size)
+        out_features = output_iml2col @ weight.reshape(-1, out_channels)
+
         ctx.kernel_size = kernel_size
-        ctx.save_for_backward(features, weight, output_iml2col, ouidx_offset)
-        return out_features, indices, ouidx_offset
+        ctx.save_for_backward(features, weight, output_iml2col, indices_offset)
+        return out_features, indices, indices_offset
 
     @staticmethod
     @once_differentiable

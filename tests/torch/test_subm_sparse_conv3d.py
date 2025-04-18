@@ -8,177 +8,173 @@ ImplicitGemm: implicit gemm
 
 import time
 from pathlib import Path
-
 import numpy as np
 import torch
 import torch_npu
 from torch import nn
+from torch_npu.testing.testcase import TestCase, run_tests
+from data_cache import golden_data_cache
 from mx_driving.spconv import SparseSequential, SparseConvTensor, SubMConv3d
 
 
-def generate_sparse_data(shape,
-                         num_points,
-                         num_channels,
-                         integer = False,
-                         data_range = (-1, 1),
-                         with_dense = True,
-                         dtype = np.float32,
-                         shape_scale = 1):
-    dense_shape = shape
-    ndim = len(dense_shape)
-    # num_points = np.random.randint(10, 100, size=[batch_size, ndim])
-    num_points = np.array(num_points)
-    # num_points = np.array([3, 2])
-    batch_size = len(num_points)
-    batch_indices = []
-    coors_total = np.stack(np.meshgrid(*[np.arange(0, s // shape_scale) for s in shape]),
-                           axis=-1)
-    coors_total = coors_total.reshape(-1, ndim) * shape_scale
-    for i in range(batch_size):
-        np.random.shuffle(coors_total)
-        inds_total = coors_total[:num_points[i]]
-        inds_total = np.pad(inds_total, ((0, 0), (0, 1)),
-                            mode="constant",
-                            constant_values=i)
-        batch_indices.append(inds_total)
-    if integer:
-        sparse_data = np.random.randint(data_range[0],
-                                        data_range[1],
-                                        size=[num_points.sum(),
-                                              num_channels]).astype(dtype)
-    else:
-        sparse_data = np.random.uniform(data_range[0],
-                                        data_range[1],
-                                        size=[num_points.sum(),
-                                              num_channels]).astype(dtype)
-
-    # sparse_data = np.arange(1, num_points.sum() + 1).astype(np.float32).reshape(5, 1)
-
-    res = {
-        "features": sparse_data.astype(dtype),
-    }
-    if with_dense:
-        dense_data = np.zeros([batch_size, num_channels, *dense_shape],
-                              dtype=sparse_data.dtype)
-        start = 0
-        for i, inds in enumerate(batch_indices):
-            for j, ind in enumerate(inds):
-                dense_slice = (i, slice(None), *ind[:-1])
-                dense_data[dense_slice] = sparse_data[start + j]
-            start += len(inds)
-        res["features_dense"] = dense_data.astype(dtype)
-    batch_indices = np.concatenate(batch_indices, axis=0)
-    res["indices"] = batch_indices.astype(np.int32)
-    return res
+@golden_data_cache(__file__)
+def generate_sparse_data(num_points, spatial_shape, in_channels):
+    bs = len(num_points)
+    total_points = sum(num_points)
+    features = np.random.uniform(0, 5, (total_points, in_channels))
+    indices = []
+    batch_idx = 0
+    for num_point in num_points:
+        batch_indices = []
+        batch_indices.append(np.ones((2 * num_point, 1)) * batch_idx)
+        for spatial_size in spatial_shape:
+            idx = np.random.uniform(0, spatial_size, (2 * num_point, 1)).astype(np.int32)
+            batch_indices.append(idx)
+        
+        batch_indices = np.concatenate(batch_indices, axis=1)
+        idx_unique = np.unique(batch_indices, axis=0)
+        indices.append(idx_unique[:num_points])
+        batch_idx += 1
+        
+    indices = np.concatenate(indices, axis=0)
+    return torch.from_numpy(features).float(), torch.from_numpy(indices).int()
 
 
-class Net(nn.Module):
-    def __init__(self, shape, in_channel):
-        super().__init__()
-        self.net = SparseSequential(
-            SubMConv3d(in_channel, 32, 3)
-        )
-        max_batch_size = 1
-        self.shape = shape
+def generate_map(coors, spatial_shape, bs):
+    spatial_shape1 = (spatial_shape[1] * spatial_shape[0])
+    new_coors1 = spatial_shape1 * coors[:, 0] + spatial_shape[1] * coors[:, 1] + coors[:, 2]
+    map1 = torch.full((spatial_shape1 * bs, ), -1, dtype=torch.int32, device=coors.device)
+    map1[new_coors1] = torch.arange(new_coors1.numel(), dtype=torch.int32, device=coors.device)
+    mask = map1 != -1
+    map1_unqiue_size = mask.sum()
+    map1[mask] = torch.arange(map1_unqiue_size, dtype=torch.int32, device=coors.device)
 
-    def forward(self, features, coors, batch_size):
-        x = SparseConvTensor(features,
-                            coors,
-                            self.shape,
-                            batch_size)
-        return self.net(x)
+    map2 = torch.full((map1_unqiue_size, spatial_shape[2]), -1, dtype=torch.int32, device=coors.device)
+    map2[map1[new_coors1], coors[:, 3]] = torch.arange(new_coors1.numel(), dtype=torch.int32, device=coors.device)
+    return map1, map2
 
 
-def _test_single_impl(dtype: torch.dtype):
+# pylint: disable=too-many-arguments,huawei-too-many-arguments
+@golden_data_cache(__file__)
+def get_golden_output(features, indices, weights, bias, batch_size, in_channels,
+                      out_channels, kernel_size, out_spatial_shape):
+    map1, map2 = generate_map(indices, out_spatial_shape, batch_size)
+    M = torch.zeros((features.shape[0], kernel_size, kernel_size, kernel_size, in_channels), device=features.device)
+    weight_flatten = weights.reshape((kernel_size * kernel_size * kernel_size * in_channels, out_channels))
 
-    np.random.seed(50051)
+    min_x_idx = indices[:, 1] - kernel_size // 2
+    min_y_idx = indices[:, 2] - kernel_size // 2
+    min_z_idx = indices[:, 3] - kernel_size // 2
+
+    kernel_offset = torch.arange(kernel_size, device=features.device)
+    k0 = torch.broadcast_to(kernel_offset.reshape((kernel_size, 1, 1)), (kernel_size, kernel_size, kernel_size))
+    k1 = torch.broadcast_to(kernel_offset.reshape((1, kernel_size, 1)), (kernel_size, kernel_size, kernel_size))
+    k2 = torch.broadcast_to(kernel_offset.reshape((1, 1, kernel_size)), (kernel_size, kernel_size, kernel_size))
     
-    spatial_shape = np.array([4, 4, 4])
-    sparse_dict = generate_sparse_data(spatial_shape, [2] * 1, 16)
+    x_idx = min_x_idx[:, None, None, None] + k0[None, :]
+    y_idx = min_y_idx[:, None, None, None] + k1[None, :]
+    z_idx = min_z_idx[:, None, None, None] + k2[None, :]
 
-    voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
-    coors = np.ascontiguousarray(
-        sparse_dict["indices"][:, [3, 0, 1, 2]]).astype(np.int32)
-
-    voxels_th_npu = torch.from_numpy(voxels).to(dtype).npu()
-    coors_th_npu = torch.from_numpy(coors).npu()
-    net_cls = Net
-    # npu 
-    torch.manual_seed(50051)
-    net_native_npu = net_cls(spatial_shape, 16).to(dtype).npu()
-
-    out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
-
-
-def _test_large_x_impl(dtype: torch.dtype):
-
-    np.random.seed(50051)
+    mask = (x_idx >= 0) * (y_idx >= 0) * (z_idx >= 0) * (x_idx < out_spatial_shape[0]) * (y_idx < out_spatial_shape[1]) * (z_idx < out_spatial_shape[2])
     
-    spatial_shape = np.array([200, 200, 40])
-    sparse_dict = generate_sparse_data(spatial_shape, [2] * 1, 16)
-
-    voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
-    coors = np.ascontiguousarray(
-        sparse_dict["indices"][:, [3, 0, 1, 2]]).astype(np.int32)
-
-    voxels_th_npu = torch.from_numpy(voxels).to(dtype).npu()
-    coors_th_npu = torch.from_numpy(coors).npu()
-    net_cls = Net
-    # npu 
-    torch.manual_seed(50051)
-    net_native_npu = net_cls(spatial_shape, 16).to(dtype).npu()
-
-    out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
-
-
-def _test_large_indices_impl(dtype: torch.dtype):
-
-    np.random.seed(50051)
+    map1_idx = (indices[:, 0, None, None, None] * out_spatial_shape[1] * out_spatial_shape[0] + x_idx * out_spatial_shape[1] + y_idx)[mask]
+    map2_idx = z_idx[mask]
     
-    spatial_shape = np.array([200, 200, 40])
-    sparse_dict = generate_sparse_data(spatial_shape, [62454] * 1, 16)
-
-    voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
-    coors = np.ascontiguousarray(
-        sparse_dict["indices"][:, [3, 0, 1, 2]]).astype(np.int32)
-
-    voxels_th_npu = torch.from_numpy(voxels).to(dtype).npu()
-    coors_th_npu = torch.from_numpy(coors).npu()
-    net_cls = Net
-    # npu 
-    torch.manual_seed(50051)
-    net_native_npu = net_cls(spatial_shape, 16).to(dtype).npu()
-
-    out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
-
-
-def _test_disalign_impl(dtype: torch.dtype):
-
-    np.random.seed(50051)
+    map1_val = map1[map1_idx]
+    mask1 = map1_val != -1
+    map1_val = map1_val[mask1]
+    map2_idx = map2_idx[mask1]
+    mask[mask.clone()] = mask1
     
-    spatial_shape = np.array([200, 200, 40])
-    sparse_dict = generate_sparse_data(spatial_shape, [62454] * 1, 5)
-
-    voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
-    coors = np.ascontiguousarray(
-        sparse_dict["indices"][:, [3, 0, 1, 2]]).astype(np.int32)
-
-    voxels_th_npu = torch.from_numpy(voxels).to(dtype).npu()
-    coors_th_npu = torch.from_numpy(coors).npu()
-    net_cls = Net
-    # npu 
-    torch.manual_seed(50051)
-    net_native_npu = net_cls(spatial_shape, 5).to(dtype).npu()
-
-    out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
+    points_offset = map2[map1_val, map2_idx]
+    mask2 = points_offset != -1
+    mask[mask.clone()] = mask2
+    
+    M[mask] = features[points_offset[mask2], :]
+    out = M.reshape(features.shape[0], -1) @ weight_flatten + bias.reshape(1, -1)
+    return out
 
 
-def test_multi_impl():
-    _test_single_impl(torch.float32)
-    _test_large_x_impl(torch.float32)
-    _test_large_indices_impl(torch.float32)
-    _test_disalign_impl(torch.float32)
+# pylint: disable=too-many-arguments,huawei-too-many-arguments
+def get_output(num_points, batch_size, in_channels, out_channels,
+        kernel_size, spatial_shape):
+    features, indices = generate_sparse_data(num_points, spatial_shape, in_channels)
+    features, indices = features.npu(), indices.npu()
+    net = SubMConv3d(in_channels, out_channels, kernel_size).npu()
+    x = SparseConvTensor(features, indices, spatial_shape, batch_size)
+    golden_output = get_golden_output(features, indices, net.weight.data, net.bias.data, batch_size,
+        in_channels, out_channels, kernel_size, spatial_shape)
+    res = net(x).features
+    return res.detach().cpu().numpy(), golden_output.detach().cpu().numpy()
 
+
+class TestSubmSparseConv3d(TestCase):
+    def test_model_case1(self):
+        num_points = [61557]
+        out_spatial_shape = [1440, 1440, 41]
+        in_channels = 16
+        out_channels = 32
+        kernel_size = 3
+        batch_size = len(num_points)
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
+        self.assertRtolEqual(golden, res)
+
+    def test_model_case2(self):
+        num_points = [38153]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 128
+        out_channels = 256
+        kernel_size = 3
+        batch_size = len(num_points)
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
+        self.assertRtolEqual(golden, res)
+
+    def test_5x5_kernel_case1(self):
+        num_points = [38153]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 128
+        out_channels = 256
+        kernel_size = 5
+        batch_size = len(num_points)
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
+        self.assertRtolEqual(golden, res)
+    
+    def test_5x5_kernel_case2(self):
+        num_points = [38153]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 128
+        out_channels = 256
+        kernel_size = 5
+        batch_size = len(num_points)
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
+        self.assertRtolEqual(golden, res)
+
+    def test_large_spatial_shape(self):
+        num_points = [23787]
+        out_spatial_shape = [3571, 4251, 1062]
+        in_channels = 4
+        out_channels = 32
+        kernel_size = 5
+        batch_size = len(num_points)
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
+        self.assertRtolEqual(golden, res)
+
+    def test_unaligned_channel(self):
+        num_points = [10000]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 55
+        out_channels = 77
+        kernel_size = 5
+        batch_size = len(num_points)
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
+        self.assertRtolEqual(golden, res)
 
 if __name__ == "__main__":
-    test_multi_impl()
+    np.random.seed(100)
+    run_tests()

@@ -290,4 +290,9 @@ at::Tensor npu_subm_sparse_conv3d_with_key(const at::Tensor& ouidx_offset, const
                                            at::IntArrayRef kernel_size);
 
 at::Tensor min_area_polygons(const at::Tensor& pointsets);
+
+std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& feature,
+    const at::Tensor& indices, const at::Tensor& map1, const at::Tensor& map2, at::IntArrayRef kernel_size, int in_channels,
+    at::IntArrayRef out_spatial_shape, int batch_size);
+
 #endif // CSRC_FUNCTIONS_H_
