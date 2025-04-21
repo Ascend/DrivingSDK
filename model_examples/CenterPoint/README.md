@@ -229,10 +229,10 @@ python setup.py develop
 
 #### 性能
 训练性能结果展示表
-| Exp | FPS |
-| - | - |
-| 8p-竞品A | 10.714 |
-| 8p-Atlas 800T A2| 8.270 |
+| Exp | global batch size | FPS |
+| - | - | - |
+| 8p-竞品A | 96 | 85.712 |
+| 8p-Atlas 800T A2| 96|  66.160 |
 
 
 
@@ -409,10 +409,10 @@ python setup.py develop
 
 #### 性能
 训练性能结果展示表
-| Exp | FPS |
-| - | - |
-| 8p-竞品A | 48.48 |
-| 8p-Atlas 800T A2| 28.881 |
+| Exp | global batchsize | FPS |
+| - | - | - |
+| 8p-竞品A | 32 | 48.48 |
+| 8p-Atlas 800T A2| 32 | 28.881 |
 
 ## FAQ
 ### ImportError:/usr/local/gcc-7.5.0/lib64/libgomp.so.1:cannot allocate memory in static TLS block,
@@ -462,3 +462,4 @@ pip install -r 2.5_requirements.txt
 [2024-12-23] **NEW:** CenterPoint3d模型在NPU设备首次适配.
 [2025-02-18] **NEW:** CenterPoint2d模型增加PT2.5相关依赖.
 [2025-03-12] **NEW:** CenterPoint仓CenterHead模块性能优化，并提供高性能内存库安装指导，更新了CenterPoint3d的性能数据
+[2025-04-21] **NEW:** CenterPoint2d模型优化fps计算方式，乘以卡数，更新性能指标，readme中添加global batch size

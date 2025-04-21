@@ -82,7 +82,7 @@ e2e_time=$(( $end_time - $start_time ))
 echo "------------------ Final result ------------------"
 #输出性能FPS，需要模型审视修改
 avg_time=`grep -a 'Batch time: ' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F 'Batch time: ' '{print $2}'|awk 'NR>10'|awk -F '(' '{print $1}'|tail -100|awk '{a+=$1} END {if (NR != 0) printf("%.3f",a/NR)}'`
-FPS=`echo "$batch_size / $avg_time"|bc`
+FPS=`awk 'BEGIN{printf "%.3f\n", '$batch_size'*'${RANK_SIZE}'/'$avg_time'}'`
 
 #打印，不需要修改
 echo "Final Performance images/sec : $FPS"
