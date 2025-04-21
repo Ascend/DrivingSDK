@@ -131,10 +131,10 @@ cd model_examples/BEVFusion
 
 # 训练结果
 
-| NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | NDS   | mAP   | FPS   |
-|------------------|-----------|-------------------------|------|-------|-------|-------|-------|
-| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 69.48 | 66.6  | 19.42 |
-| 8p-竞品A           | lidar-cam | 0.075                   | FP32 | 6     | 69.78 | 67.36 | 22.54 |
+| NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size | NDS   | mAP   | FPS   |
+|------------------|-----------|-------------------------|------|-------|-------|-------|-------|-------|
+| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.48 | 66.6  | 19.42 |
+| 8p-竞品A           | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.78 | 67.36 | 22.54 |
 
 # 版本说明
 
