@@ -48,7 +48,7 @@ export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
 cur_path=`pwd`
 cur_path_last_diename=${cur_path##*/}
 
-batch_node_size=24
+batch_node_size=192
 
 if [ x"${cur_path_last_diename}" == x"test" ];then
     test_path_dir=${cur_path}
