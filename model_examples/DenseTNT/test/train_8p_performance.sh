@@ -51,7 +51,15 @@ export ASCEND_GLOBAL_EVENT_ENABLE=0
 #设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2
 #设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
-export CPU_AFFINITY_CONF=1
+export CPU_AFFINITY_CONF=2
+#缓存aclnn算子数量
+export ACLNN_CACHE_LIMIT=100000
+#启动动态shape缓存
+export HOST_CACHE_CAPACITY=20
+#启用hccl ffts+模式
+export ASCEND_ENHANCE_enable=1
+#缓存分配器创建特定的内存块
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 #使能高性能内存库
 export LD_PRELOAD=$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so
 
