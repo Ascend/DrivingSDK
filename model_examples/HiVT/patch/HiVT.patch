@@ -1,0 +1,39 @@
+diff --git a/models/hivt.py b/models/hivt.py
+index bac2ddf..9f76841 100644
+--- a/models/hivt.py
++++ b/models/hivt.py
+@@ -174,7 +174,8 @@ class HiVT(pl.LightningModule):
+         ]
+ 
+         optimizer = torch.optim.AdamW(optim_groups, lr=self.lr, weight_decay=self.weight_decay)
+-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.T_max, eta_min=0.0)
++        scheduler = {'scheduler': torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=self.T_max, eta_min=0.0)}
+         return [optimizer], [scheduler]
+ 
+     @staticmethod
+diff --git a/models/local_encoder.py b/models/local_encoder.py
+index 6c78ecb..c9ad791 100644
+--- a/models/local_encoder.py
++++ b/models/local_encoder.py
+@@ -273,7 +273,7 @@ class TemporalEncoderLayer(nn.Module):
+     def forward(self,
+                 src: torch.Tensor,
+                 src_mask: Optional[torch.Tensor] = None,
+-                src_key_padding_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
++                src_key_padding_mask: Optional[torch.Tensor] = None, **kwargs) -> torch.Tensor:
+         x = src
+         x = x + self._sa_block(self.norm1(x), src_mask, src_key_padding_mask)
+         x = x + self._ff_block(self.norm2(x))
+diff --git a/train.py b/train.py
+index 73df58b..accc775 100644
+--- a/train.py
++++ b/train.py
+@@ -12,6 +12,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ from argparse import ArgumentParser
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ import pytorch_lightning as pl
+ from pytorch_lightning.callbacks import ModelCheckpoint

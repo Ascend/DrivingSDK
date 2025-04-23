@@ -1,0 +1,6 @@
+pytorch-lightning==1.5.2
+torchmetrics==0.8.2
+torch_geometric==1.7.2
+torch_sparse==0.6.18
+decorator
+psutil
