@@ -304,13 +304,13 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 
 #### 训练结果
 
-| 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-单步迭代耗时(ms) |
+| 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :-------------------: |
 | 竞品A           |  8p  |         32         |   fp32    |  24   | 48.7 |         -          |
 | Atlas 800T A2 |  8p  |         32         |   fp32    |  24   | 48.5 |         -          |
-| 竞品A           |  8p  |         32         |   fp32    |  1   | - |         929          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  1（编译优化前）   | - |         1015          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  1（Python编译优化）   | - |         983          |
+| 竞品A           |  8p  |         32         |   fp32    |  1   | - |         33.20          |
+| Atlas 800T A2 |  8p  |         32         |   fp32    |  1（编译优化前）   | - |         31.28          |
+| Atlas 800T A2 |  8p  |         32         |   fp32    |  1（Python编译优化）   | - |         32.50          |
 
 
 # 变更说明
