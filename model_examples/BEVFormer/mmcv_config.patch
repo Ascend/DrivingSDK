@@ -611,7 +611,7 @@ index d6e90692..90dd702c 100644
          super().__init__(*args, **kwargs)
 +
 diff --git a/mmcv/runner/hooks/optimizer.py b/mmcv/runner/hooks/optimizer.py
-index 93015475..f664af6d 100644
+index 93015475..0b3c549b 100644
 --- a/mmcv/runner/hooks/optimizer.py
 +++ b/mmcv/runner/hooks/optimizer.py
 @@ -1,4 +1,6 @@
@@ -621,7 +621,7 @@ index 93015475..f664af6d 100644
  import copy
  import logging
  from collections import defaultdict
-@@ -52,11 +54,11 @@ class OptimizerHook(Hook):
+@@ -52,11 +54,16 @@ class OptimizerHook(Hook):
          self.grad_clip = grad_clip
          self.detect_anomalous_params = detect_anomalous_params
  
@@ -631,11 +631,16 @@ index 93015475..f664af6d 100644
              filter(lambda p: p.requires_grad and p.grad is not None, params))
          if len(params) > 0:
 -            return clip_grad.clip_grad_norm_(params, **self.grad_clip)
-+            return runner.optimizer.clip_grad_norm_fused_(**self.grad_clip)
++            if "clip_grad_norm_fused_" in runner.optimizer.__dict__:
++                # NpuFusedAdamW for fp32
++                return runner.optimizer.clip_grad_norm_fused_(**self.grad_clip)
++            else:
++                # AdamW for fp16
++                return clip_grad.clip_grad_norm_(params, **self.grad_clip)
  
      def after_train_iter(self, runner):
          runner.optimizer.zero_grad()
-@@ -65,7 +67,7 @@ class OptimizerHook(Hook):
+@@ -65,7 +72,7 @@ class OptimizerHook(Hook):
          runner.outputs['loss'].backward()
  
          if self.grad_clip is not None:
@@ -644,7 +649,7 @@ index 93015475..f664af6d 100644
              if grad_norm is not None:
                  # Add grad norm to the logger
                  runner.log_buffer.update({'grad_norm': float(grad_norm)},
-@@ -182,7 +184,7 @@ class GradientCumulativeOptimizerHook(OptimizerHook):
+@@ -182,7 +189,7 @@ class GradientCumulativeOptimizerHook(OptimizerHook):
                  or self.is_last_iter(runner)):
  
              if self.grad_clip is not None:
@@ -653,7 +658,7 @@ index 93015475..f664af6d 100644
                  if grad_norm is not None:
                      # Add grad norm to the logger
                      runner.log_buffer.update({'grad_norm': float(grad_norm)},
-@@ -291,7 +293,7 @@ if (TORCH_VERSION != 'parrots'
+@@ -291,7 +298,7 @@ if (TORCH_VERSION != 'parrots'
              self.loss_scaler.unscale_(runner.optimizer)
              # grad clip
              if self.grad_clip is not None:
@@ -662,7 +667,7 @@ index 93015475..f664af6d 100644
                  if grad_norm is not None:
                      # Add grad norm to the logger
                      runner.log_buffer.update({'grad_norm': float(grad_norm)},
-@@ -331,7 +333,7 @@ if (TORCH_VERSION != 'parrots'
+@@ -331,7 +338,7 @@ if (TORCH_VERSION != 'parrots'
                  self.loss_scaler.unscale_(runner.optimizer)
  
                  if self.grad_clip is not None:
@@ -671,7 +676,7 @@ index 93015475..f664af6d 100644
                      if grad_norm is not None:
                          # Add grad norm to the logger
                          runner.log_buffer.update(
-@@ -477,7 +479,7 @@ else:
+@@ -477,7 +484,7 @@ else:
                      if param.grad is not None:
                          param.grad.div_(self.loss_scaler.loss_scale)
                  if self.grad_clip is not None:
@@ -680,7 +685,7 @@ index 93015475..f664af6d 100644
                      if grad_norm is not None:
                          # Add grad norm to the logger
                          runner.log_buffer.update(
-@@ -499,8 +501,7 @@ else:
+@@ -499,8 +506,7 @@ else:
      @HOOKS.register_module()
      class GradientCumulativeFp16OptimizerHook(  # type: ignore
              GradientCumulativeOptimizerHook, Fp16OptimizerHook):
@@ -690,7 +695,7 @@ index 93015475..f664af6d 100644
  
          def __init__(self, *args, **kwargs):
              super().__init__(*args, **kwargs)
-@@ -534,7 +535,7 @@ else:
+@@ -534,7 +540,7 @@ else:
                          if param.grad is not None:
                              param.grad.div_(self.loss_scaler.loss_scale)
                      if self.grad_clip is not None:

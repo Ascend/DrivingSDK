@@ -33,7 +33,7 @@ def generate_sparse_data(num_points, spatial_shape, in_channels):
         
         batch_indices = np.concatenate(batch_indices, axis=1)
         idx_unique = np.unique(batch_indices, axis=0)
-        indices.append(idx_unique[:num_points])
+        indices.append(idx_unique[:num_point])
         batch_idx += 1
         
     indices = np.concatenate(indices, axis=0)

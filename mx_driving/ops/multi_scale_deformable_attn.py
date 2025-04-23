@@ -11,12 +11,13 @@ import warnings
 
 import torch
 from torch.autograd.function import Function, once_differentiable
-
+from torch.npu.amp import custom_bwd, custom_fwd
 import mx_driving._C
 
 
 class MultiScaleDeformableAttnFunction(Function):
     @staticmethod
+    @custom_fwd(cast_inputs=torch.float32)
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(
         ctx,
@@ -42,6 +43,7 @@ class MultiScaleDeformableAttnFunction(Function):
 
     @staticmethod
     @once_differentiable
+    @custom_bwd
     # pylint: disable=too-many-return-values
     def backward(ctx, grad_output: torch.Tensor) -> tuple:
         value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights = ctx.saved_tensors
