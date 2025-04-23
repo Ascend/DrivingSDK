@@ -448,6 +448,10 @@ def cartesian_to_frenet(
 def min_area_polygons(
     pointsets: torch.Tensor
 ) -> torch.Tensor: ...
+def radius(
+    x: torch.Tensor, y: torch.Tensor, ptr_x: torch.Tensor, 
+    ptr_y: torch.Tensor, r: int, max_num_neighbors: int
+) -> torch.Tensor: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
@@ -502,4 +506,5 @@ __all__ = [
     "boxes_iou_bev",
     "cartesian_to_frenet",
     "min_area_polygons",
+    "radius",
 ]

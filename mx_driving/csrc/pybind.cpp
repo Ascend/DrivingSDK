@@ -248,4 +248,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // npu_subm_sparse_conv3d_v2
     m.def("npu_subm_sparse_conv3d_v2", &npu_subm_sparse_conv3d_v2);
+
+    // radius
+    m.def("radius", &radius);
 }

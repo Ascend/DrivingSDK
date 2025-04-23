@@ -5,7 +5,7 @@
         <td align=center>Released</td>
     </tr>
     <tr>
-        <td rowspan=12>通用</td>
+        <td rowspan=13>通用</td>
         <td align=center><a href=./context/hypot.md>hypot</a></td>
         <td align=center>N</td>
     </tr>
@@ -52,6 +52,10 @@
     <tr>
         <td align=center><a href=./context/scatter_add.md>scatter_add</a></td>
         <td align=center>Y</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/radius.md>radius</a></td>
+        <td align=center>N</td>
     </tr>
     <tr>
         <td rowspan=10>采样</td>
