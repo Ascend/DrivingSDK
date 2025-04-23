@@ -18,52 +18,20 @@ index e63bc91..9c48b33 100644
  echo "number of gpus: "${gpu_num}
  echo "config file: "${config}
 diff --git a/local_train.sh b/local_train.sh
-index d584c4c..c972eb9 100644
+index d584c4c..85c4ed5 100644
 --- a/local_train.sh
 +++ b/local_train.sh
-@@ -1,19 +1,65 @@
--export CUDA_VISIBLE_DEVICES=0
--export PYTHONPATH=$PYTHONPATH:./
-+#将Host日志输出到串口,0-关闭/1-开启
-+export ASCEND_SLOG_PRINT_TO_STDOUT=0
-+#设置默认日志级别,0-debug/1-info/2-warning/3-error
-+export ASCEND_GLOBAL_LOG_LEVEL=3
-+#设置Event日志开启标志,0-关闭/1-开启
-+export ASCEND_GLOBAL_EVENT_ENABLE=0
-+#设置是否开启taskque,0-关闭/1-开启
-+export TASK_QUEUE_ENABLE=2
-+#设置是否开启PTCopy,0-关闭/1-开启
-+export PTCOPY_ENABLE=1
-+#设置是否开启combined标志,0-关闭/1-开启
-+export COMBINED_ENABLE=1
-+#设置特殊场景是否需要重新编译,不需要修改
-+export DYNAMIC_OP="ADD#MUL"
-+#HCCL白名单开关,1-关闭/0-开启
-+export HCCL_WHITELIST_DISABLE=1
-+export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
-+#开启绑核
-+#export CPU_AFFINITY_CONF=2
+@@ -1,19 +1,19 @@
+ export CUDA_VISIBLE_DEVICES=0
+ export PYTHONPATH=$PYTHONPATH:./
  
 -gpus=(${CUDA_VISIBLE_DEVICES//,/ })
 -gpu_num=${#gpus[@]}
-+export OMP_NUM_THREADS=16
-+export MKL_NUM_THREADS=16
-+
-+#编译优化相关
-+#关闭torch绑核openmp
-+export OMP_PROC_BIND=false
-+# 编译必须，使用编译后的pytorch、torch_npu包运行模型必须，进入bisheng编译器所在目录
-+# export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
-+# export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
-+
 +gpu_num=$2
  echo "number of gpus: "${gpu_num}
  
  config=projects/configs/$1.py
 +work_dir=work_dirs/$1
-+
-+#训练开始时间
-+start_time=$(date +%s)
  
  if [ ${gpu_num} -gt 1 ]
  then
@@ -75,26 +43,11 @@ index d584c4c..c972eb9 100644
  else
      python ./tools/train.py \
          ${config}
- fi
-+
-+#训练结束时间
-+end_time=$(date +%s)
-+e2e_time=$(( $end_time - $start_time ))
-+
-+log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
-+batch_size=6
-+
-+#结果打印
-+echo "------------------ Final result ------------------"
-+#输出性能FPS
-+FPS=`grep -E 'mmdet - INFO - (Iter|Epoch)' ${log_file} | awk -F " time: " '!/Epoch \[1\]\[1/ {print $NF}' | awk -F "," '{print $1}' | awk '{ sum += $0; n++} END { if (n > 0) print sum / n;}'`
-+FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}' * '${gpu_num}' / '${FPS}'}'`
-+#打印
-+echo "Final Performance images/sec : $FPS"
-+echo "E2E Training Duration sec : $e2e_time"
+-fi
++fi
 \ No newline at end of file
 diff --git a/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py b/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
-index fdf075b..51bae30 100644
+index fdf075b..85daa16 100644
 --- a/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
 +++ b/projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
 @@ -56,7 +56,7 @@ LGD 1.89
@@ -120,7 +73,7 @@ index fdf075b..51bae30 100644
  ]
  evaluation = dict(
 -    interval=num_iters_per_epoch * checkpoint_epoch_interval,
-+    interval=num_iters_per_epoch * num_epochs,
++    interval=num_iters_per_epoch * num_epochs + 1,
      pipeline=vis_pipeline,
      # out_dir="./vis",  # for visualization
  )
@@ -261,7 +214,7 @@ index 6523bbc..641f151 100644
              points_2d[..., 2:3], min=1e-5
          )
 diff --git a/projects/mmdet3d_plugin/models/detection3d/detection3d_blocks.py b/projects/mmdet3d_plugin/models/detection3d/detection3d_blocks.py
-index 2e2dcfa..687f970 100644
+index 2e2dcfa..95bb1a8 100644
 --- a/projects/mmdet3d_plugin/models/detection3d/detection3d_blocks.py
 +++ b/projects/mmdet3d_plugin/models/detection3d/detection3d_blocks.py
 @@ -130,9 +130,8 @@ class SparseBox3DRefinementModule(BaseModule):
@@ -303,7 +256,7 @@ index 2e2dcfa..687f970 100644
 -                ).squeeze(dim=-1)
 -                + T_src2dst[..., :3, 3]
 -            )
-+            
++
 +            center_tmp = []
 +            for i in range(3):
 +                temp = ((T_src2dst[..., i, :3].unsqueeze(-1)) * center[..., None]).squeeze(-1).sum(dim=-1)
@@ -422,7 +375,7 @@ index 524d03e..4dd5786 100644
              if gt_instance_id is not None:
 diff --git a/projects/mmdet3d_plugin/models/flash_attention.py b/projects/mmdet3d_plugin/models/flash_attention.py
 new file mode 100644
-index 0000000..0d5dbe4
+index 0000000..99efb87
 --- /dev/null
 +++ b/projects/mmdet3d_plugin/models/flash_attention.py
 @@ -0,0 +1,272 @@
@@ -469,7 +422,7 @@ index 0000000..0d5dbe4
 +        self.softmax_scale = softmax_scale
 +        self.dropout_p = attention_dropout
 +        self.fp16_enabled = True
-+    
++
 +    @auto_fp16(apply_to=('q', 'kv'), out_fp32=True)
 +    def forward(self, q, kv, 
 +                causal=False, 
@@ -543,7 +496,7 @@ index 0000000..0d5dbe4
 +        if self.in_proj_bias is not None:
 +            constant_(self.in_proj_bias, 0.)
 +            constant_(self.out_proj.bias, 0.)
-+        
++
 +    def forward(self, q, k, v, key_padding_mask=None):
 +        """x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim)
 +        key_padding_mask: bool tensor of shape (batch, seqlen)
@@ -687,7 +640,7 @@ index 0000000..0d5dbe4
 +            query = query.transpose(0, 1)
 +            key = key.transpose(0, 1)
 +            value = value.transpose(0, 1)
-+        
++
 +        out = self.attn(
 +            q=query,
 +            k=key,
@@ -777,7 +730,7 @@ index cf23848..e688d0b 100644
          scale_start_index,
 diff --git a/projects/mmdet3d_plugin/utils/__init__.py b/projects/mmdet3d_plugin/utils/__init__.py
 new file mode 100644
-index 0000000..8e42dee
+index 0000000..6f211c1
 --- /dev/null
 +++ b/projects/mmdet3d_plugin/utils/__init__.py
 @@ -0,0 +1,5 @@
@@ -789,10 +742,10 @@ index 0000000..8e42dee
 \ No newline at end of file
 diff --git a/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py b/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py
 new file mode 100644
-index 0000000..6ad725e
+index 0000000..b274cee
 --- /dev/null
 +++ b/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py
-@@ -0,0 +1,230 @@
+@@ -0,0 +1,229 @@
 +# Copyright (c) OpenMMLab. All rights reserved.
 +# Copyright 2024 Huawei Technologies Co., Ltd
 +import os.path as osp
@@ -1008,7 +961,6 @@ index 0000000..6ad725e
 +            # Note: meta.update(self.meta) should be done before
 +            # meta.update(epoch=self.epoch + 1, iter=self.iter) otherwise
 +            # there will be problems with resumed checkpoints.
-+            # More details in https://github.com/open-mmlab/mmcv/pull/1108
 +        meta.update(epoch=self.epoch + 1, iter=self.iter)
 +
 +        filename = filename_tmpl.format(self.epoch + 1)
@@ -1023,221 +975,8 @@ index 0000000..6ad725e
 +                mmcv.symlink(filename, dst_file)
 +            else:
 +                shutil.copy(filepath, dst_file)
-diff --git a/test/env_npu.sh b/test/env_npu.sh
-new file mode 100644
-index 0000000..bb3b249
---- /dev/null
-+++ b/test/env_npu.sh
-@@ -0,0 +1,52 @@
-+#!/bin/bash
-+CANN_INSTALL_PATH_CONF='/etc/Ascend/ascend_cann_install.info'
-+
-+if [ -f $CANN_INSTALL_PATH_CONF ]; then
-+    CANN_INSTALL_PATH=$(cat $CANN_INSTALL_PATH_CONF | grep Install_Path | cut -d "=" -f 2)
-+else
-+    CANN_INSTALL_PATH="/usr/local/Ascend"
-+fi
-+
-+if [ -d ${CANN_INSTALL_PATH}/ascend-toolkit/latest ]; then
-+    source ${CANN_INSTALL_PATH}/ascend-toolkit/set_env.sh
-+else
-+    source ${CANN_INSTALL_PATH}/nnae/set_env.sh
-+fi
-+
-+
-+#将Host日志输出到串口,0-关闭/1-开启
-+export ASCEND_SLOG_PRINT_TO_STDOUT=0
-+#设置默认日志级别,0-debug/1-info/2-warning/3-error
-+export ASCEND_GLOBAL_LOG_LEVEL=3
-+#设置Event日志开启标志,0-关闭/1-开启
-+export ASCEND_GLOBAL_EVENT_ENABLE=0
-+#设置是否开启taskque,0-关闭/1-开启
-+export TASK_QUEUE_ENABLE=2
-+#设置是否开启PTCopy,0-关闭/1-开启
-+export PTCOPY_ENABLE=1
-+#设置是否开启combined标志,0-关闭/1-开启
-+export COMBINED_ENABLE=1
-+#设置特殊场景是否需要重新编译,不需要修改
-+export DYNAMIC_OP="ADD#MUL"
-+#HCCL白名单开关,1-关闭/0-开启
-+export HCCL_WHITELIST_DISABLE=1
-+export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
-+
-+#开启绑核
-+export CPU_AFFINITY_CONF=1
-+
-+export OMP_NUM_THREADS=16
-+export MKL_NUM_THREADS=16
-+
-+#设置device侧日志登记为error
-+msnpureport -g error -d 0
-+msnpureport -g error -d 1
-+msnpureport -g error -d 2
-+msnpureport -g error -d 3
-+msnpureport -g error -d 4
-+msnpureport -g error -d 5
-+msnpureport -g error -d 6
-+msnpureport -g error -d 7
-+#关闭Device侧Event日志
-+msnpureport -e disable
-+
-diff --git a/test/train_8p.sh b/test/train_8p.sh
-new file mode 100644
-index 0000000..084bfab
---- /dev/null
-+++ b/test/train_8p.sh
-@@ -0,0 +1,149 @@
-+#!/bin/bash
-+
-+#当前路径
-+cur_path=`pwd`
-+
-+#集合通信参数
-+export RANK_SIZE=8
-+export JOB_ID=10087
-+RANK_ID_START=0
-+
-+performance=0
-+
-+#基础参数
-+batch_size=6
-+#训练step
-+max_epochs=100
-+
-+# 帮助信息
-+if [[ $1 == --help || $1 == -h ]];then
-+    echo"usage:./train_8p.sh <args>"
-+    echo " "
-+    echo "parameter explain:
-+    --py_config               train config
-+    --performance              switch to performance mode when != 0
-+    --work_dir                 set output dir for training
-+    -h/--help		             show help message
-+    "
-+    exit 1
-+fi
-+
-+#参数校验
-+for para in $*
-+do
-+    if [[ $para == --py_config* ]];then
-+        py_config=`echo ${para#*=}`
-+    elif [[ $para == --performance* ]];then
-+        performance=`echo ${para#*=}`
-+    elif [[ $para == --work_dir* ]];then
-+        work_dir=`echo ${para#*=}`
-+    fi
-+done
-+
-+if (($performance!=0)); then
-+    max_epochs=1
-+fi
-+
-+#校验是否传入py_config
-+if [[ $py_config == "" ]];then
-+    echo "[Error] para \"py_config\" must be config"
-+    exit 1
-+fi
-+
-+#配置名称
-+config_name=`echo $py_config | awk -F "/" '{print $NF}' | awk -F "." '{print $1}'`
-+#网络名称，同配置名称
-+Network=$config_name
-+
-+if [[ $work_dir == "" ]];then
-+    work_dir="output/train_8p/$config_name"
-+else
-+    work_dir="${work_dir}/train_8p/$config_name"
-+fi
-+
-+test_path_dir=$cur_path
-+ASCEND_DEVICE_ID=0
-+
-+if [ ! -d ${test_path_dir}/output ];then
-+    mkdir ${test_path_dir}/output
-+fi
-+if [ -d ${test_path_dir}/output/${ASCEND_DEVICE_ID} ];then
-+    rm -rf ${test_path_dir}/output/${ASCEND_DEVICE_ID}
-+    mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID/ckpt
-+else
-+    mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID/ckpt
-+fi
-+
-+
-+#训练开始时间
-+start_time=$(date +%s)
-+# source 环境变量
-+source ${test_path_dir}/test/env_npu.sh
-+
-+#设置环境变量
-+echo "Device ID: $ASCEND_DEVICE_ID"
-+export RANK_ID=$RANK_ID
-+export WORLD_SIZE=8
-+
-+bash ./tools/dist_train.sh \
-+        ${py_config} \
-+        ${WORLD_SIZE} \
-+        --work-dir=${work_dir}
-+        
-+
-+
-+#训练结束时间
-+end_time=$(date +%s)
-+e2e_time=$(( $end_time - $start_time ))
-+
-+log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
-+
-+#结果打印
-+echo "------------------ Final result ------------------"
-+#输出性能FPS
-+FPS=`grep -a 'Epoch '  ${log_file}|awk -F " time: " '!/Epoch \[1\]\[1/ {print $NF}'|awk -F " " '{print $1}' | awk '{ sum += $0; n++} END { if (n > 0) print sum / n;}'`
-+FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'/'${FPS}'}'`
-+#打印
-+echo "Final Performance images/sec : $FPS"
-+echo "E2E Training Duration sec : $e2e_time"
-+
-+#性能看护结果汇总
-+#训练用例信息
-+DeviceType=`uname -m`
-+CaseName=${Network}_bs${batch_size}_${RANK_SIZE}'p'_'map'
-+
-+##获取性能数据
-+#吞吐量
-+ActualFPS=${FPS}
-+#单迭代训练时长
-+TrainingTime=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'*1000*8/'${FPS}'}'`
-+echo "TrainingTime for step(ms) : $TrainingTime"
-+
-+#从train_$ASCEND_DEVICE_ID.log提取Loss到train_${CaseName}_loss.txt中
-+grep "Epoch " ${log_file}|awk -F "loss: " '!/Epoch \[1\]\[1/ {print $NF}' | awk -F "," '{print $1}' >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt
-+
-+#最后一个迭代loss值
-+ActualLoss=`awk 'END {print}' ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt`
-+
-+#关键信息打印到${CaseName}.log中
-+echo "Network = ${Network}" >  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "RankSize = ${RANK_SIZE}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "BatchSize = ${batch_size}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "DeviceType = ${DeviceType}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "CaseName = ${CaseName}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "ActualFPS = ${ActualFPS}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "TrainingTime = ${TrainingTime}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "ActualLoss = ${ActualLoss}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+echo "E2ETrainingTime = ${e2e_time}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+
-+# 性能任务控制
-+if (($performance==0));then
-+  eval_log_file=`echo ${test_path_dir}/output/$ASCEND_DEVICE_ID/eval_${CaseName}.log`
-+  bash ./tools/dist_test.sh ${py_config} ${work_dir}/epoch_${max_epochs}_ema.pth 8 --eval mAP >> ${eval_log_file} 2>&1 &
-+  wait
-+  #输出训练精度
-+  train_accuracy=`grep -a 'mAP: ' ${eval_log_file}|awk 'END {print}'|awk -F " " '{print $NF}'`
-+  #打印
-+  echo "Final Train Accuracy : ${train_accuracy}"
-+  echo "mAP = ${train_accuracy}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-+fi
 diff --git a/tools/anchor_generator.py b/tools/anchor_generator.py
-index 058b6e8..1576d5d 100644
+index 058b6e8..3c1d0d5 100644
 --- a/tools/anchor_generator.py
 +++ b/tools/anchor_generator.py
 @@ -1,3 +1,4 @@
@@ -1254,6 +993,15 @@ index 058b6e8..1576d5d 100644
  def get_kmeans_anchor(
      ann_file,
      num_anchor=900,
+@@ -36,7 +39,7 @@ if __name__ == "__main__":
+     parser.add_argument("--num_anchor", type=int, default=900)
+     parser.add_argument("--detection_range", type=float, default=55)
+     parser.add_argument(
+-        "--output_file_name", type=str, default="_nuscenes_kmeans900.npy"
++        "--output_file_name", type=str, default="nuscenes_kmeans900.npy"
+     )
+     parser.add_argument("--verbose", action="store_true")
+     args = parser.parse_args()
 diff --git a/tools/dist_test.sh b/tools/dist_test.sh
 index 033365e..671ee60 100644
 --- a/tools/dist_test.sh
@@ -1329,7 +1077,7 @@ index 963e668..dccb3f8 100644
      )  # use fork workers_per_gpu can be > 1
      main()
 diff --git a/tools/train.py b/tools/train.py
-index bca3f6b..a81e48f 100644
+index bca3f6b..10bcdc8 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -26,6 +26,9 @@ from datetime import timedelta
@@ -1350,7 +1098,7 @@ index bca3f6b..a81e48f 100644
      parser.add_argument(
          "--autoscale-lr",
          action="store_true",
-@@ -313,6 +317,7 @@ def main():
+@@ -313,6 +317,8 @@ def main():
  
  if __name__ == "__main__":
      torch.multiprocessing.set_start_method(
@@ -1358,4 +1106,5 @@ index bca3f6b..a81e48f 100644
 +        "fork",
 +        force=True
      )  # use fork workers_per_gpu can be > 1
++
      main()
