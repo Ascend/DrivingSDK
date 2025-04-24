@@ -225,7 +225,7 @@ index de598ff..46b5997 100644
  if __name__ == '__main__':
      run_cli(BEVDepthLightningModel,
 diff --git a/bevdepth/layers/backbones/base_lss_fpn.py b/bevdepth/layers/backbones/base_lss_fpn.py
-index c776334..5c46883 100644
+index c776334..a74926d 100644
 --- a/bevdepth/layers/backbones/base_lss_fpn.py
 +++ b/bevdepth/layers/backbones/base_lss_fpn.py
 @@ -6,11 +6,10 @@ from mmdet3d.models import build_neck
@@ -242,38 +242,78 @@ index c776334..5c46883 100644
  except ImportError:
      print('Import VoxelPooling fail.')
 
-@@ -440,22 +439,25 @@ class BaseLSSFPN(nn.Module):
+@@ -417,10 +416,11 @@ class BaseLSSFPN(nn.Module):
+                                                           1).expand(D, fH, fW)
+         paddings = torch.ones_like(d_coords)
+
+-        # D x H x W x 3
++        # D x H x W x 4
+         frustum = torch.stack((x_coords, y_coords, d_coords, paddings), -1)
+         return frustum
+
++
+     def get_geometry(self, sensor2ego_mat, intrin_mat, ida_mat, bda_mat):
+         """Transfer points from camera coord to ego coord.
+
+@@ -438,24 +438,45 @@ class BaseLSSFPN(nn.Module):
+         batch_size, num_cams, _, _ = sensor2ego_mat.shape
+
          # undo post-transformation
-         # B x N x D x H x W x 3
+-        # B x N x D x H x W x 3
++        # D x H x W x 4
          points = self.frustum
 -        ida_mat = ida_mat.view(batch_size, num_cams, 1, 1, 1, 4, 4)
-+        D, H, W, _ = points.shape
-+        # self tensor cannot be larger than 6 dimensions
-+        ida_mat = ida_mat.contiguous().view(batch_size * num_cams, 1, 1, 1, 4, 4)
-         points = ida_mat.inverse().matmul(points.unsqueeze(-1))
-         # cam_to_ego
+-        points = ida_mat.inverse().matmul(points.unsqueeze(-1))
+-        # cam_to_ego
++        D, H, W, M = points.shape
++
++        # reshape the points to [1, 1, D*H*W, 4]
++        points = points.view(1, 1, D * H * W, 4)
++
++        ida_mat = ida_mat.contiguous().inverse()
++        points_ida = torch.zeros((batch_size, num_cams, D * H * W, 4), device=points.device)
++        for i in range(M):
++            product = ida_mat[:, :, i, :].unsqueeze(2) * points
++            points_ida[:, :, :, i] = product.sum(dim=-1)
++        points = points_ida
++
++        # recover the depth information of coordinates.
          points = torch.cat(
 -            (points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3],
 -             points[:, :, :, :, :, 2:]), 5)
-+            (points[:, :, :, :, :2] * points[:, :, :, :, 2:3],
-+             points[:, :, :, :, 2:]), 4)
++            (points[..., :2] * points[..., 2:3],
++             points[..., 2:]), 3)
 
++        # calculate the small matrix first, sensor2ego @ instin_mat
          combine = sensor2ego_mat.matmul(torch.inverse(intrin_mat))
 -        points = combine.view(batch_size, num_cams, 1, 1, 1, 4,
-+        points = combine.view(batch_size * num_cams, 1, 1, 1, 4,
-                               4).matmul(points)
+-                              4).matmul(points)
++
++        # whether do bad or not, bda_mat shape [batch_size, 4, 4]
          if bda_mat is not None:
-             bda_mat = bda_mat.unsqueeze(1).repeat(1, num_cams, 1, 1).view(
+-            bda_mat = bda_mat.unsqueeze(1).repeat(1, num_cams, 1, 1).view(
 -                batch_size, num_cams, 1, 1, 1, 4, 4)
-+                batch_size * num_cams, 1, 1, 1, 4, 4)
-             points = (bda_mat @ points).squeeze(-1)
+-            points = (bda_mat @ points).squeeze(-1)
++            bda_mat = bda_mat.unsqueeze(1).repeat(1, num_cams, 1, 1)
++            combine_bda = bda_mat.matmul(combine)
++
++            points_bda = torch.zeros((batch_size, num_cams, D *H *W, 4), device=points.device)
++            for i in range(M):
++                product = combine_bda[:, :, i, :].unsqueeze(2) * points
++                points_bda[:, :, :, i] = product.sum(dim=-1)
++            points = points_bda
          else:
-             points = points.squeeze(-1)
-+        points = points.reshape(batch_size, num_cams, D, H, W, -1)
+-            points = points.squeeze(-1)
++            points_ida = torch.zeros((batch_size, num_cams, D *H *W, 4), device=points.device)
++            for i in range(M):
++                product = combine[:, :, i, :].unsqueeze(2) * points
++                points_ida[:, :, :, i] = product.sum(dim=-1)
++            points = points_ida
++        points = points.reshape(batch_size, num_cams, D, H, W, 4)
          return points[..., :3]
 
      def get_cam_feats(self, imgs):
-@@ -541,14 +543,31 @@ class BaseLSSFPN(nn.Module):
+@@ -541,14 +562,31 @@ class BaseLSSFPN(nn.Module):
 
              img_feat_with_depth = img_feat_with_depth.permute(0, 1, 3, 4, 5, 2)
 
@@ -648,7 +688,7 @@ index 0000000..4855ff2
 +    po.join()
 \ No newline at end of file
 diff --git a/setup.py b/setup.py
-index e8070cc..2097a1b 100644
+index e8070cc..5324d32 100644
 --- a/setup.py
 +++ b/setup.py
 @@ -19,19 +19,9 @@ def make_cuda_ext(name,
