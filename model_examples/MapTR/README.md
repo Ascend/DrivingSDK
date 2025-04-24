@@ -31,7 +31,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
 ## 代码实现
 
 - 参考实现：
-  
+
   ```
   url=https://github.com/hustvl/MapTR
   commit_id=fa420a2e756c9e19b876bdf2f6d33a097d84be73
@@ -61,27 +61,27 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
 |       CANN        | 8.1.RC1  |
 
 1. 安装mmdet3d
-  
+
   - 在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
-    
+
     ```
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
     cd mmdetection3d
     ```
   - 在mmdetection3d目录下，修改代码
-    
+
     （1）删除requirements/runtime.txt中第3行 numba==0.53.0
-    
+
     （2）修改mmdet3d/____init____.py中第22行 mmcv_maximum_version = '1.7.0'为mmcv_maximum_version = '1.7.2'
   - 安装包
-    
+
     ```
     pip install -v -e .
     ```
 2. 安装mmcv
-  
+
   - 在模型根目录下，克隆mmcv仓，并进入mmcv目录安装
-    
+
     ```
     git clone -b 1.x https://github.com/open-mmlab/mmcv
     cd mmcv
@@ -90,18 +90,18 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
     ```
 3. 安装Driving SDK加速库，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
 4. 在模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
-  
+
   ```
   pip install -r requirement.txt
   ```
 5. 在当前python环境下执行`pip show pip`，得到三方包安装路径Location，记作location_path，在模型根目录下执行以下命令来替换patch。
-  
+
   ```
   bash replace_patch.sh --packages_path=location_path
   ```
 6. 根据操作系统，安装tcmalloc动态库。
 
-  - OpenEular系统
+  - OpenEuler系统
 
   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
   ```
@@ -126,9 +126,9 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
     libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
 
     libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-    
+
     libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
-  
+
   安装三个文件：
   ```
   sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
@@ -176,7 +176,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   ```
 
   在[Python源码下载地址](https://www.python.org/downloads/source/)下载对应版本的Python源码并解压。
-  
+
   以Python 3.8.17为例：
   ```
   tar -xvf Python-3.8.17.tgz
@@ -244,7 +244,7 @@ python tools/create_data.py nuscenes --root-path ./data/nuscenes --out-dir ./dat
 - 在模型根目录下，执行以下指令下载预训练权重：
 ```
 mkdir ckpts
-cd ckpts 
+cd ckpts
 wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 ```
 
@@ -257,17 +257,17 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 #### 开始训练
 
 1. 在模型根目录下，运行训练脚本。
-   
+
    该模型支持单机8卡、多机多卡训练。
-   
+
    - 单机8卡精度训练
-   
+
    ```
    bash test/train_8p.sh
    ```
-   
+
    - 单机8卡性能训练
-   
+
    ```
    bash test/train_8p_performance.sh
    ```

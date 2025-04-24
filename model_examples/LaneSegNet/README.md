@@ -81,7 +81,85 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   pip install -e .
   ```
 
-5. 设置LaneSegNet
+5. 安装Driving SDK加速库
+  ```
+  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  cd mx_driving
+  bash ci/build.sh --python=3.8
+  cd dist
+  pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
+  ```
+
+6. 根据操作系统，安装tcmalloc动态库。
+
+  - OpenEuler系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+  ```
+  mkdir gperftools
+  cd gperftools
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -zvxf gperftools-2.16.tar.gz
+  cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make
+  make install
+  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+  ldconfig
+  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+  export PATH=/usr/local/lib/bin:$PATH
+  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+
+7. Python编译优化
+
+  编译优化是指通过毕昇编译器的LTO和PGO编译优化技术，源码构建编译Python、PyTorch、torch_npu（Ascend Extension for PyTorch）三个组件，有效提升程序性能。
+
+  本节介绍Python LTO编译优化方式。
+
+  - 安装毕昇编译器
+
+  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器。
+  ```
+  wget https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/BiSheng%20Enterprise/BiSheng%20Enterprise%20203.0.0/BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+  tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+  export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
+  export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
+  source {cann_root_dir}/set_env.sh
+  ```
+
+  - 安装依赖，将安装mpdecimal依赖包的目录记为mpdecimal_install_path。
+  ```
+  wget --no-check-certificate https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
+  tar -xvf mpdecimal-2.5.1.tar.gz
+  cd mpdecimal-2.5.1
+  bash ./configure --prefix=mpdecimal_install_path
+  make -j
+  make install
+  ```
+
+  - 获取Python源码并编译优化
+
+  执行以下指令获取Python版本及安装目录，将Python安装路径记为python_path。
+  ```
+  python -V
+  which python
+  ```
+
+  在[Python源码下载地址](https://www.python.org/downloads/source/)下载对应版本的Python源码并解压。
+
+  以Python 3.8.17为例：
+  ```
+  tar -xvf Python-3.8.17.tgz
+  cd Python-3.8.17
+  export CC=clang
+  export CXX=clang++
+  ./configure --prefix=python_path > --with-lto --enable-optimizations
+  make -j
+  make install
+  ```
+
+8. 设置LaneSegNet
   ```
   git clone https://github.com/OpenDriveLab/LaneSegNet.git
   cp -f lane_seg_net_config.patch LaneSegNet
@@ -91,22 +169,12 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   pip install -r requirements.txt
   ```
 
-6. 依赖配置
+9. 依赖配置
   ```
   pip install networkx==3.1
-  pip insatll torchvision==0.16.0
   pip install numba
   pip install torchvision==0.16.0
   pip install numpy==1.24.0
-  ```
-
-7. 安装Driving SDK加速库
-  ```
-  git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
-  cd mx_driving
-  bash ci/build.sh --python=3.8
-  cd dist
-  pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
   ```
 
 ## 准备数据集
@@ -166,6 +234,8 @@ data/OpenLane-V2
 
 
 ## 变更
-2024.12.5：首次发布。
+2025.04.24：优化模型性能。
 
 2025.02.5：更新模型性能数据。
+
+2024.12.5：首次发布。
