@@ -101,16 +101,84 @@ code_path=model_examples/PivotNet
 
    安装方法参考[官方文档](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK)。
 
+5. 根据操作系统，安装tcmalloc动态库。
 
-5. 设置PivotNet
-    ```
-   git clone https://github.com/wenjie710/PivotNet.git
-   cp -f pivotnet.patch PivotNet
-   cd PivotNet
-   git checkout 3f334e499bae6c9e2f3ed06cf77ac6cbd22d0ba8
-   git apply --reject --whitespace=fix pivotnet.patch
-   pip install -r requirement.txt
-   ```
+  - OpenEuler系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+  ```
+  mkdir gperftools
+  cd gperftools
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -zvxf gperftools-2.16.tar.gz
+  cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make
+  make install
+  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+  ldconfig
+  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+  export PATH=/usr/local/lib/bin:$PATH
+  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+
+6. Python编译优化
+
+  编译优化是指通过毕昇编译器的LTO和PGO编译优化技术，源码构建编译Python、PyTorch、torch_npu（Ascend Extension for PyTorch）三个组件，有效提升程序性能。
+
+  本节介绍Python LTO编译优化方式。
+
+  - 安装毕昇编译器
+
+  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器。
+  ```
+  wget https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/BiSheng%20Enterprise/BiSheng%20Enterprise%20203.0.0/BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+  tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+  export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
+  export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
+  source {cann_root_dir}/set_env.sh
+  ```
+
+  - 安装依赖，将安装mpdecimal依赖包的目录记为mpdecimal_install_path。
+  ```
+  wget --no-check-certificate https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
+  tar -xvf mpdecimal-2.5.1.tar.gz
+  cd mpdecimal-2.5.1
+  bash ./configure --prefix=mpdecimal_install_path
+  make -j
+  make install
+  ```
+
+  - 获取Python源码并编译优化
+
+  执行以下指令获取Python版本及安装目录，将Python安装路径记为python_path。
+  ```
+  python -V
+  which python
+  ```
+
+  在[Python源码下载地址](https://www.python.org/downloads/source/)下载对应版本的Python源码并解压。
+
+  以Python 3.8.17为例：
+  ```
+  tar -xvf Python-3.8.17.tgz
+  cd Python-3.8.17
+  export CC=clang
+  export CXX=clang++
+  ./configure --prefix=python_path > --with-lto --enable-optimizations
+  make -j
+  make install
+  ```
+
+7. 设置PivotNet
+  ```
+  git clone https://github.com/wenjie710/PivotNet.git
+  cp -f pivotnet.patch PivotNet
+  cd PivotNet
+  git checkout 3f334e499bae6c9e2f3ed06cf77ac6cbd22d0ba8
+  git apply --reject --whitespace=fix pivotnet.patch
+  pip install -r requirement.txt
+  ```
 
 ### 模型数据准备
 
@@ -121,7 +189,7 @@ code_path=model_examples/PivotNet
 ```
   assets
     | -- weights (resnet, swin-t, efficient-b0, ...)
-    | -- 
+    | --
   mapmaster
   configs
   data
@@ -162,7 +230,7 @@ python3 tools/anno_converter/nuscenes/convert.py -d .data/nuscenes
 
 在模型根目录下，运行训练脚本。
 
-```  
+```
 cd model_examples/PivotNet
 ```
 
@@ -204,6 +272,8 @@ cd model_examples/PivotNet
 2024.12.20：首次发布
 
 2025.03.17：性能优化
+
+2025.04.24：性能优化
 
 # FAQ
 
