@@ -8,17 +8,17 @@
 
 namespace optiling {
 BEGIN_TILING_DATA_DEF(BatchMatmulVectorTilingData)
-    TILING_DATA_FIELD_DEF(uint64_t, core_used);
-    TILING_DATA_FIELD_DEF(uint64_t, core_data);
-    TILING_DATA_FIELD_DEF(uint64_t, copy_loop);
-    TILING_DATA_FIELD_DEF(uint64_t, copy_tail);
-    TILING_DATA_FIELD_DEF(uint64_t, last_copy_loop);
-    TILING_DATA_FIELD_DEF(uint64_t, last_copy_tail);
-    TILING_DATA_FIELD_DEF(uint64_t, available_ub_size);
-    TILING_DATA_FIELD_DEF(uint64_t, totalresult);
-    TILING_DATA_FIELD_DEF(uint64_t, ptstotal);
-    TILING_DATA_FIELD_DEF(uint64_t, dim4);
-    TILING_DATA_FIELD_DEF(uint64_t, dim5);
+    TILING_DATA_FIELD_DEF(uint64_t, coreUsed);
+    TILING_DATA_FIELD_DEF(uint64_t, coreData);
+    TILING_DATA_FIELD_DEF(uint64_t, copyLoop);
+    TILING_DATA_FIELD_DEF(uint64_t, copyTail);
+    TILING_DATA_FIELD_DEF(uint64_t, lastCopyLoop);
+    TILING_DATA_FIELD_DEF(uint64_t, lastCopyTail);
+    TILING_DATA_FIELD_DEF(uint64_t, availableUbSize);
+    TILING_DATA_FIELD_DEF(uint64_t, totalResult);
+    TILING_DATA_FIELD_DEF(uint64_t, ptsTotal);
+    TILING_DATA_FIELD_DEF(uint64_t, dimSizeSecondLast);
+    TILING_DATA_FIELD_DEF(uint64_t, dimSizeLast);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(BatchMatmulVector, BatchMatmulVectorTilingData)

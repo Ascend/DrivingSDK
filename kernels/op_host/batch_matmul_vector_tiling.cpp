@@ -3,12 +3,17 @@
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
+
 using namespace ge;
 using namespace std;
 using namespace AscendC;
+
 namespace optiling {
 const uint32_t BLOCK_DIM = 8;
 const uint32_t TILE_NUM = 8;
+const uint32_t DIM_THRESHOLD = 3;
+const uint32_t ALIGN_NUM = 64;
+
 static int32_t GetCeilInt(int32_t value1, int32_t value2)
 {
     if (value2 == 0) {
@@ -24,54 +29,71 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     if (platformInfoptr == nullptr) {
         return ge::GRAPH_FAILED;
     }
+
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
-    auto core_number = ascendplatformInfo.GetCoreNumAiv();
+    const auto coreNumber = ascendplatformInfo.GetCoreNumAiv();
+
     CHECK_NULLPTR(context->GetInputTensor(0));
-    uint32_t totalresult = context->GetInputTensor(0)->GetShapeSize();
-    auto projection_mat_shape = context->GetInputTensor(0)->GetStorageShape();
-    auto dimnum = projection_mat_shape.GetDimNum();
-    if (dimnum < 3) {
+    const uint32_t totalResult = context->GetInputTensor(0)->GetShapeSize();
+    const auto projectionMatShape = context->GetInputTensor(0)->GetStorageShape();
+    
+    const auto dimNum = projectionMatShape.GetDimNum();
+    if (dimNum < DIM_THRESHOLD) {
         return ge::GRAPH_FAILED;
     }
-    auto projection_matrix_dim4 = projection_mat_shape.GetDim(dimnum - 2);
-    auto projection_matrix_dim5 = projection_mat_shape.GetDim(dimnum - 1);
-    uint32_t ptstotal = context->GetInputTensor(1)->GetShapeSize();
-    if (projection_matrix_dim5 == 0) {
+
+    // 获取最后两个维度大小
+    const auto dimSizeSecondLast = projectionMatShape.GetDim(dimNum - 2);
+    const auto dimSizeLast = projectionMatShape.GetDim(dimNum - 1);
+    
+    const uint32_t ptsTotal = context->GetInputTensor(1)->GetShapeSize();
+    if (dimSizeLast == 0) {
         return ge::GRAPH_FAILED;
     }
-    auto batch_size = totalresult / projection_matrix_dim5;
-    int32_t core_data;
-    int32_t core_used;
-    int32_t core_last;
-    core_data = GetCeilInt(batch_size, core_number);
-    core_data = GetCeilInt(core_data, 64) * 64;
-    core_used = GetCeilInt(batch_size, core_data);
-    core_last = core_data;
-    if (core_data == 0) {
+
+    const auto batchSize = totalResult / dimSizeLast;
+    
+    int32_t coreData = GetCeilInt(batchSize, coreNumber);
+    coreData = GetCeilInt(coreData, ALIGN_NUM) * ALIGN_NUM;
+    
+    const int32_t coreUsed = GetCeilInt(batchSize, coreData);
+    int32_t coreLast = coreData;
+    if (coreData == 0) {
         return ge::GRAPH_FAILED;
     }
-    if (batch_size % core_data != 0) { core_last = batch_size % core_data;}
-    uint64_t available_ub_size;
-    ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, available_ub_size);
-    int32_t number = 24*4;
-    available_ub_size = (available_ub_size) / number;
-    available_ub_size = GetCeilInt(available_ub_size, 64) * 64;
-    context->SetBlockDim(core_used);
-    tiling.set_core_data(core_data);
-    tiling.set_core_used(core_used);
-    tiling.set_copy_loop(core_data / available_ub_size);
-    tiling.set_copy_tail(core_data % available_ub_size);
-    tiling.set_last_copy_loop(core_last / available_ub_size);
-    tiling.set_last_copy_tail(core_last % available_ub_size);
-    tiling.set_available_ub_size(available_ub_size);
-    tiling.set_totalresult(totalresult);
-    tiling.set_ptstotal(ptstotal);
-    tiling.set_dim4(projection_matrix_dim4);
-    tiling.set_dim5(projection_matrix_dim5);
+    if (batchSize % coreData != 0) {
+        coreLast = batchSize % coreData;
+    }
+
+    uint64_t availableUbSize;
+    ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, availableUbSize);
+    
+    // UB空间分配考虑buffer复用因子
+    constexpr int32_t bufferMultiplier = 24 * 4;  // 原代码中的24 * 4
+    availableUbSize = availableUbSize / bufferMultiplier;
+    availableUbSize = GetCeilInt(availableUbSize, ALIGN_NUM) * ALIGN_NUM;
+
+    context->SetBlockDim(coreUsed);
+    
+    // 设置平铺参数
+    tiling.set_coreData(coreData);
+    tiling.set_coreUsed(coreUsed);
+    tiling.set_copyLoop(coreData / availableUbSize);
+    tiling.set_copyTail(coreData % availableUbSize);
+    tiling.set_lastCopyLoop(coreLast / availableUbSize);
+    tiling.set_lastCopyTail(coreLast % availableUbSize);
+    tiling.set_availableUbSize(availableUbSize);
+    tiling.set_totalResult(totalResult);
+    tiling.set_ptsTotal(ptsTotal);
+    tiling.set_dimSizeSecondLast(dimSizeSecondLast);
+    tiling.set_dimSizeLast(dimSizeLast);
+
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    
+    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     currentWorkspace[0] = 1;
+    
     return ge::GRAPH_SUCCESS;
 }
 }
@@ -79,19 +101,16 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    gert::Shape* y_shape = context->GetOutputShape(0);
-    if (y_shape == nullptr) {
-        return ge::GRAPH_FAILED;
-    }
-    gert::Shape* indices_out_shape = context->GetOutputShape(1);
-    if (indices_out_shape == nullptr) {
+    gert::Shape* yShape = context->GetOutputShape(0);
+    gert::Shape* indicesOutShape = context->GetOutputShape(1);
+    
+    if (yShape == nullptr || indicesOutShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
    
     return GRAPH_SUCCESS;
 }
 }
-
 
 namespace ops {
 class BatchMatmulVector : public OpDef {
@@ -104,12 +123,14 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND})
             .AutoContiguous();
+
         this->Input("pts_extend")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND})
             .AutoContiguous();
+
         this->Output("point_2d")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -117,7 +138,6 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND});
 
         this->SetInferShape(ge::InferShape);
-
         this->AICore()
             .SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910b");
