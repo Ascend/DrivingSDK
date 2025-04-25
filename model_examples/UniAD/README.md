@@ -175,25 +175,39 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
    bash test/train_stage2_full_8p.sh # stage2
    ```
 
+   该模型支持双机多卡训练。
+   
+   ```
+   # 'XX.XX.XX.XX'为主节点的IP地址；端口号可以换成未被占用的可用端口
+
+   # stage1
+   bash test/train_stage1_multi_server.sh 2 0 ‘xx.xx.xx.xx’ '3389' #主节点
+   bash test/train_stage1_multi_server.sh 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
+
+   # stage2
+   bash test/train_stage2_multi_server.sh 2 0 ‘xx.xx.xx.xx’ '3389' #主节点
+   bash test/train_stage2_multi_server.sh 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
+   ```
+
 #### 训练结果
 
-| 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | amota |
-|--------| ------------- | ---- |-------------------| --------- |---------------|--------|
-| stage1 | 竞品A           | 8p   | 1                 | fp32      | 5883          | 0.380 |
-| stage1 | Atlas 800T A2 | 8p   | 1                 | fp32      | 9883         | 0.376 |
+| 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS |amota |   L2   |
+|--------| ------------- | ---- |-------------------| --------- |---------------|--------|------|---------|
+| stage1 | 竞品A           | 8p   | 8                 | fp32      | 5883        |   1.359 | 0.380 | -      |
+| stage1 | Atlas 800T A2 | 8p   | 8                 | fp32      | 9883         |  0.809  | 0.376 | -      |
+| stage1 | Atlas 800T A2 | 16p   | 16               | fp32      | 10130        |  1.579  | -     | -      |
+| stage2 | 竞品A           | 8p   | 8                 | fp32      | 3990        |  2.000  | -     | 0.9127 |
+| stage2 | Atlas 800T A2 | 8p   | 8                 | fp32      | 7220         |   1.108  | -     | 0.9014 |
+| stage2 | Atlas 800T A2 | 16p  | 16                | fp32      | 7561         |   2.116  | -     | -      |
 
 
-| 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | L2 |
-|--------| ------------- | ---- |-------------------| --------- |---------------|--------|
-| stage2 | 竞品A           | 8p   | 1                 | fp32      | 3990          | 0.9127 |
-| stage2 | Atlas 800T A2 | 8p   | 1                 | fp32      | 7220         | 0.9014 |
 
 
 # 变更说明
 
-2025.02.19：代码上仓，stage1性能0.6倍竞品，stage2性能0.5倍竞品。
+2025.02.19: 代码上仓，stage1性能0.6倍竞品，stage2性能0.5倍竞品。
 2025.02.26: stage2性能优化，消除部分free time, FA替换优化, stage2性能达到0.54倍竞品。
-
+2025.04.25: 增加多机多卡训练脚本，增加多机多卡训练性能数据
 # FAQ
 
 无
