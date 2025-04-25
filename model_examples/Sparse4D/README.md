@@ -135,6 +135,9 @@
 
 通过K-means生成初始锚框
   ```shell
+  export OPENBLAS_NUM_THREADS=2
+  export GOTO_NUM_THREADS=2
+  export OMP_NUM_THREADS=2
   python3 tools/anchor_generator.py --ann_file ${pkl_path}/nuscenes_infos_train.pkl
   ```
 
@@ -149,7 +152,7 @@
 ```
 mkdir gperftools
 cd gperftools
-wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz --no-check-certificate
 tar -zvxf gperftools-2.16.tar.gz
 cd gperftools-2.16
 ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
