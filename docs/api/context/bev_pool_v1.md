@@ -19,7 +19,7 @@ BEV池化。可参考论文`BEVFusion: Multi-Task Multi-Sensor Fusion with Unifi
 - `H(int)`：输出池化高度。
 - `W(int)`：输出池化宽度。
 ### 返回值
-- `bev_pooled_feat(Tensor)`：采样后的点云数据，数据类型为`float32`。shape为`[B, D, H, W, C]`。
+- `bev_pooled_feat(Tensor)`：采样后的点云数据，数据类型为`float32`。shape为`[B, C, D, H, W]`。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 约束说明

@@ -22,7 +22,7 @@ BEV池化优化。可参考论文`BEVDet: High-performance Multi-camera 3D Objec
 - `interval_starts(Tensor)`：间隔开始张量，数据类型为`int32`。shape为`[N_INTERVALS]`。
 - `interval_lengths(Tensor)`：间隔长度张量，数据类型为`int32`。shape为`[N_INTERVALS]`。
 ### 返回值
-- `bev_pooled_feat(Tensor)`：BEV池化后的特征张量，数据类型为`float32`。shape为`[B, D, H, W, C]`。
+- `bev_pooled_feat(Tensor)`：BEV池化后的特征张量，数据类型为`float32`。shape为`[B, C, D, H, W]`。
 ### 约束说明
 - `ranks_depth`的值必须在`[0, B*B*D*H*W]`之间。
 - `ranks_feat`的值必须在`[0, B*N*H*W]`之间。

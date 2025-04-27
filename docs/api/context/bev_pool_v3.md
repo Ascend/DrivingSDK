@@ -14,7 +14,7 @@ BEV池化优化。`bev_pool_v1`和`bev_pool_v2`的NPU亲和版本，优先推荐
 - `ranks_bev(Tensor)`：BEV排序张量，数据类型为`int32`。shape为`[N_RANKS]`。
 - `bev_feat_shape(List[int])`：BEV特征形状，数据类型为`int32`。长度为`5`， 分别代表`B, D, H, W, C`。
 ### 返回值
-- `bev_pooled_feat(Tensor)`：BEV池化后的特征张量，数据类型为`float32`。shape为`[B, D, H, W, C]`。
+- `bev_pooled_feat(Tensor)`：BEV池化后的特征张量，数据类型为`float32`。shape为`[B, C, D, H, W]`。
 ### 约束说明
 - `ranks_depth`的值必须在`[0, B*D*H*W]`之间。
 - `ranks_feat`的值必须在`[0, B*N*H*W]`之间。
