@@ -23,7 +23,7 @@ mx_driving.common.three_interpolate(features: torch.Tensor, indices: torch.Tenso
 - Atlas A2 训练系列产品
 ### 调用示例
 ```python
-import torch
+import torch, torch_npu
 from mx_driving import three_interpolate
 
 

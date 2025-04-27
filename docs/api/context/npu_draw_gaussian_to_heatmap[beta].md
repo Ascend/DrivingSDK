@@ -22,7 +22,7 @@ mx_driving.draw_gaussian_to_heatmap(Tensor mask, Tensor cur_class_id, Tensor cen
 ### 调用示例
 ```python
 import torch, torch_npu
-from mx_driving import npu_gaussian, draw_gaussian_to_heatmap
+from mx_driving import npu_gaussian, npu_draw_gaussian_to_heatmap
 
 out_size_factor = 8
 gaussian_overlap = 0.1
@@ -44,5 +44,5 @@ output = npu_gaussian(boxes, out_size_factor, gaussian_overlap, min_radius, voxe
 center_int_trans = output[0].t().contiguous()
 radius = output[1]
 mask = output[2]
-heatmap = draw_gaussian_to_heatmap(mask, cur_class_id, center_int_trans, radius, feature_map_size_x, feature_map_size_y, num_classes)
+heatmap = npu_draw_gaussian_to_heatmap(mask, cur_class_id, center_int_trans, radius, feature_map_size_x, feature_map_size_y, num_classes)
 ```
