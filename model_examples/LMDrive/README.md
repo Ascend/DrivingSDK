@@ -231,8 +231,8 @@ LMDrive/LAVIS/lavis/models/drive/blip2.py：
 #### 训练结果
 | 芯片          | 卡数 | global batch size | Precision | epoch |  train loss   |  train waypoints loss  | FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :-------------------: |
-| 竞品A           |  8p  |         2         |   fp32    |  20   | 0.776 | 0.757 |         13.85       |
-| Atlas 800T A2 |  8p  |         2         |   fp32    |  20   | 0.764 | 0.744 |         8.02       |
+| 竞品A           |  8p  |         16         |   fp32    |  20   | 0.776 | 0.757 |         13.85       |
+| Atlas 800T A2 |  8p  |         16         |   fp32    |  20   | 0.764 | 0.744 |         8.02       |
 
 # 变更说明
 
