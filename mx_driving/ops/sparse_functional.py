@@ -76,69 +76,6 @@ class SparseConvFunction(Function):
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None
 
 
-class SparseInverseConvFunction(Function):
-
-    @staticmethod
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def forward(
-        ctx: Any,
-        features,
-        indices,
-        weight,
-        out_spatial_shape,
-        out_channels,
-        batch_size,
-        kernel_size,
-        stride,
-        padding,
-        dilation,
-        output_padding,
-        groups,
-        bias,
-    ) -> torch.Tensor:
-        device = features.device
-        weight = weight.data
-        # calculate the index pair
-        out_features, outidx_pair, ouidx_offset = mx_driving._C.npu_sparse_inverse_conv3d(
-            features,
-            indices,
-            weight,
-            kernel_size,
-            stride,
-            padding,
-            dilation,
-            output_padding,
-            out_channels,
-            out_spatial_shape,
-            batch_size,
-        )
-        # sort and nonezero
-        to_insert = torch.tensor(-1).to(device)
-        sorted_idx, sorted_idx_to_former_indices = torch.sort(ouidx_offset.view(torch.float32))
-        new_sorted_idx = torch.cat((to_insert.view(1), sorted_idx.view(torch.int32)), 0)
-        new_sorted_idx_2 = torch.cat((sorted_idx.view(torch.int32), to_insert.view(1)), 0)
-        sub_result = new_sorted_idx - new_sorted_idx_2
-        unique_indices_offset = torch.nonzero(sub_result != 0)
-        # matmul
-        out_features, outidx = mx_driving._C.multi_to_sparse(
-            out_features, unique_indices_offset.int(), sorted_idx_to_former_indices.int(), outidx_pair.int()
-        )
-        outidx, outidx_ = torch.chunk(outidx, 2, dim=1)
-
-        ctx.save_for_backward(features, weight, sorted_idx_to_former_indices.int(), unique_indices_offset.int())
-        return out_features, outidx
-
-    @staticmethod
-    @once_differentiable
-    # pylint: disable=too-many-return-values
-    def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
-        features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
-            unique_indices_offset, sorted_idx_to_former_indices, features, weight, grad_out_features
-        )
-        return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None, None
-
-
 def generate_map(coors, spatial_shape, bs):
     spatial_shape_size = spatial_shape[0] * spatial_shape[1] * spatial_shape[2]
 
@@ -281,6 +218,5 @@ class SubMConvWithKeyFunction(Function):
 
 
 indice_conv = SparseConvFunction.apply
-indice_inverse_conv = SparseInverseConvFunction.apply
 indice_subm_conv = SubMConvFunction.apply
 indice_subm_conv_with_key = SubMConvWithKeyFunction.apply

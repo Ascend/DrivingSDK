@@ -184,9 +184,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // npu_sparse_conv3d
     m.def("npu_sparse_conv3d", &npu_sparse_conv3d);
 
-    // npu_sparse_inverse_conv3d
-    m.def("npu_sparse_inverse_conv3d", &npu_sparse_inverse_conv3d);
-
     // multi_to_sparse
     m.def("multi_to_sparse", &multi_to_sparse);
 

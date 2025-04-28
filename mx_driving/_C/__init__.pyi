@@ -179,19 +179,6 @@ def npu_sparse_conv3d(
     outSpatialShape: Tuple[int, int, int],
     batch_size: int,
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
-def npu_sparse_inverse_conv3d(
-    feature: torch.Tensor,
-    indices: torch.Tensor,
-    weight: torch.Tensor,
-    kernel_size: Tuple[int, int, int],
-    stride: Tuple[int, int, int],
-    padding: Tuple[int, int, int],
-    dilation: Tuple[int, int, int],
-    output_padding: Tuple[int, int, int],
-    out_channel: int,
-    outSpatialShape: Tuple[int, int, int],
-    batch_size: int,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: ...
 def npu_sparse_conv3d_grad(
     indices_offset: torch.Tensor,
     former_sorted_indices: torch.Tensor,

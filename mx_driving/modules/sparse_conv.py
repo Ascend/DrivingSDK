@@ -334,35 +334,3 @@ class SubMConv3d(SparseConvolution):
             indice_key=indice_key,
             mode=mode,
         )
-
-
-class SparseInverseConv3d(SparseConvolution):
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        kernel_size,
-        stride=1,
-        padding=0,
-        dilation=1,
-        groups=1,
-        bias=True,
-        inverse=True,
-        indice_key=None,
-        mode="mmcv",
-    ):
-        super().__init__(
-            3,
-            in_channels,
-            out_channels,
-            kernel_size,
-            stride,
-            padding,
-            dilation,
-            groups,
-            bias,
-            subm=False,
-            inverse=True,
-            indice_key=indice_key,
-            mode=mode,
-        )
