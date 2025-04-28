@@ -150,16 +150,12 @@
     </tr>
     <tr>
     <tr>
-        <td rowspan=3>稀疏</td>
+        <td rowspan=2>稀疏</td>
         <td align=center><a href=./context/SparseConv3d.md>SparseConv3d</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
         <td align=center><a href=./context/SubMConv3d.md>SubMConv3d</a></td>
-        <td align=center>N</td>
-    </tr>
-    <tr>
-        <td align=center><a href=./context/SparseInverseConv3d[beta].md>SparseInverseConv3d[beta]</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
