@@ -160,6 +160,7 @@ out, argmax = scatter_max(updates, indices, out)
 | MatrixVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MatrixVT |Y|
 | FlashOCC | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FlashOCC |N|
 | HiVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HiVT |N|
+| SparseDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SparseDrive |N|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品

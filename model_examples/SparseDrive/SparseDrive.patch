@@ -1,0 +1,134 @@
+diff --git a/projects/configs/sparsedrive_small_stage1.py b/projects/configs/sparsedrive_small_stage1.py
+index 1cbb38b..e6cad50 100644
+--- a/projects/configs/sparsedrive_small_stage1.py
++++ b/projects/configs/sparsedrive_small_stage1.py
+@@ -714,6 +714,6 @@ eval_mode = dict(
+     motion_threshhold=0.2,
+ )
+ evaluation = dict(
+-    interval=num_iters_per_epoch*checkpoint_epoch_interval,
++    interval=num_iters_per_epoch*num_epochs,
+     eval_mode=eval_mode,
+ )
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/models/attention.py b/projects/mmdet3d_plugin/models/attention.py
+index 121f15b..1d60fe9 100644
+--- a/projects/mmdet3d_plugin/models/attention.py
++++ b/projects/mmdet3d_plugin/models/attention.py
+@@ -15,13 +15,6 @@ import torch.utils.checkpoint as cp
+ 
+ 
+ from einops import rearrange
+-try:
+-    from flash_attn.flash_attn_interface import flash_attn_unpadded_kvpacked_func
+-    print('Use flash_attn_unpadded_kvpacked_func')
+-except:
+-    from flash_attn.flash_attn_interface import  flash_attn_varlen_kvpacked_func as flash_attn_unpadded_kvpacked_func
+-    print('Use flash_attn_varlen_kvpacked_func')
+-from flash_attn.bert_padding import unpad_input, pad_input, index_first_axis
+ 
+ 
+ def _in_projection_packed(q, k, v, w, b = None):
+diff --git a/projects/mmdet3d_plugin/ops/__init__.py b/projects/mmdet3d_plugin/ops/__init__.py
+index cf23848..1863073 100644
+--- a/projects/mmdet3d_plugin/ops/__init__.py
++++ b/projects/mmdet3d_plugin/ops/__init__.py
+@@ -1,22 +1,7 @@
+ import torch
+ 
+-from .deformable_aggregation import DeformableAggregationFunction
+-
+-
+-def deformable_aggregation_function(
+-    feature_maps,
+-    spatial_shape,
+-    scale_start_index,
+-    sampling_location,
+-    weights,
+-):
+-    return DeformableAggregationFunction.apply(
+-        feature_maps,
+-        spatial_shape,
+-        scale_start_index,
+-        sampling_location,
+-        weights,
+-    )
++import mx_driving
++from mx_driving import deformable_aggregation as deformable_aggregation_function
+ 
+ 
+ def feature_maps_format(feature_maps, inverse=False):
+diff --git a/tools/test.py b/tools/test.py
+index c6a2c00..d6b71d7 100644
+--- a/tools/test.py
++++ b/tools/test.py
+@@ -6,6 +6,12 @@ from os import path as osp
+ 
+ import torch
+ import warnings
++
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++import mx_driving
++from tools.patch import generate_patcher_builder
++
+ from mmcv import Config, DictAction
+ from mmcv.cnn import fuse_conv_bn
+ from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
+@@ -104,7 +110,7 @@ def parse_args():
+         default="none",
+         help="job launcher",
+     )
+-    parser.add_argument("--local_rank", type=int, default=0)
++    parser.add_argument("--local-rank", type=int, default=0)
+     parser.add_argument("--result_file", type=str, default=None)
+     parser.add_argument("--show_only", action="store_true")
+     args = parser.parse_args()
+@@ -320,6 +326,8 @@ def main():
+ 
+ if __name__ == "__main__":
+     torch.multiprocessing.set_start_method(
+-        "fork"
++        "fork", force=True
+     )  # use fork workers_per_gpu can be > 1
+-    main()
++    sparse_drive_patcher_builder = generate_patcher_builder()
++    with sparse_drive_patcher_builder.build():
++        main()
+diff --git a/tools/train.py b/tools/train.py
+index eef55ee..0a66f8c 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -11,6 +11,12 @@ import mmcv
+ import time
+ import torch
+ import warnings
++
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++import mx_driving
++from tools.patch import generate_patcher_builder
++
+ from mmcv import Config, DictAction
+ from mmcv.runner import get_dist_info, init_dist
+ from os import path as osp
+@@ -93,7 +99,7 @@ def parse_args():
+         default="none",
+         help="job launcher",
+     )
+-    parser.add_argument("--local_rank", type=int, default=0)
++    parser.add_argument("--local-rank", type=int, default=0)
+     parser.add_argument(
+         "--autoscale-lr",
+         action="store_true",
+@@ -316,6 +322,8 @@ def main():
+ 
+ if __name__ == "__main__":
+     torch.multiprocessing.set_start_method(
+-        "fork"
++        "fork", force=True
+     )  # use fork workers_per_gpu can be > 1
+-    main()
++    sparse_drive_patcher_builder = generate_patcher_builder()
++    with sparse_drive_patcher_builder.build():
++        main()
