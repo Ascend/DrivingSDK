@@ -1,0 +1,472 @@
+diff --git a/configs/magicdrive/npu_64g/stage2_1-33x224x400-12Hz_stdit3_CogVAE_boxTDS_wCT_xCE_wSST_bs4_lr8e-5_from224-80k_sp4.py b/configs/magicdrive/npu_64g/stage2_1-33x224x400-12Hz_stdit3_CogVAE_boxTDS_wCT_xCE_wSST_bs4_lr8e-5_from224-80k_sp4.py
+index 85cf52d..3746686 100755
+--- a/configs/magicdrive/npu_64g/stage2_1-33x224x400-12Hz_stdit3_CogVAE_boxTDS_wCT_xCE_wSST_bs4_lr8e-5_from224-80k_sp4.py
++++ b/configs/magicdrive/npu_64g/stage2_1-33x224x400-12Hz_stdit3_CogVAE_boxTDS_wCT_xCE_wSST_bs4_lr8e-5_from224-80k_sp4.py
+@@ -166,7 +166,7 @@ model = dict(
+         mlp_ratio=4.0,
+         qk_norm=True,
+         enable_flash_attn=False and global_flash_attn,
+-        enable_xformers=True and global_xformers,
++        enable_xformers=False and global_xformers,
+         enable_layernorm_kernel=True and global_layernorm,
+         use_scale_shift_table=True,
+         time_downsample_factor=4.5,
+@@ -190,7 +190,7 @@ model = dict(
+         mlp_ratio=4.0,
+         qk_norm=True,
+         enable_flash_attn=False and global_flash_attn,
+-        enable_xformers=True and global_xformers,
++        enable_xformers=False and global_xformers,
+         enable_layernorm_kernel=True and global_layernorm,
+         use_scale_shift_table=True,
+         time_downsample_factor=4.5,
+diff --git a/configs/magicdrive/train/stage1_1x224x400_stdit3_CogVAE_noTemp_xCE_wSST_bs4_lr8e-5.py b/configs/magicdrive/train/stage1_1x224x400_stdit3_CogVAE_noTemp_xCE_wSST_bs4_lr8e-5.py
+index 759cd5e..5d9849c 100755
+--- a/configs/magicdrive/train/stage1_1x224x400_stdit3_CogVAE_noTemp_xCE_wSST_bs4_lr8e-5.py
++++ b/configs/magicdrive/train/stage1_1x224x400_stdit3_CogVAE_noTemp_xCE_wSST_bs4_lr8e-5.py
+@@ -22,7 +22,7 @@ dataset_cfg_overrides = (
+ 
+ # Runner
+ dtype = "bf16"
+-sp_size = 1
++sp_size = 4
+ plugin = "zero2-seq" if sp_size > 1 else "zero2"
+ grad_checkpoint = False
+ batch_size = 4
+diff --git a/magicdrivedit/mmdet_plugin/datasets/pipelines/loading.py b/magicdrivedit/mmdet_plugin/datasets/pipelines/loading.py
+index a6239e6..3d870e2 100755
+--- a/magicdrivedit/mmdet_plugin/datasets/pipelines/loading.py
++++ b/magicdrivedit/mmdet_plugin/datasets/pipelines/loading.py
+@@ -54,6 +54,7 @@ class LoadMultiViewImageFromFiles:
+                 - img_norm_cfg (dict): Normalization configuration of images.
+         """
+         filename = results["image_paths"]
++        filename = [name[1:] for name in filename]
+         # img is of shape (h, w, c, num_views)
+         # modified for waymo
+         images = []
+diff --git a/magicdrivedit/models/layers/blocks.py b/magicdrivedit/models/layers/blocks.py
+index c6f529c..183dfa9 100755
+--- a/magicdrivedit/models/layers/blocks.py
++++ b/magicdrivedit/models/layers/blocks.py
+@@ -16,7 +16,7 @@ from typing import Optional
+ import logging
+ 
+ DEVICE_TYPE = os.environ.get("DEVICE_TYPE", "gpu")
+-USE_XFORMERS = eval(os.environ.get("USE_XFORMERS", "True"))
++USE_XFORMERS = False
+ 
+ import numpy as np
+ import torch
+@@ -61,11 +61,15 @@ class LlamaRMSNorm(nn.Module):
+         self.variance_epsilon = eps
+ 
+     def forward(self, hidden_states):
+-        input_dtype = hidden_states.dtype
+-        hidden_states = hidden_states.to(torch.float32)
+-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
+-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+-        return self.weight * hidden_states.to(input_dtype)
++        if USE_NPU:
++            return torch_npu.npu_rms_norm(hidden_states, self.weight, epsilon=self.variance_epsilon)[0]
++        else:
++            input_dtype = hidden_states.dtype
++            hidden_states = hidden_states.to(torch.float32)
++            variance = hidden_states.pow(2).mean(-1, keepdim=True)
++            hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
++            return self.weight * hidden_states.to(input_dtype)
++        
+ 
+ 
+ def get_layernorm(hidden_size: torch.Tensor, eps: float, affine: bool, use_kernel: bool):
+diff --git a/magicdrivedit/models/magicdrive/magicdrive_stdit3.py b/magicdrivedit/models/magicdrive/magicdrive_stdit3.py
+index 94d5155..8ce8dd9 100755
+--- a/magicdrivedit/models/magicdrive/magicdrive_stdit3.py
++++ b/magicdrivedit/models/magicdrive/magicdrive_stdit3.py
+@@ -37,6 +37,7 @@ from magicdrivedit.models.layers.blocks import (
+ from magicdrivedit.registry import MODELS
+ from magicdrivedit.utils.ckpt_utils import load_checkpoint
+ from magicdrivedit.utils.misc import warn_once
++from magicdrivedit.utils.train_utils import NpuRotaryEmbedding
+ 
+ from .embedder import MapControlTempEmbedding
+ from .utils import zero_module, load_module
+@@ -214,9 +215,10 @@ class MultiViewSTDiT3Block(nn.Module):
+                 "b ... -> (b NC) ...", NC=NC,
+             ).chunk(6, dim=1)
+ 
+-        x_m = t2i_modulate(self.norm1(x), shift_msa, scale_msa)
++        x_norm1 = self.norm1(x)
++        x_m = t2i_modulate(x_norm1, shift_msa, scale_msa)
+         if x_mask is not None:
+-            x_m_zero = t2i_modulate(self.norm1(x), shift_msa_zero, scale_msa_zero)
++            x_m_zero = t2i_modulate(x_norm1, shift_msa_zero, scale_msa_zero)
+             x_m = self.t_mask_select(x_mask, x_m, x_m_zero, T, S)
+ 
+         ######################
+diff --git a/magicdrivedit/utils/misc.py b/magicdrivedit/utils/misc.py
+index f42ad07..2f66685 100755
+--- a/magicdrivedit/utils/misc.py
++++ b/magicdrivedit/utils/misc.py
+@@ -141,26 +141,26 @@ def to_torch_dtype(dtype):
+ 
+ 
+ class Timer:
+-    def __init__(self, name, log=False, coordinator: Optional[DistCoordinator] = None):
++    def __init__(self, name, log=False, sync=False):
+         self.name = name
+         self.start_time = None
+         self.end_time = None
+         self.log = log
+-        self.coordinator = coordinator
++        self.sync = sync
+ 
+     @property
+     def elapsed_time(self):
+         return self.end_time - self.start_time
+ 
+     def __enter__(self):
+-        torch.cuda.synchronize()
++        if self.sync:
++            torch.cuda.synchronize()
+         self.start_time = time.time()
+         return self
+ 
+     def __exit__(self, exc_type, exc_val, exc_tb):
+-        if self.coordinator is not None:
+-            self.coordinator.block_all()
+-        torch.cuda.synchronize()
++        if self.sync:
++            torch.cuda.synchronize()
+         self.end_time = time.time()
+         if self.log:
+             print(f"Elapsed time for {self.name}: {self.elapsed_time:.2f} s")
+diff --git a/magicdrivedit/utils/train_utils.py b/magicdrivedit/utils/train_utils.py
+index bb4fd56..87dd888 100755
+--- a/magicdrivedit/utils/train_utils.py
++++ b/magicdrivedit/utils/train_utils.py
+@@ -8,6 +8,12 @@ from functools import partial
+ 
+ import torch
+ import torch.distributed as dist
++from torch.nn import Module, ModuleList
++from beartype import beartype
++from beartype.typing import Literal, Union, Optional
++from math import pi
++from torch import nn, einsum, broadcast_tensors, Tensor
++from torch.cuda.amp import autocast
+ from einops import rearrange, repeat
+ from colossalai.cluster import DistCoordinator, ProcessGroupMesh
+ from colossalai.booster.plugin import LowLevelZeroPlugin
+@@ -411,3 +417,258 @@ def sp_vae(x, vae_func, sp_group: dist.ProcessGroup):
+     del local_latent
+     global_latent = torch.cat(global_latent, dim=0)[:B]
+     return global_latent
++
++def exists(val):
++    return val is not None
++
++def default(val, d):
++    return val if exists(val) else d
++
++# rotary embedding helper functions
++
++def rotate_half(x):
++    x = rearrange(x, '... (d r) -> ... d r', r = 2).contiguous()
++    x1, x2 = x.unbind(dim = -1)
++    x = torch.stack((-x2, x1), dim = -1)
++    return rearrange(x, '... d r -> ... (d r)')
++
++@autocast(enabled = False)
++def apply_rotary_emb(freqs, t, start_index = 0, scale = 1., seq_dim = -2):
++    dtype = t.dtype
++
++    if t.ndim == 3:
++        seq_len = t.shape[seq_dim]
++        freqs = freqs[-seq_len:]
++
++    rot_dim = freqs.shape[-1]
++    end_index = start_index + rot_dim
++
++    assert rot_dim <= t.shape[-1], f'feature dimension {t.shape[-1]} is not of sufficient size to rotate in all the positions {rot_dim}'
++
++    t_left, t, t_right = t[..., :start_index], t[..., start_index:end_index], t[..., end_index:]
++    t = (t * freqs.cos() * scale) + (rotate_half(t) * freqs.sin() * scale)
++    out = torch.cat((t_left, t, t_right), dim = -1)
++
++    return out.type(dtype)
++
++class NpuRotaryEmbedding(Module):
++    @beartype
++    def __init__(
++        self,
++        dim,
++        custom_freqs: Optional[Tensor] = None,
++        freqs_for: Union[
++            Literal['lang'],
++            Literal['pixel'],
++            Literal['constant']
++        ] = 'lang',
++        theta = 10000,
++        max_freq = 10,
++        num_freqs = 1,
++        learned_freq = False,
++        use_xpos = False,
++        xpos_scale_base = 512,
++        interpolate_factor = 1.,
++        theta_rescale_factor = 1.,
++        seq_before_head_dim = False,
++        cache_if_possible = True
++    ):
++        super().__init__()
++        # proposed by reddit user bloc97, to rescale rotary embeddings to longer sequence length without fine-tuning
++        # has some connection to NTK literature
++
++        theta *= theta_rescale_factor ** (dim / (dim - 2))
++
++        self.freqs_for = freqs_for
++
++        if exists(custom_freqs):
++            freqs = custom_freqs
++        elif freqs_for == 'lang':
++            freqs = 1. / (theta ** (torch.arange(0, dim, 2)[:(dim // 2)].float() / dim))
++        elif freqs_for == 'pixel':
++            freqs = torch.linspace(1., max_freq / 2, dim // 2) * pi
++        elif freqs_for == 'constant':
++            freqs = torch.ones(num_freqs).float()
++
++        self.cache_if_possible = cache_if_possible
++
++        self.tmp_store('cached_freqs', None)
++        self.tmp_store('cached_scales', None)
++
++        self.freqs = nn.Parameter(freqs, requires_grad = learned_freq)
++
++        self.learned_freq = learned_freq
++
++        # dummy for device
++
++        self.tmp_store('dummy', torch.tensor(0))
++
++        # default sequence dimension
++
++        self.seq_before_head_dim = seq_before_head_dim
++        self.default_seq_dim = -3 if seq_before_head_dim else -2
++
++        # interpolation factors
++
++        assert interpolate_factor >= 1.
++        self.interpolate_factor = interpolate_factor
++
++        # xpos
++
++        self.use_xpos = use_xpos
++        if not use_xpos:
++            self.tmp_store('scale', None)
++            return
++
++        scale = (torch.arange(0, dim, 2) + 0.4 * dim) / (1.4 * dim)
++        self.scale_base = xpos_scale_base
++        self.tmp_store('scale', scale)
++
++        # add apply_rotary_emb as static method
++
++        self.apply_rotary_emb = staticmethod(apply_rotary_emb)
++
++    @property
++    def device(self):
++        return self.dummy.device
++
++    def tmp_store(self, key, value):
++        self.register_buffer(key, value, persistent = False)
++
++    def get_seq_pos(self, seq_len, device, dtype, offset = 0):
++        return (torch.arange(seq_len, device = device, dtype = dtype) + offset) / self.interpolate_factor
++
++    def rotate_queries_or_keys(self, t, seq_dim = None, offset = 0):
++        seq_dim = default(seq_dim, self.default_seq_dim)
++
++        assert not self.use_xpos, 'you must use `.rotate_queries_and_keys` method instead and pass in both queries and keys, for length extrapolatable rotary embeddings'
++
++        device, dtype, seq_len = t.device, t.dtype, t.shape[seq_dim]
++
++        freqs = self.forward(self.get_seq_pos(seq_len, device = device, dtype = dtype, offset = offset), seq_len = seq_len, offset = offset)
++
++        if seq_dim == -3:
++            freqs = rearrange(freqs, 'n d -> n 1 d')
++
++        return apply_rotary_emb(freqs, t, seq_dim = seq_dim)
++
++    def rotate_queries_with_cached_keys(self, q, k, seq_dim = None, offset = 0):
++        seq_dim = default(seq_dim, self.default_seq_dim)
++
++        q_len, k_len = q.shape[seq_dim], k.shape[seq_dim]
++        assert q_len <= k_len
++
++        rotated_q = self.rotate_queries_or_keys(q, seq_dim = seq_dim, offset = k_len - q_len + offset)
++        rotated_k = self.rotate_queries_or_keys(k, seq_dim = seq_dim, offset = offset)
++
++        rotated_q = rotated_q.type(q.dtype)
++        rotated_k = rotated_k.type(k.dtype)
++
++        return rotated_q, rotated_k
++
++    def rotate_queries_and_keys(self, q, k, seq_dim = None):
++        seq_dim = default(seq_dim, self.default_seq_dim)
++
++        assert self.use_xpos
++        device, dtype, seq_len = q.device, q.dtype, q.shape[seq_dim]
++
++        seq = self.get_seq_pos(seq_len, dtype = dtype, device = device)
++
++        freqs = self.forward(seq, seq_len = seq_len)
++        scale = self.get_scale(seq, seq_len = seq_len).to(dtype)
++
++        if seq_dim == -3:
++            freqs = rearrange(freqs, 'n d -> n 1 d')
++            scale = rearrange(scale, 'n d -> n 1 d')
++
++        rotated_q = apply_rotary_emb(freqs, q, scale = scale, seq_dim = seq_dim)
++        rotated_k = apply_rotary_emb(freqs, k, scale = scale ** -1, seq_dim = seq_dim)
++
++        rotated_q = rotated_q.type(q.dtype)
++        rotated_k = rotated_k.type(k.dtype)
++
++        return rotated_q, rotated_k
++
++    @beartype
++    def get_scale(
++        self,
++        t: Tensor,
++        seq_len: Optional[int] = None,
++        offset = 0
++    ):
++        assert self.use_xpos
++
++        should_cache = (
++            self.cache_if_possible and
++            exists(seq_len)
++        )
++
++        if (
++            should_cache and \
++            exists(self.cached_scales) and \
++            (seq_len + offset) <= self.cached_scales.shape[0]
++        ):
++            return self.cached_scales[offset:(offset + seq_len)]
++
++        scale = 1.
++        if self.use_xpos:
++            power = (t - len(t) // 2) / self.scale_base
++            scale = self.scale ** rearrange(power, 'n -> n 1')
++            scale = torch.cat((scale, scale), dim = -1)
++
++        if should_cache:
++            self.tmp_store('cached_scales', scale)
++
++        return scale
++
++    def get_axial_freqs(self, *dims):
++        Colon = slice(None)
++        all_freqs = []
++
++        for ind, dim in enumerate(dims):
++            if self.freqs_for == 'pixel':
++                pos = torch.linspace(-1, 1, steps = dim, device = self.device)
++            else:
++                pos = torch.arange(dim, device = self.device)
++
++            freqs = self.forward(pos, seq_len = dim)
++
++            all_axis = [None] * len(dims)
++            all_axis[ind] = Colon
++
++            new_axis_slice = (Ellipsis, *all_axis, Colon)
++            all_freqs.append(freqs[new_axis_slice])
++
++        all_freqs = broadcast_tensors(*all_freqs)
++        return torch.cat(all_freqs, dim = -1)
++
++    @autocast(enabled = False)
++    def forward(
++        self,
++        t: Tensor,
++        seq_len = None,
++        offset = 0
++    ):
++        should_cache = (
++            self.cache_if_possible and \
++            not self.learned_freq and \
++            exists(seq_len) and \
++            self.freqs_for != 'pixel'
++        )
++
++        if (
++            should_cache and \
++            exists(self.cached_freqs) and \
++            (offset + seq_len) <= self.cached_freqs.shape[0]
++        ):
++            return self.cached_freqs[offset:(offset + seq_len)].detach()
++
++        freqs = self.freqs
++
++        freqs = einsum('..., f -> ... f', t.type(freqs.dtype), freqs)
++        freqs = repeat(freqs, '... n -> ... (n r)', r = 2)
++
++        if should_cache:
++            self.tmp_store('cached_freqs', freqs.detach())
++
++        return freqs
+\ No newline at end of file
+diff --git a/scripts/train_magicdrive.py b/scripts/train_magicdrive.py
+index 1a1b0c2..a576ef5 100755
+--- a/scripts/train_magicdrive.py
++++ b/scripts/train_magicdrive.py
+@@ -23,6 +23,7 @@ if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
+         print(f"Got {e} during import xformers!")
+     import torch_npu
+     from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
+ else:
+     USE_NPU = False
+ import magicdrivedit.utils.module_contrib
+@@ -68,8 +69,30 @@ from magicdrivedit.utils.misc import (
+ )
+ from magicdrivedit.utils.train_utils import MaskGenerator, create_colossalai_plugin, update_ema, run_validation, sp_vae
+ 
++import numpy as np
++import random
++
++import gc
++gc.set_threshold(700, 10, 1000)
++
++def seed_all(seed=1234, mode=False, is_gpu=True):
++    random.seed(seed)
++    os.environ['PYTHONHASHSEED'] = str(seed)
++    np.random.seed(seed)
++    torch.manual_seed(seed)
++    torch.use_deterministic_algorithms(mode)
++    if is_gpu:
++        torch.cuda.manual_seed_all(seed)
++        torch.cuda.manual_seed(seed)
++        torch.backends.cudnn.deterministic = True
++        torch.backends.cudnn.enable = False
++        torch.backends.cudnn.benchmark = False
++    else:
++        torch_npu.npu.manual_seed_all(seed)
++        torch_npu.npu.manual_seed(seed)
+ 
+ def main():
++    seed_all(1024, mode=True, is_gpu=False) # npu
+     # ======================================================
+     # 1. configs & runtime variables
+     # ======================================================
+@@ -189,7 +212,7 @@ def main():
+         batch_size=cfg.get("batch_size", None),
+         num_workers=cfg.get("num_workers", 4),
+         seed=cfg.get("seed", 1024),
+-        shuffle=True if cfg.get("overfit", None) is None else False,
++        shuffle=False,
+         drop_last=True,
+         pin_memory=True,
+         process_group=get_data_parallel_group(),
