@@ -5,19 +5,11 @@ NETWORK="FlashOCC_R50"
 DEVICE_TYPE=$(uname -m)
 
 WORLD_SIZE=8
-BATCH_SIZE=4
-TOTAL_EPOCHS=24
-
-# 获取传入的参数，重新赋值 TOTAL_EPOCHS
-for para in $*
-do
-    if [[ $para == --epochs=* ]]; then
-        TOTAL_EPOCHS=`echo ${para#*=}`
-    fi
-done
+BATCH_SIZE=24
+TOTAL_EPOCHS=1
 
 # 训练用例名称
-CASE_NAME=${NETWORK}_${WORLD_SIZE}p_bs${BATCH_SIZE}_e${TOTAL_EPOCHS}
+CASE_NAME=${NETWORK}_${WORLD_SIZE}p_bs${BATCH_SIZE}_e${TOTAL_EPOCHS}_perf
 echo "[FlashOCC] CASE_NAME = ${CASE_NAME}"
 
 # 创建输出目录
@@ -72,23 +64,16 @@ sed -i 's/^from multiprocessing.dummy import Pool as ThreadPool/# from multiproc
 sed -i 's/^from ...ops import nearest_assign/# from ...ops import nearest_assign/' projects/mmdet3d_plugin/models/detectors/bevdet_occ.py
 sed -i 's/^\(\s*\)is_cuda\s*=\s*True/\1is_cuda = False/' projects/mmdet3d_plugin/models/detectors/bevdet_occ.py
 
-# 修改配置文件中的 max_epoch
-sed -i 's/runner = dict(type='\''EpochBasedRunner'\'', max_epoch=24)/runner = dict(type='\''EpochBasedRunner'\'', max_epoch=1)/' "./projects/configs/flashocc/flashocc-r50.py"
-
 # 训练开始时间
 start_time=$(date +%s)
 
 # 开始训练
 echo "[FlashOCC] Training..."
-bash ./tools/dist_train.sh ./projects/configs/flashocc/flashocc-r50.py ${WORLD_SIZE} --work-dir ${OUTPUT_PATH}/work_dir > ${OUTPUT_PATH}/train.log 2>&1 &
+bash ./tools/dist_train.sh ./projects/configs/flashocc/flashocc-r50-perf.py ${WORLD_SIZE} --work-dir ${OUTPUT_PATH}/work_dir > ${OUTPUT_PATH}/train.log 2>&1 &
 wait
 
 # 训练结束时间
 end_time=$(date +%s)
-
-# 恢复配置文件中的 total_epochs
-sed -i 's/runner = dict(type='\''EpochBasedRunner'\'', max_epoch=1)/runner = dict(type='\''EpochBasedRunner'\'', max_epoch=24)/' "./projects/configs/flashocc/flashocc-r50.py"
-
 
 # 训练结果
 echo "------------------ Final result ------------------"
@@ -97,27 +82,15 @@ echo "------------------ Final result ------------------"
 e2e_time=$(($end_time - $start_time))
 echo "[FlashOCC] E2E Training Time (sec) : ${e2e_time}"
 
-# 单迭代训练时长
-per_step_time=$(grep -o ", time: [0-9.]*" ${OUTPUT_PATH}/train.log | tail -n 30 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
-echo "[FlashOCC] Average Per Step Training Time (sec) : ${per_step_time}"
+
+epoch_start_time=`grep "mmdet - INFO - workflow*" ${OUTPUT_PATH}/train.log | tail -1 | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9]`
+epoch_end_time=`grep "Saving checkpoint at 1 epochs*" ${OUTPUT_PATH}/train.log | tail -1 | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9]`
+epoch_duration=$(($(date +%s -d $epoch_end_time) - $(date +%s -d $epoch_start_time)))
+iteration_steps=`grep "mmdet - INFO - Epoch" ${OUTPUT_PATH}/train.log | tail -1 | grep -Po '\[\K[^]]*' | awk -F/ '{printf $2}'`
+fps_value=$(awk -v i="$iteration_steps" -v bs="$BATCH_SIZE" -v ws="$WORLD_SIZE" -v dur="$epoch_duration" 'BEGIN { printf "%.4f", i*bs*ws/dur }')
 
 # 吞吐量
-actual_fps=$(awk BEGIN'{print ('$BATCH_SIZE' * '$WORLD_SIZE') / '$per_step_time'}')
-echo "[FlashOCC] Final Performance images/sec : ${actual_fps}"
-
-# loss 值
-actual_loss=$(grep -o "loss: [0-9.]*" ${OUTPUT_PATH}/train.log | awk 'END {print $NF}')
-echo "[FlashOCC] Final Train Loss : ${actual_loss}"
-
-# 验证精度
-if [[ ${TOTAL_EPOCHS} == 24 ]]; then
-    # 验证精度
-    echo "[FlashOCC] Evaluating ..."
-    bash ./tools/dist_test.sh ./projects/configs/flashocc/flashocc-r50.py ${OUTPUT_PATH}/work_dir/epoch_24.pth ${WORLD_SIZE} --eval mAP > ${OUTPUT_PATH}/eval_result.log 2>&1 &
-    wait
-    mIoU=$(grep -o "mIoU of 6019 samples: [0-9.]*" ${OUTPUT_PATH}/eval_result.log | awk 'END {print $NF}')
-    echo "[FlashOCC] mIoU : ${mIoU}"
-fi
+echo "[FlashOCC] Final Performance images/sec : ${fps_value}"
 
 # 将关键信息打印到 ${CASE_NAME}.log 中
 echo "Network = ${NETWORK}" > ${OUTPUT_PATH}/${CASE_NAME}.log
@@ -126,9 +99,4 @@ echo "RankSize = ${WORLD_SIZE}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "BatchSize = ${BATCH_SIZE}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "CaseName = ${CASE_NAME}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "E2ETrainingTime = ${e2e_time}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
-echo "TrainingTime = ${per_step_time}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
-echo "ActualFPS = ${actual_fps}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
-echo "ActualLoss = ${actual_loss}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
-if [[ ${TOTAL_EPOCHS} == 24 ]]; then
-    echo "mIoU = ${mIoU}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
-fi
+echo "ActualFPS = ${fps_value}" >> ${OUTPUT_PATH}/${CASE_NAME}.log

@@ -36,7 +36,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
     commit_id=4084861d8d605bb01df55fcbc8072036055aa625
     ```
 
-# FlashOCC（在研版本）
+# FlashOCC
 
 ## 准备训练环境
 
@@ -86,7 +86,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
     克隆 mmcv 仓，并进入 mmcv 目录编译安装
 
     ```
-    git clone -b rc41.x https://github.com/momo609/mmcv.git
+    git clone -b 1.x https://github.com/open-mmlab/mmcv
     cp mmcv.patch mmcv
     cd mmcv
     git apply --reject mmcv.patch
@@ -136,6 +136,8 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
         └── nuscenes
             ├── v1.0-trainval
             ├── maps
+            ├── panoptic
+            ├── lidarseg
             ├── sweeps
             ├── samples
             ├── gts
@@ -166,22 +168,30 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 #### 开始训练
 
   - 在模型源码根目录下，运行训练脚本。
+    - 单机8卡性能训练
 
      ```
-     bash test/train_8p_flashocc_r50.sh --epochs=1 # 8卡性能
-     bash test/train_8p_flashocc_r50.sh # 8卡精度
+     bash test/train_8p_flashocc_r50_perf.sh # 8卡性能
+     ```
+
+     - 单机8卡精度训练
+
+     ```
+     bash test/train_8p_flashocc_r50_full.sh # 8卡精度
      ```
 
 #### 训练结果
 
-| 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | 性能-单步迭代耗时(s) |
-| ------------- | :--: | :---------------: | :-------: | :---: | :----: | :-------------------: |
-| 竞品A           |  8p  |         32         |   fp32    |  24   | 31.73 |         7.823          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  24   | 31.79 |          4.22          |
+| 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | 性能-单步迭代耗时(s) | FPS |
+| ------------- | :--: | :---------------: | :-------: | :---: | :----: |  :-------------------: |  :-----------------:   |
+| 竞品A           |  8p  |         192         |   fp32    |  24   | 30.14 |        2.95          |   65.03    |
+| Atlas 800T A2 |  8p  |         192         |   fp32    |  24   | 30.27 |          1.91          |   100.44   |
 
 # 变更说明
 
 2025.3.13：首次发布。
+
+2025.4.28：性能优化。
 
 # FAQ
 

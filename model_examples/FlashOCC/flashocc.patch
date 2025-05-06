@@ -1,13 +1,297 @@
+diff --git a/projects/configs/flashocc/flashocc-r50-perf.py b/projects/configs/flashocc/flashocc-r50-perf.py
+new file mode 100644
+index 0000000..c4bac01
+--- /dev/null
++++ b/projects/configs/flashocc/flashocc-r50-perf.py
+@@ -0,0 +1,268 @@
++_base_ = ['../../../mmdetection3d/configs/_base_/datasets/nus-3d.py',
++          '../../../mmdetection3d/configs/_base_/default_runtime.py']
++
++plugin = True
++plugin_dir = 'projects/mmdet3d_plugin/'
++point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
++# For nuScenes we usually do 10-class detection
++class_names = [
++    'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
++    'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
++]
++
++data_config = {
++    'cams': [
++        'CAM_FRONT_LEFT', 'CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_LEFT',
++        'CAM_BACK', 'CAM_BACK_RIGHT'
++    ],
++    'Ncams':
++    6,
++    'input_size': (256, 704),
++    'src_size': (900, 1600),
++
++    # Augmentation
++    'resize': (-0.06, 0.11),
++    'rot': (-5.4, 5.4),
++    'flip': True,
++    'crop_h': (0.0, 0.0),
++    'resize_test': 0.00,
++}
++
++grid_config = {
++    'x': [-40, 40, 0.4],
++    'y': [-40, 40, 0.4],
++    'z': [-1, 5.4, 6.4],
++    'depth': [1.0, 45.0, 0.5],
++}
++
++voxel_size = [0.1, 0.1, 0.2]
++
++numC_Trans = 64
++
++model = dict(
++    type='BEVDetOCC',
++    img_backbone=dict(
++        type='ResNet',
++        depth=50,
++        num_stages=4,
++        out_indices=(2, 3),
++        frozen_stages=-1,
++        norm_cfg=dict(type='BN', requires_grad=True),
++        norm_eval=False,
++        with_cp=True,
++        style='pytorch',
++        pretrained='torchvision://resnet50',
++    ),
++    img_neck=dict(
++        type='CustomFPN',
++        in_channels=[1024, 2048],
++        out_channels=256,
++        num_outs=1,
++        start_level=0,
++        out_ids=[0]),
++    img_view_transformer=dict(
++        type='LSSViewTransformer',
++        grid_config=grid_config,
++        input_size=data_config['input_size'],
++        in_channels=256,
++        out_channels=numC_Trans,
++        sid=False,
++        collapse_z=True,
++        downsample=16),
++    img_bev_encoder_backbone=dict(
++        type='CustomResNet',
++        numC_input=numC_Trans,
++        num_channels=[numC_Trans * 2, numC_Trans * 4, numC_Trans * 8]),
++    img_bev_encoder_neck=dict(
++        type='FPN_LSS',
++        in_channels=numC_Trans * 8 + numC_Trans * 2,
++        out_channels=256),
++    occ_head=dict(
++        type='BEVOCCHead2D',
++        in_dim=256,
++        out_dim=256,    # out_dim=128 for M0!!!
++        Dz=16,
++        use_mask=True,
++        num_classes=18,
++        use_predicter=True,
++        class_balance=False,
++        loss_occ=dict(
++            type='CrossEntropyLoss',
++            use_sigmoid=False,
++            ignore_index=255,
++            loss_weight=1.0
++        ),
++    )
++)
++
++# Data
++dataset_type = 'NuScenesDatasetOccpancy'
++data_root = 'data/nuscenes/'
++file_client_args = dict(backend='disk')
++
++bda_aug_conf = dict(
++    rot_lim=(-0., 0.),
++    scale_lim=(1., 1.),
++    flip_dx_ratio=0.5,
++    flip_dy_ratio=0.5
++)
++
++train_pipeline = [
++    dict(
++        type='PrepareImageInputs',
++        is_train=True,
++        data_config=data_config,
++        sequential=False),
++    dict(
++        type='LoadAnnotationsBEVDepth',
++        bda_aug_conf=bda_aug_conf,
++        classes=class_names,
++        is_train=True),
++    dict(type='LoadOccGTFromFile'),
++    dict(
++        type='LoadPointsFromFile',
++        coord_type='LIDAR',
++        load_dim=5,
++        use_dim=5,
++        file_client_args=file_client_args),
++    dict(type='PointToMultiViewDepth', downsample=1, grid_config=grid_config),
++    dict(type='DefaultFormatBundle3D', class_names=class_names),
++    dict(
++        type='Collect3D', keys=['img_inputs', 'gt_depth', 'voxel_semantics',
++                                'mask_lidar', 'mask_camera'])
++]
++
++test_pipeline = [
++    dict(type='PrepareImageInputs', data_config=data_config, sequential=False),
++    dict(
++        type='LoadAnnotationsBEVDepth',
++        bda_aug_conf=bda_aug_conf,
++        classes=class_names,
++        is_train=False),
++    dict(
++        type='LoadPointsFromFile',
++        coord_type='LIDAR',
++        load_dim=5,
++        use_dim=5,
++        file_client_args=file_client_args),
++    dict(
++        type='MultiScaleFlipAug3D',
++        img_scale=(1333, 800),
++        pts_scale_ratio=1,
++        flip=False,
++        transforms=[
++            dict(
++                type='DefaultFormatBundle3D',
++                class_names=class_names,
++                with_label=False),
++            dict(type='Collect3D', keys=['points', 'img_inputs'])
++        ])
++]
++
++
++input_modality = dict(
++    use_lidar=False,
++    use_camera=True,
++    use_radar=False,
++    use_map=False,
++    use_external=False)
++
++share_data_config = dict(
++    type=dataset_type,
++    data_root=data_root,
++    classes=class_names,
++    modality=input_modality,
++    stereo=False,
++    filter_empty_gt=False,
++    img_info_prototype='bevdet',
++)
++
++test_data_config = dict(
++    pipeline=test_pipeline,
++    ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl')
++
++data = dict(
++    samples_per_gpu=24,
++    workers_per_gpu=4,
++    train=dict(
++        data_root=data_root,
++        ann_file=data_root + 'bevdetv2-nuscenes_infos_train.pkl',
++        pipeline=train_pipeline,
++        classes=class_names,
++        test_mode=False,
++        use_valid_flag=True,
++        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
++        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
++        box_type_3d='LiDAR'),
++    val=test_data_config,
++    test=test_data_config)
++
++for key in ['val', 'train', 'test']:
++    data[key].update(share_data_config)
++
++# Optimizer
++optimizer = dict(type='NpuFusedAdamW', lr=2.45*1e-4, weight_decay=1e-2)
++optimizer_config = dict(grad_clip=dict(max_norm=5, norm_type=2))
++lr_config = dict(
++    policy='step',
++    warmup='linear',
++    warmup_iters=200,
++    warmup_ratio=0.001,
++    step=[24, ])
++runner = dict(type='EpochBasedRunner', max_epochs=1)
++
++custom_hooks = [
++    dict(
++        type='MEGVIIEMAHook',
++        init_updates=10560,
++        priority='NORMAL',
++    ),
++]
++
++load_from = "ckpts/bevdet-r50-cbgs.pth"
++# fp16 = dict(loss_scale='dynamic')
++evaluation = dict(interval=1, start=20, pipeline=test_pipeline)
++checkpoint_config = dict(interval=1, max_keep_ckpts=5)
++
++
++# with det pretrain; use_mask=True;
++# ===> per class IoU of 6019 samples:
++# ===> others - IoU = 6.74
++# ===> barrier - IoU = 37.65
++# ===> bicycle - IoU = 10.26
++# ===> bus - IoU = 39.55
++# ===> car - IoU = 44.36
++# ===> construction_vehicle - IoU = 14.88
++# ===> motorcycle - IoU = 13.4
++# ===> pedestrian - IoU = 15.79
++# ===> traffic_cone - IoU = 15.38
++# ===> trailer - IoU = 27.44
++# ===> truck - IoU = 31.73
++# ===> driveable_surface - IoU = 78.82
++# ===> other_flat - IoU = 37.98
++# ===> sidewalk - IoU = 48.7
++# ===> terrain - IoU = 52.5
++# ===> manmade - IoU = 37.89
++# ===> vegetation - IoU = 32.24
++# ===> mIoU of 6019 samples: 32.08
++
++# with det pretrain; use_mask=False; class_balance=True
++# ===> per class IoU of 6019 samples:
++# ===> others - IoU = 4.49
++# ===> barrier - IoU = 29.59
++# ===> bicycle - IoU = 7.38
++# ===> bus - IoU = 30.32
++# ===> car - IoU = 32.22
++# ===> construction_vehicle - IoU = 13.04
++# ===> motorcycle - IoU = 11.91
++# ===> pedestrian - IoU = 8.61
++# ===> traffic_cone - IoU = 8.11
++# ===> trailer - IoU = 7.66
++# ===> truck - IoU = 20.84
++# ===> driveable_surface - IoU = 48.59
++# ===> other_flat - IoU = 26.62
++# ===> sidewalk - IoU = 26.08
++# ===> terrain - IoU = 20.86
++# ===> manmade - IoU = 7.62
++# ===> vegetation - IoU = 7.14
++# ===> mIoU of 6019 samples: 18.3
+\ No newline at end of file
 diff --git a/projects/configs/flashocc/flashocc-r50.py b/projects/configs/flashocc/flashocc-r50.py
-index ff4d67f..0f63e93 100644
+index ff4d67f..7ad0a44 100644
 --- a/projects/configs/flashocc/flashocc-r50.py
 +++ b/projects/configs/flashocc/flashocc-r50.py
+@@ -182,7 +182,7 @@ test_data_config = dict(
+     ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl')
+ 
+ data = dict(
+-    samples_per_gpu=4,
++    samples_per_gpu=24,
+     workers_per_gpu=4,
+     train=dict(
+         data_root=data_root,
 @@ -201,7 +201,7 @@ for key in ['val', 'train', 'test']:
      data[key].update(share_data_config)
  
  # Optimizer
 -optimizer = dict(type='AdamW', lr=1e-4, weight_decay=1e-2)
-+optimizer = dict(type='NpuFusedAdamW', lr=1e-4, weight_decay=1e-2)
++optimizer = dict(type='NpuFusedAdamW', lr=2.45*1e-4, weight_decay=1e-2)
  optimizer_config = dict(grad_clip=dict(max_norm=5, norm_type=2))
  lr_config = dict(
      policy='step',
@@ -46,8 +330,25 @@ index e90f7bf..f40770a 100644
  _pc_range = [-40, -40, -1.0, 40, 40, 5.4]
  _voxel_size = 0.4
  
+diff --git a/projects/mmdet3d_plugin/models/detectors/bevdet.py b/projects/mmdet3d_plugin/models/detectors/bevdet.py
+index 2e40982..209280e 100644
+--- a/projects/mmdet3d_plugin/models/detectors/bevdet.py
++++ b/projects/mmdet3d_plugin/models/detectors/bevdet.py
+@@ -69,10 +69,9 @@ class BEVDet(CenterPoint):
+ 
+         # calculate the transformation from adj sensor to key ego
+         keyego2global = ego2globals[:, 0,  ...].unsqueeze(1)    # (B, 1, 4, 4)
+-        global2keyego = torch.inverse(keyego2global.double())   # (B, 1, 4, 4)
++        global2keyego = torch.inverse(keyego2global)   # (B, 1, 4, 4)
+         sensor2keyegos = \
+-            global2keyego @ ego2globals.double() @ sensor2egos.double()     # (B, N_views, 4, 4)
+-        sensor2keyegos = sensor2keyegos.float()
++            global2keyego @ ego2globals @ sensor2egos     # (B, N_views, 4, 4)
+ 
+         return [imgs, sensor2keyegos, ego2globals, intrins,
+                 post_rots, post_trans, bda]
 diff --git a/projects/mmdet3d_plugin/models/necks/view_transformer.py b/projects/mmdet3d_plugin/models/necks/view_transformer.py
-index 0ab03f4..571d096 100644
+index 0ab03f4..be70ccc 100644
 --- a/projects/mmdet3d_plugin/models/necks/view_transformer.py
 +++ b/projects/mmdet3d_plugin/models/necks/view_transformer.py
 @@ -3,10 +3,10 @@ import torch
@@ -105,28 +406,38 @@ index 0ab03f4..571d096 100644
          # collapse Z
          if self.collapse_z:
              bev_feat = torch.cat(bev_feat.unbind(dim=2), 1)     # (B, C*Dz, Dy, Dx)
-@@ -307,11 +300,13 @@ class LSSViewTransformer(BaseModule):
-                (coor[:, 1] >= 0) & (coor[:, 1] < self.grid_size[1]) & \
-                (coor[:, 2] >= 0) & (coor[:, 2] < self.grid_size[2])
+@@ -303,38 +296,36 @@ class LSSViewTransformer(BaseModule):
+         coor = torch.cat((coor, batch_idx), 1)      # (B*N*D*fH*fW, 4)   4: (x, y, z, batch_id)
+ 
+         # filter out points that are outside box
+-        kept = (coor[:, 0] >= 0) & (coor[:, 0] < self.grid_size[0]) & \
+-               (coor[:, 1] >= 0) & (coor[:, 1] < self.grid_size[1]) & \
+-               (coor[:, 2] >= 0) & (coor[:, 2] < self.grid_size[2])
++        coor_0, coor_1, coor_2, coor_3 = torch.split(coor, [1, 1, 1, 1], dim=1)
++        grid_size_0, grid_size_1, grid_size_2 = self.grid_size
++        kept = (coor_0 >= 0) & (coor_0 < grid_size_0) & \
++               (coor_1 >= 0) & (coor_1 < grid_size_1) & \
++               (coor_2 >= 0) & (coor_2 < grid_size_2)
          if len(kept) == 0:
 -            return None, None, None, None, None
 +            return None, None, None
  
--        # (N_points, 4), (N_points, ), (N_points, )
+         # (N_points, 4), (N_points, ), (N_points, )
 -        coor, ranks_depth, ranks_feat = \
 -            coor[kept], ranks_depth[kept], ranks_feat[kept]
-+        # (N_points, 4), (N_points, ), (N_points, )            
-+        kept_coor_mask = kept.unsqueeze(-1).expand_as(coor)
++        kept_coor_mask = kept.expand_as(coor)
 +        coor = torch.masked_select(coor, kept_coor_mask).view(-1, 4)
++        kept = kept.squeeze(-1)
 +        ranks_depth = torch.masked_select(ranks_depth, kept)
 +        ranks_feat = torch.masked_select(ranks_feat, kept)
  
          # get tensors from the same voxel next to each other
-         ranks_bev = coor[:, 3] * (
-@@ -320,21 +315,9 @@ class LSSViewTransformer(BaseModule):
-         ranks_bev += coor[:, 1] * self.grid_size[0] + coor[:, 0]
-         order = ranks_bev.argsort()
-         # (N_points, ), (N_points, ), (N_points, )
+-        ranks_bev = coor[:, 3] * (
+-            self.grid_size[2] * self.grid_size[1] * self.grid_size[0])
+-        ranks_bev += coor[:, 2] * (self.grid_size[1] * self.grid_size[0])
+-        ranks_bev += coor[:, 1] * self.grid_size[0] + coor[:, 0]
+-        order = ranks_bev.argsort()
+-        # (N_points, ), (N_points, ), (N_points, )
 -        ranks_bev, ranks_depth, ranks_feat = \
 -            ranks_bev[order], ranks_depth[order], ranks_feat[order]
 -
@@ -139,6 +450,17 @@ index 0ab03f4..571d096 100644
 -        interval_lengths = torch.zeros_like(interval_starts)
 -        interval_lengths[:-1] = interval_starts[1:] - interval_starts[:-1]
 -        interval_lengths[-1] = ranks_bev.shape[0] - interval_starts[-1]
++        coor_0, coor_1, coor_2, coor_3 = torch.split(coor, [1, 1, 1, 1], dim=1)
++        coor_0 = coor_0.squeeze(-1)
++        coor_1 = coor_1.squeeze(-1)
++        coor_2 = coor_2.squeeze(-1)
++        coor_3 = coor_3.squeeze(-1)
++        grid_size_0_1 = grid_size_0 * grid_size_1
++
++        ranks_bev = coor_3 * (
++            grid_size_2 * grid_size_0_1)
++        ranks_bev += coor_2 * grid_size_0_1
++        ranks_bev += coor_1 * grid_size_0 + coor_0
 +
          return ranks_bev.int().contiguous(), ranks_depth.int().contiguous(
 -        ), ranks_feat.int().contiguous(), interval_starts.int().contiguous(
@@ -147,7 +469,7 @@ index 0ab03f4..571d096 100644
  
      def pre_compute(self, input):
          if self.initial_flag:
-@@ -369,10 +352,9 @@ class LSSViewTransformer(BaseModule):
+@@ -369,10 +360,9 @@ class LSSViewTransformer(BaseModule):
              bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
                                int(self.grid_size[1]), int(self.grid_size[0]),
                                feat.shape[-1])   # (B, Dz, Dy, Dx, C)
@@ -456,20 +778,29 @@ index fe9090e..2f755c0 100644
                                 interval_lengths)
          if output_z == 1:
 diff --git a/requirements/runtime.txt b/requirements/runtime.txt
-index 643cb0c..070f6a6 100644
+index 643cb0c..ddbec3a 100644
 --- a/requirements/runtime.txt
 +++ b/requirements/runtime.txt
-@@ -1,7 +1,9 @@
+@@ -1,10 +1,17 @@
++torchvision==0.16.0
 +setuptools==59.5.0
-+mmsegmentation==0.29.1
++mmsegmentation==0.30.0
  lyft_dataset_sdk
  networkx>=2.2,<2.3
- numba==0.53.0
+-numba==0.53.0
 -numpy
++numba==0.58.1
 +numpy==1.23.5
++llvmlite==0.41.1
  nuscenes-devkit
  plyfile
++pyyaml
  scikit-image
+ # by default we also use tensorboard to log results
+ tensorboard
+ trimesh>=2.35.39,<2.35.40
++attrs
++psutil
 diff --git a/requirements/tests.txt b/requirements/tests.txt
 index 303cc37..23f9d95 100644
 --- a/requirements/tests.txt
@@ -481,7 +812,7 @@ index 303cc37..23f9d95 100644
 -yapf
 +yapf==0.40.1
 diff --git a/tools/test.py b/tools/test.py
-index e5f2063..5de21be 100644
+index e5f2063..4f9f7f1 100644
 --- a/tools/test.py
 +++ b/tools/test.py
 @@ -5,9 +5,11 @@ import warnings
@@ -519,19 +850,20 @@ index e5f2063..5de21be 100644
              model.cuda(),
              device_ids=[torch.cuda.current_device()],
              broadcast_buffers=False)
-@@ -287,4 +289,9 @@ def main():
+@@ -287,4 +289,10 @@ def main():
  
  
  if __name__ == '__main__':
 -    main()
 +    from mx_driving.patcher.patcher import PatcherBuilder, Patch
 +    from mx_driving.patcher.tensor import batch_matmul
-+    
-+    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul))
++    from mx_driving.patcher.mmdet import resnet_add_relu
++
++    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu))
 +    with pb.build():
 +        main()
 diff --git a/tools/train.py b/tools/train.py
-index 4c89d46..fcb955a 100644
+index 4c89d46..994cb32 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -9,6 +9,8 @@ from os import path as osp
@@ -552,14 +884,15 @@ index 4c89d46..fcb955a 100644
      parser.add_argument(
          '--autoscale-lr',
          action='store_true',
-@@ -283,4 +285,9 @@ def main():
+@@ -283,4 +285,10 @@ def main():
  
  
  if __name__ == '__main__':
 -    main()
 +    from mx_driving.patcher.patcher import PatcherBuilder, Patch
 +    from mx_driving.patcher.tensor import batch_matmul
-+    
-+    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul))
++    from mx_driving.patcher.mmdet import resnet_add_relu
++
++    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu))
 +    with pb.build():
 +        main()

@@ -56,3 +56,14 @@ index 4d970264..be10ecd0 100644
              model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
  
      # build runner
+diff --git a/requirements/runtime.txt b/requirements/runtime.txt
+index 643cb0cd..4e8548ba 100644
+--- a/requirements/runtime.txt
++++ b/requirements/runtime.txt
+@@ -1,6 +1,5 @@
+ lyft_dataset_sdk
+ networkx>=2.2,<2.3
+-numba==0.53.0
+ numpy
+ nuscenes-devkit
+ plyfile
