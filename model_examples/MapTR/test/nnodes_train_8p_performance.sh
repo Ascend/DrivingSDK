@@ -2,7 +2,7 @@
 ################基础配置参数，需要模型审视修改##################
 # 网络名称，同目录名称
 Network="MapTR"
-WORLD_SIZE=8
+WORLD_SIZE=16
 WORK_DIR=""
 LOAD_FROM=""
 
@@ -40,7 +40,7 @@ if [ x"${etp_flag}" != x"true" ]; then
   source ${test_path_dir}/env_npu.sh
 fi
 
-bash ./MapTR/tools/dist_train.sh ./MapTR/projects/configs/maptr/maptr_tiny_r50_1e_bevformer.py 8 ${NNODES} ${NODE_RANK} ${PORT} ${MASTER_ADDR}\
+bash ./MapTR/tools/nnodes_dist_train.sh ./MapTR/projects/configs/maptr/maptr_tiny_r50_1e_bevformer.py 8 ${NNODES} ${NODE_RANK} ${PORT} ${MASTER_ADDR}\
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 

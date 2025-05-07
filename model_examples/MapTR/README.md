@@ -348,6 +348,18 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
    bash test/train_8p_performance.sh
    ```
 
+   多机训练时增加以下环境配置。此外，拉起训练的脚本nnodes_train_8p_performance.sh或nnodes_train_8p.sh中WORLD_SIZE需要配置为实际多机的总卡数，目前默认值为16（双机）。
+   
+   ```
+   export HCCL_BUFFSIZE=200
+   # 当通过HCCL_WHITELIST_DISABLE开启了通信白名单校验功能时，需要通过此环境变量配置指向HCCL通信白名单配置文件的路径，只有在通信白名单中的IP地址才允许进行集合通信。
+   export HCCL_WHITELIST_DISABLE=1
+   export HCCL_WHITELIST_FILE=./whitelist
+   # whitelist中的HCCL通信白名单配置文件格式为：
+   # ip为各卡ip，格式为点分十进制，可以在各机上通过该语令查询8卡ip：for i in {0..7}; do hccn_tool -i $i -ip -g ; done
+   { "host_ip": ["ip1", "ip2", ... , "ip16"] }
+   ```
+
    - 多机多卡精度训练
 
    以双机举例，假设每台机器8卡，则总共有16卡。
@@ -362,7 +374,7 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 
    副节点拉起训练的脚本为：
    ```
-   bash test/nnodes_train_8p.sh 2 1 PORT MASTER_ADDR
+   bash test/nnodes_train_8p.sh 2 1 port master_addr
    ```
 
    - 多机多卡性能训练
@@ -380,6 +392,8 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 
 #### 训练结果
 
+单机八卡
+
 | 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :-------------------: |
 | 竞品A           |  8p  |         32         |   fp32    |  24   | 48.7 |         -          |
@@ -387,6 +401,11 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 | 竞品A           |  8p  |         32         |   fp32    |  1   | - |         33.20          |
 | Atlas 800T A2 |  8p  |         32         |   fp32    |  1   | - |         34.85          |
 
+多机多卡线性度
+
+| 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-FPS | 线性度 |
+| ------------- | :--: | :---------------: | :-------: | :---: | :----: | :-------------------: | :----: |
+| Atlas 800T A2*2 |  16p  |         64         |   fp32    |  1   | - |         66.3         |   95.12%   |
 
 # 变更说明
 

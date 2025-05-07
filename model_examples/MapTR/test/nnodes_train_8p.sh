@@ -2,7 +2,7 @@
 ################基础配置参数，需要模型审视修改##################
 # 网络名称，同目录名称
 Network="MapTR"
-WORLD_SIZE=8
+WORLD_SIZE=16
 WORK_DIR=""
 LOAD_FROM=""
 
