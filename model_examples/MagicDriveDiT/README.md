@@ -180,6 +180,8 @@ ${CODE_ROOT}/pretrained/
    bash test/train_8p_stage1.sh 8
    # stage2训练
    bash test/train_8p_stage2.sh 8
+   # stage3训练
+   bash test/train_8p_stage3.sh 8
    ```
 
 #### 训练结果
@@ -190,10 +192,14 @@ ${CODE_ROOT}/pretrained/
 |stage1| Atlas 800T A2 |  8p  |         4         |   混精    | 1.31 | 2.39|
 |stage2| 竞品A           |  8p  |         4         |   混精    | 0.830 | 3.429|
 |stage2| Atlas 800T A2 |  8p  |         4         |   混精    | 0.829 | 5.706 |
+|stage3| 竞品A           |  8p  |         4         |   混精    | 1.09 | 60.96|
+|stage| Atlas 800T A2 |  8p  |         4         |   混精    | 1.11 | 124.33 |
 
 # 变更说明
 
 2025.04.25：首次发布
+
+2025.05.06: 增加stage3性能和训练脚本
 
 
 # FAQ

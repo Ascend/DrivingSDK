@@ -31,7 +31,7 @@ else
 fi
 
 # 创建输出目录
-output_dir="${test_path_dir}/output/${ASCEND_DEVICE_ID}"
+output_dir="${test_path_dir}/output_stage1/${ASCEND_DEVICE_ID}"
 mkdir -p "$output_dir"
 
 # 非平台场景时source环境变量
