@@ -195,12 +195,12 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 #### 训练结果
 
-| 芯片 | 卡数 | 阶段 | epoch | FPS | mAP | Torch_Version |
-| -- | -- | -- | -- | -- | -- | -- |
-|     竞品A     | 8p | stage1 | 2 | 36.643 | \ | PyTorch 2.1 |
-| Atlas 800T A2 | 8p | stage1 | 2 | 16.568 | \ | PyTorch 2.1 |
-|     竞品A     | 8p | stage2 | 12 | 11.651 | 0.4313 | PyTorch 2.1 |
-| Atlas 800T A2 | 8p | stage2 | 12 | 7.572 | 0.4316 | PyTorch 2.1 |
+| 芯片 | 卡数 | 阶段 | epoch | global batchsize| FPS | mAP |
+| -- | -- | -- | :--: |:--:| -- | -- |
+|     竞品A     | 8p | stage1 | 2 | 64 |36.643 | \ | 
+| Atlas 800T A2 | 8p | stage1 | 2 | 64 |16.568 | \ | 
+|     竞品A     | 8p | stage2 | 12 | 64 |11.651 | 0.4313 | 
+| Atlas 800T A2 | 8p | stage2 | 12 | 64 |7.572 | 0.4316 |
 
 # 变更说明
 
