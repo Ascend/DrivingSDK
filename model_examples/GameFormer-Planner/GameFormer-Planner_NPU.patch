@@ -1666,7 +1666,7 @@ index 3dbd57d..18f6444 100644
 +            logging.info("Model saved in training_log/%s\n", args_.name)
 +            
 +            if epoch == train_epochs - 1:
-+                logging.info("Model Performance (FPS): %.4f", 1 / train_metrics[-1])
++                logging.info("Model Performance (FPS): %.4f", batch_size * dist.get_world_size() / train_metrics[-1])
 +                logging.info("Model Metric (plannerADE): %.4f", val_metrics[0])
  
          # reduce learning rate
