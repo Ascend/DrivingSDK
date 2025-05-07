@@ -226,16 +226,17 @@ index 6b9c3b08..22e9475e 100644
 +        main()
 diff --git a/tools/train_performance.py b/tools/train_performance.py
 new file mode 100644
-index 00000000..b0f8caf3
+index 00000000..627045a6
 --- /dev/null
 +++ b/tools/train_performance.py
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,154 @@
 +# Copyright (c) OpenMMLab. All rights reserved.
 +import argparse
 +import logging
 +import os
 +import os.path as osp
-+
++import torch
++import torch_npu
 +from mx_driving.patcher.patcher import PatcherBuilder, Patch
 +from mx_driving.patcher.mmcv import dc, mdc
 +
@@ -245,9 +246,6 @@ index 00000000..b0f8caf3
 +from mmengine.runner import Runner
 +
 +from mmdet3d.utils import replace_ceph_backend
-+
-+import torch
-+import torch_npu
 +from torch_npu.contrib import transfer_to_npu
 +torch.npu.config.allow_internal_format = False
 +torch_npu.npu.set_compile_mode(jit_compile=False)

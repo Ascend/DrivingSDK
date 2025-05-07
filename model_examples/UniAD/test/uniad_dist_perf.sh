@@ -30,7 +30,7 @@ torchrun \
     --master_port=${MASTER_PORT} \
     --nnodes=${NNODES} \
     --node_rank=${RANK} \
-    $(dirname "$0")/perf.py \
+    ./tools/perf.py \
     $CFG \
     --launcher pytorch ${@:7} \
     --deterministic \
