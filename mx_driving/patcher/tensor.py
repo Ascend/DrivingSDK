@@ -37,13 +37,10 @@ def check_shape_bmm(a, b):
 def batch_matmul(torch: ModuleType, options: Dict):
     from mx_driving import npu_batch_matmul
 
-    def adjust_matrix(b):
-        return b.view(*b.shape[:-2], 1, b.shape[-2]).contiguous()
-
     def create_wrapper(original_fn):
         def wrapper(a, b):
             if check_shape_bmm(a, b):
-                return npu_batch_matmul(a, adjust_matrix(b))
+                return npu_batch_matmul(a, b)
             return original_fn(a, b)
         return wrapper
 

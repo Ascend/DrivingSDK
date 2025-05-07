@@ -32,9 +32,9 @@ class TestBatchMatmul(TestCase):
         former_npu_result.backward(grad)
         x_grad_former_npu = projection_mat.grad
         w_grad_former_npu = pts_extend.grad
-
+        
         projection_mat_fused = projection_mat_fused[:, :, None, None].contiguous()
-        pts_extend2_fused = pts_extend2_fused[:, None, :, :, None, :].contiguous()
+        pts_extend2_fused = pts_extend2_fused[:, None, ..., None].contiguous()
         projection_mat_fused.requires_grad = True
         pts_extend2_fused.requires_grad = True        
         result = mx_driving.npu_batch_matmul(projection_mat_fused, pts_extend2_fused)
@@ -61,7 +61,7 @@ class TestBatchMatmul(TestCase):
 
         projection_mat_fused.requires_grad = True
         pts_extend2_fused.requires_grad = True
-        pts_extend2_fused_ = pts_extend2_fused.transpose(3, 2).contiguous()
+        pts_extend2_fused_ = pts_extend2_fused
         result = mx_driving.npu_batch_matmul(projection_mat_fused, pts_extend2_fused_)
         grad = torch.ones_like(result)
         result.backward(grad)
@@ -86,7 +86,7 @@ class TestBatchMatmul(TestCase):
 
         projection_mat_fused.requires_grad = True
         pts_extend2_fused.requires_grad = True 
-        pts_extend2_fused_ = pts_extend2_fused.transpose(3, 2).contiguous()
+        pts_extend2_fused_ = pts_extend2_fused
         result = mx_driving.npu_batch_matmul(projection_mat_fused, pts_extend2_fused_)
         grad = torch.ones_like(result)
         result.backward(grad)
@@ -111,7 +111,7 @@ class TestBatchMatmul(TestCase):
 
         projection_mat_fused.requires_grad = True
         pts_extend2_fused.requires_grad = True  
-        pts_extend2_fused_ = pts_extend2_fused.transpose(3, 2).contiguous()   
+        pts_extend2_fused_ = pts_extend2_fused
         result = mx_driving.npu_batch_matmul(projection_mat_fused, pts_extend2_fused_)
         grad = torch.ones_like(result)
         result.backward(grad)
@@ -135,7 +135,7 @@ class TestBatchMatmul(TestCase):
         w_grad_former_npu = pts_extend.grad
 
         projection_mat_fused = projection_mat_fused[:, :, None, None].contiguous()
-        pts_extend2_fused = pts_extend2_fused[:, None, :, :, None, :].contiguous()
+        pts_extend2_fused = pts_extend2_fused[:, None, ..., None].contiguous()
         projection_mat_fused.requires_grad = True
         pts_extend2_fused.requires_grad = True        
         result = mx_driving.npu_batch_matmul(projection_mat_fused, pts_extend2_fused)
@@ -162,7 +162,7 @@ class TestBatchMatmul(TestCase):
 
         projection_mat_fused.requires_grad = True
         pts_extend2_fused.requires_grad = True
-        pts_extend2_fused_ = pts_extend2_fused.transpose(3, 2).contiguous()      
+        pts_extend2_fused_ = pts_extend2_fused
         result = mx_driving.npu_batch_matmul(projection_mat_fused, pts_extend2_fused_)
         grad = torch.ones_like(result)
         result.backward(grad)
