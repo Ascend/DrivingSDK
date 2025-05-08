@@ -57,7 +57,7 @@ HPTR 是一种用于自动驾驶实时运动预测的层次化Transformer模型�
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 7.0.0  |
+| FrameworkPTAdapter | 7.0.0  |
 |       CANN        | 8.1.RC1 |
 
 - 克隆代码仓到当前目录：

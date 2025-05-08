@@ -4,9 +4,9 @@
 | --- | --- | --- | --- |
 |`depth`|`Tensor`|`[B, N, D, H, W]`| 输入，深度图 |
 |`feat`|`Tensor`|`[B, N, H, W, C]`| 输入，特征图 |
-| `ranks_depth` | `Tensor` | `[N_RNAKS]` | 输入，深度图索引 |
-| `ranks_feat` | `Tensor` | `[N_RNAKS]` | 输入，特征图索引 |
-|`ranks_bev`|`Tensor`|`[N_RNAKS]`| 输入, BEV索引 |
+| `ranks_depth` | `Tensor` | `[N_RANKS]` | 输入，深度图索引 |
+| `ranks_feat` | `Tensor` | `[N_RANKS]` | 输入，特征图索引 |
+|`ranks_bev`|`Tensor`|`[N_RANKS]`| 输入, BEV索引 |
 |`bev_feat_shape`|`List[int]`|`5`| 输入，BEV特征图形状, B, D, H, W, C |
 |`out`|`Tensor`|`[B, C, D, H, W]`| 输出，BEV特征图 |
 

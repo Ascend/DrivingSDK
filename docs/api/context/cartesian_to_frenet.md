@@ -1,7 +1,7 @@
 ## cartesian_to_frenet
 ### 接口原型
 ```python
-mx_driving.cartesian_to_frenet(Tensor pt, Tensor poly_line) -> Tuple[torch.Tensor, torch.Tensor， torch.Tensor]
+mx_driving.cartesian_to_frenet(Tensor pt, Tensor poly_line) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 ```
 ### 功能描述
 根据给定的poly_line，将输入的笛卡尔坐标系中的坐标转换为Frenet坐标系中的表示。

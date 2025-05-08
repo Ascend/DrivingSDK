@@ -2,7 +2,7 @@
 ### 接口原型
 ```python
 mx_driving.bev_pool_v3(Tensor depth, Tensor feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
-                                 List[int] bev_feat_shape) -> Tensor
+                       List[int] bev_feat_shape) -> Tensor
 ```
 ### 功能描述
 BEV池化优化。`bev_pool_v1`和`bev_pool_v2`的NPU亲和版本，优先推荐使用。
@@ -54,8 +54,7 @@ bev_pooled_feat.backward(torch.ones_like(bev_pooled_feat))
 ### 使用说明
 `bev_pool_v3` 较[`bev_pool`](./bev_pool_v1.md)和[`bev_pool_v2`](./bev_pool_v2.md)做出了以下优化：
 1. 避免使用`sort`来进行bev格子的排序，从而避免了相机特征和深度（v2)的重排序（在Ascend平台上不亲和，且收益不大）
-2. 避免计算`interval_starts`和`interval_lengths`，使用了原子加的方式并行处理一个bev格子的数据
-当输出空间固定时，性能提升会随特征数（n_ranks）的增加而增加;另一方面，当输出空间过大（B\*D\*H\*W\*C数量级在1e8）时，性能的提升并不明显。
+2. 避免计算`interval_starts`和`interval_lengths`，使用了原子加的方式并行处理一个bev格子的数据，当输出空间固定时，性能提升会随特征数（n_ranks）的增加而增加;另一方面，当输出空间过大（B\*D\*H\*W\*C数量级在1e8）时，性能的提升并不明显。
 
 ## 替换建议
 可参考模型[BEVFusion](../../../model_examples/BEVFusion/)替换bev_pool，参考模型[BEVDet](../../../model_examples/BEVDet/)替换bev_pool_v2.

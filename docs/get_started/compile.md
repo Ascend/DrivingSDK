@@ -36,7 +36,7 @@ A:如果你不需要使用`onnx`进行推理，请在`CMakePresets.json`中关�
 如果需要`onnx`可尝试执行`bash ci/docker/ARM/build_protobuf.sh`安装`protobuf`。
 2. Q: third_party/acl/inc/acl/acl_base.h: No such file or directory
 A: 你可能没有成功安装torch_npu，重新安装即可。
-3. Q: undefinde symbol: _ZN2at4_ops4view4callERKNS_6TensorEN3c108ArrayRefIlEE
+3. Q: undefinded symbol: _ZN2at4_ops4view4callERKNS_6TensorEN3c108ArrayRefIlEE
 A: torch 与torch_npu的版本可能不配套。
 4. Q: opbuild ops error: Invalid socVersion ascend910_93 of xxx
 A: 更换最新的Ascend-cann-toolkit套件

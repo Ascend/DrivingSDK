@@ -57,7 +57,7 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 7.0.0  |
+| FrameworkPTAdapter | 7.0.0  |
 |       CANN        | 8.1.RC1 |
 
 - 克隆代码仓到当前目录：

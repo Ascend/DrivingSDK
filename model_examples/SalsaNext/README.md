@@ -60,7 +60,7 @@ code_path=model_examples/SalsaNext
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 7.0.0 |
+| FrameworkPTAdapter | 7.0.0 |
 |       CANN        | 8.1.RC1  |
 
 **表 2** 三方库版本支持表

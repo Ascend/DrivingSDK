@@ -62,7 +62,7 @@
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 6.0.0  |
+| FrameworkPTAdapter | 6.0.0  |
 |       CANN        | 8.0.0  |
 
 - 克隆代码仓到当前目录并使用patch文件
