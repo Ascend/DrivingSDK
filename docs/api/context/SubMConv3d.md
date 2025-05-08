@@ -50,7 +50,7 @@ actual_num = 20
 batch = 4
 spatial_shape = [9, 9, 9]
 indices = torch.from_numpy(generate_indice(batch, spatial_shape[0], spatial_shape[1], spatial_shape[2], actual_num)).int().transpose(0, 1).contiguous().npu()
-feature = tensor_uniform = torch.rand(actual_num, 16).npu()
+feature = torch.rand(actual_num, 16).npu()
 feature.requires_grad = True
 x = SparseConvTensor(feature, indices, spatial_shape, batch)
 net = SubMConv3d(in_channels=16, out_channels=32, kernel_size=3).npu()

@@ -59,8 +59,8 @@ code_path=model_examples/HiVT
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 7.0.0  |
-|       CANN        | 8.1.0  |
+| FrameworkPTAdapter | 7.0.0  |
+|       CANN        | 8.1.RC1  |
 
 ### 安装模型环境
 

@@ -11,7 +11,7 @@ mx_driving.fused.deform_conv2d(Tensor x, Tensor offset, Tensor weight, Union[int
 可变形卷积。
 ### 参数说明
 - `x(Tensor)`：输入特征，数据类型为`float32`，shape为`(n, c_in, h_in, w_in)`，其中`n`为 batch size，`c_in`为输入特征的通道数量，`h_in`为输入特征图的高，`w_in`为输入特征图的宽。
-- `offset(Tensor)`：偏移量，数据类型为`float32`，shape 为`(n, 2 * k * k, h_out, w_out)`，其中`n`为 batch size，`k` 为卷积核大小，`h_out` 为输出特征图高，`w_out` 为输出特征图的宽。
+- `offset(Tensor)`：偏移量，数据类型为`float32`，shape 为`(n, 2 * k * k, h_out, w_out)`，其中`n`为 batch size，`k` 为卷积核大小，`h_out` 为输出特征图的高，`w_out` 为输出特征图的宽。
 - `weight(Tensor)`：卷积核权重，数据类型为`float32`，shape 为 `(c_out, c_in, k, k)`，其中 `c_out` 为输出的通道数，`c_in` 为输入的通道数，`k` 为卷积核大小。
 - `stride(Union)`：卷积步长。
 - `padding(Union)`：卷积的填充大小。
@@ -19,7 +19,7 @@ mx_driving.fused.deform_conv2d(Tensor x, Tensor offset, Tensor weight, Union[int
 - `groups(int)`：分组卷积大小，需要可以整除`c_in`, `c_out`。
 - `deformable_groups(int)`：将通道分成几组计算offsets，当前只支持1。
 ### 返回值
-- `output(Tensor)`：输出张量，数据类型为`float32`，shape 为 `(n, c_out, h_out, w_out)`，其中`n`为 batch size，`c_out`为输出通道，`h_out` 为输出特征图高，`w_out` 为输出特征图的宽。
+- `output(Tensor)`：输出张量，数据类型为`float32`，shape 为 `(n, c_out, h_out, w_out)`，其中`n`为 batch size，`c_out`为输出通道，`h_out` 为输出特征图的高，`w_out` 为输出特征图的宽。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 约束说明

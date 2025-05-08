@@ -48,7 +48,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 7.0.RC1  |
+| FrameworkPTAdapter | 7.0.RC1  |
 |       CANN        | 8.1.RC1  |
 
 ### 安装模型环境
@@ -142,7 +142,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
             ├── samples
             ├── gts
             ├── bevdetv2-nuscenes_infos_train.pkl (经数据预处理后生成)
-            └── bevdetv2-nuscenes_infos_val.pkl (n经数据预处理后生成)
+            └── bevdetv2-nuscenes_infos_val.pkl (经数据预处理后生成)
     ```
 
 2. 在模型源码根目录下进行数据预处理

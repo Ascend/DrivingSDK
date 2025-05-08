@@ -43,7 +43,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdaper | 7.0.0 |
+| FrameworkPTAdapter | 7.0.0 |
 |       CANN        | 8.1.RC1 |
 
 - 当前模型支持的 PyTorch 版本和已知三方库依赖如下表所示。

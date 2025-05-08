@@ -9,8 +9,8 @@ mx_driving.radius(Tensor x,Tensor y,Tensor ptr_x, Tensor ptr_y,
 ### 参数说明
 - `X (Tensor)`：第一组点的二维坐标，数据类型为`float32`，shape为`[numpoints_x, 2]`。
 - `Y (Tensor)`：第二组点的二维坐标，数据类型为`float32`，shape为`[numpoints_y, 2]`。
-- `ptr_x (Tensor)`：第一组点的batch切分地址，数据类型为`int`，shape为`[batch_size + 1]`。ptr_x[0]的值为0，之后的数严格递增，ptr_x[batch_size]的值为numpoints_x。X[ptr_x[0]: ptr_x[1]]属于第2个batch，X[ptr_x[1]: ptr_x[2]]属于第2个batch，之后点的切分以此类推。
-- `ptr_y (Tensor)`：第二组点的batch切分地址，数据类型为`int`，shape为`[batch_size + 1]`。ptr_y[0]的值为0，之后的数严格递增，ptr_y[batch_size]的值为numpoints_y。Y[ptr_y[0]: ptr_y[1]]属于第2个batch，Y[ptr_y[1]: ptr_y[2]]属于第2个batch，之后点的切分以此类推。
+- `ptr_x (Tensor)`：第一组点的batch切分地址，数据类型为`int`，shape为`[batch_size + 1]`。ptr_x[0]的值为0，之后的数严格递增，ptr_x[batch_size]的值为numpoints_x。X[ptr_x[0]: ptr_x[1]]属于第1个batch，X[ptr_x[1]: ptr_x[2]]属于第2个batch，之后点的切分以此类推。
+- `ptr_y (Tensor)`：第二组点的batch切分地址，数据类型为`int`，shape为`[batch_size + 1]`。ptr_y[0]的值为0，之后的数严格递增，ptr_y[batch_size]的值为numpoints_y。Y[ptr_y[0]: ptr_y[1]]属于第1个batch，Y[ptr_y[1]: ptr_y[2]]属于第2个batch，之后点的切分以此类推。
 - `r (float)`：半径，数据类型为`float`。
 - `max_num_neighbors (int)`：最大邻居数量，数据类型为`int`。对于任一点y，如果半径r内的x点数量大于max_num_neighbors，则只按索引顺序返回前max_num_neighbors个x点的索引。
 ### 返回值

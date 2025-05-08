@@ -60,7 +60,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
 | 软件类型          | 支持版本     |
 | ----------------- |----------|
-| FrameworkPTAdaper | 7.0.0    |
+| FrameworkPTAdapter | 7.0.0    |
 | CANN              | 8.1.RC1    |
 
 ## 安装模型环境

@@ -2,13 +2,13 @@
 ### 接口原型
 ```python
 mx_driving.bev_pool_v2(Tensor depth, Tensor feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
-                                 List[int] bev_feat_shape, Tensor interval_starts, Tensor interval_lengths) -> Tensor
+                       List[int] bev_feat_shape, Tensor interval_starts, Tensor interval_lengths) -> Tensor
 ```
 > 注意：可以使用性能更好的[bev_pool_v3](./bev_pool_v3.md)替换。
 兼容：
 ```
 mx_driving.point.bev_pool_v2(Tensor depth, Tensor feat, Tensor ranks_depth, Tensor ranks_feat, Tensor ranks_bev,
-                                 List[int] bev_feat_shape, Tensor interval_starts, Tensor interval_lengths) -> Tensor
+                             List[int] bev_feat_shape, Tensor interval_starts, Tensor interval_lengths) -> Tensor
 ```
 ### 功能描述
 BEV池化优化。可参考论文`BEVDet: High-performance Multi-camera 3D Object Detection in Bird-Eye-View`。
