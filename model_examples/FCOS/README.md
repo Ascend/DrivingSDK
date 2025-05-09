@@ -190,10 +190,10 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 **表 2**  训练结果展示表
 
-|  NAME  | cards | Epochs | FPS | mAP | Torch_Version |
+|  NAME  | cards | Epochs |Global Batchsize| FPS | mAP |
 |:------:|:--------:|:-----:|:-----:|:-----:|:-----:|
-| 8p-竞品A | 8p | 12 | 196 | 0.353 | 2.1 |
-| 8p-Atlas 800T A2 | 8p | 12 | 196 | 0.351 | 2.1 |
+| 8p-竞品A | 8p | 12 |32 | 196 | 0.353 |
+| 8p-Atlas 800T A2 | 8p | 12 | 32 | 196 | 0.351 |
 
 # 版本说明
 
