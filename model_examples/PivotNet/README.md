@@ -113,13 +113,37 @@ code_path=model_examples/PivotNet
   tar -zvxf gperftools-2.16.tar.gz
   cd gperftools-2.16
   ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-  make
+  make -j128
   make install
   echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
   ldconfig
   export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
   export PATH=/usr/local/lib/bin:$PATH
   export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+
+  - Ubuntu系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+
+  安装libunwind依赖：
+  ```
+  git clone https://github.com/libunwind/libunwind.git
+  cd libunwind
+  autoreconf -i
+  ./configure --prefix=/usr/local
+  make -j128
+  make install
+  ```
+
+  安装tcmalloc动态库：
+  ```
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make -j128
+  make install
+  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
   ```
 
 6. Python编译优化
@@ -250,8 +274,8 @@ cd model_examples/PivotNet
 
 |     芯片      | 卡数 | global batch size | epoch | mAP<sup>avg</sup>@EASY | mAP<sup>avg</sup>@HARD | 性能-单步迭代耗时(s) |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: |--------------|
-|     竞品A     |  8p  |         1         |  30   |         0.616          |         0.436          | 0.58         |
-| Atlas 800T A2 |  8p  |         1         |  30   |         0.619          |         0.438          | 0.89         |
+|     竞品A     |  8p  |         8         |  30   |         0.616          |         0.436          | 0.58         |
+| Atlas 800T A2 |  8p  |         8         |  30   |         0.619          |         0.438          | 0.89         |
 
 ## 性能优化
 
@@ -274,6 +298,8 @@ cd model_examples/PivotNet
 2025.03.17：性能优化
 
 2025.04.24：性能优化
+
+2025.05.09：新增Ubuntu系统下替换tcmalloc的命令
 
 # FAQ
 
