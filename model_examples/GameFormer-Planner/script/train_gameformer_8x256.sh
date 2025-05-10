@@ -20,5 +20,5 @@ torchrun --nnodes=1 \
         --learning_rate=1e-4 \
         --train_set=nuplan/nuplan_processed/train \
         --valid_set=nuplan/nuplan_processed/val \
-        --name="log_4x256" \
+        --name="log_8x256" \
 

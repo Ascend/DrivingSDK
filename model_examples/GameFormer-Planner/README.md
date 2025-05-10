@@ -157,34 +157,38 @@
 
 - 单机多卡：在模型根目录下，运行训练脚本。
     ```
-    bash script/train_gameformer_8x512.sh 8 1 # 8卡性能(1 epoch)
+    bash script/train_gameformer_8x512_performance.sh 8 1 # 8卡性能(1 epoch)
     bash script/train_gameformer_8x512.sh 8 30 # 8卡精度(30 epoch)
-    bash script/train_gameformer_8x256.sh 8 1 # 8卡性能(1 epoch)
+    bash script/train_gameformer_8x256_performance.sh 8 1 # 8卡性能(1 epoch)
     bash script/train_gameformer_8x256.sh 8 30 # 8卡精度(30 epoch)
     ```
 - 多机多卡：在模型根目录下，运行训练脚本。
     ```
     # 'XX.XX.XX.XX'为主节点的IP地址；端口号可以换成未被占用的可用端口
+    # 多机多卡训练精度
     bash script/train_gameformer_multi_server_8x512.sh 8 30 0 'XX.XX.XX.XX' '3389'  # 主节点
     bash script/train_gameformer_multi_server_8x512.sh 8 30 1 'XX.XX.XX.XX' '3389'  # 副节点
+    # 多机多卡性能
+    bash script/train_gameformer_multi_server_8x512_performance.sh 8 1 0 'XX.XX.XX.XX' '3389'  # 主节点
+    bash script/train_gameformer_multi_server_8x512_performance.sh 8 1 1 'XX.XX.XX.XX' '3389'  # 副节点
     ```
 
 ### 训练结果
 - 单机8卡
                              
-|    芯片    | 卡数 | global batch size | Precision | epoch | plannerADE | plannerFDE | plannerAHE | plannerFHE | predictorADE | predictorFDE | 性能-单步迭代耗时(ms) |
-|:---------:|:----:|:-----------------:|:--------:|:-----:|:---------:|:---------:|:---------:|:---------:|:-----------:|:-----------:|:--------------------:|
-|   竞品A   |  8p  |       4096        |   fp32   |  30   |   1.17    |   3.11    |   0.10    |   0.07    |    0.70     |    1.30     |         790          |
-| Atlas 800T A2 |  8p  |       4096        |   fp32   |  30   |   1.16    |   3.10    |   0.10    |   0.07    |    0.69     |    1.29     |         965          |
-|   竞品A   |  8p  |       2048        |   fp32   |  30   |   1.07    |   2.78    |   0.14    |   0.06    |    0.55     |    1.10     |         440          |
-| Atlas 800T A2 |  8p  |       2048        |   fp32   |  30   |   1.05    |   2.79    |   0.09    |   0.06    |    0.54     |    1.07     |         647          |
+|    芯片    | 卡数 | global batch size | Precision | epoch | plannerADE | plannerFDE | plannerAHE | plannerFHE | predictorADE | predictorFDE | 性能-单步迭代耗时(ms) | 性能-FPS |
+|:---------:|:----:|:-----------------:|:--------:|:-----:|:---------:|:---------:|:---------:|:---------:|:-----------:|:-----------:|:--------------------:|:--------------------:|
+|   竞品A   |  8p  |       4096        |   fp32   |  30   |   1.17    |   3.11    |   0.10    |   0.07    |    0.70     |    1.30     |         790          |         5185          |
+| Atlas 800T A2 |  8p  |       4096        |   fp32   |  30   |   1.16    |   3.10    |   0.10    |   0.07    |    0.69     |    1.29     |         965          |         4244          |
+|   竞品A   |  8p  |       2048        |   fp32   |  30   |   1.07    |   2.78    |   0.14    |   0.06    |    0.55     |    1.10     |         440          |         4655          |
+| Atlas 800T A2 |  8p  |       2048        |   fp32   |  30   |   1.05    |   2.79    |   0.09    |   0.06    |    0.54     |    1.07     |         647          |         3165          |
 
 - 多机多卡线性度                          
 
-|      芯片      | 卡数 | global batch size | Precision | epoch | 性能-单步迭代耗时(ms) | 线性度  |
-|:-------------:|:----:|:-----------------:|:--------:|:-----:|:--------------------:|:------:|
-| Atlas 800T A2*2 |  16p |       8192        |   fp32   |  30   |         971          |  99.3% |
-| Atlas 800T A2*2 |  16p |       4096        |   fp32   |  30   |         651          |  99.6% |  
+|      芯片      | 卡数 | global batch size | Precision | epoch | 性能-单步迭代耗时(ms) |  性能-FPS |线性度  |
+|:-------------:|:----:|:-----------------:|:--------:|:-----:|:--------------------:|:--------------------:|:------:|
+| Atlas 800T A2*2 |  16p |       8192        |   fp32   |  30   |         971          |         8436          |  99.3% |
+| Atlas 800T A2*2 |  16p |       4096        |   fp32   |  30   |         651          |         6292          |  99.6% |  
 
 # 变更说明
 
@@ -195,6 +199,8 @@
 2025.04.24: 更新性能数据和FPS计算方式
 
 2025.04.28:更新8卡性能数据和多机线性度
+
+2025.05.08:更新FPS数据
 # FAQ
 
 无

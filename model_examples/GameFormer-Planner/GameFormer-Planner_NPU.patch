@@ -1,5 +1,5 @@
 diff --git a/GameFormer/data_utils.py b/GameFormer/data_utils.py
-index 878d669..7d076e5 100644
+index 878d669..03de128 100644
 --- a/GameFormer/data_utils.py
 +++ b/GameFormer/data_utils.py
 @@ -1,11 +1,16 @@
@@ -25,13 +25,13 @@ index 878d669..7d076e5 100644
  )
  
 +from nuplan.planning.training.preprocessing.feature_builders.vector_builder_utils import (
-+    VectorFeatureLayer, 
-+    MapObjectPolylines, 
-+    LaneSegmentTrafficLightData, 
-+    VectorFeatureLayerMapping, 
-+    get_route_lane_polylines_from_roadblock_ids, 
-+    get_map_object_polygons, 
-+    get_lane_polylines, 
++    VectorFeatureLayer,
++    MapObjectPolylines,
++    LaneSegmentTrafficLightData,
++    VectorFeatureLayerMapping,
++    get_route_lane_polylines_from_roadblock_ids,
++    get_map_object_polygons,
++    get_lane_polylines,
 +    get_traffic_light_encoding
 +)
 +
@@ -143,10 +143,10 @@ index 878d669..7d076e5 100644
                                  transform=mpl.transforms.Affine2D().rotate_around(*(x_center, y_center), heading) + plt.gca().transData)
 diff --git a/GameFormer/npu_fused_modules.py b/GameFormer/npu_fused_modules.py
 new file mode 100644
-index 0000000..a5f25f7
+index 0000000..bbc3c6e
 --- /dev/null
 +++ b/GameFormer/npu_fused_modules.py
-@@ -0,0 +1,292 @@
+@@ -0,0 +1,291 @@
 +# Copyright (c) 2016-     Facebook, Inc
 +
 +from typing import Optional, Tuple, List, Callable, Union
@@ -197,10 +197,10 @@ index 0000000..a5f25f7
 +                attn_mask=attn_mask,
 +                average_attn_weights=average_attn_weights,
 +                is_causal=is_causal)
-+            
++
 +        return attn_output, attn_output_weights
 +
-+    
++
 +def fused_multi_head_attention_forward(
 +    query: Tensor,
 +    key: Tensor,
@@ -351,10 +351,10 @@ index 0000000..a5f25f7
 +
 +        if attn_mask.shape[-2] == 1:
 +            attn_mask = attn_mask.repeat([1, 1, tgt_len, 1])
-+    
++
 +    #使用NPU融合算子torch_npu.npu_fusion_attention
-+    attn_output = torch_npu.npu_fusion_attention(q, k, v, head_num=num_heads, pse=None, atten_mask=attn_mask.bool(), 
-+                                        input_layout="BSND", scale=1.0 / math.sqrt(q.shape[-1]), sparse_mode=1, 
++    attn_output = torch_npu.npu_fusion_attention(q, k, v, head_num=num_heads, pse=None, atten_mask=attn_mask.bool(),
++                                        input_layout="BSND", scale=1.0 / math.sqrt(q.shape[-1]), sparse_mode=1,
 +                                        keep_prob=1 - dropout_p)[0]
 +
 +    attn_output = attn_output.view(bsz, tgt_len, embed_dim)
@@ -364,17 +364,17 @@ index 0000000..a5f25f7
 +
 +
 +class NpuFusedTransformerEncoderLayer(nn.TransformerEncoderLayer):
-+    def __init__(self, d_model: int, nhead: int, dim_feedforward: int = 2048, 
++    def __init__(self, d_model: int, nhead: int, dim_feedforward: int = 2048,
 +                dropout: float = 0.1, activation: Union[str, Callable[[Tensor], Tensor]] = F.relu,
 +                layer_norm_eps: float = 1e-5, batch_first: bool = False, norm_first: bool = False,
 +                bias: bool = True, device=None, dtype=None) -> None:
-+        super().__init__(d_model, nhead, dim_feedforward, dropout, activation, 
++        super().__init__(d_model, nhead, dim_feedforward, dropout, activation,
 +                         layer_norm_eps, batch_first, norm_first, bias, device, dtype)
 +        factory_kwargs = {'device': device, 'dtype': dtype}
 +        self.self_attn = NpuFusedMultiheadAttention(d_model, nhead, dropout=dropout,
 +                                            bias=bias, batch_first=batch_first,
 +                                            **factory_kwargs)
-+        
++
 +    def forward(
 +            self,
 +            src: Tensor,
@@ -391,7 +391,7 @@ index 0000000..a5f25f7
 +            x = self.norm2(x + self._ff_block(x))
 +
 +        return x
-+    
++
 +
 +def _in_projection_packed(
 +    q: Tensor,
@@ -424,8 +424,8 @@ index 0000000..a5f25f7
 +        else:
 +            b_q, b_k, b_v = b.chunk(3)
 +        return F.linear(q, w_q, b_q), F.linear(k, w_k, b_k), F.linear(v, w_v, b_v)
-+    
-+    
++
++
 +def _in_projection(
 +    q: Tensor,
 +    k: Tensor,
@@ -438,7 +438,6 @@ index 0000000..a5f25f7
 +    b_v: Optional[Tensor] = None,
 +) -> Tuple[Tensor, Tensor, Tensor]:
 +    return F.linear(q, w_q, b_q), F.linear(k, w_k, b_k), F.linear(v, w_v, b_v)
-+    
 diff --git a/GameFormer/predictor.py b/GameFormer/predictor.py
 index 62bf5e6..9da79fa 100644
 --- a/GameFormer/predictor.py
@@ -741,7 +740,7 @@ index 8821ad9..db5b6e2 100644
  class CubicSpline1D:
      """
 diff --git a/Planner/observation.py b/Planner/observation.py
-index 21a711f..68757a3 100644
+index 21a711f..d59f480 100644
 --- a/Planner/observation.py
 +++ b/Planner/observation.py
 @@ -1,3 +1,5 @@
@@ -760,13 +759,13 @@ index 21a711f..68757a3 100644
 +from nuplan.common.maps.abstract_map import AbstractMap
 +
 +from nuplan.planning.training.preprocessing.feature_builders.vector_builder_utils import (
-+    VectorFeatureLayer, 
-+    MapObjectPolylines, 
-+    LaneSegmentTrafficLightData, 
-+    VectorFeatureLayerMapping, 
-+    get_route_lane_polylines_from_roadblock_ids, 
-+    get_map_object_polygons, 
-+    get_lane_polylines, 
++    VectorFeatureLayer,
++    MapObjectPolylines,
++    LaneSegmentTrafficLightData,
++    VectorFeatureLayerMapping,
++    get_route_lane_polylines_from_roadblock_ids,
++    get_map_object_polygons,
++    get_lane_polylines,
 +    get_traffic_light_encoding
 +)
 +from nuplan.planning.training.preprocessing.utils.agents_preprocessing import AgentInternalIndex, EgoInternalIndex
@@ -1220,7 +1219,7 @@ index 1a7223f..737666d 100644
          return curvature
  
 diff --git a/common_utils.py b/common_utils.py
-index 809385e..e3ebb77 100644
+index 809385e..4eba87b 100644
 --- a/common_utils.py
 +++ b/common_utils.py
 @@ -277,7 +277,7 @@ def get_low_level_metrics():
@@ -1228,7 +1227,7 @@ index 809385e..e3ebb77 100644
  def get_high_level_metrics(low_level_metrics):
      high_level_metrics = {
 -        'drivable_area_compliance': DrivableAreaComplianceStatistics(name='drivable_area_compliance',  category='Planning',
-+        'drivable_area_compliance': DrivableAreaComplianceStatistics(name='drivable_area_compliance', category='Planning', 
++        'drivable_area_compliance': DrivableAreaComplianceStatistics(name='drivable_area_compliance', category='Planning',
                                                                       lane_change_metric=low_level_metrics['ego_lane_change'],
                                                                       max_violation_threshold=0.3, metric_score_unit='bool'),
          'driving_direction_compliance': DrivingDirectionComplianceStatistics(name='driving_direction_compliance', category='Planning',
@@ -1358,10 +1357,10 @@ index 9e41299..1c709a2 100644
      scenarios = builder.get_scenarios(scenario_filter, worker)
      del worker, scenario_filter, scenario_mapping
 diff --git a/train_predictor.py b/train_predictor.py
-index 3dbd57d..18f6444 100644
+index 3dbd57d..c128d1c 100644
 --- a/train_predictor.py
 +++ b/train_predictor.py
-@@ -1,64 +1,95 @@
+@@ -1,53 +1,85 @@
 +# Copyright(c) 2023 Zhiyu Huang
 +# Copyright 2024 Huawei Technologies Co., Ltd
 +
@@ -1390,7 +1389,7 @@ index 3dbd57d..18f6444 100644
  
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
-+from torch_npu.optim import NpuFusedAdam 
++from torch_npu.optim import NpuFusedAdam
  
 -def train_epoch(data_loader, model, optimizer):
 +
@@ -1457,7 +1456,7 @@ index 3dbd57d..18f6444 100644
 +        loss.backward()
 +        nn.utils.clip_grad_norm_(model.parameters(), 5)
 +        optimizer.step()
- 
++
 +        # compute metrics
 +        metrics = motion_metrics(ego_plan, prediction, ego_future, neighbors_future, neighbors_future_valid)
 +        epoch_metrics.append(metrics)
@@ -1478,10 +1477,10 @@ index 3dbd57d..18f6444 100644
 +                metrics_info = f"planningADE: {planningADE:.4f}, planningFDE: {planningFDE:.4f}, planningAHE: {planningAHE:.4f}, planningFHE: {planningFHE:.4f}, predictionADE: {predictionADE:.4f}, predictionFDE: {predictionFDE:.4f}"
 +                logging.info(epoch_info + metrics_info)
 +                start_time = time.time()
-+                    
+ 
      # show metrics
      epoch_metrics = np.array(epoch_metrics)
-     planningADE, planningFDE = np.mean(epoch_metrics[:, 0]), np.mean(epoch_metrics[:, 1])
+@@ -55,10 +87,9 @@ def train_epoch(data_loader, model, optimizer):
      planningAHE, planningFHE = np.mean(epoch_metrics[:, 2]), np.mean(epoch_metrics[:, 3])
      predictionADE, predictionFDE = np.mean(epoch_metrics[:, 4]), np.mean(epoch_metrics[:, 5])
      epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
@@ -1534,7 +1533,7 @@ index 3dbd57d..18f6444 100644
 -                 f"val-plannerAHE: {planningAHE:.4f}, val-plannerFHE: {planningFHE:.4f}, " +
 -                 f"val-predictorADE: {predictionADE:.4f}, val-predictorFDE: {predictionFDE:.4f}\n")
 +    epoch_metrics_tensor = torch.tensor(epoch_metrics, device=model.device).reshape([-1, 1])
-+    gathered_data = [torch.zeros_like(epoch_metrics_tensor) for _ in range(dist.get_world_size())] 
++    gathered_data = [torch.zeros_like(epoch_metrics_tensor) for _ in range(dist.get_world_size())]
 +    dist.all_gather(gathered_data, epoch_metrics_tensor)
 +
 +    if dist.get_rank() == 0:
@@ -1555,15 +1554,15 @@ index 3dbd57d..18f6444 100644
      os.makedirs(log_path, exist_ok=True)
 -    initLogging(log_file=log_path+'train.log')
 +    initLogging(log_file=log_path + 'train.log')
-+
-+    # ddp setup  
-+    dist.init_process_group(backend='nccl')
-+    torch.cuda.set_device(local_rank_)
  
 -    logging.info("------------- {} -------------".format(args.name))
 -    logging.info("Batch size: {}".format(args.batch_size))
 -    logging.info("Learning rate: {}".format(args.learning_rate))
 -    logging.info("Use device: {}".format(args.device))
++    # ddp setup
++    dist.init_process_group(backend='nccl')
++    torch.cuda.set_device(local_rank_)
++
 +    if local_rank_ == 0:
 +        logging.info("------------- %s -------------", args_.name)
 +        logging.info("Batch size: %s", args_.batch_size)
@@ -1578,18 +1577,17 @@ index 3dbd57d..18f6444 100644
 -    gameformer = GameFormer(encoder_layers=args.encoder_layers, decoder_levels=args.decoder_levels, neighbors=args.num_neighbors)
 -    gameformer = gameformer.to(args.device)
 -    logging.info("Model Params: {}".format(sum(p.numel() for p in gameformer.parameters())))
--
--    # set up optimizer
--    optimizer = optim.AdamW(gameformer.parameters(), lr=args.learning_rate)
--    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 12, 14, 16, 18], gamma=0.5)
 +    model = GameFormer(encoder_layers=args_.encoder_layers, decoder_levels=args_.decoder_levels, neighbors=args_.num_neighbors)
 +    if local_rank_ == 0:
 +        logging.info("Model Params: %d", sum(p.numel() for p in model.parameters()))
-+    
++
 +    device = '{}:{}'.format(args_.device, local_rank_)
 +    model = model.to(device)
 +    model = DDP(model, device_ids=[local_rank_])
-+    
+ 
+-    # set up optimizer
+-    optimizer = optim.AdamW(gameformer.parameters(), lr=args.learning_rate)
+-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 12, 14, 16, 18], gamma=0.5)
 +    # use NPU fused optimizer
 +    optimizer = NpuFusedAdam(model.parameters(), lr=args_.learning_rate)
 +    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 13, 16, 19, 22, 25, 28], gamma=0.5)
@@ -1611,9 +1609,9 @@ index 3dbd57d..18f6444 100644
 +    valid_set = DrivingData(args_.valid_set + '/*.npz', args_.num_neighbors)
 +    train_sampler = DistributedSampler(train_set)
 +    valid_sampler = DistributedSampler(valid_set, shuffle=False)
-+    train_loader = DataLoader(train_set, batch_size=batch_size, pin_memory=True, 
++    train_loader = DataLoader(train_set, batch_size=batch_size, pin_memory=True,
 +                              sampler=train_sampler, num_workers=args_.workers)
-+    valid_loader = DataLoader(valid_set, batch_size=batch_size, pin_memory=True, 
++    valid_loader = DataLoader(valid_set, batch_size=batch_size, pin_memory=True,
 +                              sampler=valid_sampler, num_workers=args_.workers)
 +    if local_rank_ == 0:
 +        logging.info("Dataset Prepared: %d train data, %d validation data\n", len(train_set), len(valid_set))
@@ -1630,11 +1628,11 @@ index 3dbd57d..18f6444 100644
  
          # save to training log
 -        log = {'epoch': epoch+1, 'loss': train_loss, 'lr': optimizer.param_groups[0]['lr'], 'val-loss': val_loss, 
-+        log = {'epoch': epoch + 1, 'loss': train_loss, 'lr': optimizer.param_groups[0]['lr'], 'val-loss': val_loss, 
++        log = {'epoch': epoch + 1, 'loss': train_loss, 'lr': optimizer.param_groups[0]['lr'], 'val-loss': val_loss,
                 'train-planningADE': train_metrics[0], 'train-planningFDE': train_metrics[1], 
                 'train-planningAHE': train_metrics[2], 'train-planningFHE': train_metrics[3], 
                 'train-predictionADE': train_metrics[4], 'train-predictionFDE': train_metrics[5],
-@@ -157,39 +211,49 @@ def model_training():
+@@ -157,39 +211,48 @@ def model_training():
                 'val-planningAHE': val_metrics[2], 'val-planningFHE': val_metrics[3],
                 'val-predictionADE': val_metrics[4], 'val-predictionFDE': val_metrics[5]}
  
@@ -1652,31 +1650,30 @@ index 3dbd57d..18f6444 100644
 +            mode = stat.S_IWUSR | stat.S_IRUSR
 +            if epoch == 0:
 +                with os.fdopen(os.open(f'./training_log/{args_.name}/train_log.csv', flags, mode), 'w') as csv_file:
-+                    writer = csv.writer(csv_file) 
++                    writer = csv.writer(csv_file)
 +                    writer.writerow(log.keys())
 +                    writer.writerow(log.values())
 +            else:
-+                with os.fdopen(os.open(f'./training_log/{args_.name}/train_log.csv', flags, mode), 'w') as csv_file:                    
++                with os.fdopen(os.open(f'./training_log/{args_.name}/train_log.csv', flags, mode), 'w') as csv_file:
 +                    writer = csv.writer(csv_file)
 +                    writer.writerow(log.values())
-+
+ 
+-        # reduce learning rate
+-        scheduler.step()
 +            # save model at the end of epoch
 +            torch.save(model.state_dict(), f'training_log/{args_.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth')
 +            os.chmod(f'training_log/{args_.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth', mode)
 +            logging.info("Model saved in training_log/%s\n", args_.name)
-+            
-+            if epoch == train_epochs - 1:
-+                logging.info("Model Performance (FPS): %.4f", batch_size * dist.get_world_size() / train_metrics[-1])
-+                logging.info("Model Metric (plannerADE): %.4f", val_metrics[0])
- 
-         # reduce learning rate
-         scheduler.step()
  
 -        # save model at the end of epoch
 -        torch.save(gameformer.state_dict(), f'training_log/{args.name}/model_epoch_{epoch+1}_valADE_{val_metrics[0]:.4f}.pth')
 -        logging.info(f"Model saved in training_log/{args.name}\n")
--
--
++            if epoch == train_epochs - 1:
++                logging.info("Model Metric (plannerADE): %.4f", val_metrics[0])
+ 
++        # reduce learning rate
++        scheduler.step()
+ 
  if __name__ == "__main__":
      # Arguments
      parser = argparse.ArgumentParser(description='Training')
