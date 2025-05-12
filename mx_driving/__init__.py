@@ -62,6 +62,7 @@ __all__ = [
     "cartesian_to_frenet",
     "min_area_polygons",
     "radius",
+    "npu_unique",
 ]
 
 import os
@@ -127,6 +128,7 @@ from .ops.cartesian_to_frenet import cartesian_to_frenet
 from .patcher import default_patcher_builder, patch_mmcv_version
 from .ops.radius import radius
 from .ops.min_area_polygons import min_area_polygons
+from .ops.npu_unique import npu_unique
 
 
 def _set_env():

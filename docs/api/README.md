@@ -5,7 +5,7 @@
         <td align=center>Released</td>
     </tr>
     <tr>
-        <td rowspan=13>通用</td>
+        <td rowspan=14>通用</td>
         <td align=center><a href=./context/hypot.md>hypot</a></td>
         <td align=center>N</td>
     </tr>
@@ -55,6 +55,10 @@
     </tr>
     <tr>
         <td align=center><a href=./context/radius.md>radius</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/npu_unique[beta].md>npu_unique</a></td>
         <td align=center>N</td>
     </tr>
     <tr>

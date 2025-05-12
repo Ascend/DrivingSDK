@@ -292,4 +292,5 @@ std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& f
 
 std::tuple<at::Tensor, at::Tensor> radius(at::Tensor& x, at::Tensor& y, at::Tensor& ptr_x, at::Tensor& ptr_y, double r, int max_num_neighbors);
 
+at::Tensor npu_unique(const at::Tensor& input);
 #endif // CSRC_FUNCTIONS_H_

@@ -248,4 +248,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // radius
     m.def("radius", &radius);
+
+    // npu_unique
+    m.def("npu_unique", &npu_unique);
 }
