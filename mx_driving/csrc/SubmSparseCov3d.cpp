@@ -19,12 +19,22 @@
 
 namespace {
     constexpr size_t TOTAL_CAPACITY = 8;
+    constexpr uint8_t KERNEL_SIZE_3 = 3;
+    constexpr uint8_t KERNEL_SIZE_5 = 5;
+    constexpr uint32_t KERNEL_SIZE_IDX_0 = 0;
+    constexpr uint32_t KERNEL_SIZE_IDX_1 = 1;
+    constexpr uint32_t KERNEL_SIZE_IDX_2 = 2;
 };
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_subm_sparse_conv3d(const at::Tensor& feature,
     const at::Tensor& indices, const at::Tensor& weight, at::IntArrayRef kernel_size, int out_channel,
     at::IntArrayRef outSpatialShape, int batch_size, const at::Tensor& temp)
 {
+    TORCH_CHECK_NPU(feature);
+    TORCH_CHECK_NPU(indices);
+    TORCH_CHECK_NPU(weight);
+    TORCH_CHECK_NPU(temp);
+
     auto indices_size = indices.sizes();
     auto feature_size = feature.sizes();
     auto weight_dim = weight.dim();
@@ -50,6 +60,13 @@ std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& f
     const at::Tensor& indices, const at::Tensor& map1, const at::Tensor& map2, at::IntArrayRef kernel_size, int in_channels,
     at::IntArrayRef out_spatial_shape, int batch_size)
 {
+    TORCH_CHECK_NPU(feature);
+    TORCH_CHECK_NPU(indices);
+    TORCH_CHECK((kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_3 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_3 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_3) ||
+        (kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_5 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_5 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_5),
+        "kernel size current only support (3, 3, 3) and (5, 5, 5) but got: (",
+        kernel_size[KERNEL_SIZE_IDX_0], ", ", kernel_size[KERNEL_SIZE_IDX_1], ", ", kernel_size[KERNEL_SIZE_IDX_2], ")");
+
     auto indices_size = indices.sizes();
     int64_t kernelsum = 1;
     for (int32_t i = 0; i < kernel_size.size(); i++) {

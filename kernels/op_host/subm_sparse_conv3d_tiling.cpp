@@ -136,22 +136,26 @@ public:
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("indices")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("weight")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("temp")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Output("feature_out")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})

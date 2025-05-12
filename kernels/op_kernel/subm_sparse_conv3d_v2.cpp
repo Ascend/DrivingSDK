@@ -5,19 +5,32 @@
 using namespace AscendC;
  
 namespace {
-    constexpr int32_t INT32_BYTE_SIZE = 4;
-    constexpr int32_t FLOAT_BYTE_SIZE = 4;
-    constexpr int32_t ALIGNED_BYTE_SIZE = 32;
-    constexpr int32_t REPEAT_BYTE_SIZE = 256;
-    constexpr int32_t SPATIAL_SHAPE_THRESHOLD = 200000000;
-    constexpr int32_t INDICES_TASK_SIZE = 4;
-    constexpr int32_t SPATIAL_0_LOCAL_IDX = 1;
-    constexpr int32_t SPATIAL_1_LOCAL_IDX = 2;
-    constexpr int32_t SPATIAL_2_LOCAL_IDX = 3;
-    constexpr uint8_t SRC_PARTTEN_0 = 3;
-    constexpr uint8_t SRC_PARTTEN_1 = 4;
-    constexpr uint8_t SRC_PARTTEN_2 = 5;
-    constexpr uint8_t SRC_PARTTEN_3 = 6;
+constexpr int64_t SPATIAL_SHAPE_THRESHOLD = 200000000;
+constexpr int32_t INT32_BYTE_SIZE = 4;
+constexpr int32_t FLOAT_BYTE_SIZE = 4;
+constexpr int32_t ALIGNED_BYTE_SIZE = 32;
+constexpr int32_t REPEAT_BYTE_SIZE = 256;
+constexpr int32_t INDICES_TASK_SIZE = 4;
+constexpr int32_t SPATIAL_0_LOCAL_IDX = 1;
+constexpr int32_t SPATIAL_1_LOCAL_IDX = 2;
+constexpr int32_t SPATIAL_2_LOCAL_IDX = 3;
+constexpr int32_t WORK_LOCAL_IDX = 2;
+constexpr uint8_t SRC_PARTTEN_0 = 3;
+constexpr uint8_t SRC_PARTTEN_1 = 4;
+constexpr uint8_t SRC_PARTTEN_2 = 5;
+constexpr uint8_t SRC_PARTTEN_3 = 6;
+constexpr uint8_t MAP_VAL_FLOAT_BUF_LENGTH = 3;
+constexpr uint8_t K2_SIZE_3 = 3;
+constexpr uint8_t K2_SIZE_5 = 5;
+constexpr int8_t K2_IDX_0 = 0;
+constexpr int8_t K2_IDX_1 = 1;
+constexpr int8_t K2_IDX_2 = 2;
+constexpr int8_t K2_IDX_3 = 3;
+constexpr int8_t K2_IDX_4 = 4;
+constexpr int32_t MAP2_OFFSET_1 = 1;
+constexpr int32_t MAP2_OFFSET_2 = 2;
+constexpr int32_t MAP2_OFFSET_3 = 3;
+constexpr int32_t MAP2_OFFSET_4 = 4;
 };
 
 class KernelSubmSparseConv3dV2 {
@@ -28,9 +41,16 @@ public:
         k0_ = tilingData->k0;
         k1_ = tilingData->k1;
         k2_ = tilingData->k2;
+
+        halfk0_ = k0_ / TWO;
+        halfk1_ = k1_ / TWO;
+        halfk2_ = k2_ / TWO;
+
         k12_ = k1_ * k2_;
         kernelSize_ = k0_ * k12_;
         kernelSizeAligned_ = AlignUp(kernelSize_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
+        k1Aligned_ = AlignUp(k1_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
+        k2Aligned_ = AlignUp(k2_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
         batchSize_ = tilingData->batchSize;
         inChannels_ = tilingData->inChannels;
         inChannelsAligned_ = AlignUp(inChannels_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
@@ -42,7 +62,8 @@ public:
         spatialShape01_ = spatialShape0_ * spatialShape1_;
         spatialShape12_ = spatialShape1_ * spatialShape2_;
         totalSpatialShape_ = (int64_t)spatialShape01_ * spatialShape2_;
-        useTwolevelMap_ = totalSpatialShape_ * batchSize_ >= SPATIAL_SHAPE_THRESHOLD;
+        useTwolevelMap_ = totalSpatialShape_ * (int64_t)batchSize_ >= SPATIAL_SHAPE_THRESHOLD;
+        copyByteSize_ = inChannels_ * FLOAT_BYTE_SIZE;
 
         if (blkIdx_ < tilingData->bigCoreCount) {
             globalTaskOffset_ = (tilingData->coreTaskCount + 1) * blkIdx_;
@@ -76,6 +97,8 @@ public:
         pipe_->InitBuffer(inputIndicesBuf_, INDICES_TASK_SIZE * singleLoopTaskAligned_ * INT32_BYTE_SIZE);
         pipe_->InitBuffer(totalIndicesBuf_, INDICES_TASK_SIZE * singleLoopTaskAligned_ * INT32_BYTE_SIZE);
         pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTaskAligned_ * inChannelsAligned_ * FLOAT_BYTE_SIZE);
+        pipe_->InitBuffer(mapValBuf_, k0_ * k1_ * k2Aligned_ * INT32_BYTE_SIZE);
+        pipe_->InitBuffer(mapValFloatBuf_, MAP_VAL_FLOAT_BUF_LENGTH * k0_ * k1_ * k2Aligned_ * FLOAT_BYTE_SIZE);
 
         inputIndicesLocal_ = inputIndicesBuf_.Get<int32_t>();
         tmpFeatureLocal_ = tmpFeatureBuf_.Get<float>();
@@ -84,6 +107,10 @@ public:
         spatial0Local_ = batchIdxLocal_[singleLoopTaskAligned_ * SPATIAL_0_LOCAL_IDX];
         spatial1Local_ = batchIdxLocal_[singleLoopTaskAligned_ * SPATIAL_1_LOCAL_IDX];
         spatial2Local_ = batchIdxLocal_[singleLoopTaskAligned_ * SPATIAL_2_LOCAL_IDX];
+        mapValLocal_ = mapValBuf_.Get<int32_t>();
+        mapValFloatLocal_ = mapValFloatBuf_.Get<float>();
+        mapValFloatLocalBak_ = mapValFloatLocal_[k0_ * k1_ * k2Aligned_];
+        workLocal_ = mapValFloatLocal_[WORK_LOCAL_IDX * k0_ * k1_ * k2Aligned_];
     }
 
     __aicore__ inline void Init(TPipe *pipe, GM_ADDR feature, GM_ADDR indices, GM_ADDR map1, GM_ADDR map2,
@@ -103,6 +130,13 @@ public:
                 taskOffset += singleLoopTask_, globalTaskOffset_ += singleLoopTask_) {
             uint32_t taskCount = min(singleLoopTask_, coreTaskCount_ - taskOffset);
 
+            PipeBarrier<PIPE_ALL>();
+            DataCopyPad(tmpFeatureLocal_, inputFeatureGM_[globalTaskOffset_ * inChannels_],
+                {static_cast<uint16_t>(taskCount), static_cast<uint32_t>(inChannels_ * FLOAT_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
+            PipeBarrier<PIPE_ALL>();
+            DataCopyPad(outputFeatureGM_[inChannels_ * (kernelSize_ * globalTaskOffset_ + kernelSize_ / TWO)], tmpFeatureLocal_,
+                {static_cast<uint16_t>(taskCount), static_cast<uint32_t>(inChannels_ * FLOAT_BYTE_SIZE), 0,
+                 static_cast<uint32_t>(kernelSize_ - 1) * inChannels_ * FLOAT_BYTE_SIZE, 0});
             // CopyIn
             DataCopyPad(inputIndicesLocal_, indicesGM_[globalTaskOffset_ * INDICES_TASK_SIZE],
                 {1, static_cast<uint32_t>(4 * singleLoopTask_ * INT32_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
@@ -116,9 +150,9 @@ public:
             GatherMask(spatial1Local_, inputIndicesLocal_, SRC_PARTTEN_2, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
             GatherMask(spatial2Local_, inputIndicesLocal_, SRC_PARTTEN_3, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
 
-            Adds(spatial0Local_, spatial0Local_, - k0_ / (int32_t)TWO, taskCount);
-            Adds(spatial1Local_, spatial1Local_, - k1_ / (int32_t)TWO, taskCount);
-            Adds(spatial2Local_, spatial2Local_, - k2_ / (int32_t)TWO, taskCount);
+            Adds(spatial0Local_, spatial0Local_, - halfk0_, taskCount);
+            Adds(spatial1Local_, spatial1Local_, - halfk0_, taskCount);
+            Adds(spatial2Local_, spatial2Local_, - halfk0_, taskCount);
 
             if (useTwolevelMap_) {
                 ProcessOneLoopForTwoLevelMap(taskOffset, taskCount);
@@ -128,113 +162,121 @@ public:
         }
     }
 
+    __aicore__ inline void ProcessOnePoint(const int16_t &i, const int8_t &k0Idx, const int8_t &k1Idx, const int8_t &k2Idx, const int32_t &map1Val)
+    {
+        if (map1Val == -1 || (k0Idx == halfk0_ && k1Idx == halfk0_ && k2Idx == halfk0_)) {
+            return;
+        }
+
+        int32_t outputIdx = (globalTaskOffset_ + i) * kernelSize_ + k0Idx * k12_ + k1Idx * k2_ + k2Idx;
+        indicesOffsetGM_.SetValue(outputIdx, map1Val);
+        DataCopyPad(tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_], inputFeatureGM_[map1Val * inChannels_],
+            {1, copyByteSize_, 0, 0, 0}, {false, 0, 0, 0});
+      
+        SetFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
+        WaitFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
+
+        DataCopyPad(outputFeatureGM_[outputIdx * inChannels_], tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_],
+            {1, copyByteSize_, 0, 0, 0});
+
+        copyInOffset_ = (copyInOffset_ + 1) % tmpBufLength_;
+    }
+
     __aicore__ inline void ProcessOneLoopForOneLevelMap(int32_t taskOffset, uint32_t taskCount)
     {
-        for (int32_t i = 0; i < taskCount; i++) {
-            int32_t batchIdx = batchIdxLocal_.GetValue(i);
-            int32_t spatial0BaseIdx = spatial0Local_.GetValue(i);
-            int32_t spatial1BaseIdx = spatial1Local_.GetValue(i);
-            int32_t spatial2BaseIdx = spatial2Local_.GetValue(i);
+        for (int16_t i = 0; i < taskCount; i++) {
+            int16_t batchIdx = batchIdxLocal_.GetValue(i);
+            int16_t spatial0BaseIdx = spatial0Local_.GetValue(i);
+            int16_t spatial1BaseIdx = spatial1Local_.GetValue(i);
+            int16_t spatial2BaseIdx = spatial2Local_.GetValue(i);
 
-            for (int32_t k = 0; k < kernelSize_; k++) {
-                int32_t k2Idx = k % k2_;
-                int32_t k1Idx = (k % k12_) / k2_;
-                int32_t k0Idx = k / k12_;
-                
-                int32_t spatial0Idx = spatial0BaseIdx + k0Idx;
-                int32_t spatial1Idx = spatial1BaseIdx + k1Idx;
-                int32_t spatial2Idx = spatial2BaseIdx + k2Idx;
+            int32_t batchOffset = batchIdx * totalSpatialShape_;
 
-                if (spatial0Idx < 0 || spatial1Idx < 0 || spatial2Idx < 0 ||
-                    spatial0Idx >= spatialShape0_ || spatial1Idx >= spatialShape1_ || spatial2Idx >= spatialShape2_) {
-                    continue;
-                }
-
-                int32_t map1Idx = batchIdx * totalSpatialShape_ + spatial0Idx * spatialShape12_ + spatial1Idx * spatialShape2_ + spatial2Idx;
-                int32_t map1Val = map1GM_.GetValue(map1Idx);
-                if (map1Val == -1) {
-                    continue;
-                }
-
-                int32_t outputIdx = (globalTaskOffset_ + i) * kernelSize_ + k;
-                indicesOffsetGM_.SetValue(outputIdx, map1Val);
-                DataCopyPad(tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_], inputFeatureGM_[map1Val * inChannels_],
-                    {1, static_cast<uint32_t>(inChannels_ * FLOAT_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
-                
-                SetFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
-                WaitFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
-
-                DataCopyPad(outputFeatureGM_[outputIdx * inChannels_], tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_],
-                    {1, static_cast<uint32_t>(inChannels_ * FLOAT_BYTE_SIZE), 0, 0, 0});
-
-                copyInOffset_ = (copyInOffset_ + 1) % tmpBufLength_;
+            for (int16_t k0Idx = spatial0BaseIdx; k0Idx < k0_ + spatial0BaseIdx; k0Idx++) {
+                int32_t mapOffset = batchOffset + k0Idx * spatialShape12_ + spatial1BaseIdx * spatialShape2_ + spatial2BaseIdx;
+                DataCopyPad(mapValLocal_[(k0Idx - spatial0BaseIdx) * k1_ * k2Aligned_], map1GM_[mapOffset],
+                    {static_cast<uint16_t>(k1_), static_cast<uint32_t>(k2_ * INT32_BYTE_SIZE), static_cast<uint16_t>((spatialShape2_ - k2_) * INT32_BYTE_SIZE), 0, 0},
+                    {true, 0, static_cast<uint8_t>(k2Aligned_ - k2_), -2});
             }
+            PipeBarrier<PIPE_ALL>();
+            
+            Cast(mapValFloatLocalBak_, mapValLocal_, RoundMode::CAST_ROUND, k0_ * k1_ * k2Aligned_);
+
+            do {
+                ReduceMax<float>(mapValFloatLocal_, mapValFloatLocalBak_, workLocal_, k0_ * k1_ * k2Aligned_, true);
+                int32_t mapVal = static_cast<int32_t>(mapValFloatLocal_.GetValue(0));
+                if (mapVal < 0) {
+                    break;
+                }
+                
+                float mapIdxFloat = mapValFloatLocal_.GetValue(1);
+                int32_t mapIdx = *reinterpret_cast<int32_t*>(&mapIdxFloat);
+
+                ProcessOnePoint(i, mapIdx / (k2Aligned_ * k1_), (mapIdx % (k2Aligned_ * k1_)) / k2Aligned_, mapIdx % k2Aligned_, mapVal);
+                mapValFloatLocalBak_.SetValue(mapIdx, -2.0f);
+            } while (true);
         }
     }
 
     __aicore__ inline void ProcessOneLoopForTwoLevelMap(int32_t taskOffset, uint32_t taskCount)
     {
-        for (int32_t i = 0; i < taskCount; i++) {
-            int32_t batchIdx = batchIdxLocal_.GetValue(i);
-            int32_t spatial0BaseIdx = spatial0Local_.GetValue(i);
-            int32_t spatial1BaseIdx = spatial1Local_.GetValue(i);
-            int32_t spatial2BaseIdx = spatial2Local_.GetValue(i);
-            
-            for (int32_t k = 0; k < kernelSize_; k++) {
-                int32_t k2Idx = k % k2_;
-                int32_t k1Idx = (k % k12_) / k2_;
-                int32_t k0Idx = k / k12_;
-                
-                int32_t spatial0Idx = spatial0BaseIdx + k0Idx;
-                int32_t spatial1Idx = spatial1BaseIdx + k1Idx;
-                int32_t spatial2Idx = spatial2BaseIdx + k2Idx;
+        for (int16_t i = 0; i < taskCount; i++) {
+            int16_t batchIdx = batchIdxLocal_.GetValue(i);
+            int16_t spatial0BaseIdx = spatial0Local_.GetValue(i);
+            int16_t spatial1BaseIdx = spatial1Local_.GetValue(i);
+            int16_t spatial2BaseIdx = spatial2Local_.GetValue(i);
 
-                if (spatial0Idx < 0 || spatial1Idx < 0 || spatial2Idx < 0 ||
-                    spatial0Idx >= spatialShape0_ || spatial1Idx >= spatialShape1_ || spatial2Idx >= spatialShape2_) {
-                    continue;
+            int32_t batchOffset = batchIdx * spatialShape01_;
+            int32_t mapOffset = batchOffset + spatial0BaseIdx * spatialShape1_ + spatial1BaseIdx;
+            DataCopyPad(mapValLocal_, map1GM_[mapOffset],
+                {static_cast<uint16_t>(k0_), static_cast<uint32_t>(k1_ * INT32_BYTE_SIZE), static_cast<uint16_t>((spatialShape1_ - k1_) * INT32_BYTE_SIZE), 0, 0},
+                {true, 0, static_cast<uint8_t>(k1Aligned_ - k1_), -2});
+            PipeBarrier<PIPE_ALL>();
+
+            Cast(mapValFloatLocalBak_, mapValLocal_, RoundMode::CAST_ROUND, k0_ * k1Aligned_);
+
+            do {
+                ReduceMax<float>(mapValFloatLocal_, mapValFloatLocalBak_, workLocal_, k0_ * k1Aligned_, true);
+                int32_t map1Val = static_cast<int32_t>(mapValFloatLocal_.GetValue(0));
+                if (map1Val < 0) {
+                    break;
                 }
 
-                int32_t map1Idx = batchIdx * spatialShape01_ + spatial0Idx * spatialShape1_ + spatial1Idx;
-                int32_t map1Val = map1GM_.GetValue(map1Idx);
-                if (map1Val == -1) {
-                    continue;
+                float mapIdxFloat = mapValFloatLocal_.GetValue(1);
+                int32_t mapIdx = *reinterpret_cast<int32_t*>(&mapIdxFloat);
+                int8_t k0Idx = mapIdx / k1Aligned_;
+                int8_t k1Idx = mapIdx % k1Aligned_;
+
+                int32_t map2Offset = map1Val * spatialShape2_ + spatial2BaseIdx;
+                if (k2_ == K2_SIZE_3) {
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_0, map2GM_.GetValue(map2Offset));
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_1, map2GM_.GetValue(map2Offset + MAP2_OFFSET_1));
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_2, map2GM_.GetValue(map2Offset + MAP2_OFFSET_2));
+                } else if (k2_ == K2_SIZE_5) {
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_0, map2GM_.GetValue(map2Offset));
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_1, map2GM_.GetValue(map2Offset + MAP2_OFFSET_1));
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_2, map2GM_.GetValue(map2Offset + MAP2_OFFSET_2));
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_3, map2GM_.GetValue(map2Offset + MAP2_OFFSET_3));
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_4, map2GM_.GetValue(map2Offset + MAP2_OFFSET_4));
                 }
-
-                int32_t map2Idx = map1Val * spatialShape2_ + spatial2Idx;
-                int32_t map2Val = map2GM_.GetValue(map2Idx);
-                if (map2Val == -1) {
-                    continue;
-                }
-
-                int32_t outputIdx = (globalTaskOffset_ + i) * kernelSize_ + k;
-                indicesOffsetGM_.SetValue(outputIdx, map2Val);
-                DataCopyPad(tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_], inputFeatureGM_[map2Val * inChannels_],
-                    {1, static_cast<uint32_t>(inChannels_ * FLOAT_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
-                
-                SetFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
-                WaitFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
-
-                DataCopyPad(outputFeatureGM_[outputIdx * inChannels_], tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_],
-                    {1, static_cast<uint32_t>(inChannels_ * FLOAT_BYTE_SIZE), 0, 0, 0});
-
-                copyInOffset_ = (copyInOffset_ + 1) % tmpBufLength_;
-            }
+                mapValFloatLocalBak_.SetValue(mapIdx, -2.0f);
+            } while (true);
         }
     }
 
 private:
     bool useTwolevelMap_;
-    int32_t blkIdx_;
-    int32_t k0_, k1_, k2_, k12_, kernelSize_, batchSize_, inChannels_, tmpBufLength_, spatialShape0_, spatialShape1_,
+    uint32_t blkIdx_, copyByteSize_;
+    int32_t k0_, k1_, k2_, k12_, halfk0_, halfk1_, halfk2_, k1Aligned_, k2Aligned_, kernelSize_, batchSize_, inChannels_, tmpBufLength_, spatialShape0_, spatialShape1_,
         spatialShape2_, spatialShape01_, spatialShape12_, coreTaskCount_, singleLoopTask_, singleLoopTaskAligned_, globalTaskOffset_,
         inChannelsAligned_, copyInOffset_, kernelSizeAligned_, outputOneLineElementCount_, outputHalfLineElementCount_;
+    int32_t eventMTE2ToMTE3_;
     int64_t totalSpatialShape_;
     GlobalTensor<float> inputFeatureGM_, outputFeatureGM_;
     GlobalTensor<int32_t> indicesGM_, map1GM_, map2GM_, indicesOffsetGM_;
-    LocalTensor<float> tmpFeatureLocal_;
-    LocalTensor<int32_t> inputIndicesLocal_, batchIdxLocal_, spatial0Local_, spatial1Local_, spatial2Local_;
-    TBuf<TPosition::VECCALC> inputIndicesBuf_, totalIndicesBuf_, tmpFeatureBuf_, mapValBuf_;
-    int32_t eventMTE2ToMTE3_;
+    LocalTensor<float> tmpFeatureLocal_, mapValFloatLocal_, mapValFloatLocalBak_, workLocal_;
+    LocalTensor<int32_t> inputIndicesLocal_, batchIdxLocal_, spatial0Local_, spatial1Local_, spatial2Local_, mapValLocal_;
+    TBuf<TPosition::VECCALC> inputIndicesBuf_, totalIndicesBuf_, tmpFeatureBuf_, mapValBuf_, mapValFloatBuf_;
     TPipe* pipe_;
 };
  
