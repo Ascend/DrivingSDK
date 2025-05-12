@@ -39,6 +39,7 @@ cd BEVFormer
 sed -i "s|log_config = dict(interval=1,|log_config = dict(interval=50,|g" projects/configs/bevformer_fp16/bevformer_base_fp16.py
 sed -i "s|total_epochs = .*|total_epochs = ${epochs}|g" projects/configs/bevformer_fp16/bevformer_base_fp16.py
 sed -i "s|runner = dict(type='EpochBasedRunner_video', max_epochs=total_epochs, stop_iters=500)|runner = dict(type='EpochBasedRunner_video', max_epochs=total_epochs)|g" projects/configs/bevformer_fp16/bevformer_base_fp16.py
+sed -i "7s/^/#/" ./projects/mmdet3d_plugin/bevformer/detectors/bevformer_fp16.py
 
 bash ./tools/fp16/dist_train.sh ./projects/configs/bevformer_fp16/bevformer_base_fp16.py ${world_size} > ${test_path_dir}/output/train_full_8p_base_fp16.log 2>&1 &
 cd ..
