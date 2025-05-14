@@ -164,12 +164,17 @@ public:
 
     __aicore__ inline void ProcessOnePoint(const int16_t &i, const int8_t &k0Idx, const int8_t &k1Idx, const int8_t &k2Idx, const int32_t &map1Val)
     {
-        if (map1Val == -1 || (k0Idx == halfk0_ && k1Idx == halfk0_ && k2Idx == halfk0_)) {
+        if (map1Val == -1) {
             return;
         }
 
         int32_t outputIdx = (globalTaskOffset_ + i) * kernelSize_ + k0Idx * k12_ + k1Idx * k2_ + k2Idx;
         indicesOffsetGM_.SetValue(outputIdx, map1Val);
+
+        if (k0Idx == halfk0_ && k1Idx == halfk0_ && k2Idx == halfk0_) {
+            return;
+        }
+        
         DataCopyPad(tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_], inputFeatureGM_[map1Val * inChannels_],
             {1, copyByteSize_, 0, 0, 0}, {false, 0, 0, 0});
       
