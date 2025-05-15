@@ -25,8 +25,9 @@ mx_driving.npu_assign_target_of_single_head(Tensor boxes, Tensor cur_class_id, i
 - `mask(Tensor)`：经过计算后的符合要求的boxes的掩码，数据类型为`uint8`，shape为`[max_objs]`。
 - `ind(Tensor)`：经过计算后的符合要求的boxes中心点的偏移量，数据类型为`int64`，shape为`[max_objs]`。
 ### 算子约束
-1. 若适配BEVDet模型，`W`应为9，其他模型（如需要）可能略有差别。
-2. 所有参数和模型的配置保持一致。
+1. `boxes`第一维度小于50，第二维度`W`为9；
+2. `cur_class_id`取值范围为`[1, num_classes]`内的任意整数，第一维度大小与`boxes`相同；
+3. `num_classes`为1或2，其他参数和模型(`CenterPoint3D`)的配置保持一致。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例

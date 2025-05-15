@@ -10,9 +10,6 @@ from torch_npu.testing.testcase import TestCase, run_tests
 from mx_driving import npu_assign_target_of_single_head
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 @golden_data_cache(__file__)
 def golden_assign_target_of_single_head(
