@@ -1,4 +1,4 @@
-torchaudio==2.1.0
+torchaudio==0.10.2
 torchvision==0.21.0
 mmdet==2.14.0
 mmsegmentation==0.14.1
