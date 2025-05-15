@@ -129,6 +129,7 @@ public:
         for (int32_t taskOffset = 0; taskOffset < coreTaskCount_;
                 taskOffset += singleLoopTask_, globalTaskOffset_ += singleLoopTask_) {
             uint32_t taskCount = min(singleLoopTask_, coreTaskCount_ - taskOffset);
+            uint32_t copyInDataElemCount = AlignUp(taskCount * INDICES_TASK_SIZE, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
 
             PipeBarrier<PIPE_ALL>();
             DataCopyPad(tmpFeatureLocal_, inputFeatureGM_[globalTaskOffset_ * inChannels_],
@@ -138,13 +139,12 @@ public:
                 {static_cast<uint16_t>(taskCount), static_cast<uint32_t>(inChannels_ * FLOAT_BYTE_SIZE), 0,
                  static_cast<uint32_t>(kernelSize_ - 1) * inChannels_ * FLOAT_BYTE_SIZE, 0});
             // CopyIn
-            DataCopyPad(inputIndicesLocal_, indicesGM_[globalTaskOffset_ * INDICES_TASK_SIZE],
-                {1, static_cast<uint32_t>(4 * singleLoopTask_ * INT32_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
+            DataCopy(inputIndicesLocal_, indicesGM_[INDICES_TASK_SIZE * globalTaskOffset_], copyInDataElemCount);
             PipeBarrier<PIPE_ALL>();
 
             uint32_t mask = 0;
             uint64_t rsvdCnt = 0;
-            uint16_t repeatTimes = Ceil(singleLoopTask_ * 4, REPEAT_BYTE_SIZE / INT32_BYTE_SIZE);
+            uint16_t repeatTimes = Ceil(taskCount * 4, REPEAT_BYTE_SIZE / INT32_BYTE_SIZE);
             GatherMask(batchIdxLocal_, inputIndicesLocal_, SRC_PARTTEN_0, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
             GatherMask(spatial0Local_, inputIndicesLocal_, SRC_PARTTEN_1, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
             GatherMask(spatial1Local_, inputIndicesLocal_, SRC_PARTTEN_2, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
