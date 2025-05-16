@@ -1,0 +1,302 @@
+diff --git a/configs/_base_/default_runtime.py b/configs/_base_/default_runtime.py
+index 1ec8bf1..f17fb22 100644
+--- a/configs/_base_/default_runtime.py
++++ b/configs/_base_/default_runtime.py
+@@ -5,8 +5,8 @@ test_only = False  # test process
+ 
+ seed = None  # train process will init a random seed and record
+ save_path = "exp/default"
+-num_worker = 16  # total worker in all gpu
+-batch_size = 16  # total batch size in all gpu
++num_worker = 8  # total worker in all gpu
++batch_size = 8  # total batch size in all gpu
+ batch_size_val = None  # auto adapt to bs 1 for each gpu
+ batch_size_test = None  # auto adapt to bs 1 for each gpu
+ epoch = 100  # total epoch, data loop = epoch // eval_epoch
+@@ -29,7 +29,6 @@ hooks = [
+     dict(type="InformationWriter"),
+     dict(type="SemSegEvaluator"),
+     dict(type="CheckpointSaver", save_freq=None),
+-    dict(type="PreciseEvaluator", test_last=False),
+ ]
+ 
+ # Trainer
+diff --git a/configs/nuscenes/semseg-pt-v3m1-0-base.py b/configs/nuscenes/semseg-pt-v3m1-0-base.py
+index 4f64b9e..d862c10 100644
+--- a/configs/nuscenes/semseg-pt-v3m1-0-base.py
++++ b/configs/nuscenes/semseg-pt-v3m1-0-base.py
+@@ -1,7 +1,7 @@
+ _base_ = ["../_base_/default_runtime.py"]
+ 
+ # misc custom setting
+-batch_size = 12  # bs: total bs in all gpus
++batch_size = 8  # bs: total bs in all gpus
+ mix_prob = 0.8
+ empty_cache = False
+ enable_amp = True
+@@ -51,8 +51,8 @@ model = dict(
+ )
+ 
+ # scheduler settings
+-epoch = 50
+-eval_epoch = 50
++epoch = 1
++eval_epoch = 1
+ optimizer = dict(type="AdamW", lr=0.002, weight_decay=0.005)
+ scheduler = dict(
+     type="OneCycleLR",
+diff --git a/pointcept/datasets/modelnet.py b/pointcept/datasets/modelnet.py
+index 213f3ed..97871e4 100644
+--- a/pointcept/datasets/modelnet.py
++++ b/pointcept/datasets/modelnet.py
+@@ -10,7 +10,6 @@ Please cite our work if the code is helpful to you.
+ 
+ import os
+ import numpy as np
+-import pointops
+ import torch
+ from torch.utils.data import Dataset
+ from copy import deepcopy
+diff --git a/pointcept/engines/hooks/evaluator.py b/pointcept/engines/hooks/evaluator.py
+index 32504b2..9694c78 100644
+--- a/pointcept/engines/hooks/evaluator.py
++++ b/pointcept/engines/hooks/evaluator.py
+@@ -8,7 +8,6 @@ Please cite our work if the code is helpful to you.
+ import numpy as np
+ import torch
+ import torch.distributed as dist
+-import pointops
+ from uuid import uuid4
+ 
+ import pointcept.utils.comm as comm
+diff --git a/pointcept/engines/launch.py b/pointcept/engines/launch.py
+index 99a8351..301a5a2 100644
+--- a/pointcept/engines/launch.py
++++ b/pointcept/engines/launch.py
+@@ -11,6 +11,8 @@ import os
+ import logging
+ from datetime import timedelta
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import torch.distributed as dist
+ import torch.multiprocessing as mp
+ 
+@@ -99,13 +101,10 @@ def _distributed_worker(
+     cfg,
+     timeout=DEFAULT_TIMEOUT,
+ ):
+-    assert (
+-        torch.cuda.is_available()
+-    ), "cuda is not available. Please check your installation."
+     global_rank = machine_rank * num_gpus_per_machine + local_rank
+     try:
+         dist.init_process_group(
+-            backend="NCCL",
++            backend="HCCL",
+             init_method=dist_url,
+             world_size=world_size,
+             rank=global_rank,
+diff --git a/pointcept/engines/train.py b/pointcept/engines/train.py
+index a31e21f..3a14fbc 100644
+--- a/pointcept/engines/train.py
++++ b/pointcept/engines/train.py
+@@ -30,6 +30,8 @@ from pointcept.utils.scheduler import build_scheduler
+ from pointcept.utils.events import EventStorage, ExceptionWriter
+ from pointcept.utils.registry import Registry
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ TRAINERS = Registry("trainers")
+ 
+diff --git a/pointcept/models/__init__.py b/pointcept/models/__init__.py
+index aea1d44..e36abcd 100644
+--- a/pointcept/models/__init__.py
++++ b/pointcept/models/__init__.py
+@@ -2,23 +2,13 @@ from .builder import build_model
+ from .default import DefaultSegmentor, DefaultClassifier
+ 
+ # Backbones
+-from .sparse_unet import *
+-from .point_transformer import *
+-from .point_transformer_v2 import *
++
+ from .point_transformer_v3 import *
+-from .stratified_transformer import *
+-from .spvcnn import *
+-from .octformer import *
+-from .oacnns import *
+ 
+ # from .swin3d import *
+ 
+ # Semantic Segmentation
+-from .context_aware_classifier import *
+ 
+ # Instance Segmentation
+-from .point_group import *
+ 
+ # Pretraining
+-from .masked_scene_contrast import *
+-from .point_prompt_training import *
+diff --git a/pointcept/models/default.py b/pointcept/models/default.py
+index 8dd600b..85fa699 100644
+--- a/pointcept/models/default.py
++++ b/pointcept/models/default.py
+@@ -1,5 +1,4 @@
+ import torch.nn as nn
+-import torch_scatter
+ 
+ from pointcept.models.losses import build_criteria
+ from pointcept.models.utils.structure import Point
+diff --git a/pointcept/models/modules.py b/pointcept/models/modules.py
+index 8a737ae..405e0fd 100644
+--- a/pointcept/models/modules.py
++++ b/pointcept/models/modules.py
+@@ -1,6 +1,8 @@
+ import sys
+ import torch.nn as nn
+-import spconv.pytorch as spconv
++import torch_npu
++from mx_driving.spconv import SparseConvTensor
++from mx_driving.modules.sparse_modules import is_spconv_module
+ from collections import OrderedDict
+ from pointcept.models.utils.structure import Point
+ 
+@@ -61,7 +63,7 @@ class PointSequential(PointModule):
+             if isinstance(module, PointModule):
+                 input = module(input)
+             # Spconv module
+-            elif spconv.modules.is_spconv_module(module):
++            elif is_spconv_module(module):
+                 if isinstance(input, Point):
+                     input.sparse_conv_feat = module(input.sparse_conv_feat)
+                     input.feat = input.sparse_conv_feat.features
+@@ -75,7 +77,7 @@ class PointSequential(PointModule):
+                         input.sparse_conv_feat = input.sparse_conv_feat.replace_feature(
+                             input.feat
+                         )
+-                elif isinstance(input, spconv.SparseConvTensor):
++                elif isinstance(input, SparseConvTensor):
+                     if input.indices.shape[0] != 0:
+                         input = input.replace_feature(module(input.features))
+                 else:
+diff --git a/pointcept/models/point_transformer/point_transformer_seg.py b/pointcept/models/point_transformer/point_transformer_seg.py
+index 248caca..16d9aef 100644
+--- a/pointcept/models/point_transformer/point_transformer_seg.py
++++ b/pointcept/models/point_transformer/point_transformer_seg.py
+@@ -10,7 +10,6 @@ Please cite our work if the code is helpful to you.
+ import torch
+ import torch.nn as nn
+ import einops
+-import pointops
+ 
+ from pointcept.models.builder import MODELS
+ from .utils import LayerNorm1d
+diff --git a/pointcept/models/point_transformer_v3/point_transformer_v3m1_base.py b/pointcept/models/point_transformer_v3/point_transformer_v3m1_base.py
+index f9f5671..30a74a9 100644
+--- a/pointcept/models/point_transformer_v3/point_transformer_v3m1_base.py
++++ b/pointcept/models/point_transformer_v3/point_transformer_v3m1_base.py
+@@ -10,9 +10,7 @@ from addict import Dict
+ import math
+ import torch
+ import torch.nn as nn
+-import spconv.pytorch as spconv
+-import torch_scatter
+-from timm.models.layers import DropPath
++from timm.layers import DropPath
+ 
+ try:
+     import flash_attn
+diff --git a/pointcept/models/sparse_unet/__init__.py b/pointcept/models/sparse_unet/__init__.py
+index aafc385..63a7872 100644
+--- a/pointcept/models/sparse_unet/__init__.py
++++ b/pointcept/models/sparse_unet/__init__.py
+@@ -1,4 +1,2 @@
+ from .mink_unet import *
+-from .spconv_unet_v1m1_base import *
+-from .spconv_unet_v1m2_bn_momentum import *
+ from .spconv_unet_v1m3_pdnorm import *
+diff --git a/pointcept/models/sparse_unet/spconv_unet_v1m1_base.py b/pointcept/models/sparse_unet/spconv_unet_v1m1_base.py
+index dfcacb0..b49861d 100644
+--- a/pointcept/models/sparse_unet/spconv_unet_v1m1_base.py
++++ b/pointcept/models/sparse_unet/spconv_unet_v1m1_base.py
+@@ -11,7 +11,6 @@ from collections import OrderedDict
+ import torch
+ import torch.nn as nn
+ 
+-import spconv.pytorch as spconv
+ from torch_geometric.utils import scatter
+ 
+ from timm.models.layers import trunc_normal_
+diff --git a/pointcept/models/sparse_unet/spconv_unet_v1m3_pdnorm.py b/pointcept/models/sparse_unet/spconv_unet_v1m3_pdnorm.py
+index 968f8f2..d46d93c 100644
+--- a/pointcept/models/sparse_unet/spconv_unet_v1m3_pdnorm.py
++++ b/pointcept/models/sparse_unet/spconv_unet_v1m3_pdnorm.py
+@@ -13,7 +13,6 @@ from collections import OrderedDict
+ import torch
+ import torch.nn as nn
+ 
+-import spconv.pytorch as spconv
+ from torch_geometric.utils import scatter
+ 
+ from timm.models.layers import trunc_normal_
+diff --git a/pointcept/models/stratified_transformer/__init__.py b/pointcept/models/stratified_transformer/__init__.py
+index 24712d2..8b13789 100644
+--- a/pointcept/models/stratified_transformer/__init__.py
++++ b/pointcept/models/stratified_transformer/__init__.py
+@@ -1,2 +1 @@
+-from .stratified_transformer_v1m1_origin import StratifiedTransformer
+-from .stratified_transformer_v1m2_refine import StratifiedTransformer
++
+diff --git a/pointcept/models/utils/structure.py b/pointcept/models/utils/structure.py
+index 47fcd05..ca502b1 100644
+--- a/pointcept/models/utils/structure.py
++++ b/pointcept/models/utils/structure.py
+@@ -1,5 +1,6 @@
+ import torch
+-import spconv.pytorch as spconv
++import torch_npu
++import mx_driving.spconv as spconv
+ 
+ try:
+     import ocnn
+diff --git a/tools/train.py b/tools/train.py
+index e3ed749..6297b09 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -4,14 +4,19 @@ Main Training Script
+ Author: Xiaoyang Wu (xiaoyang.wu.cs@gmail.com)
+ Please cite our work if the code is helpful to you.
+ """
+-
+-from pointcept.engines.defaults import (
+-    default_argument_parser,
+-    default_config_parser,
+-    default_setup,
+-)
+-from pointcept.engines.train import TRAINERS
+-from pointcept.engines.launch import launch
++import torch
++import torch_npu
++import mx_driving
++from patch import ptv3_patcher_builder
++
++with ptv3_patcher_builder.build():
++    from pointcept.engines.defaults import (
++        default_argument_parser,
++        default_config_parser,
++        default_setup,
++    )
++    from pointcept.engines.train import TRAINERS
++    from pointcept.engines.launch import launch
+ 
+ 
+ def main_worker(cfg):
+@@ -35,4 +40,5 @@ def main():
+ 
+ 
+ if __name__ == "__main__":
+-    main()
++    with ptv3_patcher_builder.build():
++        main()

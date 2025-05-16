@@ -1,0 +1,15 @@
+ninja
+pyyaml
+sharedarray 
+tensorboard 
+tensorboardx
+yapf==0.40.1
+addict
+einops
+scipy
+plyfile
+timm
+torch-geometric
+ftfy
+regex
+tqdm
