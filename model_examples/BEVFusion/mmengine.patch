@@ -1,8 +1,40 @@
+diff --git a/mmengine/dist/utils.py b/mmengine/dist/utils.py
+index def4e77..9616b29 100644
+--- a/mmengine/dist/utils.py
++++ b/mmengine/dist/utils.py
+@@ -99,9 +99,9 @@ def _init_dist_pytorch(backend, init_backend='torch', **kwargs) -> None:
+         **kwargs: keyword arguments are passed to ``init_process_group``.
+     """
+     rank = int(os.environ['RANK'])
++    local_rank = int(os.environ['LOCAL_RANK'])
+     if is_mlu_available():
+         import torch_mlu  # noqa: F401
+-        local_rank = int(os.environ['LOCAL_RANK'])
+         torch.mlu.set_device(local_rank)
+         torch_dist.init_process_group(
+             backend='cncl',
+@@ -110,7 +110,7 @@ def _init_dist_pytorch(backend, init_backend='torch', **kwargs) -> None:
+             **kwargs)
+     elif is_npu_available():
+         import torch_npu  # noqa: F401
+-        torch.npu.set_device(rank)
++        torch.npu.set_device(local_rank)
+         torch_dist.init_process_group(
+             backend='hccl',
+             rank=rank,
+@@ -118,7 +118,6 @@ def _init_dist_pytorch(backend, init_backend='torch', **kwargs) -> None:
+             **kwargs)
+     else:
+         # LOCAL_RANK is set by `torch.distributed.launch` since PyTorch 1.1
+-        local_rank = int(os.environ['LOCAL_RANK'])
+         torch.cuda.set_device(local_rank)
+ 
+         if init_backend == 'torch':
 diff --git a/mmengine/optim/optimizer/optimizer_wrapper.py b/mmengine/optim/optimizer/optimizer_wrapper.py
-index 6ef125a..9c0ef04 100644
+index 41218ef..8250868 100644
 --- a/mmengine/optim/optimizer/optimizer_wrapper.py
 +++ b/mmengine/optim/optimizer/optimizer_wrapper.py
-@@ -136,7 +136,7 @@ class OptimWrapper(BaseOptimWrapper):
+@@ -132,7 +132,7 @@ class OptimWrapper(BaseOptimWrapper):
                  'or clip_grad_value_`.')
              clip_type = clip_grad.pop('type', 'norm')
              if clip_type == 'norm':
@@ -11,7 +43,7 @@ index 6ef125a..9c0ef04 100644
                  self.grad_name = 'grad_norm'
              elif clip_type == 'value':
                  self.clip_func = torch.nn.utils.clip_grad_value_
-@@ -295,7 +295,7 @@ class OptimWrapper(BaseOptimWrapper):
+@@ -291,7 +291,7 @@ class OptimWrapper(BaseOptimWrapper):
          params = list(
              filter(lambda p: p.requires_grad and p.grad is not None, params))
          if len(params) > 0:

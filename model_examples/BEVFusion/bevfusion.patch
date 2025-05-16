@@ -4,11 +4,11 @@ index 56e8440b..b3a6382a 100644
 +++ b/mmdet3d/datasets/transforms/dbsampler.py
 @@ -280,7 +280,7 @@ class DataBaseSampler(object):
                  s_points_list.append(s_points)
-
+ 
              gt_labels = np.array([self.cat2label[s['name']] for s in sampled],
 -                                 dtype=np.long)
 +                                 dtype=np.compat.long)
-
+ 
              if ground_plane is not None:
                  xyz = sampled_gt_bboxes[:, :3]
 diff --git a/mmdet3d/models/layers/sparse_block.py b/mmdet3d/models/layers/sparse_block.py
@@ -17,7 +17,7 @@ index 6ed7c8f4..13f69b0d 100644
 +++ b/mmdet3d/models/layers/sparse_block.py
 @@ -2,17 +2,22 @@
  from typing import Optional, Tuple, Union
-
+ 
  from mmcv.cnn import build_conv_layer, build_norm_layer
 -from mmdet.models.backbones.resnet import BasicBlock, Bottleneck
 +import inspect
@@ -25,29 +25,29 @@ index 6ed7c8f4..13f69b0d 100644
 +import torch
  from torch import nn
 +import torch.utils.checkpoint as cp
-
+ 
  from mmdet3d.utils import OptConfigType
 -from .spconv import IS_SPCONV2_AVAILABLE
 +from mx_driving.spconv import SparseSequential, SubMConv3d, SparseConv3d, SparseModule
 +from mmdet.models.backbones.resnet import BasicBlock, Bottleneck
 +from mmengine.registry import Registry
 +from mx_driving.spconv import SparseConvTensor
-
+ 
 -if IS_SPCONV2_AVAILABLE:
 -    from spconv.pytorch import SparseConvTensor, SparseModule, SparseSequential
 -else:
 -    from mmcv.ops import SparseConvTensor, SparseModule, SparseSequential
-
+ 
 +MODELS = Registry('Sparse conv layer')
 +MODELS.register_module('SubMConv3d', module=SubMConv3d)
 +MODELS.register_module('SparseConv3d', module=SparseConv3d)
-
+ 
  def replace_feature(out: SparseConvTensor,
                      new_features: SparseConvTensor) -> SparseConvTensor:
 @@ -23,6 +28,87 @@ def replace_feature(out: SparseConvTensor,
          out.features = new_features
          return out
-
+ 
 +class BasicBlock(BaseModule):
 +    expansion = 1
 +
@@ -129,7 +129,7 @@ index 6ed7c8f4..13f69b0d 100644
 +        out = self.relu(out)
 +
 +        return out
-
+ 
  class SparseBottleneck(Bottleneck, SparseModule):
      """Sparse bottleneck block for PartA^2.
 @@ -199,7 +285,7 @@ def make_sparse_convmodule(in_channels: int,
@@ -151,7 +151,7 @@ index 6ed7c8f4..13f69b0d 100644
                          in_channels,
                          out_channels,
 @@ -222,3 +308,42 @@ def make_sparse_convmodule(in_channels: int,
-
+ 
      layers = SparseSequential(*layers)
      return layers
 +
@@ -205,9 +205,9 @@ index ef141514..0e7a7998 100644
 -    from mmcv.ops import SparseConvTensor, SparseSequential
 +    from mx_driving.spconv import SparseSequential, SparseConvTensor
 +
-
+ 
  TwoTupleIntType = Tuple[Tuple[int]]
-
+ 
 diff --git a/mmdet3d/models/middle_encoders/sparse_unet.py b/mmdet3d/models/middle_encoders/sparse_unet.py
 index a8e68aea..e063def9 100644
 --- a/mmdet3d/models/middle_encoders/sparse_unet.py
@@ -218,9 +218,9 @@ index a8e68aea..e063def9 100644
  else:
 -    from mmcv.ops import SparseConvTensor, SparseSequential
 +    from mx_driving.spconv import SparseSequential, SparseConvTensor
-
+ 
  from mmengine.model import BaseModule
-
+ 
 diff --git a/mmdet3d/models/utils/gaussian.py b/mmdet3d/models/utils/gaussian.py
 index 3d094dcc..641a777f 100644
 --- a/mmdet3d/models/utils/gaussian.py
@@ -230,8 +230,8 @@ index 3d094dcc..641a777f 100644
  import torch
  from torch import Tensor
 +import math
-
-
+ 
+ 
  def gaussian_2d(shape: Tuple[int, int], sigma: float = 1) -> np.ndarray:
 @@ -76,19 +77,19 @@ def gaussian_radius(det_size: Tuple[Tensor, Tensor],
      a1 = 1
@@ -240,14 +240,14 @@ index 3d094dcc..641a777f 100644
 -    sq1 = torch.sqrt(b1**2 - 4 * a1 * c1)
 +    sq1 = math.sqrt(b1**2 - 4 * a1 * c1)
      r1 = (b1 + sq1) / 2
-
+ 
      a2 = 4
      b2 = 2 * (height + width)
      c2 = (1 - min_overlap) * width * height
 -    sq2 = torch.sqrt(b2**2 - 4 * a2 * c2)
 +    sq2 = math.sqrt(b2**2 - 4 * a2 * c2)
      r2 = (b2 + sq2) / 2
-
+ 
      a3 = 4 * min_overlap
      b3 = -2 * min_overlap * (height + width)
      c3 = (min_overlap - 1) * width * height
@@ -255,27 +255,27 @@ index 3d094dcc..641a777f 100644
 +    sq3 = math.sqrt(b3**2 - 4 * a3 * c3)
      r3 = (b3 + sq3) / 2
      return min(r1, r2, r3)
-
+ 
 diff --git a/mmdet3d/structures/bbox_3d/base_box3d.py b/mmdet3d/structures/bbox_3d/base_box3d.py
 index 50b092c0..e287b762 100644
 --- a/mmdet3d/structures/bbox_3d/base_box3d.py
 +++ b/mmdet3d/structures/bbox_3d/base_box3d.py
 @@ -5,7 +5,8 @@ from typing import Iterator, Optional, Sequence, Tuple, Union
-
+ 
  import numpy as np
  import torch
 -from mmcv.ops import box_iou_rotated, points_in_boxes_all, points_in_boxes_part
 +from mx_driving import box_iou_rotated, points_in_boxes_all
 +from mmcv.ops import points_in_boxes_part
  from torch import Tensor
-
+ 
  from mmdet3d.structures.points import BasePoints
 diff --git a/projects/BEVFusion/bevfusion/bevfusion.py b/projects/BEVFusion/bevfusion/bevfusion.py
 index 9f56934e..12f579eb 100644
 --- a/projects/BEVFusion/bevfusion/bevfusion.py
 +++ b/projects/BEVFusion/bevfusion/bevfusion.py
 @@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Tuple
-
+ 
  import numpy as np
  import torch
 +import torch_npu
@@ -289,8 +289,8 @@ index 9f56934e..12f579eb 100644
  from mmdet3d.utils import OptConfigType, OptMultiConfig, OptSampleList
 -from .ops import Voxelization
 +from mx_driving.point import Voxelization
-
-
+ 
+ 
  @MODELS.register_module()
 @@ -176,7 +178,7 @@ class BEVFusion(Base3DDetector):
      def voxelize(self, points):
@@ -306,17 +306,17 @@ index 6cc0cc16..8ce15bc3 100644
 --- a/projects/BEVFusion/bevfusion/depth_lss.py
 +++ b/projects/BEVFusion/bevfusion/depth_lss.py
 @@ -3,9 +3,11 @@ from typing import Tuple
-
+ 
  import torch
  from torch import nn
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
-
+ 
  from mmdet3d.registry import MODELS
 -from .ops import bev_pool
 +from mx_driving import bev_pool_v3
-
-
+ 
+ 
  def gen_dx_bx(xbound, ybound, zbound):
 @@ -82,9 +84,10 @@ class BaseViewTransform(nn.Module):
          # undo post-transformation
@@ -344,7 +344,7 @@ index 6cc0cc16..8ce15bc3 100644
 +        ).reshape(*points.shape[:-1])
 +
          points += camera2lidar_trans.view(B, N, 1, 1, 1, 3)
-
+ 
          if 'extra_rots' in kwargs:
              extra_rots = kwargs['extra_rots']
 -            points = (
@@ -359,9 +359,9 @@ index 6cc0cc16..8ce15bc3 100644
              extra_trans = kwargs['extra_trans']
              points += extra_trans.view(B, 1, 1, 1, 1,
 @@ -110,6 +118,17 @@ class BaseViewTransform(nn.Module):
-
+ 
          return points
-
+ 
 +    def matmul_custom(self, b, a):
 +        """A custom matmul function.
 +
@@ -375,7 +375,7 @@ index 6cc0cc16..8ce15bc3 100644
 +
      def get_cam_feats(self, x):
          raise NotImplementedError
-
+ 
 @@ -137,10 +156,11 @@ class BaseViewTransform(nn.Module):
                  & (geom_feats[:, 1] < self.nx[1])
                  & (geom_feats[:, 2] >= 0)
@@ -385,10 +385,10 @@ index 6cc0cc16..8ce15bc3 100644
 +        valid_indices = torch.nonzero(kept).view(-1)
 +        x = torch.index_select(x, 0, valid_indices)
 +        geom_feats = torch.index_select(geom_feats, 0, valid_indices)
-
+ 
 -        x = bev_pool(x, geom_feats, B, self.nx[2], self.nx[0], self.nx[1])
 +        x = bev_pool_v3(None, x, None, None, geom_feats.to(torch.int32), [B, self.nx[2], self.nx[0], self.nx[1], C])
-
+ 
          # collapse Z
          final = torch.cat(x.unbind(dim=2), 1)
 diff --git a/projects/BEVFusion/bevfusion/sparse_encoder.py b/projects/BEVFusion/bevfusion/sparse_encoder.py
@@ -407,14 +407,14 @@ index 68bf2bce..090363a9 100644
 -from mmdet3d.registry import MODELS
 +from mmdet3d.models.layers.sparse_block import SparseBasicBlock
 +from mx_driving.spconv import SparseSequential, SparseConvTensor
-
+ 
 -if IS_SPCONV2_AVAILABLE:
 -    from spconv.pytorch import SparseConvTensor
 -else:
 -    from mmcv.ops import SparseConvTensor
 +from mmdet3d.registry import MODELS
-
-
+ 
+ 
  @MODELS.register_module()
 -class BEVFusionSparseEncoder(SparseEncoder):
 +class BEVFusionSparseEncoder(nn.Module):
@@ -552,7 +552,7 @@ index 8a3e1750..5dd9ab17 100644
                  radius = max(self.train_cfg['min_radius'], int(radius))
 -                x, y = gt_bboxes_3d[idx][0], gt_bboxes_3d[idx][1]
 +                x, y = gt_bboxes_3d_digital[0], gt_bboxes_3d_digital[1]
-
+ 
                  coor_x = ((x - pc_range[0]) / voxel_size[0] /
                            self.train_cfg['out_size_factor'])
 diff --git a/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py b/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
@@ -560,17 +560,17 @@ index a08bb66a..04b6c0a2 100644
 --- a/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
 +++ b/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
 @@ -220,7 +220,7 @@ test_cfg = dict()
-
+ 
  optim_wrapper = dict(
      type='OptimWrapper',
 -    optimizer=dict(type='AdamW', lr=0.0002, weight_decay=0.01),
 +    optimizer=dict(type='NpuFusedAdamW', lr=0.0002, weight_decay=0.01),
      clip_grad=dict(max_norm=35, norm_type=2))
-
+ 
  # Default setting for scaling LR automatically
 @@ -230,6 +230,6 @@ optim_wrapper = dict(
  auto_scale_lr = dict(enable=False, base_batch_size=32)
-
+ 
  default_hooks = dict(
 -    logger=dict(type='LoggerHook', interval=50),
 +    logger=dict(type='LoggerHook', interval=1),
@@ -582,23 +582,23 @@ index 19dba1a5..bc57c6fa 100644
 +++ b/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
 @@ -362,13 +362,13 @@ param_scheduler = [
  ]
-
+ 
  # runtime settings
 -train_cfg = dict(by_epoch=True, max_epochs=20, val_interval=5)
 +train_cfg = dict(by_epoch=True, max_epochs=20, val_interval=1)
  val_cfg = dict()
  test_cfg = dict()
-
+ 
  optim_wrapper = dict(
      type='OptimWrapper',
 -    optimizer=dict(type='AdamW', lr=lr, weight_decay=0.01),
 +    optimizer=dict(type='NpuFusedAdamW', lr=lr, weight_decay=0.01),
      clip_grad=dict(max_norm=35, norm_type=2))
-
+ 
  # Default setting for scaling LR automatically
 @@ -379,6 +379,6 @@ auto_scale_lr = dict(enable=False, base_batch_size=32)
  log_processor = dict(window_size=50)
-
+ 
  default_hooks = dict(
 -    logger=dict(type='LoggerHook', interval=50),
 -    checkpoint=dict(type='CheckpointHook', interval=5))
@@ -614,40 +614,33 @@ index 099ad8a2..ac361d65 100644
  typing-extensions # required by tensorflow<=2.6
 -waymo-open-dataset-tf-2-6-0 # requires python>=3.7
 +# waymo-open-dataset-tf-2-6-0 # requires python>=3.7
-diff --git a/tools/dist_train.sh b/tools/dist_train.sh
-index 3fca7641..88777e52 100755
---- a/tools/dist_train.sh
-+++ b/tools/dist_train.sh
-@@ -7,6 +7,27 @@ NODE_RANK=${NODE_RANK:-0}
- PORT=${PORT:-29500}
- MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
-
-+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-+export ACLNN_CACHE_LIMIT=100000
-+#设置Shape数据缓存
-+export HOST_CACHE_CAPACITY=20
-+#将Host日志输出到串口,0-关闭/1-开启
-+export ASCEND_SLOG_PRINT_TO_STDOUT=0
-+#设置默认日志级别,0-debug/1-info/2-warning/3-error
-+export ASCEND_GLOBAL_LOG_LEVEL=3
-+#设置Event日志开启标志,0-关闭/1-开启
-+export ASCEND_GLOBAL_EVENT_ENABLE=0
-+#设置是否开启taskque,0-关闭/1-开启/2-流水优化
-+export TASK_QUEUE_ENABLE=2
-+#设置是否开启combined标志,0-关闭/1-开启
-+export COMBINED_ENABLE=1
-+#设置是否开启均匀绑核,0-关闭/1-开启
-+export CPU_AFFINITY_CONF=0
-+#HCCL白名单开关,1-关闭/0-开启
-+export HCCL_WHITELIST_DISABLE=1
-+export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
-+export HCCL_CONNECT_TIMEOUT=1200
+diff --git a/tools/nnodes_dist_train.sh b/tools/nnodes_dist_train.sh
+new file mode 100644
+index 00000000..44801857
+--- /dev/null
++++ b/tools/nnodes_dist_train.sh
+@@ -0,0 +1,19 @@
++#!/usr/bin/env bash
 +
- PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
- python -m torch.distributed.launch \
-     --nnodes=$NNODES \
++CONFIG=$1
++GPUS=$2
++NNODES=$3
++NODE_RANK=$4
++PORT=$5
++MASTER_ADDR=$6
++
++PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
++python -m torch.distributed.launch \
++    --nnodes=$NNODES \
++    --node_rank=$NODE_RANK \
++    --master_addr=$MASTER_ADDR \
++    --nproc_per_node=$GPUS \
++    --master_port=$PORT \
++    $(dirname "$0")/train.py \
++    $CONFIG \
++    --launcher pytorch ${@:7}
 diff --git a/tools/train.py b/tools/train.py
-index b2ced54b..67351f1a 100644
+index b2ced54b..968f2be9 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -8,6 +8,10 @@ from mmengine.config import Config, DictAction
@@ -658,13 +651,24 @@ index b2ced54b..67351f1a 100644
 +
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
-
+ 
  from mmdet3d.utils import replace_ceph_backend
-
-@@ -132,4 +136,6 @@ def main():
-
-
+ 
+@@ -132,4 +136,16 @@ def main():
+ 
+ 
  if __name__ == '__main__':
+-    main()
 +    torch_npu.npu.set_compile_mode(jit_compile=False)
 +    torch_npu.npu.config.allow_internal_format = False
-     main()
++    
++    if os.environ.get('PERFORMANCE_MODE', '0') == '1':
++        # Performance-Testing mode: use Patcher to set breakpoints
++        from mx_driving.patcher.patcher import PatcherBuilder
++        
++        pb = PatcherBuilder().brake_at(1000)
++        with pb.build():
++            main()
++    else:
++        # Training mode: run the main function directly
++        main()

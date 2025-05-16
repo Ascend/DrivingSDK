@@ -77,7 +77,7 @@ BEVFusion 是一个高效且通用的多任务多传感器融合框架，它在�
   git clone -b v1.2.0 https://github.com/open-mmlab/mmdetection3d.git
   cp -f bevfusion.patch mmdetection3d/
   cd mmdetection3d
-  git apply bevfusion.patch
+  git apply bevfusion.patch --reject
   pip install mmdet==3.1.0 numpy==1.23.5 yapf==0.40.1
   pip install -e .
   ```
@@ -128,17 +128,28 @@ cd model_examples/BEVFusion
   bash test/train_full_8p_base_fp32.sh # 8卡训练，默认训练6个epochs
   bash test/train_performance_8p_base_fp32.sh # 8卡性能，默认训练1个epochs
   ```
+- 双机16卡性能
+  ```shell
+  bash test/nnodes_train_performance_16p_base_fp32.sh 2 0 port master_addr # 主节点，默认训练1个epochs
+  bash test/nnodes_train_performance_16p_base_fp32.sh 2 1 port master_addr # 副节点
+  ```
 
 # 训练结果
-
+单机8卡
 | NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size | NDS   | mAP   | FPS   |
 |------------------|-----------|-------------------------|------|-------|-------|-------|-------|-------|
-| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.48 | 66.6  | 19.42 |
+| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.48 | 66.6  | 17.53 |
 | 8p-竞品A           | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.78 | 67.36 | 22.54 |
+
+双机16卡
+| NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size |FPS   | 线性度 |
+|------------------|-----------|-------------------------|------|-------|-------|-------|-------|
+| 8p-Atlas 800T A2 | lidar-cam | 0.075 | FP32 | 1     | 64 | 34.13 | 97.07%  |
 
 # 版本说明
 
 ## 变更
+2025.5.20：支持双机，更新单机性能。
 
 2024.12.5：首次发布。
 

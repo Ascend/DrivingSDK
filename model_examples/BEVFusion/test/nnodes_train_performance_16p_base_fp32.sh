@@ -1,8 +1,13 @@
 # 网络名称,同目录名称,需要模型审视修改
 Network="BEVFusion"
 batch_size=4
-world_size=8
+gpus=8
 
+NNODES=$1
+NODE_RANK=$2
+PORT=$3
+MASRER_ADDR=$4
+world_size=$((NNODES * gpus))
 export PERFORMANCE_MODE=1 # Performance-Testing mode
 
 # cd到与test文件夹同层级目录下执行脚本，提高兼容性；test_path_dir为包含test文件夹的路径
@@ -29,8 +34,8 @@ sed -i "s|max_epochs=6|max_epochs=1|g" projects/BEVFusion/configs/bevfusion_lida
 
 #训练开始时间，不需要修改
 start_time=$(date +%s)
-bash tools/dist_train.sh \
-    projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${world_size} \
+bash tools/nnodes_dist_train.sh \
+    projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${gpus} ${NNODES} ${NODE_RANK} ${PORT} ${MASRER_ADDR}\
     --cfg-options load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
     > ${test_path_dir}/output/train_performance_8p_base_fp32.log 2>&1 &
 

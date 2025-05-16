@@ -8,6 +8,10 @@ msnpureport -g error -d 5
 msnpureport -g error -d 6
 msnpureport -g error -d 7
 
+# 使能内存池扩展段功能，由PyTorch管理虚拟地址和物理地址的映射关系，降低内存碎片化
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+# 增加ACLNN算子缓存数量上限
+export ACLNN_CACHE_LIMIT=100000
 #设置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
 export HOST_CACHE_CAPACITY=20
 #将Host日志输出到串口,0-关闭/1-开启
