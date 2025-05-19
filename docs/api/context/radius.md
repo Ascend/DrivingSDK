@@ -53,5 +53,5 @@ r = 20.0
 max_num_neighbors = 100
 
 x, y, ptr_x, ptr_y = gen_inputs(data_range, batch_size, max_points_per_batch)
-out_npu = mx_driving.radius(x.npu(), y.npu(), ptr_x.npu(), ptr_y.npu(), r, max_num_neighbors)
+out_npu = radius(x.npu(), y.npu(), ptr_x.npu(), ptr_y.npu(), r, max_num_neighbors)
 ```
