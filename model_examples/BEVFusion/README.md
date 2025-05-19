@@ -106,7 +106,7 @@ BEVFusion 是一个高效且通用的多任务多传感器融合框架，它在�
 
 ## 下载预训练权重
 
-在 mmdetection3d 目录下创建 pretrained 文件夹，参考 github仓库，下载预训练权重。最后将预训练权重放在 pretrained 文件夹中，目录样例如下：
+在 mmdetection3d 目录下创建 pretrained 文件夹，参考[BEVFusion Model](https://github.com/open-mmlab/mmdetection3d/tree/main/projects/BEVFusion)，下载预训练权重[Swin pre-trained model](https://download.openmmlab.com/mmdetection3d/v1.1.0_models/bevfusion/swint-nuimages-pretrained.pth)和[lidar-only pre-trained detector](https://download.openmmlab.com/mmdetection3d/v1.1.0_models/bevfusion/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth)。将预训练权重放在 pretrained 文件夹中，目录样例如下：
 
 ```
 pretrained/

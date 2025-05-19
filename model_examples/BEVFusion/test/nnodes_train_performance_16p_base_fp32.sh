@@ -6,7 +6,7 @@ gpus=8
 NNODES=$1
 NODE_RANK=$2
 PORT=$3
-MASRER_ADDR=$4
+MASTER_ADDR=$4
 world_size=$((NNODES * gpus))
 export PERFORMANCE_MODE=1 # Performance-Testing mode
 
@@ -35,7 +35,7 @@ sed -i "s|max_epochs=6|max_epochs=1|g" projects/BEVFusion/configs/bevfusion_lida
 #训练开始时间，不需要修改
 start_time=$(date +%s)
 bash tools/nnodes_dist_train.sh \
-    projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${gpus} ${NNODES} ${NODE_RANK} ${PORT} ${MASRER_ADDR}\
+    projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${gpus} ${NNODES} ${NODE_RANK} ${PORT} ${MASTER_ADDR}\
     --cfg-options load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
     > ${test_path_dir}/output/train_performance_8p_base_fp32.log 2>&1 &
 
@@ -48,50 +48,43 @@ e2e_time=$(($end_time - $start_time))
 sed -i "s|max_epochs=1|max_epochs=6|g" projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
 cd ..
 
-#结果打印，不需要修改
-echo "------------------ Final result ------------------"
+# 主节点打印性能数据
+if [ "$NODE_RANK" -eq 0 ]; then
+  #结果打印，不需要修改
+  echo "------------------ Final result ------------------"
 
-#获取性能数据，不需要修改
-#单迭代训练时长，不需要修改
-TrainingTime=$(grep -v val ${test_path_dir}/output/train_performance_8p_base_fp32.log | grep -o " time: [0-9.]*"  | tail -n +200 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
+  #获取性能数据，不需要修改
+  #单迭代训练时长，不需要修改
+  TrainingTime=$(grep -v val ${test_path_dir}/output/train_performance_8p_base_fp32.log | grep -o " time: [0-9.]*"  | tail -n +200 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
 
-#吞吐量
-ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$TrainingTime'}')
+  #吞吐量
+  ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$TrainingTime'}')
 
-#打印，不需要修改
-echo "Final Performance images/sec : $ActualFPS"
+  #打印，不需要修改
+  echo "Final Performance images/sec : $ActualFPS"
 
-#loss值，不需要修改
-ActualLoss=$(grep -o "loss: [0-9.]*" ${test_path_dir}/output/train_performance_8p_base_fp32.log | awk 'END {print $NF}')
+  #loss值，不需要修改
+  ActualLoss=$(grep -o "loss: [0-9.]*" ${test_path_dir}/output/train_performance_8p_base_fp32.log | awk 'END {print $NF}')
 
-#NDS值
-NDS=$(grep -o "pred_instances_3d_NuScenes/NDS: [0-9.]*" ${test_path_dir}/output/train_performance_8p_base_fp32.log | awk 'END {print $NF}')
+  #打印，不需要修改
+  echo "Final Train Loss : ${ActualLoss}"
+  echo "E2E Training Duration sec : $e2e_time"
 
-#mAP值
-mAP=$(grep -o "pred_instances_3d_NuScenes/mAP: [0-9.]*" ${test_path_dir}/output/train_performance_8p_base_fp32.log | awk 'END {print $NF}')
+  #性能看护结果汇总
+  #训练用例信息，不需要修改
+  BatchSize=${batch_size}
+  WORLD_SIZE=${world_size}
+  DeviceType=$(uname -m)
+  CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'performance'
 
-#打印，不需要修改
-echo "Final Train Loss : ${ActualLoss}"
-echo "NDS : ${NDS}"
-echo "mAP : ${mAP}"
-echo "E2E Training Duration sec : $e2e_time"
-
-#性能看护结果汇总
-#训练用例信息，不需要修改
-BatchSize=${batch_size}
-WORLD_SIZE=${world_size}
-DeviceType=$(uname -m)
-CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'performance'
-
-#关键信息打印到${CaseName}.log中，不需要修改
-echo "Network = ${Network}" >${test_path_dir}/output/${CaseName}.log
-echo "RankSize = ${WORLD_SIZE}" >>${test_path_dir}/output/${CaseName}.log
-echo "BatchSize = ${BatchSize}" >>${test_path_dir}/output/${CaseName}.log
-echo "DeviceType = ${DeviceType}" >>${test_path_dir}/output/${CaseName}.log
-echo "CaseName = ${CaseName}" >>${test_path_dir}/output/${CaseName}.log
-echo "ActualFPS = ${ActualFPS}" >>${test_path_dir}/output/${CaseName}.log
-echo "TrainingTime = ${TrainingTime}" >>${test_path_dir}/output/${CaseName}.log
-echo "ActualLoss = ${ActualLoss}" >>${test_path_dir}/output/${CaseName}.log
-echo "NDS = ${NDS}" >>${test_path_dir}/output/${CaseName}.log
-echo "mAP = ${mAP}" >>${test_path_dir}/output/${CaseName}.log
-echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/${CaseName}.log
+  #关键信息打印到${CaseName}.log中，不需要修改
+  echo "Network = ${Network}" >${test_path_dir}/output/${CaseName}.log
+  echo "RankSize = ${WORLD_SIZE}" >>${test_path_dir}/output/${CaseName}.log
+  echo "BatchSize = ${BatchSize}" >>${test_path_dir}/output/${CaseName}.log
+  echo "DeviceType = ${DeviceType}" >>${test_path_dir}/output/${CaseName}.log
+  echo "CaseName = ${CaseName}" >>${test_path_dir}/output/${CaseName}.log
+  echo "ActualFPS = ${ActualFPS}" >>${test_path_dir}/output/${CaseName}.log
+  echo "TrainingTime = ${TrainingTime}" >>${test_path_dir}/output/${CaseName}.log
+  echo "ActualLoss = ${ActualLoss}" >>${test_path_dir}/output/${CaseName}.log
+  echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/${CaseName}.log
+fi
