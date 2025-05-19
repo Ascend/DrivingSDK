@@ -60,3 +60,45 @@ with default_patcher_builder.disable_patches("msda", "index").build() as patcher
 - [x] 支持Resnet优化
 - [x] 支持提前终止训练
 
+## 7. 模型训练中使用patcher
+以BEVFormer模型为例，举例说明一键patcher在训练过程中的具体使用方法。
+
+### 在tools目录下(train.py同层)创建patch.py文件
+patch.py中定义专属于BEVFomer模型的patcher修改
+```python
+from types import ModuleType
+from typing import Dict
+import torch
+import torch_npu
+import mx_driving
+from mx_driving.patcher import PatcherBuilder, Patch
+from mx_driving.patcher import ddp, ddp_forward
+from mx_driving.patcher import resnet_add_relu, resnet_maxpool, nuscenes_dataset
+from mx_driving.patcher import dc, mdc, msda
+
+bev_former_patcher_builder = (
+    PatcherBuilder()
+    .add_module_patch("mmcv.ops", Patch(msda), Patch(dc), Patch(mdc))
+    .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
+    .add_module_patch("mmdet3d.datasets.nuscenes_dataset", Patch(nuscenes_dataset))
+    .add_module_patch("mmcv.parallel", Patch(ddp), Patch(ddp_forward))
+)
+```
+
+### 将patcher应用于训练过程
+首先import自定义的patcher实例。
+```python
+from patch import bev_former_patcher_builder
+```
+直接将patcher作用于训练的main函数。
+```python
+if __name__ == '__main__':
+    with bev_former_patcher_builder.build():
+        main()
+```
+
+### patcher使能特性说明
+- ddp, ddp_forward用于修改mmcv框架中并行相关代码适配NPU训练。
+- resnet_add_relu, resnet_maxpool用于resnet结构中特定算子的优化，替换为DrivingSDK中高性能算子。
+- dc, mdc, msda用于mmcv中DeformConv2d，ModulatedDeformConv2d，MultiScaleDeformableAttn算子替换为DrivingSDK中高性能算子。
+- nuscenes_dataset用于针对BEVFormer模型的性能优化。
