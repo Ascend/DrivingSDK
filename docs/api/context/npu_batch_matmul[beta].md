@@ -7,8 +7,8 @@ mx_driving.npu_batch_matmul(Tensor projection_mat, Tensor pts_extend) -> Tensor
 ### 功能描述
 
 ### 参数说明
-- `projection_mat(Tensor)`：投影矩阵，数据类型为`float32`。Shape为4维以上，最后两维需要是`4, 4`或`3, 3`，且和pts_extend互相可广播。
-- `pts_extend(Tensor)`：所有点的特征，数据类型为`float32`。Shape为4维以上，最后两维需要是`4, 1`或`3, 1`，且和projection_mat互相可广播。
+- `projection_mat(Tensor)`：投影矩阵，数据类型为`float32`。Shape为4-6维，最后两维需要是`4, 4`或`3, 3`，且和pts_extend互相可广播。
+- `pts_extend(Tensor)`：所有点的特征，数据类型为`float32`。Shape为4-6维，最后两维需要是`4, 1`或`3, 1`，且和projection_mat互相可广播。
 ### 返回值
 - `output(Tensor)`：矩阵乘结果，数据类型为`float32`。
 ### 支持的型号
