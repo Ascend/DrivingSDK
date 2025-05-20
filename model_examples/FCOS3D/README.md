@@ -118,6 +118,8 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
 
   ```
   pip install -r requirements.txt
+  chmod 777 ./test/adjust.sh
+  bash ./test/adjust.sh
   ```
 
 
@@ -168,6 +170,15 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
   │   │   ├── nuscenes_infos_test.pkl
   │   │   ├── nuscenes_dbinfos_train.pkl
   ```
+
+
+## 准备预训练权重
+1. 请用户自行准备预训练权重：resnet101_msra-6cc46731.pth（参考下载链接：https://download.openmmlab.com/pretrain/third_party/resnet101_msra-6cc46731.pth）
+2. 执行以下命令将文件移至模型读取目录：
+```
+mv /path/to/resnet101_msra-6cc46731.pth /root/.cache/torch/hub/checkpoints/resnet101_msra-6cc46731.pth
+```
+
 
 # 开始训练
 
