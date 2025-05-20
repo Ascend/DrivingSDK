@@ -203,4 +203,11 @@
 2025.05.08:更新FPS数据
 # FAQ
 
-无
+1. 镜像中可能由于不支持awk的扩展正则表达式导致出现`syntax error at or near`，需要在镜像中安装gawk解决
+```
+# Debian/Ubuntu
+apt-get update && apt-get install -y gawk
+
+# CentOS/OpenEuler
+yum install -y gawk
+```

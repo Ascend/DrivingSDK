@@ -1,5 +1,5 @@
 
-# LaneSegNet: Map Learning with Lane Segment Perception for Autonomous Driving
+# LaneSegNet
 
 # 环境准备
 
@@ -109,6 +109,29 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
   export PATH=/usr/local/lib/bin:$PATH
   export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+  
+  - Ubuntu系统
+
+  参考[下载链接](http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)，下载三个文件。
+
+    libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+
+    libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+
+    libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+
+  安装三个文件：
+  ```
+  sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+  sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+  sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+  find /usr -name libtcmalloc.so*
+  ```
+
+  将find指令的输出路径记为libtomalloc_dir，执行下列文件使用tcmalloc动态库。
+  ```
+  export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
   ```
 
 7. Python编译优化
