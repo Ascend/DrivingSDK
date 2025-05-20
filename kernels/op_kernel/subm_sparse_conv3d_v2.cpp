@@ -31,6 +31,7 @@ constexpr int32_t MAP2_OFFSET_1 = 1;
 constexpr int32_t MAP2_OFFSET_2 = 2;
 constexpr int32_t MAP2_OFFSET_3 = 3;
 constexpr int32_t MAP2_OFFSET_4 = 4;
+constexpr float SPARSE_THRESHOLD = 0.5;
 };
 
 class KernelSubmSparseConv3dV2 {
@@ -63,6 +64,7 @@ public:
         spatialShape12_ = spatialShape1_ * spatialShape2_;
         totalSpatialShape_ = (int64_t)spatialShape01_ * spatialShape2_;
         useTwolevelMap_ = totalSpatialShape_ * (int64_t)batchSize_ >= SPATIAL_SHAPE_THRESHOLD;
+        sparseRate = (tilingData->totalTaskCount + 0.0f) / (float)(totalSpatialShape_ * batchSize_);
         copyByteSize_ = inChannels_ * FLOAT_BYTE_SIZE;
 
         if (blkIdx_ < tilingData->bigCoreCount) {
@@ -99,6 +101,7 @@ public:
         pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTaskAligned_ * inChannelsAligned_ * FLOAT_BYTE_SIZE);
         pipe_->InitBuffer(mapValBuf_, k0_ * k1_ * k2Aligned_ * INT32_BYTE_SIZE);
         pipe_->InitBuffer(mapValFloatBuf_, MAP_VAL_FLOAT_BUF_LENGTH * k0_ * k1_ * k2Aligned_ * FLOAT_BYTE_SIZE);
+        pipe_->InitBuffer(indicesOffsetBuf_, singleLoopTaskAligned_ * kernelSizeAligned_ * INT32_BYTE_SIZE);
 
         inputIndicesLocal_ = inputIndicesBuf_.Get<int32_t>();
         tmpFeatureLocal_ = tmpFeatureBuf_.Get<float>();
@@ -111,6 +114,7 @@ public:
         mapValFloatLocal_ = mapValFloatBuf_.Get<float>();
         mapValFloatLocalBak_ = mapValFloatLocal_[k0_ * k1_ * k2Aligned_];
         workLocal_ = mapValFloatLocal_[WORK_LOCAL_IDX * k0_ * k1_ * k2Aligned_];
+        indicesOffsetLocal_ = indicesOffsetBuf_.Get<int32_t>();
     }
 
     __aicore__ inline void Init(TPipe *pipe, GM_ADDR feature, GM_ADDR indices, GM_ADDR map1, GM_ADDR map2,
@@ -129,7 +133,6 @@ public:
         for (int32_t taskOffset = 0; taskOffset < coreTaskCount_;
                 taskOffset += singleLoopTask_, globalTaskOffset_ += singleLoopTask_) {
             uint32_t taskCount = min(singleLoopTask_, coreTaskCount_ - taskOffset);
-            uint32_t copyInDataElemCount = AlignUp(taskCount * INDICES_TASK_SIZE, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
 
             PipeBarrier<PIPE_ALL>();
             DataCopyPad(tmpFeatureLocal_, inputFeatureGM_[globalTaskOffset_ * inChannels_],
@@ -139,9 +142,10 @@ public:
                 {static_cast<uint16_t>(taskCount), static_cast<uint32_t>(inChannels_ * FLOAT_BYTE_SIZE), 0,
                  static_cast<uint32_t>(kernelSize_ - 1) * inChannels_ * FLOAT_BYTE_SIZE, 0});
             // CopyIn
-            DataCopy(inputIndicesLocal_, indicesGM_[INDICES_TASK_SIZE * globalTaskOffset_], copyInDataElemCount);
+            DataCopyPad(inputIndicesLocal_, indicesGM_[globalTaskOffset_ * INDICES_TASK_SIZE],
+                {1, static_cast<uint32_t>(INDICES_TASK_SIZE * taskCount * INT32_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
             PipeBarrier<PIPE_ALL>();
-
+            
             uint32_t mask = 0;
             uint64_t rsvdCnt = 0;
             uint16_t repeatTimes = Ceil(taskCount * 4, REPEAT_BYTE_SIZE / INT32_BYTE_SIZE);
@@ -149,6 +153,7 @@ public:
             GatherMask(spatial0Local_, inputIndicesLocal_, SRC_PARTTEN_1, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
             GatherMask(spatial1Local_, inputIndicesLocal_, SRC_PARTTEN_2, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
             GatherMask(spatial2Local_, inputIndicesLocal_, SRC_PARTTEN_3, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
+            Duplicate(indicesOffsetLocal_, static_cast<int32_t>(-1), singleLoopTaskAligned_ * kernelSizeAligned_);
 
             Adds(spatial0Local_, spatial0Local_, - halfk0_, taskCount);
             Adds(spatial1Local_, spatial1Local_, - halfk0_, taskCount);
@@ -157,8 +162,15 @@ public:
             if (useTwolevelMap_) {
                 ProcessOneLoopForTwoLevelMap(taskOffset, taskCount);
             } else {
-                ProcessOneLoopForOneLevelMap(taskOffset, taskCount);
+                if (sparseRate < SPARSE_THRESHOLD) {
+                    ProcessOneLoopForOneLevelMap(taskOffset, taskCount);
+                } else {
+                    ProcessOneLoopForOneLevelMapDense(taskOffset, taskCount);
+                }
             }
+
+            DataCopyPad(indicesOffsetGM_[globalTaskOffset_ * kernelSize_], indicesOffsetLocal_,
+                {static_cast<uint16_t>(taskCount), static_cast<uint32_t>(kernelSize_ * INT32_BYTE_SIZE), 0, 0, 0});
         }
     }
 
@@ -168,20 +180,22 @@ public:
             return;
         }
 
-        int32_t outputIdx = (globalTaskOffset_ + i) * kernelSize_ + k0Idx * k12_ + k1Idx * k2_ + k2Idx;
-        indicesOffsetGM_.SetValue(outputIdx, map1Val);
+        int32_t innerKernelOffset = k0Idx * k12_ + k1Idx * k2_ + k2Idx;
+        int32_t indicesOffsetOutputIdx =  i * kernelSizeAligned_ + innerKernelOffset;
 
+        indicesOffsetLocal_.SetValue(indicesOffsetOutputIdx, map1Val);
+        
         if (k0Idx == halfk0_ && k1Idx == halfk0_ && k2Idx == halfk0_) {
             return;
         }
         
         DataCopyPad(tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_], inputFeatureGM_[map1Val * inChannels_],
             {1, copyByteSize_, 0, 0, 0}, {false, 0, 0, 0});
-      
+
         SetFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
         WaitFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
 
-        DataCopyPad(outputFeatureGM_[outputIdx * inChannels_], tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_],
+        DataCopyPad(outputFeatureGM_[((globalTaskOffset_ + i) * kernelSize_ + innerKernelOffset) * inChannels_], tmpFeatureLocal_[copyInOffset_ * inChannelsAligned_],
             {1, copyByteSize_, 0, 0, 0});
 
         copyInOffset_ = (copyInOffset_ + 1) % tmpBufLength_;
@@ -220,6 +234,25 @@ public:
                 ProcessOnePoint(i, mapIdx / (k2Aligned_ * k1_), (mapIdx % (k2Aligned_ * k1_)) / k2Aligned_, mapIdx % k2Aligned_, mapVal);
                 mapValFloatLocalBak_.SetValue(mapIdx, -2.0f);
             } while (true);
+        }
+    }
+
+    __aicore__ inline void ProcessOneLoopForOneLevelMapDense(int32_t taskOffset, uint32_t taskCount)
+    {
+        for (int16_t i = 0; i < taskCount; i++) {
+            int16_t batchIdx = batchIdxLocal_.GetValue(i);
+            int16_t spatial0BaseIdx = spatial0Local_.GetValue(i);
+            int16_t spatial1BaseIdx = spatial1Local_.GetValue(i);
+            int16_t spatial2BaseIdx = spatial2Local_.GetValue(i);
+
+            for (int16_t k = 0; k < kernelSize_; k++) {
+                int8_t k2Idx = k % k2_;
+                int8_t k1Idx = (k % k12_) / k2_;
+                int8_t k0Idx = k / k12_;
+
+                ProcessOnePoint(i, k0Idx, k1Idx, k2Idx, map1GM_.GetValue(batchIdx * totalSpatialShape_ + (spatial0BaseIdx + k0Idx) * spatialShape12_ +
+                    (spatial1BaseIdx + k1Idx) * spatialShape2_ + (spatial2BaseIdx + k2Idx)));
+            }
         }
     }
 
@@ -276,12 +309,13 @@ private:
         spatialShape2_, spatialShape01_, spatialShape12_, coreTaskCount_, singleLoopTask_, singleLoopTaskAligned_, globalTaskOffset_,
         inChannelsAligned_, copyInOffset_, kernelSizeAligned_, outputOneLineElementCount_, outputHalfLineElementCount_;
     int32_t eventMTE2ToMTE3_;
+    float sparseRate;
     int64_t totalSpatialShape_;
     GlobalTensor<float> inputFeatureGM_, outputFeatureGM_;
     GlobalTensor<int32_t> indicesGM_, map1GM_, map2GM_, indicesOffsetGM_;
     LocalTensor<float> tmpFeatureLocal_, mapValFloatLocal_, mapValFloatLocalBak_, workLocal_;
-    LocalTensor<int32_t> inputIndicesLocal_, batchIdxLocal_, spatial0Local_, spatial1Local_, spatial2Local_, mapValLocal_;
-    TBuf<TPosition::VECCALC> inputIndicesBuf_, totalIndicesBuf_, tmpFeatureBuf_, mapValBuf_, mapValFloatBuf_;
+    LocalTensor<int32_t> inputIndicesLocal_, batchIdxLocal_, spatial0Local_, spatial1Local_, spatial2Local_, mapValLocal_, indicesOffsetLocal_;
+    TBuf<TPosition::VECCALC> inputIndicesBuf_, totalIndicesBuf_, tmpFeatureBuf_, mapValBuf_, mapValFloatBuf_, indicesOffsetBuf_;
     TPipe* pipe_;
 };
  

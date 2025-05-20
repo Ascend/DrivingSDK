@@ -72,8 +72,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t totalTaskCount = featureShapeArr.GetDim(TOTAL_TASK_DIM_IDX);
     uint32_t coreTaskCount = totalTaskCount / aivNum;
     uint32_t bigCoreCount = totalTaskCount % aivNum;
+    int32_t kernelSizeAligned = CeilAlign(static_cast<int32_t>(kernelSizeArr[KERNEL_SIZE_IDX_0] * kernelSizeArr[KERNEL_SIZE_IDX_1] *
+        kernelSizeArr[KERNEL_SIZE_IDX_2]), BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE);
     uint32_t singleLoopTask = ubSize / (SINGLE_LOOP_UB_SIZE +
-        CeilAlign(*inChannelsPtr, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE);
+        CeilAlign(*inChannelsPtr, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE +
+        CeilAlign(kernelSizeAligned, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE);
 
     tiling.set_k0(kernelSizeArr[KERNEL_SIZE_IDX_0]);
     tiling.set_k1(kernelSizeArr[KERNEL_SIZE_IDX_1]);
@@ -87,6 +90,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_coreTaskCount(coreTaskCount);
     tiling.set_bigCoreCount(bigCoreCount);
     tiling.set_singleLoopTask(singleLoopTask);
+    tiling.set_totalTaskCount(totalTaskCount);
     
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;

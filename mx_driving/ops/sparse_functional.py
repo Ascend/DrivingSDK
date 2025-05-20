@@ -87,15 +87,10 @@ def generate_map(coors, origin_spatial_shape, bs, kernel_size):
         new_coors1 = spatial_shape1 * coors[:, 0] + spatial_shape[1] * coors[:, 1] + coors[:, 2]
         map1 = torch.full((spatial_shape1 * bs, ), -1, dtype=torch.int32, device=coors.device)
 
-        if bs * spatial_shape1 > 2**24:
-            map1[new_coors1] = 1
-            mask = (map1 != -1)
-            map1_length = map1[mask].shape[0]
-            map1[mask] = torch.arange(map1_length, dtype=torch.int32, device=coors.device)
-        else:
-            coors_unique = mx_driving.npu_unique(new_coors1)
-            map1_length = coors_unique.shape[0]
-            map1[coors_unique] = torch.arange(map1_length, dtype=torch.int32, device=coors.device)
+        map1[new_coors1] = 1
+        mask = (map1 != -1)
+        map1_length = map1[mask].shape[0]
+        map1[mask] = torch.arange(map1_length, dtype=torch.int32, device=coors.device)
             
         map2 = torch.full((map1_length, spatial_shape[2]), -1, dtype=torch.int32, device=coors.device)
         map2[map1[new_coors1], coors[:, 3]] = torch.arange(new_coors1.numel(), dtype=torch.int32, device=coors.device)

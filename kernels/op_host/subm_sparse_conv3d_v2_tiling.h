@@ -19,6 +19,7 @@ BEGIN_TILING_DATA_DEF(SubmSparseConv3dV2TilingData)
     TILING_DATA_FIELD_DEF(uint32_t, coreTaskCount);
     TILING_DATA_FIELD_DEF(uint32_t, bigCoreCount);
     TILING_DATA_FIELD_DEF(uint32_t, singleLoopTask);
+    TILING_DATA_FIELD_DEF(uint32_t, totalTaskCount);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(SubmSparseConv3dV2, SubmSparseConv3dV2TilingData)
