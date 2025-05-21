@@ -105,7 +105,7 @@ log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
 echo "------------------ Final result ------------------"
 #输出性能FPS
 FPS=`grep -a 'Epoch '  ${log_file}|awk -F " time: " '!/Epoch \[1\]\[1/ {print $NF}'|awk -F " " '{print $1}' | awk '{ sum += $0; n++} END { if (n > 0) print sum / n;}'`
-FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'* ${WORLD_SIZE}/'${FPS}'}'`
+FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}'* '${WORLD_SIZE}'/'${FPS}'}'`
 #打印
 echo "Final Performance images/sec : $FPS"
 echo "E2E Training Duration sec : $e2e_time"
