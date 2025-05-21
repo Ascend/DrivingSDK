@@ -73,7 +73,7 @@ git apply DenseTNT_npu.patch
 5、安装依赖包
 ```
 pip install -r requirements.txt
-pip install av2
+pip install av2==0.2.1
 ```
 
 6、安装gperftools，使能高性能库

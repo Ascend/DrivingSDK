@@ -190,7 +190,7 @@ python setup.py develop
 4. 安装数据处理相关依赖
     ```shell
     pip install nuscenes-devkit==1.0.5
-    pip install av2
+    pip install av2==0.2.1
     pip install kornia==0.5.8
     pip install opencv-python-headless --force-reinstall
     ```
