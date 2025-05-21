@@ -209,7 +209,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
     ```
     docker load -i pytorcharm_compile.tar.gz
     docker images // 查看镜像的image_id
-    docker run -it --network=host image_id -v path1:path2 bash // 创建容器
+    docker run -it --network=host -v path1:path2 image_id bash // 创建容器
     ```
 
   2） 在编译优化基础镜像中配置环境，以python3.8为例，如果使用其他版本的python3.8需修改python3软链接：
@@ -223,15 +223,14 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
 
   3） 按照“安装毕昇编译器”一节在编译优化基础镜像中使能毕昇编译器。
 
-  4） 下载Torch源码。以torch2.1.0为例：
+  4） 下载Torch源码。以Torch2.1.0、Python3.8为例：
 
   ```
   git clone -b v2.1.0 https://github.com/pytorch/pytorch.git pytorch-2.1.0
   cd pytorch-2.1.0
   git submodule sync
   git submodule update --init --recursive
-  cd pytorch-2.1.0
-  pip install -r requirements.txt
+  pip3.8 install -r requirements.txt
   ```
 
   打开CMakeLists.txt文件，注释第921行：
@@ -349,7 +348,7 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
    ```
 
    多机训练时增加以下环境配置。此外，拉起训练的脚本nnodes_train_8p_performance.sh或nnodes_train_8p.sh中WORLD_SIZE需要配置为实际多机的总卡数，目前默认值为16（双机）。
-   
+
    ```
    export HCCL_BUFFSIZE=200
    # 当通过HCCL_WHITELIST_DISABLE开启了通信白名单校验功能时，需要通过此环境变量配置指向HCCL通信白名单配置文件的路径，只有在通信白名单中的IP地址才允许进行集合通信。
