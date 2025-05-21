@@ -4,7 +4,7 @@ mmdet==2.14.0
 mmsegmentation==0.14.1
 timm
 shapely==1.8.5.post1
-av2
+av2==0.2.1
 numba==0.58.1
 numpy==1.23.0
 ipython==8.12.3
