@@ -54,8 +54,6 @@ export TASK_QUEUE_ENABLE=2
 # 绑核
 export CPU_AFFINITY_CONF=1
 
-# 设置 Shape 数据缓存
-export HOST_CACHE_CAPACITY=20
 # 设置是否开启 combined 标志, 0-关闭/1-开启
 export COMBINED_ENABLE=1
 
