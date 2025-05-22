@@ -99,6 +99,12 @@ code_path=model_examples/PointPillar
       ```
 
    #### 3. 编译安装OpenPCDet
+   安装相关依赖
+   ```shell
+   pip install av2==0.2.1
+   pip install opencv-python-headless --force-reinstall
+   pip install numpy==1.23.5
+   ```
    在应用过patch的模型源码包根目录下执行相应命令
    ```
    python setup.py develop
