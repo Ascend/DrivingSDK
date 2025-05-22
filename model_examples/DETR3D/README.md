@@ -114,6 +114,7 @@ code_path=model_examples/DETR3D
   cd detr3d
   git checkout 34a47673011fe13593a3e594a376668acca8bddb
   git apply --reject --whitespace=fix detr3d.patch
+  cp -f ../test/ .
   pip install -r requirements.txt
   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
   cp -f ../mmdet3d.patch mmdetection3d
@@ -181,7 +182,7 @@ python3 mmdetection3d/tools/create_data.py nuscenes --root-path=./data/nuscenes 
 在模型根目录下，运行训练脚本。
 
 ```  
-cd model_examples/DETR3D
+cd model_examples/DETR3D/detr3d
 ```
 
 - 单机8卡性能
