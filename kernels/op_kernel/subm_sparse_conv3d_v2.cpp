@@ -31,7 +31,7 @@ constexpr int32_t MAP2_OFFSET_1 = 1;
 constexpr int32_t MAP2_OFFSET_2 = 2;
 constexpr int32_t MAP2_OFFSET_3 = 3;
 constexpr int32_t MAP2_OFFSET_4 = 4;
-constexpr float SPARSE_THRESHOLD = 0.5;
+constexpr float SPARSE_THRESHOLD = 0.01;
 };
 
 class KernelSubmSparseConv3dV2 {

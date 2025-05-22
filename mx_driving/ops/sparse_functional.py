@@ -77,8 +77,8 @@ class SparseConvFunction(Function):
 
 
 def generate_map(coors, origin_spatial_shape, bs, kernel_size):
-    spatial_shape = (origin_spatial_shape[0] + kernel_size[0], origin_spatial_shape[1] + kernel_size[1],
-                     origin_spatial_shape[2] + kernel_size[2])
+    spatial_shape = (origin_spatial_shape[0] + 2 * (kernel_size[0] // 2), origin_spatial_shape[1] + 2 * (kernel_size[1] // 2),
+                     origin_spatial_shape[2] + 2 * (kernel_size[2] // 2))
     coors[:, 1:] += kernel_size[0] // 2
     spatial_shape_size = spatial_shape[0] * spatial_shape[1] * spatial_shape[2]
 
