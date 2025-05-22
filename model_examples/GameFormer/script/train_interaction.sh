@@ -22,8 +22,6 @@ VALID_SET="/path/to/waymo/motion/validation_processed"
 export LD_PRELOAD=/usr/local/lib/libtcmalloc.so.4:$LIBGOMP_PATH
 # 配置算子二进制文件缓存数量
 export ACLNN_CACHE_LIMIT=1000000
-# 设置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
-export HOST_CACHE_CAPACITY=50
 # 设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2
 # 设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核

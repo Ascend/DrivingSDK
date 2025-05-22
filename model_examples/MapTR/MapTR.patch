@@ -1223,7 +1223,7 @@ index 96f244b..d6b1b6a 100644
          use_color=False,
          load_augmented=None,
 diff --git a/projects/mmdet3d_plugin/maptr/dense_heads/maptr_head.py b/projects/mmdet3d_plugin/maptr/dense_heads/maptr_head.py
-index 44fd988..d75efd7 100644
+index 44fd988..0e60d6b 100644
 --- a/projects/mmdet3d_plugin/maptr/dense_heads/maptr_head.py
 +++ b/projects/mmdet3d_plugin/maptr/dense_heads/maptr_head.py
 @@ -2,6 +2,8 @@ import copy
@@ -1243,23 +1243,36 @@ index 44fd988..d75efd7 100644
  
          self.with_box_refine = with_box_refine
          self.as_two_stage = as_two_stage
-@@ -198,6 +201,30 @@ class MapTRHead(DETRHead):
+@@ -135,6 +138,16 @@ class MapTRHead(DETRHead):
+         self.num_pts_per_vec = num_pts_per_vec
+         self.num_pts_per_gt_vec = num_pts_per_gt_vec
+         self._init_layers()
++        
++        self.world_size = int(os.environ['WORLD_SIZE'])
++        self.node_num = int(os.environ['GROUP_WORLD_SIZE'])
++        self.node_rank = int(os.environ['GROUP_RANK'])
++        self.nproc_per_node = int(os.environ['LOCAL_WORLD_SIZE'])
++        self.local_rank = int(os.environ['RANK'])
++        device="npu:{}".format(torch.cuda.current_device())
++        tensor = torch.tensor([self.nproc_per_node], device=device)
++        self.nproc_per_node_list = [torch.zeros_like(tensor).clone() for _ in range(self.world_size)]
++        dist.all_gather(self.nproc_per_node_list, tensor)
+ 
+     def _init_layers(self):
+         """Initialize classification branch and regression branch of head."""
+@@ -198,6 +211,26 @@ class MapTRHead(DETRHead):
          #     constant_init(m[-1], 0, bias=0)
          # nn.init.constant_(self.reg_branches[0][-1].bias.data[2:], 0.)
      
 +    def _init_hccl_groups(self):
-+        world_size = int(os.environ['WORLD_SIZE'])
-+        local_rank = int(os.environ['RANK'])
-+        nproc_per_node = int(os.environ.get('NPROC_PER_NODE',torch.npu.device_count()))
-+        node_num = world_size // nproc_per_node
-+        node_rank = local_rank // nproc_per_node
 +        self.groups = []
-+        for node_idx in range(node_num):
-+            group_i = list(range(node_idx * nproc_per_node, (node_idx + 1) * nproc_per_node))
++        node_idx_start = 0
++        for node_idx in range(self.node_num):
++            group_i = list(range(node_idx_start, self.nproc_per_node_list[node_idx_start]+node_idx_start))
 +            group_i = dist.new_group(group_i)
 +            self.groups.append(group_i)
-+        self.local_group = self.groups[node_rank]
-+        self.nproc_per_node = nproc_per_node
++            node_idx_start += self.nproc_per_node_list[node_idx_start]
++        self.local_group = self.groups[self.node_rank]
 +
 +    def reduce_mean_within_group(self, tensor):
 +        if not (dist.is_available() and dist.is_initialized()):
@@ -1274,43 +1287,25 @@ index 44fd988..d75efd7 100644
      # @auto_fp16(apply_to=('mlvl_feats'))
      @force_fp32(apply_to=('mlvl_feats', 'prev_bev'))
      def forward(self, mlvl_feats, lidar_feat, img_metas, prev_bev=None,  only_bev=False):
-@@ -516,6 +543,8 @@ class MapTRHead(DETRHead):
-         cls_scores_list = [cls_scores[i] for i in range(num_imgs)]
-         bbox_preds_list = [bbox_preds[i] for i in range(num_imgs)]
-         pts_preds_list = [pts_preds[i] for i in range(num_imgs)]
-+        world_size = int(os.environ['WORLD_SIZE'])
-+        nproc_per_node = int(os.environ.get('NPROC_PER_NODE',torch.npu.device_count()))
-         # import pdb;pdb.set_trace()
-         cls_reg_targets = self.get_targets(cls_scores_list, bbox_preds_list,pts_preds_list,
-                                            gt_bboxes_list, gt_labels_list,gt_shifts_pts_list,
-@@ -537,8 +566,12 @@ class MapTRHead(DETRHead):
+@@ -537,7 +570,7 @@ class MapTRHead(DETRHead):
          cls_avg_factor = num_total_pos * 1.0 + \
              num_total_neg * self.bg_cls_weight
          if self.sync_cls_avg_factor:
 -            cls_avg_factor = reduce_mean(
--                cls_scores.new_tensor([cls_avg_factor]))
-+            if world_size % nproc_per_node == 0:
-+                cls_avg_factor = self.reduce_mean_within_group(
-+                    cls_scores.new_tensor([cls_avg_factor]))
-+            else:
-+                cls_avg_factor = reduce_mean(
-+                    cls_scores.new_tensor([cls_avg_factor]))
++            cls_avg_factor = self.reduce_mean_within_group(
+                 cls_scores.new_tensor([cls_avg_factor]))
  
          cls_avg_factor = max(cls_avg_factor, 1)
-         loss_cls = self.loss_cls(
-@@ -547,7 +580,10 @@ class MapTRHead(DETRHead):
+@@ -547,7 +580,7 @@ class MapTRHead(DETRHead):
          # Compute the average number of gt boxes accross all gpus, for
          # normalization purposes
          num_total_pos = loss_cls.new_tensor([num_total_pos])
 -        num_total_pos = torch.clamp(reduce_mean(num_total_pos), min=1).item()
-+        if world_size % nproc_per_node == 0:
-+            num_total_pos = torch.clamp(self.reduce_mean_within_group(num_total_pos), min=1).item()
-+        else:
-+            num_total_pos = torch.clamp(reduce_mean(num_total_pos), min=1).item()
++        num_total_pos = torch.clamp(self.reduce_mean_within_group(num_total_pos), min=1).item()
  
          # import pdb;pdb.set_trace()
          # regression L1 loss
-@@ -612,6 +648,8 @@ class MapTRHead(DETRHead):
+@@ -612,6 +645,8 @@ class MapTRHead(DETRHead):
      @force_fp32(apply_to=('preds_dicts'))
      def loss(self,
               gt_bboxes_list,
@@ -1319,7 +1314,7 @@ index 44fd988..d75efd7 100644
               gt_labels_list,
               preds_dicts,
               gt_bboxes_ignore=None,
-@@ -646,8 +684,6 @@ class MapTRHead(DETRHead):
+@@ -646,8 +681,6 @@ class MapTRHead(DETRHead):
          assert gt_bboxes_ignore is None, \
              f'{self.__class__.__name__} only supports ' \
              f'for gt_bboxes_ignore setting to None.'
@@ -1328,7 +1323,7 @@ index 44fd988..d75efd7 100644
          all_cls_scores = preds_dicts['all_cls_scores']
          all_bbox_preds = preds_dicts['all_bbox_preds']
          all_pts_preds  = preds_dicts['all_pts_preds']
-@@ -656,43 +692,12 @@ class MapTRHead(DETRHead):
+@@ -656,43 +689,12 @@ class MapTRHead(DETRHead):
          enc_pts_preds  = preds_dicts['enc_pts_preds']
  
          num_dec_layers = len(all_cls_scores)

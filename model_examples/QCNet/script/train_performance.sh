@@ -9,8 +9,6 @@ export TASK_QUEUE_ENABLE=2
 export CPU_AFFINITY_CONF=1
 # 设置算子缓存数量，取值范围[1, 10000000]，默认值为10000，一般情况下保持默认即可
 export ACLNN_CACHE_LIMIT=500000
-#设置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
-export HOST_CACHE_CAPACITY=50
 
 # /path/to/datasets 请更改为存放数据的路径
 python QCNet/train_qcnet.py --root /path/to/datasets --train_batch_size 4 \
