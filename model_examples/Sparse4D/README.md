@@ -148,7 +148,7 @@
   wget https://download.pytorch.org/models/resnet50-19c8e357.pth -O ckpt/resnet50-19c8e357.pth
   ```
 ## 使用高性能内存库
-- 安装tcmalloc（可适用OS: openEuler）
+安装tcmalloc（适用OS: openEuler）
 ```
 mkdir gperftools
 cd gperftools
@@ -164,6 +164,25 @@ export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
 export PATH=/usr/local/lib/bin:$PATH
 export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
 ```
+注意：需要安装OS对应tcmalloc版本（以下以ubuntu为例）
+- 下载以下三个文件：
+  - libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+  - libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+  - libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+
+    (参考下载链接：http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)
+
+- 安装：
+    ```
+    sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+    sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+    sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+    find /usr -name libtcmalloc.so*
+    ```
+- 把上述find指令输出的路径记作 `libtcmalloc_root_dir`
+    ```
+    export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
+    ```
 # 快速开始
 
 ## 训练模型
@@ -206,7 +225,7 @@ bash test/train_multi_server.sh 8 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
 
 2025.4.22： 更新训练脚本，刷新性能数据。
 
-2025.5.6: 增加多机多卡训练脚本，增加多机多卡训练性能数据。
+2025.5.6：增加多机多卡训练脚本，增加多机多卡训练性能数据。
 
 ## FAQ
 暂无。
