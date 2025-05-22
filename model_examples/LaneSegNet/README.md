@@ -110,28 +110,29 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   export PATH=/usr/local/lib/bin:$PATH
   export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
   ```
-  
+
   - Ubuntu系统
 
-  参考[下载链接](http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)，下载三个文件。
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
-    libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
-
-    libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-
-    libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
-
-  安装三个文件：
+  安装libunwind依赖：
   ```
-  sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
-  sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-  sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
-  find /usr -name libtcmalloc.so*
+  git clone https://github.com/libunwind/libunwind.git
+  cd libunwind
+  autoreconf -i
+  ./configure --prefix=/usr/local
+  make -j128
+  make install
   ```
 
-  将find指令的输出路径记为libtomalloc_dir，执行下列文件使用tcmalloc动态库。
+  安装tcmalloc动态库：
   ```
-  export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make -j128
+  make install
+  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
   ```
 
 7. Python编译优化
@@ -257,6 +258,8 @@ data/OpenLane-V2
 
 
 ## 变更
+
+2025.05.22：更新Ubuntu系统安装tcmalloc高性能内存库的方式。
 
 2025.04.25：更新模型性能数据。
 

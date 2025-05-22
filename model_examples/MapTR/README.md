@@ -128,26 +128,28 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   ```
   - Ubuntu系统
 
-  参考[下载链接](http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)，下载三个文件。
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
-    libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
-
-    libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-
-    libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
-
-  安装三个文件：
+  安装libunwind依赖：
   ```
-  sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
-  sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-  sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
-  find /usr -name libtcmalloc.so*
+  git clone https://github.com/libunwind/libunwind.git
+  cd libunwind
+  autoreconf -i
+  ./configure --prefix=/usr/local
+  make -j128
+  make install
   ```
 
-  将find指令的输出路径记为libtomalloc_dir，执行下列文件使用tcmalloc动态库。
+  安装tcmalloc动态库：
   ```
-  export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make -j128
+  make install
+  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
   ```
+
 7. 编译优化
 
   编译优化是指通过毕昇编译器的LTO和PGO编译优化技术，源码构建编译Python、PyTorch、torch_npu（Ascend Extension for PyTorch）三个组件，有效提升程序性能。
@@ -256,7 +258,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   ```
   pip3.8 install /dist/*.whl --force-reinstall --no-deps
   cd ../
-  git clone -b v2.1.0 https://gitee.com/ascend/pytorch.git torch_npu
+  git clone -b v2.1.0-7.0.0 https://gitee.com/ascend/pytorch.git torch_npu
   cd torch_npu
   git clean -dfx
   bash ci/build.sh --python=3.8 --enable_lto
@@ -311,6 +313,7 @@ MapTR
 > **说明：**
 > nuscenes数据集下的文件，通过运行以下指令生成：
 ```
+pip install nuscenes-devkit
 python tools/create_data.py nuscenes --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data
 ```
 
@@ -407,6 +410,8 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 | Atlas 800T A2*2 |  16p  |         64         |   fp32    |  1   | - |         66.3         |   95.12%   |
 
 # 变更说明
+
+2025.05.22：更新Ubuntu系统安装tcmalloc高性能内存库的方式。
 
 2025.04.17：优化模型性能打屏格式，修改Torch2.1.0适配的依赖包版本。
 

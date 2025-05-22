@@ -241,6 +241,7 @@ wget --no-check-certificate https://github.com/wenjie710/PivotNet/releases/downl
 
 ```
 cd /path/to/pivotnet
+pip install nuscenes-devkit
 python3 tools/anno_converter/nuscenes/convert.py -d .data/nuscenes
 ```
 
