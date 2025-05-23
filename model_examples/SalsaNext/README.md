@@ -116,7 +116,7 @@ git apply --whitespace=fix salsanext.patch
 
 0. 准备容器
 
-   拉取镜像
+   拉取镜像，本部分提供镜像内torch2.1.0环境为python3.9，若自主创建环境需要使用python>=3.9
    ```
    wget --no-check-certificate https://cmc-szver-artifactory.cmc.tools.huawei.com/artifactory/cmc-sz-inner/FrameworkPTAdapter/FrameworkPTAdapter%207/FrameworkPTAdapter%207.0.RC1.B030/DrivingSDK/DrivingSDK_7.0.RC1.tar
    ```
