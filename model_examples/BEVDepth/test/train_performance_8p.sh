@@ -82,7 +82,7 @@ e2e_time=$(( $end_time - $start_time ))
 #结果打印，不需要修改
 echo "------------------ Final result ------------------"
 #输出性能FPS，需要模型审视修改
-step_time=`grep -oP "(?:Epoch \d+: 100%.+,  )(\d+\.\d+)(?:s/it)" "$test_path_dir/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log" | awk -F "," '{print $2}' | grep -oP "\d+\.\d+" |  awk '{sum += $1; count++} END {print sum/count}'`
+step_time=$(grep -oP "Epoch \d+: 100%.*?\[\d+:\d+<[^,]*,\s*\K\d+\.\d+(s/it|it/s)" "$test_path_dir/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log" | awk '{split($0,a,/(s\/it|it\/s)/); val=a[1]; unit=(a[2]~/it\/s/)?"it/s":"s/it"; sum += (unit=="it/s")?1/val:val; count++} END{print (count)?sum/count:0}')
 FPS=`awk 'BEGIN{printf "%.2f\n", '$batch_size'/'$step_time'*'$RANK_SIZE'}'`
 #每回合训练迭代数，计数从0开始，需补1
 train_iteration=`grep 'step_time' $test_path_dir/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -1 | awk -F 'id ' '{print $2}' | awk -F ' step' '{print $1}'`
