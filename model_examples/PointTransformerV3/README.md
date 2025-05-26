@@ -113,7 +113,7 @@ code_path=model_examples/PointTransformerV3
 3. 将数据集和预处理结果放置到模型目录下，info为数据预处理结果目录，文件结构排布如下：
     ```
     data
-    |──nuscene
+    |──nuscenes
     |    |──── raw
     |    |    │── samples
     |    |    │── sweeps
@@ -121,7 +121,7 @@ code_path=model_examples/PointTransformerV3
     |    |    ...
     |    |    │── v1.0-trainval
     |    |    │── v1.0-test
-    |──── info
+    |    |──── info
     ```
 
 ## 快速开始
