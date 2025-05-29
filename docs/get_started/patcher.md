@@ -63,8 +63,9 @@ with default_patcher_builder.disable_patches("msda", "index").build() as patcher
 ## 7. 模型训练中使用patcher
 以BEVFormer模型为例，举例说明一键patcher在训练过程中的具体使用方法。
 
-### 在tools目录下(train.py同层)创建patch.py文件
-patch.py中定义专属于BEVFomer模型的patcher修改
+### 创建patch.py文件
+patch.py中定义专属于BEVFormer模型的patcher修改。
+将patch.py文件移动到BEVFormer模型tools/目录下（与train.py同层）。
 ```python
 from types import ModuleType
 from typing import Dict
@@ -86,6 +87,7 @@ bev_former_patcher_builder = (
 ```
 
 ### 将patcher应用于训练过程
+修改train.py文件使能一键patcher特性
 首先import自定义的patcher实例。
 ```python
 from patch import bev_former_patcher_builder
