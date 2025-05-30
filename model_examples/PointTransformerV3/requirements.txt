@@ -13,3 +13,4 @@ torch-geometric
 ftfy
 regex
 tqdm
+termcolor
