@@ -148,7 +148,7 @@
   wget https://download.pytorch.org/models/resnet50-19c8e357.pth -O ckpt/resnet50-19c8e357.pth
   ```
 ## 使用高性能内存库
-安装tcmalloc（适用OS: openEuler）
+安装tcmalloc（适用OS: __openEuler__）
 ```
 mkdir gperftools
 cd gperftools
@@ -164,25 +164,29 @@ export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
 export PATH=/usr/local/lib/bin:$PATH
 export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
 ```
-注意：需要安装OS对应tcmalloc版本（以下以ubuntu为例）
-- 下载以下三个文件：
-  - libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
-  - libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-  - libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+注意：需要安装OS对应tcmalloc版本（以下以 __Ubuntu__ 为例）
+```
+# 安装autoconf和libtool
+apt-get update
+apt install autoconf
+apt install libtool
+git clone https://github.com/libunwind/libunwind.git
+cd libunwind
+autoreconf -i
+./configure --prefix=/usr/local
+make -j128
+make install
+cd ..
 
-    (参考下载链接：http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)
+# 安装tcmalloc
+wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+make -j128
+make install
+export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+```
 
-- 安装：
-    ```
-    sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
-    sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-    sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
-    find /usr -name libtcmalloc.so*
-    ```
-- 把上述find指令输出的路径记作 `libtcmalloc_root_dir`
-    ```
-    export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
-    ```
 # 快速开始
 
 ## 训练模型
