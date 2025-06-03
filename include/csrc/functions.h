@@ -288,7 +288,7 @@ at::Tensor min_area_polygons(const at::Tensor& pointsets);
 
 std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& feature,
     const at::Tensor& indices, const at::Tensor& map1, const at::Tensor& map2, at::IntArrayRef kernel_size, int in_channels,
-    at::IntArrayRef out_spatial_shape, int batch_size);
+    at::IntArrayRef out_spatial_shape, int batch_size, double sparse_rate);
 
 std::tuple<at::Tensor, at::Tensor> radius(at::Tensor& x, at::Tensor& y, at::Tensor& ptr_x, at::Tensor& ptr_y, double r, int max_num_neighbors);
 

@@ -16,6 +16,8 @@ const uint32_t ATTR_KERNELS_IDX = 0;
 const uint32_t ATTR_IN_CHANNELS_IDX = 1;
 const uint32_t ATTR_SPATIAL_SHAPE_IDX = 2;
 const uint32_t ATTR_BATCH_SIZE_IDX = 3;
+const uint32_t ATTR_SPARSE_RATE_IDX = 4;
+
 const uint32_t TOTAL_TASK_DIM_IDX = 0;
 
 const uint32_t KERNEL_SIZE_IDX_0 = 0;
@@ -63,7 +65,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     auto outSpatialShapePtr = attrsPtr->GetAttrPointer<gert::ContinuousVector>(ATTR_SPATIAL_SHAPE_IDX);
     auto inChannelsPtr = attrsPtr->GetAttrPointer<int32_t>(ATTR_IN_CHANNELS_IDX);
     auto batchSizePtr = attrsPtr->GetAttrPointer<int32_t>(ATTR_BATCH_SIZE_IDX);
-    if (kernelSizePtr == nullptr || outSpatialShapePtr == nullptr || inChannelsPtr == nullptr || batchSizePtr == nullptr) {
+    auto sparseRatePtr = attrsPtr->GetAttrPointer<float>(ATTR_SPARSE_RATE_IDX);
+    if (kernelSizePtr == nullptr || outSpatialShapePtr == nullptr || inChannelsPtr == nullptr
+        || batchSizePtr == nullptr || sparseRatePtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -72,10 +76,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t totalTaskCount = featureShapeArr.GetDim(TOTAL_TASK_DIM_IDX);
     uint32_t coreTaskCount = totalTaskCount / aivNum;
     uint32_t bigCoreCount = totalTaskCount % aivNum;
-    int32_t kernelSizeAligned = CeilAlign(static_cast<int32_t>(kernelSizeArr[KERNEL_SIZE_IDX_0] * kernelSizeArr[KERNEL_SIZE_IDX_1] *
-        kernelSizeArr[KERNEL_SIZE_IDX_2]), BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE);
+    int32_t kernelSize = kernelSizeArr[KERNEL_SIZE_IDX_0] * kernelSizeArr[KERNEL_SIZE_IDX_1] * kernelSizeArr[KERNEL_SIZE_IDX_2];
+    int32_t kernelSizeAligned = CeilAlign(kernelSize, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE);
+    int32_t inChannelsAligned = CeilAlign(*inChannelsPtr, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE);
     uint32_t singleLoopTask = ubSize / (SINGLE_LOOP_UB_SIZE +
-        CeilAlign(*inChannelsPtr, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE +
+        CeilAlign(inChannelsAligned * kernelSize, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE +
         CeilAlign(kernelSizeAligned, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE);
 
     tiling.set_k0(kernelSizeArr[KERNEL_SIZE_IDX_0]);
@@ -87,11 +92,12 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     tiling.set_batchSize(*batchSizePtr);
     tiling.set_inChannels(*inChannelsPtr);
+    tiling.set_sparseRate(*sparseRatePtr);
     tiling.set_coreTaskCount(coreTaskCount);
     tiling.set_bigCoreCount(bigCoreCount);
     tiling.set_singleLoopTask(singleLoopTask);
     tiling.set_totalTaskCount(totalTaskCount);
-    
+
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -189,6 +195,9 @@ public:
         this->Attr("batch_size")
             .AttrType(REQUIRED)
             .Int();
+        this->Attr("sparse_rate")
+            .AttrType(REQUIRED)
+            .Float();
 
         this->SetInferShape(ge::InferShape);
         this->AICore()
