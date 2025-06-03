@@ -171,15 +171,12 @@ python setup.py develop
 
 ### 准备数据集
 1. 下载nuScenes数据集，请自行前往nuScenes官方网站下载3D目标检测数据集
-2. 下载训练数据集data目录
-   1. 克隆OpenPCDet源码：`git clone https://github.com/open-mmlab/OpenPCDet.git`
-   2. 将OpenPCDet源码的data目录复制到本仓的OpenPCDet工程目录下
-3. 下载解压的nuScenes数据集，并按照如下方式组织：
+2. 下载解压的nuScenes数据集，并按照如下方式组织：
     ```
     OpenPCDet
     ├── data
     │   ├── nuscenes
-    │   │   │── v1.0-trainval (or v1.0-mini if you use mini)
+    │   │   │── v1.0-trainval
     │   │   │   │── samples
     │   │   │   │── sweeps
     │   │   │   │── maps
@@ -187,14 +184,14 @@ python setup.py develop
     ├── pcdet
     ├── tools
     ```
-4. 安装数据处理相关依赖
+3. 安装数据处理相关依赖
     ```shell
     pip install nuscenes-devkit==1.0.5
     pip install av2==0.2.1
     pip install kornia==0.5.8
     pip install opencv-python-headless --force-reinstall
     ```
-5. 进入应用过patch文件的OpenPCDet的根目录, 执行数据预处理脚本，生成序列化数据集
+4. 进入应用过patch文件的OpenPCDet的根目录, 执行数据预处理脚本，生成序列化数据集
     ```shell
     cd ./OpenPCDet/
     python -m pcdet.datasets.nuscenes.nuscenes_dataset --func create_nuscenes_infos --cfg_file tools/cfgs/dataset_configs/nuscenes_dataset.yaml --version v1.0-trainval
@@ -351,15 +348,12 @@ python setup.py develop
 
 ### 准备数据集
 1. 下载nuScenes数据集，请自行前往nuScenes官方网站下载3D目标检测数据集
-2. 下载训练数据集data目录
-   1. 克隆OpenPCDet源码：`git clone https://github.com/open-mmlab/OpenPCDet.git`
-   2. 将OpenPCDet源码的data目录复制到本仓的OpenPCDet工程目录下
-3. 下载解压的nuScenes数据集，并按照如下方式组织：
+2. 下载解压的nuScenes数据集，并按照如下方式组织：
     ```
     OpenPCDet
     ├── data
     │   ├── nuscenes
-    │   │   │── v1.0-trainval (or v1.0-mini if you use mini)
+    │   │   │── v1.0-trainval
     │   │   │   │── samples
     │   │   │   │── sweeps
     │   │   │   │── maps
@@ -367,14 +361,14 @@ python setup.py develop
     ├── pcdet
     ├── tools
     ```
-4. 安装数据处理相关依赖
+3. 安装数据处理相关依赖
     ```shell
     pip install nuscenes-devkit==1.0.5
     pip install av2==0.2.1
     pip install kornia==0.5.8
     pip install opencv-python-headless --force-reinstall
     ```
-5. 进入应用过patch文件的OpenPCDet的根目录, 执行数据预处理脚本，生成序列化数据集
+4. 进入应用过patch文件的OpenPCDet的根目录, 执行数据预处理脚本，生成序列化数据集
     ```shell
     cd ./OpenPCDet/
     python -m pcdet.datasets.nuscenes.nuscenes_dataset --func create_nuscenes_infos --cfg_file tools/cfgs/dataset_configs/nuscenes_dataset.yaml --version v1.0-trainval
@@ -412,7 +406,7 @@ python setup.py develop
 | Exp | global batchsize | FPS |
 | - | - | - |
 | 8p-竞品A | 32 | 48.48 |
-| 8p-Atlas 800T A2| 32 | 28.881 |
+| 8p-Atlas 800T A2| 32 | 33.23 |
 
 ## FAQ
 ### ImportError:/usr/local/gcc-7.5.0/lib64/libgomp.so.1:cannot allocate memory in static TLS block,
@@ -463,3 +457,4 @@ pip install -r 2.5_requirements.txt
 [2025-02-18] **NEW:** CenterPoint2d模型增加PT2.5相关依赖.
 [2025-03-12] **NEW:** CenterPoint仓CenterHead模块性能优化，并提供高性能内存库安装指导，更新了CenterPoint3d的性能数据
 [2025-04-21] **NEW:** CenterPoint2d模型优化fps计算方式，乘以卡数，更新性能指标，readme中添加global batch size
+[2025-05-29] **NEW:** CenterPoint3d模型优化，更新性能

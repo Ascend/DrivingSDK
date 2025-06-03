@@ -38,4 +38,6 @@ export TASK_QUEUE_ENABLE=2
 export COMBINED_ENABLE=1
 #HCCL白名单开关,1-关闭/0-开启
 export HCCL_WHITELIST_DISABLE=1
+#优化缓存分配
+export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
 
