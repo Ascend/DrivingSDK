@@ -172,16 +172,20 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 
   在[Python源码下载地址](https://www.python.org/downloads/source/)下载对应版本的Python源码并解压。
 
-  以Python 3.8.17为例：
+  以Python 3.9.18为例：
   ```
-  tar -xvf Python-3.8.17.tgz
-  cd Python-3.8.17
+  tar -xvf Python-3.9.18.tgz
+  cd Python-3.9.18
   export CC=clang
   export CXX=clang++
   ./configure --prefix=python_path > --with-lto --enable-optimizations
   make -j
   make install
   ```
+
+  - PyTorch和torch_npu编译优化
+
+  根据[PyTorch编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0064.html)和[torch_npu编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0065.html)，基于Python3.9和PyTorch2.1编译优化PyTorch和torch_npu。
 
 8. 设置LaneSegNet
   ```
@@ -254,10 +258,12 @@ data/OpenLane-V2
 |  NAME       | Backbone    |   训练方式     |     Epoch    |    global_batch_size      |    mAP      |     FPS      |
 |-------------|-------------------|-----------------|---------------|--------------|--------------|--------------|
 |  8p-竞品A   | R50       |       FP32    |        24     |      8    |        32.27   |      23.75    |
-|  8p-Atlas 800T A2   | R50      |       FP32    |        24     |      8    |        32.44   |      13.76    |
+|  8p-Atlas 800T A2   | R50      |       FP32    |        24     |      8    |        32.44   |      15.19    |
 
 
 ## 变更
+
+2025.06.03：优化模型性能。
 
 2025.05.22：更新Ubuntu系统安装tcmalloc高性能内存库的方式。
 

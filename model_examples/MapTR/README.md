@@ -219,7 +219,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   cd /usr/local/bin/
   ln -s /opt/_internal/cpython-3.7.17/bin/pip3.7 pip3.7
   ln -s /opt/_internal/cpython-3.8.17/bin/pip3.8 pip3.8
-  ln -s /opt/internal/cpython-3.9.17/bin/pip3.9 pip3.9
+  ln -s /opt/_internal/cpython-3.9.17/bin/pip3.9 pip3.9
   ln -s python3.8 python3
   ```
 
