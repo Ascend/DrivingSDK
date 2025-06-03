@@ -95,6 +95,50 @@
     cd ..
     ```
 
+4. 根据操作系统，安装tcmalloc动态库。
+
+  - OpenEuler系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+  ```
+  mkdir gperftools
+  cd gperftools
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -zvxf gperftools-2.16.tar.gz
+  cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make
+  make install
+  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+  ldconfig
+  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+  export PATH=/usr/local/lib/bin:$PATH
+  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+  - Ubuntu系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+
+  安装libunwind依赖：
+  ```
+  git clone https://github.com/libunwind/libunwind.git
+  cd libunwind
+  autoreconf -i
+  ./configure --prefix=/usr/local
+  make -j128
+  make install
+  ```
+
+  安装tcmalloc动态库：
+  ```
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make -j128
+  make install
+  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+  ```
+
 ### 准备数据集
 
 1. 下载[NuPlan数据集](https://www.nuscenes.org/nuplan#download)，并将数据集结构排布成如下格式：
@@ -179,9 +223,9 @@
 |    芯片    | 卡数 | global batch size | Precision | epoch | plannerADE | plannerFDE | plannerAHE | plannerFHE | predictorADE | predictorFDE | 性能-单步迭代耗时(ms) | 性能-FPS |
 |:---------:|:----:|:-----------------:|:--------:|:-----:|:---------:|:---------:|:---------:|:---------:|:-----------:|:-----------:|:--------------------:|:--------------------:|
 |   竞品A   |  8p  |       4096        |   fp32   |  30   |   1.17    |   3.11    |   0.10    |   0.07    |    0.70     |    1.30     |         790          |         5185          |
-| Atlas 800T A2 |  8p  |       4096        |   fp32   |  30   |   1.16    |   3.10    |   0.10    |   0.07    |    0.69     |    1.29     |         965          |         4244          |
+| Atlas 800T A2 |  8p  |       4096        |   fp32   |  30   |   1.17    |   3.10    |   0.10    |   0.07    |    0.69     |    1.29     |         770          |         5319          |
 |   竞品A   |  8p  |       2048        |   fp32   |  30   |   1.07    |   2.78    |   0.14    |   0.06    |    0.55     |    1.10     |         440          |         4655          |
-| Atlas 800T A2 |  8p  |       2048        |   fp32   |  30   |   1.05    |   2.79    |   0.09    |   0.06    |    0.54     |    1.07     |         647          |         3165          |
+| Atlas 800T A2 |  8p  |       2048        |   fp32   |  30   |   1.05    |   2.79    |   0.09    |   0.06    |    0.54     |    1.07     |         421          |         4865          |
 
 - 多机多卡线性度                          
 
@@ -198,9 +242,12 @@
 
 2025.04.24: 更新性能数据和FPS计算方式
 
-2025.04.28:更新8卡性能数据和多机线性度
+2025.04.28: 更新8卡性能数据和多机线性度
 
-2025.05.08:更新FPS数据
+2025.05.08: 更新FPS数据
+
+2025.06.03: 性能优化，更新8p性能
+
 # FAQ
 
 1. 镜像中可能由于不支持awk的扩展正则表达式导致出现`syntax error at or near`，需要在镜像中安装gawk解决

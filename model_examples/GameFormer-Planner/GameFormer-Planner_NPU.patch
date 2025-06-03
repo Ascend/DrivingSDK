@@ -439,22 +439,23 @@ index 0000000..bbc3c6e
 +) -> Tuple[Tensor, Tensor, Tensor]:
 +    return F.linear(q, w_q, b_q), F.linear(k, w_k, b_k), F.linear(v, w_v, b_v)
 diff --git a/GameFormer/predictor.py b/GameFormer/predictor.py
-index 62bf5e6..9da79fa 100644
+index 62bf5e6..7d08bd5 100644
 --- a/GameFormer/predictor.py
 +++ b/GameFormer/predictor.py
-@@ -1,5 +1,10 @@
+@@ -1,5 +1,11 @@
 +# Copyright(c) 2023 Zhiyu Huang
 +
  import torch
 -from .predictor_modules import *
 +import torch.nn as nn
 +import torch.nn.functional as F
++import mx_driving
 +from .predictor_modules import AgentEncoder, VectorMapEncoder, FutureEncoder, InitialPredictionDecoder, InteractionDecoder, CrossTransformer
 +from .npu_fused_modules import NpuFusedTransformerEncoderLayer
  
  
  class Encoder(nn.Module):
-@@ -13,7 +18,7 @@ class Encoder(nn.Module):
+@@ -13,7 +19,7 @@ class Encoder(nn.Module):
          self.ego_encoder = AgentEncoder(agent_dim=7)
          self.lane_encoder = VectorMapEncoder(self._lane_feature, self._lane_len)
          self.crosswalk_encoder = VectorMapEncoder(self._crosswalk_feature, self._crosswalk_len)
@@ -463,12 +464,37 @@ index 62bf5e6..9da79fa 100644
                                                       activation=F.gelu, dropout=dropout, batch_first=True)
          self.fusion_encoder = nn.TransformerEncoder(attention_layer, layers, enable_nested_tensor=False)
  
-@@ -38,10 +43,10 @@ class Encoder(nn.Module):
+@@ -21,13 +27,20 @@ class Encoder(nn.Module):
+         # agents
+         ego = inputs['ego_agent_past']
+         neighbors = inputs['neighbor_agents_past']
+-        actors = torch.cat([ego[:, None, :, :5], neighbors[..., :5]], dim=1)
++        
++        # 批量处理所有邻居Agent
++        batch_size, num_neighbors = neighbors.shape[0], neighbors.shape[1]
++        neighbors_reshaped = neighbors.view(-1, *neighbors.shape[2:])  # (batch*num_neighbors, time_steps, 11)
++        
++        encoded_neighbors = self.agent_encoder(neighbors_reshaped)
++        encoded_neighbors = encoded_neighbors.view(batch_size, num_neighbors, -1)  # (batch, num_neighbors, dim)
+ 
+         # agent encoding
+         encoded_ego = self.ego_encoder(ego)
+-        encoded_neighbors = [self.agent_encoder(neighbors[:, i]) for i in range(neighbors.shape[1])]
+-        encoded_actors = torch.stack([encoded_ego] + encoded_neighbors, dim=1)
+-        actors_mask = torch.eq(actors[:, :, -1].sum(-1), 0)
++        encoded_actors = torch.cat([encoded_ego.unsqueeze(1), encoded_neighbors], dim=1)  # (batch, 1+num_neighbors, dim)
++
++        actors = torch.cat([ego[:, None, :, :5], neighbors[..., :5]], dim=1)
++        actors_mask = (actors[..., -1].sum(dim=-1) == 0)  # (batch_size, num_agents)
+ 
+         # vector maps
+         map_lanes = inputs['map_lanes']
+@@ -38,10 +51,10 @@ class Encoder(nn.Module):
          encoded_map_crosswalks, crosswalks_mask = self.crosswalk_encoder(map_crosswalks)
  
          # attention fusion encoding
 -        input = torch.cat([encoded_actors, encoded_map_lanes, encoded_map_crosswalks], dim=1)
-+        input_data = torch.cat([encoded_actors, encoded_map_lanes, encoded_map_crosswalks], dim=1)
++        input_data = torch.cat([encoded_actors, encoded_map_lanes, encoded_map_crosswalks], dim=1).contiguous()
          mask = torch.cat([actors_mask, lanes_mask, crosswalks_mask], dim=1)
  
 -        encoding = self.fusion_encoder(input, src_key_padding_mask=mask)
@@ -476,18 +502,17 @@ index 62bf5e6..9da79fa 100644
  
          # outputs
          encoder_outputs = {
-@@ -77,8 +82,8 @@ class Decoder(nn.Module):
+@@ -77,8 +90,7 @@ class Decoder(nn.Module):
          decoder_outputs['level_0_scores'] = last_score
          
          # level k reasoning
 -        for k in range(1, self.levels+1):
 -            interaction_decoder = self.interaction_stage[k-1]
-+        for k in range(1, self.levels + 1):
-+            interaction_decoder = self.interaction_stage[k - 1]
++        for k, interaction_decoder in enumerate(self.interaction_stage, start=1):
              last_content, last_level, last_score = interaction_decoder(current_states, last_level, last_score, last_content, encoding, mask)
              decoder_outputs[f'level_{k}_interactions'] = last_level
              decoder_outputs[f'level_{k}_scores'] = last_score
-@@ -93,7 +98,7 @@ class NeuralPlanner(nn.Module):
+@@ -93,7 +105,7 @@ class NeuralPlanner(nn.Module):
          super(NeuralPlanner, self).__init__()
          self._future_len = 80
          self.route_fusion = CrossTransformer()
@@ -496,16 +521,13 @@ index 62bf5e6..9da79fa 100644
          self.route_encoder = VectorMapEncoder(3, 50)
  
      def dynamics_layer(self, controls, initial_state):       
-@@ -101,13 +106,18 @@ class NeuralPlanner(nn.Module):
+@@ -101,13 +113,15 @@ class NeuralPlanner(nn.Module):
          max_a = 5 # vehicle's accleration limits [m/s^2]
          max_d = 0.5 # vehicle's steering limits [rad]
          
 -        vel_init = torch.hypot(initial_state[..., 3], initial_state[..., 4])
 +        # new implementation since hypot is not supported by NPU
-+        vel_init = torch.sqrt(torch.pow(initial_state[..., 3], 2) \
-+                         + torch.pow(initial_state[..., 4], 2))
-+
-+        # vel_init = torch.hypot(initial_state[..., 3], initial_state[..., 4])
++        vel_init = mx_driving.hypot(initial_state[..., 3], initial_state[..., 4])
 +
          vel = vel_init[:, None] + torch.cumsum(controls[..., 0].clamp(-max_a, max_a) * dt, dim=-1)
          vel = torch.clamp(vel, min=0)
@@ -517,7 +539,7 @@ index 62bf5e6..9da79fa 100644
  
          vel_x = vel * torch.cos(yaw)
          vel_y = vel * torch.sin(yaw)
-@@ -119,7 +129,11 @@ class NeuralPlanner(nn.Module):
+@@ -119,7 +133,11 @@ class NeuralPlanner(nn.Module):
  
      def forward(self, env_encoding, route_lanes, initial_state):
          route_lanes, mask = self.route_encoder(route_lanes)
@@ -1357,10 +1379,10 @@ index 9e41299..1c709a2 100644
      scenarios = builder.get_scenarios(scenario_filter, worker)
      del worker, scenario_filter, scenario_mapping
 diff --git a/train_predictor.py b/train_predictor.py
-index 3dbd57d..c128d1c 100644
+index 3dbd57d..a202691 100644
 --- a/train_predictor.py
 +++ b/train_predictor.py
-@@ -1,53 +1,85 @@
+@@ -1,53 +1,86 @@
 +# Copyright(c) 2023 Zhiyu Huang
 +# Copyright 2024 Huawei Technologies Co., Ltd
 +
@@ -1392,6 +1414,7 @@ index 3dbd57d..c128d1c 100644
 +from torch_npu.optim import NpuFusedAdam
  
 -def train_epoch(data_loader, model, optimizer):
++
 +
 +def train_epoch(data_loader, model, optimizer, epoch_idx, profiling_step):
      epoch_loss = []
@@ -1480,7 +1503,7 @@ index 3dbd57d..c128d1c 100644
  
      # show metrics
      epoch_metrics = np.array(epoch_metrics)
-@@ -55,10 +87,9 @@ def train_epoch(data_loader, model, optimizer):
+@@ -55,10 +88,9 @@ def train_epoch(data_loader, model, optimizer):
      planningAHE, planningFHE = np.mean(epoch_metrics[:, 2]), np.mean(epoch_metrics[:, 3])
      predictionADE, predictionFDE = np.mean(epoch_metrics[:, 4]), np.mean(epoch_metrics[:, 5])
      epoch_metrics = [planningADE, planningFDE, planningAHE, planningFHE, predictionADE, predictionFDE]
@@ -1494,7 +1517,7 @@ index 3dbd57d..c128d1c 100644
      return np.mean(epoch_loss), epoch_metrics
  
  
-@@ -71,15 +102,15 @@ def valid_epoch(data_loader, model):
+@@ -71,15 +103,15 @@ def valid_epoch(data_loader, model):
          for batch in data_epoch:
             # prepare data
              inputs = {
@@ -1517,7 +1540,7 @@ index 3dbd57d..c128d1c 100644
              neighbors_future_valid = torch.ne(neighbors_future[..., :2], 0)
  
              # call the mdoel
-@@ -94,62 +125,85 @@ def valid_epoch(data_loader, model):
+@@ -94,62 +126,88 @@ def valid_epoch(data_loader, model):
              metrics = motion_metrics(ego_plan, prediction, ego_future, neighbors_future, neighbors_future_valid)
              epoch_metrics.append(metrics)
              epoch_loss.append(loss.item())
@@ -1548,21 +1571,24 @@ index 3dbd57d..c128d1c 100644
  
 -def model_training():
 +def model_training(args_, local_rank_):
++    torch.npu.config.allow_internal_format = False
++    torch.npu.set_compile_mode(jit_compile=False)
++    
      # Logging
 -    log_path = f"./training_log/{args.name}/"
 +    log_path = f"./training_log/{args_.name}/"
      os.makedirs(log_path, exist_ok=True)
 -    initLogging(log_file=log_path+'train.log')
 +    initLogging(log_file=log_path + 'train.log')
++
++    # ddp setup
++    dist.init_process_group(backend='nccl')
++    torch.cuda.set_device(local_rank_)
  
 -    logging.info("------------- {} -------------".format(args.name))
 -    logging.info("Batch size: {}".format(args.batch_size))
 -    logging.info("Learning rate: {}".format(args.learning_rate))
 -    logging.info("Use device: {}".format(args.device))
-+    # ddp setup
-+    dist.init_process_group(backend='nccl')
-+    torch.cuda.set_device(local_rank_)
-+
 +    if local_rank_ == 0:
 +        logging.info("------------- %s -------------", args_.name)
 +        logging.info("Batch size: %s", args_.batch_size)
@@ -1580,14 +1606,14 @@ index 3dbd57d..c128d1c 100644
 +    model = GameFormer(encoder_layers=args_.encoder_layers, decoder_levels=args_.decoder_levels, neighbors=args_.num_neighbors)
 +    if local_rank_ == 0:
 +        logging.info("Model Params: %d", sum(p.numel() for p in model.parameters()))
-+
-+    device = '{}:{}'.format(args_.device, local_rank_)
-+    model = model.to(device)
-+    model = DDP(model, device_ids=[local_rank_])
  
 -    # set up optimizer
 -    optimizer = optim.AdamW(gameformer.parameters(), lr=args.learning_rate)
 -    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 12, 14, 16, 18], gamma=0.5)
++    device = '{}:{}'.format(args_.device, local_rank_)
++    model = model.to(device)
++    model = DDP(model, device_ids=[local_rank_])
++
 +    # use NPU fused optimizer
 +    optimizer = NpuFusedAdam(model.parameters(), lr=args_.learning_rate)
 +    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[10, 13, 16, 19, 22, 25, 28], gamma=0.5)
@@ -1632,7 +1658,7 @@ index 3dbd57d..c128d1c 100644
                 'train-planningADE': train_metrics[0], 'train-planningFDE': train_metrics[1], 
                 'train-planningAHE': train_metrics[2], 'train-planningFHE': train_metrics[3], 
                 'train-predictionADE': train_metrics[4], 'train-predictionFDE': train_metrics[5],
-@@ -157,39 +211,48 @@ def model_training():
+@@ -157,39 +215,48 @@ def model_training():
                 'val-planningAHE': val_metrics[2], 'val-planningFHE': val_metrics[3],
                 'val-predictionADE': val_metrics[4], 'val-predictionFDE': val_metrics[5]}
  
