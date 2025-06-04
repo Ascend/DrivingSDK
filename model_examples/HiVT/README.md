@@ -112,11 +112,54 @@ code_path=model_examples/HiVT
     pip install -e .
     cd ..
     ```
-5. 安装pip依赖
+
+5. 根据操作系统安装 tcmalloc 高效内存资源分配库
+    - OpenEuler系统
+
+    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+    ```
+    mkdir gperftools
+    cd gperftools
+    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+    tar -zvxf gperftools-2.16.tar.gz
+    cd gperftools-2.16
+    ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+    make
+    make install
+    echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+    ldconfig
+    export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+    export PATH=/usr/local/lib/bin:$PATH
+    export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+    ```
+    - Ubuntu系统
+
+    参考[下载链接](http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)，下载三个文件。
+
+      libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+
+      libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+
+      libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+
+    安装三个文件：
+    ```
+    sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
+    sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
+    sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
+    find /usr -name libtcmalloc.so*
+    ```
+
+    将find指令的输出路径记为libtomalloc_dir，执行下列文件使用tcmalloc动态库。
+    ```
+    export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
+    ```
+    
+6. 安装pip依赖
     ```
     pip install -r requirements.txt
     ```
-6. 拉取HiVT模型源代码
+7. 拉取HiVT模型源代码
     ```
     git clone https://github.com/ZikangZhou/HiVT.git && cd HiVT
     git checkout 6876656ce7671982ebdc29113aaaa028c2931518
@@ -162,33 +205,35 @@ Argoverse
 在模型根目录下启动训练。
 
 ```  
-cd /path/DrivingSDK/model_examples/HiVT/HiVT
+cd /path/DrivingSDK/model_examples/HiVT
 ```
 
 - 单机8卡性能
 
   ```
-  # epoch = 1，/path/to/Argoverse/ 请更改为存放数据的路径
-  python train.py --root /path/to/Argoverse/  --embed_dim 64 --max_epochs 1 --gpus 8
+  # /path/to/Argoverse/ 请更改为存放数据的路径
+  bash test/train_8p_performance.sh --data_path=/path/to/Argoverse/
   ```
 
 - 单机8卡精度
 
   ```
-  # epoch = 64，/path/to/Argoverse/ 请更改为存放数据的路径
-  python train.py --root /path/to/Argoverse/ --embed_dim 64 --gpus 8
+  # /path/to/Argoverse/ 请更改为存放数据的路径
+  bash train_8p.sh --data_path=/path/to/Argoverse/
   ```
 
 ### 训练结果
 
 |     芯片      | 卡数 | global batch size  | epoch | minFDE | minADE | 性能-单步迭代耗时(s) | FPS |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: | :--------------: | :---: |
-|     竞品A     |  8p  |         256         |  64   |         1.022          |         0.6845          |       0.426        |  601  |
-| Atlas 800T A2 |  8p  |         256         |  64   |         1.03          |         0.6858          |       0.637         | 402   |
+|     竞品A     |  8p  |         256         |  64   |         1.022          |         0.6845          |       0.392        |  652  |
+| Atlas 800T A2 |  8p  |         256         |  64   |         1.03          |         0.6858          |       0.397         | 645   |
 
 # 变更说明
 
 2025.4.22：首次发布
+
+2025.5.28：优化模型性能，更新性能数据
 
 # FAQ
 

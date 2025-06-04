@@ -1,8 +1,8 @@
 diff --git a/models/hivt.py b/models/hivt.py
-index bac2ddf..9f76841 100644
+index bac2ddf..a47a0e0 100644
 --- a/models/hivt.py
 +++ b/models/hivt.py
-@@ -174,7 +174,8 @@ class HiVT(pl.LightningModule):
+@@ -174,7 +174,7 @@ class HiVT(pl.LightningModule):
          ]
  
          optimizer = torch.optim.AdamW(optim_groups, lr=self.lr, weight_decay=self.weight_decay)

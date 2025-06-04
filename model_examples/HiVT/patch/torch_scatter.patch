@@ -1,17 +1,16 @@
 diff --git a/torch_scatter/scatter.py b/torch_scatter/scatter.py
-index d4d8050..b8db296 100644
+index b994873..00617b7 100644
 --- a/torch_scatter/scatter.py
 +++ b/torch_scatter/scatter.py
-@@ -1,7 +1,7 @@
+@@ -1,6 +1,7 @@
  from typing import Optional, Tuple
  
  import torch
--
 +import mx_driving
+ 
  from .utils import broadcast
  
- 
-@@ -172,6 +172,7 @@ def scatter(src: torch.Tensor,
+@@ -157,6 +158,6 @@ def scatter(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
      elif reduce == 'min':
          return scatter_min(src, index, dim, out, dim_size)[0]
      elif reduce == 'max':
