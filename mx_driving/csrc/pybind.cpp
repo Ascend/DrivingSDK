@@ -251,4 +251,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // npu_unique
     m.def("npu_unique", &npu_unique);
+
+    // grid_sampler3d_grad_v1
+    m.def("grid_sampler3d_grad_v1", &grid_sampler3d_grad_v1);
 }

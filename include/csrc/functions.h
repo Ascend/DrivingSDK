@@ -293,4 +293,8 @@ std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& f
 std::tuple<at::Tensor, at::Tensor> radius(at::Tensor& x, at::Tensor& y, at::Tensor& ptr_x, at::Tensor& ptr_y, double r, int max_num_neighbors);
 
 at::Tensor npu_unique(const at::Tensor& input);
+
+std::tuple<at::Tensor, at::Tensor> grid_sampler3d_grad_v1(const at::Tensor& grad, const at::Tensor& x, const at::Tensor& grid,
+    int64_t interpolation, int64_t padding, const bool align);
+
 #endif // CSRC_FUNCTIONS_H_

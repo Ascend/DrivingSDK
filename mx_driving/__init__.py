@@ -23,6 +23,7 @@ __all__ = [
     "npu_fused_bias_leaky_relu",
     "geometric_kernel_attention",
     "grid_sampler2d_v2",
+    "grid_sampler3d_v1",
     "group_points",
     "hypot",
     "knn",
@@ -87,6 +88,7 @@ from .ops.fused_bias_leaky_relu import npu_fused_bias_leaky_relu
 from .ops.group_points import group_points
 from .ops.geometric_kernel_attention import geometric_kernel_attention
 from .ops.grid_sampler2d_v2 import grid_sampler2d_v2
+from .ops.grid_sampler3d_v1 import grid_sampler3d_v1
 from .ops.hypot import hypot
 from .ops.knn import knn
 from .ops.modulated_deform_conv2d import ModulatedDeformConv2dFunction, modulated_deform_conv2d

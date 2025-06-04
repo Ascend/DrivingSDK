@@ -439,6 +439,15 @@ def radius(
     x: torch.Tensor, y: torch.Tensor, ptr_x: torch.Tensor, 
     ptr_y: torch.Tensor, r: int, max_num_neighbors: int
 ) -> torch.Tensor: ...
+def grid_sampler3d_grad_v1(
+    grad: torch.Tensor,
+    x: torch.Tensor,
+    grid: torch.Tensor,
+    interpolation: int,
+    padding: int,
+    align: bool,
+) -> Tuple[torch.Tensor, torch.Tensor]: ...
+
 __all__ = [
     "knn",
     "npu_three_interpolate",
