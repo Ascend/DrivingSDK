@@ -97,47 +97,51 @@
 
 4. 根据操作系统，安装tcmalloc动态库。
 
-  - OpenEuler系统
+    - OpenEuler系统
 
-  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
-  ```
-  mkdir gperftools
-  cd gperftools
-  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-  tar -zvxf gperftools-2.16.tar.gz
-  cd gperftools-2.16
-  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-  make
-  make install
-  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
-  ldconfig
-  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
-  export PATH=/usr/local/lib/bin:$PATH
-  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
-  ```
-  - Ubuntu系统
+    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+    ```
+    mkdir gperftools
+    cd gperftools
+    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+    tar -zvxf gperftools-2.16.tar.gz
+    cd gperftools-2.16
+    ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+    make
+    make install
+    echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+    ldconfig
+    export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+    export PATH=/usr/local/lib/bin:$PATH
+    export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+    ```
+    - Ubuntu系统
 
-  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
-  安装libunwind依赖：
-  ```
-  git clone https://github.com/libunwind/libunwind.git
-  cd libunwind
-  autoreconf -i
-  ./configure --prefix=/usr/local
-  make -j128
-  make install
-  ```
+    安装libunwind依赖：
+    ```
+    git clone https://github.com/libunwind/libunwind.git
+    cd libunwind
+    autoreconf -i
+    ./configure --prefix=/usr/local
+    make -j128
+    make install
+    ```
 
-  安装tcmalloc动态库：
-  ```
-  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
-  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-  make -j128
-  make install
-  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
-  ```
+    安装tcmalloc动态库：
+    ```
+    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+    tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+    ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+    make -j128
+    make install
+    export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+    ```
+
+5. 安装Driving SDK加速库
+
+    请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 ### 准备数据集
 
