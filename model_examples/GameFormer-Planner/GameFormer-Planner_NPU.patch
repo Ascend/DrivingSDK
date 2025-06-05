@@ -439,14 +439,15 @@ index 0000000..bbc3c6e
 +) -> Tuple[Tensor, Tensor, Tensor]:
 +    return F.linear(q, w_q, b_q), F.linear(k, w_k, b_k), F.linear(v, w_v, b_v)
 diff --git a/GameFormer/predictor.py b/GameFormer/predictor.py
-index 62bf5e6..7d08bd5 100644
+index 62bf5e6..e49b152 100644
 --- a/GameFormer/predictor.py
 +++ b/GameFormer/predictor.py
-@@ -1,5 +1,11 @@
+@@ -1,5 +1,12 @@
 +# Copyright(c) 2023 Zhiyu Huang
 +
  import torch
 -from .predictor_modules import *
++import torch_npu
 +import torch.nn as nn
 +import torch.nn.functional as F
 +import mx_driving
@@ -455,7 +456,7 @@ index 62bf5e6..7d08bd5 100644
  
  
  class Encoder(nn.Module):
-@@ -13,7 +19,7 @@ class Encoder(nn.Module):
+@@ -13,7 +20,7 @@ class Encoder(nn.Module):
          self.ego_encoder = AgentEncoder(agent_dim=7)
          self.lane_encoder = VectorMapEncoder(self._lane_feature, self._lane_len)
          self.crosswalk_encoder = VectorMapEncoder(self._crosswalk_feature, self._crosswalk_len)
@@ -464,7 +465,7 @@ index 62bf5e6..7d08bd5 100644
                                                       activation=F.gelu, dropout=dropout, batch_first=True)
          self.fusion_encoder = nn.TransformerEncoder(attention_layer, layers, enable_nested_tensor=False)
  
-@@ -21,13 +27,20 @@ class Encoder(nn.Module):
+@@ -21,13 +28,20 @@ class Encoder(nn.Module):
          # agents
          ego = inputs['ego_agent_past']
          neighbors = inputs['neighbor_agents_past']
@@ -489,7 +490,7 @@ index 62bf5e6..7d08bd5 100644
  
          # vector maps
          map_lanes = inputs['map_lanes']
-@@ -38,10 +51,10 @@ class Encoder(nn.Module):
+@@ -38,10 +52,10 @@ class Encoder(nn.Module):
          encoded_map_crosswalks, crosswalks_mask = self.crosswalk_encoder(map_crosswalks)
  
          # attention fusion encoding
@@ -502,7 +503,7 @@ index 62bf5e6..7d08bd5 100644
  
          # outputs
          encoder_outputs = {
-@@ -77,8 +90,7 @@ class Decoder(nn.Module):
+@@ -77,8 +91,7 @@ class Decoder(nn.Module):
          decoder_outputs['level_0_scores'] = last_score
          
          # level k reasoning
@@ -512,7 +513,7 @@ index 62bf5e6..7d08bd5 100644
              last_content, last_level, last_score = interaction_decoder(current_states, last_level, last_score, last_content, encoding, mask)
              decoder_outputs[f'level_{k}_interactions'] = last_level
              decoder_outputs[f'level_{k}_scores'] = last_score
-@@ -93,7 +105,7 @@ class NeuralPlanner(nn.Module):
+@@ -93,7 +106,7 @@ class NeuralPlanner(nn.Module):
          super(NeuralPlanner, self).__init__()
          self._future_len = 80
          self.route_fusion = CrossTransformer()
@@ -521,7 +522,7 @@ index 62bf5e6..7d08bd5 100644
          self.route_encoder = VectorMapEncoder(3, 50)
  
      def dynamics_layer(self, controls, initial_state):       
-@@ -101,13 +113,15 @@ class NeuralPlanner(nn.Module):
+@@ -101,13 +114,15 @@ class NeuralPlanner(nn.Module):
          max_a = 5 # vehicle's accleration limits [m/s^2]
          max_d = 0.5 # vehicle's steering limits [rad]
          
@@ -539,7 +540,7 @@ index 62bf5e6..7d08bd5 100644
  
          vel_x = vel * torch.cos(yaw)
          vel_y = vel * torch.sin(yaw)
-@@ -119,7 +133,11 @@ class NeuralPlanner(nn.Module):
+@@ -119,7 +134,11 @@ class NeuralPlanner(nn.Module):
  
      def forward(self, env_encoding, route_lanes, initial_state):
          route_lanes, mask = self.route_encoder(route_lanes)
