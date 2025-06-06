@@ -306,7 +306,7 @@ python -c "import cumm"
     # 调整为 if 0:
     ```
 
-3. 注释spconv/spconv/utils/__init__.py文件第26-30行代码
+3. 注释spconv/spconv/utils/\_\_init\_\_.py文件第26-30行代码
     ```python
     if not CPU_ONLY_BUILD:
         from spconv.core_cc.csrc.sparse.all.ops1d import Point2Voxel as Point2VoxelGPU1d

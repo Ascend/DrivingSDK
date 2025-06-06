@@ -66,31 +66,64 @@ code_path=model_examples/PointPillar
   在应用过patch的模型源码包根目录下执行相应命令，安装模型需要的依赖。
   ```
   conda create -n env_name python=3.8
-  pip install -r requirements.txt    # PyTorch 2.1版本
+  pip install -r requirements.txt && cd ../  # PyTorch 2.1版本
   ```
 
   #### 2. 手动编译安装cumm和spconv
+  #### 2.1 前置依赖安装
+   执行以下命令，安装前置依赖pccm==0.3.4，ccimport==0.3.7
+
+   ```
+   pip install pccm==0.3.4
+   pip install ccimport==0.3.7
+   ```
+  
   手动编译安装cumm==0.2.9，spconv=2.1.25。需要安装指定版本GCC，版本为GCC 7.5.0
-  1. 编译安装cumm
-      ```python
-      git clone https://github.com/FindDefinition/cumm.git -b v0.2.9
-      export CUMM_CUDA_VERSION=""
-      export CUMM_DISABLE_JIT="1"
-      cd cumm/
-      python setup.py bdist_wheel
-      pip install dist/cumm-xxx.whl  # cumm包名在不同系统有差异
-      ```
-   2. 编译安装spconv
-      ```python
+  #### 2.2 编译安装cumm
+
+   ```shell
+   git clone https://github.com/FindDefinition/cumm.git -b v0.2.9
+   export CUMM_CUDA_VERSION=""
+   export CUMM_DISABLE_JIT="1"
+   cd ./cumm/
+   python setup.py bdist_wheel
+   cd ../ && pip install cumm/dist/cumm-*.whl
+   ```
+
+   【注意】安装完毕后建议运行以下命令，如无报错，证明安装无误，可继续安装流程
+   ```shell
+   python -c "import cumm"
+   ```
+   #### 2.3 编译安装spconv
+   1. 执行以下命令，拉取spconv源码用于本地编译
+
+      ```shell
       git clone https://github.com/traveller59/spconv.git -b v2.1.25
-      # 1.删除spconv工程目录下pyproject.toml
-      # 2.修改spconv工程目录下setup.py内REQUIRED = []
-      # 3.注释掉spconv/core_cc/csrc/sparse/all/__init__.pyi中所有代码
-      # 4.export环境变量
-      export SPCONV_DISABLE_JIT="1"
-      python setup.py bdist_wheel
-      pip install dist/spconv-xxx.whl  # spconv包名在不同系统有差异
-      # 修改安装后的的spconv（在自己conda env环境的site-packages内），注释掉spconv/utils/__init__.py以下代码
+      ```
+
+   2. 执行以下命令，删除冗余文件
+      ```shell
+      rm -rf spconv/spconv/core_cc/csrc/sparse/all/ops1d.pyi
+      rm -rf spconv/spconv/core_cc/csrc/sparse/all/ops2d.pyi
+      rm -rf spconv/spconv/core_cc/csrc/sparse/all/ops3d.pyi
+      rm -rf spconv/spconv/core_cc/csrc/sparse/all/ops4d.pyi
+      rm -rf spconv/spconv/core_cc/cumm/tools/
+      rm -rf spconv/pyproject.toml
+      ```
+
+   3. 执行以下命令，替换spconv三方库中的文件内容
+      ```shell
+      cp -rf OpenPCDet/third_party_patches/spconv_patches/spconv/core_cc/csrc/sparse/all/__init__.pyi spconv/spconv/core_cc/csrc/sparse/all/__init__.pyi
+      ```
+
+   4. 将spconv/spconv/pytorch/ops.py文件第32行代码进行调整
+      ```python
+      将代码 if hasattr(_ext, "cumm"):
+      调整为 if 0:
+      ```
+
+   5. 注释spconv/spconv/utils/\_\_init\_\_.py文件第26-30行代码
+      ```python
       if not CPU_ONLY_BUILD:
          from spconv.core_cc.csrc.sparse.all.ops1d import Point2Voxel as Point2VoxelGPU1d
          from spconv.core_cc.csrc.sparse.all.ops2d import Point2Voxel as Point2VoxelGPU2d
@@ -98,7 +131,28 @@ code_path=model_examples/PointPillar
          from spconv.core_cc.csrc.sparse.all.ops4d import Point2Voxel as Point2VoxelGPU4d
       ```
 
-   #### 3. 编译安装OpenPCDet
+   6. 执行以下命令编译安装spconv
+      ```shell
+      export SPCONV_DISABLE_JIT="1"
+      cd ./spconv/
+      python setup.py bdist_wheel
+      cd ../ && pip install spconv/dist/spconv-*.whl
+      ```
+
+      【注意】安装完毕后建议运行以下命令，如无报错，证明安装无误，可继续安装流程
+      ```shell
+      python -c "import spconv"
+      ```
+
+   #### 3. 编译安装Driving SDK
+   参考Driving SDK官方gitee仓README安装编译构建并安装Driving SDK包：[参考链接](https://gitee.com/ascend/DrivingSDK)
+
+   【注意】安装完毕后建议运行以下命令，如无报错，证明安装无误，可继续安装流程
+   ```shell
+   python -c "import mx_driving"
+   ```
+
+   #### 4. 编译安装OpenPCDet
    安装相关依赖
    ```shell
    pip install av2==0.2.1
@@ -107,6 +161,7 @@ code_path=model_examples/PointPillar
    ```
    在应用过patch的模型源码包根目录下执行相应命令
    ```
+   cd ./OpenPCDet/
    python setup.py develop
    ```
 
