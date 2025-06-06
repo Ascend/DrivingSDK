@@ -114,5 +114,20 @@ class TestHypot(TestCase):
         self.assertRtolEqual(x.grad.numpy(), x_npu.grad.numpy())
         self.assertRtolEqual(y.grad.numpy(), y_npu.grad.numpy())
 
+    def test_hypot_grad_with_size_one(self, device="npu"):
+        x, y = cpu_gen_inputs([-3, 3], [-4, 4], [35, 1], [35, 1])
+        z_grad = torch.randn([35, 1])
+        x.requires_grad = True
+        y.requires_grad = True
+        x_npu = deepcopy(x)
+        y_npu = deepcopy(y)
+
+        torch.hypot(x, y).backward(z_grad)
+        mx_driving.hypot(x_npu.npu(), y_npu.npu()).backward(z_grad.npu())
+
+        self.assertRtolEqual(x.grad.numpy(), x_npu.grad.numpy())
+        self.assertRtolEqual(y.grad.numpy(), y_npu.grad.numpy())
+
+
 if __name__ == "__main__":
     run_tests()
