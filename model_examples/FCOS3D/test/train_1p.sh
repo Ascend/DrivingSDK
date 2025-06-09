@@ -16,6 +16,7 @@ source ${test_path_dir}/env_npu.sh
 
 batch_size=2
 max_epochs=1
+world_size=1
 data_root=''
 for para in $*
 do

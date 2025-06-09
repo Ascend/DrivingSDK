@@ -191,13 +191,13 @@ mv /path/to/resnet101_msra-6cc46731.pth /root/.cache/torch/hub/checkpoints/resne
    - 单机单卡训练
 
      ```
-     bash ./test/train_1p.sh --data_root=/home/datasets/nuscenes --max_epochs=1
+     bash ./test/train_1p.sh --data_root=/home/datasets/nuscenes --max_epochs=12
      ```
      
    - 单机8卡训练
 
      ```
-     bash ./test/train_8p.sh --data_root=/home/datasets/nuscenes --max_epochs=1
+     bash ./test/train_8p.sh --data_root=/home/datasets/nuscenes --max_epochs=12
      ```
 
    - 单机8卡训练性能
