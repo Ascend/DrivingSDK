@@ -5,7 +5,7 @@ from typing import Dict
 
 def ddp(mmcvparallel: ModuleType, options: Dict):
     if hasattr(mmcvparallel, "distributed"):
-        import mmcv
+        import mmcv.device
         mmcvparallel.distributed.MMDistributedDataParallel = mmcv.device.npu.NPUDistributedDataParallel
 
 
