@@ -185,7 +185,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 
   - PyTorch和torch_npu编译优化
 
-  根据[PyTorch编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0064.html)和[torch_npu编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0065.html)，基于Python3.9和PyTorch2.1编译优化PyTorch和torch_npu。
+  根据[PyTorch编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0064.html)和[torch_npu编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0065.html)，基于Python3.9和PyTorch2.1，采用LTO+PGO方式编译优化PyTorch和torch_npu。
 
 8. 设置LaneSegNet
   ```
@@ -258,10 +258,12 @@ data/OpenLane-V2
 |  NAME       | Backbone    |   训练方式     |     Epoch    |    global_batch_size      |    mAP      |     FPS      |
 |-------------|-------------------|-----------------|---------------|--------------|--------------|--------------|
 |  8p-竞品A   | R50       |       FP32    |        24     |      8    |        32.27   |      23.75    |
-|  8p-Atlas 800T A2   | R50      |       FP32    |        24     |      8    |        32.44   |      15.19    |
+|  8p-Atlas 800T A2   | R50      |       FP32    |        24     |      8    |        32.44   |      16.31    |
 
 
 ## 变更
+
+2025.06.07：更新性能数据。
 
 2025.06.03：优化模型性能。
 
