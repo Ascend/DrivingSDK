@@ -10,8 +10,6 @@ msnpureport -g error -d 7
 #关闭Device侧Event日志
 msnpureport -e disable
 
-#设置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
-export HOST_CACHE_CAPACITY=20
 #将Host日志输出到串口,0-关闭/1-开启
 export ASCEND_SLOG_PRINT_TO_STDOUT=0
 #设置默认日志级别,0-debug/1-info/2-warning/3-error

@@ -17,8 +17,6 @@ fi
 export CPU_AFFINITY_CONF=1
 # 设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2
-# 设置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
-export HOST_CACHE_CAPACITY=20
 # 设置是否开启combined标志,0-关闭/1-开启
 export COMBINED_ENABLE=1
 # 启用可扩展内存段分配策略

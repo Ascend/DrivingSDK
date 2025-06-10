@@ -54,8 +54,6 @@ export TASK_QUEUE_ENABLE=2
 export CPU_AFFINITY_CONF=2
 #缓存aclnn算子数量
 export ACLNN_CACHE_LIMIT=100000
-#启动动态shape缓存
-export HOST_CACHE_CAPACITY=20
 #启用hccl ffts+模式
 export ASCEND_ENHANCE_enable=1
 #缓存分配器创建特定的内存块

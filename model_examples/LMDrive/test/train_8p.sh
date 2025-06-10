@@ -65,8 +65,6 @@ export TASK_QUEUE_ENABLE=2
 # 绑设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 
-# 置Shape数据缓存，默认值为0，配置为非零正整数N时，系统会缓存N个频繁出现的Shape
-export HOST_CACHE_CAPACITY=20
 # 设置是否开启 combined 标志, 0-关闭/1-开启
 export COMBINED_ENABLE=1
 
