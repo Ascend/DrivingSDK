@@ -70,7 +70,9 @@ nohup python -m torch.distributed.launch \
           --rdzv_endpoint=localhost:${PORT} \
           train.py \
           --launcher pytorch \
-          --cfg_file ${cfg_file}  > ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
+          --cfg_file ${cfg_file} \
+          --epochs 1 \
+          --logger_iter_interval 1 > ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 
 #训练结束时间，不需要修改

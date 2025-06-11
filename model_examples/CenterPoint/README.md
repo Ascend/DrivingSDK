@@ -140,21 +140,7 @@ python -c "import cumm"
     python -c "import spconv"
     ```
 
-#### 2.4 编译安装pytorch-scatter
-执行以下命令编译安装pytorch-scatter
-```shell
-git clone https://github.com/rusty1s/pytorch_scatter.git -b 2.1.1
-cd ./pytorch_scatter/
-python setup.py bdist_wheel
-cd ../ && pip install pytorch_scatter/dist/torch_scatter-*.whl
-```
-
-【注意】安装完毕后建议运行以下命令，如无报错，证明安装无误，可继续安装流程
-```shell
-python -c "import torch_scatter"
-```
-
-#### 2.5 编译安装Driving SDK
+#### 2.4 编译安装Driving SDK
 参考Driving SDK官方gitee仓README安装编译构建并安装Driving SDK包：[参考链接](https://gitee.com/ascend/DrivingSDK)
 
 【注意】安装完毕后建议运行以下命令，如无报错，证明安装无误，可继续安装流程
@@ -162,7 +148,7 @@ python -c "import torch_scatter"
 python -c "import mx_driving"
 ```
 
-#### 2.6 编译安装OpenPCDet
+#### 2.5 编译安装OpenPCDet
 执行以下命令，应用过patch的模型根目录编译安装OpenPCDet
 ```shell
 cd ./OpenPCDet/
@@ -328,7 +314,7 @@ python -c "import cumm"
     python -c "import spconv"
     ```
 
-#### 2.5 编译安装Driving SDK
+#### 2.4 编译安装Driving SDK
 参考Driving SDK官方gitee仓README安装编译构建并安装Driving SDK包：[参考链接](https://gitee.com/ascend/DrivingSDK)
 
 【注意】安装完毕后建议运行以下命令，如无报错，证明安装无误，可继续安装流程
@@ -336,14 +322,14 @@ python -c "import cumm"
 python -c "import mx_driving"
 ```
 
-#### 2.6 编译安装OpenPCDet
+#### 2.5 编译安装OpenPCDet
 在应用过patch文件模型根目录，执行以下命令，编译安装OpenPCDet
 ```shell
 cd ./OpenPCDet/
 python setup.py develop
 ```
 
-#### 2.7 高性能内存库替换
+#### 2.6 高性能内存库替换
 参考昇腾官方指导文档，下载高性能内存库并导入环境变量[参考链接](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0067.html)
 
 ### 准备数据集

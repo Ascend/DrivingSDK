@@ -168,6 +168,7 @@ mmsegmentation==0.30.0
 ninja
 ```
 通过pip install -r requirements.txt进行安装。
+
 2. mmcv三方库安装，目前1.7.2版本支持npu，需要手动下载代码，进行源码编译安装：
 ```python
 git clone -b 1.x https://github.com/open-mmlab/mmcv.git
