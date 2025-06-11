@@ -202,5 +202,7 @@ git apply --whitespace=fix salsanext.patch
 
 2025.04.22：补充global batch size数据，修复FPS计算错误
 
+2025.06.11：修复多卡拉起时文件夹创建冲突问题
+
 ## FAQ
 暂无。

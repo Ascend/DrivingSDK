@@ -684,7 +684,7 @@ index 040c850..a15c02a 100644
              print("KNN Infered seq", path_seq, "scan", path_name,
                    "in", res, "sec")
 diff --git a/train/tasks/semantic/train.py b/train/tasks/semantic/train.py
-index 00b1730..fb4f42c 100755
+index 00b1730..00fe0cf 100755
 --- a/train/tasks/semantic/train.py
 +++ b/train/tasks/semantic/train.py
 @@ -17,6 +17,11 @@ from tasks.semantic.modules.SalsaNext import *
@@ -699,7 +699,7 @@ index 00b1730..fb4f42c 100755
  def remove_exponent(d):
      return d.quantize(Decimal(1)) if d == d.to_integral() else d.normalize()
  
-@@ -90,6 +95,13 @@ if __name__ == '__main__':
+@@ -90,9 +95,16 @@ if __name__ == '__main__':
          const=True, default=False,
          help='Set this if you want to use the Uncertainty Version'
      )
@@ -712,7 +712,11 @@ index 00b1730..fb4f42c 100755
 +    )
  
      FLAGS, unparsed = parser.parse_known_args()
-     FLAGS.log = FLAGS.log + '/logs/' + datetime.datetime.now().strftime("%Y-%-m-%d-%H:%M") + FLAGS.name
+-    FLAGS.log = FLAGS.log + '/logs/' + datetime.datetime.now().strftime("%Y-%-m-%d-%H:%M") + FLAGS.name
++    FLAGS.log = FLAGS.log + '/logs/' + datetime.datetime.now().strftime("%Y-%-m-%d-%H:%M") + FLAGS.name + '/device' +  str(os.environ["RANK"])
+     if FLAGS.uncertainty:
+         params = SalsaNextUncertainty(20)
+         pytorch_total_params = sum(p.numel() for p in params.parameters() if p.requires_grad)
 @@ -138,7 +150,7 @@ if __name__ == '__main__':
              FLAGS.pretrained = None
              if os.path.isdir(FLAGS.log):
