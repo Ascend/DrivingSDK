@@ -217,8 +217,8 @@ code_path=model_examples/PointPillar
 训练性能结果展示表
 | Exp | global batch size | FPS |
 | - | - | - |
-| 8p-竞品A | 256 | 408 |
-| 8p-Atlas 800T A2| 256 | 376 |
+| 8p-竞品A | 256 | 486 |
+| 8p-Atlas 800T A2| 256 | 576 |
 
 ## FAQ
 ### ImportError:/usr/local/gcc-7.5.0/lib64/libgomp.so.1:cannot allocate memory in static TLS block,
@@ -261,5 +261,8 @@ pip install protobuf
 
 ## 版本说明
 [2024-01-24] **NEW:** PointPillar模型在NPU设备首次适配.
+
 [2025-04-21] **NEW:** PointPillar模型优化fps计算方式，乘以卡数，更新性能指标，readme中添加global batch size
+
+[2025-06-12] **NEW:** PointPillar模型更新fps计算方式，更新性能指标
 
