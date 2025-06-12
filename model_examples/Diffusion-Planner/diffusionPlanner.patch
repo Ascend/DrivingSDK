@@ -1,0 +1,70 @@
+diff --git a/diffusion_planner/model/module/decoder.py b/diffusion_planner/model/module/decoder.py
+index c17e793..adc2e7a 100644
+--- a/diffusion_planner/model/module/decoder.py
++++ b/diffusion_planner/model/module/decoder.py
+@@ -34,7 +34,7 @@ class Decoder(nn.Module):
+         self._state_normalizer: StateNormalizer = config.state_normalizer
+         self._observation_normalizer: ObservationNormalizer = config.observation_normalizer
+
+-        self._guidance_fn = config.guidance_fn
++        self._guidance_fn = None
+
+     @property
+     def sde(self):
+diff --git a/requirements_torch.txt b/requirements_torch.txt
+index d34f3fc..b99b032 100644
+--- a/requirements_torch.txt
++++ b/requirements_torch.txt
+@@ -1,8 +1,7 @@
+ --find-links https://download.pytorch.org/whl/torch_stable.html
+ --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+-torch==2.0.0+cu118
+-torchvision==0.15.1+cu118
++torchvision==0.15.1
+ pytorch_lightning==2.0.1
+ tensorboard==2.11.2
+ timm==1.0.10
+-mmengine
+\ No newline at end of file
++mmengine
+diff --git a/train_predictor.py b/train_predictor.py
+index b5d399c..9ea0772 100644
+--- a/train_predictor.py
++++ b/train_predictor.py
+@@ -1,6 +1,8 @@
+ import os
+ import torch
+ import argparse
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from torch import optim
+ from timm.utils import ModelEma
+ from torch.utils.data import DataLoader, DistributedSampler
+@@ -160,7 +162,7 @@ def model_training(args):
+     diffusion_planner = diffusion_planner.to(rank if args.device == 'cuda' else args.device)
+
+     if args.ddp:
+-        diffusion_planner = DDP(diffusion_planner, device_ids=[rank])
++        diffusion_planner = DDP(diffusion_planner, device_ids=[rank], find_unused_parameters=True)
+
+     if args.use_ema:
+         model_ema = ModelEma(
+diff --git a/torch_run.sh b/torch_run.sh
+old mode 100755
+new mode 100644
+index d65800b..7c1b446
+--- a/torch_run.sh
++++ b/torch_run.sh
+@@ -10,7 +10,10 @@ TRAIN_SET_PATH="REPLACE_WITH_TRAIN_SET_PATH" # preprocess data using data_proces
+ TRAIN_SET_LIST_PATH="REPLACE_WITH_TRAIN_SET_LIST_PATH"
+ ###################################
+
+-sudo -E $RUN_PYTHON_PATH -m torch.distributed.run --nnodes 1 --nproc-per-node 8 --standalone train_predictor.py \
++epochs=$1
++
++$RUN_PYTHON_PATH -m torch.distributed.run --nnodes 1 --nproc-per-node 8 --standalone train_predictor.py \
+ --train_set  $TRAIN_SET_PATH \
+ --train_set_list  $TRAIN_SET_LIST_PATH \
+-
++--batch_size 2048 \
++--train_epochs $epochs

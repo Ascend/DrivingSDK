@@ -84,14 +84,14 @@ out, argmax = scatter_max(updates, indices, out)
 ```
 .
 ├── kernels                     # 算子实现
-│  ├── op_host               
-│  ├── op_kernel                  
+│  ├── op_host
+│  ├── op_kernel
 │  └── CMakeLists.txt
 ├── onnx_plugin                 # onnx框架适配层
 ├── mx_driving
 │  ├── __init__.py
 │  ├── csrc                     # 加速库API适配层
-│  └── ...               
+│  └── ...
 ├── model_examples              # 自动驾驶模型示例
 │  └── BEVFormer                # BEVFormer模型示例
 ├── ci                          # ci脚本
@@ -162,7 +162,7 @@ out, argmax = scatter_max(updates, indices, out)
 | HiVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HiVT |N|
 | MagicDriveDiT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT |N|
 | SparseDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SparseDrive |N|
-
+| Diffusion-Planner | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner |N|
 # 支持的产品型号
 - Atlas A2 训练系列产品
 
@@ -232,7 +232,8 @@ Driving SDK代码中包含公网地址声明如下表所示：
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
 |   开源引入   |   https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip   | 源模型失效数据下载链接                  |
 |   开源引入   |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip   | 模型必要数据下载链接                |
-
+| 开源引入 ｜ https://download.pytorch.org/whl/torch_stable.html ｜ model_examples/Diffusion-Planner/diffusionPlanner.patch | https://download.pytorch.org/whl/torch_stable.html | 模型依赖包下载 ｜
+| 开源引入 ｜ https://pypi.tuna.tsinghua.edu.cn/simple ｜ model_examples/Diffusion-Planner/diffusionPlanner.patch | https://pypi.tuna.tsinghua.edu.cn/simple | 模型依赖包下载 ｜
 
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，Driving SDK提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
