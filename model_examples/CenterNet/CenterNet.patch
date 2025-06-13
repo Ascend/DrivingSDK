@@ -3318,7 +3318,7 @@ index 0e7cb14..cf2c0fb 100644
 +    'multi_pose': MultiPoseDetector,
  }
 diff --git a/src/lib/detectors/exdet.py b/src/lib/detectors/exdet.py
-index cbf61d4..8cd8ea6 100755
+index cbf61d4..cc66ae6 100755
 --- a/src/lib/detectors/exdet.py
 +++ b/src/lib/detectors/exdet.py
 @@ -1,131 +1,155 @@
@@ -3369,7 +3369,7 @@ index cbf61d4..8cd8ea6 100755
 -import time
  import torch
 -
-+import torch.npu
++import torch_npu
  from models.decode import exct_decode, agnex_ct_decode
 -from models.utils import flip_tensor
 -from utils.image import get_affine_transform, transform_preds
@@ -5184,10 +5184,10 @@ index f62ca0c..32f6b46 100644
          loss_res += loss_sin2 + loss_cos2
      return loss_bin1 + loss_bin2 + loss_res
 diff --git a/src/lib/models/model.py b/src/lib/models/model.py
-index 643660e..eb85917 100644
+index 643660e..ee0773a 100644
 --- a/src/lib/models/model.py
 +++ b/src/lib/models/model.py
-@@ -1,96 +1,136 @@
+@@ -1,96 +1,138 @@
 +# BSD 3-Clause License
 +#
 +# Copyright (c) 2017 xxxx
@@ -5225,12 +5225,14 @@ index 643660e..eb85917 100644
  from __future__ import print_function
  
 -import torchvision.models as models
- import torch
+-import torch
 -import torch.nn as nn
--import os
-+import torch.npu
+ import os
  
 -from .networks.msra_resnet import get_pose_net
++import torch
++import torch.npu
++
  from .networks.dlav0 import get_pose_net as get_dlav0
 +from .networks.large_hourglass import get_large_hourglass_net
 +from .networks.msra_resnet import get_pose_net
@@ -5283,13 +5285,7 @@ index 643660e..eb85917 100644
 -    else:
 -      state_dict[k] = state_dict_[k]
 -  model_state_dict = model.state_dict()
-+    print(model_path)
-+    start_epoch = 0
-+    if not os.path.exists(model_path):
-+        raise FileNotFoundError(f"{model_path} not exists!")
-+    checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
-+    print('load model')
- 
+-
 -  # check loaded parameters and created model parameters
 -  msg = 'If you see this, your model does not fully load the ' + \
 -        'pre-trained weight. Please make sure ' + \
@@ -5309,6 +5305,26 @@ index 643660e..eb85917 100644
 -      print('No param {}.'.format(k) + msg)
 -      state_dict[k] = model_state_dict[k]
 -  model.load_state_dict(state_dict, strict=False)
+-
+-  # resume optimizer parameters
+-  if optimizer is not None and resume:
+-    if 'optimizer' in checkpoint:
+-      optimizer.load_state_dict(checkpoint['optimizer'])
+-      start_epoch = checkpoint['epoch']
+-      start_lr = lr
+-      for step in lr_step:
+-        if start_epoch >= step:
+-          start_lr *= 0.1
+-      for param_group in optimizer.param_groups:
+-        param_group['lr'] = start_lr
+-      print('Resumed optimizer with start lr', start_lr)
++    print(model_path)
++    start_epoch = 0
++    if not os.path.exists(model_path):
++        raise FileNotFoundError(f"{model_path} not exists!")
++    checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
++    print('load model')
++
 +    print('loaded {}, epoch {}'.format(model_path, checkpoint['epoch']))
 +    state_dict_ = checkpoint['state_dict']
 +    state_dict = {}
@@ -5340,19 +5356,7 @@ index 643660e..eb85917 100644
 +            print('No param {}.'.format(k) + msg)
 +            state_dict[k] = model_state_dict[k]
 +    model.load_state_dict(state_dict, strict=False)
- 
--  # resume optimizer parameters
--  if optimizer is not None and resume:
--    if 'optimizer' in checkpoint:
--      optimizer.load_state_dict(checkpoint['optimizer'])
--      start_epoch = checkpoint['epoch']
--      start_lr = lr
--      for step in lr_step:
--        if start_epoch >= step:
--          start_lr *= 0.1
--      for param_group in optimizer.param_groups:
--        param_group['lr'] = start_lr
--      print('Resumed optimizer with start lr', start_lr)
++
 +    # resume optimizer parameters
 +    if optimizer is not None and resume:
 +        if 'optimizer' in checkpoint:
@@ -14955,7 +14959,7 @@ index 0000000..b0eaace
 +    opt = opts().parse()
 +    main(opt)
 diff --git a/src/test.py b/src/test.py
-index 1d08044..6a401e2 100755
+index 1d08044..4477d1d 100755
 --- a/src/test.py
 +++ b/src/test.py
 @@ -1,126 +1,161 @@
@@ -15006,11 +15010,11 @@ index 1d08044..6a401e2 100755
 -from progress.bar import Bar
  import torch
 +from progress.bar import Bar
-+
-+if torch.__version__ >= "1.8":
-+    pass
  
 -from external.nms import soft_nms
++if torch.__version__ >= "1.8":
++    pass
++import _init_paths
  from opts import opts
  from logger import Logger
  from utils.utils import AverageMeter

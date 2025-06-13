@@ -66,7 +66,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   cp -f CenterNet.patch CenterNet/
   cd CenterNet
   git apply CenterNet.patch --reject
-  cp -f ../test ./
+  cp -rf ../test ./
   ```
 
   3. 在模型源码包根目录下执行命令，安装模型对应PyTorch版本需要的依赖。
@@ -126,18 +126,19 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
        - 下载COCO格式的Pascal VOC注释（从Detectron下载）。
        - 将train/val 2007/2012注释文件合并到单个json中。
 
-   数据集目录结构参考如下所示。
+   在CenterNet模型根目录下的data文件夹下创建软连接，链接后数据集目录结构参考如下所示。
 
    ```
-   |-- data
-   |-- |-- voc
-       |-- |-- annotations
-           |   |-- pascal_trainval0712.json
-           |   |-- pascal_test2017.json
-           |-- images
-           |   |-- 000001.jpg
-           |   ......
-           |-- VOCdevkit
+   |-- CenterNet
+      |-- data
+      |-- |-- voc
+          |-- |-- annotations
+              |   |-- pascal_trainval0712.json
+              |   |-- pascal_test2017.json
+              |-- images
+              |   |-- 000001.jpg
+              |   ......
+              |-- VOCdevkit
    ```
 
    > **说明：**
