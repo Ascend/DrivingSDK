@@ -79,7 +79,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 2. 源码安装 mmengine
 
   在 FCOS 根目录下，克隆 mmengine 仓，并进入 mmengine 目录应用 patch 后安装
-  
+
   ```
   yes | pip uninstall mmengine
   git clone -b v0.10.6 https://github.com/open-mmlab/mmengine.git
@@ -106,7 +106,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
   ```
 
 4. 安装其他依赖
-  
+
   在 mmdetection 代码目录下，安装其他依赖
 
   ```
@@ -118,9 +118,49 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
   参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
 
-6. 替换高性能内存库
+6. 根据操作系统，安装tcmalloc动态库。
 
-  参考[OS性能优化](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0067.html)完成高性能内存库安装，并设置 tcmalloc 为优先加载。
+  - OpenEuler系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+  ```
+  mkdir gperftools
+  cd gperftools
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -zvxf gperftools-2.16.tar.gz
+  cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make
+  make install
+  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+  ldconfig
+  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+  export PATH=/usr/local/lib/bin:$PATH
+  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+  - Ubuntu系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+
+  安装libunwind依赖：
+  ```
+  git clone https://github.com/libunwind/libunwind.git
+  cd libunwind
+  autoreconf -i
+  ./configure --prefix=/usr/local
+  make -j128
+  make install
+  ```
+
+  安装tcmalloc动态库：
+  ```
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make -j128
+  make install
+  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+  ```
 
 ## 准备数据集
 
@@ -137,17 +177,17 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
               ├── instances_val2017.json
               ├── person_keypoints_train2017.json
               └── person_keypoints_val2017.json
-             
-         ├──train2017  
+
+         ├──train2017
               ├── 000000000009.jpg
               ├── 000000000025.jpg
               ├── ...
-         ├──val2017  
+         ├──val2017
               ├── 000000000139.jpg
               ├── 000000000285.jpg
               ├── ...
    ```
-   > **说明：** 
+   > **说明：**
    >该数据集的训练过程脚本只作为一种参考示例。
 
 ## 准备预训练权重
