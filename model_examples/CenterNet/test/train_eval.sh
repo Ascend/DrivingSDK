@@ -53,14 +53,17 @@ check_etp_flag=`env | grep etp_running_flag`
 etp_flag=`echo ${check_etp_flag#*=}`
 if [ x"${etp_flag}" != x"true" ];then
     source ${test_path_dir}/env_npu.sh
-fi  
+fi
+
+#数据集处理
+ln -nsf ${data_path} $cur_path/data
 
 #执行训练脚本，以下传参不需要修改，其他需要模型审视修改
 cd $cur_path/src
 {
- python test.py ctdet --exp_id pascal_resdcn18_384 --arch resdcn_18 --dataset pascal --resume --flip_test 
+ python test.py ctdet --exp_id pascal_resdcn18_384 --arch resdcn_18 --dataset pascal --resume --flip_test
 } > ${test_path_dir}/output/${ASCEND_DEVICE_ID}/test_${ASCEND_DEVICE_ID}.log 2>&1 &
-    
+
 wait
 
 ##################获取训练数据################
