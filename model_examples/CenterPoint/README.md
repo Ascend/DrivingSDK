@@ -329,9 +329,6 @@ cd ./OpenPCDet/
 python setup.py develop
 ```
 
-#### 2.6 高性能内存库替换
-参考昇腾官方指导文档，下载高性能内存库并导入环境变量[参考链接](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0067.html)
-
 ### 准备数据集
 1. 下载nuScenes数据集，请自行前往nuScenes官方网站下载3D目标检测数据集
 2. 下载解压的nuScenes数据集，并按照如下方式组织：
