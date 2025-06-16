@@ -6,7 +6,8 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "unique_tiling.h"
 constexpr size_t SYS_RSVD_WS_SIZE = 16 * 1024 * 1024;
-
+constexpr size_t BYTE_PER_BLK = 32;
+constexpr size_t EVENTID_MAX = 8;
 
 namespace optiling {
 static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context)
@@ -36,9 +37,10 @@ static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context)
     const uint8_t shortBlockNum = blockNum - longBlockNum;
 
     tiling.set_totalLength(totalLength);
-    tiling.set_tileNum(tileNum);
     tiling.set_shortBlockTileNum(shortBlockTileNum);
+    tiling.set_tileLength(tileLength);
     tiling.set_tailLength(tailLength);
+    tiling.set_aivNum(aivNum);
     tiling.set_blockNum(blockNum);
     tiling.set_shortBlockNum(shortBlockNum);
 
@@ -54,7 +56,9 @@ static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context)
     if (currentWorkspace == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    size_t usrSize = (aivNum * 8 + 1) * 8 * sizeof(uint32_t) + (tileNum * tileLength) * 2 * sizeof(float) * 2;
+    size_t usrSize = (blockNum * BYTE_PER_BLK * EVENTID_MAX + aivNum * BYTE_PER_BLK + BYTE_PER_BLK) +
+                     (blockNum + BYTE_PER_BLK - 1) / BYTE_PER_BLK * BYTE_PER_BLK +
+                     (tileNum * tileLength) * 2 * sizeof(float) * 2;
     currentWorkspace[0] = usrSize + sysWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

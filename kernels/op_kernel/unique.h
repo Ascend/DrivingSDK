@@ -31,8 +31,8 @@ public:
     // Each block process diffent part of data. This function returns the element-wise first index of data by blockIdx.
     __aicore__ inline size_t GetGlobalOffset(const uint32_t blockIdx);
     __aicore__ inline void Init(GM_ADDR input, GM_ADDR output, GM_ADDR uniqueCnt, GM_ADDR workspace,
-        const uint32_t totalLength, const uint32_t totalTileNum, const uint32_t shortBlockTileNum,
-        const uint16_t tailLength, const uint8_t blockNum, const uint8_t shortBlockNum);
+        const uint32_t totalLength, const uint32_t shortBlockTileNum, const uint16_t tileLength,
+        const uint16_t tailLength, const uint8_t aivNum, const uint8_t blockNum, const uint8_t shortBlockNum);
     __aicore__ inline void Process();
 
 private:
@@ -70,7 +70,7 @@ private:
         0, 0, 0b11, 0b111, 0b1111}; // Converts queue number to validBit of MrgSort.
 
     TPipe& pipe;
-    TQue<TPosition::VECIN, 1> calcBuf[3];
+    TBuf<TPosition::VECIN> calcBuf[3];
 
     GlobalTensor<T> srcGlobal;
     GlobalTensor<uint32_t> srcGlobalAsUint;
@@ -90,11 +90,10 @@ private:
 
     uint16_t syncWorkspaceSize;
     uint8_t eventID {0};
-    uint64_t accUniqueCnt {0};
+    uint64_t blockUniqueCnt {0};
     float lastTileUniqueVal;
 
     uint32_t totalLength;
-    uint32_t alignedTotalLength;
     uint32_t tileNum;
     uint32_t shortBlockTileNum;
     uint16_t tailLength;
@@ -120,16 +119,16 @@ __aicore__ inline size_t KernelUnique<T>::GetGlobalOffset(const uint32_t blockId
 
 template<typename T>
 __aicore__ inline void KernelUnique<T>::Init(GM_ADDR input, GM_ADDR output, GM_ADDR uniqueCnt, GM_ADDR workspace,
-    const uint32_t totalLength, const uint32_t totalTileNum, const uint32_t shortBlockTileNum,
-    const uint16_t tailLength, const uint8_t blockNum, const uint8_t shortBlockNum)
+    const uint32_t totalLength, const uint32_t shortBlockTileNum, const uint16_t tileLength,
+    const uint16_t tailLength, const uint8_t aivNum, const uint8_t blockNum, const uint8_t shortBlockNum)
 {
     this->totalLength = totalLength;
-    this->alignedTotalLength = totalTileNum * TILE_LENGTH;
     this->shortBlockTileNum = shortBlockTileNum;
     this->tailLength = tailLength;
     this->blockNum = blockNum;
     this->shortBlockNum = shortBlockNum;
 
+    uint32_t alignedTotalLength = (totalLength + TILE_LENGTH - 1) / TILE_LENGTH * TILE_LENGTH;
     const bool isShortBlock = this->shortBlockNum > GetBlockIdx();
     // (shortBlockTileNum + 1) indicates longBlockTileNum.
     this->tileNum = isShortBlock ? shortBlockTileNum : shortBlockTileNum + 1;
@@ -139,8 +138,8 @@ __aicore__ inline void KernelUnique<T>::Init(GM_ADDR input, GM_ADDR output, GM_A
     srcGlobal.SetGlobalBuffer((__gm__ T*)input + globalOffset, this->blockLength);
     srcGlobalAsUint.SetGlobalBuffer((__gm__ uint32_t*)input + globalOffset * sizeof(T) / sizeof(uint32_t),
         this->blockLength * sizeof(T) / sizeof(uint32_t));
-    dstGlobal1.SetGlobalBuffer((__gm__ T*)output, this->alignedTotalLength);
-    dstGlobal1As32.SetGlobalBuffer((__gm__ int32_t*)output, this->alignedTotalLength * sizeof(T) / sizeof(int32_t));
+    dstGlobal1.SetGlobalBuffer((__gm__ T*)output, alignedTotalLength);
+    dstGlobal1As32.SetGlobalBuffer((__gm__ int32_t*)output, alignedTotalLength * sizeof(T) / sizeof(int32_t));
     uniqueCntGlobal.SetGlobalBuffer((__gm__ int32_t*)uniqueCnt, 1);
 
     // sortedBlock is offsetted, and could only see the data that this block should process.
@@ -160,31 +159,28 @@ __aicore__ inline void KernelUnique<T>::Init(GM_ADDR input, GM_ADDR output, GM_A
         alignedTotalLength * SORT_DATATYPE_SIZE_FACTOR);
 
     // Buff size for syncronizing according to document of IBWait&IBSet.
-    this->syncWorkspaceSize = (blockNum * 32 + 1) * 8;
+    this->syncWorkspaceSize = (blockNum * 32 * 8 + aivNum * 32 + 32) / sizeof(int32_t);
     IBSyncGlobal.SetGlobalBuffer(
         (__gm__ int32_t*)workspace + alignedTotalLength * SORT_DATATYPE_SIZE_FACTOR * 2, syncWorkspaceSize);
     blockUniqueCntGlobal.SetGlobalBuffer((__gm__ uint32_t*)workspace + alignedTotalLength * 4 + syncWorkspaceSize,
         (blockNum + 7) / 8 * 8); // Length aligned up to 32B.
 
-    pipe.InitBuffer(calcBuf[0], 1, TILE_LEN_BYTE);
-    pipe.InitBuffer(calcBuf[1], 1, TILE_LEN_BYTE);
-    pipe.InitBuffer(calcBuf[2], 1, TILE_LEN_BYTE);
+    // Initialize sync buff.
+    if (GetBlockNum() > 1) {
+        if (GetBlockIdx() == 0) {
+            InitGlobalMemory(IBSyncGlobal, syncWorkspaceSize, 0);
+        }
+        PipeBarrier<PIPE_ALL>();
+    }
+
+    pipe.InitBuffer(calcBuf[0], TILE_LEN_BYTE);
+    pipe.InitBuffer(calcBuf[1], TILE_LEN_BYTE);
+    pipe.InitBuffer(calcBuf[2], TILE_LEN_BYTE);
 }
 
 template<typename T>
 __aicore__ inline void KernelUnique<T>::Process()
 {
-    LocalTensor<int32_t> IBSyncLocal;
-    // Initialize sync buff.
-    if (GetBlockIdx() == 0) {
-        IBSyncLocal = calcBuf[0].AllocTensor<int32_t>();
-        Duplicate(IBSyncLocal, 0, syncWorkspaceSize);
-        PipeBarrier<PIPE_ALL>();
-        DataCopy(IBSyncGlobal, IBSyncLocal, syncWorkspaceSize);
-        PipeBarrier<PIPE_ALL>();
-        calcBuf[0].FreeTensor(IBSyncLocal);
-    } // Initialize sync buff.
-
     // Sort within each tile.
     for (int32_t tileIdx = 0; tileIdx < this->tileNum; tileIdx++) {
         CopyIn(tileIdx);
@@ -197,19 +193,15 @@ __aicore__ inline void KernelUnique<T>::Process()
             BlockSortV2(); // Sort within each block.
         }
 
+        SyncAll();
         GlobalSortV2(); // Sort globally.
-
-        PipeBarrier<PIPE_ALL>();
-        SyncAll<true>();
-        PipeBarrier<PIPE_ALL>();
+        SyncAll();
     }
 
     // Check if an inf value exists. If do, inf will be append to the result in TileUnique().
     if ((IsSameType<T, bfloat16_t>::value || IsSameType<T, half>::value || IsSameType<T, float>::value) &&
         GetBlockIdx() == blockNum - 1) {
-        PipeBarrier<PIPE_ALL>();
-        const uint32_t totalLength32BAligned = (totalLength * sizeof(T) + 31) / 32 * 32 / sizeof(float);
-        if (sortedGlobal1.GetValue((totalLength32BAligned - 1) * 2) == -FLOAT_INF) {
+        if (sortedGlobal1.GetValue((totalLength - 1) * 2) == -FLOAT_INF) {
             hasInfFlag = true;
         }
     }
@@ -221,16 +213,11 @@ __aicore__ inline void KernelUnique<T>::Process()
 
     if (this->blockNum > 1) {
         // Each block waits for its former block to upload blockUniqueCnt.
-        IBSyncLocal = calcBuf[0].AllocTensor<int32_t>();
+        LocalTensor<int32_t> IBSyncLocal = calcBuf[0].Get<int32_t>();
         if (GetBlockIdx() != 0) {
-            PipeBarrier<PIPE_ALL>();
             IBWait(IBSyncGlobal, IBSyncLocal, (int32_t)GetBlockIdx() - 1, eventID);
-            PipeBarrier<PIPE_ALL>();
         }
-        PipeBarrier<PIPE_ALL>();
         IBSet(IBSyncGlobal, IBSyncLocal, (int32_t)GetBlockIdx(), eventID);
-        PipeBarrier<PIPE_ALL>();
-        calcBuf[0].FreeTensor(IBSyncLocal);
     }
 
     // Gather result from every block.
@@ -240,8 +227,8 @@ __aicore__ inline void KernelUnique<T>::Process()
 template<typename T>
 __aicore__ inline void KernelUnique<T>::CopyIn(const int32_t progress)
 {
-    LocalTensor<T> srcLocal = calcBuf[0].AllocTensor<T>();
-    LocalTensor<float> sortedLocal2 = calcBuf[2].AllocTensor<float>();
+    LocalTensor<T> srcLocal = calcBuf[0].Get<T>();
+    LocalTensor<float> sortedLocal2 = calcBuf[2].Get<float>();
 
     // To process tail, fill the whole tile with INF, then cover it with tail.
     int32_t castLen; // Valid length of the last block.
@@ -257,14 +244,16 @@ __aicore__ inline void KernelUnique<T>::CopyIn(const int32_t progress)
         // Process tail.
         LocalTensor<uint32_t> srcAsUint = srcLocal.template ReinterpretCast<uint32_t>();
         Duplicate(sortedLocal2, FLOAT_INF, TILE_LENGTH);
-        PipeBarrier<PIPE_V>();
         if constexpr (IsSameType<T, float>::value) {
+            PipeBarrier<PIPE_ALL>();
             DataCopyPad(sortedLocal2, srcGlobal[progress * TILE_LENGTH],
                 {1, static_cast<uint16_t>(sizeof(T) * tailLength), 0, 0}, {false, 0, 0, 0});
         } else if constexpr (sizeof(T) >= sizeof(float)) {
+            PipeBarrier<PIPE_V>();
             DataCopyPad(srcAsUint, srcGlobalAsUint[progress * TILE_LENGTH * sizeof(T) / sizeof(uint32_t)],
                 {1, static_cast<uint16_t>(sizeof(T) * tailLength), 0, 0}, {false, 0, 0, 0});
         } else {
+            PipeBarrier<PIPE_V>();
             DataCopyPad(srcLocal, srcGlobal[progress * TILE_LENGTH],
                 {1, static_cast<uint16_t>(sizeof(T) * tailLength), 0, 0}, {false, 0, 0, 0});
         }
@@ -280,16 +269,14 @@ __aicore__ inline void KernelUnique<T>::CopyIn(const int32_t progress)
         PipeBarrier<PIPE_V>();
     }
     Muls(sortedLocal2, sortedLocal2, (float)-1, TILE_LENGTH);
-    calcBuf[0].EnQue(srcLocal);
-    calcBuf[2].EnQue(sortedLocal2);
 }
 
 template<typename T>
 __aicore__ inline void KernelUnique<T>::Elem32Sort(const int32_t progress)
 {
-    LocalTensor<T> srcLocal = calcBuf[0].DeQue<T>();
-    LocalTensor<float> sortedLocal1 = calcBuf[1].AllocTensor<float>();
-    LocalTensor<float> sortedLocal2 = calcBuf[2].DeQue<float>();
+    LocalTensor<T> srcLocal = calcBuf[0].Get<T>();
+    LocalTensor<float> sortedLocal1 = calcBuf[1].Get<float>();
+    LocalTensor<float> sortedLocal2 = calcBuf[2].Get<float>();
     LocalTensor<int32_t> arithLocal = srcLocal.template ReinterpretCast<int32_t>()[TILE_LENGTH];
 
     int32_t baseOffset = progress * TILE_LENGTH + this->globalOffset; // calc tileOffset
@@ -311,16 +298,13 @@ __aicore__ inline void KernelUnique<T>::Elem32Sort(const int32_t progress)
         instrRepeatTime++;
     }
     PipeBarrier<PIPE_ALL>();
-    calcBuf[0].FreeTensor(srcLocal);
-    calcBuf[1].EnQue(sortedLocal1);
-    calcBuf[2].EnQue(sortedLocal2);
 }
 
 template<typename T>
 __aicore__ inline void KernelUnique<T>::TileSort(const int32_t progress)
 {
-    LocalTensor<float> sortedLocal1 = calcBuf[1].DeQue<float>();
-    LocalTensor<float> sortedLocal2 = calcBuf[2].DeQue<float>();
+    LocalTensor<float> sortedLocal1 = calcBuf[1].Get<float>();
+    LocalTensor<float> sortedLocal2 = calcBuf[2].Get<float>();
     LocalTensor<float> sortedQue[2] = {sortedLocal1, sortedLocal2};
     uint16_t currentQueLength = 32; // Initial queue length is 32 because data is from Sort32.
     uint16_t currentQueNum = TILE_LENGTH / currentQueLength;
@@ -343,8 +327,6 @@ __aicore__ inline void KernelUnique<T>::TileSort(const int32_t progress)
     }
     DataCopy(sortedBlock1[progress * TILE_LEN_ELEM], sortedQue[switchFlag], TILE_LEN_ELEM);
     PipeBarrier<PIPE_ALL>();
-    calcBuf[1].FreeTensor(sortedLocal1);
-    calcBuf[2].FreeTensor(sortedLocal2);
 }
 
 template<typename T>
@@ -436,9 +418,9 @@ __aicore__ inline void KernelUnique<T>::MrgSortGM(
 template<typename T>
 __aicore__ inline void KernelUnique<T>::BlockSortV2()
 {
-    LocalTensor<float> sortedLocal1 = calcBuf[0].AllocTensor<float>();
-    LocalTensor<float> sortedLocal2 = calcBuf[1].AllocTensor<float>();
-    LocalTensor<float> mrgLocal = calcBuf[2].AllocTensor<float>();
+    LocalTensor<float> sortedLocal1 = calcBuf[0].Get<float>();
+    LocalTensor<float> sortedLocal2 = calcBuf[1].Get<float>();
+    LocalTensor<float> mrgLocal = calcBuf[2].Get<float>();
     GlobalTensor<float> sortedBlock[2] = {sortedBlock1, sortedBlock2};
 
     // Each time merge 4 queues into 1 queue.
@@ -473,17 +455,14 @@ __aicore__ inline void KernelUnique<T>::BlockSortV2()
     if (switchFlag) {
         DataCopyGM2GM(sortedBlock1, sortedBlock2, sortedLocal1, blockLength * SORT_DATATYPE_SIZE_FACTOR, TILE_LEN_BYTE);
     }
-    calcBuf[0].FreeTensor(sortedLocal1);
-    calcBuf[1].FreeTensor(sortedLocal2);
-    calcBuf[2].FreeTensor(mrgLocal);
 }
 
 template<typename T>
 __aicore__ inline void KernelUnique<T>::GlobalSortV2()
 {
-    LocalTensor<float> sortedLocal1 = calcBuf[0].AllocTensor<float>();
-    LocalTensor<float> sortedLocal2 = calcBuf[1].AllocTensor<float>();
-    LocalTensor<float> mrgLocal = calcBuf[2].AllocTensor<float>();
+    LocalTensor<float> sortedLocal1 = calcBuf[0].Get<float>();
+    LocalTensor<float> sortedLocal2 = calcBuf[1].Get<float>();
+    LocalTensor<float> mrgLocal = calcBuf[2].Get<float>();
     LocalTensor<int32_t> IBSyncLocal = sortedLocal2.ReinterpretCast<int32_t>();
     GlobalTensor<float> sortedGlobal[2] = {sortedGlobal1, sortedGlobal2};
 
@@ -546,9 +525,6 @@ __aicore__ inline void KernelUnique<T>::GlobalSortV2()
         sortedBlock1AsInt = sortedBlock2AsInt;
         sortedBlock2AsInt = tmpGlobal2;
     }
-    calcBuf[0].FreeTensor(sortedLocal1);
-    calcBuf[1].FreeTensor(sortedLocal2);
-    calcBuf[2].FreeTensor(mrgLocal);
 }
 
 template<typename T>
@@ -585,10 +561,10 @@ __aicore__ inline void KernelUnique<T>::ConsecutiveUnique(const LocalTensor<floa
 template<typename T>
 __aicore__ inline void KernelUnique<T>::TileUnique(const int32_t progress)
 {
-    LocalTensor<uint32_t> bitMask32 = calcBuf[0].AllocTensor<uint32_t>();
+    LocalTensor<uint32_t> bitMask32 = calcBuf[0].Get<uint32_t>();
     LocalTensor<float> shiftedLocal = bitMask32[TILE_LENGTH].ReinterpretCast<float>();
-    LocalTensor<float> sortedLocal1 = calcBuf[1].AllocTensor<float>();
-    LocalTensor<float> sortedLocal2 = calcBuf[2].AllocTensor<float>();
+    LocalTensor<float> sortedLocal1 = calcBuf[1].Get<float>();
+    LocalTensor<float> sortedLocal2 = calcBuf[2].Get<float>();
     LocalTensor<uint32_t> uniqueCntLocal = shiftedLocal.ReinterpretCast<uint32_t>();
     uint64_t tileUniqueCnt;
     uint64_t tmpRsvdCnt;
@@ -597,18 +573,20 @@ __aicore__ inline void KernelUnique<T>::TileUnique(const int32_t progress)
     PipeBarrier<PIPE_ALL>();
 
     ConsecutiveUnique(sortedLocal2, sortedLocal1, shiftedLocal, bitMask32, TILE_LENGTH, tileUniqueCnt);
+    PipeBarrier<PIPE_ALL>();
     // If has inf, append.
     if ((progress == tileNum - 1) && hasInfFlag) {
         sortedLocal2.SetValue(tileUniqueCnt, -FLOAT_INF);
         tileUniqueCnt++;
     }
+    PipeBarrier<PIPE_ALL>();
 
     if (tileUniqueCnt != 0) {
-        accUniqueCnt += tileUniqueCnt;
+        blockUniqueCnt += tileUniqueCnt;
         if (progress != 0 && lastTileUniqueVal == sortedLocal2.GetValue(0)) {
-            accUniqueCnt--;
+            blockUniqueCnt--;
         }
-        DataCopyPad(sortedBlock1[accUniqueCnt - tileUniqueCnt], sortedLocal2,
+        DataCopyPad(sortedBlock1[blockUniqueCnt - tileUniqueCnt], sortedLocal2,
             {1, static_cast<uint16_t>(sizeof(float) * tileUniqueCnt), 0, 0});
         PipeBarrier<PIPE_ALL>();
         lastTileUniqueVal = sortedLocal2.GetValue(tileUniqueCnt - 1);
@@ -616,23 +594,20 @@ __aicore__ inline void KernelUnique<T>::TileUnique(const int32_t progress)
 
     // upload uniqueCnt.
     if (progress == tileNum - 1) {
-        uniqueCntLocal.SetValue(0, accUniqueCnt);
+        uniqueCntLocal.SetValue(0, blockUniqueCnt);
         DataCopyPad(blockUniqueCntGlobal[GetBlockIdx()], uniqueCntLocal,
             {1, static_cast<uint16_t>(sizeof(uint32_t) * 1), 0, 0});
         PipeBarrier<PIPE_ALL>();
     }
-    calcBuf[0].FreeTensor(shiftedLocal);
-    calcBuf[1].FreeTensor(sortedLocal1);
-    calcBuf[2].FreeTensor(sortedLocal2);
 }
 
 template<typename T>
 __aicore__ inline void KernelUnique<T>::CopyOut()
 {
-    LocalTensor<T> copyLocal0 = calcBuf[0].AllocTensor<T>();
-    LocalTensor<float> copyLocal1 = calcBuf[1].AllocTensor<float>();
+    LocalTensor<T> copyLocal0 = calcBuf[0].Get<T>();
+    LocalTensor<float> copyLocal1 = calcBuf[1].Get<float>();
     LocalTensor<int32_t> IBSyncLocal = copyLocal1.ReinterpretCast<int32_t>();
-    LocalTensor<int32_t> copyLocal2 = calcBuf[2].AllocTensor<int32_t>();
+    LocalTensor<int32_t> copyLocal2 = calcBuf[2].Get<int32_t>();
 
     uint64_t lastAccUniqueCnt = 0;
     // Get every blockUniqueCnt before current block. Calc accumulate uniqueCnt.
@@ -640,7 +615,7 @@ __aicore__ inline void KernelUnique<T>::CopyOut()
         uint64_t lastUniqueCnt = blockUniqueCntGlobal.GetValue(i);
         lastAccUniqueCnt += lastUniqueCnt;
         // If the first val of (i+1)th block equals to the last val of (i)th block, then they should be placed in
-        // the same position, accUniqueCnt--.
+        // the same position, blockUniqueCnt--.
         if (sortedGlobal1[GetGlobalOffset(i + 1) * SORT_DATATYPE_SIZE_FACTOR].GetValue(0) ==
             sortedGlobal1[GetGlobalOffset(i) * SORT_DATATYPE_SIZE_FACTOR].GetValue(lastUniqueCnt - 1)) {
             lastAccUniqueCnt--;
@@ -691,7 +666,5 @@ __aicore__ inline void KernelUnique<T>::CopyOut()
         DataCopyPad(uniqueCntGlobal, uniqueVal32, {1, static_cast<uint16_t>(sizeof(uint32_t) * 1), 0, 0});
         PipeBarrier<PIPE_ALL>();
     }
-    calcBuf[0].FreeTensor(copyLocal0);
-    calcBuf[1].FreeTensor(copyLocal1);
 }
 } // namespace AscendC

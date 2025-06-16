@@ -7,9 +7,10 @@
 namespace optiling {
 BEGIN_TILING_DATA_DEF(UniqueTilingData)
     TILING_DATA_FIELD_DEF(uint32_t, totalLength);
-    TILING_DATA_FIELD_DEF(uint32_t, tileNum);
     TILING_DATA_FIELD_DEF(uint32_t, shortBlockTileNum);
+    TILING_DATA_FIELD_DEF(uint16_t, tileLength);
     TILING_DATA_FIELD_DEF(uint16_t, tailLength);
+    TILING_DATA_FIELD_DEF(uint8_t, aivNum);
     TILING_DATA_FIELD_DEF(uint8_t, blockNum);
     TILING_DATA_FIELD_DEF(uint8_t, shortBlockNum);
 END_TILING_DATA_DEF;
