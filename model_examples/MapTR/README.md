@@ -185,6 +185,8 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   which python
   ```
 
+  假设which python指令的结果为/usr/local/bin/python，则对应的python_path为/usr/local。
+
   在[Python源码下载地址](https://www.python.org/downloads/source/)下载对应版本的Python源码并解压。
 
   以Python 3.8.17为例：
