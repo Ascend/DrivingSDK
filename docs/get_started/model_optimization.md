@@ -16,7 +16,7 @@ torch_npu框架可以使能多种特性, 包括环境变量配置，框架编译
 |--------------|-------|
 |export TASK_QUEUE_ENABLE=2 | 设置是否开启task queue，0-关闭/1-Level 1优化/2-Level 2优化 |
 |export CPU_AFFINITY_CONF=1 | 设置任务绑核，减少调度开销，0-关闭/1-粗粒度绑核/2-细粒度绑核|
-|export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True" | 使能内存池扩展段功能，，此设置将指示缓存分配器创建特定的内存块分配|
+|export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True" | 使能内存池扩展段功能，此设置将指示缓存分配器创建特定的内存块分配|
 |export COMBINED_ENABLE=1 | 用于优化非连续两个算子组合类场景，0-关闭/1-开启|
 #### 2.1.2 编译优化
 框架支持Python, PyTorch, torch_npu的编译优化，能够缩短链接耗时和内存占用，具体使用方式可参考：
@@ -52,7 +52,7 @@ tcmalloc（即Thread-Caching Malloc）是一个通用的内存分配器，通过
 ### 2.3 自驾模型host bound问题优化
 自动驾驶算法有很多slice、gather、sort等小算子，2D图像特征转换到BEV空间，涉及大量投影、插值、采样等操作，点云数据的体素化处理、稀疏卷积等。自动驾驶算法中涉及很多逻辑处理，如检测算法的target assign，规控类算法lovaz loss，以及一些对groundtruth处理的操作。Host bound问题：小算子下发多，CPU计算处理逻辑多、负载大，算子没有NPU高性能替换等造成host bound问题严重。
 #### 2.3.1 减少算子下发次数
-在车道线检测、多边形实例分割等任务中，目标通常由连续的点序列构成，通过插值监督，模型可以更好地学习这种连续几何结构。例如Pivotnet中,interpolate函数使用循环每次计算一个插值点，此函数单Step调用90次，引入大量的小算子及Free time。减少算子的下发次数的主要解决方案是通过等价的api进行脚本替换，规控模型决策模块以及感知模型的数据处理等模块由于开源模型代码一般没有经过优化，经常会出现大量的for循环切片操作，可通过一下mask相关的api替换这块大量的小算子逻辑。在目标检测等任务中，目标通常由连续的点序列构成，常会出现插值相关的逻辑，若模型中为循环单点计算，可尝试修改为大粒度运算减少小算子下发。
+在车道线检测、多边形实例分割等任务中，目标通常由连续的点序列构成，通过插值监督，模型可以更好地学习这种连续几何结构。例如Pivotnet中,interpolate函数使用循环每次计算一个插值点，此函数单Step调用90次，引入大量的小算子及Free time。减少算子的下发次数的主要解决方案是通过等价的api进行脚本替换，规控模型决策模块以及感知模型的数据处理等模块由于开源模型代码一般没有经过优化，经常会出现大量的for循环切片操作，可通过一些mask相关的api替换这块大量的小算子逻辑。在目标检测等任务中，目标通常由连续的点序列构成，常会出现插值相关的逻辑，若模型中为循环单点计算，可尝试修改为大粒度运算减少小算子下发。
 例如在模型源代码中，存在循环单点计算插值逻辑：
 ```python
 @staticmethod
@@ -278,62 +278,62 @@ all = [
 'BEVStereo4D', 'BEVStereo4DOCC'
 ]
 ```
-修改/mmdet3d/models/detectors/bevdet.py文件，删除或注释如下代码：
+修改mmdet3d/models/detectors/bevdet.py文件，删除或注释如下代码：
 ```python
 from mmdet3d.ops.bev_pool_v2.bev_pool import TRTBEVPoolv2
 …
 @DETECTORS.register_module()
 class BEVDetTRT(BEVDet):
 
-def result_serialize(self, outs):
-    outs_ = []
-    for out in outs:
-        for key in ['reg', 'height', 'dim', 'rot', 'vel', 'heatmap']:
-            outs_.append(out[0][key])
-    return outs_
+    def result_serialize(self, outs):
+        outs_ = []
+        for out in outs:
+            for key in ['reg', 'height', 'dim', 'rot', 'vel', 'heatmap']:
+                outs_.append(out[0][key])
+        return outs_
 
-def result_deserialize(self, outs):
-    outs_ = []
-    keys = ['reg', 'height', 'dim', 'rot', 'vel', 'heatmap']
-    for head_id in range(len(outs) // 6):
-        outs_head = [dict()]
-        for kid, key in enumerate(keys):
-            outs_head[0][key] = outs[head_id * 6 + kid]
-        outs_.append(outs_head)
-    return outs_
+    def result_deserialize(self, outs):
+        outs_ = []
+        keys = ['reg', 'height', 'dim', 'rot', 'vel', 'heatmap']
+        for head_id in range(len(outs) // 6):
+            outs_head = [dict()]
+            for kid, key in enumerate(keys):
+                outs_head[0][key] = outs[head_id * 6 + kid]
+            outs_.append(outs_head)
+        return outs_
 
-def forward(
-    self,
-    img,
-    ranks_depth,
-    ranks_feat,
-    ranks_bev,
-    interval_starts,
-    interval_lengths,
-):
-    x = self.img_backbone(img)
-    x = self.img_neck(x)
-    x = self.img_view_transformer.depth_net(x)
-    depth = x[:, :self.img_view_transformer.D].softmax(dim=1)
-    tran_feat = x[:, self.img_view_transformer.D:(
-        self.img_view_transformer.D +
-        self.img_view_transformer.out_channels)]
-    tran_feat = tran_feat.permute(0, 2, 3, 1)
-    x = TRTBEVPoolv2.apply(depth.contiguous(), tran_feat.contiguous(),
-                           ranks_depth, ranks_feat, ranks_bev,
-                           interval_starts, interval_lengths)
-    x = x.permute(0, 3, 1, 2).contiguous()
-    bev_feat = self.bev_encoder(x)
-    outs = self.pts_bbox_head([bev_feat])
-    outs = self.result_serialize(outs)
-    return outs
+    def forward(
+        self,
+        img,
+        ranks_depth,
+        ranks_feat,
+        ranks_bev,
+        interval_starts,
+        interval_lengths,
+    ):
+        x = self.img_backbone(img)
+        x = self.img_neck(x)
+        x = self.img_view_transformer.depth_net(x)
+        depth = x[:, :self.img_view_transformer.D].softmax(dim=1)
+        tran_feat = x[:, self.img_view_transformer.D:(
+            self.img_view_transformer.D +
+            self.img_view_transformer.out_channels)]
+        tran_feat = tran_feat.permute(0, 2, 3, 1)
+        x = TRTBEVPoolv2.apply(depth.contiguous(), tran_feat.contiguous(),
+                            ranks_depth, ranks_feat, ranks_bev,
+                            interval_starts, interval_lengths)
+        x = x.permute(0, 3, 1, 2).contiguous()
+        bev_feat = self.bev_encoder(x)
+        outs = self.pts_bbox_head([bev_feat])
+        outs = self.result_serialize(outs)
+        return outs
 
-def get_bev_pool_input(self, input):
-    input = self.prepare_inputs(input)
-    coor = self.img_view_transformer.get_lidar_coor(*input[1:7])
-    return self.img_view_transformer.voxel_pooling_prepare_v2(coor)
+    def get_bev_pool_input(self, input):
+        input = self.prepare_inputs(input)
+        coor = self.img_view_transformer.get_lidar_coor(*input[1:7])
+        return self.img_view_transformer.voxel_pooling_prepare_v2(coor)
 ```
-6. mmdet_3d版本兼容适配，修改mmdet3d/init.py文件，将原始代码：
+6. mmdet_3d版本兼容适配，修改mmdet3d/\_\_init\_\_.py文件，将原始代码：
 ```python
 mmcv_maximum_version = '1.7.0'
 ```
@@ -345,10 +345,10 @@ mmcv_maximum_version = '1.7.2'
 ```python
 import mmseg
 …
-mmseg_version = digit_version(mmseg.version)
+mmseg_version = digit_version(mmseg.__version__)
 assert (mmseg_version >= digit_version(mmseg_minimum_version)
     and mmseg_version <= digit_version(mmseg_maximum_version)),
-    f'MMSEG=={mmseg.version} is used but incompatible. '
+    f'MMSEG=={mmseg.__version__} is used but incompatible. '
     f'Please install mmseg>={mmseg_minimum_version}, '
     f'<={mmseg_maximum_version}.'
 ```
@@ -386,6 +386,48 @@ bev_feat = bev_pool_v2(depth, feat, self.ranks_depth,
 bev_feat = bev_pool_v3(depth, feat, self.ranks_depth,
         self.ranks_feat, self.ranks_bev,
         bev_feat_shape)
+```
+8. npu上matmul不支持6维以上，因此需要进行修改适配，替换mmdet3d/models/necks/view_transformer.py文件中LSSViewTransformer类中get_lidar_coor函数：
+```python
+def get_lidar_coor(self, sensor2ego, ego2global, cam2imgs, post_rots, post_trans, bda):
+    """Calculate the locations of the frustum points in the lidar
+    coordinate system.
+
+    Args:
+        rots (torch.Tensor): Rotation from camera coordinate system to
+            lidar coordinate system in shape (B, N_cams, 3, 3).
+        trans (torch.Tensor): Translation from camera coordinate system to
+            lidar coordinate system in shape (B, N_cams, 3).
+        cam2imgs (torch.Tensor): Camera intrinsic matrixes in shape
+            (B, N_cams, 3, 3).
+        post_rots (torch.Tensor): Rotation in camera coordinate system in
+            shape (B, N_cams, 3, 3). It is derived from the image view
+            augmentation.
+        post_trans (torch.Tensor): Translation in camera coordinate system
+            derived from image view augmentation in shape (B, N_cams, 3).
+
+    Returns:
+        torch.tensor: Point coordinates in shape
+            (B, N_cams, D, ownsample, 3)
+    """
+    B, N, _, _ = sensor2ego.shape
+
+    # post-transformation
+    # B x N x D x H x W x 3
+    points = self.frustum.to(sensor2ego) - post_trans.view(B, N, 1, 1, 1, 3)
+    B, N, D, H, W, _ = points.shape
+    points = points.view(B, N, D*H*W, 3, 1)
+    points = torch.inverse(post_rots).view(B, N, 1, 3, 3).matmul(points)
+
+    # cam_to_ego
+    points = torch.cat((points[..., :2, :] * points[..., 2:3, :], points[..., 2:3, :]), 3)
+    combine = sensor2ego[:,:,:3,:3].matmul(torch.inverse(cam2imgs))
+    points = combine.view(B, N, 1, 3, 3).matmul(points).squeeze(-1)
+    points += sensor2ego[:,:,:3, 3].view(B, N, 1, 3)
+    points = bda[:, :3, :3].view(B, 1, 1, 3, 3).matmul(
+        points.unsqueeze(-1)).squeeze(-1)
+    points += bda[:, :3, 3].view(B, 1, 1, 3)
+    return points.view(B, N, D, H, W, 3)
 ```
 #### 3.2.4 模型优化
 1. 替换融合优化器，在configs/bevdet/bevdet-r50.py中，原始代码为：
