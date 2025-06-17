@@ -86,10 +86,9 @@ static graphStatus InferShapeForMultiScaleDeformableAttn(gert::InferShapeContext
     CHECK_NULLPTR(samplingLocationsShape)
     CHECK_NULLPTR(yShape)
 
-    yShape->SetDimNum(3);
-    yShape->AppendDim(valueShape->GetDim(0));
-    yShape->AppendDim(samplingLocationsShape->GetDim(1));
-    yShape->AppendDim(valueShape->GetDim(1) * valueShape->GetDim(3));
+    yShape->AppendDim(valueShape->GetDim(BATCH_SIZE_DIM));
+    yShape->AppendDim(samplingLocationsShape->GetDim(NUM_QUERIES_DIM));
+    yShape->AppendDim(valueShape->GetDim(NUM_HEADS_DIM) * valueShape->GetDim(EMBED_DIMS_DIM));
 
     return GRAPH_SUCCESS;
 }
