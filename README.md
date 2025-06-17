@@ -163,6 +163,7 @@ out, argmax = scatter_max(updates, indices, out)
 | MagicDriveDiT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT |N|
 | SparseDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SparseDrive |N|
 | Diffusion-Planner | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner |N|
+| DiffusionDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive |N|
 # 支持的产品型号
 - Atlas A2 训练系列产品
 
