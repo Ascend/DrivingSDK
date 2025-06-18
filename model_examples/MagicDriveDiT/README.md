@@ -117,8 +117,8 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 
   # 安装Colossalai
   git clone https://github.com/flymin/ColossalAI.git
-  git checkout ascend && git pull
   cd ColossalAI
+  git checkout ascend && git pull
   BUILD_EXT=1 pip install .
 
   # 安装其他依赖项

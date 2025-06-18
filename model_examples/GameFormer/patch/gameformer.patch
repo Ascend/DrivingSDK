@@ -21,7 +21,7 @@ index 87feff8..bc506ab 100644
              if detection.intersects(polygon):
                  vectorized_crosswalks[added_cross_walks, :polyline.shape[0]] = polyline
 diff --git a/interaction_prediction/train.py b/interaction_prediction/train.py
-index c2d7f0d..5723bbf 100644
+index c2d7f0d..20e1bc9 100644
 --- a/interaction_prediction/train.py
 +++ b/interaction_prediction/train.py
 @@ -1,5 +1,6 @@
@@ -175,7 +175,7 @@ index c2d7f0d..5723bbf 100644
      parser.add_argument('--name', type=str, help='log name (default: "Exp1")', default="Exp1_IP")
      parser.add_argument('--load_dir', type=str, help='name to load ckpts from log path (e.g. epochs_0.pth)', default='')
 diff --git a/model/GameFormer.py b/model/GameFormer.py
-index 17d6c8e..27c0790 100644
+index 17d6c8e..4790aac 100644
 --- a/model/GameFormer.py
 +++ b/model/GameFormer.py
 @@ -1,6 +1,6 @@
@@ -197,6 +197,33 @@ index 17d6c8e..27c0790 100644
          self.fusion_encoder = nn.TransformerEncoder(attention_layer, layers, enable_nested_tensor=False)
  
      def segment_map(self, map, map_encoding):
+@@ -30,14 +30,22 @@ class Encoder(nn.Module):
+         return map_encoding, map_mask
+ 
+     def forward(self, inputs):
+-        # agent encoding
+         ego = inputs['ego_state']
+         neighbors = inputs['neighbors_state']
++
+         actors = torch.cat([inputs['ego_state'].unsqueeze(1), neighbors], dim=1)
+         encoded_ego = self.ego_encoder(ego)
+-        encoded_neighbors = [self.agent_encoder(neighbors[:, i]) for i in range(neighbors.shape[1])]
+-        encoded_actors = torch.stack([encoded_ego] + encoded_neighbors, dim=1)
+-        actors_mask = torch.eq(actors[:, :, -1].sum(-1), 0)
++
++        # 批量处理所有邻居Agent
++        batch_size, num_neighbors = neighbors.shape[0], neighbors.shape[1]
++        neighbors_reshaped = neighbors.view(-1, *neighbors.shape[2:])  # (batch*num_neighbors, time_steps, 11)
++        
++        # agent encoding
++        encoded_neighbors = self.agent_encoder(neighbors_reshaped)
++        encoded_neighbors = encoded_neighbors.view(batch_size, num_neighbors, -1)  # (batch, num_neighbors, dim)
++        
++        encoded_actors = torch.cat([encoded_ego.unsqueeze(1), encoded_neighbors], dim=1)  # (batch, 1+num_neighbors, dim)
++        actors_mask = (actors[..., -1].sum(dim=-1) == 0)  # (batch_size, num_agents)
+ 
+         # map encoding
+         map_lanes = inputs['map_lanes']
 diff --git a/model/modules.py b/model/modules.py
 index 300b8b6..ee44c92 100644
 --- a/model/modules.py
