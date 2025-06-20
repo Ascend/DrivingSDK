@@ -307,9 +307,8 @@ MapTR
 |   |   ├── nuscenes_infos_temporal_train.pkl
 |   |   ├── nuscenes_infos_temporal_val.pkl
 ├── patch/
-├── projects/
 ├── test/
-├── tools/
+├── MapTR/
 ```
 
 > **说明：**
