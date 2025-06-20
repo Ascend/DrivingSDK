@@ -233,8 +233,9 @@ Driving SDK代码中包含公网地址声明如下表所示：
 |   开源引入   |   https://gitee.com/it-monkey/protocolbuffers.git    | ci/docker/X86/build_protobuf.sh     |   https://gitee.com/it-monkey/protocolbuffers.git   | 用于构建 protobuf                  |
 |   开源引入   |   https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://storage.googleapis.com/coco-dataset/external/PASCAL_VOC.zip   | 源模型失效数据下载链接                  |
 |   开源引入   |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip    | model_examples/CenterNet/CenterNet.patch     |   https://s3.amazonaws.com/images.cocodataset.org/external/external_PASCAL_VOC.zip   | 模型必要数据下载链接                |
-| 开源引入 ｜ https://download.pytorch.org/whl/torch_stable.html ｜ model_examples/Diffusion-Planner/diffusionPlanner.patch | https://download.pytorch.org/whl/torch_stable.html | 模型依赖包下载 ｜
-| 开源引入 ｜ https://pypi.tuna.tsinghua.edu.cn/simple ｜ model_examples/Diffusion-Planner/diffusionPlanner.patch | https://pypi.tuna.tsinghua.edu.cn/simple | 模型依赖包下载 ｜
+| 开源引入 | https://download.pytorch.org/whl/torch_stable.html | model_examples/Diffusion-Planner/diffusionPlanner.patch | https://download.pytorch.org/whl/torch_stable.html | 模型依赖包下载 |
+| 开源引入 | https://pypi.tuna.tsinghua.edu.cn/simple | model_examples/Diffusion-Planner/diffusionPlanner.patch | https://pypi.tuna.tsinghua.edu.cn/simple | 模型依赖包下载 |
+| 开源引入 | https://github.com/Pointcept/Pointcept | model_examples/PointTransformerV3/Ptv3.patch | xiaoyang.wu.cs@gmail.com | 模型作者邮箱声明 |
 
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，Driving SDK提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
