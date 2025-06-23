@@ -82,6 +82,14 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t singleLoopTask = ubSize / (SINGLE_LOOP_UB_SIZE +
         CeilAlign(inChannelsAligned * kernelSize, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE +
         CeilAlign(kernelSizeAligned, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE);
+    uint32_t copyOutOneChannel = 0;
+    if (singleLoopTask == 0) {
+        // UB overflow
+        singleLoopTask = ubSize / (SINGLE_LOOP_UB_SIZE +
+            CeilAlign(inChannelsAligned, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE +
+            CeilAlign(kernelSizeAligned, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE);
+        copyOutOneChannel = 1;
+    }
 
     tiling.set_k0(kernelSizeArr[KERNEL_SIZE_IDX_0]);
     tiling.set_k1(kernelSizeArr[KERNEL_SIZE_IDX_1]);
@@ -89,7 +97,6 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_spatialShape0(outSpatialShapeArr[OUT_SPATIAL_SHAPE_IDX_0]);
     tiling.set_spatialShape1(outSpatialShapeArr[OUT_SPATIAL_SHAPE_IDX_1]);
     tiling.set_spatialShape2(outSpatialShapeArr[OUT_SPATIAL_SHAPE_IDX_2]);
-
     tiling.set_batchSize(*batchSizePtr);
     tiling.set_inChannels(*inChannelsPtr);
     tiling.set_sparseRate(*sparseRatePtr);
@@ -97,6 +104,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_bigCoreCount(bigCoreCount);
     tiling.set_singleLoopTask(singleLoopTask);
     tiling.set_totalTaskCount(totalTaskCount);
+    tiling.set_copyOutOneChannel(copyOutOneChannel);
 
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
