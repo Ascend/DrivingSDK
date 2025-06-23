@@ -77,7 +77,7 @@ std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& f
     c10::SmallVector<int64_t, TOTAL_CAPACITY> output_size = {indices_size[0], kernelsum * in_channels};
     c10::SmallVector<int64_t, TOTAL_CAPACITY> indices_out_size = {outputsum};
     
-    at::Tensor feature_out = at::empty(output_size, feature.options());
+    at::Tensor feature_out = at::zeros(output_size, feature.options());
     at::Tensor indices_offset = at::empty(indices_out_size, feature.options().dtype(at::kInt));
 
     EXEC_NPU_CMD(aclnnSubmSparseConv3dV2, feature, indices, map1, map2, kernel_size, in_channels, out_spatial_shape,

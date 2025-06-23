@@ -66,6 +66,7 @@ public:
         sparseRate = tilingData->sparseRate;
         useTwolevelMap_ = (totalSpatialShape_ * (int64_t)batchSize_ >= SPATIAL_SHAPE_THRESHOLD) && (sparseRate < SPARSE_THRESHOLD);
         copyByteSize_ = inChannels_ * FLOAT_BYTE_SIZE;
+        copyOutOneChannel_ = tilingData->copyOutOneChannel;
 
         if (blkIdx_ < tilingData->bigCoreCount) {
             globalTaskOffset_ = (tilingData->coreTaskCount + 1) * blkIdx_;
@@ -78,6 +79,7 @@ public:
         singleLoopTask_ = tilingData->singleLoopTask;
         singleLoopTaskAligned_ = AlignUp(singleLoopTask_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
         tmpBufLength_ = singleLoopTask_;
+        tmpBufIdx_ = 0;
     }
 
     __aicore__ inline void InitGM(GM_ADDR feature, GM_ADDR indices, GM_ADDR map1, GM_ADDR map2,
@@ -97,7 +99,11 @@ public:
     {
         pipe_->InitBuffer(inputIndicesBuf_, INDICES_TASK_SIZE * singleLoopTaskAligned_ * INT32_BYTE_SIZE);
         pipe_->InitBuffer(totalIndicesBuf_, INDICES_TASK_SIZE * singleLoopTaskAligned_ * INT32_BYTE_SIZE);
-        pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTask_ * kernelSize_ * inChannelsAligned_ * FLOAT_BYTE_SIZE);
+        if (copyOutOneChannel_ == 0) {
+            pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTask_ * kernelSize_ * inChannelsAligned_ * FLOAT_BYTE_SIZE);
+        } else {
+            pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTask_ * inChannelsAligned_ * FLOAT_BYTE_SIZE);
+        }
         pipe_->InitBuffer(mapValBuf_, k0_ * k1_ * k2Aligned_ * INT32_BYTE_SIZE);
         pipe_->InitBuffer(mapValFloatBuf_, MAP_VAL_FLOAT_BUF_LENGTH * k0_ * k1_ * k2Aligned_ * FLOAT_BYTE_SIZE);
         pipe_->InitBuffer(indicesOffsetBuf_, singleLoopTaskAligned_ * kernelSizeAligned_ * INT32_BYTE_SIZE);
@@ -146,8 +152,12 @@ public:
             GatherMask(spatial1Local_, inputIndicesLocal_, SRC_PARTTEN_2, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
             GatherMask(spatial2Local_, inputIndicesLocal_, SRC_PARTTEN_3, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
             Duplicate(indicesOffsetLocal_, static_cast<int32_t>(-1), taskCount * kernelSizeAligned_);
-            Duplicate(tmpFeatureLocal_, static_cast<float>(0), taskCount * kernelSize_ * inChannelsAligned_);
-
+            if (copyOutOneChannel_ == 0) {
+                Duplicate(tmpFeatureLocal_, static_cast<float>(0), taskCount * kernelSize_ * inChannelsAligned_);
+            } else {
+                Duplicate(tmpFeatureLocal_, static_cast<float>(0), taskCount * inChannelsAligned_);
+            }
+            
             Adds(spatial0Local_, spatial0Local_, - halfk0_, taskCount);
             Adds(spatial1Local_, spatial1Local_, - halfk0_, taskCount);
             Adds(spatial2Local_, spatial2Local_, - halfk0_, taskCount);
@@ -165,11 +175,13 @@ public:
             DataCopyPad(indicesOffsetGM_[globalTaskOffset_ * kernelSize_], indicesOffsetLocal_,
                 {static_cast<uint16_t>(taskCount), static_cast<uint32_t>(kernelSize_ * INT32_BYTE_SIZE), 0, 0, 0});
 
-            SetFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
-            WaitFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
+            if (copyOutOneChannel_ == 0) {
+                SetFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
+                WaitFlag<HardEvent::MTE2_MTE3>(eventMTE2ToMTE3_);
 
-            DataCopyPad(outputFeatureGM_[((globalTaskOffset_) * kernelSize_) * inChannels_], tmpFeatureLocal_,
-                        {static_cast<uint16_t>(taskCount * kernelSize_), copyByteSize_, 0, 0, 0});
+                DataCopyPad(outputFeatureGM_[((globalTaskOffset_) * kernelSize_) * inChannels_], tmpFeatureLocal_,
+                            {static_cast<uint16_t>(taskCount * kernelSize_), copyByteSize_, 0, 0, 0});
+            }
         }
     }
 
@@ -181,9 +193,15 @@ public:
 
         int32_t k = k0Idx * k12_ + k1Idx * k2_ + k2Idx;
         indicesOffsetLocal_.SetValue(i * kernelSizeAligned_ + k, mapVal);
-
-        DataCopyPad(tmpFeatureLocal_[(i * kernelSize_ + k) * inChannelsAligned_], inputFeatureGM_[mapVal * inChannels_],
-                    {1, copyByteSize_, 0, 0, 0}, {false, 0, 0, 0});
+        if (copyOutOneChannel_ == 0) {
+            DataCopyPad(tmpFeatureLocal_[(i * kernelSize_ + k) * inChannelsAligned_], inputFeatureGM_[mapVal * inChannels_], {1, copyByteSize_, 0, 0, 0}, {false, 0, 0, 0});
+        } else {
+            DataCopyPad(tmpFeatureLocal_[tmpBufIdx_ * inChannelsAligned_], inputFeatureGM_[mapVal * inChannels_], {1, copyByteSize_, 0, 0, 0}, {false, 0, 0, 0});
+            SetFlag<HardEvent::MTE2_MTE3>(0);
+            WaitFlag<HardEvent::MTE2_MTE3>(0);
+            DataCopyPad(outputFeatureGM_[(globalTaskOffset_ + i) * kernelSize_ * inChannels_ + k * inChannels_], tmpFeatureLocal_[tmpBufIdx_ * inChannelsAligned_], {1, copyByteSize_, 0, 0, 0});
+            tmpBufIdx_ = (tmpBufIdx_ + 1) % tmpBufLength_;
+        }
     }
 
     __aicore__ inline void ProcessOneLoopForOneLevelMap(uint32_t taskCount)
@@ -308,7 +326,7 @@ public:
 
 private:
     bool useTwolevelMap_;
-    uint32_t blkIdx_, copyByteSize_;
+    uint32_t blkIdx_, copyByteSize_, copyOutOneChannel_, tmpBufIdx_;
     int32_t k0_, k1_, k2_, k12_, halfk0_, halfk1_, halfk2_, k1Aligned_, k2Aligned_, kernelSize_, batchSize_, inChannels_, tmpBufLength_, spatialShape0_, spatialShape1_,
         spatialShape2_, spatialShape01_, spatialShape12_, coreTaskCount_, singleLoopTask_, singleLoopTaskAligned_, globalTaskOffset_,
         inChannelsAligned_, kernelSizeAligned_, outputOneLineElementCount_, outputHalfLineElementCount_;
