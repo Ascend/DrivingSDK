@@ -1,5 +1,4 @@
 arg="$1"
-git clone https://github.com/SlightwindSec/bitsandbytes.git -b multi-backend-refactor-npu
 cd bitsandbytes
 cat << 'EOF' > deploy.sh
 #!/bin/bash

@@ -32,8 +32,8 @@
 
 | 软件类型 | 支持列表 |
 | ------- | ------- |
-| FrameworkPTAdapter | 6.0.0 |
-| CANN | 8.0.0 |
+| FrameworkPTAdapter | 7.0.0 |
+| CANN | 8.1.RC1 |
 
 1、激活 CANN 包环境：将 CANN 包所在目录记为 cann_root_dir，执行以下命令以激活环境：
 ```
@@ -51,10 +51,11 @@ conda activate deformable_detr
 git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
 cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
-chmod -R 777 run.sh
-./run.sh
-cp -rf test Deformable-DETR
+git clone https://github.com/fundamentalvision/Deformable-DETR.git
+cp -f Deformable-DETR_npu.patch Deformable-DETR
 cd Deformable-DETR
+git apply Deformable-DETR_npu.patch
+cp -rf ../test .
 ```
 如果需要将 Deformable-DETR 源码 clone 到用户自定义目录，执行下面的shell命令：
 ```
@@ -62,7 +63,6 @@ your_path=/home/    # 替换为用户自定义目标目录地址
 git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.0.RC1
 cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
-chmod -R 777 run.sh
 git clone https://github.com/fundamentalvision/Deformable-DETR.git ${your_path}
 cp -f Deformable-DETR_npu.patch ${your_path}
 cp -rf test ${your_path}
@@ -102,15 +102,16 @@ bash test/train_8p_performance.sh --data_path='.data/coco'		# 替换成你的coc
 
 ### 训练结果：
 
-| 芯片          | 卡数 | epoch | mAP(IoU=0.50:0.95) | FPS  |
-| ------------- | ---- | ----- | ------------------ | ---- |
-| 竞品A         | 8p   | 50    | 0.437              | 65   |
-| Atlas 800T A2 | 8p   | 50    | 0.436              | 36   |
+| 芯片          | 卡数 | epoch | global batch size| mAP(IoU=0.50:0.95) | 性能-单步迭代耗时(s)	 | FPS  |
+| ------------- | ---- | ----- | ----- | ------------------ | ---- | ---- |
+| 竞品A         | 8p   | 50    | 64 | 0.437              | 1.01 | 65   |
+| Atlas 800T A2 | 8p   | 50    | 64 | 0.436              | 1.14 | 56   |
 
 ## 变更说明
 
 2024.12.23：首次发布
 
+2025.5.7：性能优化、更新性能数据
 ## FQA
 
 暂无

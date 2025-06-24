@@ -2,22 +2,24 @@
 
 ## 目录
 
+- [DETR for PyTorch](#detr-for-pytorch)
+  - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [DETR（在研版本）](#DETR（在研版本）)
+- [DETR](#detr)
   - [准备训练环境](#准备训练环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [安装模型环境](#安装模型环境)
     - [准备数据集](#准备数据集)
     - [准备预训练权重](#准备预训练权重)
   - [快速开始](#快速开始)
-    - [开始训练](#开始训练)
-    - [训练结果](#训练结果)
-- [公网地址说明](#公网地址说明)
+    - [训练任务](#训练任务)
+      - [开始训练](#开始训练)
+      - [训练结果](#训练结果)
 - [变更说明](#变更说明)
-- [FAQ](#FAQ)
+- [FAQ](#faq)
 
 # 简介
 
@@ -87,14 +89,21 @@ code_path=model_examples/DETR
    ```
    cd model_examples/DETR
    git clone https://github.com/facebookresearch/detr.git --depth=1
-   
+
    cd detr/
    git fetch --unshallow
    git checkout 29901c51d7fe8712168b8d0d64351170bc0f83e0
    cp -f ../detr.patch ./
    cp -rf ../test ./
    git apply detr.patch
-   
+   ```
+
+3. 安装依赖
+
+   ```
+   sed -i 's/^torchvision.*/torchvision==0.16.0/' requirements.txt
+   sed -i '2d;4d;6d;8d;9d' requirements.txt
+   sed -i '3i\pycocotools==2.0.7' requirements.txt
    pip install -r requirements.txt
    ```
 
@@ -144,10 +153,10 @@ coco_path/
 
 #### 训练结果
 
-|     芯片      | 卡数 | epoch | mAP(IoU=0.50:0.95) | FPS | Torch_Version |
-| :-----------: | :--: | :----: | :----------------: | :--: | :--: |
-|     竞品A     |  8p   |  300   |       0.410        | 126 | PyTorch 2.1 |
-| Atlas 800T A2 |  8p   |  300   |       0.410        | 122 | PyTorch 2.1 |
+|     芯片      | 卡数 | epoch |Global Batchsize| mAP(IoU=0.50:0.95) | FPS |
+| :-----------: | :--: | :----: |:----:| :----------------: | :--: |
+|     竞品A     |  8p   |  300 | 64  |       0.410        | 126 |
+| Atlas 800T A2 |  8p   |  300 | 64 |       0.410        | 122 |
 
 # 变更说明
 

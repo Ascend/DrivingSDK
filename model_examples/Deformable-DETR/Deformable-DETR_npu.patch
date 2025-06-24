@@ -39,7 +39,7 @@ index c9db563..f710d50 100644
 +            ├── instances_train2017.json
 +            └── instances_val2017.json
  ```
- 
+
  ### Training
 diff --git a/benchmark.py b/benchmark.py
 old mode 100644
@@ -136,6 +136,25 @@ new mode 100755
 diff --git a/datasets/coco.py b/datasets/coco.py
 old mode 100644
 new mode 100755
+index 1be8308..682e5fb
+--- a/datasets/coco.py
++++ b/datasets/coco.py
+@@ -135,13 +135,13 @@ def make_coco_transforms(image_set):
+         return T.Compose([
+             T.RandomHorizontalFlip(),
+             T.RandomSelect(
+-                T.RandomResize(scales, max_size=1333),
++                None,
+                 T.Compose([
+                     T.RandomResize([400, 500, 600]),
+                     T.RandomSizeCrop(384, 600),
+-                    T.RandomResize(scales, max_size=1333),
+                 ])
+             ),
++            T.RandomResize(scales, max_size=1333),
+             normalize,
+         ])
+
 diff --git a/datasets/coco_eval.py b/datasets/coco_eval.py
 old mode 100644
 new mode 100755
@@ -160,16 +179,41 @@ new mode 100755
 diff --git a/datasets/transforms.py b/datasets/transforms.py
 old mode 100644
 new mode 100755
-diff --git a/docs/changelog.md b/docs/changelog.md
-deleted file mode 100644
-index 1ed5e79..0000000
---- a/docs/changelog.md
-+++ /dev/null
-@@ -1,3 +0,0 @@
--## Changelog
--
--**[2020.12.07]** Fix a bug of sampling offset normalization (see [this issue](https://github.com/fundamentalvision/Deformable-DETR/issues/6)) in the MSDeformAttn module. The final accuracy on COCO is slightly improved. Code and pre-trained models have been updated. This bug only occurs in this released version but not in the original implementation used in our paper.
-\ No newline at end of file
+index 8f4baeb..f99284b
+--- a/datasets/transforms.py
++++ b/datasets/transforms.py
+@@ -201,10 +201,20 @@ class RandomResize(object):
+         assert isinstance(sizes, (list, tuple))
+         self.sizes = sizes
+         self.max_size = max_size
++        self.idx = 0
++        self.length = len(self.sizes)
++
++        seed = 100
++        torch.manual_seed(seed)
++        random.seed(seed)
++        self.size = self.sizes[random.randint(0, self.length - 1)]
+
+     def __call__(self, img, target=None):
+-        size = random.choice(self.sizes)
+-        return resize(img, target, size, self.max_size)
++        if self.idx % 8 == 0:
++            self.size = self.sizes[random.randint(0, self.length - 1)]
++
++        self.idx += 1
++        return resize(img, target, self.size, self.max_size)
+
+
+ class RandomPad(object):
+@@ -229,6 +239,8 @@ class RandomSelect(object):
+
+     def __call__(self, img, target):
+         if random.random() < self.p:
++            if self.transforms1 is None:
++                return img, target
+             return self.transforms1(img, target)
+         return self.transforms2(img, target)
+
 diff --git a/engine.py b/engine.py
 old mode 100644
 new mode 100755
@@ -178,7 +222,7 @@ index 1ae2ae9..db8641f
 +++ b/engine.py
 @@ -16,6 +16,7 @@ import sys
  from typing import Iterable
- 
+
  import torch
 +import torch_npu
  import util.misc as utils
@@ -187,7 +231,7 @@ index 1ae2ae9..db8641f
 @@ -37,17 +38,29 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
      prefetcher = data_prefetcher(data_loader, device, prefetch=True)
      samples, targets = prefetcher.next()
- 
+
 -    # for samples, targets in metric_logger.log_every(data_loader, print_freq, header):
      for _ in metric_logger.log_every(range(len(data_loader)), print_freq, header):
 +
@@ -197,7 +241,7 @@ index 1ae2ae9..db8641f
 +        loss_dict = criterion(outputs, targets, num_boxes, handle, s)
          weight_dict = criterion.weight_dict
          losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
- 
+
 -        # reduce losses over all GPUs for logging purposes
 -        loss_dict_reduced = utils.reduce_dict(loss_dict)
 +        values, names, handle = utils.reduce_values(loss_dict)
@@ -222,7 +266,7 @@ index 1ae2ae9..db8641f
 @@ -59,21 +72,13 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
              print(loss_dict_reduced)
              sys.exit(1)
- 
+
 -        optimizer.zero_grad()
 -        losses.backward()
 -        if max_norm > 0:
@@ -235,23 +279,23 @@ index 1ae2ae9..db8641f
          metric_logger.update(class_error=loss_dict_reduced['class_error'])
          metric_logger.update(lr=optimizer.param_groups[0]["lr"])
          metric_logger.update(grad_norm=grad_total_norm)
- 
+
          samples, targets = prefetcher.next()
 -    # gather the stats from all processes
-+        
++
      metric_logger.synchronize_between_processes()
      print("Averaged stats:", metric_logger)
      return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 @@ -104,8 +109,9 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
          samples = samples.to(device)
          targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
- 
+
 +        num_boxes, handle, s = criterion.get_num_boxes(targets, device)
          outputs = model(samples)
 -        loss_dict = criterion(outputs, targets)
 +        loss_dict = criterion(outputs, targets, num_boxes, handle, s)
          weight_dict = criterion.weight_dict
- 
+
          # reduce losses over all GPUs for logging purposes
 @@ -150,6 +156,7 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
      if coco_evaluator is not None:
@@ -285,11 +329,11 @@ index fc6ccfa..6d0186b
 @@ -25,6 +27,9 @@ from datasets import build_dataset, get_coco_api_from_dataset
  from engine import evaluate, train_one_epoch
  from models import build_model
- 
+
 +# 加上下面的代码防止走进不支持的图模式
 +torch.npu.config.allow_internal_format = False
 +torch.npu.set_compile_mode(jit_compile=False)
- 
+
  def get_args_parser():
      parser = argparse.ArgumentParser('Deformable DETR Detector', add_help=False)
 @@ -33,7 +38,7 @@ def get_args_parser():
@@ -306,19 +350,19 @@ index fc6ccfa..6d0186b
      parser.add_argument('--masks', action='store_true',
                          help="Train segmentation head if the flag is provided")
 -
-+ 
++
      # Loss
      parser.add_argument('--no_aux_loss', dest='aux_loss', action='store_false',
                          help="Disables auxiliary decoding losses (loss at each layer)")
 @@ -107,11 +112,11 @@ def get_args_parser():
- 
+
      # dataset parameters
      parser.add_argument('--dataset_file', default='coco')
 -    parser.add_argument('--coco_path', default='./data/coco', type=str)
 +    parser.add_argument('--coco_path', default='', type=str)
      parser.add_argument('--coco_panoptic_path', type=str)
      parser.add_argument('--remove_difficult', action='store_true')
- 
+
 -    parser.add_argument('--output_dir', default='',
 +    parser.add_argument('--output_dir', default='./checkpoints',
                          help='path where to save, empty for no saving')
@@ -329,7 +373,7 @@ index fc6ccfa..6d0186b
          }
      ]
 +
-+    
++
      if args.sgd:
 -        optimizer = torch.optim.SGD(param_dicts, lr=args.lr, momentum=0.9,
 +        optimizer = torch_npu.optim.NpuFusedSGD(param_dicts, lr=args.lr, momentum=0.9,
@@ -338,9 +382,9 @@ index fc6ccfa..6d0186b
 -        optimizer = torch.optim.AdamW(param_dicts, lr=args.lr,
 +        optimizer = torch_npu.optim.NpuFusedAdamW(param_dicts, lr=args.lr,
                                        weight_decay=args.weight_decay)
-+                                      
++
      lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
- 
+
      if args.distributed:
 diff --git a/models/__init__.py b/models/__init__.py
 old mode 100644
@@ -356,20 +400,20 @@ index 4bfe705..94f5e2d
  from torchvision.models._utils import IntermediateLayerGetter
  from typing import Dict, List
 +from mx_driving.fused import npu_max_pool2d
- 
+
  from util.misc import NestedTensor, is_main_process
 -
  from .position_encoding import build_position_encoding
- 
+
 -
 -class FrozenBatchNorm2d(torch.nn.Module):
 +class FrozenBatchNorm2d(nn.Module):
      """
      BatchNorm2d where the batch statistics and the affine parameters are fixed.
- 
+
 @@ -52,17 +51,17 @@ class FrozenBatchNorm2d(torch.nn.Module):
              missing_keys, unexpected_keys, error_msgs)
- 
+
      def forward(self, x):
 -        # move reshapes to the beginning
 -        # to make it fuser-friendly
@@ -390,21 +434,21 @@ index 4bfe705..94f5e2d
 +        self.kernel_size = kernel_size
 +        self.stride = stride
 +        self.padding = padding
-+    
++
 +    def forward(self, x):
 +        return npu_max_pool2d(x, self.kernel_size, self.stride, self.padding)
- 
+
  class BackboneBase(nn.Module):
- 
+
 @@ -80,7 +79,10 @@ class BackboneBase(nn.Module):
              return_layers = {'layer4': "0"}
              self.strides = [32]
              self.num_channels = [2048]
-+        
++
          self.body = IntermediateLayerGetter(backbone, return_layers=return_layers)
-+        self.body.maxpool = MaxPool2d(self.body.maxpool.kernel_size, self.body.maxpool.stride, 
++        self.body.maxpool = MaxPool2d(self.body.maxpool.kernel_size, self.body.maxpool.stride,
 +            self.body.maxpool.padding)
- 
+
      def forward(self, tensor_list: NestedTensor):
          xs = self.body(tensor_list.tensors)
 diff --git a/models/deformable_detr.py b/models/deformable_detr.py
@@ -418,7 +462,7 @@ index f1415e8..1465672
  from torch import nn
  import math
 +import torch_npu
- 
+
  from util import box_ops
  from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
 @@ -275,6 +276,7 @@ class SetCriterion(nn.Module):
@@ -428,11 +472,11 @@ index f1415e8..1465672
 +
          losses['loss_giou'] = loss_giou.sum() / num_boxes
          return losses
- 
+
 @@ -329,25 +331,22 @@ class SetCriterion(nn.Module):
          assert loss in loss_map, f'do you really want to compute {loss} loss?'
          return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
- 
+
 -    def forward(self, outputs, targets):
 +    def forward(self, outputs, targets, num_boxes, handle, s):
          """ This performs the loss computation.
@@ -446,10 +490,10 @@ index f1415e8..1465672
 +            s.wait_stream(torch.cuda.default_stream())
 +            num_boxes = torch.clamp(num_boxes / get_world_size(), min=1).item()
          outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs' and k != 'enc_outputs'}
- 
+
          # Retrieve the matching between the outputs of the last layer and the targets
          indices = self.matcher(outputs_without_aux, targets)
- 
+
 -        # Compute the average number of target boxes accross all nodes, for normalization purposes
 -        num_boxes = sum(len(t["labels"]) for t in targets)
 -        num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
@@ -466,7 +510,7 @@ index f1415e8..1465672
                  losses.update(l_dict)
 -
          return losses
- 
+
 +    def get_num_boxes(self, targets, device):
 +        num_boxes = sum(len(t["labels"]) for t in targets)
 +        num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=device)
@@ -475,7 +519,7 @@ index f1415e8..1465672
 +            handle = torch.distributed.all_reduce(num_boxes, async_op=True)
 +        return num_boxes, handle, s
 +
- 
+
  class PostProcess(nn.Module):
      """ This module converts the model's output into the format expected by the coco api"""
 diff --git a/models/deformable_transformer.py b/models/deformable_transformer.py
@@ -486,19 +530,19 @@ index 08ca377..81e9516
 +++ b/models/deformable_transformer.py
 @@ -17,7 +17,7 @@ from torch import nn, Tensor
  from torch.nn.init import xavier_uniform_, constant_, uniform_, normal_
- 
+
  from util.misc import inverse_sigmoid
 -from models.ops.modules import MSDeformAttn
 +from .ms_deform_attn import MSDeformAttn
- 
- 
+
+
  class DeformableTransformer(nn.Module):
 @@ -148,6 +148,7 @@ class DeformableTransformer(nn.Module):
          spatial_shapes = torch.as_tensor(spatial_shapes, dtype=torch.long, device=src_flatten.device)
          level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))
          valid_ratios = torch.stack([self.get_valid_ratio(m) for m in masks], 1)
-+        
- 
++
+
          # encoder
          memory = self.encoder(src_flatten, spatial_shapes, level_start_index, valid_ratios, lvl_pos_embed_flatten, mask_flatten)
 @@ -238,7 +239,6 @@ class DeformableTransformerEncoder(nn.Module):
@@ -518,7 +562,7 @@ index 08ca377..81e9516
 +                # assert reference_points.shape[-1] == 2
                  reference_points_input = reference_points[:, :, None] * src_valid_ratios[:, None]
              output = layer(output, query_pos, reference_points_input, src, src_spatial_shapes, src_level_start_index, src_padding_mask)
- 
+
 @@ -344,7 +345,7 @@ class DeformableTransformerDecoder(nn.Module):
                      new_reference_points = tmp + inverse_sigmoid(reference_points)
                      new_reference_points = new_reference_points.sigmoid()
@@ -541,18 +585,18 @@ index 63ef029..6924824
 -
 +import torch_npu
  from util.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
- 
- 
+
+
 @@ -83,9 +83,8 @@ class HungarianMatcher(nn.Module):
              # Compute the L1 cost between boxes
              cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
- 
+
 -            # Compute the giou cost betwen boxes
 -            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox),
 -                                             box_cxcywh_to_xyxy(tgt_bbox))
 +            # # Compute the giou cost betwen boxes
 +            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
- 
+
              # Final cost matrix
              C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
 diff --git a/models/ops/modules/ms_deform_attn.py b/models/ms_deform_attn.py
@@ -562,28 +606,21 @@ rename to models/ms_deform_attn.py
 index 663d64a..353ea66 100644
 --- a/models/ops/modules/ms_deform_attn.py
 +++ b/models/ms_deform_attn.py
-@@ -6,20 +6,17 @@
- # Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
- # ------------------------------------------------------------------------------------------------
- 
--from __future__ import absolute_import
--from __future__ import print_function
--from __future__ import division
--
+@@ -13,13 +13,14 @@
  import warnings
  import math
- 
+
  import torch
  from torch import nn
  import torch.nn.functional as F
 +from torch.autograd import Function
 +from torch.autograd.function import once_differentiable
  from torch.nn.init import xavier_uniform_, constant_
- 
+
 -from ..functions import MSDeformAttnFunction
 -
 +import mx_driving
- 
+
  def _is_power_of_2(n):
      if (not isinstance(n, int)) or (n < 0):
 @@ -89,8 +86,6 @@ class MSDeformAttn(nn.Module):
@@ -614,1998 +651,6 @@ index 663d64a..353ea66 100644
 +            value, input_spatial_shapes, input_level_start_index, sampling_locations, attention_weights)
          output = self.output_proj(output)
          return output
-diff --git a/models/ops/functions/__init__.py b/models/ops/functions/__init__.py
-deleted file mode 100644
-index 8a2197b..0000000
---- a/models/ops/functions/__init__.py
-+++ /dev/null
-@@ -1,10 +0,0 @@
--# ------------------------------------------------------------------------------------------------
--# Deformable DETR
--# Copyright (c) 2020 SenseTime. All Rights Reserved.
--# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--# ------------------------------------------------------------------------------------------------
--# Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--# ------------------------------------------------------------------------------------------------
--
--from .ms_deform_attn_func import MSDeformAttnFunction
--
-diff --git a/models/ops/functions/ms_deform_attn_func.py b/models/ops/functions/ms_deform_attn_func.py
-deleted file mode 100644
-index 8c5df8c..0000000
---- a/models/ops/functions/ms_deform_attn_func.py
-+++ /dev/null
-@@ -1,61 +0,0 @@
--# ------------------------------------------------------------------------------------------------
--# Deformable DETR
--# Copyright (c) 2020 SenseTime. All Rights Reserved.
--# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--# ------------------------------------------------------------------------------------------------
--# Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--# ------------------------------------------------------------------------------------------------
--
--from __future__ import absolute_import
--from __future__ import print_function
--from __future__ import division
--
--import torch
--import torch.nn.functional as F
--from torch.autograd import Function
--from torch.autograd.function import once_differentiable
--
--import MultiScaleDeformableAttention as MSDA
--
--
--class MSDeformAttnFunction(Function):
--    @staticmethod
--    def forward(ctx, value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, im2col_step):
--        ctx.im2col_step = im2col_step
--        output = MSDA.ms_deform_attn_forward(
--            value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, ctx.im2col_step)
--        ctx.save_for_backward(value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights)
--        return output
--
--    @staticmethod
--    @once_differentiable
--    def backward(ctx, grad_output):
--        value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights = ctx.saved_tensors
--        grad_value, grad_sampling_loc, grad_attn_weight = \
--            MSDA.ms_deform_attn_backward(
--                value, value_spatial_shapes, value_level_start_index, sampling_locations, attention_weights, grad_output, ctx.im2col_step)
--
--        return grad_value, None, None, grad_sampling_loc, grad_attn_weight, None
--
--
--def ms_deform_attn_core_pytorch(value, value_spatial_shapes, sampling_locations, attention_weights):
--    # for debug and test only,
--    # need to use cuda version instead
--    N_, S_, M_, D_ = value.shape
--    _, Lq_, M_, L_, P_, _ = sampling_locations.shape
--    value_list = value.split([H_ * W_ for H_, W_ in value_spatial_shapes], dim=1)
--    sampling_grids = 2 * sampling_locations - 1
--    sampling_value_list = []
--    for lid_, (H_, W_) in enumerate(value_spatial_shapes):
--        # N_, H_*W_, M_, D_ -> N_, H_*W_, M_*D_ -> N_, M_*D_, H_*W_ -> N_*M_, D_, H_, W_
--        value_l_ = value_list[lid_].flatten(2).transpose(1, 2).reshape(N_*M_, D_, H_, W_)
--        # N_, Lq_, M_, P_, 2 -> N_, M_, Lq_, P_, 2 -> N_*M_, Lq_, P_, 2
--        sampling_grid_l_ = sampling_grids[:, :, :, lid_].transpose(1, 2).flatten(0, 1)
--        # N_*M_, D_, Lq_, P_
--        sampling_value_l_ = F.grid_sample(value_l_, sampling_grid_l_,
--                                          mode='bilinear', padding_mode='zeros', align_corners=False)
--        sampling_value_list.append(sampling_value_l_)
--    # (N_, Lq_, M_, L_, P_) -> (N_, M_, Lq_, L_, P_) -> (N_, M_, 1, Lq_, L_*P_)
--    attention_weights = attention_weights.transpose(1, 2).reshape(N_*M_, 1, Lq_, L_*P_)
--    output = (torch.stack(sampling_value_list, dim=-2).flatten(-2) * attention_weights).sum(-1).view(N_, M_*D_, Lq_)
--    return output.transpose(1, 2).contiguous()
-diff --git a/models/ops/make.sh b/models/ops/make.sh
-deleted file mode 100755
-index 106b685..0000000
---- a/models/ops/make.sh
-+++ /dev/null
-@@ -1,10 +0,0 @@
--#!/usr/bin/env bash
--# ------------------------------------------------------------------------------------------------
--# Deformable DETR
--# Copyright (c) 2020 SenseTime. All Rights Reserved.
--# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--# ------------------------------------------------------------------------------------------------
--# Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--# ------------------------------------------------------------------------------------------------
--
--python setup.py build install
-diff --git a/models/ops/modules/__init__.py b/models/ops/modules/__init__.py
-deleted file mode 100644
-index f82cb1a..0000000
---- a/models/ops/modules/__init__.py
-+++ /dev/null
-@@ -1,9 +0,0 @@
--# ------------------------------------------------------------------------------------------------
--# Deformable DETR
--# Copyright (c) 2020 SenseTime. All Rights Reserved.
--# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--# ------------------------------------------------------------------------------------------------
--# Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--# ------------------------------------------------------------------------------------------------
--
--from .ms_deform_attn import MSDeformAttn
-diff --git a/models/ops/setup.py b/models/ops/setup.py
-deleted file mode 100644
-index a0131bc..0000000
---- a/models/ops/setup.py
-+++ /dev/null
-@@ -1,71 +0,0 @@
--# ------------------------------------------------------------------------------------------------
--# Deformable DETR
--# Copyright (c) 2020 SenseTime. All Rights Reserved.
--# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--# ------------------------------------------------------------------------------------------------
--# Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--# ------------------------------------------------------------------------------------------------
--
--import os
--import glob
--
--import torch
--
--from torch.utils.cpp_extension import CUDA_HOME
--from torch.utils.cpp_extension import CppExtension
--from torch.utils.cpp_extension import CUDAExtension
--
--from setuptools import find_packages
--from setuptools import setup
--
--requirements = ["torch", "torchvision"]
--
--def get_extensions():
--    this_dir = os.path.dirname(os.path.abspath(__file__))
--    extensions_dir = os.path.join(this_dir, "src")
--
--    main_file = glob.glob(os.path.join(extensions_dir, "*.cpp"))
--    source_cpu = glob.glob(os.path.join(extensions_dir, "cpu", "*.cpp"))
--    source_cuda = glob.glob(os.path.join(extensions_dir, "cuda", "*.cu"))
--
--    sources = main_file + source_cpu
--    extension = CppExtension
--    extra_compile_args = {"cxx": []}
--    define_macros = []
--
--    if torch.cuda.is_available() and CUDA_HOME is not None:
--        extension = CUDAExtension
--        sources += source_cuda
--        define_macros += [("WITH_CUDA", None)]
--        extra_compile_args["nvcc"] = [
--            "-DCUDA_HAS_FP16=1",
--            "-D__CUDA_NO_HALF_OPERATORS__",
--            "-D__CUDA_NO_HALF_CONVERSIONS__",
--            "-D__CUDA_NO_HALF2_OPERATORS__",
--        ]
--    else:
--        raise NotImplementedError('Cuda is not availabel')
--
--    sources = [os.path.join(extensions_dir, s) for s in sources]
--    include_dirs = [extensions_dir]
--    ext_modules = [
--        extension(
--            "MultiScaleDeformableAttention",
--            sources,
--            include_dirs=include_dirs,
--            define_macros=define_macros,
--            extra_compile_args=extra_compile_args,
--        )
--    ]
--    return ext_modules
--
--setup(
--    name="MultiScaleDeformableAttention",
--    version="1.0",
--    author="Weijie Su",
--    url="https://github.com/fundamentalvision/Deformable-DETR",
--    description="PyTorch Wrapper for CUDA Functions of Multi-Scale Deformable Attention",
--    packages=find_packages(exclude=("configs", "tests",)),
--    ext_modules=get_extensions(),
--    cmdclass={"build_ext": torch.utils.cpp_extension.BuildExtension},
--)
-diff --git a/models/ops/src/cpu/ms_deform_attn_cpu.cpp b/models/ops/src/cpu/ms_deform_attn_cpu.cpp
-deleted file mode 100644
-index e1bf854..0000000
---- a/models/ops/src/cpu/ms_deform_attn_cpu.cpp
-+++ /dev/null
-@@ -1,41 +0,0 @@
--/*!
--**************************************************************************************************
--* Deformable DETR
--* Copyright (c) 2020 SenseTime. All Rights Reserved.
--* Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--**************************************************************************************************
--* Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--**************************************************************************************************
--*/
--
--#include <vector>
--
--#include <ATen/ATen.h>
--#include <ATen/cuda/CUDAContext.h>
--
--
--at::Tensor
--ms_deform_attn_cpu_forward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const int im2col_step)
--{
--    AT_ERROR("Not implement on cpu");
--}
--
--std::vector<at::Tensor>
--ms_deform_attn_cpu_backward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const at::Tensor &grad_output,
--    const int im2col_step)
--{
--    AT_ERROR("Not implement on cpu");
--}
--
-diff --git a/models/ops/src/cpu/ms_deform_attn_cpu.h b/models/ops/src/cpu/ms_deform_attn_cpu.h
-deleted file mode 100644
-index 81b7b58..0000000
---- a/models/ops/src/cpu/ms_deform_attn_cpu.h
-+++ /dev/null
-@@ -1,33 +0,0 @@
--/*!
--**************************************************************************************************
--* Deformable DETR
--* Copyright (c) 2020 SenseTime. All Rights Reserved.
--* Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--**************************************************************************************************
--* Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--**************************************************************************************************
--*/
--
--#pragma once
--#include <torch/extension.h>
--
--at::Tensor
--ms_deform_attn_cpu_forward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const int im2col_step);
--
--std::vector<at::Tensor>
--ms_deform_attn_cpu_backward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const at::Tensor &grad_output,
--    const int im2col_step);
--
--
-diff --git a/models/ops/src/cuda/ms_deform_attn_cuda.cu b/models/ops/src/cuda/ms_deform_attn_cuda.cu
-deleted file mode 100644
-index d6d5836..0000000
---- a/models/ops/src/cuda/ms_deform_attn_cuda.cu
-+++ /dev/null
-@@ -1,153 +0,0 @@
--/*!
--**************************************************************************************************
--* Deformable DETR
--* Copyright (c) 2020 SenseTime. All Rights Reserved.
--* Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--**************************************************************************************************
--* Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--**************************************************************************************************
--*/
--
--#include <vector>
--#include "cuda/ms_deform_im2col_cuda.cuh"
--
--#include <ATen/ATen.h>
--#include <ATen/cuda/CUDAContext.h>
--#include <cuda.h>
--#include <cuda_runtime.h>
--
--
--at::Tensor ms_deform_attn_cuda_forward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const int im2col_step)
--{
--    AT_ASSERTM(value.is_contiguous(), "value tensor has to be contiguous");
--    AT_ASSERTM(spatial_shapes.is_contiguous(), "spatial_shapes tensor has to be contiguous");
--    AT_ASSERTM(level_start_index.is_contiguous(), "level_start_index tensor has to be contiguous");
--    AT_ASSERTM(sampling_loc.is_contiguous(), "sampling_loc tensor has to be contiguous");
--    AT_ASSERTM(attn_weight.is_contiguous(), "attn_weight tensor has to be contiguous");
--
--    AT_ASSERTM(value.type().is_cuda(), "value must be a CUDA tensor");
--    AT_ASSERTM(spatial_shapes.type().is_cuda(), "spatial_shapes must be a CUDA tensor");
--    AT_ASSERTM(level_start_index.type().is_cuda(), "level_start_index must be a CUDA tensor");
--    AT_ASSERTM(sampling_loc.type().is_cuda(), "sampling_loc must be a CUDA tensor");
--    AT_ASSERTM(attn_weight.type().is_cuda(), "attn_weight must be a CUDA tensor");
--
--    const int batch = value.size(0);
--    const int spatial_size = value.size(1);
--    const int num_heads = value.size(2);
--    const int channels = value.size(3);
--
--    const int num_levels = spatial_shapes.size(0);
--
--    const int num_query = sampling_loc.size(1);
--    const int num_point = sampling_loc.size(4);
--
--    const int im2col_step_ = std::min(batch, im2col_step);
--
--    AT_ASSERTM(batch % im2col_step_ == 0, "batch(%d) must divide im2col_step(%d)", batch, im2col_step_);
--    
--    auto output = at::zeros({batch, num_query, num_heads, channels}, value.options());
--
--    const int batch_n = im2col_step_;
--    auto output_n = output.view({batch/im2col_step_, batch_n, num_query, num_heads, channels});
--    auto per_value_size = spatial_size * num_heads * channels;
--    auto per_sample_loc_size = num_query * num_heads * num_levels * num_point * 2;
--    auto per_attn_weight_size = num_query * num_heads * num_levels * num_point;
--    for (int n = 0; n < batch/im2col_step_; ++n)
--    {
--        auto columns = output_n.select(0, n);
--        AT_DISPATCH_FLOATING_TYPES(value.type(), "ms_deform_attn_forward_cuda", ([&] {
--            ms_deformable_im2col_cuda(at::cuda::getCurrentCUDAStream(),
--                value.data<scalar_t>() + n * im2col_step_ * per_value_size,
--                spatial_shapes.data<int64_t>(),
--                level_start_index.data<int64_t>(),
--                sampling_loc.data<scalar_t>() + n * im2col_step_ * per_sample_loc_size,
--                attn_weight.data<scalar_t>() + n * im2col_step_ * per_attn_weight_size,
--                batch_n, spatial_size, num_heads, channels, num_levels, num_query, num_point,
--                columns.data<scalar_t>());
--
--        }));
--    }
--
--    output = output.view({batch, num_query, num_heads*channels});
--
--    return output;
--}
--
--
--std::vector<at::Tensor> ms_deform_attn_cuda_backward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const at::Tensor &grad_output,
--    const int im2col_step)
--{
--
--    AT_ASSERTM(value.is_contiguous(), "value tensor has to be contiguous");
--    AT_ASSERTM(spatial_shapes.is_contiguous(), "spatial_shapes tensor has to be contiguous");
--    AT_ASSERTM(level_start_index.is_contiguous(), "level_start_index tensor has to be contiguous");
--    AT_ASSERTM(sampling_loc.is_contiguous(), "sampling_loc tensor has to be contiguous");
--    AT_ASSERTM(attn_weight.is_contiguous(), "attn_weight tensor has to be contiguous");
--    AT_ASSERTM(grad_output.is_contiguous(), "grad_output tensor has to be contiguous");
--
--    AT_ASSERTM(value.type().is_cuda(), "value must be a CUDA tensor");
--    AT_ASSERTM(spatial_shapes.type().is_cuda(), "spatial_shapes must be a CUDA tensor");
--    AT_ASSERTM(level_start_index.type().is_cuda(), "level_start_index must be a CUDA tensor");
--    AT_ASSERTM(sampling_loc.type().is_cuda(), "sampling_loc must be a CUDA tensor");
--    AT_ASSERTM(attn_weight.type().is_cuda(), "attn_weight must be a CUDA tensor");
--    AT_ASSERTM(grad_output.type().is_cuda(), "grad_output must be a CUDA tensor");
--
--    const int batch = value.size(0);
--    const int spatial_size = value.size(1);
--    const int num_heads = value.size(2);
--    const int channels = value.size(3);
--
--    const int num_levels = spatial_shapes.size(0);
--
--    const int num_query = sampling_loc.size(1);
--    const int num_point = sampling_loc.size(4);
--
--    const int im2col_step_ = std::min(batch, im2col_step);
--
--    AT_ASSERTM(batch % im2col_step_ == 0, "batch(%d) must divide im2col_step(%d)", batch, im2col_step_);
--
--    auto grad_value = at::zeros_like(value);
--    auto grad_sampling_loc = at::zeros_like(sampling_loc);
--    auto grad_attn_weight = at::zeros_like(attn_weight);
--
--    const int batch_n = im2col_step_;
--    auto per_value_size = spatial_size * num_heads * channels;
--    auto per_sample_loc_size = num_query * num_heads * num_levels * num_point * 2;
--    auto per_attn_weight_size = num_query * num_heads * num_levels * num_point;
--    auto grad_output_n = grad_output.view({batch/im2col_step_, batch_n, num_query, num_heads, channels});
--    
--    for (int n = 0; n < batch/im2col_step_; ++n)
--    {
--        auto grad_output_g = grad_output_n.select(0, n);
--        AT_DISPATCH_FLOATING_TYPES(value.type(), "ms_deform_attn_backward_cuda", ([&] {
--            ms_deformable_col2im_cuda(at::cuda::getCurrentCUDAStream(),
--                                    grad_output_g.data<scalar_t>(),
--                                    value.data<scalar_t>() + n * im2col_step_ * per_value_size,
--                                    spatial_shapes.data<int64_t>(),
--                                    level_start_index.data<int64_t>(),
--                                    sampling_loc.data<scalar_t>() + n * im2col_step_ * per_sample_loc_size,
--                                    attn_weight.data<scalar_t>() + n * im2col_step_ * per_attn_weight_size,
--                                    batch_n, spatial_size, num_heads, channels, num_levels, num_query, num_point,
--                                    grad_value.data<scalar_t>() +  n * im2col_step_ * per_value_size,
--                                    grad_sampling_loc.data<scalar_t>() + n * im2col_step_ * per_sample_loc_size,
--                                    grad_attn_weight.data<scalar_t>() + n * im2col_step_ * per_attn_weight_size);
--
--        }));
--    }
--
--    return {
--        grad_value, grad_sampling_loc, grad_attn_weight
--    };
--}
-\ No newline at end of file
-diff --git a/models/ops/src/cuda/ms_deform_attn_cuda.h b/models/ops/src/cuda/ms_deform_attn_cuda.h
-deleted file mode 100644
-index c7ae53f..0000000
---- a/models/ops/src/cuda/ms_deform_attn_cuda.h
-+++ /dev/null
-@@ -1,30 +0,0 @@
--/*!
--**************************************************************************************************
--* Deformable DETR
--* Copyright (c) 2020 SenseTime. All Rights Reserved.
--* Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--**************************************************************************************************
--* Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--**************************************************************************************************
--*/
--
--#pragma once
--#include <torch/extension.h>
--
--at::Tensor ms_deform_attn_cuda_forward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const int im2col_step);
--
--std::vector<at::Tensor> ms_deform_attn_cuda_backward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const at::Tensor &grad_output,
--    const int im2col_step);
--
-diff --git a/models/ops/src/cuda/ms_deform_im2col_cuda.cuh b/models/ops/src/cuda/ms_deform_im2col_cuda.cuh
-deleted file mode 100644
-index 6bc2acb..0000000
---- a/models/ops/src/cuda/ms_deform_im2col_cuda.cuh
-+++ /dev/null
-@@ -1,1327 +0,0 @@
--/*!
--**************************************************************************
--* Deformable DETR
--* Copyright (c) 2020 SenseTime. All Rights Reserved.
--* Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--**************************************************************************
--* Modified from DCN (https://github.com/msracver/Deformable-ConvNets)
--* Copyright (c) 2018 Microsoft
--**************************************************************************
--*/
--
--#include <cstdio>
--#include <algorithm>
--#include <cstring>
--
--#include <ATen/ATen.h>
--#include <ATen/cuda/CUDAContext.h>
--
--#include <THC/THCAtomics.cuh>
--
--#define CUDA_KERNEL_LOOP(i, n)                          \
--  for (int i = blockIdx.x * blockDim.x + threadIdx.x;   \
--      i < (n);                                          \
--      i += blockDim.x * gridDim.x)
--
--const int CUDA_NUM_THREADS = 1024;
--inline int GET_BLOCKS(const int N, const int num_threads)
--{
--  return (N + num_threads - 1) / num_threads;
--}
--
--
--template <typename scalar_t>
--__device__ scalar_t ms_deform_attn_im2col_bilinear(const scalar_t* &bottom_data, 
--                                                   const int &height, const int &width, const int &nheads, const int &channels,
--                                                   const scalar_t &h, const scalar_t &w, const int &m, const int &c)
--{
--  const int h_low = floor(h);
--  const int w_low = floor(w);
--  const int h_high = h_low + 1;
--  const int w_high = w_low + 1;
--
--  const scalar_t lh = h - h_low;
--  const scalar_t lw = w - w_low;
--  const scalar_t hh = 1 - lh, hw = 1 - lw;
--
--  const int w_stride = nheads * channels;
--  const int h_stride = width * w_stride;
--  const int h_low_ptr_offset = h_low * h_stride;
--  const int h_high_ptr_offset = h_low_ptr_offset + h_stride;
--  const int w_low_ptr_offset = w_low * w_stride;
--  const int w_high_ptr_offset = w_low_ptr_offset + w_stride;
--  const int base_ptr = m * channels + c;
--
--  scalar_t v1 = 0;
--  if (h_low >= 0 && w_low >= 0)
--  {
--    const int ptr1 = h_low_ptr_offset + w_low_ptr_offset + base_ptr;
--    v1 = bottom_data[ptr1];
--  }
--  scalar_t v2 = 0;
--  if (h_low >= 0 && w_high <= width - 1)
--  {
--    const int ptr2 = h_low_ptr_offset + w_high_ptr_offset + base_ptr;
--    v2 = bottom_data[ptr2];
--  }
--  scalar_t v3 = 0;
--  if (h_high <= height - 1 && w_low >= 0)
--  {
--    const int ptr3 = h_high_ptr_offset + w_low_ptr_offset + base_ptr;
--    v3 = bottom_data[ptr3];
--  }
--  scalar_t v4 = 0;
--  if (h_high <= height - 1 && w_high <= width - 1)
--  {
--    const int ptr4 = h_high_ptr_offset + w_high_ptr_offset + base_ptr;
--    v4 = bottom_data[ptr4];
--  }
--
--  const scalar_t w1 = hh * hw, w2 = hh * lw, w3 = lh * hw, w4 = lh * lw;
--
--  const scalar_t val = (w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4);
--  return val;
--}
--
--
--template <typename scalar_t>
--__device__ void ms_deform_attn_col2im_bilinear(const scalar_t* &bottom_data, 
--                                                   const int &height, const int &width, const int &nheads, const int &channels,
--                                                   const scalar_t &h, const scalar_t &w, const int &m, const int &c,
--                                                   const scalar_t &top_grad,
--                                                   const scalar_t &attn_weight,
--                                                   scalar_t* &grad_value, 
--                                                   scalar_t* grad_sampling_loc,
--                                                   scalar_t* grad_attn_weight)
--{
--  const int h_low = floor(h);
--  const int w_low = floor(w);
--  const int h_high = h_low + 1;
--  const int w_high = w_low + 1;
--
--  const scalar_t lh = h - h_low;
--  const scalar_t lw = w - w_low;
--  const scalar_t hh = 1 - lh, hw = 1 - lw;
--
--  const int w_stride = nheads * channels;
--  const int h_stride = width * w_stride;
--  const int h_low_ptr_offset = h_low * h_stride;
--  const int h_high_ptr_offset = h_low_ptr_offset + h_stride;
--  const int w_low_ptr_offset = w_low * w_stride;
--  const int w_high_ptr_offset = w_low_ptr_offset + w_stride;
--  const int base_ptr = m * channels + c;
--
--  const scalar_t w1 = hh * hw, w2 = hh * lw, w3 = lh * hw, w4 = lh * lw;
--  const scalar_t top_grad_value = top_grad * attn_weight;
--  scalar_t grad_h_weight = 0, grad_w_weight = 0;
--
--  scalar_t v1 = 0;
--  if (h_low >= 0 && w_low >= 0)
--  {
--    const int ptr1 = h_low_ptr_offset + w_low_ptr_offset + base_ptr;
--    v1 = bottom_data[ptr1];
--    grad_h_weight -= hw * v1;
--    grad_w_weight -= hh * v1;
--    atomicAdd(grad_value+ptr1, w1*top_grad_value);
--  }
--  scalar_t v2 = 0;
--  if (h_low >= 0 && w_high <= width - 1)
--  {
--    const int ptr2 = h_low_ptr_offset + w_high_ptr_offset + base_ptr;
--    v2 = bottom_data[ptr2];
--    grad_h_weight -= lw * v2;
--    grad_w_weight += hh * v2;
--    atomicAdd(grad_value+ptr2, w2*top_grad_value);
--  }
--  scalar_t v3 = 0;
--  if (h_high <= height - 1 && w_low >= 0)
--  {
--    const int ptr3 = h_high_ptr_offset + w_low_ptr_offset + base_ptr;
--    v3 = bottom_data[ptr3];
--    grad_h_weight += hw * v3;
--    grad_w_weight -= lh * v3;
--    atomicAdd(grad_value+ptr3, w3*top_grad_value); 
--  }
--  scalar_t v4 = 0;
--  if (h_high <= height - 1 && w_high <= width - 1)
--  {
--    const int ptr4 = h_high_ptr_offset + w_high_ptr_offset + base_ptr;
--    v4 = bottom_data[ptr4];
--    grad_h_weight += lw * v4;
--    grad_w_weight += lh * v4;
--    atomicAdd(grad_value+ptr4, w4*top_grad_value);
--  }
--
--  const scalar_t val = (w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4);
--  *grad_attn_weight = top_grad * val;
--  *grad_sampling_loc = width * grad_w_weight * top_grad_value;
--  *(grad_sampling_loc + 1) = height * grad_h_weight * top_grad_value;
--}
--
--
--template <typename scalar_t>
--__device__ void ms_deform_attn_col2im_bilinear_gm(const scalar_t* &bottom_data, 
--                                                   const int &height, const int &width, const int &nheads, const int &channels,
--                                                   const scalar_t &h, const scalar_t &w, const int &m, const int &c,
--                                                   const scalar_t &top_grad,
--                                                   const scalar_t &attn_weight,
--                                                   scalar_t* &grad_value, 
--                                                   scalar_t* grad_sampling_loc,
--                                                   scalar_t* grad_attn_weight)
--{
--  const int h_low = floor(h);
--  const int w_low = floor(w);
--  const int h_high = h_low + 1;
--  const int w_high = w_low + 1;
--
--  const scalar_t lh = h - h_low;
--  const scalar_t lw = w - w_low;
--  const scalar_t hh = 1 - lh, hw = 1 - lw;
--
--  const int w_stride = nheads * channels;
--  const int h_stride = width * w_stride;
--  const int h_low_ptr_offset = h_low * h_stride;
--  const int h_high_ptr_offset = h_low_ptr_offset + h_stride;
--  const int w_low_ptr_offset = w_low * w_stride;
--  const int w_high_ptr_offset = w_low_ptr_offset + w_stride;
--  const int base_ptr = m * channels + c;
--
--  const scalar_t w1 = hh * hw, w2 = hh * lw, w3 = lh * hw, w4 = lh * lw;
--  const scalar_t top_grad_value = top_grad * attn_weight;
--  scalar_t grad_h_weight = 0, grad_w_weight = 0;
--
--  scalar_t v1 = 0;
--  if (h_low >= 0 && w_low >= 0)
--  {
--    const int ptr1 = h_low_ptr_offset + w_low_ptr_offset + base_ptr;
--    v1 = bottom_data[ptr1];
--    grad_h_weight -= hw * v1;
--    grad_w_weight -= hh * v1;
--    atomicAdd(grad_value+ptr1, w1*top_grad_value);
--  }
--  scalar_t v2 = 0;
--  if (h_low >= 0 && w_high <= width - 1)
--  {
--    const int ptr2 = h_low_ptr_offset + w_high_ptr_offset + base_ptr;
--    v2 = bottom_data[ptr2];
--    grad_h_weight -= lw * v2;
--    grad_w_weight += hh * v2;
--    atomicAdd(grad_value+ptr2, w2*top_grad_value);
--  }
--  scalar_t v3 = 0;
--  if (h_high <= height - 1 && w_low >= 0)
--  {
--    const int ptr3 = h_high_ptr_offset + w_low_ptr_offset + base_ptr;
--    v3 = bottom_data[ptr3];
--    grad_h_weight += hw * v3;
--    grad_w_weight -= lh * v3;
--    atomicAdd(grad_value+ptr3, w3*top_grad_value); 
--  }
--  scalar_t v4 = 0;
--  if (h_high <= height - 1 && w_high <= width - 1)
--  {
--    const int ptr4 = h_high_ptr_offset + w_high_ptr_offset + base_ptr;
--    v4 = bottom_data[ptr4];
--    grad_h_weight += lw * v4;
--    grad_w_weight += lh * v4;
--    atomicAdd(grad_value+ptr4, w4*top_grad_value);
--  }
--
--  const scalar_t val = (w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4);
--  atomicAdd(grad_attn_weight, top_grad * val); 
--  atomicAdd(grad_sampling_loc, width * grad_w_weight * top_grad_value);
--  atomicAdd(grad_sampling_loc + 1, height * grad_h_weight * top_grad_value);
--}
--
--
--template <typename scalar_t>
--__global__ void ms_deformable_im2col_gpu_kernel(const int n,
--                                                const scalar_t *data_value, 
--                                                const int64_t *data_spatial_shapes,
--                                                const int64_t *data_level_start_index, 
--                                                const scalar_t *data_sampling_loc,
--                                                const scalar_t *data_attn_weight,
--                                                const int batch_size, 
--                                                const int spatial_size, 
--                                                const int num_heads,
--                                                const int channels, 
--                                                const int num_levels,
--                                                const int num_query,
--                                                const int num_point,
--                                                scalar_t *data_col)
--{
--  CUDA_KERNEL_LOOP(index, n)
--  {
--    int _temp = index;
--    const int c_col = _temp % channels;
--    _temp /= channels;
--    const int sampling_index = _temp; 
--    const int m_col = _temp % num_heads;
--    _temp /= num_heads;
--    const int q_col = _temp % num_query;
--    _temp /= num_query;
--    const int b_col = _temp;
--
--    scalar_t *data_col_ptr = data_col + index;
--    int data_weight_ptr = sampling_index * num_levels * num_point;
--    int data_loc_w_ptr = data_weight_ptr << 1;
--    const int qid_stride = num_heads * channels;
--    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
--    scalar_t col = 0;
--    
--    for (int l_col=0; l_col < num_levels; ++l_col)
--    {
--      const int level_start_id = data_level_start_index[l_col];
--      const int spatial_h_ptr = l_col << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
--      const scalar_t *data_value_ptr = data_value + (data_value_ptr_init_offset + level_start_id * qid_stride);
--      for (int p_col=0; p_col < num_point; ++p_col)
--      {
--        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
--        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
--        const scalar_t weight = data_attn_weight[data_weight_ptr];
--
--        const scalar_t h_im = loc_h * spatial_h - 0.5;
--        const scalar_t w_im = loc_w * spatial_w - 0.5;
--
--        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w)
--        {
--          col += ms_deform_attn_im2col_bilinear(data_value_ptr, spatial_h, spatial_w, num_heads, channels, h_im, w_im, m_col, c_col) * weight;
--        }
--
--        data_weight_ptr += 1;
--        data_loc_w_ptr += 2;
--      }
--    }
--    *data_col_ptr = col;
--  }
--}
--
--template <typename scalar_t, unsigned int blockSize>
--__global__ void ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v1(const int n,
--                                                const scalar_t *grad_col,
--                                                const scalar_t *data_value,
--                                                const int64_t *data_spatial_shapes,
--                                                const int64_t *data_level_start_index, 
--                                                const scalar_t *data_sampling_loc,
--                                                const scalar_t *data_attn_weight,
--                                                const int batch_size, 
--                                                const int spatial_size, 
--                                                const int num_heads,
--                                                const int channels, 
--                                                const int num_levels,
--                                                const int num_query,
--                                                const int num_point,
--                                                scalar_t *grad_value,
--                                                scalar_t *grad_sampling_loc,
--                                                scalar_t *grad_attn_weight)
--{
--  CUDA_KERNEL_LOOP(index, n)
--  {
--    __shared__ scalar_t cache_grad_sampling_loc[blockSize * 2];
--    __shared__ scalar_t cache_grad_attn_weight[blockSize];
--    unsigned int tid = threadIdx.x;
--    int _temp = index;
--    const int c_col = _temp % channels;
--    _temp /= channels;
--    const int sampling_index = _temp; 
--    const int m_col = _temp % num_heads;
--    _temp /= num_heads;
--    const int q_col = _temp % num_query;
--    _temp /= num_query;
--    const int b_col = _temp;
--
--    const scalar_t top_grad = grad_col[index];
--
--    int data_weight_ptr = sampling_index * num_levels * num_point;
--    int data_loc_w_ptr = data_weight_ptr << 1;
--    const int grad_sampling_ptr = data_weight_ptr;
--    grad_sampling_loc += grad_sampling_ptr << 1;
--    grad_attn_weight += grad_sampling_ptr;
--    const int grad_weight_stride = 1;
--    const int grad_loc_stride = 2;
--    const int qid_stride = num_heads * channels;
--    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
--
--    for (int l_col=0; l_col < num_levels; ++l_col)
--    {
--      const int level_start_id = data_level_start_index[l_col];
--      const int spatial_h_ptr = l_col << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
--      const int value_ptr_offset = data_value_ptr_init_offset + level_start_id * qid_stride;
--      const scalar_t *data_value_ptr = data_value + value_ptr_offset;
--      scalar_t *grad_value_ptr = grad_value + value_ptr_offset;
--
--      for (int p_col=0; p_col < num_point; ++p_col)
--      {
--        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
--        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
--        const scalar_t weight = data_attn_weight[data_weight_ptr];
--
--        const scalar_t h_im = loc_h * spatial_h - 0.5;
--        const scalar_t w_im = loc_w * spatial_w - 0.5;
--        *(cache_grad_sampling_loc+(threadIdx.x << 1)) = 0;
--        *(cache_grad_sampling_loc+((threadIdx.x << 1) + 1)) = 0;
--        *(cache_grad_attn_weight+threadIdx.x)=0;
--        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w)
--        {
--          ms_deform_attn_col2im_bilinear(
--            data_value_ptr, spatial_h, spatial_w, num_heads, channels, h_im, w_im, m_col, c_col,
--            top_grad, weight, grad_value_ptr, 
--            cache_grad_sampling_loc+(threadIdx.x << 1), cache_grad_attn_weight+threadIdx.x);
--        }
--        
--        __syncthreads();
--        if (tid == 0)
--        {
--          scalar_t _grad_w=cache_grad_sampling_loc[0], _grad_h=cache_grad_sampling_loc[1], _grad_a=cache_grad_attn_weight[0];
--          int sid=2;
--          for (unsigned int tid = 1; tid < blockSize; ++tid)
--          {
--            _grad_w += cache_grad_sampling_loc[sid];
--            _grad_h += cache_grad_sampling_loc[sid + 1];
--            _grad_a += cache_grad_attn_weight[tid];
--            sid += 2;
--          }
--          
--          
--          *grad_sampling_loc = _grad_w;
--          *(grad_sampling_loc + 1) = _grad_h;
--          *grad_attn_weight = _grad_a;
--        }
--        __syncthreads();
--
--        data_weight_ptr += 1;
--        data_loc_w_ptr += 2;
--        grad_attn_weight += grad_weight_stride;
--        grad_sampling_loc += grad_loc_stride;
--      }
--    }
--  }
--}
--
--
--template <typename scalar_t, unsigned int blockSize>
--__global__ void ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v2(const int n,
--                                                const scalar_t *grad_col,
--                                                const scalar_t *data_value,
--                                                const int64_t *data_spatial_shapes,
--                                                const int64_t *data_level_start_index, 
--                                                const scalar_t *data_sampling_loc,
--                                                const scalar_t *data_attn_weight,
--                                                const int batch_size, 
--                                                const int spatial_size, 
--                                                const int num_heads,
--                                                const int channels, 
--                                                const int num_levels,
--                                                const int num_query,
--                                                const int num_point,
--                                                scalar_t *grad_value,
--                                                scalar_t *grad_sampling_loc,
--                                                scalar_t *grad_attn_weight)
--{
--  CUDA_KERNEL_LOOP(index, n)
--  {
--    __shared__ scalar_t cache_grad_sampling_loc[blockSize * 2];
--    __shared__ scalar_t cache_grad_attn_weight[blockSize];
--    unsigned int tid = threadIdx.x;
--    int _temp = index;
--    const int c_col = _temp % channels;
--    _temp /= channels;
--    const int sampling_index = _temp; 
--    const int m_col = _temp % num_heads;
--    _temp /= num_heads;
--    const int q_col = _temp % num_query;
--    _temp /= num_query;
--    const int b_col = _temp;
--
--    const scalar_t top_grad = grad_col[index];
--
--    int data_weight_ptr = sampling_index * num_levels * num_point;
--    int data_loc_w_ptr = data_weight_ptr << 1;
--    const int grad_sampling_ptr = data_weight_ptr;
--    grad_sampling_loc += grad_sampling_ptr << 1;
--    grad_attn_weight += grad_sampling_ptr;
--    const int grad_weight_stride = 1;
--    const int grad_loc_stride = 2;
--    const int qid_stride = num_heads * channels;
--    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
--
--    for (int l_col=0; l_col < num_levels; ++l_col)
--    {
--      const int level_start_id = data_level_start_index[l_col];
--      const int spatial_h_ptr = l_col << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
--      const int value_ptr_offset = data_value_ptr_init_offset + level_start_id * qid_stride;
--      const scalar_t *data_value_ptr = data_value + value_ptr_offset;
--      scalar_t *grad_value_ptr = grad_value + value_ptr_offset;
--
--      for (int p_col=0; p_col < num_point; ++p_col)
--      {
--        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
--        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
--        const scalar_t weight = data_attn_weight[data_weight_ptr];
--
--        const scalar_t h_im = loc_h * spatial_h - 0.5;
--        const scalar_t w_im = loc_w * spatial_w - 0.5;
--        *(cache_grad_sampling_loc+(threadIdx.x << 1)) = 0;
--        *(cache_grad_sampling_loc+((threadIdx.x << 1) + 1)) = 0;
--        *(cache_grad_attn_weight+threadIdx.x)=0;
--        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w)
--        {
--          ms_deform_attn_col2im_bilinear(
--            data_value_ptr, spatial_h, spatial_w, num_heads, channels, h_im, w_im, m_col, c_col,
--            top_grad, weight, grad_value_ptr, 
--            cache_grad_sampling_loc+(threadIdx.x << 1), cache_grad_attn_weight+threadIdx.x);
--        }
--        
--        __syncthreads();
--
--        for (unsigned int s=blockSize/2; s>0; s>>=1)
--        {
--          if (tid < s) {
--            const unsigned int xid1 = tid << 1;
--            const unsigned int xid2 = (tid + s) << 1;
--            cache_grad_attn_weight[tid] += cache_grad_attn_weight[tid + s];
--            cache_grad_sampling_loc[xid1] += cache_grad_sampling_loc[xid2];
--            cache_grad_sampling_loc[xid1 + 1] += cache_grad_sampling_loc[xid2 + 1];
--          }
--          __syncthreads();
--        }
--
--        if (tid == 0)
--        { 
--          *grad_sampling_loc = cache_grad_sampling_loc[0];
--          *(grad_sampling_loc + 1) = cache_grad_sampling_loc[1];
--          *grad_attn_weight = cache_grad_attn_weight[0];
--        }
--        __syncthreads();
--
--        data_weight_ptr += 1;
--        data_loc_w_ptr += 2;
--        grad_attn_weight += grad_weight_stride;
--        grad_sampling_loc += grad_loc_stride;
--      }
--    }
--  }
--}
--
--
--template <typename scalar_t>
--__global__ void ms_deformable_col2im_gpu_kernel_shm_reduce_v1(const int n,
--                                                const scalar_t *grad_col,
--                                                const scalar_t *data_value,
--                                                const int64_t *data_spatial_shapes,
--                                                const int64_t *data_level_start_index, 
--                                                const scalar_t *data_sampling_loc,
--                                                const scalar_t *data_attn_weight,
--                                                const int batch_size, 
--                                                const int spatial_size, 
--                                                const int num_heads,
--                                                const int channels, 
--                                                const int num_levels,
--                                                const int num_query,
--                                                const int num_point,
--                                                scalar_t *grad_value,
--                                                scalar_t *grad_sampling_loc,
--                                                scalar_t *grad_attn_weight)
--{
--  CUDA_KERNEL_LOOP(index, n)
--  {
--    extern __shared__ int _s[];
--    scalar_t* cache_grad_sampling_loc = (scalar_t*)_s;
--    scalar_t* cache_grad_attn_weight = cache_grad_sampling_loc + 2 * blockDim.x;
--    unsigned int tid = threadIdx.x;
--    int _temp = index;
--    const int c_col = _temp % channels;
--    _temp /= channels;
--    const int sampling_index = _temp; 
--    const int m_col = _temp % num_heads;
--    _temp /= num_heads;
--    const int q_col = _temp % num_query;
--    _temp /= num_query;
--    const int b_col = _temp;
--
--    const scalar_t top_grad = grad_col[index];
--
--    int data_weight_ptr = sampling_index * num_levels * num_point;
--    int data_loc_w_ptr = data_weight_ptr << 1;
--    const int grad_sampling_ptr = data_weight_ptr;
--    grad_sampling_loc += grad_sampling_ptr << 1;
--    grad_attn_weight += grad_sampling_ptr;
--    const int grad_weight_stride = 1;
--    const int grad_loc_stride = 2;
--    const int qid_stride = num_heads * channels;
--    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
--
--    for (int l_col=0; l_col < num_levels; ++l_col)
--    {
--      const int level_start_id = data_level_start_index[l_col];
--      const int spatial_h_ptr = l_col << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
--      const int value_ptr_offset = data_value_ptr_init_offset + level_start_id * qid_stride;
--      const scalar_t *data_value_ptr = data_value + value_ptr_offset;
--      scalar_t *grad_value_ptr = grad_value + value_ptr_offset;
--
--      for (int p_col=0; p_col < num_point; ++p_col)
--      {
--        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
--        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
--        const scalar_t weight = data_attn_weight[data_weight_ptr];
--
--        const scalar_t h_im = loc_h * spatial_h - 0.5;
--        const scalar_t w_im = loc_w * spatial_w - 0.5;
--        *(cache_grad_sampling_loc+(threadIdx.x << 1)) = 0;
--        *(cache_grad_sampling_loc+((threadIdx.x << 1) + 1)) = 0;
--        *(cache_grad_attn_weight+threadIdx.x)=0;
--        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w)
--        {
--          ms_deform_attn_col2im_bilinear(
--            data_value_ptr, spatial_h, spatial_w, num_heads, channels, h_im, w_im, m_col, c_col,
--            top_grad, weight, grad_value_ptr, 
--            cache_grad_sampling_loc+(threadIdx.x << 1), cache_grad_attn_weight+threadIdx.x);
--        }
--        
--        __syncthreads();
--        if (tid == 0)
--        {
--          scalar_t _grad_w=cache_grad_sampling_loc[0], _grad_h=cache_grad_sampling_loc[1], _grad_a=cache_grad_attn_weight[0];
--          int sid=2;
--          for (unsigned int tid = 1; tid < blockDim.x; ++tid)
--          {
--            _grad_w += cache_grad_sampling_loc[sid];
--            _grad_h += cache_grad_sampling_loc[sid + 1];
--            _grad_a += cache_grad_attn_weight[tid];
--            sid += 2;
--          }
--          
--          
--          *grad_sampling_loc = _grad_w;
--          *(grad_sampling_loc + 1) = _grad_h;
--          *grad_attn_weight = _grad_a;
--        }
--        __syncthreads();
--
--        data_weight_ptr += 1;
--        data_loc_w_ptr += 2;
--        grad_attn_weight += grad_weight_stride;
--        grad_sampling_loc += grad_loc_stride;
--      }
--    }
--  }
--}
--
--template <typename scalar_t>
--__global__ void ms_deformable_col2im_gpu_kernel_shm_reduce_v2(const int n,
--                                                const scalar_t *grad_col,
--                                                const scalar_t *data_value,
--                                                const int64_t *data_spatial_shapes,
--                                                const int64_t *data_level_start_index, 
--                                                const scalar_t *data_sampling_loc,
--                                                const scalar_t *data_attn_weight,
--                                                const int batch_size, 
--                                                const int spatial_size, 
--                                                const int num_heads,
--                                                const int channels, 
--                                                const int num_levels,
--                                                const int num_query,
--                                                const int num_point,
--                                                scalar_t *grad_value,
--                                                scalar_t *grad_sampling_loc,
--                                                scalar_t *grad_attn_weight)
--{
--  CUDA_KERNEL_LOOP(index, n)
--  {
--    extern __shared__ int _s[];
--    scalar_t* cache_grad_sampling_loc = (scalar_t*)_s;
--    scalar_t* cache_grad_attn_weight = cache_grad_sampling_loc + 2 * blockDim.x;
--    unsigned int tid = threadIdx.x;
--    int _temp = index;
--    const int c_col = _temp % channels;
--    _temp /= channels;
--    const int sampling_index = _temp; 
--    const int m_col = _temp % num_heads;
--    _temp /= num_heads;
--    const int q_col = _temp % num_query;
--    _temp /= num_query;
--    const int b_col = _temp;
--
--    const scalar_t top_grad = grad_col[index];
--
--    int data_weight_ptr = sampling_index * num_levels * num_point;
--    int data_loc_w_ptr = data_weight_ptr << 1;
--    const int grad_sampling_ptr = data_weight_ptr;
--    grad_sampling_loc += grad_sampling_ptr << 1;
--    grad_attn_weight += grad_sampling_ptr;
--    const int grad_weight_stride = 1;
--    const int grad_loc_stride = 2;
--    const int qid_stride = num_heads * channels;
--    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
--
--    for (int l_col=0; l_col < num_levels; ++l_col)
--    {
--      const int level_start_id = data_level_start_index[l_col];
--      const int spatial_h_ptr = l_col << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
--      const int value_ptr_offset = data_value_ptr_init_offset + level_start_id * qid_stride;
--      const scalar_t *data_value_ptr = data_value + value_ptr_offset;
--      scalar_t *grad_value_ptr = grad_value + value_ptr_offset;
--
--      for (int p_col=0; p_col < num_point; ++p_col)
--      {
--        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
--        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
--        const scalar_t weight = data_attn_weight[data_weight_ptr];
--
--        const scalar_t h_im = loc_h * spatial_h - 0.5;
--        const scalar_t w_im = loc_w * spatial_w - 0.5;
--        *(cache_grad_sampling_loc+(threadIdx.x << 1)) = 0;
--        *(cache_grad_sampling_loc+((threadIdx.x << 1) + 1)) = 0;
--        *(cache_grad_attn_weight+threadIdx.x)=0;
--        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w)
--        {
--          ms_deform_attn_col2im_bilinear(
--            data_value_ptr, spatial_h, spatial_w, num_heads, channels, h_im, w_im, m_col, c_col,
--            top_grad, weight, grad_value_ptr, 
--            cache_grad_sampling_loc+(threadIdx.x << 1), cache_grad_attn_weight+threadIdx.x);
--        }
--        
--        __syncthreads();
--
--        for (unsigned int s=blockDim.x/2, spre=blockDim.x; s>0; s>>=1, spre>>=1)
--        {
--          if (tid < s) {
--            const unsigned int xid1 = tid << 1;
--            const unsigned int xid2 = (tid + s) << 1;
--            cache_grad_attn_weight[tid] += cache_grad_attn_weight[tid + s];
--            cache_grad_sampling_loc[xid1] += cache_grad_sampling_loc[xid2];
--            cache_grad_sampling_loc[xid1 + 1] += cache_grad_sampling_loc[xid2 + 1];
--            if (tid + (s << 1) < spre)
--            {
--              cache_grad_attn_weight[tid] += cache_grad_attn_weight[tid + (s << 1)];
--              cache_grad_sampling_loc[xid1] += cache_grad_sampling_loc[xid2 + (s << 1)];
--              cache_grad_sampling_loc[xid1 + 1] += cache_grad_sampling_loc[xid2 + 1 + (s << 1)];
--            } 
--          }
--          __syncthreads();
--        }
--
--        if (tid == 0)
--        {
--          *grad_sampling_loc = cache_grad_sampling_loc[0];
--          *(grad_sampling_loc + 1) = cache_grad_sampling_loc[1];
--          *grad_attn_weight = cache_grad_attn_weight[0];
--        }
--        __syncthreads();
--
--        data_weight_ptr += 1;
--        data_loc_w_ptr += 2;
--        grad_attn_weight += grad_weight_stride;
--        grad_sampling_loc += grad_loc_stride;
--      }
--    }
--  }
--}
--
--template <typename scalar_t>
--__global__ void ms_deformable_col2im_gpu_kernel_shm_reduce_v2_multi_blocks(const int n,
--                                                const scalar_t *grad_col,
--                                                const scalar_t *data_value,
--                                                const int64_t *data_spatial_shapes,
--                                                const int64_t *data_level_start_index, 
--                                                const scalar_t *data_sampling_loc,
--                                                const scalar_t *data_attn_weight,
--                                                const int batch_size, 
--                                                const int spatial_size, 
--                                                const int num_heads,
--                                                const int channels, 
--                                                const int num_levels,
--                                                const int num_query,
--                                                const int num_point,
--                                                scalar_t *grad_value,
--                                                scalar_t *grad_sampling_loc,
--                                                scalar_t *grad_attn_weight)
--{
--  CUDA_KERNEL_LOOP(index, n)
--  {
--    extern __shared__ int _s[];
--    scalar_t* cache_grad_sampling_loc = (scalar_t*)_s;
--    scalar_t* cache_grad_attn_weight = cache_grad_sampling_loc + 2 * blockDim.x;
--    unsigned int tid = threadIdx.x;
--    int _temp = index;
--    const int c_col = _temp % channels;
--    _temp /= channels;
--    const int sampling_index = _temp; 
--    const int m_col = _temp % num_heads;
--    _temp /= num_heads;
--    const int q_col = _temp % num_query;
--    _temp /= num_query;
--    const int b_col = _temp;
--
--    const scalar_t top_grad = grad_col[index];
--
--    int data_weight_ptr = sampling_index * num_levels * num_point;
--    int data_loc_w_ptr = data_weight_ptr << 1;
--    const int grad_sampling_ptr = data_weight_ptr;
--    grad_sampling_loc += grad_sampling_ptr << 1;
--    grad_attn_weight += grad_sampling_ptr;
--    const int grad_weight_stride = 1;
--    const int grad_loc_stride = 2;
--    const int qid_stride = num_heads * channels;
--    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
--
--    for (int l_col=0; l_col < num_levels; ++l_col)
--    {
--      const int level_start_id = data_level_start_index[l_col];
--      const int spatial_h_ptr = l_col << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
--      const int value_ptr_offset = data_value_ptr_init_offset + level_start_id * qid_stride;
--      const scalar_t *data_value_ptr = data_value + value_ptr_offset;
--      scalar_t *grad_value_ptr = grad_value + value_ptr_offset;
--
--      for (int p_col=0; p_col < num_point; ++p_col)
--      {
--        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
--        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
--        const scalar_t weight = data_attn_weight[data_weight_ptr];
--
--        const scalar_t h_im = loc_h * spatial_h - 0.5;
--        const scalar_t w_im = loc_w * spatial_w - 0.5;
--        *(cache_grad_sampling_loc+(threadIdx.x << 1)) = 0;
--        *(cache_grad_sampling_loc+((threadIdx.x << 1) + 1)) = 0;
--        *(cache_grad_attn_weight+threadIdx.x)=0;
--        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w)
--        {
--          ms_deform_attn_col2im_bilinear(
--            data_value_ptr, spatial_h, spatial_w, num_heads, channels, h_im, w_im, m_col, c_col,
--            top_grad, weight, grad_value_ptr, 
--            cache_grad_sampling_loc+(threadIdx.x << 1), cache_grad_attn_weight+threadIdx.x);
--        }
--        
--        __syncthreads();
--
--        for (unsigned int s=blockDim.x/2, spre=blockDim.x; s>0; s>>=1, spre>>=1)
--        {
--          if (tid < s) {
--            const unsigned int xid1 = tid << 1;
--            const unsigned int xid2 = (tid + s) << 1;
--            cache_grad_attn_weight[tid] += cache_grad_attn_weight[tid + s];
--            cache_grad_sampling_loc[xid1] += cache_grad_sampling_loc[xid2];
--            cache_grad_sampling_loc[xid1 + 1] += cache_grad_sampling_loc[xid2 + 1];
--            if (tid + (s << 1) < spre)
--            {
--              cache_grad_attn_weight[tid] += cache_grad_attn_weight[tid + (s << 1)];
--              cache_grad_sampling_loc[xid1] += cache_grad_sampling_loc[xid2 + (s << 1)];
--              cache_grad_sampling_loc[xid1 + 1] += cache_grad_sampling_loc[xid2 + 1 + (s << 1)];
--            }
--          }
--          __syncthreads();
--        }
--
--        if (tid == 0)
--        {
--          atomicAdd(grad_sampling_loc, cache_grad_sampling_loc[0]);
--          atomicAdd(grad_sampling_loc + 1, cache_grad_sampling_loc[1]);
--          atomicAdd(grad_attn_weight, cache_grad_attn_weight[0]);
--        }
--        __syncthreads();
--
--        data_weight_ptr += 1;
--        data_loc_w_ptr += 2;
--        grad_attn_weight += grad_weight_stride;
--        grad_sampling_loc += grad_loc_stride;
--      }
--    }
--  }
--}
--
--
--template <typename scalar_t>
--__global__ void ms_deformable_col2im_gpu_kernel_gm(const int n,
--                                                const scalar_t *grad_col,
--                                                const scalar_t *data_value,
--                                                const int64_t *data_spatial_shapes,
--                                                const int64_t *data_level_start_index, 
--                                                const scalar_t *data_sampling_loc,
--                                                const scalar_t *data_attn_weight,
--                                                const int batch_size, 
--                                                const int spatial_size, 
--                                                const int num_heads,
--                                                const int channels, 
--                                                const int num_levels,
--                                                const int num_query,
--                                                const int num_point,
--                                                scalar_t *grad_value,
--                                                scalar_t *grad_sampling_loc,
--                                                scalar_t *grad_attn_weight)
--{
--  CUDA_KERNEL_LOOP(index, n)
--  {
--    int _temp = index;
--    const int c_col = _temp % channels;
--    _temp /= channels;
--    const int sampling_index = _temp; 
--    const int m_col = _temp % num_heads;
--    _temp /= num_heads;
--    const int q_col = _temp % num_query;
--    _temp /= num_query;
--    const int b_col = _temp;
--
--    const scalar_t top_grad = grad_col[index];
--
--    int data_weight_ptr = sampling_index * num_levels * num_point;
--    int data_loc_w_ptr = data_weight_ptr << 1;
--    const int grad_sampling_ptr = data_weight_ptr;
--    grad_sampling_loc += grad_sampling_ptr << 1;
--    grad_attn_weight += grad_sampling_ptr;
--    const int grad_weight_stride = 1;
--    const int grad_loc_stride = 2;
--    const int qid_stride = num_heads * channels;
--    const int data_value_ptr_init_offset = b_col * spatial_size * qid_stride;
--
--    for (int l_col=0; l_col < num_levels; ++l_col)
--    {
--      const int level_start_id = data_level_start_index[l_col];
--      const int spatial_h_ptr = l_col << 1;
--      const int spatial_h = data_spatial_shapes[spatial_h_ptr];
--      const int spatial_w = data_spatial_shapes[spatial_h_ptr + 1];
--      const int value_ptr_offset = data_value_ptr_init_offset + level_start_id * qid_stride;
--      const scalar_t *data_value_ptr = data_value + value_ptr_offset;
--      scalar_t *grad_value_ptr = grad_value + value_ptr_offset;
--
--      for (int p_col=0; p_col < num_point; ++p_col)
--      {
--        const scalar_t loc_w = data_sampling_loc[data_loc_w_ptr];
--        const scalar_t loc_h = data_sampling_loc[data_loc_w_ptr + 1];
--        const scalar_t weight = data_attn_weight[data_weight_ptr];
--
--        const scalar_t h_im = loc_h * spatial_h - 0.5;
--        const scalar_t w_im = loc_w * spatial_w - 0.5;
--        if (h_im > -1 && w_im > -1 && h_im < spatial_h && w_im < spatial_w)
--        {
--          ms_deform_attn_col2im_bilinear_gm(
--            data_value_ptr, spatial_h, spatial_w, num_heads, channels, h_im, w_im, m_col, c_col,
--            top_grad, weight, grad_value_ptr, 
--            grad_sampling_loc, grad_attn_weight);
--        }
--        data_weight_ptr += 1;
--        data_loc_w_ptr += 2;
--        grad_attn_weight += grad_weight_stride;
--        grad_sampling_loc += grad_loc_stride;
--      }
--    }
--  }
--}
--
--
--template <typename scalar_t>
--void ms_deformable_im2col_cuda(cudaStream_t stream,
--                              const scalar_t* data_value,
--                              const int64_t* data_spatial_shapes, 
--                              const int64_t* data_level_start_index, 
--                              const scalar_t* data_sampling_loc,
--                              const scalar_t* data_attn_weight,
--                              const int batch_size,
--                              const int spatial_size, 
--                              const int num_heads, 
--                              const int channels, 
--                              const int num_levels, 
--                              const int num_query,
--                              const int num_point,
--                              scalar_t* data_col)
--{
--  const int num_kernels = batch_size * num_query * num_heads * channels;
--  const int num_actual_kernels = batch_size * num_query * num_heads * channels;
--  const int num_threads = CUDA_NUM_THREADS;
--  ms_deformable_im2col_gpu_kernel<scalar_t>
--      <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--          0, stream>>>(
--      num_kernels, data_value, data_spatial_shapes, data_level_start_index, data_sampling_loc, data_attn_weight, 
--      batch_size, spatial_size, num_heads, channels, num_levels, num_query, num_point, data_col);
--  
--  cudaError_t err = cudaGetLastError();
--  if (err != cudaSuccess)
--  {
--    printf("error in ms_deformable_im2col_cuda: %s\n", cudaGetErrorString(err));
--  }
--
--}
--
--template <typename scalar_t>
--void ms_deformable_col2im_cuda(cudaStream_t stream,
--                              const scalar_t* grad_col,
--                              const scalar_t* data_value,
--                              const int64_t * data_spatial_shapes,
--                              const int64_t * data_level_start_index,
--                              const scalar_t * data_sampling_loc,
--                              const scalar_t * data_attn_weight,
--                              const int batch_size, 
--                              const int spatial_size, 
--                              const int num_heads,
--                              const int channels, 
--                              const int num_levels,
--                              const int num_query,
--                              const int num_point, 
--                              scalar_t* grad_value,
--                              scalar_t* grad_sampling_loc,
--                              scalar_t* grad_attn_weight)
--{
--  const int num_threads = (channels > CUDA_NUM_THREADS)?CUDA_NUM_THREADS:channels;
--  const int num_kernels = batch_size * num_query * num_heads * channels;
--  const int num_actual_kernels = batch_size * num_query * num_heads * channels;
--  if (channels > 1024)
--  {
--    if ((channels & 1023) == 0)
--    {
--      ms_deformable_col2im_gpu_kernel_shm_reduce_v2_multi_blocks<scalar_t>
--          <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--              num_threads*3*sizeof(scalar_t), stream>>>(
--                        num_kernels, 
--                        grad_col,
--                        data_value,
--                        data_spatial_shapes,
--                        data_level_start_index, 
--                        data_sampling_loc,
--                        data_attn_weight,
--                        batch_size, 
--                        spatial_size, 
--                        num_heads,
--                        channels, 
--                        num_levels,
--                        num_query,
--                        num_point,
--                        grad_value,
--                        grad_sampling_loc,
--                        grad_attn_weight);
--    }
--    else
--    {
--      ms_deformable_col2im_gpu_kernel_gm<scalar_t>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--    }
--  }
--  else{
--    switch(channels)
--    {
--      case 1:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v1<scalar_t, 1>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 2:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v1<scalar_t, 2>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 4:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v1<scalar_t, 4>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 8:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v1<scalar_t, 8>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 16:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v1<scalar_t, 16>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 32:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v1<scalar_t, 32>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 64:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 64>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 128:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 128>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 256:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 256>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 512:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 512>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      case 1024:
--        ms_deformable_col2im_gpu_kernel_shm_blocksize_aware_reduce_v2<scalar_t, 1024>
--        <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--            0, stream>>>(
--                      num_kernels, 
--                      grad_col,
--                      data_value,
--                      data_spatial_shapes,
--                      data_level_start_index, 
--                      data_sampling_loc,
--                      data_attn_weight,
--                      batch_size, 
--                      spatial_size, 
--                      num_heads,
--                      channels, 
--                      num_levels,
--                      num_query,
--                      num_point,
--                      grad_value,
--                      grad_sampling_loc,
--                      grad_attn_weight);
--        break;
--      default:
--        if (channels < 64)
--        {
--          ms_deformable_col2im_gpu_kernel_shm_reduce_v1<scalar_t>
--          <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--              num_threads*3*sizeof(scalar_t), stream>>>(
--                        num_kernels, 
--                        grad_col,
--                        data_value,
--                        data_spatial_shapes,
--                        data_level_start_index, 
--                        data_sampling_loc,
--                        data_attn_weight,
--                        batch_size, 
--                        spatial_size, 
--                        num_heads,
--                        channels, 
--                        num_levels,
--                        num_query,
--                        num_point,
--                        grad_value,
--                        grad_sampling_loc,
--                        grad_attn_weight);
--        }
--        else
--        {
--          ms_deformable_col2im_gpu_kernel_shm_reduce_v2<scalar_t>
--          <<<GET_BLOCKS(num_actual_kernels, num_threads), num_threads,
--              num_threads*3*sizeof(scalar_t), stream>>>(
--                        num_kernels, 
--                        grad_col,
--                        data_value,
--                        data_spatial_shapes,
--                        data_level_start_index, 
--                        data_sampling_loc,
--                        data_attn_weight,
--                        batch_size, 
--                        spatial_size, 
--                        num_heads,
--                        channels, 
--                        num_levels,
--                        num_query,
--                        num_point,
--                        grad_value,
--                        grad_sampling_loc,
--                        grad_attn_weight);
--        }
--    }
--  }
--  cudaError_t err = cudaGetLastError();
--  if (err != cudaSuccess)
--  {
--    printf("error in ms_deformable_col2im_cuda: %s\n", cudaGetErrorString(err));
--  }
--
--}
-\ No newline at end of file
-diff --git a/models/ops/src/ms_deform_attn.h b/models/ops/src/ms_deform_attn.h
-deleted file mode 100644
-index ac0ef2e..0000000
---- a/models/ops/src/ms_deform_attn.h
-+++ /dev/null
-@@ -1,62 +0,0 @@
--/*!
--**************************************************************************************************
--* Deformable DETR
--* Copyright (c) 2020 SenseTime. All Rights Reserved.
--* Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--**************************************************************************************************
--* Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--**************************************************************************************************
--*/
--
--#pragma once
--
--#include "cpu/ms_deform_attn_cpu.h"
--
--#ifdef WITH_CUDA
--#include "cuda/ms_deform_attn_cuda.h"
--#endif
--
--
--at::Tensor
--ms_deform_attn_forward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const int im2col_step)
--{
--    if (value.type().is_cuda())
--    {
--#ifdef WITH_CUDA
--        return ms_deform_attn_cuda_forward(
--            value, spatial_shapes, level_start_index, sampling_loc, attn_weight, im2col_step);
--#else
--        AT_ERROR("Not compiled with GPU support");
--#endif
--    }
--    AT_ERROR("Not implemented on the CPU");
--}
--
--std::vector<at::Tensor>
--ms_deform_attn_backward(
--    const at::Tensor &value, 
--    const at::Tensor &spatial_shapes,
--    const at::Tensor &level_start_index,
--    const at::Tensor &sampling_loc,
--    const at::Tensor &attn_weight,
--    const at::Tensor &grad_output,
--    const int im2col_step)
--{
--    if (value.type().is_cuda())
--    {
--#ifdef WITH_CUDA
--        return ms_deform_attn_cuda_backward(
--            value, spatial_shapes, level_start_index, sampling_loc, attn_weight, grad_output, im2col_step);
--#else
--        AT_ERROR("Not compiled with GPU support");
--#endif
--    }
--    AT_ERROR("Not implemented on the CPU");
--}
--
-diff --git a/models/ops/src/vision.cpp b/models/ops/src/vision.cpp
-deleted file mode 100644
-index 2201f63..0000000
---- a/models/ops/src/vision.cpp
-+++ /dev/null
-@@ -1,16 +0,0 @@
--/*!
--**************************************************************************************************
--* Deformable DETR
--* Copyright (c) 2020 SenseTime. All Rights Reserved.
--* Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--**************************************************************************************************
--* Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--**************************************************************************************************
--*/
--
--#include "ms_deform_attn.h"
--
--PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
--  m.def("ms_deform_attn_forward", &ms_deform_attn_forward, "ms_deform_attn_forward");
--  m.def("ms_deform_attn_backward", &ms_deform_attn_backward, "ms_deform_attn_backward");
--}
-diff --git a/models/ops/test.py b/models/ops/test.py
-deleted file mode 100644
-index 8dbf6d5..0000000
---- a/models/ops/test.py
-+++ /dev/null
-@@ -1,89 +0,0 @@
--# ------------------------------------------------------------------------------------------------
--# Deformable DETR
--# Copyright (c) 2020 SenseTime. All Rights Reserved.
--# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--# ------------------------------------------------------------------------------------------------
--# Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
--# ------------------------------------------------------------------------------------------------
--
--from __future__ import absolute_import
--from __future__ import print_function
--from __future__ import division
--
--import time
--import torch
--import torch.nn as nn
--from torch.autograd import gradcheck
--
--from functions.ms_deform_attn_func import MSDeformAttnFunction, ms_deform_attn_core_pytorch
--
--
--N, M, D = 1, 2, 2
--Lq, L, P = 2, 2, 2
--shapes = torch.as_tensor([(6, 4), (3, 2)], dtype=torch.long).cuda()
--level_start_index = torch.cat((shapes.new_zeros((1, )), shapes.prod(1).cumsum(0)[:-1]))
--S = sum([(H*W).item() for H, W in shapes])
--
--
--torch.manual_seed(3)
--
--
--@torch.no_grad()
--def check_forward_equal_with_pytorch_double():
--    value = torch.rand(N, S, M, D).cuda() * 0.01
--    sampling_locations = torch.rand(N, Lq, M, L, P, 2).cuda()
--    attention_weights = torch.rand(N, Lq, M, L, P).cuda() + 1e-5
--    attention_weights /= attention_weights.sum(-1, keepdim=True).sum(-2, keepdim=True)
--    im2col_step = 2
--    output_pytorch = ms_deform_attn_core_pytorch(value.double(), shapes, sampling_locations.double(), attention_weights.double()).detach().cpu()
--    output_cuda = MSDeformAttnFunction.apply(value.double(), shapes, level_start_index, sampling_locations.double(), attention_weights.double(), im2col_step).detach().cpu()
--    fwdok = torch.allclose(output_cuda, output_pytorch)
--    max_abs_err = (output_cuda - output_pytorch).abs().max()
--    max_rel_err = ((output_cuda - output_pytorch).abs() / output_pytorch.abs()).max()
--
--    print(f'* {fwdok} check_forward_equal_with_pytorch_double: max_abs_err {max_abs_err:.2e} max_rel_err {max_rel_err:.2e}')
--
--
--@torch.no_grad()
--def check_forward_equal_with_pytorch_float():
--    value = torch.rand(N, S, M, D).cuda() * 0.01
--    sampling_locations = torch.rand(N, Lq, M, L, P, 2).cuda()
--    attention_weights = torch.rand(N, Lq, M, L, P).cuda() + 1e-5
--    attention_weights /= attention_weights.sum(-1, keepdim=True).sum(-2, keepdim=True)
--    im2col_step = 2
--    output_pytorch = ms_deform_attn_core_pytorch(value, shapes, sampling_locations, attention_weights).detach().cpu()
--    output_cuda = MSDeformAttnFunction.apply(value, shapes, level_start_index, sampling_locations, attention_weights, im2col_step).detach().cpu()
--    fwdok = torch.allclose(output_cuda, output_pytorch, rtol=1e-2, atol=1e-3)
--    max_abs_err = (output_cuda - output_pytorch).abs().max()
--    max_rel_err = ((output_cuda - output_pytorch).abs() / output_pytorch.abs()).max()
--
--    print(f'* {fwdok} check_forward_equal_with_pytorch_float: max_abs_err {max_abs_err:.2e} max_rel_err {max_rel_err:.2e}')
--
--
--def check_gradient_numerical(channels=4, grad_value=True, grad_sampling_loc=True, grad_attn_weight=True):
--
--    value = torch.rand(N, S, M, channels).cuda() * 0.01
--    sampling_locations = torch.rand(N, Lq, M, L, P, 2).cuda()
--    attention_weights = torch.rand(N, Lq, M, L, P).cuda() + 1e-5
--    attention_weights /= attention_weights.sum(-1, keepdim=True).sum(-2, keepdim=True)
--    im2col_step = 2
--    func = MSDeformAttnFunction.apply
--
--    value.requires_grad = grad_value
--    sampling_locations.requires_grad = grad_sampling_loc
--    attention_weights.requires_grad = grad_attn_weight
--
--    gradok = gradcheck(func, (value.double(), shapes, level_start_index, sampling_locations.double(), attention_weights.double(), im2col_step))
--
--    print(f'* {gradok} check_gradient_numerical(D={channels})')
--
--
--if __name__ == '__main__':
--    check_forward_equal_with_pytorch_double()
--    check_forward_equal_with_pytorch_float()
--
--    for channels in [30, 32, 64, 71, 1025, 2048, 3096]:
--        check_gradient_numerical(channels, True, True, True)
--
--
--
 diff --git a/models/position_encoding.py b/models/position_encoding.py
 old mode 100644
 new mode 100755
@@ -2614,7 +659,7 @@ index a92f0d3..d39965a
 +++ b/models/position_encoding.py
 @@ -34,19 +34,17 @@ class PositionEmbeddingSine(nn.Module):
          self.scale = scale
- 
+
      def forward(self, tensor_list: NestedTensor):
 -        x = tensor_list.tensors
 -        mask = tensor_list.mask
@@ -2628,12 +673,12 @@ index a92f0d3..d39965a
              eps = 1e-6
              y_embed = (y_embed - 0.5) / (y_embed[:, -1:, :] + eps) * self.scale
              x_embed = (x_embed - 0.5) / (x_embed[:, :, -1:] + eps) * self.scale
- 
+
 -        dim_t = torch.arange(self.num_pos_feats, dtype=torch.float32, device=x.device)
 -        dim_t = self.temperature ** (2 * (dim_t // 2) / self.num_pos_feats)
 +        dim_t = torch.arange(self.num_pos_feats, dtype=torch.float32, device=tensor_list.tensors.device)
 +        dim_t = self.temperature ** ((dim_t // 2) * (2 / self.num_pos_feats))
- 
+
          pos_x = x_embed[:, :, :, None] / dim_t
          pos_y = y_embed[:, :, :, None] / dim_t
 diff --git a/models/segmentation.py b/models/segmentation.py
@@ -2649,215 +694,16 @@ index c801c0e..ae7fd5c
 -    p_t = prob * targets + (1 - prob) * (1 - targets)
 -    loss = ce_loss * ((1 - p_t) ** gamma)
 +    loss = ce_loss * ((prob + targets - 2 * prob * targets) ** gamma)
- 
+
      if alpha >= 0:
 -        alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
 +        alpha_t = 2 * alpha * targets - alpha - targets + 1
          loss = alpha_t * loss
- 
+
      return loss.mean(1).sum() / num_boxes
 diff --git a/requirements.txt b/requirements.txt
 old mode 100644
 new mode 100755
-diff --git a/tools/launch.py b/tools/launch.py
-deleted file mode 100644
-index 2b3ceaa..0000000
---- a/tools/launch.py
-+++ /dev/null
-@@ -1,192 +0,0 @@
--# --------------------------------------------------------------------------------------------------------------------------
--# Deformable DETR
--# Copyright (c) 2020 SenseTime. All Rights Reserved.
--# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--# --------------------------------------------------------------------------------------------------------------------------
--# Modified from https://github.com/pytorch/pytorch/blob/173f224570017b4b1a3a1a13d0bff280a54d9cd9/torch/distributed/launch.py
--# --------------------------------------------------------------------------------------------------------------------------
--
--r"""
--`torch.distributed.launch` is a module that spawns up multiple distributed
--training processes on each of the training nodes.
--The utility can be used for single-node distributed training, in which one or
--more processes per node will be spawned. The utility can be used for either
--CPU training or GPU training. If the utility is used for GPU training,
--each distributed process will be operating on a single GPU. This can achieve
--well-improved single-node training performance. It can also be used in
--multi-node distributed training, by spawning up multiple processes on each node
--for well-improved multi-node distributed training performance as well.
--This will especially be benefitial for systems with multiple Infiniband
--interfaces that have direct-GPU support, since all of them can be utilized for
--aggregated communication bandwidth.
--In both cases of single-node distributed training or multi-node distributed
--training, this utility will launch the given number of processes per node
--(``--nproc_per_node``). If used for GPU training, this number needs to be less
--or euqal to the number of GPUs on the current system (``nproc_per_node``),
--and each process will be operating on a single GPU from *GPU 0 to
--GPU (nproc_per_node - 1)*.
--**How to use this module:**
--1. Single-Node multi-process distributed training
--::
--    >>> python -m torch.distributed.launch --nproc_per_node=NUM_GPUS_YOU_HAVE
--               YOUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3 and all other
--               arguments of your training script)
--2. Multi-Node multi-process distributed training: (e.g. two nodes)
--Node 1: *(IP: 192.168.1.1, and has a free port: 1234)*
--::
--    >>> python -m torch.distributed.launch --nproc_per_node=NUM_GPUS_YOU_HAVE
--               --nnodes=2 --node_rank=0 --master_addr="192.168.1.1"
--               --master_port=1234 YOUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3
--               and all other arguments of your training script)
--Node 2:
--::
--    >>> python -m torch.distributed.launch --nproc_per_node=NUM_GPUS_YOU_HAVE
--               --nnodes=2 --node_rank=1 --master_addr="192.168.1.1"
--               --master_port=1234 YOUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3
--               and all other arguments of your training script)
--3. To look up what optional arguments this module offers:
--::
--    >>> python -m torch.distributed.launch --help
--**Important Notices:**
--1. This utilty and multi-process distributed (single-node or
--multi-node) GPU training currently only achieves the best performance using
--the NCCL distributed backend. Thus NCCL backend is the recommended backend to
--use for GPU training.
--2. In your training program, you must parse the command-line argument:
--``--local_rank=LOCAL_PROCESS_RANK``, which will be provided by this module.
--If your training program uses GPUs, you should ensure that your code only
--runs on the GPU device of LOCAL_PROCESS_RANK. This can be done by:
--Parsing the local_rank argument
--::
--    >>> import argparse
--    >>> parser = argparse.ArgumentParser()
--    >>> parser.add_argument("--local_rank", type=int)
--    >>> args = parser.parse_args()
--Set your device to local rank using either
--::
--    >>> torch.cuda.set_device(arg.local_rank)  # before your code runs
--or
--::
--    >>> with torch.cuda.device(arg.local_rank):
--    >>>    # your code to run
--3. In your training program, you are supposed to call the following function
--at the beginning to start the distributed backend. You need to make sure that
--the init_method uses ``env://``, which is the only supported ``init_method``
--by this module.
--::
--    torch.distributed.init_process_group(backend='YOUR BACKEND',
--                                         init_method='env://')
--4. In your training program, you can either use regular distributed functions
--or use :func:`torch.nn.parallel.DistributedDataParallel` module. If your
--training program uses GPUs for training and you would like to use
--:func:`torch.nn.parallel.DistributedDataParallel` module,
--here is how to configure it.
--::
--    model = torch.nn.parallel.DistributedDataParallel(model,
--                                                      device_ids=[arg.local_rank],
--                                                      output_device=arg.local_rank)
--Please ensure that ``device_ids`` argument is set to be the only GPU device id
--that your code will be operating on. This is generally the local rank of the
--process. In other words, the ``device_ids`` needs to be ``[args.local_rank]``,
--and ``output_device`` needs to be ``args.local_rank`` in order to use this
--utility
--5. Another way to pass ``local_rank`` to the subprocesses via environment variable
--``LOCAL_RANK``. This behavior is enabled when you launch the script with
--``--use_env=True``. You must adjust the subprocess example above to replace
--``args.local_rank`` with ``os.environ['LOCAL_RANK']``; the launcher
--will not pass ``--local_rank`` when you specify this flag.
--.. warning::
--    ``local_rank`` is NOT globally unique: it is only unique per process
--    on a machine.  Thus, don't use it to decide if you should, e.g.,
--    write to a networked filesystem.  See
--    https://github.com/pytorch/pytorch/issues/12042 for an example of
--    how things can go wrong if you don't do this correctly.
--"""
--
--
--import sys
--import subprocess
--import os
--import socket
--from argparse import ArgumentParser, REMAINDER
--
--import torch
--
--
--def parse_args():
--    """
--    Helper function parsing the command line options
--    @retval ArgumentParser
--    """
--    parser = ArgumentParser(description="PyTorch distributed training launch "
--                                        "helper utilty that will spawn up "
--                                        "multiple distributed processes")
--
--    # Optional arguments for the launch helper
--    parser.add_argument("--nnodes", type=int, default=1,
--                        help="The number of nodes to use for distributed "
--                             "training")
--    parser.add_argument("--node_rank", type=int, default=0,
--                        help="The rank of the node for multi-node distributed "
--                             "training")
--    parser.add_argument("--nproc_per_node", type=int, default=1,
--                        help="The number of processes to launch on each node, "
--                             "for GPU training, this is recommended to be set "
--                             "to the number of GPUs in your system so that "
--                             "each process can be bound to a single GPU.")
--    parser.add_argument("--master_addr", default="127.0.0.1", type=str,
--                        help="Master node (rank 0)'s address, should be either "
--                             "the IP address or the hostname of node 0, for "
--                             "single node multi-proc training, the "
--                             "--master_addr can simply be 127.0.0.1")
--    parser.add_argument("--master_port", default=29500, type=int,
--                        help="Master node (rank 0)'s free port that needs to "
--                             "be used for communciation during distributed "
--                             "training")
--
--    # positional
--    parser.add_argument("training_script", type=str,
--                        help="The full path to the single GPU training "
--                             "program/script to be launched in parallel, "
--                             "followed by all the arguments for the "
--                             "training script")
--
--    # rest from the training program
--    parser.add_argument('training_script_args', nargs=REMAINDER)
--    return parser.parse_args()
--
--
--def main():
--    args = parse_args()
--
--    # world size in terms of number of processes
--    dist_world_size = args.nproc_per_node * args.nnodes
--
--    # set PyTorch distributed related environmental variables
--    current_env = os.environ.copy()
--    current_env["MASTER_ADDR"] = args.master_addr
--    current_env["MASTER_PORT"] = str(args.master_port)
--    current_env["WORLD_SIZE"] = str(dist_world_size)
--
--    processes = []
--
--    for local_rank in range(0, args.nproc_per_node):
--        # each process's rank
--        dist_rank = args.nproc_per_node * args.node_rank + local_rank
--        current_env["RANK"] = str(dist_rank)
--        current_env["LOCAL_RANK"] = str(local_rank)
--
--        cmd = [args.training_script] + args.training_script_args
--
--        process = subprocess.Popen(cmd, env=current_env)
--        processes.append(process)
--
--    for process in processes:
--        process.wait()
--        if process.returncode != 0:
--            raise subprocess.CalledProcessError(returncode=process.returncode,
--                                                cmd=process.args)
--
--
--if __name__ == "__main__":
--    main()
-\ No newline at end of file
 diff --git a/tools/run_dist_launch.sh b/tools/run_dist_launch.sh
 deleted file mode 100755
 index f6f6c4f..0000000
@@ -2894,45 +740,6 @@ index f6f6c4f..0000000
 -    --nproc_per_node ${GPUS_PER_NODE} \
 -    ${RUN_COMMAND}
 \ No newline at end of file
-diff --git a/tools/run_dist_slurm.sh b/tools/run_dist_slurm.sh
-deleted file mode 100755
-index bd73d0b..0000000
---- a/tools/run_dist_slurm.sh
-+++ /dev/null
-@@ -1,33 +0,0 @@
--#!/usr/bin/env bash
--# --------------------------------------------------------------------------------------------------------------------------
--# Deformable DETR
--# Copyright (c) 2020 SenseTime. All Rights Reserved.
--# Licensed under the Apache License, Version 2.0 [see LICENSE for details]
--# --------------------------------------------------------------------------------------------------------------------------
--# Modified from https://github.com/open-mmlab/mmdetection/blob/3b53fe15d87860c6941f3dda63c0f27422da6266/tools/slurm_train.sh
--# --------------------------------------------------------------------------------------------------------------------------
--
--set -x
--
--PARTITION=$1
--JOB_NAME=$2
--GPUS=$3
--RUN_COMMAND=${@:4}
--if [ $GPUS -lt 8 ]; then
--    GPUS_PER_NODE=${GPUS_PER_NODE:-$GPUS}
--else
--    GPUS_PER_NODE=${GPUS_PER_NODE:-8}
--fi
--CPUS_PER_TASK=${CPUS_PER_TASK:-4}
--SRUN_ARGS=${SRUN_ARGS:-""}
--
--srun -p ${PARTITION} \
--    --job-name=${JOB_NAME} \
--    --gres=gpu:${GPUS_PER_NODE} \
--    --ntasks=${GPUS} \
--    --ntasks-per-node=${GPUS_PER_NODE} \
--    --cpus-per-task=${CPUS_PER_TASK} \
--    --kill-on-bad-exit=1 \
--    ${SRUN_ARGS} \
--    ${RUN_COMMAND}
--
 diff --git a/util/__init__.py b/util/__init__.py
 old mode 100644
 new mode 100755
@@ -2943,7 +750,7 @@ index ca29592..79aeafb
 --- a/util/box_ops.py
 +++ b/util/box_ops.py
 @@ -16,8 +16,10 @@ from torchvision.ops.boxes import box_area
- 
+
  def box_cxcywh_to_xyxy(x):
      x_c, y_c, w, h = x.unbind(-1)
 -    b = [(x_c - 0.5 * w), (y_c - 0.5 * h),
@@ -2953,8 +760,8 @@ index ca29592..79aeafb
 +    b = [(x_c - w), (y_c - h),
 +         (x_c + w), (y_c + h)]
      return torch.stack(b, dim=-1)
- 
- 
+
+
 @@ -54,10 +56,6 @@ def generalized_box_iou(boxes1, boxes2):
      Returns a [N, M] pairwise matrix, where N = len(boxes1)
      and M = len(boxes2)
@@ -2964,16 +771,16 @@ index ca29592..79aeafb
 -    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
 -    assert (boxes2[:, 2:] >= boxes2[:, :2]).all()
      iou, union = box_iou(boxes1, boxes2)
- 
+
      lt = torch.min(boxes1[:, None, :2], boxes2[:, :2])
 @@ -68,7 +66,6 @@ def generalized_box_iou(boxes1, boxes2):
- 
+
      return iou - (area - union) / area
- 
+
 -
  def masks_to_boxes(masks):
      """Compute the bounding boxes around the provided masks
- 
+
 diff --git a/util/misc.py b/util/misc.py
 old mode 100644
 new mode 100755
@@ -2981,7 +788,7 @@ index 6d4d076..56c26c3
 --- a/util/misc.py
 +++ b/util/misc.py
 @@ -27,37 +27,6 @@ from torch import Tensor
- 
+
  # needed due to empty tensor bug in pytorch and torchvision 0.5
  import torchvision
 -if float(torchvision.__version__[:3]) < 0.5:
@@ -3015,7 +822,7 @@ index 6d4d076..56c26c3
 -    from torchvision.ops import _new_empty_tensor
 -    from torchvision.ops.misc import _output_size
 -
- 
+
  class SmoothedValue(object):
      """Track a series of values and provide access to smoothed values over a
 @@ -83,7 +52,7 @@ class SmoothedValue(object):
@@ -3030,7 +837,7 @@ index 6d4d076..56c26c3
 @@ -190,6 +159,26 @@ def reduce_dict(input_dict, average=True):
          reduced_dict = {k: v for k, v in zip(names, values)}
      return reduced_dict
- 
+
 +def reduce_values(input_dict, average=True):
 +    world_size = get_world_size()
 +    if world_size < 2:
@@ -3051,7 +858,7 @@ index 6d4d076..56c26c3
 +    values /= get_world_size()
 +    reduced_dict = {k: v for k, v in zip(names, values)}
 +    return reduced_dict
- 
+
  class MetricLogger(object):
      def __init__(self, delimiter="\t"):
 @@ -434,7 +423,7 @@ def init_distributed_mode(args):
@@ -3081,7 +888,7 @@ index 6d4d076..56c26c3
 -    else:
 -        return torchvision.ops.misc.interpolate(input, size, scale_factor, mode, align_corners)
 -
- 
+
  def get_total_grad_norm(parameters, norm_type=2):
      parameters = list(filter(lambda p: p.grad is not None, parameters))
 diff --git a/util/plot_utils.py b/util/plot_utils.py
