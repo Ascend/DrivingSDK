@@ -167,14 +167,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   git checkout 699e5862ba2c173490b7e1f47b06184be8b7306e
   git apply --reject --whitespace=fix lane_seg_net_config.patch
   pip install -r requirements.txt
-  ```
-
-9. 依赖配置
-  ```
-  pip install networkx==3.1
-  pip install numba
-  pip install torchvision==0.16.0
-  pip install numpy==1.24.0
+  pip install openlanev2==2.1.0 --no-deps
   ```
 
 ## 准备数据集
