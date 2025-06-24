@@ -777,7 +777,7 @@ index cf23848..e688d0b 100644
          scale_start_index,
 diff --git a/projects/mmdet3d_plugin/utils/__init__.py b/projects/mmdet3d_plugin/utils/__init__.py
 new file mode 100644
-index 0000000..8e42dee
+index 0000000..6f211c1
 --- /dev/null
 +++ b/projects/mmdet3d_plugin/utils/__init__.py
 @@ -0,0 +1,5 @@
@@ -789,7 +789,7 @@ index 0000000..8e42dee
 \ No newline at end of file
 diff --git a/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py b/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py
 new file mode 100644
-index 0000000..6ad725e
+index 0000000..c8f6727
 --- /dev/null
 +++ b/projects/mmdet3d_plugin/utils/epoch_based_runner_with_profiling.py
 @@ -0,0 +1,230 @@
@@ -1008,7 +1008,7 @@ index 0000000..6ad725e
 +            # Note: meta.update(self.meta) should be done before
 +            # meta.update(epoch=self.epoch + 1, iter=self.iter) otherwise
 +            # there will be problems with resumed checkpoints.
-+            # More details in https://github.com/open-mmlab/mmcv/pull/1108
++
 +        meta.update(epoch=self.epoch + 1, iter=self.iter)
 +
 +        filename = filename_tmpl.format(self.epoch + 1)
