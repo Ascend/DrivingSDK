@@ -168,10 +168,7 @@ code_path=model_examples/PointPillar
 
 ### 准备数据集
 1. 下载kitti数据集，请自行前往Kitti官网下载3D检测数据集
-2. 下载训练数据集data目录
-   1. 克隆OpenPCDet源码：`git clone https://github.com/open-mmlab/OpenPCDet.git`
-   2. 将OpenPCDet源码的data目录复制到本仓的OpenPCDet工程目录下
-3. 解压下载的kitti数据集，并按照如下方式组织
+2. 解压下载的kitti数据集，并按照如下方式组织
    ```
    OpenPCDet
    ├── data
@@ -184,8 +181,8 @@ code_path=model_examples/PointPillar
    ├── pcdet
    ├── tools
    ```
-4. 修改`tools/cfgs/kitti_models/pointpillar.yaml`，`USE_ROAD_PLANE: False`
-5. 序列化数据集生成数据信息
+3. 修改`tools/cfgs/kitti_models/pointpillar.yaml`，`USE_ROAD_PLANE: False`
+4. 序列化数据集生成数据信息
    ```python
    cd OpenPCDet/
    python -m pcdet.datasets.kitti.kitti_dataset create_kitti_infos tools/cfgs/dataset_configs/kitti_dataset.yaml
