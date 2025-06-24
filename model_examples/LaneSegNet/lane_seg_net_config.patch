@@ -756,6 +756,35 @@ index b7c7351..2e11a16 100644
 
              output = output.permute(1, 0, 2)
              if self.return_intermediate:
+diff --git a/requirements.txt b/requirements.txt
+index efc8cba..0a6edd0 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,6 +1,20 @@
+ similaritymeasures==0.6.0
+-numpy==1.22.4
+ scipy==1.8.0
+-ortools==9.2.9972
++ortools==9.3.10497
+ setuptools==59.5.0
+-openlanev2==2.1.0
++networkx==3.1
++numba
++torchvision==0.16.0
++tqdm
++platformdirs
++tomli
++ninja
++jupyter
++openmim
++matplotlib
++scikit-learn
++opencv-python
++iso3166
++chardet
++shapely ==2.0.0
++numpy==1.24.0
+\ No newline at end of file
 diff --git a/tools/dist_train_single_epoch.sh b/tools/dist_train_single_epoch.sh
 new file mode 100755
 index 0000000..fa16c79
