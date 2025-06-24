@@ -101,8 +101,11 @@ conda activate senna
 ```
 git clone https://gitee.com/ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/Senna
-chmod -R 777 run.sh
-./run.sh
+git clone https://github.com/hustvl/Senna.git
+cp -f Senna.patch Senna
+cd Senna
+git checkout 5f202ce84dc4fe52949934ab0921e287d733ff8f
+git apply Senna.patch
 ```
 
 安装依赖：
@@ -113,9 +116,12 @@ pip install -r requirements.txt
 
 安装NPU适配bitsandbytes版本：
 (1)下载源码并创建所需文件
-将使用的昇腾芯片型号记作 Ascend_version
 ```
 cd ..
+git clone https://github.com/SlightwindSec/bitsandbytes.git -b multi-backend-refactor-npu
+```
+将使用的昇腾芯片型号记作 Ascend_version
+```
 ./bitsandbytes_npu.sh "{Ascend_version}"
 ```
 (2)安装：
@@ -127,7 +133,7 @@ source {cann_root_dir}/set_env.sh
 bash deploy.sh
 python setup.py install
 ```
-最后在路径：/{env_root_dir}/lib/python3.10/site-packages/bitsandbytes-0.45.4-py3.10-linux-aarch64.egg/bitsandbytes/下创建文件_version.py，并加入__version__ = "0.45.4" 
+最后在路径：/{env_root_dir}/lib/python3.10/site-packages/bitsandbytes-0.45.4-py3.10-linux-aarch64.egg/bitsandbytes/下创建文件_version.py，并加入__version__ = "0.45.4"
 
 
 ### 准备数据集
