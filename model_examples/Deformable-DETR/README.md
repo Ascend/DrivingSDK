@@ -51,10 +51,11 @@ conda activate deformable_detr
 git clone https://gitee.com/ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
-chmod -R 777 run.sh
-./run.sh
-cp -rf test Deformable-DETR
+git clone https://github.com/fundamentalvision/Deformable-DETR.git
+cp -f Deformable-DETR_npu.patch Deformable-DETR
 cd Deformable-DETR
+git apply Deformable-DETR_npu.patch
+cp -rf ../test .
 ```
 如果需要将 Deformable-DETR 源码 clone 到用户自定义目录，执行下面的shell命令：
 ```
@@ -62,7 +63,6 @@ your_path=/home/    # 替换为用户自定义目标目录地址
 git clone https://gitee.com/ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
-chmod -R 777 run.sh
 git clone https://github.com/fundamentalvision/Deformable-DETR.git ${your_path}
 cp -f Deformable-DETR_npu.patch ${your_path}
 cp -rf test ${your_path}

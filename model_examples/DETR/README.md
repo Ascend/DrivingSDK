@@ -89,14 +89,21 @@ code_path=model_examples/DETR
    ```
    cd model_examples/DETR
    git clone https://github.com/facebookresearch/detr.git --depth=1
-   
+
    cd detr/
    git fetch --unshallow
    git checkout 29901c51d7fe8712168b8d0d64351170bc0f83e0
    cp -f ../detr.patch ./
    cp -rf ../test ./
    git apply detr.patch
-   
+   ```
+
+3. 安装依赖
+
+   ```
+   sed -i 's/^torchvision.*/torchvision==0.16.0/' requirements.txt
+   sed -i '2d;4d;6d;8d;9d' requirements.txt
+   sed -i '3i\pycocotools==2.0.7' requirements.txt
    pip install -r requirements.txt
    ```
 
