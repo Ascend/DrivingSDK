@@ -469,7 +469,7 @@ index 8a348e83..6667f55a 100644
 +            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
 +        )
 diff --git a/mmcv/parallel/distributed.py b/mmcv/parallel/distributed.py
-index bf34cb59..8aab9473 100644
+index bf34cb59..43af486c 100644
 --- a/mmcv/parallel/distributed.py
 +++ b/mmcv/parallel/distributed.py
 @@ -1,4 +1,5 @@
@@ -478,12 +478,7 @@ index bf34cb59..8aab9473 100644
  from typing import Any, List, Tuple
  
  import torch
-@@ -151,13 +152,10 @@ class MMDistributedDataParallel(DistributedDataParallel):
-         ``MMDistributedDataParallel`` overrides this method to call
-         :meth:`to_kwargs` explicitly.
- 
--        See more information in `<https://github.com/open-mmlab/mmsegmentation/issues/1742>`_.  # noqa: E501
--
+@@ -156,8 +157,7 @@ class MMDistributedDataParallel(DistributedDataParallel):
          Returns:
              Any: Forward result of :attr:`module`.
          """
