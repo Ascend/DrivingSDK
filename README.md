@@ -32,16 +32,19 @@ bash ci/build.sh --python=3.8
 
 | 参数   | 取值范围                                                     | 说明                           | 缺省值 | 备注                                           |
 | ------ | ------------------------------------------------------------ | ------------------------------ | ------ | ---------------------------------------------- |
-| python | pytorch2.1.0、2.3.1及以上版本，支持3.8及以上 | 指定编译过程中使用的python版本 | 3.8    |
+| python | pytorch2.1.0及以上版本，支持3.8及以上 | 指定编译过程中使用的python版本 | 3.8    |
 
 支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如下：
 
 | Gitee分支 |  CPU架构 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
 |-----------|-----------|-------------------|-------------------|---------------------|
 | master    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0|
-|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.3.1|v2.3.1|
-|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.4.0|v2.4.0|
-| branch_7.0.RC1    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-7.0.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.5.1|v2.5.1|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0|
+| branch_v7.1.RC1   | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-7.1.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.5.1|v2.5.1-7.1.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0-7.1.0|
+| branch_v7.0.RC1    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-7.0.0|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.3.1|v2.3.1-7.0.0|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.4.0|v2.4.0-7.0.0|
 | branch_v6.0.0    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-6.0.0|
