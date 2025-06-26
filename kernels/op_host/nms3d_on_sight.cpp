@@ -45,7 +45,6 @@ static ge::graphStatus Nms3dOnSightTilingFunc(gert::TilingContext *context)
     auto maskShape = context->GetOutputShape(0)->GetStorageShape(); // [N, N_aligned]
     auto dtype = context->GetInputDesc(0)->GetDataType();
     auto attrs = context->GetAttrs();
-
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
     }

@@ -201,7 +201,7 @@ private:
                                                         point[1] * this->outSpatialShape[2] + point[2] +
                                                         this->feature_map_size * batch_id;
                                 DataCopyPad(temp_gm_ub[offset * data_each_block], tempGm[point_offset],
-                                            copyParams_temp_gm_ub, padParams);    
+                                            copyParams_temp_gm_ub, padParams);
                         }
                     }
                 }

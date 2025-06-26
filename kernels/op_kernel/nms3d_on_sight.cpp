@@ -77,7 +77,7 @@ public:
         }
     }
 
-    __aicore__ inline uint32_t CeilDiv(uint32_t a, uint32_t b) 
+    __aicore__ inline uint32_t CeilDiv(uint32_t a, uint32_t b)
     {
         if (b == 0) {
             return 0;
@@ -111,7 +111,7 @@ private:
         // 声明输出mask,先赋值成全1
         LocalTensor<int16_t> outLocal = outQueueMask.AllocTensor<int16_t>();
         LocalTensor<half> selLocal = selBuf.Get<half>();
-        Duplicate(selLocal, static_cast<half>(1), alignedN); 
+        Duplicate(selLocal, static_cast<half>(1), alignedN);
         LocalTensor<uint8_t> maskdstLocal = maskBuf.Get<uint8_t>();
         
         // 将curBox需要的计算量curX, curY, curR得到; [1, alignedN]
