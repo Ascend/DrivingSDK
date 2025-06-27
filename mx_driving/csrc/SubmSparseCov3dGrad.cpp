@@ -23,7 +23,8 @@ at::Tensor npu_subm_sparse_conv3d_grad(const at::Tensor& ouidx_offset, const at:
 {
     auto weight_size = weight.sizes();
     int64_t kernelsum = 1;
-    for (int32_t i = 0; i < weight_size.size() - 2; i++) {
+    int32_t unsumSize = 2;
+    for (int32_t i = 0; i < static_cast<int32_t>(weight_size.size()) - unsumSize; i++) {
         kernelsum *= weight_size[i];
     }
     c10::SmallVector<int64_t, 8> output_size = {indices_number, kernelsum, weight_size[4]};

@@ -46,7 +46,7 @@ static void npu_scatter_mean_shape_check(
             last_indices_dim++;
         }
     }
-    for (int i = 0; i < indices.dim() - last_indices_dim; i++) {
+    for (int i = 0; i < static_cast<int>(indices.dim()) - last_indices_dim; i++) {
         TORCH_CHECK(src_size[i] == indices_size[i], "src and indices should have the same size at dim ", i);
     }
 }
@@ -99,7 +99,7 @@ std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor&
     available_indices_dim = std::max(available_indices_dim, true_dim + 1);
     auto src_size = src.sizes();
     uint64_t tail = 1;
-    for (uint64_t i = available_indices_dim; i < src.dim(); i++) {
+    for (uint64_t i = static_cast<uint64_t>(available_indices_dim); i < static_cast<uint64_t>(src.dim()); i++) {
         tail *= src_size[i];
     }
 

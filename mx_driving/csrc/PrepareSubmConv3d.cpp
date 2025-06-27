@@ -21,7 +21,7 @@ std::tuple<at::Tensor, at::Tensor> npu_prepare_subm_conv3d(
     const at::Tensor& flattenIndices, at::IntArrayRef outSpatialShape, int batch_size)
 {
     int64_t outputnum = 1;
-    for (int32_t i = 0; i < outSpatialShape.size(); i++) {
+    for (int32_t i = 0; i < static_cast<int32_t>(outSpatialShape.size()); i++) {
         outputnum *= outSpatialShape[i];
     }
     c10::SmallVector<int64_t, 8> output_size = {batch_size * outputnum};

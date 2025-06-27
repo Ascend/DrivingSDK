@@ -25,9 +25,9 @@ at::Tensor cal_anchors_heading(const at::Tensor& anchors, const at::Tensor& orig
     TORCH_CHECK(origin_pos.dim() == 2, "origin_pos must be a 2D Tensor, but got: ", origin_pos.dim());
     TORCH_CHECK(anchors.size(3) == 2, "the last dim of anchors must be 2, but got: ", anchors.size(3));
 
-    uint32_t batch_size = anchors.size(0);
-    uint32_t anchors_num = anchors.size(1);
-    uint32_t seq_length = anchors.size(2);
+    uint32_t batch_size = static_cast<uint32_t>(anchors.size(0));
+    uint32_t anchors_num = static_cast<uint32_t>(anchors.size(1));
+    uint32_t seq_length = static_cast<uint32_t>(anchors.size(2));
 
     at::Tensor heading = at::empty({batch_size, anchors_num, seq_length}, anchors.options());
 

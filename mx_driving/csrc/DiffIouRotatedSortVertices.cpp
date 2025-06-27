@@ -27,8 +27,8 @@ at::Tensor diff_iou_rotated_sort_vertices(const at::Tensor& vertices, const at::
     TORCH_CHECK(mask.dim() == 3, "mask must be a 3D Tensor, but got: ", mask.dim());
     TORCH_CHECK(num_valid.dim() == 2, "num_valid must be a 2D Tensor, but got: ", num_valid.dim());
 
-    uint32_t B = vertices.size(0);
-    uint32_t N = vertices.size(1);
+    uint32_t B = static_cast<uint32_t>(vertices.size(0));
+    uint32_t N = static_cast<uint32_t>(vertices.size(1));
 
     at::Tensor sortedIdx = at::empty({B, N, 9}, num_valid.options());
     at::Tensor mask_fp = mask.to(at::kFloat);

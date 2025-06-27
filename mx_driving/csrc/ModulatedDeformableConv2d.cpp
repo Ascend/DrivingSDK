@@ -31,15 +31,15 @@ std::tuple<at::Tensor, at::Tensor> modulated_deformable_conv2d(const at::Tensor&
 
     const at::Tensor& bias = c10::value_or_else(bias_opt, [] { return at::Tensor(); });
 
-    uint32_t n = input.size(0);
-    uint32_t c_in = input.size(3);
-    uint32_t h_in = input.size(1);
-    uint32_t w_in = input.size(2);
-    uint32_t h_out = offset.size(1);
-    uint32_t w_out = offset.size(2);
-    uint32_t c_out = weight.size(0);
-    uint32_t kh = weight.size(1);
-    uint32_t kw = weight.size(2);
+    uint32_t n = static_cast<uint32_t>(input.size(0));
+    uint32_t c_in = static_cast<uint32_t>(input.size(3));
+    uint32_t h_in = static_cast<uint32_t>(input.size(1));
+    uint32_t w_in = static_cast<uint32_t>(input.size(2));
+    uint32_t h_out = static_cast<uint32_t>(offset.size(1));
+    uint32_t w_out = static_cast<uint32_t>(offset.size(2));
+    uint32_t c_out = static_cast<uint32_t>(weight.size(0));
+    uint32_t kh = static_cast<uint32_t>(weight.size(1));
+    uint32_t kw = static_cast<uint32_t>(weight.size(2));
     TORCH_CHECK(groups > 0, "groups must be greater than 0");
     TORCH_CHECK(c_out % groups == 0, "weight's out channel should be divided by groups");
     TORCH_CHECK(c_in % groups == 0, "input's channel should be divided by groups");

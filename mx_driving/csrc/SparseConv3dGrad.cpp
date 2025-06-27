@@ -32,7 +32,8 @@ std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad(const at::Tensor& indi
     auto indices_size = indices_offset.sizes();
 
     int64_t kernelsum = 1;
-    for (int32_t i = 0; i < weight_size.size() - 2; i++) {
+    int32_t unsumSize = 2;
+    for (int32_t i = 0; i < static_cast<int32_t>(weight_size.size()) - unsumSize; i++) {
         kernelsum *= weight_size[i];
     }
     int64_t kernelIC = weight_size[3];

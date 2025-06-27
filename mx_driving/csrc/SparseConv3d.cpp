@@ -26,7 +26,7 @@ std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d(const at::Tensor& indices, 
     TORCH_CHECK(out_channel % 8 == 0, "out_channel must be divisible by 8 but got out_channel: ", out_channel);
     auto indices_size = indices.sizes();
     int64_t kernelsum = 1;
-    for (int32_t i = 0; i < kernel_size.size(); i++) {
+    for (int32_t i = 0; i < static_cast<int32_t>(kernel_size.size()); i++) {
         kernelsum *= kernel_size[i];
     }
     int64_t outputsum = indices_size[0] * kernelsum;
