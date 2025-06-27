@@ -1,5 +1,5 @@
 numpy==1.22
-protobuf==4.21.6
+protobuf==4.25.8
 decorator
 sympy 
 scipy 
