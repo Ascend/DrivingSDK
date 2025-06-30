@@ -5,7 +5,7 @@
 #include "register/tilingdata_base.h"
 
 namespace optiling {
-BEGIN_TILING_DATA_DEF(UniqueTilingData)
+BEGIN_TILING_DATA_DEF(UniqueV2TilingData)
     TILING_DATA_FIELD_DEF(uint32_t, totalLength);
     TILING_DATA_FIELD_DEF(uint32_t, shortBlockTileNum);
     TILING_DATA_FIELD_DEF(uint16_t, tileLength);
@@ -15,5 +15,5 @@ BEGIN_TILING_DATA_DEF(UniqueTilingData)
     TILING_DATA_FIELD_DEF(uint8_t, shortBlockNum);
 END_TILING_DATA_DEF;
 
-REGISTER_TILING_DATA_CLASS(Unique, UniqueTilingData)
+REGISTER_TILING_DATA_CLASS(UniqueV2, UniqueV2TilingData)
 }

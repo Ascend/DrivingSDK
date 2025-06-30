@@ -4,18 +4,18 @@
  */
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "unique_tiling.h"
+#include "unique_v2_tiling.h"
 constexpr size_t SYS_RSVD_WS_SIZE = 16 * 1024 * 1024;
 constexpr size_t BYTE_PER_BLK = 32;
 constexpr size_t EVENTID_MAX = 8;
 
 namespace optiling {
-static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context)
+static ge::graphStatus UniqueV2TilingFunc(gert::TilingContext* context)
 {
     if (!context) {
         return ge::GRAPH_FAILED;
     }
-    UniqueTilingData tiling;
+    UniqueV2TilingData tiling;
 
     constexpr uint16_t tileLength = 8192;
     const gert::StorageShape* inputShape = context->GetInputShape(0);
@@ -66,7 +66,7 @@ static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context)
 
 
 namespace ge {
-static ge::graphStatus UniqueInferShape(gert::InferShapeContext* context)
+static ge::graphStatus UniqueV2InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* x1_shape = context->GetInputShape(0);
     gert::Shape* y_shape = context->GetOutputShape(0);
@@ -77,7 +77,7 @@ static ge::graphStatus UniqueInferShape(gert::InferShapeContext* context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus UniqueInferDtype(gert::InferDataTypeContext* context)
+static ge::graphStatus UniqueV2InferDtype(gert::InferDataTypeContext* context)
 {
     auto inputDtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, inputDtype);
@@ -87,9 +87,9 @@ static ge::graphStatus UniqueInferDtype(gert::InferDataTypeContext* context)
 
 
 namespace ops {
-class Unique : public OpDef {
+class UniqueV2 : public OpDef {
 public:
-    explicit Unique(const char* name) : OpDef(name)
+    explicit UniqueV2(const char* name) : OpDef(name)
     {
         this->Input("input")
             .ParamType(REQUIRED)
@@ -105,14 +105,14 @@ public:
             .DataType({ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
 
-        this->SetInferShape(ge::UniqueInferShape);
-        this->SetInferDataType(ge::UniqueInferDtype);
+        this->SetInferShape(ge::UniqueV2InferShape);
+        this->SetInferDataType(ge::UniqueV2InferDtype);
 
-        this->AICore().SetTiling(optiling::UniqueTilingFunc);
+        this->AICore().SetTiling(optiling::UniqueV2TilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
     }
 };
 
-OP_ADD(Unique);
+OP_ADD(UniqueV2);
 } // namespace ops

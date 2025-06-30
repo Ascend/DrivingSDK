@@ -29,7 +29,7 @@ at::Tensor npu_unique(const at::Tensor& input)
     } else {
         at::Tensor output = at::empty({input.numel()}, at::TensorOptions().dtype(input.dtype()).device(input.device()));
         at::Tensor uniqueCnt = at::empty({1}, at::TensorOptions().dtype(at::ScalarType::Int).device(input.device()));
-        EXEC_NPU_CMD_SYNC(aclnnUnique, input, output, uniqueCnt);
+        EXEC_NPU_CMD_SYNC(aclnnUniqueV2, input, output, uniqueCnt);
         int uniqueCount = uniqueCnt.item<int>();
         return output.narrow(0, 0, uniqueCount);
     }

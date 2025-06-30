@@ -2,10 +2,10 @@
 * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
 */
 #include "kernel_operator.h"
-#include "unique.h"
+#include "unique_v2.h"
 
 
-extern "C" __global__ __aicore__ void unique(
+extern "C" __global__ __aicore__ void unique_v2(
     GM_ADDR input, GM_ADDR output, GM_ADDR uniqueCnt, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
     TPipe pipe;
