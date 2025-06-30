@@ -46,7 +46,7 @@ static void npu_scatter_add_shape_check(
             last_indices_dim++;
         }
     }
-    for (int i = 0; i < indices.dim() - last_indices_dim; i++) {
+    for (uint32_t i = 0; i < static_cast<uint32_t>(indices.dim()) - last_indices_dim; i++) {
         TORCH_CHECK(src_size[i] == indices_size[i], "src and indices should have the same size at dim ", i);
     }
 }

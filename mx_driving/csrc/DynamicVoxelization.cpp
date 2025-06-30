@@ -20,8 +20,8 @@
 at::Tensor dynamic_voxelization(const at::Tensor& points, at::Tensor& coors, int grid_x, int grid_y, int grid_z,
     double voxel_x, double voxel_y, double voxel_z, double coors_min_x, double coors_min_y, double coorsMinZ)
 {
-    uint32_t ptsNum = points.size(0);
-    uint32_t ptsFeature = points.size(1);
+    uint32_t ptsNum = static_cast<uint32_t>(points.size(0));
+    uint32_t ptsFeature = static_cast<uint32_t>(points.size(1));
     at::Tensor ptsTrans = at::transpose(points, 0, 1);
     EXEC_NPU_CMD(aclnnDynamicVoxelization, ptsTrans, coors_min_x, coors_min_y, coorsMinZ, voxel_x, voxel_y, voxel_z,
         grid_x, grid_y, grid_z, coors);

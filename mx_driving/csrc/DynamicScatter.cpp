@@ -37,8 +37,8 @@ std::tuple<at::Tensor, at::Tensor> npu_dynamic_scatter(const at::Tensor& feats, 
 {
     // Check inputs
     npu_dynamic_scatter_check(feats, coors);
-    uint32_t point_num = feats.size(0);
-    uint32_t feats_dim = feats.size(1);
+    uint32_t point_num = static_cast<uint32_t>(feats.size(0));
+    uint32_t feats_dim = static_cast<uint32_t>(feats.size(1));
     if (point_num == 0 || feats_dim == 0) {
         return std::make_tuple(feats.clone().detach(), coors.new_empty({0}, at::kByte));
     }

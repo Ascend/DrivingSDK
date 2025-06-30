@@ -108,7 +108,6 @@ public:
         avgPoolNum = avgPoolNumUb.Get<DTYPE_POOLED_FEATURES>();
     }
 
-
 private:
     __aicore__ inline void collect_inside_pts_for_box3d(uint32_t boxIdx, uint32_t ptsIdx)
     {

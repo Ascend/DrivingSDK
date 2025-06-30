@@ -41,10 +41,10 @@ void npu_roiaware_pool3d_forward(const at::Tensor& rois, const at::Tensor& pts, 
         pooled_features_cast = pooled_features_cast.to(at::kFloat);
     }
 
-    uint32_t max_pts_each_voxel = pts_idx_of_voxels.size(4);
-    uint32_t outx = pts_idx_of_voxels.size(1);
-    uint32_t outy = pts_idx_of_voxels.size(2);
-    uint32_t outz = pts_idx_of_voxels.size(3);
+    uint32_t max_pts_each_voxel = static_cast<uint32_t>(pts_idx_of_voxels.size(4));
+    uint32_t outx = static_cast<uint32_t>(pts_idx_of_voxels.size(1));
+    uint32_t outy = static_cast<uint32_t>(pts_idx_of_voxels.size(2));
+    uint32_t outz = static_cast<uint32_t>(pts_idx_of_voxels.size(3));
 
     EXEC_NPU_CMD(aclnnRoiawarePool3d, rois_cast, pts_cast, pts_feature_cast, mode, max_pts_each_voxel, outx, outy, outz,
         argmax, pts_idx_of_voxels, pooled_features_cast);

@@ -3,7 +3,7 @@
  */
 #include "kernel_operator.h"
 #include "lib/matmul_intf.h"
-using namespace AscendC;  
+using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 2;                                     // tensor num for each queue
 
 class KernelSubmSparseConv3dGrad {
@@ -32,7 +32,7 @@ public:
     LocalTensor<DTYPE_OUTIDX_OFFSET> indices_ub;
     LocalTensor<DTYPE_OUTIDX_OFFSET> offset_ub;
     LocalTensor<DTYPE_GRAD_OUT_FEATURES> grad_ub;
-    DataCopyPadParams padParams = {false, 0 , 0, 0};
+    DataCopyPadParams padParams = {false, 0, 0, 0};
     int32_t total_kernel_size;
     int32_t data_each_block = 8;
     DataCopyParams copyParams_offset;
@@ -128,7 +128,7 @@ private:
                 int64_t offset_idx = offset_ub.GetValue(i * 64 + j);
                 DataCopyPad(outputGm[(int32_t)(offset_idx * total_kernel_size * this->outchannel + valid_idx* this->outchannel)],
                             grad_ub[j * outchannel_ailgn_32b], copyParams_grad);
-            }  
+            }
             PipeBarrier<PIPE_ALL>();
         }
         inQueueOffset.FreeTensor(offset_ub);
@@ -141,11 +141,11 @@ private:
         indices_ub = inQueueValid.AllocTensor<DTYPE_OUTIDX_OFFSET>();
         grad_ub = inQueueGrad.AllocTensor<DTYPE_GRAD_OUT_FEATURES>();
         // 计算indices的loop参数
-        copyParams_valid = {1,(uint16_t)(tensor_size * sizeof(DTYPE_OUTIDX_OFFSET)), 0, 0};
+        copyParams_valid = {1, (uint16_t)(tensor_size * sizeof(DTYPE_OUTIDX_OFFSET)), 0, 0};
         DataCopyPad(indices_ub, validIndicesGm[address], copyParams_valid, padParams);
         DataCopyPad(offset_ub, outidxOffsetGm[address], copyParams_valid, padParams);
         PipeBarrier<PIPE_ALL>();
-        for (int32_t i = 0; i < tensor_size; i++) {  
+        for (int32_t i = 0; i < tensor_size; i++) {
             int64_t feature_idx = indices_ub.GetValue(i) / total_kernel_size;
             int64_t valid_idx = indices_ub.GetValue(i) % total_kernel_size;
             int64_t offset_idx = offset_ub.GetValue(i);
@@ -155,7 +155,7 @@ private:
             DataCopyPad(outputGm[(int32_t)(offset_idx * total_kernel_size * this->outchannel + valid_idx* this->outchannel)],
                         grad_ub, copyParams_grad);
             PipeBarrier<PIPE_ALL>();
-        }       
+        }
         inQueueOffset.FreeTensor(offset_ub);
         inQueueValid.FreeTensor(indices_ub);
         inQueueGrad.FreeTensor(grad_ub);

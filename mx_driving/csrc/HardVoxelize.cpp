@@ -31,8 +31,8 @@ std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> hard_voxelize(const at::
 {
     TORCH_CHECK_NPU(points);
     TORCH_CHECK(points.dim() == 2, "points.dim() must be 2, but got: ", points.dim());
-    size_t point_num = points.size(POINT_NUM_DIM);
-    size_t feat_num = points.size(FEAT_NUM_DIM);
+    size_t point_num = static_cast<size_t>(points.size(POINT_NUM_DIM));
+    size_t feat_num = static_cast<size_t>(points.size(FEAT_NUM_DIM));
     auto voxels = point_to_voxel(points, voxel_sizes, coor_ranges, "XYZ");
     auto uni_res = unique_voxel(voxels);
     int32_t num_voxels = std::get<NUM_VOXELS_IDX>(uni_res);

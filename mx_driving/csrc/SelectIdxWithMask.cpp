@@ -33,8 +33,8 @@ at::Tensor select_idx_with_mask(const at::Tensor& poly_line, const at::Tensor& m
     TORCH_CHECK(pt.size(1) == min_idx.size(1), "The second dimension of pt must match the second dimension of min_idx, but got: ", pt.size(1));
     TORCH_CHECK(back_idx.size(1) == min_idx.size(1), "The second dimension of back_idx must match the second dimension of min_idx, but got: ", back_idx.size(1));
 
-    uint32_t batch_size = min_idx.size(0);
-    uint32_t point_num = min_idx.size(1);
+    uint32_t batch_size = static_cast<uint32_t>(min_idx.size(0));
+    uint32_t point_num = static_cast<uint32_t>(min_idx.size(1));
 
     at::Tensor  out_min_idx = at::empty({min_idx.size(0), min_idx.size(1)}, min_idx.options());
     EXEC_NPU_CMD(aclnnSelectIdxWithMask, poly_line, min_idx, pt, back_idx, out_min_idx);

@@ -24,7 +24,7 @@ std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor, at::Tensor> unique_voxel
     TORCH_CHECK(voxels.dtype() == at::kFloat || voxels.dtype() == at::kInt,
         "voxels.dtype() must be float or int32, but got: ", voxels.dtype());
 
-    size_t num_points = voxels.size(0);
+    size_t num_points = static_cast<size_t>(voxels.size(0));
 
     auto sorted = voxels.dtype() == at::kFloat ? at::sort(voxels) : at::sort(voxels.view(at::kFloat));
     at::Tensor sorted_voxels = std::get<0>(sorted);

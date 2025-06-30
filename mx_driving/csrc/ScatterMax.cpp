@@ -31,7 +31,7 @@ void npu_scatter_max_check(const at::Tensor& updates, const at::Tensor& indices,
     auto updatesSizes = updates.sizes();
     auto resultSizes = result.sizes();
     int32_t indicesLength = 1;
-    for (size_t i = 1; i < indices.dim(); i++) {
+    for (size_t i = 1; i < static_cast<size_t>(indices.dim()); i++) {
         indicesLength *= indicesSizes[i];
     }
     auto updates_dims = updatesSizes.size();
@@ -39,7 +39,7 @@ void npu_scatter_max_check(const at::Tensor& updates, const at::Tensor& indices,
     auto result_dims = resultSizes.size();
     TORCH_CHECK(updates_dims != 0 && index_dims != 0, "updates and index should not be empty.");
     TORCH_CHECK(result_dims == updates_dims, "out's dimension should be equal to updates's dimension.");
-    for (size_t i = 1; i < result.dim(); i++) {
+    for (size_t i = 1; i < static_cast<size_t>(result.dim()); i++) {
         TORCH_CHECK(updatesSizes[i] == resultSizes[i], "updates and out should have the same size except for dim 0.");
     }
     TORCH_CHECK(indicesLength == 1,

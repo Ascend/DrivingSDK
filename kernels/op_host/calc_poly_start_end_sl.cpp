@@ -59,7 +59,6 @@ static ge::graphStatus TilingForCalcPolyStartEndSl(gert::TilingContext *context)
     auto slShapePtr = context->GetOutputShape(SL_OUTPUT_IDX);
     auto polyStartShapePtr = context->GetOutputShape(POLY_START_OUTPUT_IDX);
     auto polyEndShapePtr = context->GetOutputShape(POLY_END_OUTPUT_IDX);
-
     if (minIdxShapePtr == nullptr || polyLineShapePtr == nullptr || ptsShapePtr == nullptr || sCumShapePtr == nullptr || slShapePtr == nullptr || polyStartShapePtr == nullptr || polyEndShapePtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
