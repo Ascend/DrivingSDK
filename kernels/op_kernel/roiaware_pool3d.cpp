@@ -235,9 +235,8 @@ private:
             return 0;
         }
 
-        DTYPE_PTS shiftx, shifty;
-        shiftx = xPtsInput - xRoiInput;
-        shifty = yPtsInput - yRoiInput;
+        DTYPE_PTS shiftx = xPtsInput - xRoiInput;
+        DTYPE_PTS shifty = yPtsInput - yRoiInput;
         Cos(cosVal[0], rz[0], 1);
         DTYPE_ROIS cosa = cosVal.GetValue(0);
         Sin(sinVal[0], rz[0], 1);

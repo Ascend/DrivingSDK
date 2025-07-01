@@ -166,8 +166,12 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     uint64_t coreEachHead = 1;
     uint64_t out_dim_shape = varShape.GetDim(dim);
 
-    uint64_t taskNum, taskEachLine, taskLastLine;
-    uint64_t taskNumLast, taskEachLineLast, taskLastLineLast;
+    uint64_t taskNum;
+    uint64_t taskEachLine;
+    uint64_t taskLastLine;
+    uint64_t taskNumLast;
+    uint64_t taskEachLineLast;
+    uint64_t taskLastLineLast;
     
     if (head > coreNum) {
         context->SetTilingKey(TILING_MODE_NO_TAIL_MULTIHEAD);
@@ -340,8 +344,12 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
     uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
     auto dataEachBlock = BLOCK_SIZE / bytesData;
 
-    uint64_t taskNum, taskEachLine, taskLastLine;
-    uint64_t taskNumLast, taskEachLineLast, taskLastLineLast;
+    uint64_t taskNum;
+    uint64_t taskEachLine;
+    uint64_t taskLastLine;
+    uint64_t taskNumLast;
+    uint64_t taskEachLineLast;
+    uint64_t taskLastLineLast;
     ComputeTaskForBatch(MAX_OUT_LINE, bacthBigCore, &taskNum, &taskEachLine, &taskLastLine);
     ComputeTaskForBatch(MAX_OUT_LINE, bacthSmallCore, &taskNumLast, &taskEachLineLast, &taskLastLineLast);
 
@@ -545,8 +553,12 @@ static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext* context)
         usedCoreNum = GetCeilInt(countNum, coreBigLine);
         bigCoreNum = countNum - coreSmallLine * usedCoreNum;
     }
-    uint64_t taskNum, taskEachLine, taskLastLine;
-    uint64_t taskNumSmall, taskEachLineSmall, taskLastLineSmall;
+    uint64_t taskNum;
+    uint64_t taskEachLine;
+    uint64_t taskLastLine;
+    uint64_t taskNumSmall;
+    uint64_t taskEachLineSmall;
+    uint64_t taskLastLineSmall;
     ComputeTaskForBatch(MAX_OUT_LINE, coreBigLine, &taskNum, &taskEachLine, &taskLastLine);
     ComputeTaskForBatch(MAX_OUT_LINE, coreSmallLine, &taskNumSmall, &taskEachLineSmall, &taskLastLineSmall);
 

@@ -129,11 +129,10 @@ static ge::graphStatus InferShapeGeometricKernelAttention(gert::InferShapeContex
         return ge::GRAPH_FAILED;
     }
 
-    int32_t batchSize, numQueries, numHeads, dim;
-    batchSize = ValueShape->GetDim(BS_INDEX);
-    numHeads = ValueShape->GetDim(HEAD_INDEX);
-    dim = ValueShape->GetDim(DIM_INDEX);
-    numQueries = SamplingShape->GetDim(QUERY_INDEX);
+    int32_t batchSize = ValueShape->GetDim(BS_INDEX);
+    int32_t numHeads = ValueShape->GetDim(HEAD_INDEX);
+    int32_t dim = ValueShape->GetDim(DIM_INDEX);
+    int32_t numQueries = SamplingShape->GetDim(QUERY_INDEX);
 
     *OutputShape = {batchSize, numQueries, numHeads * dim};
     return GRAPH_SUCCESS;

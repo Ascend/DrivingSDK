@@ -204,7 +204,9 @@ void ScatterMeanGradTiling::SetModeLine(int32_t gradDims, int32_t indexDims, uin
         bigCoreNum = dataLine - dataLineSmallCore * coreUsed;
     }
     uint64_t ubTailNum;
-    uint64_t taskNum, taskEachLine, taskLastLine;
+    uint64_t taskNum;
+    uint64_t taskEachLine;
+    uint64_t taskLastLine;
     if (tail % paramsNumPerBlock == 0 && tail < MAX_DEAL_NUM / gradDsize) {
         tilingMode = 1;
         ubTailNum =  tail;

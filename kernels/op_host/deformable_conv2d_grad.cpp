@@ -58,7 +58,8 @@ ge::graphStatus TilingForDeformableConv2dGrad(gert::TilingContext* context)
     context->SetTilingKey(*modulatedPtr);
 
     DeformableConv2dGradTilingData tilingData;
-    matmul_tiling::MatmulApiTiling mm0Tiling(ascendPlatformInfo), mm1Tiling(ascendPlatformInfo);
+    matmul_tiling::MatmulApiTiling mm0Tiling(ascendPlatformInfo);
+    matmul_tiling::MatmulApiTiling mm1Tiling(ascendPlatformInfo);
     mm0Tiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT, true);
     mm0Tiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mm0Tiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
