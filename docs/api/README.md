@@ -54,11 +54,11 @@
         <td align=center>Y</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/radius.md>radius</a></td>
+        <td align=center><a href=./context/radius[beta].md>radius[beta]</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/npu_unique[beta].md>npu_unique</a></td>
+        <td align=center><a href=./context/npu_unique[beta].md>npu_unique[beta]</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
@@ -207,7 +207,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/npu_assign_target_of_single_head[beta].md>npu_assign_target_of_single_head[beta]</a></td>
+        <td align=center><a href=./context/npu_assign_target_of_single_head.md>npu_assign_target_of_single_head</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
@@ -215,7 +215,7 @@
         <td align=center>Y</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/npu_batch_matmul[beta].md>npu_batch_matmul[beta]</a></td>
+        <td align=center><a href=./context/npu_batch_matmul.md>npu_batch_matmul</a></td>
         <td align=center>N</td>
     </tr>
     <tr>

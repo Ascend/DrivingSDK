@@ -1,4 +1,4 @@
-## npu_batch_matmul[beta]
+## npu_batch_matmul
 ### 接口原型
 ```python
 mx_driving.npu_batch_matmul(Tensor projection_mat, Tensor pts_extend) -> Tensor

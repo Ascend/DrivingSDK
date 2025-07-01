@@ -125,9 +125,7 @@ out, argmax = scatter_max(updates, indices, out)
 ## 模型清单
 |  Model   | 链接  | Released |
 |  :----:  |  :----  | :----  |
-| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |N|
 | BEVDepth  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDepth |Y|
-| Sparse4D  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Sparse4D |N|
 | CenterNet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterNet |Y|
 | PointPillar(2D)  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointPillar |Y|
 | CenterPoint(2D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |Y|
@@ -135,9 +133,8 @@ out, argmax = scatter_max(updates, indices, out)
 | SurroundOcc  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc |Y|
 | GameFormer-Planner  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner |Y|
 | StreamPETR  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/StreamPETR |Y|
-| Senna  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Senna |N|
 | BEVDet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet |Y|
-| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |N|
+| Sparse4D  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Sparse4D |Y|
 | TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |Y|
 | DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR |Y|
 | Deformable-DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR |Y|
@@ -149,25 +146,28 @@ out, argmax = scatter_max(updates, indices, out)
 | UniAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD |Y|
 | PivotNet|https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PivotNet|Y|
 | CenterPoint(3D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |Y|
-| LMDrive  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LMDrive |N|
 | DETR3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR3D |Y|
 | DenseTNT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT |Y|
 | Mask2Former | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Mask2Former |Y|
 | GameFormer | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer |Y|
+| MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |Y|
+| SalsaNext | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SalsaNext |Y|
+| FlashOCC | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FlashOCC |Y|
+| SparseDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SparseDrive |Y|
+| MatrixVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MatrixVT |Y|
+| Diffusion-Planner | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner |N|
+| DiffusionDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive |N|
+| Panoptic-PolarNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet |N|
+| MagicDriveDiT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT |N|
+| HiVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HiVT |N|
+| HPTR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HPTR |N|
+| Senna  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Senna |N|
+| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |N|
+| LMDrive  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LMDrive |N|
 | VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |N|
 | QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |N|
 | BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
-| MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |Y|
-| SalsaNext | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SalsaNext |N|
-| Panoptic-PolarNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet |N|
-| HPTR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HPTR |N|
-| MatrixVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MatrixVT |Y|
-| FlashOCC | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FlashOCC |N|
-| HiVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HiVT |N|
-| MagicDriveDiT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT |N|
-| SparseDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SparseDrive |N|
-| Diffusion-Planner | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner |N|
-| DiffusionDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive |N|
+| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |N|
 # 支持的产品型号
 - Atlas A2 训练系列产品
 
@@ -267,9 +267,9 @@ Driving SDK版本分支的维护阶段如下：
 
 | **Driving SDK版本**     | **维护策略** | **当前状态** | **发布时间**   | **后续状态**           | **EOL日期** |
 |---------------------|-----------|---------|------------|--------------------|-----------|
-| v7.1.RC1  |  常规版本  | 开发      | 2025/06/30 | 预计2025/12/30起无维护	   | 
+| v7.1.RC1  |  常规版本  | 维护      | 2025/06/30 | 预计2025/12/30起无维护	   | 
 | v7.0.RC1  |  常规版本  | 维护      | 2025/03/30 | 预计2025/9/30起无维护	   |           |
-| v6.0.0   |  常规版本  | 维护      | 2024/12/30 | 预计2025/6/30起无维护	   |           |          |
+| v6.0.0   |  常规版本  | 无维护      | 2024/12/30 | 2025/6/30起无维护	   |           |          |
 | v6.0.0-RC3 |  常规版本  | 无维护      | 2024/09/30 | 2025/3/30起无维护	   |           |
 | v6.0.0-RC2             |  常规版本  | 无维护      | 2024/06/30 | 2024/12/30起无维护	   |           |
 | v6.0.0-RC1             |  常规版本  | 无维护  | 2024/03/30 | 2024/9/30起无维护           |           |
