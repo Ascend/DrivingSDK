@@ -85,8 +85,18 @@ ge::graphStatus SetTilingDataFromAttr(const gert::TilingContext* context, optili
     if (!attrs) {
         return ge::GRAPH_FAILED;
     }
-    int32_t gridX(DEFAULT_GRID_X), gridY(DEFAULT_GRID_Y), gridZ(DEFAULT_GRID_Z);
-    float voxelSizeX, voxelSizeY, voxelSizeZ, coorXMax, coorYMax, coorZMax, coorXMin, coorYMin, coorZMin;
+    int32_t gridX(DEFAULT_GRID_X);
+    int32_t gridY(DEFAULT_GRID_Y);
+    int32_t gridZ(DEFAULT_GRID_Z);
+    float voxelSizeX;
+    float voxelSizeY;
+    float voxelSizeZ;
+    float coorXMax;
+    float coorYMax;
+    float coorZMax;
+    float coorXMin;
+    float coorYMin;
+    float coorZMin;
     if (GetElementInListAttr(attrs, VOXEL_SIZES_IDX, 0, voxelSizeX) != ge::GRAPH_SUCCESS ||
         GetElementInListAttr(attrs, VOXEL_SIZES_IDX, 1, voxelSizeY) != ge::GRAPH_SUCCESS ||
         GetElementInListAttr(attrs, VOXEL_SIZES_IDX, 2, voxelSizeZ) != ge::GRAPH_SUCCESS ||

@@ -23,7 +23,10 @@ public:
     {
         LocalTensor<float> anchorsLocal = anchorsBuf_.Get<float>();
         LocalTensor<float> anchorsLocalLeftShift = anchorLeftShiftBuf_.Get<float>();
-        float originXPos = -1, originYPos = -1, firstXDiff = 0, firstYDiff = 0;
+        float originXPos = -1;
+        float originYPos = -1;
+        float firstXDiff = 0;
+        float firstYDiff = 0;
         uint32_t taskCount = 0;
         uint32_t taskOffset = coreStartTaskIdx_;
         for (int taskIdx = 0; taskIdx < coreAnchorNumTask_; taskIdx += taskCount, taskOffset += taskCount) {

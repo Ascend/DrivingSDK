@@ -195,7 +195,8 @@ protected:
                                                 const Point<DTYPE_IOUS> (&pts2)[4],
                                                 Point<DTYPE_IOUS> (&intersections)[24])
     {
-        Point<DTYPE_IOUS> vec1[4], vec2[4];
+        Point<DTYPE_IOUS> vec1[4];
+        Point<DTYPE_IOUS> vec2[4];
         for (int i = 0; i < 4; i++) {
             vec1[i] = pts1[(i + 1) % 4] - pts1[i];
             vec2[i] = pts2[(i + 1) % 4] - pts2[i];
@@ -362,7 +363,8 @@ protected:
         auto hB = boxBTensor.GetValue(ROTATED_HEIGHT_OFFSET);
         auto angleB = boxBTensor.GetValue(ROTATED_ANGLE_OFFSET);
 
-        RotatedBox<DTYPE_IOUS> boxA, boxB;
+        RotatedBox<DTYPE_IOUS> boxA;
+        RotatedBox<DTYPE_IOUS> boxB;
         auto centerShiftX = (xCtrA + xCtrB) / 2;
         auto centerShiftY = (yCtrA + yCtrB) / 2;
         

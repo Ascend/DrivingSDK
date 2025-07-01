@@ -81,9 +81,21 @@ public:
             pipe_barrier(PIPE_ALL);
 
             int64_t channelsIdx = (offset + index + currentTask) / boxSize % channels;
-            float boxWidth, boxHeight, stride, xStride, yStride, x, y;
-            float w1, w2, w3, w4;
-            int32_t xLow, xHigh, yLow, yHigh;
+            float boxWidth;
+            float boxHeight;
+            float stride;
+            float xStride;
+            float yStride;
+            float x;
+            float y;
+            float w1;
+            float w2;
+            float w3;
+            float w4;
+            int32_t xLow;
+            int32_t xHigh;
+            int32_t yLow;
+            int32_t yHigh;
 
             boxWidth = boxesLocal.GetValue(2) - boxesLocal.GetValue(0);
             boxHeight = boxesLocal.GetValue(3) - boxesLocal.GetValue(1);

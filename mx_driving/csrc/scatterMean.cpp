@@ -37,7 +37,7 @@ static void npu_scatter_mean_shape_check(
         }
     }
 
-    uint32_t last_indices_dim = 0;
+    int last_indices_dim = 0;
     if (indices_dim == 0) {
         return;
     }

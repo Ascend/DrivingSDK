@@ -113,9 +113,13 @@ private:
             return;
         }
 
-        float xLoc, yLoc, channelIdx;
-        float x1 = boxLocal.GetValue(BOX_INFO_NUM * boxIdx), y1 = boxLocal.GetValue(BOX_INFO_NUM * boxIdx + 1);
-        float x2 = boxLocal.GetValue(BOX_INFO_NUM * boxIdx + 2), y2 = boxLocal.GetValue(BOX_INFO_NUM * boxIdx + 3);
+        float xLoc;
+        float yLoc;
+        float channelIdx;
+        float x1 = boxLocal.GetValue(BOX_INFO_NUM * boxIdx);
+        float y1 = boxLocal.GetValue(BOX_INFO_NUM * boxIdx + 1);
+        float x2 = boxLocal.GetValue(BOX_INFO_NUM * boxIdx + 2);
+        float y2 = boxLocal.GetValue(BOX_INFO_NUM * boxIdx + 3);
         float dx = (x2 - x1) / static_cast<float>(pooledSize);
         float dy = (y2 - y1) / static_cast<float>(pooledSize);
         int32_t batchIdx = boxIdx_ / (inputH * inputW);

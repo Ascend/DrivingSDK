@@ -422,11 +422,10 @@ __aicore__ inline void GridSampler2dV2Kernel::ComputeSourceIndex(const LocalTens
 __aicore__ inline uint64_t GridSampler2dV2Kernel::GetGmOffset(const uint64_t index, const int32_t width,
     const int32_t height, const uint64_t strideN, const uint64_t strideH, const uint64_t strideW)
 {
-    uint64_t wOffset, hOffset, nOffset, gmOffset;
-    wOffset = index % width;
-    hOffset = (index / width) % height;
-    nOffset = index / (height * width);
-    gmOffset = nOffset * strideN + hOffset * strideH + wOffset * strideW;
+    uint64_t wOffset = index % width;
+    uint64_t hOffset = (index / width) % height;
+    uint64_t nOffset = index / (height * width);
+    uint64_t gmOffset = nOffset * strideN + hOffset * strideH + wOffset * strideW;
     return gmOffset;
 }
 

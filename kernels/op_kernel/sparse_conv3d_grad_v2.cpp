@@ -55,12 +55,16 @@ public:
         }
         SyncAll();
 
-        uint64_t featureSingleCoreM, featureSingleCoreN, featureSingleCoreK;
+        uint64_t featureSingleCoreM;
+        uint64_t featureSingleCoreN;
+        uint64_t featureSingleCoreK;
         CalcOffset(curBlockIdx, featureCubeTilingData, 0, 0,
                    featureOffsetA, featureOffsetB, featureOffsetC,
                    featureSingleCoreM, featureSingleCoreN, featureSingleCoreK);
         featureMatmulObj.SetTail(featureSingleCoreM, featureSingleCoreN, featureSingleCoreK);
-        uint64_t weightSingleCoreM, weightSingleCoreN, weightSingleCoreK;
+        uint64_t weightSingleCoreM;
+        uint64_t weightSingleCoreN;
+        uint64_t weightSingleCoreK;
         CalcOffset(curBlockIdx, weightCubeTilingData, 1, 0,
                    weightOffsetA, weightOffsetB, weightOffsetC,
                    weightSingleCoreM, weightSingleCoreN, weightSingleCoreK);
