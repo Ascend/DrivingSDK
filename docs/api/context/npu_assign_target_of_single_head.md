@@ -1,4 +1,4 @@
-## npu_assign_target_of_single_head[beta]
+## npu_assign_target_of_single_head
 ### 接口原型
 ```python
 mx_driving.npu_assign_target_of_single_head(Tensor boxes, Tensor cur_class_id, int num_classes int out_size_factor, float gaussian_overlap, int min_radius, FloatList voxel_size, FloatList pc_range, IntList feature_map_size, bool norm_bbox, bool with_velocity, bool flip_angle, int max_objs) -> (Tensor heatmap, Tensor anno_box, Tensor ind, Tensor mask)
