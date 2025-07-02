@@ -89,14 +89,26 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
 
 
 ### 准备数据集
+- 下载 Waymo Motion Dataset v1.1 数据集；
 
-- 根据原仓 **Code Usage** 章节准备数据集，处理好的数据集目录及结构如下：
+- 根据原仓 [**Code Usage**](https://github.com/stepankonev/waymo-motion-prediction-challenge-2022-multipath-plus-plus?tab=readme-ov-file#code-usage) 章节准备数据集：
+  ```
+  python3 prerender/prerender.py \
+      --data-path /path/to/original/data \
+      --output-path /output/path/to/prerendered/data \
+      --n-jobs 24 \
+      --n-shards 1 \
+      --shard-id 0 \
+      --config configs/prerender.yaml
+  ```
 
-```
-prerendered/
-├── training_sparse/
-├── validation_sparse/
-```   
+- 处理好的数据集目录结构如下：
+
+  ```
+  prerendered/
+  ├── training_sparse/
+  ├── validation_sparse/
+  ```   
 
 ### 修改config路径
 
