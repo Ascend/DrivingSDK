@@ -173,44 +173,49 @@ pip install -e MindSpeed
 ```
 
 
-8. 安装tcmalloc动态库
-通用版本源码安装(可适用OS: openEuler)：
-```
-cd {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR
-mkdir gperftools
-cd gperftools
-wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-tar -zvxf gperftools-2.16.tar.gz
-cd gperftools-2.16
-./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-make
-make install
-echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
-ldconfig
-export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
-export PATH=/usr/local/lib/bin:$PATH
-export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
-```
+8. 根据操作系统，安装tcmalloc动态库。
 
-注：需要安装OS对应tcmalloc版本
-- 以ubuntu为例：
-下载以下三个文件：
-   - libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
-   - libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-   - libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
-(参考下载链接：http://mirrors.aliyun.com/ubuntu-ports/pool/main/g/google-perftools/?spm=a2c6h.25603864.0.0.731161f3db9Jrh)
+  - OpenEuler系统
 
-安装：
-```
-sudo dpkg -i libtcmalloc-minimal4_2.7-1ubuntu2_arm64.deb
-sudo dpkg -i libgoogle-perftools-dev_2.7-1ubuntu2_arm64.deb
-sudo dpkg -i libgoogle-perftools4_2.7-1ubuntu2_arm64.deb
-find /usr -name libtcmalloc.so*
-```
-将find指令输出路径记作 libtcmalloc_root_dir
-```
-export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
-```
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+  ```
+  mkdir gperftools
+  cd gperftools
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -zvxf gperftools-2.16.tar.gz
+  cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make
+  make install
+  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+  ldconfig
+  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+  export PATH=/usr/local/lib/bin:$PATH
+  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+  - Ubuntu系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+
+  安装libunwind依赖：
+  ```
+  git clone https://github.com/libunwind/libunwind.git
+  cd libunwind
+  autoreconf -i
+  ./configure --prefix=/usr/local
+  make -j128
+  make install
+  ```
+
+  安装tcmalloc动态库：
+  ```
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make -j128
+  make install
+  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+  ```
 
 
 9. 加入test相关文件
