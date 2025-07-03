@@ -170,6 +170,7 @@ out, argmax = scatter_max(updates, indices, out)
 | QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |N|
 | BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
 | YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |N|
+| VGGT  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VGGT |N|
 # 支持的产品型号
 - Atlas A2 训练系列产品
 
