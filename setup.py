@@ -123,7 +123,7 @@ class ExtBuild(build_ext):
         if LooseVersion(torch.__version__) < LooseVersion("2.1.0"):
             cmake_args.append("-DCOMPILE_WITH_XLA:BOOL=ON")
 
-        if LooseVersion(torch.__version__) >= LooseVersion("2.6.0"):
+        if torch.compiled_with_cxx11_abi():
             cmake_args.append("-DABI=1")
         else:
             cmake_args.append("-DABI=0")
