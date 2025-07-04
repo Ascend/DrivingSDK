@@ -40,10 +40,10 @@ then
     bash ./tools/dist_train.sh \
         ${config} \
         ${gpu_num} \
-        --work-dir=${work_dir}
+        --work-dir=${work_dir} > train_full.log 2>&1
 else
     python ./tools/train.py \
-        ${config}
+        ${config} > train_full_1p.log 2>&1
 fi
 
 #训练结束时间

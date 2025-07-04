@@ -53,10 +53,10 @@ then
     bash ./tools/dist_train.sh \
         ${config} \
         ${gpu_num} \
-        --work-dir=${work_dir}
+        --work-dir=${work_dir} > train_performance.log 2>&1
 else
     python ./tools/train.py \
-        ${config}
+        ${config} > train_performance_1p.log 2>&1
 fi
 
 #训练结束时间
