@@ -26,6 +26,7 @@ mkdir -p ${output_path_dir}
 
 ###############开始训练###############
 # 训练开始时间
+export PIVOTNET_PERFORMANCE_FLAG=1
 cd PivotNet
 start_time=$(date +%s)
 echo "start_time=$(date -d @${start_time} "+%Y-%m-%d %H:%M:%S")"
@@ -34,15 +35,16 @@ bash run.sh train pivotnet_nuscenes_swint 1 > ${output_path_dir}/train_8p_perfor
 wait
 
 # 模型单epoch的step数量
+stop_step=1500
 total_step=3517
 
-if grep -q "${total_step}/${total_step}" ${output_path_dir}/train_8p_performance.log; then
+if grep -q "${stop_step}/${total_step}" ${output_path_dir}/train_8p_performance.log; then
     # 训练结束时间
     end_time=$(date +%s)
     echo "end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
     e2e_time=$(( $end_time - $start_time ))
     # 单迭代训练时长
-    avg_time=$(echo "scale=3; $e2e_time / $total_step" | bc | sed 's/^\./0./')
+    avg_time=$(echo "scale=3; $e2e_time / $stop_step" | bc | sed 's/^\./0./')
 
     #吞吐量
     ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$avg_time'}')
