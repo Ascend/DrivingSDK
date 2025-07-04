@@ -3,6 +3,7 @@
 MIT License
 
 Copyright (c) 2018 Maxim Berman
+Copyright (c) 2018; University of Michigan
 Copyright (c) 2020 Tiago Cortinhal, George Tzelepis and Eren Erdal Aksoy
 
 
@@ -19,6 +20,7 @@ copies or substantial portions of the Software.
 """
 from types import ModuleType
 from typing import Dict
+import numpy as np
 
 import torch
 import torch_npu
@@ -38,7 +40,7 @@ class SparseSort(Function):
     @staticmethod
     def backward(ctx, grad_outputs, grad_index):
         index = ctx.saved_tensors[0]
-        mask = (grad_outputs != 0).nonzero().squeeze()
+        mask = (grad_outputs != 0).nonzero().view(-1)
         index_nonzero = torch.index_select(index, 0, mask)
         grad_nonzero = torch.index_select(grad_outputs, 0, mask)
         grad_inputs = torch.zeros_like(grad_outputs).scatter(0, index_nonzero, grad_nonzero)
@@ -66,6 +68,7 @@ def lovasz_softmax_loss(losses: ModuleType, options: Dict):
         fg_sorted_list = []
         arange = torch.arange(labels.size(0), device=labels.device) + 1
         class_to_sum = list(range(C)) if classes in ['all', 'present'] else classes
+        probas_list = torch.split(probas, 1, dim=1)
         for c in class_to_sum:
             fg = (labels == c).float()  # foreground for class c
             if (classes == 'present' and fg.sum() == 0):
@@ -73,9 +76,9 @@ def lovasz_softmax_loss(losses: ModuleType, options: Dict):
             if C == 1:
                 if len(classes) > 1:
                     raise ValueError('Sigmoid output possible only with 1 class')
-                class_pred = probas[:, 0]
+                class_pred = probas_list[0].view(-1)
             else:
-                class_pred = probas[:, c]
+                class_pred = probas_list[c].view(-1)
             errors = (Variable(fg) - class_pred).abs()
             errors_sorted, perm = sparse_sort(errors, 0, True)
             fg_sorted = torch.index_select(fg, 0, perm.long())
@@ -122,8 +125,33 @@ def lovasz_softmax_loss(losses: ModuleType, options: Dict):
     if hasattr(losses, "flatten_probas"):
         losses.flatten_probas = flatten_probas
 
+
+def iou_eval(evaluator: ModuleType, options: Dict):
+    def addBatch(self, x, y):  # x=preds, y=targets
+        # if numpy, pass to pytorch
+        # to tensor
+        if isinstance(x, np.ndarray):
+            x = torch.from_numpy(np.array(x)).long().to(self.device)
+        if isinstance(y, np.ndarray):
+            y = torch.from_numpy(np.array(y)).long().to(self.device)
+
+        # sizes should be "batch_size x H x W"
+        x_row = x.reshape(-1)  # de-batchify
+        y_row = y.reshape(-1)  # de-batchify
+        indexs = torch.arange(self.n_classes, device=self.device).unsqueeze(0)
+        for i in range(self.n_classes):
+            mask = (x_row == i).nonzero().view(-1).long()
+            selected_x = torch.index_select(y_row, 0, mask).view(-1, 1)
+            matrix = (selected_x == indexs).sum(dim=0)
+            self.conf_matrix[i] += matrix
+
+    if hasattr(evaluator, "iouEval"):
+        evaluator.iouEval.addBatch = addBatch
+
+
 salsa_next_patcher_builder = (
     PatcherBuilder()
     .add_module_patch("numpy", Patch(numpy_type))
     .add_module_patch("tasks.semantic.modules.Lovasz_Softmax", Patch(lovasz_softmax_loss))
+    .add_module_patch("tasks.semantic.modules.ioueval", Patch(iou_eval))
 )

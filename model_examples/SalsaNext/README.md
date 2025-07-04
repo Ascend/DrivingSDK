@@ -192,7 +192,7 @@ git apply --whitespace=fix salsanext.patch
 |  芯片      | 卡数 | global batch size |  Max epochs  | mIoU | FPS |
 |:--------:|----|:------:|:------:|:----:|:----------:|
 |   竞品A    | 8p | 192 | 150 | 0.577 | 241.6 |
-| Atlas 800T A2 | 8p | 192 | 150 | 0.581 | 183.2 |
+| Atlas 800T A2 | 8p | 192 | 150 | 0.581 | 197.2 |
 
 # 变更说明
 
@@ -203,6 +203,8 @@ git apply --whitespace=fix salsanext.patch
 2025.04.22：补充global batch size数据，修复FPS计算错误
 
 2025.06.11：修复多卡拉起时文件夹创建冲突问题
+
+2025.07.04：性能优化
 
 ## FAQ
 暂无。
