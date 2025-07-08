@@ -36,6 +36,11 @@ class ModulatedDeformConv2dFunction(Function):
         groups: int = 1,
         deformable_groups: int = 1,
     ):
+        if (weight.size(2) != 3) | (weight.size(3) != 3):
+            raise ValueError('Kernel size only support 3')
+        if (x.size(1) % 64 != 0) | (weight.size(0) % 64 != 0):
+            raise ValueError('Channel only support 64-aligned')
+        
         ctx.kernel_size = [weight.size(2), weight.size(3)]
         ctx.stride = _pair(stride)
         ctx.padding = _pair(padding)
