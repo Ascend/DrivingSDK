@@ -21,11 +21,11 @@ class AdsDeformableAggregation(Function):
         if (torch.numel(mc_ms_feat) == 0 or torch.numel(weights) == 0):
             raise Exception("Erorr! Input Tensor can not be a empty Tensor.\n")
 
-        mc_ms_feat = mc_ms_feat.contiguous().float()
+        mc_ms_feat = mc_ms_feat.contiguous()
         spatial_shape = spatial_shape.contiguous().int()
         scale_start_index = scale_start_index.contiguous().int()
-        sampling_location = sampling_location.contiguous().float()
-        weights = weights.contiguous().float()
+        sampling_location = sampling_location.contiguous()
+        weights = weights.contiguous()
 
         output = mx_driving._C.npu_deformable_aggregation(
             mc_ms_feat,
@@ -55,15 +55,14 @@ class AdsDeformableAggregation(Function):
 
         if (torch.numel(mc_ms_feat) == 0 or torch.numel(spatial_shape) == 0 or torch.numel(sampling_location) == 0):
             raise Exception("Erorr! Input Tensor can not be a empty Tensor.\n")
-        npu_device = mc_ms_feat.device
-        mc_ms_feat = mc_ms_feat.contiguous().float()
+        mc_ms_feat = mc_ms_feat.contiguous()
         spatial_shape = spatial_shape.contiguous().int()
         scale_start_index = scale_start_index.contiguous().int()
-        sampling_location = sampling_location.contiguous().float()
-        weights = weights.contiguous().float()
+        sampling_location = sampling_location.contiguous()
+        weights = weights.contiguous()
 
         grad_mc_ms_feat = torch.zeros_like(mc_ms_feat)
-        grad_sampling_location_padding = torch.zeros((sampling_location.shape[0], sampling_location.shape[1], sampling_location.shape[2], sampling_location.shape[3], 8), device=npu_device)
+        grad_sampling_location = torch.zeros_like(sampling_location)
         grad_weights = torch.zeros_like(weights)
         grad_mc_ms_feat, grad_sampling_location, grad_weights = mx_driving._C.npu_deformable_aggregation_backward(
             mc_ms_feat,
@@ -73,10 +72,9 @@ class AdsDeformableAggregation(Function):
             weights,
             grad_output.contiguous(),
             grad_mc_ms_feat,
-            grad_sampling_location_padding,
+            grad_sampling_location,
             grad_weights,
         )
-        grad_sampling_location, _, _, _ = torch.chunk(grad_sampling_location_padding, 4, dim=-1)
         return (
             grad_mc_ms_feat,
             None,

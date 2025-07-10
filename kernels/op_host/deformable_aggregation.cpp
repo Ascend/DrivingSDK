@@ -23,6 +23,7 @@ namespace {
 constexpr uint32_t SINGLE = 1;
 constexpr uint32_t BYTE_BLOCK = 32;
 constexpr uint32_t SIZE_OF_FP32 = 4;
+constexpr uint32_t SIZE_OF_FP16 = 2;
 constexpr uint32_t BATCH_SIZE_IDX = 0;
 constexpr uint32_t FEAT_IDX = 1;
 constexpr uint32_t EMBEDS_IDX = 2;
@@ -53,8 +54,6 @@ static ge::graphStatus TilingForDeformableAggregation(gert::TilingContext* conte
         return ge::GRAPH_FAILED;
     }
 
-    auto dtype = context->GetInputDesc(0)->GetDataType();
-
     auto attrs = context->GetAttrs();
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
@@ -76,15 +75,10 @@ static ge::graphStatus TilingForDeformableAggregation(gert::TilingContext* conte
     auto numScales = getAttr(SCALE_IDX);
     auto numGroups = getAttr(GROUPS_IDX);
 
-    uint32_t alignNum = BYTE_BLOCK / SIZE_OF_FP32;
+    bool dtype = context->GetInputDesc(0)->GetDataType() == ge::DT_FLOAT;
+    uint32_t dataByteNum = dtype ? SIZE_OF_FP32 : SIZE_OF_FP16;
+    uint32_t alignNum = BYTE_BLOCK / dataByteNum;
     uint32_t cAligned = CeilAlign(static_cast<uint32_t>(numEmbeds), alignNum);
-
-    uint64_t ubSize;
-    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
-    // 计算除weightBuf_所占空间以外的其他ub大小，并流出预留量(16 * 1024)
-    uint64_t usedUbSize = (16 * 1024 + 6 * cAligned + numPoints * numCams * 2 + numCams * numScales * 3) * SIZE_OF_FP32;
-    // 判断weightBuf_是否能放下包括numPoints大小的数据，分情况在不同位置进行数据搬运
-    bool memoryFlag = (ubSize - usedUbSize) > numPoints * numCams * numScales * numGroups * SIZE_OF_FP32;
 
     context->SetBlockDim(coreNum);
 
@@ -97,7 +91,6 @@ static ge::graphStatus TilingForDeformableAggregation(gert::TilingContext* conte
     tiling.set_numScales(numScales);
     tiling.set_numGroups(numGroups);
     tiling.set_cAligned(cAligned);
-    tiling.set_memoryFlag(memoryFlag);
     tiling.set_coreNum(coreNum);
 
     if (context->GetRawTilingData() == nullptr) {
@@ -151,34 +144,34 @@ public:
     {
         this->Input("mc_ms_feat")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("spatial_shape")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("scale_start_index")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("sampling_location")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("weights")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("out")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
 
         this->Attr("batch_size").AttrType(REQUIRED).Int();
         this->Attr("num_feat").AttrType(REQUIRED).Int();

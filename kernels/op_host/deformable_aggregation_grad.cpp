@@ -25,6 +25,7 @@ namespace {
 constexpr uint32_t SINGLE = 1;
 constexpr uint32_t BYTE_BLOCK = 32;
 constexpr uint32_t SIZE_OF_FP32 = 4;
+constexpr uint32_t SIZE_OF_FP16 = 2;
 
 const uint32_t INPUT_FEAT = 0;
 const uint32_t INPUT_SPATIAL_SHAPE = 1;
@@ -88,10 +89,13 @@ static ge::graphStatus TilingForDeformableAggregationGrad(gert::TilingContext* c
     uint32_t tailWeightNum = Tail(totalTask, avgWeightNum);
     usedCoreNum = Ceil(totalTask, avgWeightNum);
 
+    bool dtype = context->GetInputDesc(INPUT_FEAT)->GetDataType() == ge::DT_FLOAT;
+    uint32_t dataTypeSize = dtype ? SIZE_OF_FP32 : SIZE_OF_FP16;
+    
     uint64_t ubSize;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
-    uint64_t usedUbSize = (10 * 1024 + 22 * numEmbeds + numCams * numScale * numGroups + numPoints * numCams * 10) * SIZE_OF_FP32;
-    uint32_t singleProcessTaskLen = (ubSize - usedUbSize) / SIZE_OF_FP32 / (numEmbeds);
+    uint64_t usedUbSize = (10 * 1024 + 15 * numEmbeds + 2 * numScale * numEmbeds + 2 * numScale * numGroups + 2 * numPoints * numCams) * dataTypeSize;
+    uint32_t singleProcessTaskLen = (ubSize - usedUbSize) / dataTypeSize / numEmbeds;
 
     context->SetBlockDim(usedCoreNum);
     tiling.set_usedCoreNum(usedCoreNum);
@@ -155,49 +159,49 @@ public:
     {
         this->Input("mc_ms_feat")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("spatial_shape")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("scale_start_index")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("sampling_location")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("weights")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("grad_output")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
        this->Output("grad_mc_ms_feat")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("grad_sampling_location")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("grad_weights")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
 
         this->SetInferShape(ge::InferShapeForDeformableAggregationGrad)
             .SetInferDataType(ge::InferDataTypeForDeformableAggregationGrad);
