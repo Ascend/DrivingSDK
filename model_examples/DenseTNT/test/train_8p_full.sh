@@ -58,8 +58,6 @@ export ACLNN_CACHE_LIMIT=100000
 export ASCEND_ENHANCE_enable=1
 #缓存分配器创建特定的内存块
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-#使能高性能内存库
-export LD_PRELOAD=$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so
 
 echo "[INFO] Finish setting ENV VAR"
 
