@@ -77,12 +77,28 @@ pip install av2==0.2.1
 ```
 
 6、安装gperftools，使能高性能库
+- OpenEuler系统
 ```
 wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
 tar -zxvf gperftools-2.16.tar.gz && cd gperftools-2.16
 ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
 make
 make install
+echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+ldconfig
+export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+export PATH=/usr/local/lib/bin:$PATH
+export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+```
+- Ubuntu系统
+```
+apt update
+apt install libgoogle-perftools4 libgoogle-perftools-dev libtcmalloc-minimal4 
+find /usr -name libtcmalloc.so*
+```
+将find指令输出路径记作 libtcmalloc_root_dir
+```
+export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
 ```
 
 ## 准备数据集
