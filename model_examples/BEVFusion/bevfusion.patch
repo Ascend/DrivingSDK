@@ -12,42 +12,264 @@ index 56e8440b..b3a6382a 100644
              if ground_plane is not None:
                  xyz = sampled_gt_bboxes[:, :3]
 diff --git a/mmdet3d/models/layers/sparse_block.py b/mmdet3d/models/layers/sparse_block.py
-index 6ed7c8f4..13f69b0d 100644
+index 6ed7c8f4..6a5ba828 100644
 --- a/mmdet3d/models/layers/sparse_block.py
 +++ b/mmdet3d/models/layers/sparse_block.py
-@@ -2,17 +2,22 @@
- from typing import Optional, Tuple, Union
- 
- from mmcv.cnn import build_conv_layer, build_norm_layer
+@@ -1,224 +1,349 @@
+-# Copyright (c) OpenMMLab. All rights reserved.
+-from typing import Optional, Tuple, Union
+-
+-from mmcv.cnn import build_conv_layer, build_norm_layer
 -from mmdet.models.backbones.resnet import BasicBlock, Bottleneck
-+import inspect
-+from mmengine.model import BaseModule
-+import torch
- from torch import nn
-+import torch.utils.checkpoint as cp
- 
- from mmdet3d.utils import OptConfigType
+-from torch import nn
+-
+-from mmdet3d.utils import OptConfigType
 -from .spconv import IS_SPCONV2_AVAILABLE
-+from mx_driving.spconv import SparseSequential, SubMConv3d, SparseConv3d, SparseModule
-+from mmdet.models.backbones.resnet import BasicBlock, Bottleneck
-+from mmengine.registry import Registry
-+from mx_driving.spconv import SparseConvTensor
- 
+-
 -if IS_SPCONV2_AVAILABLE:
 -    from spconv.pytorch import SparseConvTensor, SparseModule, SparseSequential
 -else:
 -    from mmcv.ops import SparseConvTensor, SparseModule, SparseSequential
- 
+-
+-
+-def replace_feature(out: SparseConvTensor,
+-                    new_features: SparseConvTensor) -> SparseConvTensor:
+-    if 'replace_feature' in out.__dir__():
+-        # spconv 2.x behaviour
+-        return out.replace_feature(new_features)
+-    else:
+-        out.features = new_features
+-        return out
+-
+-
+-class SparseBottleneck(Bottleneck, SparseModule):
+-    """Sparse bottleneck block for PartA^2.
+-
+-    Bottleneck block implemented with submanifold sparse convolution.
+-
+-    Args:
+-        inplanes (int): Inplanes of block.
+-        planes (int): Planes of block.
+-        stride (int or Tuple[int]): Stride of the first block. Defaults to 1.
+-        downsample (Module, optional): Down sample module for block.
+-            Defaults to None.
+-        indice_key (str): Indice key for spconv. Default to None.
+-        conv_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
+-            convolution layer. Defaults to None.
+-        norm_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
+-            normalization layer. Defaults to None.
+-    """
+-
+-    expansion = 4
+-
+-    def __init__(self,
+-                 inplanes: int,
+-                 planes: int,
+-                 stride: Union[int, Tuple[int]] = 1,
+-                 downsample: nn.Module = None,
+-                 indice_key=None,
+-                 conv_cfg: OptConfigType = None,
+-                 norm_cfg: OptConfigType = None) -> None:
+-
+-        SparseModule.__init__(self)
+-        if conv_cfg is None:
+-            conv_cfg = dict(type='SubMConv3d')
+-        conv_cfg.setdefault('indice_key', indice_key)
+-        if norm_cfg is None:
+-            norm_cfg = dict(type='BN1d')
+-        Bottleneck.__init__(
+-            self,
+-            inplanes,
+-            planes,
+-            stride=stride,
+-            downsample=downsample,
+-            conv_cfg=conv_cfg,
+-            norm_cfg=norm_cfg)
+-
+-    def forward(self, x: SparseConvTensor) -> SparseConvTensor:
+-        identity = x.features
+-
+-        out = self.conv1(x)
+-        out = replace_feature(out, self.bn1(out.features))
+-        out = replace_feature(out, self.relu(out.features))
+-
+-        out = self.conv2(out)
+-        out = replace_feature(out, self.bn2(out.features))
+-        out = replace_feature(out, self.relu(out.features))
+-
+-        out = self.conv3(out)
+-        out = replace_feature(out, self.bn3(out.features))
+-
+-        if self.downsample is not None:
+-            identity = self.downsample(x).features
+-
+-        out = replace_feature(out, out.features + identity)
+-        out = replace_feature(out, self.relu(out.features))
+-
+-        return out
+-
+-
+-class SparseBasicBlock(BasicBlock, SparseModule):
+-    """Sparse basic block for PartA^2.
+-
+-    Sparse basic block implemented with submanifold sparse convolution.
+-
+-    Args:
+-        inplanes (int): Inplanes of block.
+-        planes (int): Planes of block.
+-        stride (int or Tuple[int]): Stride of the first block. Defaults to 1.
+-        downsample (Module, optional): Down sample module for block.
+-            Defaults to None.
+-        indice_key (str): Indice key for spconv. Default to None.
+-        conv_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
+-            convolution layer. Defaults to None.
+-        norm_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
+-            normalization layer. Defaults to None.
+-    """
+-
+-    expansion = 1
+-
+-    def __init__(self,
+-                 inplanes: int,
+-                 planes: int,
+-                 stride: Union[int, Tuple[int]] = 1,
+-                 downsample: nn.Module = None,
+-                 indice_key: Optional[str] = None,
+-                 conv_cfg: OptConfigType = None,
+-                 norm_cfg: OptConfigType = None) -> None:
+-        SparseModule.__init__(self)
+-        if conv_cfg is None:
+-            conv_cfg = dict(type='SubMConv3d')
+-        conv_cfg.setdefault('indice_key', indice_key)
+-        if norm_cfg is None:
+-            norm_cfg = dict(type='BN1d')
+-        BasicBlock.__init__(
+-            self,
+-            inplanes,
+-            planes,
+-            stride=stride,
+-            downsample=downsample,
+-            conv_cfg=conv_cfg,
+-            norm_cfg=norm_cfg)
+-
+-    def forward(self, x: SparseConvTensor) -> SparseConvTensor:
+-        identity = x.features
+-
+-        assert x.features.dim() == 2, f'x.features.dim()={x.features.dim()}'
+-        out = self.conv1(x)
+-        out = replace_feature(out, self.norm1(out.features))
+-        out = replace_feature(out, self.relu(out.features))
+-
+-        out = self.conv2(out)
+-        out = replace_feature(out, self.norm2(out.features))
+-
+-        if self.downsample is not None:
+-            identity = self.downsample(x).features
+-
+-        out = replace_feature(out, out.features + identity)
+-        out = replace_feature(out, self.relu(out.features))
+-
+-        return out
+-
+-
+-def make_sparse_convmodule(in_channels: int,
+-                           out_channels: int,
+-                           kernel_size: Union[int, Tuple[int]],
+-                           indice_key: Optional[str] = None,
+-                           stride: Union[int, Tuple[int]] = 1,
+-                           padding: Union[int, Tuple[int]] = 0,
+-                           conv_type: str = 'SubMConv3d',
+-                           norm_cfg: OptConfigType = None,
+-                           order: Tuple[str] = ('conv', 'norm', 'act'),
+-                           **kwargs) -> SparseSequential:
+-    """Make sparse convolution module.
+-
+-    Args:
+-        in_channels (int): The number of input channels.
+-        out_channels (int): The number of out channels.
+-        kernel_size (int | Tuple[int]): Kernel size of convolution.
+-        indice_key (str): The indice key used for sparse tensor.
+-        stride (int or tuple[int]): The stride of convolution.
+-        padding (int or tuple[int]): The padding number of input.
+-        conv_type (str): Sparse conv type in spconv. Defaults to 'SubMConv3d'.
+-        norm_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
+-            normalization layer. Defaults to None.
+-        order (Tuple[str]): The order of conv/norm/activation layers. It is a
+-            sequence of "conv", "norm" and "act". Common examples are
+-            ("conv", "norm", "act") and ("act", "conv", "norm").
+-            Defaults to ('conv', 'norm', 'act').
+-
+-    Returns:
+-        spconv.SparseSequential: sparse convolution module.
+-    """
+-    assert isinstance(order, tuple) and len(order) <= 3
+-    assert set(order) | {'conv', 'norm', 'act'} == {'conv', 'norm', 'act'}
+-
+-    conv_cfg = dict(type=conv_type, indice_key=indice_key)
+-    if norm_cfg is None:
+-        norm_cfg = dict(type='BN1d')
+-
+-    layers = list()
+-    for layer in order:
+-        if layer == 'conv':
+-            if conv_type not in [
+-                    'SparseInverseConv3d', 'SparseInverseConv2d',
+-                    'SparseInverseConv1d'
+-            ]:
+-                layers.append(
+-                    build_conv_layer(
+-                        conv_cfg,
+-                        in_channels,
+-                        out_channels,
+-                        kernel_size,
+-                        stride=stride,
+-                        padding=padding,
+-                        bias=False))
+-            else:
+-                layers.append(
+-                    build_conv_layer(
+-                        conv_cfg,
+-                        in_channels,
+-                        out_channels,
+-                        kernel_size,
+-                        bias=False))
+-        elif layer == 'norm':
+-            layers.append(build_norm_layer(norm_cfg, out_channels)[1])
+-        elif layer == 'act':
+-            layers.append(nn.ReLU(inplace=True))
+-
+-    layers = SparseSequential(*layers)
+-    return layers
++# Copyright (c) OpenMMLab. All rights reserved.
++from typing import Optional, Tuple, Union
++
++from mmcv.cnn import build_conv_layer, build_norm_layer
++import inspect
++from mmengine.model import BaseModule
++import torch
++from torch import nn
++import torch.utils.checkpoint as cp
++
++from mmdet3d.utils import OptConfigType
++from mx_driving.spconv import SparseSequential, SubMConv3d, SparseConv3d, SparseModule
++from mmdet.models.backbones.resnet import BasicBlock, Bottleneck
++from mmengine.registry import Registry
++from mx_driving.spconv import SparseConvTensor
++
++
 +MODELS = Registry('Sparse conv layer')
 +MODELS.register_module('SubMConv3d', module=SubMConv3d)
 +MODELS.register_module('SparseConv3d', module=SparseConv3d)
- 
- def replace_feature(out: SparseConvTensor,
-                     new_features: SparseConvTensor) -> SparseConvTensor:
-@@ -23,6 +28,87 @@ def replace_feature(out: SparseConvTensor,
-         out.features = new_features
-         return out
- 
++
++def replace_feature(out: SparseConvTensor,
++                    new_features: SparseConvTensor) -> SparseConvTensor:
++    if 'replace_feature' in out.__dir__():
++        # spconv 2.x behaviour
++        return out.replace_feature(new_features)
++    else:
++        out.features = new_features
++        return out
++
 +class BasicBlock(BaseModule):
 +    expansion = 1
 +
@@ -129,31 +351,205 @@ index 6ed7c8f4..13f69b0d 100644
 +        out = self.relu(out)
 +
 +        return out
- 
- class SparseBottleneck(Bottleneck, SparseModule):
-     """Sparse bottleneck block for PartA^2.
-@@ -199,7 +285,7 @@ def make_sparse_convmodule(in_channels: int,
-                     'SparseInverseConv1d'
-             ]:
-                 layers.append(
--                    build_conv_layer(
++
++class SparseBottleneck(Bottleneck, SparseModule):
++    """Sparse bottleneck block for PartA^2.
++
++    Bottleneck block implemented with submanifold sparse convolution.
++
++    Args:
++        inplanes (int): Inplanes of block.
++        planes (int): Planes of block.
++        stride (int or Tuple[int]): Stride of the first block. Defaults to 1.
++        downsample (Module, optional): Down sample module for block.
++            Defaults to None.
++        indice_key (str): Indice key for spconv. Default to None.
++        conv_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
++            convolution layer. Defaults to None.
++        norm_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
++            normalization layer. Defaults to None.
++    """
++
++    expansion = 4
++
++    def __init__(self,
++                 inplanes: int,
++                 planes: int,
++                 stride: Union[int, Tuple[int]] = 1,
++                 downsample: nn.Module = None,
++                 indice_key=None,
++                 conv_cfg: OptConfigType = None,
++                 norm_cfg: OptConfigType = None) -> None:
++
++        SparseModule.__init__(self)
++        if conv_cfg is None:
++            conv_cfg = dict(type='SubMConv3d')
++        conv_cfg.setdefault('indice_key', indice_key)
++        if norm_cfg is None:
++            norm_cfg = dict(type='BN1d')
++        Bottleneck.__init__(
++            self,
++            inplanes,
++            planes,
++            stride=stride,
++            downsample=downsample,
++            conv_cfg=conv_cfg,
++            norm_cfg=norm_cfg)
++
++    def forward(self, x: SparseConvTensor) -> SparseConvTensor:
++        identity = x.features
++
++        out = self.conv1(x)
++        out = replace_feature(out, self.bn1(out.features))
++        out = replace_feature(out, self.relu(out.features))
++
++        out = self.conv2(out)
++        out = replace_feature(out, self.bn2(out.features))
++        out = replace_feature(out, self.relu(out.features))
++
++        out = self.conv3(out)
++        out = replace_feature(out, self.bn3(out.features))
++
++        if self.downsample is not None:
++            identity = self.downsample(x).features
++
++        out = replace_feature(out, out.features + identity)
++        out = replace_feature(out, self.relu(out.features))
++
++        return out
++
++
++class SparseBasicBlock(BasicBlock, SparseModule):
++    """Sparse basic block for PartA^2.
++
++    Sparse basic block implemented with submanifold sparse convolution.
++
++    Args:
++        inplanes (int): Inplanes of block.
++        planes (int): Planes of block.
++        stride (int or Tuple[int]): Stride of the first block. Defaults to 1.
++        downsample (Module, optional): Down sample module for block.
++            Defaults to None.
++        indice_key (str): Indice key for spconv. Default to None.
++        conv_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
++            convolution layer. Defaults to None.
++        norm_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
++            normalization layer. Defaults to None.
++    """
++
++    expansion = 1
++
++    def __init__(self,
++                 inplanes: int,
++                 planes: int,
++                 stride: Union[int, Tuple[int]] = 1,
++                 downsample: nn.Module = None,
++                 indice_key: Optional[str] = None,
++                 conv_cfg: OptConfigType = None,
++                 norm_cfg: OptConfigType = None) -> None:
++        SparseModule.__init__(self)
++        if conv_cfg is None:
++            conv_cfg = dict(type='SubMConv3d')
++        conv_cfg.setdefault('indice_key', indice_key)
++        if norm_cfg is None:
++            norm_cfg = dict(type='BN1d')
++        BasicBlock.__init__(
++            self,
++            inplanes,
++            planes,
++            stride=stride,
++            downsample=downsample,
++            conv_cfg=conv_cfg,
++            norm_cfg=norm_cfg)
++
++    def forward(self, x: SparseConvTensor) -> SparseConvTensor:
++        identity = x.features
++
++        assert x.features.dim() == 2, f'x.features.dim()={x.features.dim()}'
++        out = self.conv1(x)
++        out = replace_feature(out, self.norm1(out.features))
++        out = replace_feature(out, self.relu(out.features))
++
++        out = self.conv2(out)
++        out = replace_feature(out, self.norm2(out.features))
++
++        if self.downsample is not None:
++            identity = self.downsample(x).features
++
++        out = replace_feature(out, out.features + identity)
++        out = replace_feature(out, self.relu(out.features))
++
++        return out
++
++
++def make_sparse_convmodule(in_channels: int,
++                           out_channels: int,
++                           kernel_size: Union[int, Tuple[int]],
++                           indice_key: Optional[str] = None,
++                           stride: Union[int, Tuple[int]] = 1,
++                           padding: Union[int, Tuple[int]] = 0,
++                           conv_type: str = 'SubMConv3d',
++                           norm_cfg: OptConfigType = None,
++                           order: Tuple[str] = ('conv', 'norm', 'act'),
++                           **kwargs) -> SparseSequential:
++    """Make sparse convolution module.
++
++    Args:
++        in_channels (int): The number of input channels.
++        out_channels (int): The number of out channels.
++        kernel_size (int | Tuple[int]): Kernel size of convolution.
++        indice_key (str): The indice key used for sparse tensor.
++        stride (int or tuple[int]): The stride of convolution.
++        padding (int or tuple[int]): The padding number of input.
++        conv_type (str): Sparse conv type in spconv. Defaults to 'SubMConv3d'.
++        norm_cfg (:obj:`ConfigDict` or dict, optional): Config dict for
++            normalization layer. Defaults to None.
++        order (Tuple[str]): The order of conv/norm/activation layers. It is a
++            sequence of "conv", "norm" and "act". Common examples are
++            ("conv", "norm", "act") and ("act", "conv", "norm").
++            Defaults to ('conv', 'norm', 'act').
++
++    Returns:
++        spconv.SparseSequential: sparse convolution module.
++    """
++    assert isinstance(order, tuple) and len(order) <= 3
++    assert set(order) | {'conv', 'norm', 'act'} == {'conv', 'norm', 'act'}
++
++    conv_cfg = dict(type=conv_type, indice_key=indice_key)
++    if norm_cfg is None:
++        norm_cfg = dict(type='BN1d')
++
++    layers = list()
++    for layer in order:
++        if layer == 'conv':
++            if conv_type not in [
++                    'SparseInverseConv3d', 'SparseInverseConv2d',
++                    'SparseInverseConv1d'
++            ]:
++                layers.append(
 +                    build_sparse_conv_layer(
-                         conv_cfg,
-                         in_channels,
-                         out_channels,
-@@ -209,7 +295,7 @@ def make_sparse_convmodule(in_channels: int,
-                         bias=False))
-             else:
-                 layers.append(
--                    build_conv_layer(
++                        conv_cfg,
++                        in_channels,
++                        out_channels,
++                        kernel_size,
++                        stride=stride,
++                        padding=padding,
++                        bias=False))
++            else:
++                layers.append(
 +                    build_sparse_conv_layer(
-                         conv_cfg,
-                         in_channels,
-                         out_channels,
-@@ -222,3 +308,42 @@ def make_sparse_convmodule(in_channels: int,
- 
-     layers = SparseSequential(*layers)
-     return layers
++                        conv_cfg,
++                        in_channels,
++                        out_channels,
++                        kernel_size,
++                        bias=False))
++        elif layer == 'norm':
++            layers.append(build_norm_layer(norm_cfg, out_channels)[1])
++        elif layer == 'act':
++            layers.append(nn.ReLU(inplace=True))
++
++    layers = SparseSequential(*layers)
++    return layers
 +
 +
 +def build_sparse_conv_layer(cfg, *args, **kwargs):
@@ -522,10 +918,24 @@ index 68bf2bce..090363a9 100644
 +            self.encoder_layers.add_module(stage_name, stage_layers)
 +        return out_channels
 diff --git a/projects/BEVFusion/bevfusion/transfusion_head.py b/projects/BEVFusion/bevfusion/transfusion_head.py
-index 8a3e1750..5dd9ab17 100644
+index 8a3e1750..ef2ea5ee 100644
 --- a/projects/BEVFusion/bevfusion/transfusion_head.py
 +++ b/projects/BEVFusion/bevfusion/transfusion_head.py
-@@ -696,15 +696,16 @@ class TransFusionHead(nn.Module):
+@@ -13,11 +13,12 @@ from mmdet.models.utils import multi_apply
+ from mmengine.structures import InstanceData
+ from torch import nn
+ 
+-from mmdet3d.models import circle_nms, draw_heatmap_gaussian, gaussian_radius
++from mmdet3d.models import circle_nms
+ from mmdet3d.models.dense_heads.centerpoint_head import SeparateHead
+ from mmdet3d.models.layers import nms_bev
+ from mmdet3d.registry import MODELS
+ from mmdet3d.structures import xywhr2xyxyr
++from mx_driving import npu_assign_target_of_single_head
+ 
+ 
+ def clip_sigmoid(x, eps=1e-4):
+@@ -696,39 +697,29 @@ class TransFusionHead(nn.Module):
              [gt_bboxes_3d.gravity_center, gt_bboxes_3d.tensor[:, 3:]],
              dim=1).to(device)
          grid_size = torch.tensor(self.train_cfg['grid_size'])
@@ -535,26 +945,57 @@ index 8a3e1750..5dd9ab17 100644
 +        voxel_size = self.train_cfg['voxel_size']
          feature_map_size = (grid_size[:2] // self.train_cfg['out_size_factor']
                              )  # [x_len, y_len]
-         heatmap = gt_bboxes_3d.new_zeros(self.num_classes, feature_map_size[1],
-                                          feature_map_size[0])
-         for idx in range(len(gt_bboxes_3d)):
+-        heatmap = gt_bboxes_3d.new_zeros(self.num_classes, feature_map_size[1],
+-                                         feature_map_size[0])
+-        for idx in range(len(gt_bboxes_3d)):
 -            width = gt_bboxes_3d[idx][3]
 -            length = gt_bboxes_3d[idx][4]
-+            gt_bboxes_3d_digital = gt_bboxes_3d[idx].tolist()
-+            width = gt_bboxes_3d_digital[3]
-+            length = gt_bboxes_3d_digital[4]
-             width = width / voxel_size[0] / self.train_cfg['out_size_factor']
-             length = length / voxel_size[1] / self.train_cfg['out_size_factor']
-             if width > 0 and length > 0:
-@@ -712,7 +713,7 @@ class TransFusionHead(nn.Module):
-                     (length, width),
-                     min_overlap=self.train_cfg['gaussian_overlap'])
-                 radius = max(self.train_cfg['min_radius'], int(radius))
+-            width = width / voxel_size[0] / self.train_cfg['out_size_factor']
+-            length = length / voxel_size[1] / self.train_cfg['out_size_factor']
+-            if width > 0 and length > 0:
+-                radius = gaussian_radius(
+-                    (length, width),
+-                    min_overlap=self.train_cfg['gaussian_overlap'])
+-                radius = max(self.train_cfg['min_radius'], int(radius))
 -                x, y = gt_bboxes_3d[idx][0], gt_bboxes_3d[idx][1]
-+                x, y = gt_bboxes_3d_digital[0], gt_bboxes_3d_digital[1]
+-
+-                coor_x = ((x - pc_range[0]) / voxel_size[0] /
+-                          self.train_cfg['out_size_factor'])
+-                coor_y = ((y - pc_range[1]) / voxel_size[1] /
+-                          self.train_cfg['out_size_factor'])
+-
+-                center = torch.tensor([coor_x, coor_y],
+-                                      dtype=torch.float32,
+-                                      device=device)
+-                center_int = center.to(torch.int32)
+-
+-                # original
+-                # draw_heatmap_gaussian(heatmap[gt_labels_3d[idx]], center_int, radius) # noqa: E501
+-                # NOTE: fix
+-                draw_heatmap_gaussian(heatmap[gt_labels_3d[idx]],
+-                                      center_int[[1, 0]], radius)
++        if (torch.numel(gt_bboxes_3d[:,:-1]) == 0):
++            heatmap = gt_bboxes_3d.new_zeros(self.num_classes, feature_map_size[1], feature_map_size[0])
++        
++        gt_bboxes_3d[:, [0, 1]] = gt_bboxes_3d[:, [1, 0]]
++        cur_class_id = gt_labels_3d.int() + 1
++        feature_map_size_list = list(feature_map_size)
++        heatmap, _, _, _ = npu_assign_target_of_single_head(gt_bboxes_3d,
++                                                            cur_class_id,
++                                                            self.num_classes,
++                                                            self.train_cfg['out_size_factor'],
++                                                            self.train_cfg['gaussian_overlap'],
++                                                            self.train_cfg['min_radius'],
++                                                            voxel_size,
++                                                            pc_range,
++                                                            feature_map_size_list,
++                                                            False,
++                                                            False,
++                                                            False,
++                                                            gt_bboxes_3d.shape[0])
  
-                 coor_x = ((x - pc_range[0]) / voxel_size[0] /
-                           self.train_cfg['out_size_factor'])
+         mean_iou = ious[pos_inds].sum() / max(len(pos_inds), 1)
+         return (
 diff --git a/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py b/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
 index a08bb66a..04b6c0a2 100644
 --- a/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py

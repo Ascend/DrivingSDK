@@ -23,7 +23,7 @@ export TASK_QUEUE_ENABLE=2
 #设置是否开启combined标志,0-关闭/1-开启
 export COMBINED_ENABLE=1
 #设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
-export CPU_AFFINITY_CONF=0
+export CPU_AFFINITY_CONF=2
 #HCCL白名单开关,1-关闭/0-开启
 export HCCL_WHITELIST_DISABLE=1
 #配置HCCL的初始化root通信网卡IP

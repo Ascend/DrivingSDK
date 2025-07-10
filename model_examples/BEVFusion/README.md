@@ -138,7 +138,7 @@ cd model_examples/BEVFusion
 单机8卡
 | NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size | NDS   | mAP   | FPS   |
 |------------------|-----------|-------------------------|------|-------|-------|-------|-------|-------|
-| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.48 | 66.6  | 17.53 |
+| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.33 | 66.26 | 19.97 |
 | 8p-竞品A           | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.78 | 67.36 | 22.54 |
 
 双机16卡
@@ -149,6 +149,8 @@ cd model_examples/BEVFusion
 # 版本说明
 
 ## 变更
+2025.7.10：更新单机性能及精度。
+
 2025.5.20：支持双机，更新单机性能。
 
 2024.12.5：首次发布。
