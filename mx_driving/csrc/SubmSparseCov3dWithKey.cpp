@@ -17,10 +17,20 @@
 #include "csrc/OpApiCommon.h"
 #include "csrc/functions.h"
 
+namespace {
+constexpr uint8_t WEIGHT_DIM = 5;
+}
+
 at::Tensor npu_subm_sparse_conv3d_with_key(const at::Tensor& ouidx_offset, const at::Tensor& valid_indices,
                                            const at::Tensor& weight, const at::Tensor& feature, int indices_number,
                                            at::IntArrayRef kernel_size)
 {
+    TORCH_CHECK_NPU(ouidx_offset);
+    TORCH_CHECK_NPU(valid_indices);
+    TORCH_CHECK_NPU(weight);
+    TORCH_CHECK_NPU(feature);
+    TORCH_CHECK(weight.dim() == WEIGHT_DIM, "weight must be a 5D Tensor, but got: ", weight.dim());
+
     auto weight_size = weight.sizes();
     int64_t kernelsum = 1;
     int32_t unsumSize = 2;

@@ -37,6 +37,7 @@ at::Tensor npu_scatter_add_grad(at::Tensor& grad_out, at::Tensor& index, int32_t
         grad_in_size.push_back(grad_out_size[i]);
     }
     dim = (dim + static_cast<int32_t>(index_dims)) % static_cast<int32_t>(index_dims);
+    TORCH_CHECK(dim < grad_in_size.size(), "grad_out.dim() must greater than dim");
     grad_in_size[dim] = index_size[dim];
     for (uint32_t i = 0; i < grad_out_dims; i++) {
         TORCH_CHECK(i >= index_dims || grad_in_size[i] == index_size[i], "the shape except dim should be the same");

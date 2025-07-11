@@ -24,6 +24,8 @@ std::tuple<at::Tensor, at::Tensor> npu_prepare_subm_conv3d(
     for (int32_t i = 0; i < static_cast<int32_t>(outSpatialShape.size()); i++) {
         outputnum *= outSpatialShape[i];
     }
+    TORCH_CHECK(outputnum > 0, "Overflow, outSpatialShape is too large;");
+
     c10::SmallVector<int64_t, 8> output_size = {batch_size * outputnum};
     auto temp = at::empty(output_size, flattenIndices.options().dtype(at::kFloat)).fill_(-1);
     auto hh2 = at::arange(0, flattenIndices.sizes()[0], flattenIndices.options().dtype(at::kFloat));

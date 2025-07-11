@@ -17,6 +17,13 @@
 #include "csrc/OpApiCommon.h"
 #include "csrc/functions.h"
 
+namespace {
+constexpr uint8_t BOXES_DIM = 2;
+constexpr uint8_t VOXEL_SIZE = 2;
+constexpr uint8_t PC_RANGE = 2;
+constexpr uint8_t FEATURE_MAP_SIZE = 2;
+}
+
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_assign_target_of_single_head(const at::Tensor& boxes, const at::Tensor& cur_class_id,
     int32_t num_classes, int32_t out_size_factor, float overlap, int32_t min_radius,
@@ -25,7 +32,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_assign_target_of_
 {
     TORCH_CHECK_NPU(boxes);
     TORCH_CHECK_NPU(cur_class_id);
-    TORCH_CHECK(boxes.dim() == 2, "boxes.dim() must be 2, but got: ", boxes.dim());
+    TORCH_CHECK(boxes.dim() == BOXES_DIM, "boxes.dim() must be 2, but got: ", boxes.dim());
+    TORCH_CHECK(voxel_size.size() == VOXEL_SIZE, "voxel_size.size() must be 2, but got: ", voxel_size.size());
+    TORCH_CHECK(pc_range.size() == PC_RANGE, "pc_range.size() must be 2, but got: ", pc_range.size());
+    TORCH_CHECK(feature_map_size.size() == FEATURE_MAP_SIZE, "feature_map_size.size() must be 2, but got: ", feature_map_size.size());
 
     auto num_objs = boxes.size(0);
     auto box_dim = boxes.size(1);
