@@ -302,6 +302,8 @@ cd model_examples/PivotNet
 
 2025.05.09：新增Ubuntu系统下替换tcmalloc的命令
 
+2025.07.04：修改性能脚本
+
 # FAQ
 
 无
