@@ -67,6 +67,9 @@ class ModulatedDeformConv2dFunction(Function):
             ctx.deformable_groups,
             False,
         )
+        
+        _, c_in, _, _ = x.shape
+        offset_output = torch.tensor([]).float() if (groups == 1) and ((c_in == 256) or (c_in == 512)) else offset_output
         ctx.save_for_backward(nhwc_x, nhwc_offset, nhwc_weight, nhwc_mask, offset_output)
         return out
 
@@ -76,7 +79,7 @@ class ModulatedDeformConv2dFunction(Function):
     # pylint: disable=huawei-too-many-arguments,too-many-return-values
     def backward(ctx, grad_out):
         nhwc_x, nhwc_offset, nhwc_weight, nhwc_mask, offset_output = ctx.saved_tensors
-        nhwc_grad_out = grad_out.permute(0, 2, 1, 3).contiguous()
+        nhwc_grad_out = grad_out.permute(0, 2, 3, 1).contiguous()
         grad_x, grad_weight, _, grad_offset, grad_mask = mx_driving._C.modulated_deformable_conv2d_backward(
             nhwc_x,
             nhwc_offset,
@@ -93,6 +96,7 @@ class ModulatedDeformConv2dFunction(Function):
             ctx.deformable_groups,
             False,
         )
+        grad_offset = grad_offset.reshape(grad_offset.shape[0], -1, grad_offset.shape[4], grad_offset.shape[5])
         return (
             grad_x,
             grad_offset,
