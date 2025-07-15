@@ -23,6 +23,8 @@ export COMBINED_ENABLE=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 # 启用多流复用，降低集合通信跨流依赖内存延迟释放带来的内存峰值上升
 export MULTI_STREAM_MEMORY_REUSE=1
+#配置初始化模式
+export ACL_OP_INIT_MODE=0
 
 #设置device侧日志登记为error
 msnpureport -g error -d 0
