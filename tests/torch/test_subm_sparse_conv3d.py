@@ -59,7 +59,7 @@ def generate_map(coors, spatial_shape, bs):
 def get_golden_output(features, indices, weights, bias, batch_size, in_channels,
                       out_channels, kernel_size, out_spatial_shape):
     map1, map2 = generate_map(indices, out_spatial_shape, batch_size)
-    M = torch.zeros((features.shape[0], kernel_size, kernel_size, kernel_size, in_channels), device=features.device)
+    M = torch.zeros((features.shape[0], kernel_size, kernel_size, kernel_size, in_channels), device=features.device, dtype=features.dtype)
     weight_flatten = weights.reshape((kernel_size * kernel_size * kernel_size * in_channels, out_channels))
 
     min_x_idx = indices[:, 1] - kernel_size // 2
@@ -97,10 +97,15 @@ def get_golden_output(features, indices, weights, bias, batch_size, in_channels,
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 def get_output(num_points, batch_size, in_channels, out_channels,
-        kernel_size, spatial_shape):
+        kernel_size, spatial_shape, dtype=torch.float32):
     features, indices = generate_sparse_data(num_points, spatial_shape, in_channels)
-    features, indices = features.npu(), indices.npu()
+    features, indices = features.to(dtype).npu(), indices.npu()
     net = SubMConv3d(in_channels, out_channels, kernel_size).npu()
+    
+    features = features.to(dtype)
+    net.weight.data = net.weight.data.to(dtype)
+    net.bias.data = net.bias.data.to(dtype)
+    
     x = SparseConvTensor(features, indices, spatial_shape, batch_size)
     golden_output = get_golden_output(features, indices, net.weight.data, net.bias.data, batch_size,
         in_channels, out_channels, kernel_size, spatial_shape)
@@ -174,6 +179,78 @@ class TestSubmSparseConv3d(TestCase):
 
         res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
         self.assertRtolEqual(golden, res)
+
+    def test_model_case1_fp16(self):
+        num_points = [61557]
+        out_spatial_shape = [1440, 1440, 41]
+        in_channels = 16
+        out_channels = 32
+        kernel_size = 3
+        batch_size = len(num_points)
+        dtype = torch.float16
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
+
+    def test_model_case2_fp16(self):
+        num_points = [38153]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 128
+        out_channels = 256
+        kernel_size = 3
+        batch_size = len(num_points)
+        dtype = torch.float16
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
+
+    def test_5x5_kernel_case1_fp16(self):
+        num_points = [38153]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 128
+        out_channels = 256
+        kernel_size = 5
+        batch_size = len(num_points)
+        dtype = torch.float16
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
+    
+    def test_5x5_kernel_case2_fp16(self):
+        num_points = [38153]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 128
+        out_channels = 256
+        kernel_size = 5
+        batch_size = len(num_points)
+        dtype = torch.float16
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
+
+    def test_large_spatial_shape_fp16(self):
+        num_points = [23787]
+        out_spatial_shape = [3571, 4251, 1062]
+        in_channels = 4
+        out_channels = 32
+        kernel_size = 5
+        batch_size = len(num_points)
+        dtype = torch.float16
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
+
+    def test_unaligned_channel_fp16(self):
+        num_points = [10000]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 55
+        out_channels = 77
+        kernel_size = 5
+        batch_size = len(num_points)
+        dtype = torch.float16
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
 
 if __name__ == "__main__":
     np.random.seed(100)

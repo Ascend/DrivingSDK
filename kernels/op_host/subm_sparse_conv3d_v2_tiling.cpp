@@ -66,10 +66,13 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     auto inChannelsPtr = attrsPtr->GetAttrPointer<int32_t>(ATTR_IN_CHANNELS_IDX);
     auto batchSizePtr = attrsPtr->GetAttrPointer<int32_t>(ATTR_BATCH_SIZE_IDX);
     auto sparseRatePtr = attrsPtr->GetAttrPointer<float>(ATTR_SPARSE_RATE_IDX);
+    auto featureDataTypePtr = context->GetInputDesc(0);
     if (kernelSizePtr == nullptr || outSpatialShapePtr == nullptr || inChannelsPtr == nullptr
-        || batchSizePtr == nullptr || sparseRatePtr == nullptr) {
+        || batchSizePtr == nullptr || sparseRatePtr == nullptr || featureDataTypePtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
+    auto featureDataType = featureDataTypePtr->GetDataType();
+    int32_t byteSizePerElements = featureDataType == ge::DT_FLOAT16? 2 : 4;
 
     auto kernelSizeArr = reinterpret_cast<const int64_t*>(kernelSizePtr->GetData());
     auto outSpatialShapeArr = reinterpret_cast<const int64_t*>(outSpatialShapePtr->GetData());
@@ -77,17 +80,17 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t coreTaskCount = totalTaskCount / aivNum;
     uint32_t bigCoreCount = totalTaskCount % aivNum;
     int32_t kernelSize = kernelSizeArr[KERNEL_SIZE_IDX_0] * kernelSizeArr[KERNEL_SIZE_IDX_1] * kernelSizeArr[KERNEL_SIZE_IDX_2];
-    int32_t kernelSizeAligned = CeilAlign(kernelSize, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE);
-    int32_t inChannelsAligned = CeilAlign(*inChannelsPtr, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE);
+    int32_t kernelSizeAligned = CeilAlign(kernelSize, BYTE_ALIGN_SIZE / byteSizePerElements);
+    int32_t inChannelsAligned = CeilAlign(*inChannelsPtr, BYTE_ALIGN_SIZE / byteSizePerElements);
     uint32_t singleLoopTask = ubSize / (SINGLE_LOOP_UB_SIZE +
-        CeilAlign(inChannelsAligned * kernelSize, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE +
-        CeilAlign(kernelSizeAligned, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE);
+        CeilAlign(inChannelsAligned * kernelSize, BYTE_ALIGN_SIZE / byteSizePerElements) * byteSizePerElements +
+        CeilAlign(kernelSizeAligned, BYTE_ALIGN_SIZE / byteSizePerElements) * byteSizePerElements);
     uint32_t copyOutOneChannel = 0;
     if (singleLoopTask == 0) {
         // UB overflow
         singleLoopTask = ubSize / (SINGLE_LOOP_UB_SIZE +
-            CeilAlign(inChannelsAligned, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE +
-            CeilAlign(kernelSizeAligned, BYTE_ALIGN_SIZE / FLOAT_BYTE_SIZE) * FLOAT_BYTE_SIZE);
+            CeilAlign(inChannelsAligned, BYTE_ALIGN_SIZE / byteSizePerElements) * byteSizePerElements +
+            CeilAlign(kernelSizeAligned, BYTE_ALIGN_SIZE / byteSizePerElements) * byteSizePerElements);
         copyOutOneChannel = 1;
     }
 
@@ -159,38 +162,38 @@ public:
     {
         this->Input("feature")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND})
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
             .AutoContiguous();
         this->Input("indices")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND})
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
             .AutoContiguous();
         this->Input("map1")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND})
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
             .AutoContiguous();
         this->Input("map2")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND})
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
             .AutoContiguous();
         this->Output("feature_out")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("indices_offset")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Attr("kernel_size")
             .AttrType(REQUIRED)
             .ListInt();

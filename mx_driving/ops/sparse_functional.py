@@ -79,23 +79,21 @@ class SparseConvFunction(Function):
 def generate_map(coors, origin_spatial_shape, bs, kernel_size):
     spatial_shape = (origin_spatial_shape[0] + 2 * (kernel_size[0] // 2), origin_spatial_shape[1] + 2 * (kernel_size[1] // 2),
                      origin_spatial_shape[2] + 2 * (kernel_size[2] // 2))
-    coors[:, 1:] += kernel_size[0] // 2
+    padding = kernel_size[0] // 2
     spatial_shape_size = spatial_shape[0] * spatial_shape[1] * spatial_shape[2]
     sparse_rate = coors.shape[0] / (spatial_shape_size * bs)
                                     
     if (spatial_shape_size * bs > 200000000) and (sparse_rate < 1e-4):
         spatial_shape1 = (spatial_shape[1] * spatial_shape[0])
         new_coors1 = spatial_shape1 * coors[:, 0] + spatial_shape[1] * coors[:, 1] + coors[:, 2]
+        new_coors1 += (padding + spatial_shape[1] * padding)
         map1 = torch.full((spatial_shape1 * bs, ), -1, dtype=torch.int32, device=coors.device)
 
-        map1[new_coors1] = 1
-        mask = (map1 != -1)
-        map1_length = map1[mask].shape[0]
-        map1[mask] = torch.arange(map1_length, dtype=torch.int32, device=coors.device)
+        map1_length, unique_idx, _, _, _ = mx_driving.unique_voxel(new_coors1)
+        map1[unique_idx] = torch.arange(map1_length, dtype=torch.int32, device=coors.device)
             
         map2 = torch.full((map1_length, spatial_shape[2]), -1, dtype=torch.int32, device=coors.device)
-        map2[map1[new_coors1], coors[:, 3]] = torch.arange(new_coors1.numel(), dtype=torch.int32, device=coors.device)
-        return map1, map2, spatial_shape, coors, sparse_rate
+        map2[map1[new_coors1], (coors[:, 3] + padding)] = torch.arange(new_coors1.numel(), dtype=torch.int32, device=coors.device)
     else:
         flatten_indices = (
             coors[:, 0] * spatial_shape_size
@@ -103,12 +101,15 @@ def generate_map(coors, origin_spatial_shape, bs, kernel_size):
             + coors[:, 2] * (spatial_shape[2])
             + coors[:, 3]
         )
+        flatten_indices += ((spatial_shape[1] * spatial_shape[2]) + (spatial_shape[2]) + 1) * padding
 
         map1 = torch.full((spatial_shape_size * bs, ), -1,
             dtype=torch.int32, device=coors.device)
 
         map1[flatten_indices] = torch.arange(flatten_indices.numel(), dtype=torch.int32, device=coors.device)
-        return map1, torch.Tensor([]).int(), spatial_shape, coors, sparse_rate
+        map2 = torch.Tensor([]).int()
+        
+    return map1, map2, spatial_shape, coors, sparse_rate
 
 
 class SubMConvFunction(Function):
@@ -130,11 +131,10 @@ class SubMConvFunction(Function):
         bias,
     ) -> torch.Tensor:
         weight = weight.data
-        map1, map2, spaned_spatial_shape, new_indices, sparse_rate = generate_map(indices.clone(), out_spatial_shape, batch_size, kernel_size)
+        map1, map2, spaned_spatial_shape, new_indices, sparse_rate = generate_map(indices, out_spatial_shape, batch_size, kernel_size)
         output_iml2col, indices_offset = mx_driving._C.npu_subm_sparse_conv3d_v2(features, new_indices, map1, map2, kernel_size,
             features.shape[1], spaned_spatial_shape, batch_size, sparse_rate)
         out_features = output_iml2col @ weight.reshape(-1, out_channels)
-
         ctx.kernel_size = kernel_size
         ctx.save_for_backward(features, weight, output_iml2col, indices_offset)
         return out_features, indices, indices_offset

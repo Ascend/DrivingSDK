@@ -7,8 +7,7 @@ using namespace AscendC;
 namespace {
 constexpr int64_t SPATIAL_SHAPE_THRESHOLD = 200000000;
 constexpr int32_t INT32_BYTE_SIZE = 4;
-constexpr int32_t FLOAT_BYTE_SIZE = 4;
-constexpr int32_t ALIGNED_BYTE_SIZE = 32;
+constexpr int32_t BYTE_SIZE_PER_BLOCK = 32;
 constexpr int32_t REPEAT_BYTE_SIZE = 256;
 constexpr int32_t INDICES_TASK_SIZE = 4;
 constexpr int32_t SPATIAL_0_LOCAL_IDX = 1;
@@ -34,11 +33,14 @@ constexpr int32_t MAP2_OFFSET_4 = 4;
 constexpr float SPARSE_THRESHOLD = 1e-4;
 };
 
+
+template<typename T>
 class KernelSubmSparseConv3dV2 {
 public:
    __aicore__ inline KernelSubmSparseConv3dV2() {}
    __aicore__ inline void InitTiling(SubmSparseConv3dV2TilingData *tilingData)
    {
+        byteSizePerElements_ = sizeof(T);
         k0_ = tilingData->k0;
         k1_ = tilingData->k1;
         k2_ = tilingData->k2;
@@ -49,14 +51,13 @@ public:
 
         k12_ = k1_ * k2_;
         kernelSize_ = k0_ * k12_;
-        kernelSizeAligned_ = AlignUp(kernelSize_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
-        k1Aligned_ = AlignUp(k1_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
-        k2Aligned_ = AlignUp(k2_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
+        kernelSizeAligned_ = AlignUp(kernelSize_, BYTE_SIZE_PER_BLOCK / INT32_BYTE_SIZE);
+        k1Aligned_ = AlignUp(k1_, BYTE_SIZE_PER_BLOCK / INT32_BYTE_SIZE);
+        k2Aligned_ = AlignUp(k2_, BYTE_SIZE_PER_BLOCK / INT32_BYTE_SIZE);
+        k2ElemAligned_ = AlignUp(k2_, BYTE_SIZE_PER_BLOCK / byteSizePerElements_);
         batchSize_ = tilingData->batchSize;
         inChannels_ = tilingData->inChannels;
-        inChannelsAligned_ = AlignUp(inChannels_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
-        outputOneLineElementCount_ = kernelSize_ * inChannels_;
-        outputHalfLineElementCount_ = (kernelSize_ / TWO) * inChannels_;
+        inChannelsAligned_ = AlignUp(inChannels_, BYTE_SIZE_PER_BLOCK / byteSizePerElements_);
         spatialShape0_ = tilingData->spatialShape0;
         spatialShape1_ = tilingData->spatialShape1;
         spatialShape2_ = tilingData->spatialShape2;
@@ -65,7 +66,7 @@ public:
         totalSpatialShape_ = (int64_t)spatialShape01_ * spatialShape2_;
         sparseRate = tilingData->sparseRate;
         useTwolevelMap_ = (totalSpatialShape_ * (int64_t)batchSize_ >= SPATIAL_SHAPE_THRESHOLD) && (sparseRate < SPARSE_THRESHOLD);
-        copyByteSize_ = inChannels_ * FLOAT_BYTE_SIZE;
+        copyByteSize_ = inChannels_ * byteSizePerElements_;
         copyOutOneChannel_ = tilingData->copyOutOneChannel;
 
         if (blkIdx_ < tilingData->bigCoreCount) {
@@ -77,7 +78,7 @@ public:
             coreTaskCount_ = tilingData->coreTaskCount;
         }
         singleLoopTask_ = tilingData->singleLoopTask;
-        singleLoopTaskAligned_ = AlignUp(singleLoopTask_, ALIGNED_BYTE_SIZE / FLOAT_BYTE_SIZE);
+        singleLoopTaskAligned_ = AlignUp(singleLoopTask_, BYTE_SIZE_PER_BLOCK / byteSizePerElements_);
         tmpBufLength_ = singleLoopTask_;
         tmpBufIdx_ = 0;
     }
@@ -85,10 +86,10 @@ public:
     __aicore__ inline void InitGM(GM_ADDR feature, GM_ADDR indices, GM_ADDR map1, GM_ADDR map2,
         GM_ADDR feature_out, GM_ADDR indices_offset)
     {
-        inputFeatureGM_.SetGlobalBuffer((__gm__ float*) feature);
+        inputFeatureGM_.SetGlobalBuffer((__gm__ T*) feature);
         indicesGM_.SetGlobalBuffer((__gm__ int32_t*) indices);
         map1GM_.SetGlobalBuffer((__gm__ int32_t*) map1);
-        outputFeatureGM_.SetGlobalBuffer((__gm__ float*) feature_out);
+        outputFeatureGM_.SetGlobalBuffer((__gm__ T*) feature_out);
         indicesOffsetGM_.SetGlobalBuffer((__gm__ int32_t*) indices_offset);
         if (useTwolevelMap_) {
             map2GM_.SetGlobalBuffer((__gm__ int32_t*) map2);
@@ -100,16 +101,16 @@ public:
         pipe_->InitBuffer(inputIndicesBuf_, INDICES_TASK_SIZE * singleLoopTaskAligned_ * INT32_BYTE_SIZE);
         pipe_->InitBuffer(totalIndicesBuf_, INDICES_TASK_SIZE * singleLoopTaskAligned_ * INT32_BYTE_SIZE);
         if (copyOutOneChannel_ == 0) {
-            pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTask_ * kernelSize_ * inChannelsAligned_ * FLOAT_BYTE_SIZE);
+            pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTask_ * kernelSize_ * inChannelsAligned_ * byteSizePerElements_);
         } else {
-            pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTask_ * inChannelsAligned_ * FLOAT_BYTE_SIZE);
+            pipe_->InitBuffer(tmpFeatureBuf_, singleLoopTask_ * inChannelsAligned_ * byteSizePerElements_);
         }
         pipe_->InitBuffer(mapValBuf_, k0_ * k1_ * k2Aligned_ * INT32_BYTE_SIZE);
-        pipe_->InitBuffer(mapValFloatBuf_, MAP_VAL_FLOAT_BUF_LENGTH * k0_ * k1_ * k2Aligned_ * FLOAT_BYTE_SIZE);
+        pipe_->InitBuffer(mapValFloatBuf_, MAP_VAL_FLOAT_BUF_LENGTH * k0_ * k1_ * k2ElemAligned_ * byteSizePerElements_);
         pipe_->InitBuffer(indicesOffsetBuf_, singleLoopTaskAligned_ * kernelSizeAligned_ * INT32_BYTE_SIZE);
 
         inputIndicesLocal_ = inputIndicesBuf_.Get<int32_t>();
-        tmpFeatureLocal_ = tmpFeatureBuf_.Get<float>();
+        tmpFeatureLocal_ = tmpFeatureBuf_.Get<T>();
 
         batchIdxLocal_ = totalIndicesBuf_.Get<int32_t>();
         spatial0Local_ = batchIdxLocal_[singleLoopTaskAligned_ * SPATIAL_0_LOCAL_IDX];
@@ -117,8 +118,8 @@ public:
         spatial2Local_ = batchIdxLocal_[singleLoopTaskAligned_ * SPATIAL_2_LOCAL_IDX];
         mapValLocal_ = mapValBuf_.Get<int32_t>();
         mapValFloatLocal_ = mapValFloatBuf_.Get<float>();
-        mapValFloatLocalBak_ = mapValFloatLocal_[k0_ * k1_ * k2Aligned_];
-        workLocal_ = mapValFloatLocal_[WORK_LOCAL_IDX * k0_ * k1_ * k2Aligned_];
+        mapValFloatLocalBak_ = mapValFloatLocal_[k0_ * k1_ * k2ElemAligned_];
+        workLocal_ = mapValFloatLocal_[WORK_LOCAL_IDX * k0_ * k1_ * k2ElemAligned_];
         indicesOffsetLocal_ = indicesOffsetBuf_.Get<int32_t>();
     }
 
@@ -153,14 +154,10 @@ public:
             GatherMask(spatial2Local_, inputIndicesLocal_, SRC_PARTTEN_3, false, mask, { 1, repeatTimes, 8, 0 }, rsvdCnt);
             Duplicate(indicesOffsetLocal_, static_cast<int32_t>(-1), taskCount * kernelSizeAligned_);
             if (copyOutOneChannel_ == 0) {
-                Duplicate(tmpFeatureLocal_, static_cast<float>(0), taskCount * kernelSize_ * inChannelsAligned_);
+                Duplicate(tmpFeatureLocal_, static_cast<T>(0), taskCount * kernelSize_ * inChannelsAligned_);
             } else {
-                Duplicate(tmpFeatureLocal_, static_cast<float>(0), taskCount * inChannelsAligned_);
+                Duplicate(tmpFeatureLocal_, static_cast<T>(0), taskCount * inChannelsAligned_);
             }
-            
-            Adds(spatial0Local_, spatial0Local_, - halfk0_, taskCount);
-            Adds(spatial1Local_, spatial1Local_, - halfk0_, taskCount);
-            Adds(spatial2Local_, spatial2Local_, - halfk0_, taskCount);
 
             if (useTwolevelMap_) {
                 ProcessOneLoopForTwoLevelMap(taskCount);
@@ -221,19 +218,15 @@ public:
                     {true, 0, static_cast<uint8_t>(k2Aligned_ - k2_), -2});
             }
             PipeBarrier<PIPE_ALL>();
-            
             Cast(mapValFloatLocalBak_, mapValLocal_, RoundMode::CAST_ROUND, k0_ * k1_ * k2Aligned_);
-
             do {
                 ReduceMax<float>(mapValFloatLocal_, mapValFloatLocalBak_, workLocal_, k0_ * k1_ * k2Aligned_, true);
                 int32_t mapVal = static_cast<int32_t>(mapValFloatLocal_.GetValue(0));
                 if (mapVal < 0) {
                     break;
                 }
-                
                 float mapIdxFloat = mapValFloatLocal_.GetValue(1);
                 int32_t mapIdx = *reinterpret_cast<int32_t*>(&mapIdxFloat);
-
                 ProcessOnePoint(i, mapIdx / (k2Aligned_ * k1_), (mapIdx % (k2Aligned_ * k1_)) / k2Aligned_, mapIdx % k2Aligned_, mapVal);
                 mapValFloatLocalBak_.SetValue(mapIdx, -2.0f);
             } while (true);
@@ -304,6 +297,7 @@ public:
 
                 float mapIdxFloat = mapValFloatLocal_.GetValue(1);
                 int32_t mapIdx = *reinterpret_cast<int32_t*>(&mapIdxFloat);
+                
                 int8_t k0Idx = mapIdx / k1Aligned_;
                 int8_t k1Idx = mapIdx % k1Aligned_;
 
@@ -327,15 +321,16 @@ public:
 private:
     bool useTwolevelMap_;
     uint32_t blkIdx_, copyByteSize_, copyOutOneChannel_, tmpBufIdx_;
-    int32_t k0_, k1_, k2_, k12_, halfk0_, halfk1_, halfk2_, k1Aligned_, k2Aligned_, kernelSize_, batchSize_, inChannels_, tmpBufLength_, spatialShape0_, spatialShape1_,
-        spatialShape2_, spatialShape01_, spatialShape12_, coreTaskCount_, singleLoopTask_, singleLoopTaskAligned_, globalTaskOffset_,
-        inChannelsAligned_, kernelSizeAligned_, outputOneLineElementCount_, outputHalfLineElementCount_;
+    int32_t k0_, k1_, k2_, k12_, halfk0_, halfk1_, halfk2_, k1Aligned_, k2Aligned_, kernelSize_, batchSize_, inChannels_, tmpBufLength_, spatialShape0_, spatialShape1_, k2ElemAligned_,
+        spatialShape2_, spatialShape01_, spatialShape12_, coreTaskCount_, singleLoopTask_, singleLoopTaskAligned_, inChannelsAligned_,
+        kernelSizeAligned_, byteSizePerElements_;
     int32_t eventMTE2ToMTE3_;
     float sparseRate;
-    int64_t totalSpatialShape_;
-    GlobalTensor<float> inputFeatureGM_, outputFeatureGM_;
+    int64_t totalSpatialShape_, globalTaskOffset_;
+    GlobalTensor<T> inputFeatureGM_, outputFeatureGM_;
     GlobalTensor<int32_t> indicesGM_, map1GM_, map2GM_, indicesOffsetGM_;
-    LocalTensor<float> tmpFeatureLocal_, mapValFloatLocal_, mapValFloatLocalBak_, workLocal_;
+    LocalTensor<T> tmpFeatureLocal_;
+    LocalTensor<float> mapValFloatLocal_, mapValFloatLocalBak_, workLocal_;
     LocalTensor<int32_t> inputIndicesLocal_, batchIdxLocal_, spatial0Local_, spatial1Local_, spatial2Local_, mapValLocal_, indicesOffsetLocal_;
     TBuf<TPosition::VECCALC> inputIndicesBuf_, totalIndicesBuf_, tmpFeatureBuf_, mapValBuf_, mapValFloatBuf_, indicesOffsetBuf_;
     TPipe* pipe_;
@@ -345,7 +340,7 @@ extern "C" __global__ __aicore__ void subm_sparse_conv3d_v2(GM_ADDR feature, GM_
                                                             GM_ADDR feature_out, GM_ADDR indices_offset, GM_ADDR workspace, GM_ADDR tiling)
 {
     GET_TILING_DATA(tiling_data, tiling);
-    KernelSubmSparseConv3dV2 op;
+    KernelSubmSparseConv3dV2<DTYPE_FEATURE> op;
     TPipe pipe;
     op.Init(&pipe, feature, indices, map1, map2, feature_out, indices_offset, &tiling_data);
     op.Process();
