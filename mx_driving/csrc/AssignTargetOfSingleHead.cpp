@@ -34,8 +34,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_assign_target_of_
     TORCH_CHECK_NPU(cur_class_id);
     TORCH_CHECK(boxes.dim() == BOXES_DIM, "boxes.dim() must be 2, but got: ", boxes.dim());
     TORCH_CHECK(voxel_size.size() >= VOXEL_SIZE, "voxel_size.size() must greater equal than 2, but got: ", voxel_size.size());
-    TORCH_CHECK(pc_range.size() == PC_RANGE, "pc_range.size() must be 2, but got: ", pc_range.size());
-    TORCH_CHECK(feature_map_size.size() == FEATURE_MAP_SIZE, "feature_map_size.size() must be 2, but got: ", feature_map_size.size());
+    TORCH_CHECK(pc_range.size() >= PC_RANGE, "pc_range.size() must greater equal than 2, but got: ", pc_range.size());
+    TORCH_CHECK(feature_map_size.size() >= FEATURE_MAP_SIZE, "feature_map_size.size() must greater equal than 2, but got: ", feature_map_size.size());
 
     auto num_objs = boxes.size(0);
     auto box_dim = boxes.size(1);
