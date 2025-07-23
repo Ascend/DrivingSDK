@@ -196,7 +196,7 @@ public:
 
         this->Output("uni_argsort_indices")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
+            .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND})
             .AutoContiguous();
