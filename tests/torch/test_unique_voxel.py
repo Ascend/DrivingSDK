@@ -15,7 +15,7 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 class TestUniqueVoxel(TestCase):
     seed = 1024
     np.random.seed(seed)
-    point_nums = [1, 7, 6134, 99999]
+    point_nums = [1, 7, 415, 6134, 99999]
 
     @golden_data_cache(__file__)
     def gen(self, point_num):
@@ -25,12 +25,19 @@ class TestUniqueVoxel(TestCase):
     @golden_data_cache(__file__)
     def golden_unique(self, voxels):
         res = np.unique(voxels)
-        return res.shape[0], np.sort(res)
+        return res.shape[0], np.sort(res), np.sort(voxels)
 
     def npu_unique(self, voxels):
         voxels_npu = torch.from_numpy(voxels).npu()
-        cnt, uni_vox, _, _, _ = mx_driving.unique_voxel(voxels_npu)
-        return cnt, uni_vox.cpu().numpy()
+        cnt, uni_vox, uni_indices, argsort_indices, uni_argsort_indices = mx_driving.unique_voxel(voxels_npu)
+        argsort_indices = argsort_indices.cpu().numpy()
+
+        res_sort_npu = voxels.view(np.int32)[argsort_indices] 
+        uni_argsort_indices = uni_argsort_indices.cpu().numpy()
+
+        res_ori = voxels.view(np.int32)[uni_argsort_indices]
+
+        return cnt, uni_vox.cpu().numpy(), uni_indices.cpu().numpy(), res_sort_npu, res_ori
 
     @golden_data_cache(__file__)
     def gen_integration(self, point_num):
@@ -71,19 +78,39 @@ class TestUniqueVoxel(TestCase):
     def test_unique_voxel(self):
         for point_num in self.point_nums:
             voxels = self.gen(point_num)
-            cnt_cpu, res_cpu = self.golden_unique(voxels)
-            cnt_npu, res_npu = self.npu_unique(voxels)
+            cnt_cpu, res_cpu, res_sort_cpu = self.golden_unique(voxels)
+            try:
+                result = self.npu_unique(voxels)
+                if not isinstance(result, tuple) or len(result) != 5:
+                    raise ValueError("npu_unique should return a tuple of 5 elements")
+                cnt_npu, res_npu, uni_indices, res_sort_npu, res_ori = result
+            except Exception as e:
+                print(f"Error in npu_unique: {e}")
+                raise
+            
             self.assertRtolEqual(cnt_cpu, cnt_npu)
             self.assertRtolEqual(res_cpu, res_npu)
+            self.assertRtolEqual(res_sort_cpu, res_sort_npu)
+            self.assertRtolEqual(res_cpu, res_ori)
 
     @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
-    def test_unique_voxel_int32(self):
+    def test_unique_voxel_view_float32(self):
         for point_num in self.point_nums:
             voxels = self.gen(point_num)
-            cnt_cpu, res_cpu = self.golden_unique(voxels)
-            cnt_npu, res_npu = self.npu_unique(voxels.view(np.float32))
+            cnt_cpu, res_cpu, res_sort_cpu = self.golden_unique(voxels)
+            try:
+                result = self.npu_unique(voxels.view(np.float32))
+                if not isinstance(result, tuple) or len(result) != 5:
+                    raise ValueError("npu_unique should return a tuple of 5 elements")
+                cnt_npu, res_npu, uni_indices, res_sort_npu, res_ori = result
+            except Exception as e:
+                print(f"Error in npu_unique: {e}")
+                raise
+
             self.assertRtolEqual(cnt_cpu, cnt_npu)
             self.assertRtolEqual(res_cpu, res_npu)
+            self.assertRtolEqual(res_sort_cpu, res_sort_npu)
+            self.assertRtolEqual(res_cpu, res_ori)
 
     @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
     def test_integration(self):
