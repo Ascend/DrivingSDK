@@ -32,19 +32,8 @@ echo "number of gpus: "${gpu_num}
 config=projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
 work_dir=work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704
 
-#使用断点
-sed -i.bak '
-/^[[:space:]]*main()[[:space:]]*$/ {
-    i\
-    from mx_driving.patcher.patcher import PatcherBuilder, Patch
-    i\
-    pb = PatcherBuilder().brake_at(1000)
-    i\
-    with pb.build():
-    a\
-        main()
-    d
-}' ./tools/train.py
+export SPARSE4D_PERFORMANCE_FLAG=1
+
 #训练开始时间
 start_time=$(date +%s)
 
@@ -63,20 +52,13 @@ fi
 end_time=$(date +%s)
 e2e_time=$(( $end_time - $start_time ))
 
-# 将备份文件恢复为原文件
-if [ -f "./tools/train.py.bak" ]; then
-    mv -f "./tools/train.py.bak" "./tools/train.py"
-else
-    echo "Error: could not find the file train.py.bak, restoring failed."
-fi
-
 log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
 batch_size=6
 
 #结果打印
 echo "------------------ Final result ------------------"
 #输出性能FPS
-time_per_iter=$(grep -E 'mmdet - INFO - (Iter|Epoch)' "${log_file}" | awk -F " time: " '! (/Iter \[1\//) {print $NF}' | awk -F "," '{print $1}' | awk '{ sum += $0; n++ } END { if (n > 0) printf "%.2f\n", int((sum / n) * 100) / 100 }' )
+time_per_iter=$(grep -E 'mmdet - INFO - (Iter|Epoch)' "${log_file}" | awk -F " time: " '!/Iter \[1\// {print $NF}' | awk -F "," '{print $1}' | awk '{ if ($0 < 1) { sum += $0; n++ } } END { if (n > 0) printf "%.2f\n", sum/n }')
 FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}' * '${gpu_num}' / '${time_per_iter}'}'`
 #打印
 echo "Step time per iteration sec : $time_per_iter"

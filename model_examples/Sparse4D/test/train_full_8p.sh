@@ -61,7 +61,7 @@ result=$(grep 'mAP:' work_dirs/val.log | awk '{print $2}')
 #结果打印
 echo "------------------ Final result ------------------"
 #输出性能FPS
-time_per_iter=$(grep -E 'mmdet - INFO - (Iter|Epoch)' "${log_file}" | awk -F " time: " '! (/Iter \[1\//) {print $NF}' | awk -F "," '{print $1}' | awk '{ sum += $0; n++ } END { if (n > 0) printf "%.2f\n", int((sum / n) * 100) / 100 }' )
+time_per_iter=$(grep -E 'mmdet - INFO - (Iter|Epoch)' "${log_file}" | awk -F " time: " '!/Iter \[1\// {print $NF}' | awk -F "," '{print $1}' | awk '{ if ($0 < 1) { sum += $0; n++ } } END { if (n > 0) printf "%.2f\n", sum/n }')
 FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}' * '${gpu_num}' / '${time_per_iter}'}'`
 #打印
 echo "Step time per iteration sec : $time_per_iter"

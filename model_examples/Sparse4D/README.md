@@ -75,13 +75,13 @@
 - 克隆代码仓到当前目录
   ```shell
   git clone https://gitee.com/ascend/DrivingSDK.git -b master
-  cd DrivingSDK/model_examples/Sparse4D
   ```
 - 安装基础依赖
 
-  在模型源码包根目录下执行命令，安装模型需要的依赖。
+  在模型根目录下执行命令，安装模型需要的依赖
   
   ```shell
+  cd DrivingSDK/model_examples/Sparse4D
   pip install -r requirements.txt
   ```
 
@@ -111,6 +111,7 @@
   ```shell
   git clone https://github.com/HorizonRobotics/Sparse4D.git
   cp Sparse4D.patch Sparse4D
+  cp patch.py Sparse4D/tools
   cd Sparse4D
   git checkout c41df4bbf7bc82490f11ff55173abfcb3fb91425
   git apply Sparse4D.patch
@@ -215,21 +216,25 @@ bash test/train_multi_server.sh 8 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
 |      芯片       | 卡数 | global batchsize  | mAP | 平均step耗时(s) | Max epochs | FPS |
 |:-------------:|----|:----:|:----:|:----------:|:----------:|:----------:|
 |      竞品A      | 8p | 48 |0.4534  | 0.777 |   100     |   61.77   |
-| Atlas 800T A2   | 8p | 48 |0.4562  | 1.110 |     100     |  43.24   |
+| Atlas 800T A2   | 8p | 48 |0.4509  | 0.820 |     100     |  58.53   |
 
 多机多卡线性度：
 |      芯片       | 卡数 | global batchsize | 平均step耗时(s) | Max epochs  | FPS | 线性度 |
 |:-------------:|----|:----:|:----:|:----------:|:----------:|:----------:|
+| Atlas 800T A2   | 8p | 48 |1.110  | 4 |     43.24     | -  |
 | Atlas 800T A2   | 16p | 96 | 1.152 |     4     |   83.28   |     96.31%      |
+
 
 
 # 版本说明
 ## 变更
-2025.1.23：首次发布。
+2025.1.23: 首次发布。
 
-2025.4.22： 更新训练脚本，刷新性能数据。
+2025.4.22: 更新训练脚本，刷新性能数据。
 
-2025.5.6：增加多机多卡训练脚本，增加多机多卡训练性能数据。
+2025.5.6: 增加多机多卡训练脚本，增加多机多卡训练性能数据。
+
+2025.7.22: 性能优化，更新patcher方式，刷新性能数据。
 
 ## FAQ
 暂无。
