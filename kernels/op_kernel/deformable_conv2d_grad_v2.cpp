@@ -15,6 +15,8 @@ constexpr uint8_t INT32_BYTE_SIZE = 4;
 constexpr uint8_t BLOCK_BYTE_SIZE = 32;
 constexpr uint8_t BLOCK_COUNT_PER_REPEAT = 8;
 constexpr int32_t INT_TWO = 2;
+constexpr int32_t ELEM_COUNT_PER_REPEAT = 64;
+constexpr int32_t ELEM_COUNT_PER_BLOCK = 8;
 }
 
 constexpr MatmulConfig DEFORMABLE_CONV2D_CFG = GetNormalConfig();
@@ -67,7 +69,6 @@ protected:
     LocalTensor<uint32_t> inGlobalLocal_;
     BrcbRepeatParams brcbParams_;
     CopyRepeatParams copyParams_;
-    uint32_t reduceShape1_[2], reduceShape2_[2];
     
     // tiling
     uint32_t n_, cIn_, hIn_, wIn_, cOut_, hOut_, wOut_, kH_, kW_;
@@ -79,7 +80,9 @@ protected:
     // for vector params
     uint64_t cnt_ = 0, mask_ = 64, maskForBroadcast_;
     uint32_t maskForGatherMask_ = OFFSET_BUFFER_SIZE;
-    uint8_t repeatTimes_;
+    uint8_t repeatTimes_, repeatForMaskGradBlockReduceSum_, repeatForOffsetGradBlockReduceSum_, repeatForMaskGradWholeReduceSum_, repeatForOffsetGradWholeReduceSum_;
+    int32_t maskForBlockReduceSum_, maskForWholeReduceSum_;
+     
     uint32_t cubeCurIterTaskCount1_ = 0, cubeCurIterTaskCount2_ = 0, cubeTsakOffset1_ = 0, cubeTsakOffset2_ = 0;
     float hConstOffset_;
     float wConstOffset_;
@@ -127,12 +130,7 @@ private:
         cubeTsakOffset2_ = globalTaskOffset_;
         featureMapSize_ = hOut_ * wOut_;
         featureMapElementsSize_ = featureMapSize_ * cIn_;
-        
-        reduceShape1_[0] = kH_ * kW_;
-        reduceShape1_[1] = cIn_;
-        reduceShape2_[0] = kH_ * kW_ + kH_ * kW_;
-        reduceShape2_[1] = cIn_;
-        
+
         uint32_t repeatTimesPerInputChannel_ = dataBlockPerInputChannel_ / BLOCK_COUNT_PER_REPEAT;
         repeatTimes_ = kH_ * kW_ * repeatTimesPerInputChannel_;
 
@@ -143,6 +141,13 @@ private:
         hConstOffset_ = kH_ / INT_TWO + 0.0f;
         wConstOffset_ = kW_ / INT_TWO + 0.0f;
         maskForBroadcast_ = dataBlockPerInputChannel_ - BLOCK_COUNT_PER_REPEAT;
+
+        maskForBlockReduceSum_ = ELEM_COUNT_PER_REPEAT;
+        maskForWholeReduceSum_ = cIn_ / ELEM_COUNT_PER_BLOCK;
+        repeatForMaskGradBlockReduceSum_ = (kW_ * kH_ * cIn_) / ELEM_COUNT_PER_REPEAT;
+        repeatForOffsetGradBlockReduceSum_ = (INT_TWO * kW_ * kH_ * cIn_) / ELEM_COUNT_PER_REPEAT;
+        repeatForMaskGradWholeReduceSum_ = kW_ * kH_;
+        repeatForOffsetGradWholeReduceSum_ = INT_TWO * kW_ * kH_;
     }
 
     __aicore__ inline void InitGM(GM_ADDR x, GM_ADDR weight, GM_ADDR bias, GM_ADDR offset, GM_ADDR mask, GM_ADDR gradY,
@@ -451,9 +456,12 @@ __aicore__ inline void DeformableConv2dGradV2Kernel<modulated>::Process()
              mask_, repeatTimes_, { 1, 1, 1, 8, 8, 8 });
         if (modulated) {
             Div(tmpFeatureLocal_, tmpFeatureLocal_, pointWeightBroadcastLocal_, mask_, repeatTimes_, {1, 1, 0, 8, 8, 1});
-            ReduceSum<float, Pattern::Reduce::AR, true>(maskGradLocal_, tmpFeatureLocal_, reduceShape1_, true);
+            BlockReduceSum<float>(tmpFeatureLocal_, tmpFeatureLocal_, repeatForMaskGradBlockReduceSum_, maskForBlockReduceSum_, 1, 1, 8);
+            WholeReduceSum<float>(maskGradLocal_, tmpFeatureLocal_, maskForWholeReduceSum_, repeatForMaskGradWholeReduceSum_, 1, 1, maskForWholeReduceSum_ / 8);
         }
-        ReduceSum<float, Pattern::Reduce::AR, true>(offsetGradLocal_, offsetTmpFeatureLocal1_, reduceShape2_, true);
+        BlockReduceSum<float>(offsetTmpFeatureLocal1_, offsetTmpFeatureLocal1_, repeatForOffsetGradBlockReduceSum_, maskForBlockReduceSum_, 1, 1, 8);
+        WholeReduceSum<float>(offsetGradLocal_, offsetTmpFeatureLocal1_, maskForWholeReduceSum_, repeatForOffsetGradWholeReduceSum_, 1, 1, maskForWholeReduceSum_ / 8);
+
         SetFlag<HardEvent::V_MTE3>(0);
         WaitFlag<HardEvent::V_MTE3>(0);
         CopyOut(taskIdx, innerCubeTaskIdx);
