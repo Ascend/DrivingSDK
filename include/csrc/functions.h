@@ -297,4 +297,6 @@ at::Tensor npu_unique(const at::Tensor& input);
 std::tuple<at::Tensor, at::Tensor> grid_sampler3d_grad_v1(const at::Tensor& grad, const at::Tensor& x, const at::Tensor& grid,
     int64_t interpolation, int64_t padding, const bool align);
 
+at::Tensor graph_softmax(const at::Tensor& src, const at::Tensor& index, int N);
+
 #endif // CSRC_FUNCTIONS_H_

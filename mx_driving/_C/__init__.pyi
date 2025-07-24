@@ -447,7 +447,11 @@ def grid_sampler3d_grad_v1(
     padding: int,
     align: bool,
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
-
+def graph_softmax(
+    src: torch.Tensor,
+    index: torch.Tensor,
+    N: int,
+) -> Tuple[torch.Tensor, torch.Tensor]: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
@@ -503,4 +507,5 @@ __all__ = [
     "cartesian_to_frenet",
     "min_area_polygons",
     "radius",
+    "graph_softmax",
 ]

@@ -5,7 +5,7 @@
         <td align=center>Released</td>
     </tr>
     <tr>
-        <td rowspan=14>通用</td>
+        <td rowspan=15>通用</td>
         <td align=center><a href=./context/hypot.md>hypot</a></td>
         <td align=center>N</td>
     </tr>
@@ -59,6 +59,10 @@
     </tr>
     <tr>
         <td align=center><a href=./context/npu_unique[beta].md>npu_unique[beta]</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/graph_softmax[beta].md>graph_softmax[beta]</a></td>
         <td align=center>N</td>
     </tr>
     <tr>

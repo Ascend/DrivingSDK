@@ -254,4 +254,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // grid_sampler3d_grad_v1
     m.def("grid_sampler3d_grad_v1", &grid_sampler3d_grad_v1);
+
+    // graph_softmax
+    m.def("graph_softmax", &graph_softmax);
 }

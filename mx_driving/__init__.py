@@ -64,6 +64,7 @@ __all__ = [
     "min_area_polygons",
     "radius",
     "npu_unique",
+    "graph_softmax",
 ]
 
 import os
@@ -131,6 +132,7 @@ from .patcher import default_patcher_builder, patch_mmcv_version
 from .ops.radius import radius
 from .ops.min_area_polygons import min_area_polygons
 from .ops.npu_unique import npu_unique
+from .ops.graph_softmax import graph_softmax
 
 
 def _set_env():
