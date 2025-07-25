@@ -12,21 +12,22 @@ index c17e793..adc2e7a 100644
      @property
      def sde(self):
 diff --git a/requirements_torch.txt b/requirements_torch.txt
-index d34f3fc..b99b032 100644
+index d34f3fc..149d073 100644
 --- a/requirements_torch.txt
 +++ b/requirements_torch.txt
-@@ -1,8 +1,7 @@
+@@ -1,8 +1,8 @@
  --find-links https://download.pytorch.org/whl/torch_stable.html
  --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 -torch==2.0.0+cu118
 -torchvision==0.15.1+cu118
-+torchvision==0.15.1
++torchvision==0.16.0
  pytorch_lightning==2.0.1
  tensorboard==2.11.2
  timm==1.0.10
 -mmengine
 \ No newline at end of file
 +mmengine
++wandb
 diff --git a/train_predictor.py b/train_predictor.py
 index b5d399c..9ea0772 100644
 --- a/train_predictor.py

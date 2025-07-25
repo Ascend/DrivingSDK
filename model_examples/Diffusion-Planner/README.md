@@ -30,7 +30,7 @@
 - 参考实现：
     ```
     url=https://github.com/ZhengYinan-AIR/Diffusion-Planner
-    commit 62196099b6e969f532be0ac0b20d1a236ebbfd19
+    commit 5659e494250523a603902e1c3dca0651d2e4c6fa
     ```
 
 - 适配昇腾 AI 处理器的实现：
@@ -89,7 +89,7 @@
   git clone https://github.com/ZhengYinan-AIR/Diffusion-Planner.git && cd Diffusion-Planner
   cp -f ../diffusionPlanner.patch .
   cp -rf ../test .
-  git checkout 62196099b6e969f532be0ac0b20d1a236ebbfd19
+  git checkout 5659e494250523a603902e1c3dca0651d2e4c6fa
   git apply --reject --whitespace=fix diffusionPlanner.patch
   pip install -e .
   pip install -r requirements_torch.txt
