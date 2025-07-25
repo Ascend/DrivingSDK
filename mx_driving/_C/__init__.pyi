@@ -436,7 +436,7 @@ def min_area_polygons(
     pointsets: torch.Tensor
 ) -> torch.Tensor: ...
 def radius(
-    x: torch.Tensor, y: torch.Tensor, ptr_x: torch.Tensor, 
+    x: torch.Tensor, y: torch.Tensor, ptr_x: torch.Tensor,
     ptr_y: torch.Tensor, r: int, max_num_neighbors: int
 ) -> torch.Tensor: ...
 def grid_sampler3d_grad_v1(
@@ -452,6 +452,11 @@ def graph_softmax(
     index: torch.Tensor,
     N: int,
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
+def graph_softmax_grad(
+    index: torch.Tensor,
+    softmax_out: torch.Tensor,
+    grad_output: torch.Tensor,
+) -> torch.Tensor: ...
 __all__ = [
     "knn",
     "npu_three_interpolate",
@@ -508,4 +513,5 @@ __all__ = [
     "min_area_polygons",
     "radius",
     "graph_softmax",
+    "graph_softmax_grad",
 ]

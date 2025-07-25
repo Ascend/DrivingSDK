@@ -299,4 +299,7 @@ std::tuple<at::Tensor, at::Tensor> grid_sampler3d_grad_v1(const at::Tensor& grad
 
 at::Tensor graph_softmax(const at::Tensor& src, const at::Tensor& index, int N);
 
+at::Tensor graph_softmax_grad(const at::Tensor& index,
+    const at::Tensor& softmax_out, const at::Tensor& grad_output, int32_t node_num);
+
 #endif // CSRC_FUNCTIONS_H_

@@ -21,17 +21,16 @@ class GraphSoftmax(Function):
     def forward(ctx, src: torch.Tensor, index: torch.Tensor) -> Tensor:
         N = int(index.max()) + 1
         softmaxResult = mx_driving._C.graph_softmax(src, index.to(torch.int32), N)
-        ctx.save_for_backward(src, index.to(torch.int32), softmaxResult)
+        ctx.save_for_backward(index.to(torch.int32), softmaxResult)
         return softmaxResult
 
     @staticmethod
     def backward(ctx, grad_output):
-        src, index, softmax_out = ctx.saved_tensors
+        index, softmax_out = ctx.saved_tensors
         N = int(index.max()) + 1
-        grad_output = softmax_out * grad_output
-        grad_sum = mx_driving.scatter_add(grad_output, index, None, 0, N)
-        grad_sum = grad_sum.index_select(0, index)
-        grad_src = grad_output - softmax_out * grad_sum
+        grad_src = mx_driving._C.graph_softmax_grad(
+            index, softmax_out, grad_output, N
+        )
         return grad_src, None
 
 

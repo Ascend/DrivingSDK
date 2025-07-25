@@ -257,4 +257,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // graph_softmax
     m.def("graph_softmax", &graph_softmax);
+
+    // graph_softmax_grad
+    m.def("graph_softmax_grad", &graph_softmax_grad);
 }
