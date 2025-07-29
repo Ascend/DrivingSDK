@@ -180,18 +180,37 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
      bash test/train_8p_flashocc_r50_full.sh # 8卡精度
      ```
 
+     - 单机8卡backbone FP16性能训练
+
+     ```
+     bash test/train_8p_flashocc_r50_fp16_backbone_perf.sh
+     ```
+
+     - 单机8卡backbone FP16精度训练
+
+     ```
+     bash test/train_8p_flashocc_r50_fp16_backbone_full.sh
+     ```
+
 #### 训练结果
 
 | 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | 性能-单步迭代耗时(s) | FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: |  :-------------------: |  :-----------------:   |
-| 竞品A           |  8p  |         192         |   fp32    |  24   | 30.14 |        2.95          |   65.03    |
-| Atlas 800T A2 |  8p  |         192         |   fp32    |  24   | 30.27 |          1.91          |   100.44   |
+| 竞品A           |  8p  |         192         |   fp32    |  24   | 30.14 |        2.83          |   67.98    |
+| Atlas 800T A2 |  8p  |         192         |   fp32    |  24   | 30.27 |          1.83          |   104.85   |
+
+#### backbone FP16训练结果
+| 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | 性能-单步迭代耗时(s) | FPS |
+| ------------- | :--: | :---------------: | :-------: | :---: | :----: |  :-------------------: |  :-----------------:   |
+| Atlas 800T A2 |  8p  |         192         |   backbone fp16    |  24   | 30.15 |          1.52          |   126.31   |
 
 # 变更说明
 
 2025.3.13：首次发布。
 
 2025.4.28：性能优化。
+
+2025.7.23：优化fps计算方式，添加backbone fp16混合精度训练。
 
 # FAQ
 

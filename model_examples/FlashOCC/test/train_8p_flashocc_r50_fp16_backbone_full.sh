@@ -6,10 +6,10 @@ DEVICE_TYPE=$(uname -m)
 
 WORLD_SIZE=8
 BATCH_SIZE=24
-TOTAL_EPOCHS=1
+TOTAL_EPOCHS=24
 
 # 训练用例名称
-CASE_NAME=${NETWORK}_${WORLD_SIZE}p_bs${BATCH_SIZE}_e${TOTAL_EPOCHS}_perf
+CASE_NAME=${NETWORK}_${WORLD_SIZE}p_bs${BATCH_SIZE}_e${TOTAL_EPOCHS}_full
 echo "[FlashOCC] CASE_NAME = ${CASE_NAME}"
 
 # 创建输出目录
@@ -63,14 +63,14 @@ sed -i 's/^from ...ops import nearest_assign/# from ...ops import nearest_assign
 sed -i 's/^\(\s*\)is_cuda\s*=\s*True/\1is_cuda = False/' projects/mmdet3d_plugin/models/detectors/bevdet_occ.py
 
 # 每个step打印时间
-sed -i 's/interval=50,/interval=1,/g' mmdetection3d/configs/_base_/default_runtime.py
+sed -i 's/interval=1,/interval=50,/g' mmdetection3d/configs/_base_/default_runtime.py
 
 # 训练开始时间
 start_time=$(date +%s)
 
 # 开始训练
 echo "[FlashOCC] Training..."
-bash ./tools/dist_train.sh ./projects/configs/flashocc/flashocc-r50-perf.py ${WORLD_SIZE} --work-dir ${OUTPUT_PATH}/work_dir > ${OUTPUT_PATH}/train.log 2>&1 &
+bash ./tools/dist_train_fp16_backbone.sh ./projects/configs/flashocc/flashocc-r50.py ${WORLD_SIZE} --work-dir ${OUTPUT_PATH}/work_dir > ${OUTPUT_PATH}/train.log 2>&1 &
 wait
 
 # 训练结束时间
@@ -83,11 +83,15 @@ echo "------------------ Final result ------------------"
 e2e_time=$(($end_time - $start_time))
 echo "[FlashOCC] E2E Training Time (sec) : ${e2e_time}"
 
-avg_time=`grep -a 'mmdet - INFO - Epoch ' ${OUTPUT_PATH}/train.log |awk -F "time: " '{print $2}' | awk -F ", " '{print $1}' | awk 'NR>10 {sum+=$1; count++} END {if (count != 0) printf("%.3f",sum/count)}'`
-fps_value=$(awk BEGIN'{print ('$BATCH_SIZE' * '$WORLD_SIZE')/'$avg_time'}')
-
-# 吞吐量
-echo "[FlashOCC] Final Performance images/sec : ${fps_value}"
+# 验证精度
+if [[ ${TOTAL_EPOCHS} == 24 ]]; then
+    # 验证精度
+    echo "[FlashOCC] Evaluating ..."
+    bash ./tools/dist_test.sh ./projects/configs/flashocc/flashocc-r50.py ${OUTPUT_PATH}/work_dir/epoch_24_ema.pth ${WORLD_SIZE} --eval mAP > ${OUTPUT_PATH}/eval_result.log 2>&1 &
+    wait
+    mIoU=$(grep -o "mIoU of 6019 samples: [0-9.]*" ${OUTPUT_PATH}/eval_result.log | awk 'END {print $NF}')
+    echo "[FlashOCC] mIoU : ${mIoU}"
+fi
 
 # 将关键信息打印到 ${CASE_NAME}.log 中
 echo "Network = ${NETWORK}" > ${OUTPUT_PATH}/${CASE_NAME}.log
@@ -96,4 +100,6 @@ echo "RankSize = ${WORLD_SIZE}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "BatchSize = ${BATCH_SIZE}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "CaseName = ${CASE_NAME}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "E2ETrainingTime = ${e2e_time}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
-echo "ActualFPS = ${fps_value}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
+if [[ ${TOTAL_EPOCHS} == 24 ]]; then
+    echo "mIoU = ${mIoU}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
+fi

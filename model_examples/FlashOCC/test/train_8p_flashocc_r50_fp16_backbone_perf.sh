@@ -70,7 +70,7 @@ start_time=$(date +%s)
 
 # 开始训练
 echo "[FlashOCC] Training..."
-bash ./tools/dist_train.sh ./projects/configs/flashocc/flashocc-r50-perf.py ${WORLD_SIZE} --work-dir ${OUTPUT_PATH}/work_dir > ${OUTPUT_PATH}/train.log 2>&1 &
+bash ./tools/dist_train_fp16_backbone.sh ./projects/configs/flashocc/flashocc-r50-perf.py ${WORLD_SIZE} --work-dir ${OUTPUT_PATH}/work_dir > ${OUTPUT_PATH}/train.log 2>&1 &
 wait
 
 # 训练结束时间

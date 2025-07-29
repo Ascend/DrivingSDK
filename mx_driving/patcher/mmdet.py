@@ -119,3 +119,28 @@ def resnet_maxpool(mmdetresnet: ModuleType, options: Dict):
             return tuple(out)
 
         mmdetresnet.ResNet.forward = forward
+
+
+def resnet_fp16(mmdetresnet: ModuleType, options: Dict):
+    if hasattr(mmdetresnet, "ResNet"):
+
+        def forward(self, x):
+            import torch
+            with torch.autocast(device_type="npu", dtype=torch.float16):
+                """Forward function."""
+                if self.deep_stem:
+                    x = self.stem(x)
+                else:
+                    x = self.conv1(x)
+                    x = self.norm1(x)
+                    x = self.relu(x)
+                x = self.maxpool(x)
+                outs = []
+                for i, layer_name in enumerate(self.res_layers):
+                    res_layer = getattr(self, layer_name)
+                    x = res_layer(x)
+                    if i in self.out_indices:
+                        outs.append(x)
+            return tuple([out.float() for out in tuple(outs)])
+
+        mmdetresnet.ResNet.forward = forward

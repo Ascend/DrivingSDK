@@ -62,6 +62,9 @@ sed -i 's/^from multiprocessing.dummy import Pool as ThreadPool/# from multiproc
 sed -i 's/^from ...ops import nearest_assign/# from ...ops import nearest_assign/' projects/mmdet3d_plugin/models/detectors/bevdet_occ.py
 sed -i 's/^\(\s*\)is_cuda\s*=\s*True/\1is_cuda = False/' projects/mmdet3d_plugin/models/detectors/bevdet_occ.py
 
+# 每个step打印时间
+sed -i 's/interval=1,/interval=50,/g' mmdetection3d/configs/_base_/default_runtime.py
+
 # 训练开始时间
 start_time=$(date +%s)
 

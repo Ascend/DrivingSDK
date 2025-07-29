@@ -44,6 +44,7 @@ __all__ = [
     "stream",
     "resnet_add_relu",
     "resnet_maxpool",
+    "resnet_fp16",
     "nuscenes_dataset",
     "nuscenes_metric",
     "nuscenes_mot_metric",
@@ -53,7 +54,7 @@ __all__ = [
 from mx_driving.patcher.distribute import ddp, ddp_forward
 from mx_driving.patcher.functions import stream
 from mx_driving.patcher.mmcv import dc, mdc, msda, patch_mmcv_version
-from mx_driving.patcher.mmdet import pseudo_sampler, resnet_add_relu, resnet_maxpool
+from mx_driving.patcher.mmdet import pseudo_sampler, resnet_add_relu, resnet_maxpool, resnet_fp16
 from mx_driving.patcher.mmdet3d import nuscenes_dataset, nuscenes_metric
 from mx_driving.patcher.numpy import numpy_type
 from mx_driving.patcher.optimizer import optimizer_hooks, optimizer_wrapper
