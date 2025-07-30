@@ -173,6 +173,7 @@ DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模�
 | BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
 | YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |N|
 | VGGT  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VGGT |N|
+| MapTRv2  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTRv2 |N|
 # 支持的产品型号
 - Atlas A2 训练系列产品
 

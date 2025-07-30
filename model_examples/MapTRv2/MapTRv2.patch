@@ -1,0 +1,752 @@
+diff --git a/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py b/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py
+new file mode 100644
+index 0000000..e1020fd
+--- /dev/null
++++ b/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py
+@@ -0,0 +1,337 @@
++_base_ = [
++    '../datasets/custom_nus-3d.py',
++    '../_base_/default_runtime.py'
++]
++#
++plugin = True
++plugin_dir = 'projects/mmdet3d_plugin/'
++
++# If point cloud range is changed, the models should also change their point
++# cloud range accordingly
++# point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
++point_cloud_range = [-15.0, -30.0,-10.0, 15.0, 30.0, 10.0]
++voxel_size = [0.15, 0.15, 20.0]
++dbound=[1.0, 35.0, 0.5]
++
++grid_config = {
++    'x': [-30.0, -30.0, 0.15], # useless
++    'y': [-15.0, -15.0, 0.15], # useless
++    'z': [-10, 10, 20],        # useless
++    'depth': [1.0, 35.0, 0.5], # useful
++}
++
++
++img_norm_cfg = dict(
++    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
++
++# For nuScenes we usually do 10-class detection
++class_names = [
++    'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
++    'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
++]
++# map has classes: divider, ped_crossing, boundary
++map_classes = ['divider', 'ped_crossing','boundary']
++# fixed_ptsnum_per_line = 20
++# map_classes = ['divider',]
++num_vec=50
++fixed_ptsnum_per_gt_line = 20 # now only support fixed_pts > 0
++fixed_ptsnum_per_pred_line = 20
++eval_use_same_gt_sample_num_flag=True
++num_map_classes = len(map_classes)
++
++input_modality = dict(
++    use_lidar=False,
++    use_camera=True,
++    use_radar=False,
++    use_map=False,
++    use_external=True)
++
++_dim_ = 256
++_pos_dim_ = _dim_//2
++_ffn_dim_ = _dim_*2
++_num_levels_ = 1
++# bev_h_ = 50
++# bev_w_ = 50
++bev_h_ = 200
++bev_w_ = 100
++queue_length = 1 # each sequence contains `queue_length` frames.
++
++aux_seg_cfg = dict(
++    use_aux_seg=True,
++    bev_seg=True,
++    pv_seg=True,
++    seg_classes=1,
++    feat_down_sample=32,
++    pv_thickness=1,
++)
++
++model = dict(
++    type='MapTRv2',
++    use_grid_mask=True,
++    video_test_mode=False,
++    pretrained=dict(img='ckpts/resnet50-19c8e357.pth'),
++    img_backbone=dict(
++        type='ResNet',
++        depth=50,
++        num_stages=4,
++        out_indices=(3,),
++        frozen_stages=1,
++        norm_cfg=dict(type='BN', requires_grad=False),
++        norm_eval=True,
++        style='pytorch'),
++    img_neck=dict(
++        type='FPN',
++        in_channels=[2048],
++        out_channels=_dim_,
++        start_level=0,
++        add_extra_convs='on_output',
++        num_outs=_num_levels_,
++        relu_before_extra_convs=True),
++    pts_bbox_head=dict(
++        type='MapTRv2Head',
++        bev_h=bev_h_,
++        bev_w=bev_w_,
++        num_query=900,
++        num_vec_one2one=50,
++        num_vec_one2many=300,
++        k_one2many=6,
++        num_pts_per_vec=fixed_ptsnum_per_pred_line, # one bbox
++        num_pts_per_gt_vec=fixed_ptsnum_per_gt_line,
++        dir_interval=1,
++        query_embed_type='instance_pts',
++        transform_method='minmax',
++        gt_shift_pts_pattern='v2',
++        num_classes=num_map_classes,
++        in_channels=_dim_,
++        sync_cls_avg_factor=True,
++        with_box_refine=True,
++        as_two_stage=False,
++        code_size=2,
++        code_weights=[1.0, 1.0, 1.0, 1.0],
++        aux_seg=aux_seg_cfg,
++        # z_cfg=z_cfg,
++        transformer=dict(
++            type='MapTRPerceptionTransformer',
++            rotate_prev_bev=True,
++            use_shift=True,
++            use_can_bus=True,
++            embed_dims=_dim_,
++            encoder=dict(
++                type='LSSTransform',
++                in_channels=_dim_,
++                out_channels=_dim_,
++                feat_down_sample=32,
++                pc_range=point_cloud_range,
++                voxel_size=voxel_size,
++                dbound=dbound,
++                downsample=2,
++                loss_depth_weight=3.0,
++                depthnet_cfg=dict(use_dcn=False, with_cp=False, aspp_mid_channels=96),
++                grid_config=grid_config,),
++            decoder=dict(
++                type='MapTRDecoder',
++                num_layers=6,
++                return_intermediate=True,
++                transformerlayers=dict(
++                    type='DecoupledDetrTransformerDecoderLayer',
++                    num_vec=num_vec,
++                    num_pts_per_vec=fixed_ptsnum_per_pred_line,
++                    attn_cfgs=[
++                        dict(
++                            type='MultiheadAttention',
++                            embed_dims=_dim_,
++                            num_heads=8,
++                            dropout=0.1),
++                        dict(
++                            type='MultiheadAttention',
++                            embed_dims=_dim_,
++                            num_heads=8,
++                            dropout=0.1),
++                         dict(
++                            type='CustomMSDeformableAttention',
++                            embed_dims=_dim_,
++                            num_levels=1),
++                    ],
++
++                    feedforward_channels=_ffn_dim_,
++                    ffn_dropout=0.1,
++                    operation_order=('self_attn', 'norm', 'self_attn', 'norm','cross_attn', 'norm',
++                                     'ffn', 'norm')))),
++        bbox_coder=dict(
++            type='MapTRNMSFreeCoder',
++            # post_center_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
++            post_center_range=[-20, -35, -20, -35, 20, 35, 20, 35],
++            pc_range=point_cloud_range,
++            max_num=50,
++            voxel_size=voxel_size,
++            num_classes=num_map_classes),
++        positional_encoding=dict(
++            type='LearnedPositionalEncoding',
++            num_feats=_pos_dim_,
++            row_num_embed=bev_h_,
++            col_num_embed=bev_w_,
++            ),
++        loss_cls=dict(
++            type='FocalLoss',
++            use_sigmoid=True,
++            gamma=2.0,
++            alpha=0.25,
++            loss_weight=2.0),
++        loss_bbox=dict(type='L1Loss', loss_weight=0.0),
++        loss_iou=dict(type='GIoULoss', loss_weight=0.0),
++        loss_pts=dict(type='PtsL1Loss',
++                      loss_weight=5.0),
++        loss_dir=dict(type='PtsDirCosLoss', loss_weight=0.005),
++        loss_seg=dict(type='SimpleLoss',
++            pos_weight=4.0,
++            loss_weight=1.0),
++        loss_pv_seg=dict(type='SimpleLoss',
++                    pos_weight=1.0,
++                    loss_weight=2.0),),
++    # model training and testing settings
++    train_cfg=dict(pts=dict(
++        grid_size=[512, 512, 1],
++        voxel_size=voxel_size,
++        point_cloud_range=point_cloud_range,
++        out_size_factor=4,
++        assigner=dict(
++            type='MapTRAssigner',
++            cls_cost=dict(type='FocalLossCost', weight=2.0),
++            reg_cost=dict(type='BBoxL1Cost', weight=0.0, box_format='xywh'),
++            # reg_cost=dict(type='BBox3DL1Cost', weight=0.25),
++            # iou_cost=dict(type='IoUCost', weight=1.0), # Fake cost. This is just to make it compatible with DETR head.
++            iou_cost=dict(type='IoUCost', iou_mode='giou', weight=0.0),
++            pts_cost=dict(type='OrderedPtsL1Cost',
++                      weight=5),
++            pc_range=point_cloud_range))))
++
++dataset_type = 'CustomNuScenesOfflineLocalMapDataset'
++data_root = 'data/nuscenes/'
++file_client_args = dict(backend='disk')
++
++
++train_pipeline = [
++    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
++    dict(type='RandomScaleImageMultiViewImage', scales=[0.5]),
++    dict(type='PhotoMetricDistortionMultiViewImage'),
++    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
++    dict(
++        type='LoadPointsFromFile',
++        coord_type='LIDAR',
++        load_dim=5,
++        use_dim=5,
++        file_client_args=file_client_args),
++    dict(type='CustomPointToMultiViewDepth', downsample=1, grid_config=grid_config),
++    dict(type='PadMultiViewImageDepth', size_divisor=32),
++    dict(type='DefaultFormatBundle3D', with_gt=False, with_label=False,class_names=map_classes),
++    dict(type='CustomCollect3D', keys=['img', 'gt_depth'])
++]
++
++test_pipeline = [
++    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
++    dict(type='RandomScaleImageMultiViewImage', scales=[0.5]),
++    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
++
++    dict(
++        type='MultiScaleFlipAug3D',
++        img_scale=(1600, 900),
++        pts_scale_ratio=1,
++        flip=False,
++        transforms=[
++            dict(type='PadMultiViewImage', size_divisor=32),
++            dict(
++                type='DefaultFormatBundle3D',
++                with_gt=False,
++                with_label=False,
++                class_names=map_classes),
++            dict(type='CustomCollect3D', keys=['img'])
++        ])
++]
++
++data = dict(
++    samples_per_gpu=4,
++    workers_per_gpu=4, # TODO
++    train=dict(
++        type=dataset_type,
++        data_root=data_root,
++        ann_file=data_root + 'nuscenes_map_infos_temporal_train.pkl',
++        pipeline=train_pipeline,
++        classes=class_names,
++        modality=input_modality,
++        aux_seg=aux_seg_cfg,
++        test_mode=False,
++        use_valid_flag=True,
++        bev_size=(bev_h_, bev_w_),
++        pc_range=point_cloud_range,
++        fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
++        eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
++        padding_value=-10000,
++        map_classes=map_classes,
++        queue_length=queue_length,
++        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
++        # and box_type_3d='Depth' in sunrgbd and scannet dataset.
++        box_type_3d='LiDAR'),
++    val=dict(
++        type=dataset_type,
++        data_root=data_root,
++        ann_file=data_root + 'nuscenes_map_infos_temporal_val.pkl',
++        map_ann_file=data_root + 'nuscenes_map_anns_val.json',
++        pipeline=test_pipeline,  bev_size=(bev_h_, bev_w_),
++        pc_range=point_cloud_range,
++        fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
++        eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
++        padding_value=-10000,
++        map_classes=map_classes,
++        classes=class_names, modality=input_modality, samples_per_gpu=1),
++    test=dict(
++        type=dataset_type,
++        data_root=data_root,
++        ann_file=data_root + 'nuscenes_map_infos_temporal_val.pkl',
++        map_ann_file=data_root + 'nuscenes_map_anns_val.json',
++        pipeline=test_pipeline,
++        bev_size=(bev_h_, bev_w_),
++        pc_range=point_cloud_range,
++        fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
++        eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
++        padding_value=-10000,
++        map_classes=map_classes,
++        classes=class_names,
++        modality=input_modality),
++    shuffler_sampler=dict(type='DistributedGroupSampler'),
++    nonshuffler_sampler=dict(type='DistributedSampler')
++)
++
++optimizer = dict(
++    type='AdamW',
++    lr=6e-4,
++    paramwise_cfg=dict(
++        custom_keys={
++            'img_backbone': dict(lr_mult=0.1),
++        }),
++    weight_decay=0.01)
++
++optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
++# learning policy
++lr_config = dict(
++    policy='CosineAnnealing',
++    warmup='linear',
++    warmup_iters=500,
++    warmup_ratio=1.0 / 3,
++    min_lr_ratio=1e-3)
++total_epochs = 1
++evaluation = dict(interval=2, pipeline=test_pipeline, metric='chamfer',
++                  save_best='NuscMap_chamfer/mAP', rule='greater')
++# total_epochs = 50
++# evaluation = dict(interval=1, pipeline=test_pipeline)
++
++runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
++
++log_config = dict(
++    interval=50,
++    hooks=[
++        dict(type='TextLoggerHook'),
++        dict(type='TensorboardLoggerHook')
++    ])
++fp16 = dict(loss_scale=512.)
++checkpoint_config = dict(max_keep_ckpts=1, interval=2)
++find_unused_parameters=True
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/bevformer/apis/mmdet_train.py b/projects/mmdet3d_plugin/bevformer/apis/mmdet_train.py
+index e57bd22..03c3589 100644
+--- a/projects/mmdet3d_plugin/bevformer/apis/mmdet_train.py
++++ b/projects/mmdet3d_plugin/bevformer/apis/mmdet_train.py
+@@ -9,7 +9,7 @@ import warnings
+ import numpy as np
+ import torch
+ import torch.distributed as dist
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
+                          Fp16OptimizerHook, OptimizerHook, build_optimizer,
+                          build_runner, get_dist_info)
+@@ -72,22 +72,22 @@ def custom_train_detector(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+         if eval_model is not None:
+-            eval_model = MMDistributedDataParallel(
++            eval_model = NPUDistributedDataParallel(
+                 eval_model.cuda(),
+                 device_ids=[torch.cuda.current_device()],
+                 broadcast_buffers=False,
+                 find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+         if eval_model is not None:
+-            eval_model = MMDataParallel(
++            eval_model = NPUDataParallel(
+                 eval_model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+
+
+diff --git a/projects/mmdet3d_plugin/bevformer/modules/decoder.py b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
+index 33024f8..16a3c5e 100644
+--- a/projects/mmdet3d_plugin/bevformer/modules/decoder.py
++++ b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
+@@ -14,6 +14,11 @@ import numpy as np
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
++
++import torch_npu
++import mx_driving
++from mx_driving.fused import npu_multi_scale_deformable_attn_function
++
+ from mmcv.cnn import xavier_init, constant_init
+ from mmcv.cnn.bricks.registry import (ATTENTION,
+                                       TRANSFORMER_LAYER_SEQUENCE)
+@@ -324,17 +329,7 @@ class CustomMSDeformableAttention(BaseModule):
+                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
+         if torch.cuda.is_available() and value.is_cuda:
+
+-            # using fp16 deformable attention is unstable because it performs many sum operations
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
+-        else:
+-            output = multi_scale_deformable_attn_pytorch(
+-                value, spatial_shapes, sampling_locations, attention_weights)
++            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
+
+         output = self.output_proj(output)
+
+diff --git a/projects/mmdet3d_plugin/datasets/builder.py b/projects/mmdet3d_plugin/datasets/builder.py
+index 0ad7a92..02f942f 100644
+--- a/projects/mmdet3d_plugin/datasets/builder.py
++++ b/projects/mmdet3d_plugin/datasets/builder.py
+@@ -86,7 +86,8 @@ def build_dataloader(dataset,
+         sampler=sampler,
+         num_workers=num_workers,
+         collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
+-        pin_memory=False,
++        pin_memory=True,
++        persistent_workers=True,
+         worker_init_fn=init_fn,
+         **kwargs)
+
+diff --git a/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py b/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
+index 47cea8c..0ba44d8 100644
+--- a/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
++++ b/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
+@@ -73,6 +73,127 @@ def denormalize_2d_pts(pts, pc_range):
+                             pc_range[1]) + pc_range[1])
+     return new_pts
+
++import copy
++
++import multiprocessing as mp
++import numpy as np
++from mmdet.datasets import DATASETS
++from mmdet3d.datasets import NuScenesDataset
++import mmcv
++import os
++from os import path as osp
++from mmdet.datasets import DATASETS
++import torch
++import numpy as np
++from nuscenes.eval.common.utils import quaternion_yaw, Quaternion
++from projects.mmdet3d_plugin.models.utils.visual import save_tensor
++from mmcv.parallel import DataContainer as DC
++import random
++
++from nuscenes.map_expansion.map_api import NuScenesMap, NuScenesMapExplorer
++from nuscenes.eval.common.utils import quaternion_yaw, Quaternion
++from shapely import affinity, ops
++from shapely.geometry import LineString, box, MultiPolygon, MultiLineString
++from mmdet.datasets.pipelines import to_tensor
++import json
++import cv2
++
++
++
++def fixed_num_sampled_points(instance_list, fixed_num, max_x, max_y):
++    """
++    return torch.Tensor([N,fixed_num,2]), in xmin, ymin, xmax, ymax form
++        N means the num of instances
++    """
++    assert len(instance_list) != 0
++    instance_points_list = []
++    for instance in instance_list:
++        distances = np.linspace(0, instance.length, fixed_num)
++        sampled_points = np.array(
++            [list(instance.interpolate(distance).coords) for distance in distances]).reshape(-1, 2)
++        instance_points_list.append(sampled_points)
++    instance_points_array = np.array(instance_points_list)
++    instance_points_tensor = to_tensor(instance_points_array)
++    instance_points_tensor = instance_points_tensor.to(
++        dtype=torch.float32)
++    instance_points_tensor[:, :, 0] = torch.clamp(instance_points_tensor[:, :, 0], min=-max_x,
++                                                  max=max_x)
++    instance_points_tensor[:, :, 1] = torch.clamp(instance_points_tensor[:, :, 1], min=-max_y,
++                                                  max=max_y)
++    return instance_points_tensor
++
++
++def shift_fixed_num_sampled_points_v2(instance_list, instance_labels, fixed_num, max_x, max_y, padding_value):
++    """
++    return  [instances_num, num_shifts, fixed_num, 2]
++    """
++    assert len(instance_list) != 0
++    instances_list = []
++    for idx, instance in enumerate(instance_list):
++        # import ipdb;ipdb.set_trace()
++        instance_label = instance_labels[idx]
++        distances = np.linspace(0, instance.length, fixed_num)
++        poly_pts = np.array(list(instance.coords))
++        start_pts = poly_pts[0]
++        end_pts = poly_pts[-1]
++        is_poly = np.equal(start_pts, end_pts)
++        is_poly = is_poly.all()
++        shift_pts_list = []
++        pts_num, coords_num = poly_pts.shape
++        shift_num = pts_num - 1
++        final_shift_num = fixed_num - 1
++        if instance_label == 3:
++            # import ipdb;ipdb.set_trace()
++            sampled_points = np.array(
++                [list(instance.interpolate(distance).coords) for distance in distances]).reshape(-1, 2)
++            shift_pts_list.append(sampled_points)
++        else:
++            if is_poly:
++                pts_to_shift = poly_pts[:-1, :]
++                for shift_right_i in range(shift_num):
++                    shift_pts = np.roll(pts_to_shift, shift_right_i, axis=0)
++                    pts_to_concat = shift_pts[0]
++                    pts_to_concat = np.expand_dims(pts_to_concat, axis=0)
++                    shift_pts = np.concatenate((shift_pts, pts_to_concat), axis=0)
++                    shift_instance = LineString(shift_pts)
++                    shift_sampled_points = np.array(
++                        [list(shift_instance.interpolate(distance).coords) for distance in distances]).reshape(
++                        -1, 2)
++                    shift_pts_list.append(shift_sampled_points)
++                # import pdb;pdb.set_trace()
++            else:
++                sampled_points = np.array(
++                    [list(instance.interpolate(distance).coords) for distance in distances]).reshape(-1, 2)
++                flip_sampled_points = np.flip(sampled_points, axis=0)
++                shift_pts_list.append(sampled_points)
++                shift_pts_list.append(flip_sampled_points)
++
++        multi_shifts_pts = np.stack(shift_pts_list, axis=0)
++        shifts_num, _, _ = multi_shifts_pts.shape
++
++        if shifts_num > final_shift_num:
++            index = np.random.choice(multi_shifts_pts.shape[0], final_shift_num, replace=False)
++            multi_shifts_pts = multi_shifts_pts[index]
++
++        multi_shifts_pts_tensor = to_tensor(multi_shifts_pts)
++        multi_shifts_pts_tensor = multi_shifts_pts_tensor.to(
++            dtype=torch.float32)
++
++        multi_shifts_pts_tensor[:, :, 0] = torch.clamp(multi_shifts_pts_tensor[:, :, 0], min=-max_x,
++                                                       max=max_x)
++        multi_shifts_pts_tensor[:, :, 1] = torch.clamp(multi_shifts_pts_tensor[:, :, 1], min=-max_y,
++                                                       max=max_y)
++        # if not is_poly:
++        if multi_shifts_pts_tensor.shape[0] < final_shift_num:
++            padding = torch.full([final_shift_num - multi_shifts_pts_tensor.shape[0], fixed_num, 2],
++                                 padding_value)
++            multi_shifts_pts_tensor = torch.cat([multi_shifts_pts_tensor, padding], dim=0)
++        instances_list.append(multi_shifts_pts_tensor)
++    instances_tensor = torch.stack(instances_list, dim=0)
++    instances_tensor = instances_tensor.to(
++        dtype=torch.float32)
++    return instances_tensor
++
+
+ @HEADS.register_module()
+ class MapTRv2Head(DETRHead):
+@@ -194,6 +315,8 @@ class MapTRv2Head(DETRHead):
+
+         self._init_layers()
+
++        self.pool = mp.Pool(processes=4)
++
+     def _init_layers(self):
+         """Initialize classification branch and regression branch of head."""
+         cls_branch = []
+@@ -802,10 +925,20 @@ class MapTRv2Head(DETRHead):
+         # import pdb;pdb.set_trace()
+         # gt_bboxes_list = [
+         #     gt_bboxes.to(device) for gt_bboxes in gt_bboxes_list]
++
++
+         gt_bboxes_list = [
+             gt_bboxes.bbox.to(device) for gt_bboxes in gt_vecs_list]
+-        gt_pts_list = [
+-            gt_bboxes.fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
++
++        gt_bboxes_args_list = [
++            (gt_bboxes.instance_list, gt_bboxes.fixed_num, gt_bboxes.max_x, gt_bboxes.max_y)
++            for gt_bboxes in gt_vecs_list]
++        res = self.pool.starmap(fixed_num_sampled_points, gt_bboxes_args_list)
++        gt_pts_list = [i.to(device) for i in res]
++        # gt_pts_list = [
++        #     gt_bboxes.fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
++
++
+         if self.gt_shift_pts_pattern == 'v0':
+             gt_shifts_pts_list = [
+                 gt_bboxes.shift_fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
+@@ -813,8 +946,13 @@ class MapTRv2Head(DETRHead):
+             gt_shifts_pts_list = [
+                 gt_bboxes.shift_fixed_num_sampled_points_v1.to(device) for gt_bboxes in gt_vecs_list]
+         elif self.gt_shift_pts_pattern == 'v2':
+-            gt_shifts_pts_list = [
+-                gt_bboxes.shift_fixed_num_sampled_points_v2.to(device) for gt_bboxes in gt_vecs_list]
++            gt_bboxes_args_list = [
++                (gt_bboxes.instance_list,gt_bboxes.instance_labels, gt_bboxes.fixed_num, gt_bboxes.max_x, gt_bboxes.max_y,gt_bboxes.padding_value)
++                for gt_bboxes in gt_vecs_list]
++            res = self.pool.starmap(shift_fixed_num_sampled_points_v2, gt_bboxes_args_list)
++            gt_shifts_pts_list = [i.to(device) for i in res]
++            # gt_shifts_pts_list = [
++            #     gt_bboxes.shift_fixed_num_sampled_points_v2.to(device) for gt_bboxes in gt_vecs_list]
+         elif self.gt_shift_pts_pattern == 'v3':
+             gt_shifts_pts_list = [
+                 gt_bboxes.shift_fixed_num_sampled_points_v3.to(device) for gt_bboxes in gt_vecs_list]
+diff --git a/projects/mmdet3d_plugin/maptr/modules/__init__.py b/projects/mmdet3d_plugin/maptr/modules/__init__.py
+index f2c624f..61511d9 100644
+--- a/projects/mmdet3d_plugin/maptr/modules/__init__.py
++++ b/projects/mmdet3d_plugin/maptr/modules/__init__.py
+@@ -1,5 +1,4 @@
+ from .transformer import MapTRPerceptionTransformer
+ from .decoder import MapTRDecoder, DecoupledDetrTransformerDecoderLayer
+-from .geometry_kernel_attention import GeometrySptialCrossAttention, GeometryKernelAttention
+ from .builder import build_fuser
+ from .encoder import LSSTransform
+\ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/maptr/modules/encoder.py b/projects/mmdet3d_plugin/maptr/modules/encoder.py
+index fc34528..ad3db3b 100644
+--- a/projects/mmdet3d_plugin/maptr/modules/encoder.py
++++ b/projects/mmdet3d_plugin/maptr/modules/encoder.py
+@@ -5,8 +5,8 @@ import torch.nn as nn
+ from mmcv.cnn.bricks.registry import (ATTENTION,
+                                       TRANSFORMER_LAYER,
+                                       TRANSFORMER_LAYER_SEQUENCE)
+-from mmdet3d.ops import bev_pool
+-from mmdet3d.ops.bev_pool_v2.bev_pool import bev_pool_v2
++import torch_npu
++from mx_driving.point import bev_pool, bev_pool_v2
+ from mmcv.runner import force_fp32, auto_fp16
+ from torch.cuda.amp.autocast_mode import autocast
+ from mmcv.cnn import build_conv_layer
+@@ -109,32 +109,30 @@ class BaseTransform(BaseModule):
+             # self.D = self.frustum.shape[0]
+
+         # undo post-transformation
+-        # B x N x D x H x W x 3
+         points = self.frustum - post_trans.view(B, N, 1, 1, 1, 3)
++        B, N, D2, D3, D4, D5 = points.shape
++        points = points.view(B, N, D2*D3*D4,D5).permute(0,1,3,2)
+         points = (
+             torch.inverse(post_rots)
+-            .view(B, N, 1, 1, 1, 3, 3)
+-            .matmul(points.unsqueeze(-1))
+-        )
+-        # cam_to_ego
++            .matmul(points)
++            )
++        temp_points = points[:, :, 2:3, :]
+         points = torch.cat(
+-            (
+-                points[:, :, :, :, :, :2] * points[:, :, :, :, :, 2:3],
+-                points[:, :, :, :, :, 2:3],
+-            ),
+-            5,
+-        )
++                (
++                    points[:, :, :2, :] * temp_points,
++                    temp_points,
++                ),
++                -2,
++            )
+         combine = rots.matmul(torch.inverse(intrins))
+-        points = combine.view(B, N, 1, 1, 1, 3, 3).matmul(points).squeeze(-1)
+-        points += trans.view(B, N, 1, 1, 1, 3)
+-        # ego_to_lidar
+-        points -= lidar2ego_trans.view(B, 1, 1, 1, 1, 3)
+-        points = (
+-            torch.inverse(lidar2ego_rots)
+-            .view(B, 1, 1, 1, 1, 3, 3)
+-            .matmul(points.unsqueeze(-1))
+-            .squeeze(-1)
+-        )
++        points = combine.matmul(points)
++        points += trans.unsqueeze(-1)
++        points -= lidar2ego_trans.view(B, 1, 3, 1)
++        points=(
++        torch.inverse(lidar2ego_rots)
++        .view(B, 1, 3, 3)
++        .matmul(points)
++        ).permute(0,1, 3, 2).view(B, N, D2, D3, D4, D5)
+
+         if "extra_rots" in kwargs:
+             extra_rots = kwargs["extra_rots"]
+diff --git a/projects/mmdet3d_plugin/models/backbones/efficientnet.py b/projects/mmdet3d_plugin/models/backbones/efficientnet.py
+index 82556ec..d0d70b5 100644
+--- a/projects/mmdet3d_plugin/models/backbones/efficientnet.py
++++ b/projects/mmdet3d_plugin/models/backbones/efficientnet.py
+@@ -153,7 +153,7 @@ def model_scaling(layer_setting, arch_setting):
+     return merge_layer_setting
+
+
+-@BACKBONES.register_module()
++@BACKBONES.register_module(force=True)
+ class EfficientNet(BaseModule):
+     """EfficientNet backbone.
+     Args:
+diff --git a/tools/test.py b/tools/test.py
+index fd2cf45..fe1d79f 100644
+--- a/tools/test.py
++++ b/tools/test.py
+@@ -24,6 +24,9 @@ from mmdet.datasets import replace_ImageToTensor
+ import time
+ import os.path as osp
+
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
+
+ def parse_args():
+     parser = argparse.ArgumentParser(
+@@ -92,7 +95,7 @@ def parse_args():
+         choices=['none', 'pytorch', 'slurm', 'mpi'],
+         default='none',
+         help='job launcher')
+-    parser.add_argument('--local_rank', type=int, default=0)
++    parser.add_argument('--local-rank', type=int, default=0)
+     args = parser.parse_args()
+     if 'LOCAL_RANK' not in os.environ:
+         os.environ['LOCAL_RANK'] = str(args.local_rank)
+diff --git a/tools/train.py b/tools/train.py
+index da1f761..376f848 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -29,6 +29,11 @@ from mmseg import __version__ as mmseg_version
+
+ from mmcv.utils import TORCH_VERSION, digit_version
+
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++from mindspeed.optimizer.adamw import AdamW
++torch.optim.AdamW = AdamW
++
+
+ def parse_args():
+     parser = argparse.ArgumentParser(description='Train a detector')
+@@ -79,7 +84,7 @@ def parse_args():
+         choices=['none', 'pytorch', 'slurm', 'mpi'],
+         default='none',
+         help='job launcher')
+-    parser.add_argument('--local_rank', type=int, default=0)
++    parser.add_argument('--local-rank', type=int, default=0)
+     parser.add_argument(
+         '--autoscale-lr',
+         action='store_true',
