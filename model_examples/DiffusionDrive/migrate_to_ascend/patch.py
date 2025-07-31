@@ -482,7 +482,6 @@ def generate_patcher_builder(performance=False):
         .add_module_patch("projects.mmdet3d_plugin.models.motion.target", Patch(motion_planning_target))
         .add_module_patch("projects.mmdet3d_plugin.models.motion.instance_queue", Patch(instance_queue))
 
-        #.with_profiling('./profiling/level2', 2)
     )
     if performance:
         patcher_builder.brake_at(1000)
@@ -490,7 +489,7 @@ def generate_patcher_builder(performance=False):
 
 
 # pylint: disable=huawei-redefined-outer-name, lambda-assign
-def block_gpu_flash_attention_dependency():
+def patch_mock_gpu_flash_attn():
     '''
     In  /projects/mmdet3d_plugin/models/attention.py
     the following lines
@@ -586,7 +585,7 @@ def patch_deform_aggreg():
 
 def _init():
     # order matters
-    block_gpu_flash_attention_dependency() 
+    patch_mock_gpu_flash_attn() 
     patch_deform_aggreg()
     fix_missing_include()
 

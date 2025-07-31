@@ -44,8 +44,8 @@
 
 | 软件类型           | 支持版本 |
 | ------------------ | -------- |
-| FrameworkPTAdapter | 7.0.0    |
-| CANN               | 8.1.RC1  |
+| FrameworkPTAdapter | 7.2.RC1    |
+| CANN               | 8.3.RC1  |
 
 ## 安装模型环境
 
@@ -56,15 +56,18 @@
 | 三方库      | 支持版本 |
 | ----------- | -------- |
 | PyTorch     | 2.1.0    |
-| Driving SDK | 7.0.RC1  |
+| Driving SDK | 7.2.RC1  |
 | mmcv        | 1.x      |
 | mmdet       | 2.28.2   |
 
+(需按照安装以下安装顺序进行安装)
+
 - 安装Driving SDK：请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK，在完成README安装步骤后，应当完成了以下包的安装：
 
+  - `pip install pyyaml setuptools`
   - CANN包
   - torch_npu包
-  - 根目录下requirements.txt里列出的依赖
+  - DrivingSDK根目录下requirements.txt里列出的依赖
   - 源码编译并安装了的drivingsdk包
 
 - 源码安装geos
@@ -79,14 +82,6 @@
   DRIVING_ENV_PATH=`pip3 show mx_driving | grep "Location" | awk -F "Location: " '{print $2}' | awk -F "python" '{print $1}'`
   cp lib/libgeos* ${DRIVING_ENV_PATH}
   cd ..
-  ```
-
-- 源码安装mmcv
-
-  ```
-    git clone -b 1.x https://github.com/open-mmlab/mmcv.git
-    cd mmcv
-    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
   ```
 
 - 克隆模型官方仓
@@ -110,6 +105,15 @@
   cd migrate_to_ascend
   pip install -r requirements.txt
   cd ..
+  ```
+
+- 源码安装mmcv
+
+  ```
+    git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+    cd mmcv
+    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+    cd ..
   ```
 
 # 准备数据集与权重
@@ -160,10 +164,10 @@ ln -s $DATA_PATH/v1.0-trainval ./data/nuscenes/v1.0-trainval
 
 ## 数据集预处理
 
-运行数据预处理脚本生成DiffusionDrive模型训练需要的pkl文件与初始锚框
+运行数据预处理脚本生成DiffusionDrive模型训练需要的pkl文件与初始锚框（预处理耗时约5h左右）
 
 ```bash
-sh ./migrate_to_ascened/preprocess.sh
+python ./migrate_to_ascened/preprocess.py
 ```
 
 ## 下载权重
@@ -183,13 +187,15 @@ cd ..
 ## 训练模型
 
 ```bash
-bash migrate_to_ascend/train_8p_full.sh
+# 8卡长跑全量epoch，训练结束后打印模型精度
+bash migrate_to_ascend/train_8p.sh
 ```
 
 ## 验证性能
 
 ```bash
-bash migrate_to_ascend/train_8p_performance.sh
+# 仅跑1000个step后打印8卡训练性能（AvgStepTime、FPS）
+bash migrate_to_ascend/train_8p.sh --performance
 ```
 
 
@@ -200,8 +206,8 @@ bash migrate_to_ascend/train_8p_performance.sh
 
 | 芯片          | 卡数 | global batch size | FPS   | 平均step耗时(s) | L2     |
 | ------------- | ---- | ----------------- | ----- | --------------- | ------ |
-| 竞品A         | 8p   | 48                | 37.06 | 1.295           | 0.5934 |
-| Atlas 800T A2 | 8p   | 48                | 29.46 | 1.629           | 0.5856 |
+| 竞品A         | 8p   | 48                | 30.53 | 1.572           | 0.5897 |
+| Atlas 800T A2 | 8p   | 48                | 28.43 | 1.688           | 0.5871 |
 
 
 
@@ -210,7 +216,9 @@ bash migrate_to_ascend/train_8p_performance.sh
 ## 变更
 
 2025.06.16：首次发布。
+2025.07.29: 修复预处理脚本和训练脚本统计step time的bug，更新GPU基线数据，更新CANN和DrivingSDK版本得到性能增益，刷新性能数据
 
 ## FAQ
 
 暂无。
+
