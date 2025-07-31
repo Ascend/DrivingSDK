@@ -41,7 +41,7 @@ std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> hard_voxelize(const at::
     at::Tensor argsort_indices = std::get<ARGSORT_INDICES_IDX>(uni_res);
     at::Tensor uni_argsort_indices = std::get<UNI_ARGSORT_INDICES_IDX>(uni_res);
 
-    auto sorted = at::sort(uni_argsort_indices);
+    auto sorted = at::sort(uni_argsort_indices.view(at::kFloat));
     at::Tensor uni_argsort_argsort_indices = std::get<1>(sorted).to(at::kInt);
 
     int64_t real_num_voxels = std::min(static_cast<int64_t>(num_voxels), max_voxels);
