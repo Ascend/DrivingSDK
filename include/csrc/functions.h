@@ -44,6 +44,10 @@ at::Tensor npu_hypot(const at::Tensor& x, const at::Tensor& y);
 std::tuple<at::Tensor, at::Tensor> npu_hypot_grad(
     const at::Tensor& x, const at::Tensor& y, const at::Tensor& out, const at::Tensor& out_grad);
 
+at::Tensor index_select(const at::Tensor& feature, int64_t dim, const at::Tensor& index);
+
+at::Tensor index_select_backward(int64_t input_dim, int64_t dim, const at::Tensor& index, const at::Tensor& source);
+
 void assign_score_withk(const at::Tensor& points, const at::Tensor& centers, const at::Tensor& scores,
     const at::Tensor& knn_idx, at::Tensor& output, int32_t B, int32_t N, int32_t npoint, int32_t M, int32_t K,
     int32_t out_dim, int32_t aggregate);

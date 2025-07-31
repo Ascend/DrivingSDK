@@ -29,6 +29,7 @@ __all__ = [
     "knn",
     "modulated_deform_conv2d",
     "multi_scale_deformable_attn",
+    "npu_index_select",
     "npu_multi_scale_deformable_attn_function",
     "npu_nms3d_normal",
     "npu_add_relu",
@@ -106,6 +107,7 @@ from .ops.npu_max_pool2d import npu_max_pool2d
 from .ops.nms3d import nms3d
 from .ops.npu_points_in_box import npu_points_in_box, points_in_box
 from .ops.npu_points_in_box_all import npu_points_in_box_all, points_in_boxes_all
+from .ops.npu_index_select import npu_index_select
 from .ops.pixel_group import pixel_group
 from .ops.roi_align_rotated import roi_align_rotated
 from .ops.roiaware_pool3d import roiaware_pool3d

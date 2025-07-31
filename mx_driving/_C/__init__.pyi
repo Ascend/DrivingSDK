@@ -235,9 +235,7 @@ def npu_box_iou_quadri(boxes_a: torch.Tensor, boxes_b: torch.Tensor, mode_flag: 
 def npu_box_iou_rotated(
     boxes_a: torch.Tensor, boxes_b: torch.Tensor, mode_flag: int, aligned: bool
 ) -> torch.Tensor: ...
-def border_align(
-    input: torch.Tensor, rois: torch.Tensor, output: torch.Tensor, pooled_size: int
-) -> None: ...
+def border_align(input: torch.Tensor, rois: torch.Tensor, output: torch.Tensor, pooled_size: int) -> None: ...
 def border_align_backward(
     grad_out: torch.Tensor, boxes: torch.Tensor, argmax_idx: torch.Tensor, pool_size: int, height: int, width: int
 ) -> torch.Tensor: ...
@@ -264,6 +262,8 @@ def group_points(
 def group_points_backward(
     grad_out: torch.Tensor, idx: torch.Tensor, b: int, c: int, n: int, npoints: int, nsample: int
 ) -> torch.Tensor: ...
+def index_select(feature: torch.Tensor, dim: int, index: torch.Tensor) -> torch.Tensor: ...
+def index_select_backward(input_dim: int, dim: int, index: torch.Tensor, source: torch.Tensor) -> torch.Tensor: ...
 def vec_pool_backward(
     grad_new_features: torch.Tensor, point_cnt_of_grid: torch.Tensor, grouped_idxs: torch.Tensor, n: int, num_c_in: int
 ) -> torch.Tensor: ...
@@ -401,10 +401,7 @@ def cal_anchors_heading(
     anchors: torch.Tensor,
     origin_pos: Optional[torch.Tensor],
 ) -> torch.Tensor: ...
-def diff_iou_rotated_2d(
-    box1: torch.Tensor,
-    box2: torch.Tensor
-) -> torch.Tensor: ...
+def diff_iou_rotated_2d(box1: torch.Tensor, box2: torch.Tensor) -> torch.Tensor: ...
 def grid_sampler2d_v2(
     input: torch.Tensor,
     grid: torch.Tensor,
@@ -413,12 +410,12 @@ def grid_sampler2d_v2(
     align_corners: bool,
 ) -> torch.Tensor: ...
 def grid_sampler2d_v2_backward(
-        grad_output: torch.Tensor,
-        input: torch.Tensor,
-        grid: torch.Tensor,
-        interpolation_mode: int,
-        padding_mode: int,
-        align_corners: bool,
+    grad_output: torch.Tensor,
+    input: torch.Tensor,
+    grid: torch.Tensor,
+    interpolation_mode: int,
+    padding_mode: int,
+    align_corners: bool,
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_batch_matmul(
     projection_mat: torch.Tensor,
@@ -429,15 +426,11 @@ def boxes_iou_bev(
     boxes_b: torch.Tensor,
 ) -> torch.Tensor: ...
 def cartesian_to_frenet(
-    pt: torch.Tensor,
-    poly_line: torch.Tensor
+    pt: torch.Tensor, poly_line: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: ...
-def min_area_polygons(
-    pointsets: torch.Tensor
-) -> torch.Tensor: ...
+def min_area_polygons(pointsets: torch.Tensor) -> torch.Tensor: ...
 def radius(
-    x: torch.Tensor, y: torch.Tensor, ptr_x: torch.Tensor,
-    ptr_y: torch.Tensor, r: int, max_num_neighbors: int
+    x: torch.Tensor, y: torch.Tensor, ptr_x: torch.Tensor, ptr_y: torch.Tensor, r: int, max_num_neighbors: int
 ) -> torch.Tensor: ...
 def grid_sampler3d_grad_v1(
     grad: torch.Tensor,
@@ -457,6 +450,7 @@ def graph_softmax_grad(
     softmax_out: torch.Tensor,
     grad_output: torch.Tensor,
 ) -> torch.Tensor: ...
+
 __all__ = [
     "knn",
     "npu_three_interpolate",

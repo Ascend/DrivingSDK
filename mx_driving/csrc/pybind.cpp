@@ -54,6 +54,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     m.def("npu_hypot", &npu_hypot);
     m.def("npu_hypot_grad", &npu_hypot_grad);
 
+    // index_select
+    m.def("index_select", &index_select);
+    m.def("index_select_backward", &index_select_backward);
+
     // assign_score_withk
     m.def("assign_score_withk", &assign_score_withk);
     m.def("assign_score_withk_grad", &assign_score_withk_grad);
