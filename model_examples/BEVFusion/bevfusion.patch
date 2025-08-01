@@ -698,7 +698,7 @@ index 9f56934e..12f579eb 100644
                  # hard voxelize
                  f, c, n = ret
 diff --git a/projects/BEVFusion/bevfusion/depth_lss.py b/projects/BEVFusion/bevfusion/depth_lss.py
-index 6cc0cc16..8ce15bc3 100644
+index 6cc0cc16..d0cb4e0d 100644
 --- a/projects/BEVFusion/bevfusion/depth_lss.py
 +++ b/projects/BEVFusion/bevfusion/depth_lss.py
 @@ -3,9 +3,11 @@ from typing import Tuple
@@ -710,76 +710,18 @@ index 6cc0cc16..8ce15bc3 100644
  
  from mmdet3d.registry import MODELS
 -from .ops import bev_pool
-+from mx_driving import bev_pool_v3
++from mx_driving import bev_pool_v3, npu_index_select
  
  
  def gen_dx_bx(xbound, ybound, zbound):
-@@ -82,9 +84,10 @@ class BaseViewTransform(nn.Module):
-         # undo post-transformation
-         # B x N x D x H x W x 3
-         points = self.frustum - post_trans.view(B, N, 1, 1, 1, 3)
--        points = (
--            torch.inverse(post_rots).view(B, N, 1, 1, 1, 3,
--                                          3).matmul(points.unsqueeze(-1)))
-+        points = self.matmul_custom(
-+            torch.inverse(post_rots).view(B * N, 1, 3, 3),
-+            points.view(B * N, points.shape[2] * points.shape[3] * points.shape[4], 3, 1)
-+        ).reshape(*points.shape, 1)
-         # cam_to_lidar
-         points = torch.cat(
-             (
-@@ -94,15 +97,20 @@ class BaseViewTransform(nn.Module):
-             5,
-         )
-         combine = camera2lidar_rots.matmul(torch.inverse(intrins))
--        points = combine.view(B, N, 1, 1, 1, 3, 3).matmul(points).squeeze(-1)
-+
-+        points = self.matmul_custom(
-+            combine.view(B * N, 1, 3, 3),
-+            points.view(B * N, points.shape[2] * points.shape[3] * points.shape[4], 3, 1)
-+        ).reshape(*points.shape[:-1])
-+
-         points += camera2lidar_trans.view(B, N, 1, 1, 1, 3)
- 
-         if 'extra_rots' in kwargs:
-             extra_rots = kwargs['extra_rots']
--            points = (
--                extra_rots.view(B, 1, 1, 1, 1, 3,
--                                3).repeat(1, N, 1, 1, 1, 1, 1).matmul(
--                                    points.unsqueeze(-1)).squeeze(-1))
-+            points = self.matmul_custom(
-+                extra_rots.view(B, 1, 1, 1, 1, 3, 3).repeat(1, N, 1, 1, 1, 1, 1).view(B * N, 1, 3, 3),
-+                points.view(B * N, points.shape[2] * points.shape[3] * points.shape[4], 3, 1)
-+            ).reshape(*points.shape)
-         if 'extra_trans' in kwargs:
-             extra_trans = kwargs['extra_trans']
-             points += extra_trans.view(B, 1, 1, 1, 1,
-@@ -110,6 +118,17 @@ class BaseViewTransform(nn.Module):
- 
-         return points
- 
-+    def matmul_custom(self, b, a):
-+        """A custom matmul function.
-+
-+        Args:
-+            b: size([B, 1, 3, 3])
-+            a: size([B, x, 3, 1])
-+        """
-+        b1 = b.permute(0, 3, 2, 1).squeeze(3)
-+        a1 = a.squeeze(3)
-+        return a1.matmul(b1).unsqueeze(-1)
-+
-     def get_cam_feats(self, x):
-         raise NotImplementedError
- 
-@@ -137,10 +156,11 @@ class BaseViewTransform(nn.Module):
+@@ -137,10 +139,11 @@ class BaseViewTransform(nn.Module):
                  & (geom_feats[:, 1] < self.nx[1])
                  & (geom_feats[:, 2] >= 0)
                  & (geom_feats[:, 2] < self.nx[2]))
 -        x = x[kept]
 -        geom_feats = geom_feats[kept]
 +        valid_indices = torch.nonzero(kept).view(-1)
-+        x = torch.index_select(x, 0, valid_indices)
++        x = npu_index_select(x, 0, valid_indices)
 +        geom_feats = torch.index_select(geom_feats, 0, valid_indices)
  
 -        x = bev_pool(x, geom_feats, B, self.nx[2], self.nx[0], self.nx[1])
@@ -1081,7 +1023,7 @@ index 00000000..44801857
 +    $CONFIG \
 +    --launcher pytorch ${@:7}
 diff --git a/tools/train.py b/tools/train.py
-index b2ced54b..968f2be9 100644
+index b2ced54b..6f866f39 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -8,6 +8,10 @@ from mmengine.config import Config, DictAction
@@ -1095,21 +1037,24 @@ index b2ced54b..968f2be9 100644
  
  from mmdet3d.utils import replace_ceph_backend
  
-@@ -132,4 +136,16 @@ def main():
+@@ -132,4 +136,19 @@ def main():
  
  
  if __name__ == '__main__':
 -    main()
++    from mx_driving.patcher.patcher import PatcherBuilder, Patch
++    from mx_driving.patcher import batch_matmul
++    
 +    torch_npu.npu.set_compile_mode(jit_compile=False)
 +    torch_npu.npu.config.allow_internal_format = False
 +    
 +    if os.environ.get('PERFORMANCE_MODE', '0') == '1':
 +        # Performance-Testing mode: use Patcher to set breakpoints
-+        from mx_driving.patcher.patcher import PatcherBuilder
-+        
-+        pb = PatcherBuilder().brake_at(1000)
++        pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).brake_at(1000)
 +        with pb.build():
 +            main()
 +    else:
 +        # Training mode: run the main function directly
-+        main()
++        pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul))
++        with pb.build():
++            main()
