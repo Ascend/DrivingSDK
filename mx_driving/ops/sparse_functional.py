@@ -48,13 +48,12 @@ class SparseConvFunction(Function):
         outidx_pair, ouidx_offset = mx_driving._C.npu_sparse_conv3d(
             indices, kernel_size, stride, padding, out_channels, out_spatial_shape, batch_size
         )
+
         # sort and nonezero
-        to_insert = torch.tensor(-1).to(device)
-        sorted_idx, sorted_idx_to_former_indices = torch.sort(ouidx_offset.view(torch.float32))
-        new_sorted_idx = torch.cat((to_insert.view(1), sorted_idx.view(torch.int32)), 0)
-        new_sorted_idx_2 = torch.cat((sorted_idx.view(torch.int32), to_insert.view(1)), 0)
-        sub_result = new_sorted_idx - new_sorted_idx_2
-        unique_indices_offset = torch.nonzero(sub_result != 0)
+        num_voxels_, uni_voxels, unique_indices_offset, sorted_idx_to_former_indices, uni_argsort_indices = mx_driving._C.unique_voxel(ouidx_offset)
+        indices_last = torch.tensor(ouidx_offset.shape).to(unique_indices_offset.device)
+        unique_indices_offset = torch.cat((unique_indices_offset, indices_last), dim=0)
+        
         # index_put and matmul
         out_features, outidx = mx_driving._C.multi_to_sparse_v2(
             features, weight, unique_indices_offset.int(), sorted_idx_to_former_indices.int(), outidx_pair.int()

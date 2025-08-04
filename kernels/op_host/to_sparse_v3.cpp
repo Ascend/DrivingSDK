@@ -10,6 +10,7 @@ namespace optiling {
 constexpr uint32_t DTYPE_FP32_BLOCK = 8;
 constexpr uint32_t RESERVED_UB_SIZE = 8 * 1024;
 
+
 ge::graphStatus ToSparseV3Tiling::Init()
 {
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
@@ -47,8 +48,13 @@ ge::graphStatus ToSparseV3Tiling::GetVectorTilingData()
     vectorCoreTask = Ceil(actualNum, usedVectorCoreNum);
     usedVectorCoreNum = Ceil(actualNum, vectorCoreTask);
     vectorLastCoreTask = Tail(actualNum, vectorCoreTask);
-    uint32_t kernelSizeAlign = AlignUp(kernelSize, DTYPE_FP32_BLOCK);
 
+    auto featureDataTypePtr = tilingContext->GetInputDesc(0);
+    auto featureDataType = featureDataTypePtr->GetDataType();
+    int32_t byteSizePerElements = featureDataType == ge::DT_FLOAT16?  16 : 8;
+
+    uint32_t kernelSizeAlign = AlignUp(kernelSize, byteSizePerElements);
+    
     moveLen = (availableUbSize - RESERVED_UB_SIZE) / 4 / (kernelSizeAlign + 9 + kernelSize * kernelIC);
     coreRepeatTimes = Ceil(vectorCoreTask, moveLen);
     lastCoreRepeatTimes = Ceil(vectorLastCoreTask, moveLen);
@@ -74,10 +80,21 @@ ge::graphStatus ToSparseV3Tiling::GetCubeTilingData()
     if (baseM > 64) {
         baseM = 64;
     }
+
+    auto featureDataTypePtr = tilingContext->GetInputDesc(0);
+    auto featureDataType = featureDataTypePtr->GetDataType();
+
     cubeTiling.SetDim(aivNum);
-    cubeTiling.SetAType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
-    cubeTiling.SetBType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
-    cubeTiling.SetCType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
+
+    if (featureDataType == ge::DT_FLOAT16) {
+        cubeTiling.SetAType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT16);
+        cubeTiling.SetBType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT16);
+        cubeTiling.SetCType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT16);
+    } else {
+        cubeTiling.SetAType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
+        cubeTiling.SetBType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
+        cubeTiling.SetCType(TPosition::GM, CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
+    }
 
     cubeTiling.SetOrgShape(M, N, K);
     cubeTiling.SetSingleShape(originSingleM, originSingleN, K);
@@ -106,9 +123,12 @@ ge::graphStatus ToSparseV3Tiling::SetTilingData()
     if (tilingContext->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
+    auto featureDataTypePtr = tilingContext->GetInputDesc(0);
+    auto featureDataType = featureDataTypePtr->GetDataType();
+
     tilingData.SaveToBuffer(tilingContext->GetRawTilingData()->GetData(), tilingContext->GetRawTilingData()->GetCapacity());
     tilingContext->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
-    size_t userWorkspaceSize = actualNum * kernelSize * kernelIC * sizeof(float);
+    size_t userWorkspaceSize = actualNum * kernelSize * kernelIC * sizeof(featureDataType);
     size_t systemWorkspaceSize = static_cast<size_t>(ascendcPlatform.GetLibApiWorkSpaceSize());
     size_t *currentWorkspace = tilingContext->GetWorkspaceSizes(1);
     currentWorkspace[0] = userWorkspaceSize + systemWorkspaceSize;
@@ -162,41 +182,46 @@ public:
     {
         this->Input("features")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("weight")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("indices_offset")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
+            .AutoContiguous();
 
         this->Input("former_sorted_indices")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
+            .AutoContiguous();
         this->Input("indices")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND})
+            .AutoContiguous();
 
         this->Output("sparse_value")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("sparse_indices")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
 
         this->SetInferShape(ge::InferShapeForToSparseV3).SetInferDataType(ge::InferDtypeForToSparseV3);
 

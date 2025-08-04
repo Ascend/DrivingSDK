@@ -26,9 +26,7 @@ def generate_sparse_data(shape,
                         shape_scale = 1):
     dense_shape = shape
     ndim = len(dense_shape)
-    # num_points = np.random.randint(10, 100, size=[batch_size, ndim])
     num_points = np.array(num_points)
-    # num_points = np.array([3, 2])
     batch_size = len(num_points)
     batch_indices = []
     coors_total = np.stack(np.meshgrid(*[np.arange(0, s // shape_scale) for s in shape]),
@@ -51,8 +49,6 @@ def generate_sparse_data(shape,
                                         data_range[1],
                                         size=[num_points.sum(),
                                               num_channels]).astype(dtype)
-
-    # sparse_data = np.arange(1, num_points.sum() + 1).astype(np.float32).reshape(5, 1)
 
     res = {
         "features": sparse_data.astype(dtype),
@@ -90,13 +86,14 @@ class Net(nn.Module):
 
 
 def _test_multi_impl(spatial_shape, feature_num, dtype: torch.dtype):
-
     np.random.seed(50051)
-
-    spatial_shape = [4, 4, 4]
-    sparse_dict = generate_sparse_data(spatial_shape, [feature_num] * 1, 16)
-
-    voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
+    if dtype == torch.float32:
+        sparse_dict = generate_sparse_data(spatial_shape, [feature_num] * 1, 16, dtype=np.float32)
+        voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float32)
+    else:
+        sparse_dict = generate_sparse_data(spatial_shape, [feature_num] * 1, 16, dtype=np.float16)
+        voxels = np.ascontiguousarray(sparse_dict["features"]).astype(np.float16)
+        
     coors = np.ascontiguousarray(
         sparse_dict["indices"][:, [3, 0, 1, 2]]).astype(np.int32)
     device = torch.device("npu:0")
@@ -112,12 +109,20 @@ def _test_multi_impl(spatial_shape, feature_num, dtype: torch.dtype):
     out = net_native_npu(voxels_th_npu, coors_th_npu, 1)
 
 
-def test_multi_impl():
+def test_multi_impl_fp32():
     _test_multi_impl([4, 4, 4], 3, torch.float32)
     _test_multi_impl([7, 7, 7], 9, torch.float32)
     _test_multi_impl([12, 13, 14], 100, torch.float32)
     _test_multi_impl([25, 25, 25], 400, torch.float32)
 
 
+def test_multi_impl_fp16():
+    _test_multi_impl([4, 4, 4], 3, torch.float16)
+    _test_multi_impl([7, 7, 7], 9, torch.float16)
+    _test_multi_impl([12, 13, 14], 100, torch.float16)
+    _test_multi_impl([25, 25, 25], 400, torch.float16)
+
+
 if __name__ == "__main__":
-    test_multi_impl()
+    test_multi_impl_fp32()
+    test_multi_impl_fp16()
