@@ -44,19 +44,18 @@
 
 | 软件类型           | 支持版本 |
 | ------------------ | -------- |
-| FrameworkPTAdapter | 7.2.RC1    |
-| CANN               | 8.3.RC1  |
+| FrameworkPTAdapter | 7.1.0    |
+| CANN               | 8.2.RC1  |
 
 ## 安装模型环境
 
-当前模型支持的 PyTorch 版本和已知三方库依赖如下表所示。
+当前模型支持的 PyTorch 版本和已知三方库依赖如下表所示， Python版本建议使用Python3.8。
 
 **表 2** 版本支持表
 
 | 三方库      | 支持版本 |
 | ----------- | -------- |
 | PyTorch     | 2.1.0    |
-| Driving SDK | 7.2.RC1  |
 | mmcv        | 1.x      |
 | mmdet       | 2.28.2   |
 
@@ -64,7 +63,8 @@
 
 - 安装Driving SDK：请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK，在完成README安装步骤后，应当完成了以下包的安装：
 
-  - `pip install pyyaml setuptools`
+  - pyyaml
+  - setuptools
   - CANN包
   - torch_npu包
   - DrivingSDK根目录下requirements.txt里列出的依赖
@@ -81,7 +81,7 @@
   make
   DRIVING_ENV_PATH=`pip3 show mx_driving | grep "Location" | awk -F "Location: " '{print $2}' | awk -F "python" '{print $1}'`
   cp lib/libgeos* ${DRIVING_ENV_PATH}
-  cd ..
+  cd ../../
   ```
 
 - 克隆模型官方仓
@@ -207,7 +207,7 @@ bash migrate_to_ascend/train_8p.sh --performance
 | 芯片          | 卡数 | global batch size | FPS   | 平均step耗时(s) | L2     |
 | ------------- | ---- | ----------------- | ----- | --------------- | ------ |
 | 竞品A         | 8p   | 48                | 30.53 | 1.572           | 0.5897 |
-| Atlas 800T A2 | 8p   | 48                | 28.43 | 1.688           | 0.5871 |
+| Atlas 800T A2 | 8p   | 48                | 28.43 | 1.688           | 0.5971 |
 
 
 
@@ -216,7 +216,8 @@ bash migrate_to_ascend/train_8p.sh --performance
 ## 变更
 
 2025.06.16：首次发布。
-2025.07.29: 修复预处理脚本和训练脚本统计step time的bug，更新GPU基线数据，更新CANN和DrivingSDK版本得到性能增益，刷新性能数据
+
+2025.07.29: 修复预处理脚本和训练脚本统计step time的bug，更新GPU基线数据，更新DrivingSDK版本得到性能增益，刷新性能数据。
 
 ## FAQ
 
