@@ -105,21 +105,13 @@ code_path=model_examples/QCNet
     cd ..
     ```
 
-4. 安装 torch_geometric, torch_cluster, torch_scatter
+4. 安装 torch_geometric, torch_scatter
 
     ```
     git clone https://github.com/pyg-team/pytorch_geometric.git -b version_2_3_1
     cd pytorch_geometric
     git checkout 6b9db372d221c3e0dca773994084461a83e5af08
     git apply ../patch/torch_geometric.patch
-    pip install -e ./ --no-deps
-    cd ..
-
-    git clone https://github.com/rusty1s/pytorch_cluster.git -b 1.6.1
-    cd pytorch_cluster
-    git checkout 84bbb7140e03df01b3bb388ba4df299328ea2dff
-    git apply ../patch/torch_cluster.patch
-    // 该仓库编译耗时较久，需要30分钟左右
     pip install -e ./ --no-deps
     cd ..
 
@@ -198,11 +190,12 @@ cd model_examples/QCNet
 |     芯片      | 卡数 | global batch size | epoch | minFDE | minADE | 性能-单步迭代耗时(s) |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: | :--------------: |
 |     竞品A     |  8p  |         32         |  64   |         1.259          |         0.721          |       0.34         |
-| Atlas 800T A2 |  8p  |         32         |  64   |         1.259          |         0.719          |       0.55         |
+| Atlas 800T A2 |  8p  |         32         |  64   |         1.250          |         0.723          |       0.43         |
 
 # 变更说明
 
 2024.2.10：首次发布
+2025.8.2：新增数据加载优化，npu的radius算子替换、npu_index_select算子替换、graph_softmax算子替换等
 
 # FAQ
 

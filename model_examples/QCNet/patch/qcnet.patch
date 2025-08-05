@@ -1,8 +1,8 @@
 diff --git a/datamodules/argoverse_v2_datamodule.py b/datamodules/argoverse_v2_datamodule.py
-index 1b55133..2997824 100644
+index 1b55133..525d394 100644
 --- a/datamodules/argoverse_v2_datamodule.py
 +++ b/datamodules/argoverse_v2_datamodule.py
-@@ -13,7 +13,7 @@
+@@ -13,10 +13,11 @@
  # limitations under the License.
  from typing import Callable, Optional
  
@@ -11,8 +11,349 @@ index 1b55133..2997824 100644
  from torch_geometric.loader import DataLoader
  
  from datasets import ArgoverseV2Dataset
++from .dataloader import DynamicBatchDataLoader
+ from transforms import TargetBuilder
+ 
+ 
+@@ -40,6 +41,7 @@ class ArgoverseV2DataModule(pl.LightningDataModule):
+                  train_transform: Optional[Callable] = TargetBuilder(50, 60),
+                  val_transform: Optional[Callable] = TargetBuilder(50, 60),
+                  test_transform: Optional[Callable] = None,
++                 dynamic_sort: bool = False,
+                  **kwargs) -> None:
+         super(ArgoverseV2DataModule, self).__init__()
+         self.root = root
+@@ -59,6 +61,7 @@ class ArgoverseV2DataModule(pl.LightningDataModule):
+         self.train_transform = train_transform
+         self.val_transform = val_transform
+         self.test_transform = test_transform
++        self.dynamic_sort = dynamic_sort
+ 
+     def prepare_data(self) -> None:
+         ArgoverseV2Dataset(self.root, 'train', self.train_raw_dir, self.train_processed_dir, self.train_transform)
+@@ -74,9 +77,14 @@ class ArgoverseV2DataModule(pl.LightningDataModule):
+                                                self.test_transform)
+ 
+     def train_dataloader(self):
+-        return DataLoader(self.train_dataset, batch_size=self.train_batch_size, shuffle=self.shuffle,
+-                          num_workers=self.num_workers, pin_memory=self.pin_memory,
+-                          persistent_workers=self.persistent_workers)
++        if self.dynamic_sort:
++            return DynamicBatchDataLoader(self.train_dataset, batch_size=self.train_batch_size, actual_batch_size=self.train_batch_size, shuffle=self.shuffle,
++                                          num_workers=self.num_workers, pin_memory=self.pin_memory,
++                                          persistent_workers=self.persistent_workers)
++        else:
++            return DataLoader(self.train_dataset, batch_size=self.train_batch_size, shuffle=self.shuffle,
++                              num_workers=self.num_workers, pin_memory=self.pin_memory,
++                              persistent_workers=self.persistent_workers)
+ 
+     def val_dataloader(self):
+         return DataLoader(self.val_dataset, batch_size=self.val_batch_size, shuffle=False,
+diff --git a/datamodules/dataloader.py b/datamodules/dataloader.py
+new file mode 100644
+index 0000000..b218e7c
+--- /dev/null
++++ b/datamodules/dataloader.py
+@@ -0,0 +1,192 @@
++import math
++from collections.abc import Mapping
++from typing import List, Optional, Sequence, Union
++
++import torch.utils.data
++from torch.utils.data.dataloader import default_collate
++from torch.utils.data import Sampler
++from torch.utils.data.distributed import DistributedSampler
++from torch.utils.data import BatchSampler
++import torch.distributed as dist
++
++from torch_geometric.data import Batch, Dataset
++from torch_geometric.data.data import BaseData
++from torch_geometric.data.datapipes import DatasetAdapter
++
++import numpy as np
++
++class Collater:
++    def __init__(self, follow_batch, exclude_keys):
++        self.follow_batch = follow_batch
++        self.exclude_keys = exclude_keys
++
++    def __call__(self, batch):
++        elem = batch[0]
++        if isinstance(elem, BaseData):
++            return Batch.from_data_list(batch, self.follow_batch,
++                                        self.exclude_keys)
++        elif isinstance(elem, torch.Tensor):
++            return default_collate(batch)
++        elif isinstance(elem, float):
++            return torch.tensor(batch, dtype=torch.float)
++        elif isinstance(elem, int):
++            return torch.tensor(batch)
++        elif isinstance(elem, str):
++            return batch
++        elif isinstance(elem, Mapping):
++            return {key: self([data[key] for data in batch]) for key in elem}
++        elif isinstance(elem, tuple) and hasattr(elem, '_fields'):
++            return type(elem)(*(self(s) for s in zip(*batch)))
++        elif isinstance(elem, Sequence) and not isinstance(elem, str):
++            return [self(s) for s in zip(*batch)]
++
++        raise TypeError(f'DataLoader found invalid type: {type(elem)}')
++
++    def collate(self, batch):  # pragma: no cover
++        # TODO Deprecated, remove soon.
++        return self(batch)
++
++class DynamicBatchSampler(BatchSampler):
++    def __init__(self, dataset, sampler, batch_size, drop_last=False):
++        super().__init__(sampler, batch_size, drop_last)
++        self.lengths = dataset.agents_num
++        self.batch_size = batch_size
++        self.drop_last = drop_last
++
++    def __iter__(self):
++        batch = []
++        for idx in self.sampler:
++            batch.append(idx)
++            if len(batch) == self.batch_size:
++                yield batch
++                batch = []
++        if batch and not self.drop_last:
++            yield batch
++
++class DynamicDistributedSampler(DistributedSampler):
++    def __init__(self, dataset: Dataset, batch_size, num_replicas: Optional[int] = None,
++                 rank: Optional[int] = None, shuffle: bool = True,
++                 seed: int = 0, drop_last: bool = False) -> None:
++        if num_replicas is None:
++            if not dist.is_available():
++                raise RuntimeError("Requires distributed package to be available")
++            num_replicas = dist.get_world_size()
++        if rank is None:
++            if not dist.is_available():
++                raise RuntimeError("Requires distributed package to be available")
++            rank = dist.get_rank()
++        if rank >= num_replicas or rank < 0:
++            raise ValueError(
++                f"Invalid rank {rank}, rank should be in the interval [0, {num_replicas - 1}]")
++        self.dataset = dataset
++        self.num_replicas = num_replicas
++        self.rank = rank
++        self.batch_size = batch_size
++        self.epoch = 0
++        self.drop_last = drop_last
++        self.lengths = dataset.agents_num
++        # If the dataset length is evenly divisible by # of replicas, then there
++        # is no need to drop any data, since the dataset will be split equally.
++        if self.drop_last and len(self.dataset) % self.num_replicas != 0:  # type: ignore[arg-type]
++            # Split to nearest available length that is evenly divisible.
++            # This is to ensure each rank receives the same amount of data when
++            # using this Sampler.
++            self.num_samples = math.ceil(
++                (len(self.dataset) - self.num_replicas) / self.num_replicas  # type: ignore[arg-type]
++            )
++        else:
++            self.num_samples = math.ceil(len(self.dataset) / self.num_replicas)  # type: ignore[arg-type]
++        self.total_size = self.num_samples * self.num_replicas
++        self.shuffle = shuffle
++        self.seed = seed
++
++    def __iter__(self):
++        dataset_len = len(self.dataset)
++        g = torch.Generator()
++        g.manual_seed(self.seed + self.epoch)
++        indices = torch.arange(dataset_len)
++
++        if not self.drop_last:
++            padding_size = self.total_size - len(indices)
++            indices = torch.cat([indices, indices[:padding_size]])
++        else:
++            indices = indices[:self.total_size]
++        assert len(indices) == self.total_size, "The input dataset cannot be evenly distributed to each card."
++
++        lengths_tensor = torch.tensor(self.lengths)[indices]
++        cluster_ids = lengths_tensor // 10
++        n_clusters = int(cluster_ids.max().item()) + 1
++        sorted_indices = indices[cluster_ids.argsort()]
++        sorted_cluster_ids = cluster_ids.sort()[0]
++        cluster_indices = []
++        start_idx = 0
++
++        for i in range(n_clusters):
++            end_idx = torch.searchsorted(sorted_cluster_ids, i+1, side='left')
++            
++            if end_idx > start_idx:
++                cluster_data = sorted_indices[start_idx:end_idx]
++                if self.shuffle and n_clusters > 0:
++                    shuffled_indices = torch.randperm(len(cluster_data), generator=g)
++                    cluster_indices.append(cluster_data[shuffled_indices])
++                else:
++                    cluster_indices.append(cluster_data)
++                start_idx = end_idx
++        # combine clusters
++        if cluster_indices and self.shuffle:
++            # shuffle
++            bucket_order = torch.randperm(len(cluster_indices), generator=g)
++            indices = torch.cat([cluster_indices[i] for i in bucket_order])
++        else:
++            indices = torch.cat(cluster_indices)
++        
++        # sampler
++        indice = indices[self.rank:self.total_size:self.num_replicas]
++        assert len(indice) == self.num_samples
++        
++        return iter(indice.tolist())
++
++class DynamicBatchDataLoader(torch.utils.data.DataLoader):
++    r"""A data loader which merges data objects from a
++    :class:`torch_geometric.data.Dataset` to a mini-batch.
++    Data objects can be either of type :class:`~torch_geometric.data.Data` or
++    :class:`~torch_geometric.data.HeteroData`.
++
++    Args:
++        dataset (Dataset): The dataset from which to load the data.
++        batch_size (int, optional): How many samples per batch to load.
++            (default: :obj:`1`)
++        shuffle (bool, optional): If set to :obj:`True`, the data will be
++            reshuffled at every epoch. (default: :obj:`False`)
++        follow_batch (List[str], optional): Creates assignment batch
++            vectors for each key in the list. (default: :obj:`None`)
++        exclude_keys (List[str], optional): Will exclude each key in the
++            list. (default: :obj:`None`)
++        **kwargs (optional): Additional arguments of
++            :class:`torch.utils.data.DataLoader`.
++    """
++    def __init__(
++        self,
++        dataset: Union[Dataset, Sequence[BaseData], DatasetAdapter],
++        batch_size: int,
++        actual_batch_size:int,
++        shuffle: bool = True,
++        follow_batch: Optional[List[str]] = None,
++        exclude_keys: Optional[List[str]] = None,
++        **kwargs,
++    ):
++        # Remove for PyTorch Lightning:
++        kwargs.pop('collate_fn', None)
++        kwargs.pop('batch_sampler', None)
++
++        # Save for PyTorch Lightning < 1.6:
++        self.follow_batch = follow_batch
++        self.exclude_keys = exclude_keys
++        sampler = DynamicDistributedSampler(dataset, actual_batch_size, shuffle=True)
++
++        super().__init__(
++            dataset,
++            collate_fn=Collater(follow_batch, exclude_keys),
++            batch_sampler=DynamicBatchSampler(dataset, sampler, actual_batch_size),
++            **kwargs,
++        )
+diff --git a/datasets/argoverse_v2_dataset.py b/datasets/argoverse_v2_dataset.py
+index f78b02f..776f8e1 100644
+--- a/datasets/argoverse_v2_dataset.py
++++ b/datasets/argoverse_v2_dataset.py
+@@ -16,6 +16,7 @@ import os
+ import pickle
+ import shutil
+ import sys
++import json
+ from pathlib import Path
+ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
+ from urllib import request
+@@ -105,6 +106,9 @@ class ArgoverseV2Dataset(Dataset):
+             else:
+                 self._raw_file_names = []
+ 
++        self._raw_file_names = np.array(self._raw_file_names)
++        self._raw_file_names = sorted(self._raw_file_names)
++
+         if processed_dir is None:
+             processed_dir = os.path.join(root, split, 'processed')
+             self._processed_dir = processed_dir
+@@ -123,8 +127,8 @@ class ArgoverseV2Dataset(Dataset):
+                                               name.endswith(('pkl', 'pickle'))]
+             else:
+                 self._processed_file_names = []
++                self.dim = dim
+ 
+-        self.dim = dim
+         self.num_historical_steps = num_historical_steps
+         self.num_future_steps = num_future_steps
+         self.num_steps = num_historical_steps + num_future_steps
+@@ -136,6 +140,11 @@ class ArgoverseV2Dataset(Dataset):
+             'val': 24988,
+             'test': 24984,
+         }[split]
++
++        self.agents_num = [0 for _ in range(self._num_samples)]
++        self._processed_file_names = np.array(self._processed_file_names)
++        self._processed_file_names = sorted(self._processed_file_names)
++
+         self._agent_types = ['vehicle', 'pedestrian', 'motorcyclist', 'cyclist', 'bus', 'static', 'background',
+                              'construction', 'riderless_bicycle', 'unknown']
+         self._agent_categories = ['TRACK_FRAGMENT', 'UNSCORED_TRACK', 'SCORED_TRACK', 'FOCAL_TRACK']
+@@ -148,6 +157,7 @@ class ArgoverseV2Dataset(Dataset):
+         self._point_sides = ['LEFT', 'RIGHT', 'CENTER']
+         self._polygon_to_polygon_types = ['NONE', 'PRED', 'SUCC', 'LEFT', 'RIGHT']
+         super(ArgoverseV2Dataset, self).__init__(root=root, transform=transform, pre_transform=None, pre_filter=None)
++        self.get_agents_num()
+ 
+     @property
+     def raw_dir(self) -> str:
+@@ -181,8 +191,27 @@ class ArgoverseV2Dataset(Dataset):
+             shutil.move(os.path.join(self.raw_dir, self.split, raw_file_name), self.raw_dir)
+         os.rmdir(os.path.join(self.raw_dir, self.split))
+ 
++    def get_agents_num(self) -> None:
++        if self.split != 'train':
++            return
++        agents_num_file_name = f"{self.split}_agents_num.json"
++        agents_num_file_path = os.path.join(self.processed_dir, agents_num_file_name)
++        if os.path.exists(agents_num_file_path):
++            with open(agents_num_file_path, "r") as handle:
++                self.agents_num = json.load(handle)
++            return
++
++        for idx in tqdm(range(self._num_samples)):
++            data = self.get(idx)
++            self.agents_num[idx] = data["agent"]['num_nodes']
++
++        with open(agents_num_file_path, 'w') as handle:
++            json.dump(self.agents_num, handle)
++
+     def process(self) -> None:
+-        for raw_file_name in tqdm(self.raw_file_names):
++        agents_num_file_name = f"{self.split}_agents_num.json"
++        agents_num_file_path = os.path.join(self.processed_dir, agents_num_file_name)
++        for idx, raw_file_name in tqdm(enumerate(self.raw_file_names)):
+             df = pd.read_parquet(os.path.join(self.raw_dir, raw_file_name, f'scenario_{raw_file_name}.parquet'))
+             map_dir = Path(self.raw_dir) / raw_file_name
+             map_path = map_dir / sorted(map_dir.glob('log_map_archive_*.json'))[0]
+@@ -194,10 +223,14 @@ class ArgoverseV2Dataset(Dataset):
+             data['scenario_id'] = self.get_scenario_id(df)
+             data['city'] = self.get_city(df)
+             data['agent'] = self.get_agent_features(df)
++            self.agents_num[idx] = data["agent"]['num_nodes']
+             data.update(self.get_map_features(map_api, centerlines))
+             with open(os.path.join(self.processed_dir, f'{raw_file_name}.pkl'), 'wb') as handle:
+                 pickle.dump(data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+ 
++        with open(agents_num_file_path, 'w') as handle:
++            json.dump(self.agents_num, handle)
++
+     @staticmethod
+     def get_scenario_id(df: pd.DataFrame) -> str:
+         return df['scenario_id'].values[0]
+diff --git a/layers/__init__.py b/layers/__init__.py
+index 6633b5a..2c8782b 100644
+--- a/layers/__init__.py
++++ b/layers/__init__.py
+@@ -14,3 +14,4 @@
+ from layers.attention_layer import AttentionLayer
+ from layers.fourier_embedding import FourierEmbedding
+ from layers.mlp_layer import MLPLayer
++from layers.radius import radius, radius_graph
 diff --git a/layers/attention_layer.py b/layers/attention_layer.py
-index 3b62e71..3410c78 100644
+index 3b62e71..137cd23 100644
 --- a/layers/attention_layer.py
 +++ b/layers/attention_layer.py
 @@ -38,11 +38,9 @@ class AttentionLayer(MessagePassing):
@@ -29,7 +370,7 @@ index 3b62e71..3410c78 100644
          self.to_s = nn.Linear(hidden_dim, head_dim * num_heads)
          self.to_g = nn.Linear(head_dim * num_heads + hidden_dim, head_dim * num_heads)
          self.to_out = nn.Linear(head_dim * num_heads, hidden_dim)
-@@ -85,14 +83,14 @@ class AttentionLayer(MessagePassing):
+@@ -85,14 +83,13 @@ class AttentionLayer(MessagePassing):
  
      def message(self,
                  q_i: torch.Tensor,
@@ -43,12 +384,11 @@ index 3b62e71..3410c78 100644
 -            k_j = k_j + self.to_k_r(r).view(-1, self.num_heads, self.head_dim)
 -            v_j = v_j + self.to_v_r(r).view(-1, self.num_heads, self.head_dim)
 +            kv_j = kv_j + self.to_kv_r(r).view(-1, self.num_heads, 2 * self.head_dim)
-+        k_j = kv_j[:, :, :self.head_dim]
-+        v_j = kv_j[:, :, self.head_dim:]
++        k_j, v_j = torch.split(kv_j, self.head_dim, dim=2)
          sim = (q_i * k_j).sum(dim=-1) * self.scale
          attn = softmax(sim, index, ptr)
          attn = self.attn_drop(attn)
-@@ -111,9 +109,8 @@ class AttentionLayer(MessagePassing):
+@@ -111,9 +108,8 @@ class AttentionLayer(MessagePassing):
                      r: Optional[torch.Tensor],
                      edge_index: torch.Tensor) -> torch.Tensor:
          q = self.to_q(x_dst).view(-1, self.num_heads, self.head_dim)
@@ -60,10 +400,196 @@ index 3b62e71..3410c78 100644
          return self.to_out(agg)
  
      def _ff_block(self, x: torch.Tensor) -> torch.Tensor:
+diff --git a/layers/fourier_embedding.py b/layers/fourier_embedding.py
+index 092643b..be2a28c 100644
+--- a/layers/fourier_embedding.py
++++ b/layers/fourier_embedding.py
+@@ -29,6 +29,7 @@ class FourierEmbedding(nn.Module):
+         super(FourierEmbedding, self).__init__()
+         self.input_dim = input_dim
+         self.hidden_dim = hidden_dim
++        self.pi2 = 2 * math.pi
+ 
+         self.freqs = nn.Embedding(input_dim, num_freq_bands) if input_dim != 0 else None
+         self.mlps = nn.ModuleList(
+@@ -55,7 +56,7 @@ class FourierEmbedding(nn.Module):
+             else:
+                 raise ValueError('Both continuous_inputs and categorical_embs are None')
+         else:
+-            x = continuous_inputs.unsqueeze(-1) * self.freqs.weight * 2 * math.pi
++            x = self.pi2 * continuous_inputs.unsqueeze(-1) * self.freqs.weight
+             # Warning: if your data are noisy, don't use learnable sinusoidal embedding
+             x = torch.cat([x.cos(), x.sin(), continuous_inputs.unsqueeze(-1)], dim=-1)
+             continuous_embs: List[Optional[torch.Tensor]] = [None] * self.input_dim
+diff --git a/layers/radius.py b/layers/radius.py
+new file mode 100644
+index 0000000..677ba95
+--- /dev/null
++++ b/layers/radius.py
+@@ -0,0 +1,134 @@
++from typing import Optional
++
++import torch
++import torch_npu
++import mx_driving
++
++
++def radius(x: torch.Tensor, y: torch.Tensor, r: float,
++           batch_x: Optional[torch.Tensor] = None,
++           batch_y: Optional[torch.Tensor] = None, max_num_neighbors: int = 32,
++           num_workers: int = 1) -> torch.Tensor:
++    r"""Finds for each element in :obj:`y` all points in :obj:`x` within
++    distance :obj:`r`.
++
++    Args:
++        x (Tensor): Node feature matrix
++            :math:`\mathbf{X} \in \mathbb{R}^{N \times F}`.
++        y (Tensor): Node feature matrix
++            :math:`\mathbf{Y} \in \mathbb{R}^{M \times F}`.
++        r (float): The radius.
++        batch_x (LongTensor, optional): Batch vector
++            :math:`\mathbf{b} \in {\{ 0, \ldots, B-1\}}^N`, which assigns each
++            node to a specific example. :obj:`batch_x` needs to be sorted.
++            (default: :obj:`None`)
++        batch_y (LongTensor, optional): Batch vector
++            :math:`\mathbf{b} \in {\{ 0, \ldots, B-1\}}^M`, which assigns each
++            node to a specific example. :obj:`batch_y` needs to be sorted.
++            (default: :obj:`None`)
++        max_num_neighbors (int, optional): The maximum number of neighbors to
++            return for each element in :obj:`y`.
++            If the number of actual neighbors is greater than
++            :obj:`max_num_neighbors`, returned neighbors are picked randomly.
++            (default: :obj:`32`)
++        num_workers (int): Number of workers to use for computation. Has no
++            effect in case :obj:`batch_x` or :obj:`batch_y` is not
++            :obj:`None`, or the input lies on the GPU. (default: :obj:`1`)
++
++    .. code-block:: python
++
++        import torch
++        from torch_cluster import radius
++
++        x = torch.Tensor([[-1, -1], [-1, 1], [1, -1], [1, 1]])
++        batch_x = torch.tensor([0, 0, 0, 0])
++        y = torch.Tensor([[-1, 0], [1, 0]])
++        batch_y = torch.tensor([0, 0])
++        assign_index = radius(x, y, 1.5, batch_x, batch_y)
++    """
++    if x.numel() == 0 or y.numel() == 0:
++        return torch.empty(2, 0, dtype=torch.long, device=x.device)
++
++    x = x.view(-1, 1) if x.dim() == 1 else x
++    y = y.view(-1, 1) if y.dim() == 1 else y
++    x, y = x.contiguous(), y.contiguous()
++
++    batch_size = 1
++    if batch_x is not None:
++        assert x.size(0) == batch_x.numel()
++        batch_size = int(batch_x.max()) + 1
++    if batch_y is not None:
++        assert y.size(0) == batch_y.numel()
++        batch_size = max(batch_size, int(batch_y.max()) + 1)
++
++    ptr_x: Optional[torch.Tensor] = None
++    ptr_y: Optional[torch.Tensor] = None
++    device = x.device
++    if batch_size > 1:
++        assert batch_x is not None
++        assert batch_y is not None
++        arange = torch.arange(batch_size + 1, device=x.device)
++        ptr_x = torch.bucketize(arange, batch_x).cpu()
++        ptr_y = torch.bucketize(arange, batch_y).cpu()
++    else:
++        ptr_x = torch.tensor([0, x.shape[0]]).to(device)
++        ptr_y = torch.tensor([0, y.shape[0]]).to(device)
++
++    return mx_driving.radius(x.npu(), y.npu(), ptr_x.int().to(device), ptr_y.int().to(device), r,
++                             max_num_neighbors)
++
++
++def radius_graph(x: torch.Tensor, r: float,
++                 batch: Optional[torch.Tensor] = None, loop: bool = False,
++                 max_num_neighbors: int = 32, flow: str = 'source_to_target',
++                 num_workers: int = 1) -> torch.Tensor:
++    r"""Computes graph edges to all points within a given distance.
++
++    Args:
++        x (Tensor): Node feature matrix
++            :math:`\mathbf{X} \in \mathbb{R}^{N \times F}`.
++        r (float): The radius.
++        batch (LongTensor, optional): Batch vector
++            :math:`\mathbf{b} \in {\{ 0, \ldots, B-1\}}^N`, which assigns each
++            node to a specific example. :obj:`batch` needs to be sorted.
++            (default: :obj:`None`)
++        loop (bool, optional): If :obj:`True`, the graph will contain
++            self-loops. (default: :obj:`False`)
++        max_num_neighbors (int, optional): The maximum number of neighbors to
++            return for each element.
++            If the number of actual neighbors is greater than
++            :obj:`max_num_neighbors`, returned neighbors are picked randomly.
++            (default: :obj:`32`)
++        flow (string, optional): The flow direction when used in combination
++            with message passing (:obj:`"source_to_target"` or
++            :obj:`"target_to_source"`). (default: :obj:`"source_to_target"`)
++        num_workers (int): Number of workers to use for computation. Has no
++            effect in case :obj:`batch` is not :obj:`None`, or the input lies
++            on the GPU. (default: :obj:`1`)
++
++    :rtype: :class:`LongTensor`
++
++    .. code-block:: python
++
++        import torch
++        from torch_cluster import radius_graph
++
++        x = torch.Tensor([[-1, -1], [-1, 1], [1, -1], [1, 1]])
++        batch = torch.tensor([0, 0, 0, 0])
++        edge_index = radius_graph(x, r=1.5, batch=batch, loop=False)
++    """
++
++    assert flow in ['source_to_target', 'target_to_source']
++    edge_index = radius(x, x, r, batch, batch,
++                        max_num_neighbors if loop else max_num_neighbors + 1,
++                        num_workers)
++    if flow == 'source_to_target':
++        row, col = edge_index[1], edge_index[0]
++    else:
++        row, col = edge_index[0], edge_index[1]
++
++    if not loop:
++        mask = row != col
++        row, col = row[mask], col[mask]
++
++    return torch.stack([row, col], dim=0)
 diff --git a/modules/qcnet_agent_encoder.py b/modules/qcnet_agent_encoder.py
-index 99d19a6..00bc9ad 100644
+index 99d19a6..615a6e2 100644
 --- a/modules/qcnet_agent_encoder.py
 +++ b/modules/qcnet_agent_encoder.py
+@@ -15,8 +15,6 @@ from typing import Dict, Mapping, Optional
+ 
+ import torch
+ import torch.nn as nn
+-from torch_cluster import radius
+-from torch_cluster import radius_graph
+ from torch_geometric.data import Batch
+ from torch_geometric.data import HeteroData
+ from torch_geometric.utils import dense_to_sparse
+@@ -24,6 +22,7 @@ from torch_geometric.utils import subgraph
+ 
+ from layers.attention_layer import AttentionLayer
+ from layers.fourier_embedding import FourierEmbedding
++from layers import radius, radius_graph
+ from utils import angle_between_2d_vectors
+ from utils import weight_init
+ from utils import wrap_angle
+@@ -101,6 +100,7 @@ class QCNetAgentEncoder(nn.Module):
+         head_vector_a = torch.stack([head_a.cos(), head_a.sin()], dim=-1)
+         pos_pl = data['map_polygon']['position'][:, :self.input_dim].contiguous()
+         orient_pl = data['map_polygon']['orientation'].contiguous()
++
+         if self.dataset == 'argoverse_v2':
+             vel = data['agent']['velocity'][:, :self.num_historical_steps, :self.input_dim].contiguous()
+             length = width = height = None
 @@ -145,10 +145,17 @@ class QCNetAgentEncoder(nn.Module):
          pos_pl = pos_pl.repeat(self.num_historical_steps, 1)
          orient_pl = orient_pl.repeat(self.num_historical_steps)
@@ -87,10 +613,27 @@ index 99d19a6..00bc9ad 100644
              batch_s = torch.arange(self.num_historical_steps,
                                     device=pos_a.device).repeat_interleave(data['agent']['num_nodes'])
 diff --git a/modules/qcnet_decoder.py b/modules/qcnet_decoder.py
-index 32066a5..1d2e8cc 100644
+index 32066a5..59e69e6 100644
 --- a/modules/qcnet_decoder.py
 +++ b/modules/qcnet_decoder.py
-@@ -83,9 +83,10 @@ class QCNetDecoder(nn.Module):
+@@ -17,8 +17,6 @@ from typing import Dict, List, Mapping, Optional
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+-from torch_cluster import radius
+-from torch_cluster import radius_graph
+ from torch_geometric.data import Batch
+ from torch_geometric.data import HeteroData
+ from torch_geometric.utils import dense_to_sparse
+@@ -26,6 +24,7 @@ from torch_geometric.utils import dense_to_sparse
+ from layers import AttentionLayer
+ from layers import FourierEmbedding
+ from layers import MLPLayer
++from layers import radius, radius_graph
+ from utils import angle_between_2d_vectors
+ from utils import bipartite_dense_to_sparse
+ from utils import weight_init
+@@ -83,9 +82,10 @@ class QCNetDecoder(nn.Module):
                                            num_freq_bands=num_freq_bands)
          self.y_emb = FourierEmbedding(input_dim=output_dim + output_head, hidden_dim=hidden_dim,
                                        num_freq_bands=num_freq_bands)
@@ -104,6 +647,16 @@ index 32066a5..1d2e8cc 100644
          self.t2m_propose_attn_layers = nn.ModuleList(
              [AttentionLayer(hidden_dim=hidden_dim, num_heads=num_heads, head_dim=head_dim, dropout=dropout,
                              bipartite=True, has_pos_emb=True) for _ in range(num_layers)]
+@@ -221,7 +221,8 @@ class QCNetDecoder(nn.Module):
+                 m = m.reshape(-1, self.num_modes, self.hidden_dim).transpose(0, 1).reshape(-1, self.hidden_dim)
+                 m = self.pl2m_propose_attn_layers[i]((x_pl, m), r_pl2m, edge_index_pl2m)
+                 m = self.a2m_propose_attn_layers[i]((x_a, m), r_a2m, edge_index_a2m)
+-                m = m.reshape(self.num_modes, -1, self.hidden_dim).transpose(0, 1).reshape(-1, self.hidden_dim)
++                m = m.reshape(self.num_modes, -1, self.hidden_dim).transpose(0, 1)
++            m = m.reshape(-1, self.hidden_dim)
+             m = self.m2m_propose_attn_layer(m, None, edge_index_m2m)
+             m = m.reshape(-1, self.num_modes, self.hidden_dim)
+             locs_propose_pos[t] = self.to_loc_propose_pos(m)
 @@ -252,7 +253,9 @@ class QCNetDecoder(nn.Module):
                                                               self.num_future_steps, 1))
              m = self.y_emb(loc_propose_pos.detach().view(-1, self.output_dim))
@@ -115,11 +668,29 @@ index 32066a5..1d2e8cc 100644
          for i in range(self.num_layers):
              m = self.t2m_refine_attn_layers[i]((x_t, m), r_t2m, edge_index_t2m)
              m = m.reshape(-1, self.num_modes, self.hidden_dim).transpose(0, 1).reshape(-1, self.hidden_dim)
+diff --git a/modules/qcnet_map_encoder.py b/modules/qcnet_map_encoder.py
+index 19e3817..c9d8d59 100644
+--- a/modules/qcnet_map_encoder.py
++++ b/modules/qcnet_map_encoder.py
+@@ -15,12 +15,12 @@ from typing import Dict
+ 
+ import torch
+ import torch.nn as nn
+-from torch_cluster import radius_graph
+ from torch_geometric.data import Batch
+ from torch_geometric.data import HeteroData
+ 
+ from layers.attention_layer import AttentionLayer
+ from layers.fourier_embedding import FourierEmbedding
++from layers import radius, radius_graph
+ from utils import angle_between_2d_vectors
+ from utils import merge_edges
+ from utils import weight_init
 diff --git a/predictors/qcnet.py b/predictors/qcnet.py
-index 35ee89e..4033139 100644
+index 35ee89e..a0b6804 100644
 --- a/predictors/qcnet.py
 +++ b/predictors/qcnet.py
-@@ -11,12 +11,13 @@
+@@ -11,17 +11,19 @@
  # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  # See the License for the specific language governing permissions and
  # limitations under the License.
@@ -134,29 +705,52 @@ index 35ee89e..4033139 100644
  import torch
  import torch.nn as nn
  import torch.nn.functional as F
-@@ -152,6 +153,10 @@ class QCNet(pl.LightningModule):
+ from torch_geometric.data import Batch
+ from torch_geometric.data import HeteroData
++import torch.distributed as dist
+ 
+ from losses import MixtureNLLLoss
+ from losses import NLLLoss
+@@ -71,6 +73,7 @@ class QCNet(pl.LightningModule):
+                  T_max: int,
+                  submission_dir: str,
+                  submission_file_name: str,
++                 profiling_step: int,
+                  **kwargs) -> None:
+         super(QCNet, self).__init__()
+         self.save_hyperparameters()
+@@ -152,6 +155,10 @@ class QCNet(pl.LightningModule):
          self.MR = MR(max_guesses=6)
  
          self.test_predictions = dict()
 +        # for evaluating training speed
 +        self.init_time = time.time()
-+        self.profiling_step = 100
++        self.profiling_step = profiling_step
 +        self.avg_train_time = 0.0
  
      def forward(self, data: HeteroData):
          scene_enc = self.encoder(data)
-@@ -200,6 +205,11 @@ class QCNet(pl.LightningModule):
+@@ -200,6 +207,13 @@ class QCNet(pl.LightningModule):
                                   prob=pi,
                                   mask=reg_mask[:, -1:]) * cls_mask
          cls_loss = cls_loss.sum() / cls_mask.sum().clamp_(min=1)
-+        if batch_idx > 0 and batch_idx % self.profiling_step == 0:
++
++        if dist.get_rank() == 0 and batch_idx >= 1 and (batch_idx-1) % self.profiling_step == 0:
 +            self.avg_train_time = (time.time() - self.init_time) / self.profiling_step
 +            self.init_time = time.time()
-+            print(f"Average Training Time (step {batch_idx - self.profiling_step}-{batch_idx}): {self.avg_train_time:.3f}s")
++            if batch_idx != 1:
++                print(f"Average Training Time (step {batch_idx - self.profiling_step}-{batch_idx}): {self.avg_train_time:.3f}s")
 +
          self.log('train_reg_loss_propose', reg_loss_propose, prog_bar=False, on_step=True, on_epoch=True, batch_size=1)
          self.log('train_reg_loss_refine', reg_loss_refine, prog_bar=False, on_step=True, on_epoch=True, batch_size=1)
          self.log('train_cls_loss', cls_loss, prog_bar=False, on_step=True, on_epoch=True, batch_size=1)
+@@ -402,4 +416,6 @@ class QCNet(pl.LightningModule):
+         parser.add_argument('--T_max', type=int, default=64)
+         parser.add_argument('--submission_dir', type=str, default='./')
+         parser.add_argument('--submission_file_name', type=str, default='submission')
++        parser.add_argument('--profiling_step', type=int, default=6246)
++        parser.add_argument('--dynamic_sort', action="store_true", default=True)
+         return parent_parser
 diff --git a/train_qcnet.py b/train_qcnet.py
 index 092b41c..0fcc46c 100644
 --- a/train_qcnet.py

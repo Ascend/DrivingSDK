@@ -1,3 +1,51 @@
+diff --git a/torch_geometric/nn/conv/message_passing.py b/torch_geometric/nn/conv/message_passing.py
+index 2db5c9893..23fa4ba07 100644
+--- a/torch_geometric/nn/conv/message_passing.py
++++ b/torch_geometric/nn/conv/message_passing.py
+@@ -42,6 +42,7 @@ from torch_geometric.utils import (
+     to_edge_index,
+ )
+ from torch_geometric.utils.sparse import ptr2index
++from mx_driving import npu_index_select
+ 
+ FUSE_AGGRS = {'add', 'sum', 'mean', 'min', 'max'}
+ 
+@@ -264,12 +265,16 @@ class MessagePassing(torch.nn.Module):
+             else:
+                 raise ValueError(f"Unsupported sparse tensor layout "
+                                  f"(got '{edge_index.layout}')")
+-            return src.index_select(self.node_dim, index)
++            tmp = src.reshape(len(src), -1)
++            x = npu_index_select(tmp, self.node_dim, index)
++            return x.reshape(len(x), 8, -1)
+ 
+         elif isinstance(edge_index, Tensor):
+             try:
+                 index = edge_index[dim]
+-                return src.index_select(self.node_dim, index)
++                tmp = src.reshape(len(src), -1)
++                x = npu_index_select(tmp, self.node_dim, index)
++                return x.reshape(len(x), 8, -1)
+             except (IndexError, RuntimeError) as e:
+                 if index.min() < 0 or index.max() >= src.size(self.node_dim):
+                     raise IndexError(
+@@ -304,10 +309,14 @@ class MessagePassing(torch.nn.Module):
+         elif isinstance(edge_index, SparseTensor):
+             if dim == 0:
+                 col = edge_index.storage.col()
+-                return src.index_select(self.node_dim, col)
++                tmp = src.reshape(len(src), -1)
++                x = npu_index_select(tmp, self.node_dim, col)
++                return x.reshape(len(x), 8, -1)
+             elif dim == 1:
+                 row = edge_index.storage.row()
+-                return src.index_select(self.node_dim, row)
++                tmp = src.reshape(len(src), -1)
++                x = npu_index_select(tmp, self.node_dim, row)
++                return x.reshape(len(x), 8, -1)
+ 
+         raise ValueError(
+             ('`MessagePassing.propagate` only supports integer tensors of '
 diff --git a/torch_geometric/utils/scatter.py b/torch_geometric/utils/scatter.py
 index a75f1fe36..0aa8fe916 100644
 --- a/torch_geometric/utils/scatter.py
@@ -124,3 +172,33 @@ index a75f1fe36..0aa8fe916 100644
 +        else:
 +            return torch_scatter.scatter(src, index, dim, dim_size=dim_size,
 +                                        reduce=reduce)
+diff --git a/torch_geometric/utils/softmax.py b/torch_geometric/utils/softmax.py
+index 3ea36a0fa..73caee6dd 100644
+--- a/torch_geometric/utils/softmax.py
++++ b/torch_geometric/utils/softmax.py
+@@ -2,9 +2,8 @@ from typing import Optional
+ 
+ from torch import Tensor
+ 
+-from torch_geometric.utils import scatter, segment
+-from torch_geometric.utils.num_nodes import maybe_num_nodes
+-
++from torch_geometric.utils import segment
++import mx_driving
+ 
+ def softmax(
+     src: Tensor,
+@@ -61,12 +60,7 @@ def softmax(
+         out_sum = segment(out, ptr, reduce='sum') + 1e-16
+         out_sum = out_sum.repeat_interleave(count, dim=dim)
+     elif index is not None:
+-        N = maybe_num_nodes(index, num_nodes)
+-        src_max = scatter(src.detach(), index, dim, dim_size=N, reduce='max')
+-        out = src - src_max.index_select(dim, index)
+-        out = out.exp()
+-        out_sum = scatter(out, index, dim, dim_size=N, reduce='sum') + 1e-16
+-        out_sum = out_sum.index_select(dim, index)
++        return mx_driving.graph_softmax(src, index)
+     else:
+         raise NotImplementedError
+ 
