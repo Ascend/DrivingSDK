@@ -7,6 +7,68 @@
 #include "msda.h"
 
 template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::UpdateParams(uint32_t tailCompNum)
+{
+    this->compTaskNum_ = tailCompNum;
+    if constexpr (fastMode) {
+        this->outerLoops_ = this->compTaskNum_;
+    } else {
+        this->outerLoops_ = this->compTaskNum_ * this->numHeads_;
+    }
+    this->cpOutParams_.blockCount = this->compTaskNum_ * this->numHeads_;
+    if (fastMode) {
+        this->cpSampleParams_.blockCount = this->compTaskNum_;
+        this->cpDoubleSampleParams_.blockCount = this->compTaskNum_;
+    } else {
+        this->cpSampleParams_.blockCount = this->compTaskNum_ * this->numHeads_;
+        this->cpDoubleSampleParams_.blockCount = this->compTaskNum_ * this->numHeads_;
+    }
+}
+
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::CopyFullPoint(
+    const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
+    const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
+    uint64_t valid, uint32_t baseIdx, uint32_t innerLoops)
+{
+    for (int32_t i = ScalarGetSFFValue<1>(valid); i < innerLoops && i >= 0;
+        i = ScalarGetSFFValue<1>(valid)) {
+        valid = sbitset0(valid, i);
+        uint32_t idx = baseIdx + i;
+        // // WARN: dangerous!
+        int32_t gmY0Offset = location.GetValue(idx);
+        int32_t gmY1Offset = location.GetValue(idx + this->alignedOneTaskNum_);
+        this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmY0Offset], this->cpRowDoubleParams_);
+        this->CopyInValue(value[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
+            this->valueGm_[gmY1Offset], this->cpRowDoubleParams_);
+    }
+}
+
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::CopyBorderPoint(
+    const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
+    const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
+    uint64_t valid, uint32_t baseIdx, uint32_t innerLoops)
+{
+    for (int32_t i = ScalarGetSFFValue<0>(valid); i < innerLoops && i >= 0;
+        i = ScalarGetSFFValue<0>(valid)) {
+        valid = sbitset1(valid, i);
+        uint32_t idx = baseIdx + i;
+        int32_t w = shapeInt.GetValue(idx);
+        int32_t x = loc.GetValue(idx);
+        // WARN: dangerous!
+        int32_t gmOffset = location.GetValue(idx);
+        if (x != -1) {
+            this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmOffset], this->cpOneValParams_);
+        }
+        if (x != w - 1) {
+            this->CopyInValue(value[i * this->alignedEmbedDims_ + this->alignedCornerEmbedDims_],
+                this->valueGm_[gmOffset + this->outDims_], this->cpOneValParams_);
+        }
+    }
+}
+
+template<bool aligned, bool fastMode>
 __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::ComputeBilinearInterpolation(
     const LocalTensor<uint64_t>& validFlag, const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location,
     const LocalTensor<int32_t>& loc, const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production,
@@ -16,64 +78,27 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Comput
 {
     WaitFlag<HardEvent::V_MTE2>(this->biEvt_);
     for (uint32_t head = 0; head < this->outerLoops_; ++head) {
-        uint64_t valid = validFlag.GetValue(head);
-        uint64_t bottomInvalid = validFlag.GetValue(head + 2 * this->validFlagMaskLen_ / 8);
-        uint64_t topInvalid = validFlag.GetValue(head + 3 * this->validFlagMaskLen_ / 8);
-        uint32_t outOffset = head * this->alignedEmbedDims_;
-        uint32_t baseIdx = head * this->alignedOneHeadNum_;
+        uint64_t baseIdx = head * this->innerLoopsAligned_;
+        uint64_t headOffset = baseIdx / B32_DATA_NUM_PER_REPEAT;
+        uint64_t byteOffset = baseIdx - headOffset * B32_DATA_NUM_PER_REPEAT;
+        uint64_t valid = validFlag.GetValue(headOffset) >> byteOffset;
+        uint64_t bottomInvalid = validFlag.GetValue(headOffset + 2 * this->validFlagMaskLen_ / 8) >> byteOffset;
+        uint64_t topInvalid = validFlag.GetValue(headOffset + 3 * this->validFlagMaskLen_ / 8) >> byteOffset;
+        uint32_t outOffset = fastMode ? head * this->numHeads_ * this->alignedEmbedDims_ : head * this->alignedEmbedDims_;
+
         WaitFlag<HardEvent::V_MTE2>(0);
-        for (int32_t i = ScalarGetSFFValue<1>(valid); i < this->innerLoops_ && i >= 0;
-            i = ScalarGetSFFValue<1>(valid)) {
-            valid = sbitset0(valid, i);
-            uint32_t idx = baseIdx + i;
-            int32_t w = shapeInt.GetValue(idx);
-            // WARN: dangerous!
-            uint64_t gmOffset = static_cast<uint64_t>(location.GetValue(idx));
-            this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmOffset], this->cpRowDoubleParams_);
-            this->CopyInValue(value[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
-                this->valueGm_[gmOffset + w * this->outDims_], this->cpRowDoubleParams_);
-        }
+        CopyFullPoint(location, value, shapeInt, loc, valid, baseIdx, this->innerLoops_);
         if (head == 0) {
             this->ComputeWeight(locFloat, shapeFloat, production, weight, attentionWeight);
         }
         for (uint32_t i = 0; i < 4; ++i) {
-            Brcb(cornerWeightBrc[i * this->alignedCornerEmbedDims_], weight[baseIdx + i * this->alignedOneQueryNum_],
+            Brcb(cornerWeightBrc[i * this->alignedCornerEmbedDims_], weight[baseIdx + i * this->alignedOneTaskNum_],
                 (fastMode ? this->alignedOneQueryNum_ : this->alignedOneHeadNum_) / B32_DATA_NUM_PER_BLOCK,
                 {this->embedBlk_, static_cast<uint16_t>(8 * this->embedBlk_)});
         }
-        for (int32_t i = ScalarGetSFFValue<0>(bottomInvalid); i < this->innerLoops_ && i >= 0;
-            i = ScalarGetSFFValue<0>(bottomInvalid)) {
-            bottomInvalid = sbitset1(bottomInvalid, i);
-            uint32_t idx = baseIdx + i;
-            int32_t w = shapeInt.GetValue(idx);
-            int32_t x = loc.GetValue(idx);
-            // WARN: dangerous!
-            uint64_t gmOffset = static_cast<uint64_t>(location.GetValue(idx));
-            if (x != -1) {
-                this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmOffset], this->cpOneValParams_);
-            }
-            if (x != w - 1) {
-                this->CopyInValue(value[i * this->alignedEmbedDims_ + this->alignedCornerEmbedDims_],
-                    this->valueGm_[gmOffset + this->outDims_], this->cpOneValParams_);
-            }
-        }
-        for (int32_t i = ScalarGetSFFValue<0>(topInvalid); i < this->innerLoops_ && i >= 0;
-            i = ScalarGetSFFValue<0>(topInvalid)) {
-            topInvalid = sbitset1(topInvalid, i);
-            uint32_t idx = baseIdx + i;
-            int32_t w = shapeInt.GetValue(idx);
-            int32_t x = loc.GetValue(idx);
-            // WARN: dangerous!
-            uint64_t gmOffset = static_cast<uint64_t>(location.GetValue(idx));
-            if (x != -1) {
-                this->CopyInValue(value[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
-                    this->valueGm_[gmOffset + w * this->outDims_], this->cpOneValParams_);
-            }
-            if (x != w - 1) {
-                this->CopyInValue(value[i * this->alignedEmbedDims_ + 3 * this->alignedCornerEmbedDims_],
-                    this->valueGm_[gmOffset + w * this->outDims_ + this->outDims_], this->cpOneValParams_);
-            }
-        }
+        CopyBorderPoint(location, value, shapeInt, loc, bottomInvalid, baseIdx, this->innerLoops_);
+        CopyBorderPoint(location[this->alignedOneTaskNum_], value[2 * this->alignedCornerEmbedDims_],
+            shapeInt, loc, topInvalid, baseIdx, this->innerLoops_);
         SetFlag<HardEvent::MTE2_V>(0);
         for (uint32_t i = 1; i < this->embedBlk_; ++i) {
             Adds<float, false>(cornerWeightBrc[i * B32_DATA_NUM_PER_BLOCK], cornerWeightBrc, 0.f, MASK_PLACEHOLDER,
@@ -105,21 +130,21 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Comput
         Add<float>(cornerWeightBrc, cornerWeightBrc[this->alignedCornerEmbedDims_], cornerWeightBrc,
             this->alignedCornerEmbedDims_);
 
-        SetVectorMask<float>(0, this->embedMask_);
         if (unlikely(head == 0)) {
             WaitFlag<HardEvent::MTE3_V>(0);
-            Duplicate<float, false>(
-                output, 0.f, MASK_PLACEHOLDER, this->numHeads_, 1, static_cast<uint8_t>(this->embedBlk_));
+            Duplicate<float>(output, 0.f, this->compTaskNum_ * this->numHeads_ * this->alignedEmbedDims_);
         }
+        SetVectorMask<float>(0, this->embedMask_);
         if (fastMode) {
             for (uint32_t i = 0; i < this->numHeads_; ++i) {
-                Add<float, false>(output[outOffset], cornerWeightBrc[outOffset * this->oneHeadNum_], output[outOffset],
+                Add<float, false>(output[outOffset], cornerWeightBrc[i * this->oneHeadNum_ * this->alignedEmbedDims_], output[outOffset],
                     MASK_PLACEHOLDER, this->oneHeadNum_, {1, 1, 1, 0, static_cast<uint8_t>(this->embedBlk_), 0});
                 outOffset += this->alignedEmbedDims_;
             }
         } else {
             Add<float, false>(output[outOffset], cornerWeightBrc, output[outOffset], MASK_PLACEHOLDER,
                 this->oneHeadNum_, {1, 1, 1, 0, static_cast<uint8_t>(this->embedBlk_), 0});
+            outOffset += this->alignedEmbedDims_;
         }
         ResetMask();
     }
@@ -161,8 +186,11 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Proces
     SetFlag<HardEvent::V_MTE2>(0);
     SetFlag<HardEvent::MTE3_V>(0);
 
-    for (uint32_t taskIdx = this->startOffset_; taskIdx < this->endOffset_; ++taskIdx) {
-        this->CopyInSample(locationFloat[2 * this->alignedOneQueryNum_], attentionWeight, taskIdx);
+    for (uint32_t taskIdx = this->startOffset_; taskIdx < this->endOffset_; taskIdx+=this->compTaskNum_) {
+        if (unlikely(taskIdx + this->compTaskNum_ > this->endOffset_)) {
+            UpdateParams(this->endOffset_ - taskIdx);
+        }
+        this->CopyInSample(locationFloat[2 * this->alignedOneTaskNum_], attentionWeight, taskIdx);
         this->ComputeLocation(taskIdx, locationFloat, locationInt, shapeFloat, shapeInt, locFloat, locInt, offsetInt,
             validFlag.ReinterpretCast<uint8_t>());
         ComputeBilinearInterpolation(validFlag, shapeInt, locationInt, locInt, shapeFloat, production, value, locFloat,

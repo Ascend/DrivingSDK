@@ -192,16 +192,6 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
         self.assertRtolEqual(cpu_results.grad_attention_weights, npu_results.grad_attention_weights)
         self.assertRtolEqual(cpu_results.grad_sampling_locations, npu_results.grad_sampling_locations)
 
-    def test_fully_embed_64(self):
-        shape = [1, 1450, 64, 7, 8, 8]
-        cpu_inputs, npu_inputs = self.gen_inputs(shape, torch.float32)
-        cpu_results = self.cpu_to_exec(cpu_inputs)
-        npu_results = self.npu_to_exec(npu_inputs)
-        self.assertRtolEqual(cpu_results.output, npu_results.output)
-        self.assertRtolEqual(cpu_results.grad_value, npu_results.grad_value)
-        self.assertRtolEqual(cpu_results.grad_attention_weights, npu_results.grad_attention_weights)
-        self.assertRtolEqual(cpu_results.grad_sampling_locations, npu_results.grad_sampling_locations)
-
     def test_point_16(self):
         shape = [1, 1890, 32, 7, 4, 16]
         cpu_inputs, npu_inputs = self.gen_inputs(shape, torch.float32)

@@ -21,7 +21,7 @@ mx_driving.point.npu_multi_scale_deformable_attn_function(Tensor value, Tensor v
 - Atlas A2 训练系列产品
 ### 约束说明
 - 当前版本只支持`num_points * num_levels` &le; 64，`num_heads` &le; 8，`embed_dims` &le; 64。
-- 注意：当`num_points * num_levels` = 64且`(embed_dims + 7) // 8` = 8时，`num_heads`最大为7。
+- 当前版本只支持`num_points * num_levels * ((embed_dims + 7) / 8)` &le; 2048。
 ### 调用示例
 ```python
 import torch, torch_npu

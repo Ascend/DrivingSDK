@@ -39,7 +39,6 @@ public:
         : pipe_(pipe), blkIdx_(GetBlockIdx())
     {
         InitTiling(tilingData);
-        InitTask();
         InitGM(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights);
         InitBuffer();
         ResetMask();
@@ -68,36 +67,56 @@ protected:
         realLevels_ = tilingData->realLevels;
 
         oneQueryNum_ = numHeads_ * realLevels_ * numPoints_;
-
         oneHeadNum_ = numLevels_ * numPoints_;
         alignedEmbedDims_ = AlignUp(embedDims_, B32_DATA_NUM_PER_BLOCK);
         if constexpr (fastMode) {
-            alignedOneHeadNum_ = oneHeadNum_;
-            alignedCornerEmbedDims_ = numHeads_ * oneHeadNum_ * alignedEmbedDims_;
-            qryRpt_ = 1;
-            brcRpt_ = DivCeil(4 * numHeads_ * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
             outerLoops_ = 1;
             innerLoops_ = numHeads_ * oneHeadNum_;
+            innerLoopsAligned_ = AlignUp(innerLoops_, 8);
+            innerLoopsAligned_ = B32_DATA_NUM_PER_REPEAT / (B32_DATA_NUM_PER_REPEAT / innerLoopsAligned_);
+            innerLoopsOffset_ = DivCeil(innerLoopsAligned_, 8);
+            alignedOneHeadNum_ = oneHeadNum_;
+            alignedOneQueryNum_ = innerLoopsAligned_;
+            alignedCornerEmbedDims_ = numHeads_ * oneHeadNum_ * alignedEmbedDims_;
+            brcRpt_ = DivCeil(4 * numHeads_ * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
         } else {
-            alignedOneHeadNum_ = B32_DATA_NUM_PER_REPEAT;
-            alignedCornerEmbedDims_ = oneHeadNum_ * alignedEmbedDims_;
-            qryRpt_ = numHeads_;
-            brcRpt_ = DivCeil(4 * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
             outerLoops_ = numHeads_;
             innerLoops_ = oneHeadNum_;
+            innerLoopsAligned_ = AlignUp(innerLoops_, 8);
+            innerLoopsAligned_ = B32_DATA_NUM_PER_REPEAT / (B32_DATA_NUM_PER_REPEAT / innerLoopsAligned_);
+            innerLoopsOffset_ = DivCeil(innerLoopsAligned_, 8);
+            alignedOneHeadNum_ = innerLoopsAligned_;
+            alignedOneQueryNum_ = numHeads_ * innerLoopsAligned_;
+            alignedCornerEmbedDims_ = oneHeadNum_ * alignedEmbedDims_;
+            brcRpt_ = DivCeil(4 * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
         }
-        alignedOneQueryNum_ = AlignUp(numHeads_ * alignedOneHeadNum_, B32_DATA_NUM_PER_REPEAT);
         alignedHeadEmbedDims_ = numHeads_ * alignedEmbedDims_;
         outDims_ = numHeads_ * embedDims_;
         embedBlk_ = DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
         outBlk_ = numHeads_ * embedBlk_;
         embedMask_ = embedDims_ < 64 ? (1UL << embedDims_) - 1 : FULL_MASK;
-        queryBlk_ = alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK;
         cornerRpt_ = DivCeil(4 * alignedCornerEmbedDims_, B32_DATA_NUM_PER_REPEAT);
+
+        InitTask();
+        uint32_t totalUbSize = 192 * 1024;
+        uint32_t reservedUbSize = 16 * 1024;
+        uint32_t usedUbSize = 8 * validFlagMaskLen_ + 2 * cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE;
+        uint32_t queryUbSize = 26 * alignedOneQueryNum_ * B32_BYTE_SIZE + alignedHeadEmbedDims_ * B32_BYTE_SIZE;
+        if (!forward) {
+            queryUbSize = queryUbSize + 7 * alignedOneQueryNum_ * B32_BYTE_SIZE;
+            usedUbSize = usedUbSize + cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE;
+        }
+        uint32_t modeUpperNum_ = 1024 / alignedOneQueryNum_;
+        compTaskNum_ = (totalUbSize - reservedUbSize - usedUbSize) / queryUbSize;
+        compTaskNum_ = min(min(endOffset_ - startOffset_, compTaskNum_), modeUpperNum_);
+        compTaskNum_ = max(compTaskNum_, (uint32_t)1);
+        outerLoops_ = outerLoops_ * compTaskNum_;
+        alignedOneTaskNum_ = AlignUp(compTaskNum_ * alignedOneQueryNum_, B32_DATA_NUM_PER_REPEAT);
+        taskRpt_ = DivCeil(alignedOneTaskNum_, B32_DATA_NUM_PER_REPEAT);
 
         cpRowDoubleParams_.dstStride =
             alignedCornerEmbedDims_ / B32_DATA_NUM_PER_BLOCK - DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
-        cpOutParams_.blockCount = numHeads_;
+        cpOutParams_.blockCount = compTaskNum_ * numHeads_;
         if constexpr (aligned) {
             cpOneValParams_.blockLen = embedBlk_;
             cpRowDoubleParams_.blockLen = embedBlk_;
@@ -111,22 +130,28 @@ protected:
         }
 
         if (fastMode) {
-            cpSampleParams_.blockCount = 1;
+            cpSampleParams_.blockCount = compTaskNum_;
             cpSampleParams_.blockLen = numHeads_ * oneHeadNum_ * B32_BYTE_SIZE;
-            cpDoubleSampleParams_.blockCount = 1;
+            cpSampleParams_.dstStride =
+                alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(innerLoops_, B32_DATA_NUM_PER_BLOCK);
+            cpSampleParams_.srcStride = (oneQueryNum_ - numHeads_ * oneHeadNum_) * B32_BYTE_SIZE;
+            cpDoubleSampleParams_.blockCount = compTaskNum_;
             cpDoubleSampleParams_.blockLen = 2 * numHeads_ * oneHeadNum_ * B32_BYTE_SIZE;
+            cpDoubleSampleParams_.dstStride =
+                2 * alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(2 * innerLoops_, B32_DATA_NUM_PER_BLOCK);
+            cpDoubleSampleParams_.srcStride = (2 * oneQueryNum_ - 2 * numHeads_ * oneHeadNum_) * B32_BYTE_SIZE;
         } else {
-            cpSampleParams_.blockCount = numHeads_;
+            cpSampleParams_.blockCount = compTaskNum_ * numHeads_;
             cpSampleParams_.blockLen = oneHeadNum_ * B32_BYTE_SIZE;
             cpSampleParams_.dstStride =
                 alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
-            cpDoubleSampleParams_.blockCount = numHeads_;
+            cpDoubleSampleParams_.blockCount = compTaskNum_ * numHeads_;
             cpDoubleSampleParams_.blockLen = 2 * oneHeadNum_ * B32_BYTE_SIZE;
             cpDoubleSampleParams_.dstStride =
                 2 * alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(2 * oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
         }
 
-        gatherParams_.repeatTimes = qryRpt_ * 2;
+        gatherParams_.repeatTimes = taskRpt_ * 2;
     }
 
     __aicore__ inline void InitGM(GM_ADDR value, GM_ADDR valueSpatialShapes, GM_ADDR valueLevelStartIndex,
@@ -143,24 +168,25 @@ protected:
     __aicore__ inline void InitBuffer()
     {
         if constexpr (!forward) {
-            pipe_->InitBuffer(gatherOffsetBuf_, 2 * alignedOneQueryNum_ * B32_BYTE_SIZE);
-            pipe_->InitBuffer(gradLocationQue_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE); // x, y
-            pipe_->InitBuffer(gradAttentionWeightsQue_, alignedOneQueryNum_ * B32_BYTE_SIZE);
+            pipe_->InitBuffer(gatherOffsetBuf_, 2 * alignedOneTaskNum_ * B32_BYTE_SIZE);
+            pipe_->InitBuffer(gradLocationQue_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE); // x, y
+            pipe_->InitBuffer(gradAttentionWeightsQue_, alignedOneTaskNum_ * B32_BYTE_SIZE);
+            pipe_->InitBuffer(gradMulTmpBuf_, cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE);
         }
         pipe_->InitBuffer(shapeQue_, AlignUp(numLevels_ * 2, B32_DATA_NUM_PER_BLOCK) * B32_BYTE_SIZE);
         pipe_->InitBuffer(offsetQue_, AlignUp(numLevels_, B32_DATA_NUM_PER_BLOCK) * B32_BYTE_SIZE);
-        pipe_->InitBuffer(shapeIntBuf_, 2 * alignedOneQueryNum_ * B32_BYTE_SIZE);   // w, h
-        pipe_->InitBuffer(shapeFloatBuf_, 2 * alignedOneQueryNum_ * B32_BYTE_SIZE); // w, h
-        pipe_->InitBuffer(offsetIntBuf_, alignedOneQueryNum_ * B32_BYTE_SIZE);      // offsetInt
-        pipe_->InitBuffer(locIntBuf_, 2 * alignedOneQueryNum_ * B32_BYTE_SIZE);     // x0, y0
-        pipe_->InitBuffer(locFloatBuf_, 6 * alignedOneQueryNum_ * B32_BYTE_SIZE);   // lw, lh
+        pipe_->InitBuffer(shapeIntBuf_, 2 * alignedOneTaskNum_ * B32_BYTE_SIZE);   // w, h
+        pipe_->InitBuffer(shapeFloatBuf_, 2 * alignedOneTaskNum_ * B32_BYTE_SIZE); // w, h
+        pipe_->InitBuffer(offsetIntBuf_, alignedOneTaskNum_ * B32_BYTE_SIZE);      // offsetInt
+        pipe_->InitBuffer(locIntBuf_, 2 * alignedOneTaskNum_ * B32_BYTE_SIZE);     // x0, y0
+        pipe_->InitBuffer(locFloatBuf_, 6 * alignedOneTaskNum_ * B32_BYTE_SIZE);   // lw, lh
         pipe_->InitBuffer(validFlagBuf_, 8 * validFlagMaskLen_);                    // 16blocks
-        pipe_->InitBuffer(productionBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE); // lh * lw
-        pipe_->InitBuffer(weightBuf_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE);     // w1-w4
-        pipe_->InitBuffer(locationQue_, 4 * alignedOneQueryNum_ * B32_BYTE_SIZE);   // x, y
-        pipe_->InitBuffer(attentionWeightsQue_, alignedOneQueryNum_ * B32_BYTE_SIZE);
+        pipe_->InitBuffer(productionBuf_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE); // lh * lw
+        pipe_->InitBuffer(weightBuf_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE);     // w1-w4
+        pipe_->InitBuffer(locationQue_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE);   // x, y
+        pipe_->InitBuffer(attentionWeightsQue_, alignedOneTaskNum_ * B32_BYTE_SIZE);
         pipe_->InitBuffer(valueQue_, cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE);
-        pipe_->InitBuffer(outputQue_, alignedHeadEmbedDims_ * B32_BYTE_SIZE);
+        pipe_->InitBuffer(outputQue_, compTaskNum_ * alignedHeadEmbedDims_ * B32_BYTE_SIZE);
         // WARN: cornerWeightBrcBuf_ must be at the end of the buffer!
         pipe_->InitBuffer(cornerWeightBrcBuf_, cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE);
     }
@@ -181,14 +207,20 @@ protected:
                 int32_t o = offset.GetValue(level);
                 for (uint32_t point = 0; point < numPoints_; ++point) {
                     shapeInt.SetValue(idx, w);
-                    shapeInt.SetValue(idx + alignedOneQueryNum_, h);
+                    shapeInt.SetValue(idx + alignedOneTaskNum_, h);
                     offsetInt.SetValue(idx, o * numHeads_ + head);
                     ++idx;
                 }
             }
         }
+        for (uint32_t query = 1; query < compTaskNum_; ++query) {
+            uint32_t queryOffset = query * alignedOneQueryNum_;
+            Adds<int32_t>(shapeInt[queryOffset], shapeInt, 0, alignedOneQueryNum_);
+            Adds<int32_t>(shapeInt[queryOffset + alignedOneTaskNum_], shapeInt[alignedOneTaskNum_], 0, alignedOneQueryNum_);
+            Adds<int32_t>(offsetInt[queryOffset], offsetInt, 0, alignedOneQueryNum_);
+        }
         Cast<float, int32_t, false>(
-            shapeFloat, shapeInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+            shapeFloat, shapeInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
     }
 
     __aicore__ inline void CopyInSample(
@@ -241,21 +273,21 @@ protected:
     TBuf<TPosition::VECCALC> locIntBuf_, locFloatBuf_, shapeIntBuf_, shapeFloatBuf_, offsetIntBuf_, productionBuf_,
         weightBuf_, cornerWeightBrcBuf_, validFlagBuf_, gatherOffsetBuf_;
 
-    TBuf<TPosition::VECCALC> gradLocationQue_, gradAttentionWeightsQue_;
+    TBuf<TPosition::VECCALC> gradLocationQue_, gradAttentionWeightsQue_, gradMulTmpBuf_;
 
     int32_t blkIdx_;
 
     // const values
-    uint32_t coreNum_;
+    uint32_t coreNum_, compTaskNum_;
     uint32_t startOffset_, endOffset_;
     uint64_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, realLevels_;
-    uint32_t alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_, alignedHeadEmbedDims_;
+    uint32_t alignedOneTaskNum_, alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_, alignedHeadEmbedDims_;
     uint32_t oneHeadNum_, oneQueryNum_;
-    uint32_t outerLoops_, innerLoops_;
+    uint32_t outerLoops_, innerLoops_, innerLoopsAligned_, innerLoopsOffset_;
     uint16_t tailBrcBlk_, queryBlk_, embedBlk_, outBlk_;
-    uint16_t brcRpt_, qryRpt_, cornerRpt_;
+    uint16_t brcRpt_, cornerRpt_, taskRpt_;
     uint64_t embedMask_;
-    uint32_t validFlagMaskLen_ {64};
+    uint32_t validFlagMaskLen_ {256};
     TEventID copyEvt_ {2}, biEvt_ {3}; // biEvt_ is used for bilinear interpolation
     DataCopyParams cpOneValParams_, cpRowDoubleParams_ {2, 0, 0, 0}, cpSampleParams_, cpDoubleSampleParams_,
         cpOutParams_;
@@ -270,59 +302,76 @@ __aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeLocati
 {
     uint64_t cnt;
     int32_t baseSrcOffset = taskIdx / numQueries_ * numKeys_ * numHeads_;
+    int32_t tailSrcOffset = (taskIdx + compTaskNum_ - 1) / numQueries_ * numKeys_ * numHeads_;
     WaitFlag<HardEvent::MTE2_V>(copyEvt_);
 
-    GatherMask(locationFloat, locationFloat[2 * alignedOneQueryNum_], 1, false, MASK_PLACEHOLDER, gatherParams_, cnt);
-    GatherMask(locationFloat[alignedOneQueryNum_], locationFloat[2 * alignedOneQueryNum_], 2, false, MASK_PLACEHOLDER,
+    GatherMask(locationFloat, locationFloat[2 * alignedOneTaskNum_], 1, false, MASK_PLACEHOLDER, gatherParams_, cnt);
+    GatherMask(locationFloat[alignedOneTaskNum_], locationFloat[2 * alignedOneTaskNum_], 2, false, MASK_PLACEHOLDER,
         gatherParams_, cnt);
     ResetMask();
 
-    Mul<float, false>(locationFloat, locationFloat, shapeFloat, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 1, 8, 8, 8});
-    Adds<float, false>(locFloat, locationFloat, 0.5f, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
-    Cast<int32_t, float, false>(locInt, locFloat, RoundMode::CAST_FLOOR, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+    Mul<float, false>(locationFloat, locationFloat, shapeFloat, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 1, 8, 8, 8});
+    Adds<float, false>(locFloat, locationFloat, 0.5f, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
+    Cast<int32_t, float, false>(locInt, locFloat, RoundMode::CAST_FLOOR, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
     // fix the precesion issue of the floor operation(0.9999f -> 1.0f)
     Cast<float, int32_t, false>(
-        locFloat[2 * alignedOneQueryNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
-    Compare<float, uint8_t, false>(validFlag, locFloat[2 * alignedOneQueryNum_], locFloat, CMPMODE::GT,
-        MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 1, 8, 8, 8});
-    Adds<int32_t, false>(locFloat[2 * alignedOneQueryNum_].ReinterpretCast<int32_t>(), locInt, 0, MASK_PLACEHOLDER,
-        2 * qryRpt_, {1, 1, 8, 8});
-    Adds<int32_t, false>(locInt, locInt, -1, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+        locFloat[2 * alignedOneTaskNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
+    Compare<float, uint8_t, false>(validFlag, locFloat[2 * alignedOneTaskNum_], locFloat, CMPMODE::GT,
+        MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 1, 8, 8, 8});
+    Adds<int32_t, false>(locFloat[2 * alignedOneTaskNum_].ReinterpretCast<int32_t>(), locInt, 0, MASK_PLACEHOLDER,
+        2 * taskRpt_, {1, 1, 8, 8});
+    Adds<int32_t, false>(locInt, locInt, -1, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
     Select<float, uint8_t, false>(locInt.ReinterpretCast<float>(), validFlag, locInt.ReinterpretCast<float>(),
-        locFloat[2 * alignedOneQueryNum_], SELMODE::VSEL_TENSOR_TENSOR_MODE, 64, 2 * qryRpt_, {1, 1, 1, 8, 8, 8});
+        locFloat[2 * alignedOneTaskNum_], SELMODE::VSEL_TENSOR_TENSOR_MODE, 64, 2 * taskRpt_, {1, 1, 1, 8, 8, 8});
     // fix end
     Cast<float, int32_t, false>(
-        locFloat[2 * alignedOneQueryNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
-    Adds<int32_t, false>(locInt, locInt, -1, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 8, 8});
+        locFloat[2 * alignedOneTaskNum_], locInt, RoundMode::CAST_NONE, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
+    Adds<int32_t, false>(locInt, locInt, -1, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
 
     Mul<int32_t, false>(
-        locationInt, locInt[alignedOneQueryNum_], shapeInt, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    Add<int32_t, false>(locationInt, locInt, locationInt, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    Muls<int32_t, false>(locationInt, locationInt, numHeads_, MASK_PLACEHOLDER, qryRpt_, {1, 1, 8, 8});
-    Add<int32_t, false>(locationInt, locationInt, offsetInt, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    Adds<int32_t, false>(locationInt, locationInt, baseSrcOffset, MASK_PLACEHOLDER, qryRpt_, {1, 1, 8, 8});
+        locationInt, locInt[alignedOneTaskNum_], shapeInt, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Add<int32_t, false>(locationInt, locInt, locationInt, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Muls<int32_t, false>(locationInt, locationInt, numHeads_, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
+    Add<int32_t, false>(locationInt, locationInt, offsetInt, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+
+    if (unlikely(baseSrcOffset != tailSrcOffset)) {
+        for (uint32_t baseBatchNum = 0; baseBatchNum < compTaskNum_;) {
+            uint32_t currentBatchIdx = (taskIdx + baseBatchNum) / numQueries_;
+            uint32_t currentSrcOffset = currentBatchIdx * numKeys_ * numHeads_;
+            uint32_t currentBatchNum = (currentBatchIdx + 1) * numQueries_ - (taskIdx + baseBatchNum);
+            currentBatchNum = min(currentBatchNum, compTaskNum_ - baseBatchNum);
+            Adds<int32_t>(locationInt[baseBatchNum * alignedOneQueryNum_],
+                locationInt[baseBatchNum * alignedOneQueryNum_], currentSrcOffset, currentBatchNum * alignedOneQueryNum_);
+            baseBatchNum += currentBatchNum;
+        }
+    } else {
+        Adds<int32_t, false>(locationInt, locationInt, baseSrcOffset, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
+    }
+
     // WARN: it's dangerous to use int32_t type for global memory address.
-    Muls<int32_t, false>(locationInt, locationInt, embedDims_, MASK_PLACEHOLDER, qryRpt_, {1, 1, 8, 8});
-    Adds<float, false>(locFloat[4 * alignedOneQueryNum_], locFloat[2 * alignedOneQueryNum_], -1.f, MASK_PLACEHOLDER,
-        2 * qryRpt_, {1, 1, 8, 8});
+    Muls<int32_t, false>(locationInt, locationInt, embedDims_, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
+    Muls<int32_t, false>(locationInt[alignedOneTaskNum_], shapeInt, outDims_, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
+    Add<int32_t, false>(locationInt[alignedOneTaskNum_], locationInt, locationInt[alignedOneTaskNum_], MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Adds<float, false>(locFloat[4 * alignedOneTaskNum_], locFloat[2 * alignedOneTaskNum_], -1.f, MASK_PLACEHOLDER,
+        2 * taskRpt_, {1, 1, 8, 8});
 
     CompareScalar<float, uint8_t, false>(
-        validFlag, locFloat[4 * alignedOneQueryNum_], 0.f, CMPMODE::GE, MASK_PLACEHOLDER, qryRpt_, {1, 1, 8, 8});
-    CompareScalar<float, uint8_t, false>(validFlag[validFlagMaskLen_], locFloat[5 * alignedOneQueryNum_], 0.f,
-        CMPMODE::GE, MASK_PLACEHOLDER, qryRpt_, {1, 1, 8, 8});
-    Compare<float, uint8_t, false>(validFlag[2 * validFlagMaskLen_], locFloat[2 * alignedOneQueryNum_], shapeFloat,
-        CMPMODE::LT, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    Compare<float, uint8_t, false>(validFlag[3 * validFlagMaskLen_], locFloat[3 * alignedOneQueryNum_],
-        shapeFloat[alignedOneQueryNum_], CMPMODE::LT, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
+        validFlag, locFloat[4 * alignedOneTaskNum_], 0.f, CMPMODE::GE, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
+    CompareScalar<float, uint8_t, false>(validFlag[validFlagMaskLen_], locFloat[5 * alignedOneTaskNum_], 0.f,
+        CMPMODE::GE, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
+    Compare<float, uint8_t, false>(validFlag[2 * validFlagMaskLen_], locFloat[2 * alignedOneTaskNum_], shapeFloat,
+        CMPMODE::LT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Compare<float, uint8_t, false>(validFlag[3 * validFlagMaskLen_], locFloat[3 * alignedOneTaskNum_],
+        shapeFloat[alignedOneTaskNum_], CMPMODE::LT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
     And<uint16_t, false>(validFlag.ReinterpretCast<uint16_t>(), validFlag.ReinterpretCast<uint16_t>(),
-        validFlag[2 * validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
+        validFlag[2 * validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 2, {1, 1, 1, 8, 8, 8});
     And<uint16_t, false>(validFlag.ReinterpretCast<uint16_t>(), validFlag.ReinterpretCast<uint16_t>(),
         validFlag[validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
 
-    Compare<float, uint8_t, false>(validFlag[validFlagMaskLen_], locFloat[4 * alignedOneQueryNum_], shapeFloat,
-        CMPMODE::GE, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    CompareScalar<float, uint8_t, false>(validFlag[2 * validFlagMaskLen_], locFloat[2 * alignedOneQueryNum_], 0.f,
-        CMPMODE::LT, MASK_PLACEHOLDER, qryRpt_, {1, 1, 8, 8});
+    Compare<float, uint8_t, false>(validFlag[validFlagMaskLen_], locFloat[4 * alignedOneTaskNum_], shapeFloat,
+        CMPMODE::GE, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    CompareScalar<float, uint8_t, false>(validFlag[2 * validFlagMaskLen_], locFloat[2 * alignedOneTaskNum_], 0.f,
+        CMPMODE::LT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
     Or<uint16_t, false>(validFlag[validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[2 * validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
@@ -330,10 +379,10 @@ __aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeLocati
         validFlag[validFlagMaskLen_].ReinterpretCast<uint16_t>(), validFlag.ReinterpretCast<uint16_t>(),
         MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
 
-    Compare<float, uint8_t, false>(validFlag[2 * validFlagMaskLen_], locFloat[5 * alignedOneQueryNum_],
-        shapeFloat[alignedOneQueryNum_], CMPMODE::GE, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    CompareScalar<float, uint8_t, false>(validFlag[3 * validFlagMaskLen_], locFloat[5 * alignedOneQueryNum_], 0.f,
-        CMPMODE::LT, MASK_PLACEHOLDER, qryRpt_, {1, 1, 8, 8});
+    Compare<float, uint8_t, false>(validFlag[2 * validFlagMaskLen_], locFloat[5 * alignedOneTaskNum_],
+        shapeFloat[alignedOneTaskNum_], CMPMODE::GE, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    CompareScalar<float, uint8_t, false>(validFlag[3 * validFlagMaskLen_], locFloat[5 * alignedOneTaskNum_], 0.f,
+        CMPMODE::LT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
     Or<uint16_t, false>(validFlag[2 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[2 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[3 * validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
@@ -341,16 +390,17 @@ __aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeLocati
         validFlag[2 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
 
-    Compare<float, uint8_t, false>(validFlag[3 * validFlagMaskLen_], locFloat[3 * alignedOneQueryNum_],
-        shapeFloat[alignedOneQueryNum_], CMPMODE::GE, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    CompareScalar<float, uint8_t, false>(validFlag[4 * validFlagMaskLen_], locFloat[3 * alignedOneQueryNum_], 0.f,
-        CMPMODE::LT, MASK_PLACEHOLDER, qryRpt_, {1, 1, 8, 8});
+    Compare<float, uint8_t, false>(validFlag[3 * validFlagMaskLen_], locFloat[3 * alignedOneTaskNum_],
+        shapeFloat[alignedOneTaskNum_], CMPMODE::GE, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    CompareScalar<float, uint8_t, false>(validFlag[4 * validFlagMaskLen_], locFloat[3 * alignedOneTaskNum_], 0.f,
+        CMPMODE::LT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
     Or<uint16_t, false>(validFlag[3 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[3 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[4 * validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
     Or<uint16_t, false>(validFlag[3 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[3 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
         validFlag[validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
+
     SetFlag<HardEvent::V_MTE2>(biEvt_);
 }
 
@@ -359,51 +409,51 @@ __aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeWeight
     const LocalTensor<float>& shapes, const LocalTensor<float>& production, const LocalTensor<float>& weight,
     const LocalTensor<float>& attentionWeight)
 {
-    Sub<float, false>(locFloat, locFloat, locFloat[2 * alignedOneQueryNum_], MASK_PLACEHOLDER, 2 * qryRpt_,
+    Sub<float, false>(locFloat, locFloat, locFloat[2 * alignedOneTaskNum_], MASK_PLACEHOLDER, 2 * taskRpt_,
         {1, 1, 1, 8, 8, 8}); // lw, lh
 
-    Mul<float, false>(production[3 * alignedOneQueryNum_], locFloat, locFloat[alignedOneQueryNum_], MASK_PLACEHOLDER,
-        qryRpt_, {1, 1, 1, 8, 8, 8}); // lw * lh
-    Duplicate<float, false>(production, 1.f, MASK_PLACEHOLDER, 2 * qryRpt_, 1, 8);
+    Mul<float, false>(production[3 * alignedOneTaskNum_], locFloat, locFloat[alignedOneTaskNum_], MASK_PLACEHOLDER,
+        taskRpt_, {1, 1, 1, 8, 8, 8}); // lw * lh
+    Duplicate<float, false>(production, 1.f, MASK_PLACEHOLDER, 2 * taskRpt_, 1, 8);
     // hw, hh
     Sub<float, false>(
-        locFloat[2 * alignedOneQueryNum_], production, locFloat, MASK_PLACEHOLDER, 2 * qryRpt_, {1, 1, 1, 8, 8, 8});
+        locFloat[2 * alignedOneTaskNum_], production, locFloat, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 1, 8, 8, 8});
     // hw*hh
-    Mul<float, false>(production, locFloat[2 * alignedOneQueryNum_], locFloat[3 * alignedOneQueryNum_],
-        MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
+    Mul<float, false>(production, locFloat[2 * alignedOneTaskNum_], locFloat[3 * alignedOneTaskNum_],
+        MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
     // lw*hh
-    Mul<float, false>(production[alignedOneQueryNum_], locFloat, locFloat[3 * alignedOneQueryNum_], MASK_PLACEHOLDER,
-        qryRpt_, {1, 1, 1, 8, 8, 8}); // lw * hh
+    Mul<float, false>(production[alignedOneTaskNum_], locFloat, locFloat[3 * alignedOneTaskNum_], MASK_PLACEHOLDER,
+        taskRpt_, {1, 1, 1, 8, 8, 8}); // lw * hh
     // hw*lh
-    Mul<float, false>(production[2 * alignedOneQueryNum_], locFloat[alignedOneQueryNum_],
-        locFloat[2 * alignedOneQueryNum_], MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8}); // hw * lh
+    Mul<float, false>(production[2 * alignedOneTaskNum_], locFloat[alignedOneTaskNum_],
+        locFloat[2 * alignedOneTaskNum_], MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8}); // hw * lh
     // lw*lh
-    Mul<float, false>(production[3 * alignedOneQueryNum_], locFloat[alignedOneQueryNum_], locFloat, MASK_PLACEHOLDER,
-        qryRpt_, {1, 1, 1, 8, 8, 8}); // lw * lh
+    Mul<float, false>(production[3 * alignedOneTaskNum_], locFloat[alignedOneTaskNum_], locFloat, MASK_PLACEHOLDER,
+        taskRpt_, {1, 1, 1, 8, 8, 8}); // lw * lh
 
-    Mul<float, false>(weight, production, attentionWeight, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(weight[alignedOneQueryNum_], production[alignedOneQueryNum_], attentionWeight, MASK_PLACEHOLDER,
-        qryRpt_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(weight[2 * alignedOneQueryNum_], production[2 * alignedOneQueryNum_], attentionWeight,
-        MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-    Mul<float, false>(weight[3 * alignedOneQueryNum_], production[3 * alignedOneQueryNum_], attentionWeight,
-        MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
+    Mul<float, false>(weight, production, attentionWeight, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Mul<float, false>(weight[alignedOneTaskNum_], production[alignedOneTaskNum_], attentionWeight, MASK_PLACEHOLDER,
+        taskRpt_, {1, 1, 1, 8, 8, 8});
+    Mul<float, false>(weight[2 * alignedOneTaskNum_], production[2 * alignedOneTaskNum_], attentionWeight,
+        MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Mul<float, false>(weight[3 * alignedOneTaskNum_], production[3 * alignedOneTaskNum_], attentionWeight,
+        MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
     if constexpr (!forward) {
         Mul<float, false>(
-            locFloat, locFloat, shapes[alignedOneQueryNum_], MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8}); // lw * h
-        Mul<float, false>(locFloat[alignedOneQueryNum_], locFloat[alignedOneQueryNum_], shapes, MASK_PLACEHOLDER,
-            qryRpt_, {1, 1, 1, 8, 8, 8}); // lh * w
-        Mul<float, false>(locFloat[2 * alignedOneQueryNum_], locFloat[2 * alignedOneQueryNum_],
-            shapes[alignedOneQueryNum_], MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8}); // hw * h
-        Mul<float, false>(locFloat[3 * alignedOneQueryNum_], locFloat[3 * alignedOneQueryNum_], shapes,
-            MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8}); // hh * w
-        Mul<float, false>(locFloat, locFloat, attentionWeight, MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-        Mul<float, false>(locFloat[alignedOneQueryNum_], locFloat[alignedOneQueryNum_], attentionWeight,
-            MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-        Mul<float, false>(locFloat[2 * alignedOneQueryNum_], locFloat[2 * alignedOneQueryNum_], attentionWeight,
-            MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
-        Mul<float, false>(locFloat[3 * alignedOneQueryNum_], locFloat[3 * alignedOneQueryNum_], attentionWeight,
-            MASK_PLACEHOLDER, qryRpt_, {1, 1, 1, 8, 8, 8});
+            locFloat, locFloat, shapes[alignedOneTaskNum_], MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8}); // lw * h
+        Mul<float, false>(locFloat[alignedOneTaskNum_], locFloat[alignedOneTaskNum_], shapes, MASK_PLACEHOLDER,
+            taskRpt_, {1, 1, 1, 8, 8, 8}); // lh * w
+        Mul<float, false>(locFloat[2 * alignedOneTaskNum_], locFloat[2 * alignedOneTaskNum_],
+            shapes[alignedOneTaskNum_], MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8}); // hw * h
+        Mul<float, false>(locFloat[3 * alignedOneTaskNum_], locFloat[3 * alignedOneTaskNum_], shapes,
+            MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8}); // hh * w
+        Mul<float, false>(locFloat, locFloat, attentionWeight, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+        Mul<float, false>(locFloat[alignedOneTaskNum_], locFloat[alignedOneTaskNum_], attentionWeight,
+            MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+        Mul<float, false>(locFloat[2 * alignedOneTaskNum_], locFloat[2 * alignedOneTaskNum_], attentionWeight,
+            MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+        Mul<float, false>(locFloat[3 * alignedOneTaskNum_], locFloat[3 * alignedOneTaskNum_], attentionWeight,
+            MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
     }
     SetFlag<HardEvent::V_MTE2>(copyEvt_);
 }
@@ -437,6 +487,19 @@ private:
         }
         SetFlag<HardEvent::MTE3_V>(0);
     }
+
+    __aicore__ inline void UpdateParams(uint32_t tailCompNum);
+
+    __aicore__ inline void CopyFullPoint(
+        const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
+        const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
+        uint64_t valid, uint32_t baseIdx, uint32_t innerLoops);
+    
+    __aicore__ inline void CopyBorderPoint(
+        const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
+        const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
+        uint64_t valid, uint32_t baseIdx, uint32_t innerLoops);
+
     __aicore__ inline void ComputeBilinearInterpolation(const LocalTensor<uint64_t>& validFlag,
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location, const LocalTensor<int32_t>& loc,
         const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production, const LocalTensor<float>& value,
@@ -476,8 +539,14 @@ public:
         if (fastMode) {
             cpGradSampleParams_.blockCount = 1;
             cpGradSampleParams_.blockLen = this->numHeads_ * this->oneHeadNum_ * B32_BYTE_SIZE;
+            cpGradSampleParams_.dstStride = (this->oneQueryNum_ - this->numHeads_ * this->oneHeadNum_) * B32_BYTE_SIZE;
+            cpGradSampleParams_.srcStride =
+                this->alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(this->innerLoops_, B32_DATA_NUM_PER_BLOCK);
             cpGradDoubleSampleParams_.blockCount = 1;
             cpGradDoubleSampleParams_.blockLen = 2 * this->numHeads_ * this->oneHeadNum_ * B32_BYTE_SIZE;
+            cpGradDoubleSampleParams_.dstStride = (2 * this->oneQueryNum_ - 2 * this->numHeads_ * this->oneHeadNum_) * B32_BYTE_SIZE;
+            cpGradDoubleSampleParams_.srcStride = 2 * this->alignedOneQueryNum_ / B32_DATA_NUM_PER_BLOCK -
+                                                  DivCeil(2 * this->innerLoops_, B32_DATA_NUM_PER_BLOCK);
         } else {
             cpGradSampleParams_.blockCount = this->numHeads_;
             cpGradSampleParams_.blockLen = this->oneHeadNum_ * B32_BYTE_SIZE;
@@ -488,6 +557,8 @@ public:
             cpGradDoubleSampleParams_.srcStride = 2 * this->alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK -
                                                   DivCeil(2 * this->oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
         }
+        cpGradSampleParams_.blockCount = cpGradSampleParams_.blockCount * this->compTaskNum_;
+        cpGradDoubleSampleParams_.blockCount = cpGradDoubleSampleParams_.blockCount * this->compTaskNum_;
     }
 
     __aicore__ inline void Process();
@@ -499,8 +570,8 @@ private:
 
     __aicore__ inline void PrepareGatherOffset(const LocalTensor<uint32_t>& gatherOffset)
     {
-        for (uint32_t i = 0; i < this->alignedOneQueryNum_; ++i) {
-            gatherOffset.SetValue(2 * i, (i + this->alignedOneQueryNum_) * 4);
+        for (uint32_t i = 0; i < this->alignedOneTaskNum_; ++i) {
+            gatherOffset.SetValue(2 * i, (i + this->alignedOneTaskNum_) * 4);
             gatherOffset.SetValue(2 * i + 1, i * 4);
         }
     }
@@ -516,32 +587,49 @@ private:
         SetFlag<HardEvent::MTE2_V>(1);
     }
 
-    __aicore__ inline void GradMul(const LocalTensor<float>& dst, const LocalTensor<float>& gradOut, uint32_t outOffset)
+    __aicore__ inline void GradMul(const LocalTensor<float>& dst, const LocalTensor<float>& src, const LocalTensor<float>& gradOut, uint32_t outOffset)
     {
         for (uint32_t i = 0; i < 4; ++i) {
             uint32_t outerOffset = i * this->alignedCornerEmbedDims_;
             uint32_t offset = outOffset;
             if (fastMode) {
                 for (uint32_t j = 0; j < this->numHeads_; ++j) {
-                    uint32_t innerOffset = outerOffset + offset * this->oneHeadNum_;
-                    Mul<float, false>(dst[innerOffset], dst[innerOffset], gradOut[offset], MASK_PLACEHOLDER,
+                    uint32_t innerOffset = outerOffset + j * this->oneHeadNum_ * this->alignedEmbedDims_;
+                    Mul<float, false>(dst[innerOffset], src[innerOffset], gradOut[offset], MASK_PLACEHOLDER,
                         this->oneHeadNum_,
                         {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
                     offset += this->alignedEmbedDims_;
                 }
             } else {
-                Mul<float, false>(dst[outerOffset], dst[outerOffset], gradOut[outOffset], MASK_PLACEHOLDER,
+                Mul<float, false>(dst[outerOffset], src[outerOffset], gradOut[outOffset], MASK_PLACEHOLDER,
                     this->oneHeadNum_,
                     {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
             }
         }
     }
 
+    __aicore__ inline void UpdateParams(uint32_t tailCompNum);
+
+    __aicore__ inline void CopyFullPoint(
+        const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
+        const LocalTensor<float>& cornerWeightBrc,
+        uint64_t& valid, uint32_t baseIdx, uint32_t innerLoops);
+    
+    __aicore__ inline void CopyBorderPoint(
+        const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
+        const LocalTensor<float>& cornerWeightBrc,
+        const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
+        uint64_t& valid, uint32_t baseIdx, uint32_t innerLoops);
+    
+    __aicore__ inline void PrepareOutTensor(
+        const LocalTensor<float>& weight, const LocalTensor<float>& cornerWeightBrc,
+        const LocalTensor<float>& gradOut, uint32_t baseIdx, uint32_t outOffset);
+
     __aicore__ inline void ComputeBilinearInterpolation(const LocalTensor<uint64_t>& validFlag,
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location, const LocalTensor<int32_t>& loc,
         const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production, const LocalTensor<float>& value,
         const LocalTensor<float>& locFloat, const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
-        const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& gradOut);
+        const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& gradOut, const LocalTensor<float>& gradMulTmp);
 
     __aicore__ inline void ComputeGrad(const LocalTensor<float>& production, const LocalTensor<float>& locFloat,
         const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
