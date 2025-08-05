@@ -74,9 +74,34 @@ def models_blocks(models: ModuleType, options: Dict):
                 1 - self.attn_drop
             )
         return weights
+
+    @staticmethod
+    def project_points(key_points, projection_mat, image_wh=None):
+        bs, num_anchor, num_pts = key_points.shape[:3]
+
+        pts_extend = torch.cat(
+            [key_points, torch.ones_like(key_points[..., :1])], dim=-1
+        )
+
+        # change code
+        projection_mat = projection_mat[:, :, None, None].contiguous()
+        pts_extend = pts_extend[:, None, ..., None].contiguous()
+        points_2d = []
+        for i in range(4):
+            temp = ((projection_mat[:, :, :, :, i, :].unsqueeze(-1)) * pts_extend).squeeze(-1).sum(dim=-1)
+            points_2d.append(temp)
+        points_2d = torch.stack(points_2d, dim=-1)
+
+        points_2d = points_2d[..., :2] / torch.clamp(
+            points_2d[..., 2:3], min=1e-5
+        )
+        if image_wh is not None:
+            points_2d = points_2d / image_wh[:, :, None, None]
+        return points_2d
     
     if hasattr(models, "DeformableFeatureAggregation"):
         models.DeformableFeatureAggregation._get_weights = _get_weights
+        models.DeformableFeatureAggregation.project_points = project_points
 
 
 def detection_blocks(detection3d_blocks: ModuleType, options: Dict):
@@ -192,10 +217,67 @@ def detection_blocks(detection3d_blocks: ModuleType, options: Dict):
             temp_key_points_list.append(temp_key_points)
         return key_points, temp_key_points_list
 
+    @staticmethod
+    def anchor_projection(
+        anchor,
+        T_src2dst_list,
+        src_timestamp=None,
+        dst_timestamps=None,
+        time_intervals=None,
+    ):
+        dst_anchors = []
+        for i in range(len(T_src2dst_list)):
+            vel = anchor[..., VX:]
+            vel_dim = vel.shape[-1]
+            T_src2dst = torch.unsqueeze(
+                T_src2dst_list[i].to(dtype=anchor.dtype), dim=1
+            )
+
+            center = anchor[..., [X, Y, Z]]
+            if time_intervals is not None:
+                time_interval = time_intervals[i]
+            elif src_timestamp is not None and dst_timestamps is not None:
+                time_interval = (src_timestamp - dst_timestamps[i]).to(
+                    dtype=vel.dtype
+                )
+            else:
+                time_interval = None
+            if time_interval is not None:
+                translation = vel.transpose(0, -1) * time_interval
+                translation = translation.transpose(0, -1)
+                center = center - translation
+            center = (
+                torch.matmul(
+                    T_src2dst[..., :3, :3], center[..., None]
+                ).squeeze(dim=-1)
+                + T_src2dst[..., :3, 3]
+            )
+
+            size = anchor[..., [W, L, H]]
+
+            # change code
+            yaw_tmp = []
+            for j in range(2):
+                temp = ((T_src2dst[..., j, :2].unsqueeze(-1)) * anchor[..., [COS_YAW, SIN_YAW], None]).squeeze(-1).sum(dim=-1)
+                yaw_tmp.append(temp)
+            yaw = torch.stack(yaw_tmp, dim=-1)
+
+            vel_tmp = []
+            for j in range(vel_dim):
+                temp = ((T_src2dst[..., j, :vel_dim].unsqueeze(-1)) * vel[..., None]).squeeze(-1).sum(dim=-1)
+                vel_tmp.append(temp)
+            vel = torch.stack(vel_tmp, dim=-1)
+
+            dst_anchor = torch.cat([center, size, yaw, vel], dim=-1)
+            dst_anchors.append(dst_anchor)
+        return dst_anchors
+
     if hasattr(detection3d_blocks, "SparseBox3DRefinementModule"):
         detection3d_blocks.SparseBox3DRefinementModule.forward = refine_forward
     if hasattr(detection3d_blocks, "SparseBox3DKeyPointsGenerator"):
         detection3d_blocks.SparseBox3DKeyPointsGenerator.forward = keypoint_forward
+    if hasattr(detection3d_blocks, "SparseBox3DKeyPointsGenerator"):
+        detection3d_blocks.SparseBox3DKeyPointsGenerator.anchor_projection = anchor_projection
 
 
 def detection_losses(losses: ModuleType, options: Dict):
@@ -1046,7 +1128,7 @@ def generate_patcher_builder():
         .add_module_patch("mmcv.runner.hooks.optimizer", Patch(mmcv_optimizer))
     )
     if os.environ.get("SPARSE4D_PERFORMANCE_FLAG"):
-        sparse4d_patcher_builder.brake_at(1000)
+        sparse4d_patcher_builder.brake_at(500)
     return sparse4d_patcher_builder
 
 
