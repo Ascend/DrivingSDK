@@ -696,10 +696,19 @@ index c669247..904623e 100644
              device_ids=[torch.cuda.current_device()],
              broadcast_buffers=False)
 diff --git a/tools/train.py b/tools/train.py
-index 72a1579..21ae95e 100644
+index 72a1579..45afc79 100644
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -22,6 +22,9 @@ from mmdet3d.utils import collect_env, get_root_logger
+@@ -12,6 +12,8 @@ import torch
+ import torch.distributed as dist
+ from mmcv import Config, DictAction
+ from mmcv.runner import get_dist_info, init_dist
++from mx_driving.patcher.patcher import PatcherBuilder, Patch
++from mx_driving.patcher.tensor import batch_matmul
+ 
+ from mmdet import __version__ as mmdet_version
+ from mmdet3d import __version__ as mmdet3d_version
+@@ -22,6 +24,9 @@ from mmdet3d.utils import collect_env, get_root_logger
  from mmdet.apis import set_random_seed
  from mmseg import __version__ as mmseg_version
  
@@ -709,7 +718,7 @@ index 72a1579..21ae95e 100644
  try:
      # If mmdet version > 2.20.0, setup_multi_processes would be imported and
      # used from mmdet instead of mmdet3d.
-@@ -93,6 +96,7 @@ def parse_args():
+@@ -93,6 +98,7 @@ def parse_args():
          choices=['none', 'pytorch', 'slurm', 'mpi'],
          default='none',
          help='job launcher')
@@ -717,3 +726,13 @@ index 72a1579..21ae95e 100644
      parser.add_argument('--local_rank', type=int, default=0)
      parser.add_argument(
          '--autoscale-lr',
+@@ -274,4 +280,6 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul))
++    with pb.build():
++        main()
+
+
