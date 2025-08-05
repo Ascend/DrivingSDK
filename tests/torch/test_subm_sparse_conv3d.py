@@ -60,6 +60,7 @@ def get_golden_output(features, indices, weights, bias, batch_size, in_channels,
                       out_channels, kernel_size, out_spatial_shape):
     map1, map2 = generate_map(indices, out_spatial_shape, batch_size)
     M = torch.zeros((features.shape[0], kernel_size, kernel_size, kernel_size, in_channels), device=features.device, dtype=features.dtype)
+    indices_offset = (-1) * torch.ones((features.shape[0], kernel_size, kernel_size, kernel_size), device=features.device).int()
     weight_flatten = weights.reshape((kernel_size * kernel_size * kernel_size * in_channels, out_channels))
 
     min_x_idx = indices[:, 1] - kernel_size // 2
@@ -92,7 +93,8 @@ def get_golden_output(features, indices, weights, bias, batch_size, in_channels,
     
     M[mask] = features[points_offset[mask2], :]
     out = M.reshape(features.shape[0], -1) @ weight_flatten + bias.reshape(1, -1)
-    return out
+    indices_offset[mask] = points_offset[mask2]
+    return out, indices_offset.flatten(), M
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
@@ -107,7 +109,7 @@ def get_output(num_points, batch_size, in_channels, out_channels,
     net.bias.data = net.bias.data.to(dtype)
     
     x = SparseConvTensor(features, indices, spatial_shape, batch_size)
-    golden_output = get_golden_output(features, indices, net.weight.data, net.bias.data, batch_size,
+    golden_output, _, _ = get_golden_output(features, indices, net.weight.data, net.bias.data, batch_size,
         in_channels, out_channels, kernel_size, spatial_shape)
     res = net(x).features
     return res.detach().cpu().numpy(), golden_output.detach().cpu().numpy()

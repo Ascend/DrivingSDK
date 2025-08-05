@@ -137,34 +137,37 @@ class SubMConvFunction(Function):
         ctx.kernel_size = kernel_size
         ctx.save_for_backward(features, weight, output_iml2col, indices_offset)
         return out_features, indices, indices_offset
-
+    
     @staticmethod
     @once_differentiable
     # pylint: disable=too-many-return-values
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None, grad_offset=None) -> tuple:
         features, weight, output_iml2col, ouidx_offset = ctx.saved_tensors
-        weight_grad = output_iml2col.T @ grad_out_features
+        
+        N, out_channels = grad_out_features.shape
+        _, in_channels = features.shape
+        
+        weight_grad = output_iml2col.reshape(N, -1).transpose(1, 0) @ grad_out_features
+        img2col_mat_grad = grad_out_features @ weight.reshape(-1, out_channels).T
+        img2col_mat_grad = img2col_mat_grad.reshape(-1, in_channels)
+        ouidx_offset = ouidx_offset.reshape(-1)
+        
         weight_shape = weight.shape
-        kernel_num = weight_shape[0] * weight_shape[1] * weight_shape[2]
         weight_grad = weight_grad.view(
             weight_shape[0], weight_shape[1], weight_shape[2], weight_shape[3], weight_shape[4]
         )
+        
         mask = ouidx_offset != -1
         valid_indices = torch.nonzero(mask).view(-1)
         ouidx_offset = torch.index_select(ouidx_offset, 0, valid_indices)
-        grad_out_features_iml2col = mx_driving._C.npu_subm_sparse_conv3d_grad(
-            ouidx_offset, valid_indices.int(), weight, grad_out_features, features.shape[0], ctx.kernel_size
-        )
-        grad_out_features_iml2col = grad_out_features_iml2col.view(features.shape[0], -1)
-        weight = weight.permute(0, 1, 2, 4, 3).contiguous()
-        weight_permute = weight.view(kernel_num * weight_shape[4], weight_shape[3])
-        feature_grad = grad_out_features_iml2col @ weight_permute
-
+        img2col_mat_grad = torch.index_select(img2col_mat_grad, 0, valid_indices)
+        
+        feature_grad = mx_driving.scatter_add(img2col_mat_grad, ouidx_offset, None, 0, N)
+        
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None
 
 
 class SubMConvWithKeyFunction(Function):
-
     @staticmethod
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(
