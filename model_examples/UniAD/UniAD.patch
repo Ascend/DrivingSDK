@@ -1,6 +1,6 @@
 diff --git a/nuscenes_need/mot.py b/nuscenes_need/mot.py
 new file mode 100644
-index 0000000..9d5bc61
+index 0000000..9da27eb
 --- /dev/null
 +++ b/nuscenes_need/mot.py
 @@ -0,0 +1,139 @@
@@ -238,6 +238,50 @@ index d73b7e0..515ac1c 100755
  class DiceCost(object):
      """IoUCost.
  
+diff --git a/projects/mmdet3d_plugin/core/bbox/util.py b/projects/mmdet3d_plugin/core/bbox/util.py
+index c54bd75..16f4fd2 100755
+--- a/projects/mmdet3d_plugin/core/bbox/util.py
++++ b/projects/mmdet3d_plugin/core/bbox/util.py
+@@ -24,30 +24,15 @@ def normalize_bbox(bboxes, pc_range):
+     return normalized_bboxes
+ 
+ def denormalize_bbox(normalized_bboxes, pc_range):
+-    # rotation 
+-    rot_sine = normalized_bboxes[..., 6:7]
++    # rotation
++    cx, cy, w, l, cz, h, rot_sine, rot_cosine, vx, vy = normalized_bboxes.split(1, dim=-1)
+ 
+-    rot_cosine = normalized_bboxes[..., 7:8]
+     rot = torch.atan2(rot_sine, rot_cosine)
+ 
+-    # center in the bev
+-    cx = normalized_bboxes[..., 0:1]
+-    cy = normalized_bboxes[..., 1:2]
+-    cz = normalized_bboxes[..., 4:5]
+-   
+-    # size
+-    w = normalized_bboxes[..., 2:3]
+-    l = normalized_bboxes[..., 3:4]
+-    h = normalized_bboxes[..., 5:6]
+-
+-    w = w.exp() 
+-    l = l.exp() 
+-    h = h.exp() 
+-    if normalized_bboxes.size(-1) > 8:
+-         # velocity 
+-        vx = normalized_bboxes[:, 8:9]
+-        vy = normalized_bboxes[:, 9:10]
+-        denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
+-    else:
+-        denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot], dim=-1)
++    w = w.exp()
++    l = l.exp()
++    h = h.exp()
++
++    denormalized_bboxes = torch.cat([cx, cy, cz, w, l, h, rot, vx, vy], dim=-1)
++
+     return denormalized_bboxes
+\ No newline at end of file
 diff --git a/projects/mmdet3d_plugin/datasets/nuscenes_e2e_dataset.py b/projects/mmdet3d_plugin/datasets/nuscenes_e2e_dataset.py
 index c1b9392..88de6c3 100644
 --- a/projects/mmdet3d_plugin/datasets/nuscenes_e2e_dataset.py
@@ -285,10 +329,47 @@ index 3cb635f..50f6a13 100644
  
      def __init__(self, eps=1e-6, reduction='mean', loss_weight=1.0):
 diff --git a/projects/mmdet3d_plugin/losses/planning_loss.py b/projects/mmdet3d_plugin/losses/planning_loss.py
-index 6d47070..f904258 100644
+index 6d47070..4a7cd10 100644
 --- a/projects/mmdet3d_plugin/losses/planning_loss.py
 +++ b/projects/mmdet3d_plugin/losses/planning_loss.py
-@@ -54,6 +54,10 @@ class CollisionLoss(nn.Module):
+@@ -40,20 +40,41 @@ class CollisionLoss(nn.Module):
+         # sdc_planning_gt_mask (1, 6)
+         # future_gt_bbox 6x[lidarboxinstance]
+         n_futures = len(future_gt_bbox)
+-        inter_sum = sdc_traj_all.new_zeros(1, )
+-        dump_sdc = []
++        inter_sum = torch.tensor([0.], device=sdc_traj_all.device, dtype=sdc_traj_all.dtype)
+         for i in range(n_futures):
+             if len(future_gt_bbox[i].tensor) > 0:
+-                future_gt_bbox_corners = future_gt_bbox[i].corners[:, [0,3,4,7], :2] # (N, 8, 3) -> (N, 4, 2) only bev 
++                future_gt_corners = future_gt_bbox[i].corners[:, [0,3,4,7], :2].npu() # (N, 8, 3) -> (N, 4, 2) only bev
+                 # sdc_yaw = -sdc_planning_gt[0, i, 2].to(sdc_traj_all.dtype) - 1.5708
+                 sdc_yaw = sdc_planning_gt[0, i, 2].to(sdc_traj_all.dtype)
+                 sdc_bev_box = self.to_corners([sdc_traj_all[0, i, 0], sdc_traj_all[0, i, 1], self.w, self.h, sdc_yaw])
+-                dump_sdc.append(sdc_bev_box.cpu().detach().numpy())
+-                for j in range(future_gt_bbox_corners.shape[0]):
+-                    inter_sum += self.inter_bbox(sdc_bev_box, future_gt_bbox_corners[j].to(sdc_traj_all.device))
++                sdc_min = sdc_bev_box.min(dim=0)[0] # (2,)
++                sdc_max = sdc_bev_box.max(dim=0)[0] # (2,)
++
++                # Compute min/max for all target boxes (N, 2)
++                target_min = future_gt_corners.min(dim=1)[0]  # (N, 2)
++                target_max = future_gt_corners.max(dim=1)[0]  # (N, 2)
++            
++                # Compute intersection for all boxes (vectorized)
++                intersect_min = torch.maximum(sdc_min, target_min)  # (N, 2)
++                intersect_max = torch.minimum(sdc_max, target_max)  # (N, 2)
++                intersect_dims = intersect_max - intersect_min  # (N, 2)
++            
++                # Clamp negative values to 0 and compute area
++                intersect_area = torch.prod(
++                    torch.clamp_min(intersect_dims, 0),
++                    dim=1
++                )  # (N,)
++            
++                # Sum all intersections for this frame
++                inter_sum += intersect_area.sum()
++                
          return inter_sum * self.weight
          
      def inter_bbox(self, corners_a, corners_b):
@@ -299,7 +380,7 @@ index 6d47070..f904258 100644
          xa1, ya1 = torch.max(corners_a[:, 0]), torch.max(corners_a[:, 1])
          xa2, ya2 = torch.min(corners_a[:, 0]), torch.min(corners_a[:, 1])
          xb1, yb1 = torch.max(corners_b[:, 0]), torch.max(corners_b[:, 1])
-@@ -61,7 +65,9 @@ class CollisionLoss(nn.Module):
+@@ -61,7 +82,9 @@ class CollisionLoss(nn.Module):
          
          xi1, yi1 = min(xa1, xb1), min(ya1, yb1)
          xi2, yi2 = max(xa2, xb2), max(ya2, yb2)
@@ -594,19 +675,82 @@ index 6875233..5e84f20 100644
  
          bev_mask = (reference_points_cam[..., 2:3] > eps)
 diff --git a/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py b/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
-index 77dfa91..584d0eb 100644
+index 77dfa91..49359c6 100644
 --- a/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
 +++ b/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
-@@ -23,6 +23,8 @@ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+@@ -23,6 +23,13 @@ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
  from mmcv.utils import ext_loader
  from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
      MultiScaleDeformableAttnFunction_fp16
 +import mx_driving.fused
 +
++indexes_global = None
++max_len_global = None
++bev_mask_id_global = -1
++count_global = None
++
  ext_module = ext_loader.load_ext(
      '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
  
-@@ -382,13 +384,8 @@ class MSDeformableAttention3D(BaseModule):
+@@ -134,10 +141,28 @@ class SpatialCrossAttention(BaseModule):
+ 
+         D = reference_points_cam.size(3)
+         indexes = []
+-        for i, mask_per_img in enumerate(bev_mask):
+-            index_query_per_img = mask_per_img[0].sum(-1).nonzero().squeeze(-1)
+-            indexes.append(index_query_per_img)
+-        max_len = max([len(each) for each in indexes])
++
++        global indexes_global, max_len_global, bev_mask_id_global, count_global
++        bev_mask_id = id(bev_mask)
++        if bev_mask_id == bev_mask_id_global:
++            indexes = indexes_global
++            max_len = max_len_global
++            count = count_global
++        else:
++            count = torch.any(bev_mask, 3)
++            bev_mask_ = count.squeeze()
++            for i, mask_per_img in enumerate(bev_mask_):
++                index_query_per_img = mask_per_img.nonzero().squeeze(-1)
++                indexes.append(index_query_per_img)
++
++            max_len = max([len(each) for each in indexes])
++            count = count.permute(1, 2, 0).sum(-1)
++            count = torch.clamp(count, min=1.0)
++            count = count[..., None]
++            count_global = count
++            indexes_global = indexes
++            max_len_global = max_len
++            bev_mask_id_global = bev_mask_id
+ 
+         # each camera only interacts with its corresponding BEV queries. This step can  greatly save GPU memory.
+         queries_rebatch = query.new_zeros(
+@@ -145,9 +170,9 @@ class SpatialCrossAttention(BaseModule):
+         reference_points_rebatch = reference_points_cam.new_zeros(
+             [bs, self.num_cams, max_len, D, 2])
+         
+-        for j in range(bs):
+-            for i, reference_points_per_img in enumerate(reference_points_cam):   
+-                index_query_per_img = indexes[i]
++        for i, reference_points_per_img in enumerate(reference_points_cam):   
++            index_query_per_img = indexes[i]
++            for j in range(bs):        
+                 queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
+                 reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
+ 
+@@ -165,10 +190,7 @@ class SpatialCrossAttention(BaseModule):
+             for i, index_query_per_img in enumerate(indexes):
+                 slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
+ 
+-        count = bev_mask.sum(-1) > 0
+-        count = count.permute(1, 2, 0).sum(-1)
+-        count = torch.clamp(count, min=1.0)
+-        slots = slots / count[..., None]
++        slots = slots / count
+         slots = self.output_proj(slots)
+ 
+         return self.dropout(slots) + inp_residual
+@@ -382,13 +404,8 @@ class MSDeformableAttention3D(BaseModule):
          #
  
          if torch.cuda.is_available() and value.is_cuda:
@@ -696,7 +840,7 @@ index a005cc2..d02f784 100644
 \ No newline at end of file
 diff --git a/tools/perf.py b/tools/perf.py
 new file mode 100644
-index 0000000..ba382ce
+index 0000000..ee2ddcc
 --- /dev/null
 +++ b/tools/perf.py
 @@ -0,0 +1,260 @@

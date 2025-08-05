@@ -102,11 +102,53 @@
   cp -r test UniAD
   cd UniAD
   git checkout 7b5bf15e0e49522b6553ddc48e67833e8f5f0f52
-  git apply UniAD.patch
+  git apply --reject --whitespace=fix UniAD.patch
   pip install -r requirements.txt
   ```
 
+- 根据操作系统，安装tcmalloc动态库。
 
+  - OpenEuler系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+  ```
+  mkdir gperftools
+  cd gperftools
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -zvxf gperftools-2.16.tar.gz
+  cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make
+  make install
+  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+  ldconfig
+  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+  export PATH=/usr/local/lib/bin:$PATH
+  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+  ```
+  - Ubuntu系统
+
+  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+
+  安装libunwind依赖：
+  ```
+  git clone https://github.com/libunwind/libunwind.git
+  cd libunwind
+  autoreconf -i
+  ./configure --prefix=/usr/local
+  make -j128
+  make install
+  ```
+
+  安装tcmalloc动态库：
+  ```
+  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+  make -j128
+  make install
+  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+  ```
 
 ### 准备数据集
 
@@ -195,16 +237,16 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 | 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS |amota |   L2   |
 |--------| ------------- | ---- |-------------------| --------- |---------------|--------|------|---------|
 | stage1 | 竞品A           | 8p   | 8                 | fp32      | 5883        |   1.359 | 0.380 | -      |
-| stage1 | Atlas 800T A2 | 8p   | 8                 | fp32      | 9883         |  0.809  | 0.376 | -      |
+| stage1 | Atlas 800T A2 | 8p   | 8                 | fp32      | 8019         |  0.997  | 0.376 | -      |
 | stage2 | 竞品A           | 8p   | 8                 | fp32      | 3990        |  2.000  | -     | 0.9127 |
-| stage2 | Atlas 800T A2 | 8p   | 8                 | fp32      | 7220         |   1.108  | -     | 0.9014 |
+| stage2 | Atlas 800T A2 | 8p   | 8                 | fp32      | 5145         |   1.554  | -     | 0.9014 |
 
 
 多机多卡线性度
 | 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS | 线性度 |  
 |--------| ------------- | ---- |-------------------| --------- |---------------|--------|------|
-| stage1 | Atlas 800T A2*2 | 16p   | 16               | fp32      | 10075        |  1.588  | 96.30%     | 
-| stage2 | Atlas 800T A2*2 | 16p  | 16                | fp32      | 7403         |   2.161  | 95.12%     |
+| stage1 | Atlas 800T A2*2 | 16p   | 16               | fp32      | 8333        |  1.920  | 96.30%     | 
+| stage2 | Atlas 800T A2*2 | 16p  | 16                | fp32      | 5412         |   2.956  | 95.12%     |
 
 # 变更说明
 
@@ -213,6 +255,8 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 2025.02.26: stage2性能优化，消除部分free time, FA替换优化, stage2性能达到0.54倍竞品。
 
 2025.04.25: 增加多机多卡训练脚本，增加多机多卡训练性能数据。
+
+2025.08.04: 模型性能优化，更新性能数据。
 
 
 # FAQ
