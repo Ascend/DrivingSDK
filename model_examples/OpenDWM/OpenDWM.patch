@@ -1,0 +1,488 @@
+diff --git a/configs/ctsd/single_dataset/ctsd_35_crossview_tirda_bm_nusc_a.json b/configs/ctsd/single_dataset/ctsd_35_crossview_tirda_bm_nusc_a.json
+index 41eaad2..910a69d 100644
+--- a/configs/ctsd/single_dataset/ctsd_35_crossview_tirda_bm_nusc_a.json
++++ b/configs/ctsd/single_dataset/ctsd_35_crossview_tirda_bm_nusc_a.json
+@@ -9,35 +9,35 @@
+             "_class_name": "dwm.fs.czip.CombinedZipFileSystem",
+             "fs": {
+                 "_class_name": "dwm.fs.dirfs.DirFileSystem",
+-                "path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan"
++                "path": "data/nuscences"
+             },
+             "paths": [
+-                "workspaces/worldmodels/data/nuscenes/interp_12Hz_trainval.zip",
+-                "data/nuscenes/v1.0-trainval_meta.zip",
+-                "data/nuscenes/v1.0-trainval01_blobs.zip",
+-                "data/nuscenes/v1.0-trainval02_blobs.zip",
+-                "data/nuscenes/v1.0-trainval03_blobs.zip",
+-                "data/nuscenes/v1.0-trainval04_blobs.zip",
+-                "data/nuscenes/v1.0-trainval05_blobs.zip",
+-                "data/nuscenes/v1.0-trainval06_blobs.zip",
+-                "data/nuscenes/v1.0-trainval07_blobs.zip",
+-                "data/nuscenes/v1.0-trainval08_blobs.zip",
+-                "data/nuscenes/v1.0-trainval09_blobs.zip",
+-                "data/nuscenes/v1.0-trainval10_blobs.zip",
+-                "data/nuscenes/nuScenes-map-expansion-v1.3.zip"
++                "interp_12Hz_trainval.zip",
++                "v1.0-trainval_meta.zip",
++                "v1.0-trainval01_blobs.zip",
++                "v1.0-trainval02_blobs.zip",
++                "v1.0-trainval03_blobs.zip",
++                "v1.0-trainval04_blobs.zip",
++                "v1.0-trainval05_blobs.zip",
++                "v1.0-trainval06_blobs.zip",
++                "v1.0-trainval07_blobs.zip",
++                "v1.0-trainval08_blobs.zip",
++                "v1.0-trainval09_blobs.zip",
++                "v1.0-trainval10_blobs.zip",
++                "nuScenes-map-expansion-v1.3.zip"
+             ]
+         },
+         "device_mesh": {
+             "_class_name": "torch.distributed.device_mesh.init_device_mesh",
+             "device_type": "cuda",
+             "mesh_shape": [
+-                8,
+-                8
++                2,
++                4
+             ]
+         }
+     },
+     "optimizer": {
+-        "_class_name": "torch.optim.AdamW",
++        "_class_name": "mindspeed.optimizer.adamw.AdamW",
+         "lr": 6e-5
+     },
+     "pipeline": {
+@@ -213,8 +213,7 @@
+                 "use_zero_convs": true
+             }
+         },
+-        "pretrained_model_name_or_path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/models/stable-diffusion-3.5-medium",
+-        "model_checkpoint_path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/models/stable-diffusion-3.5-medium/transformer/diffusion_pytorch_model.safetensors",
++        "pretrained_model_name_or_path": "base_model/stable-diffusion-3.5-medium",
+         "model_load_state_args": {
+             "strict": false
+         },
+@@ -313,8 +312,8 @@
+             },
+             "hdmap_image_settings": {},
+             "image_description_settings": {
+-                "path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/workspaces/worldmodels/data/nuscenes_v1.0-trainval_caption_v2_train.json",
+-                "time_list_dict_path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/workspaces/worldmodels/data/nuscenes_v1.0-trainval_caption_v2_times_train.json",
++                "path": "data/nuscences/nuscenes_v1.0-trainval_caption_v2_train.json",
++                "time_list_dict_path": "data/nuscences/nuscenes_v1.0-trainval_caption_v2_times_train.json",
+                 "align_keys": [
+                     "time",
+                     "weather"
+@@ -509,8 +508,8 @@
+             },
+             "hdmap_image_settings": {},
+             "image_description_settings": {
+-                "path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/workspaces/worldmodels/data/nuscenes_v1.0-trainval_caption_v2_val.json",
+-                "time_list_dict_path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/workspaces/worldmodels/data/nuscenes_v1.0-trainval_caption_v2_times_val.json",
++                "path": "data/nuscences/nuscenes_v1.0-trainval_caption_v2_val.json",
++                "time_list_dict_path": "data/nuscences/nuscenes_v1.0-trainval_caption_v2_times_val.json",
+                 "align_keys": [
+                     "time",
+                     "weather"
+diff --git a/examples/ctsd_35_6views_image_generation.json b/examples/ctsd_35_6views_image_generation.json
+index 52b8335..0851cd1 100644
+--- a/examples/ctsd_35_6views_image_generation.json
++++ b/examples/ctsd_35_6views_image_generation.json
+@@ -99,8 +99,8 @@
+             "mixer_type": "AlphaBlender",
+             "merge_factor": 2
+         },
+-        "pretrained_model_name_or_path": "/cache/aoss.cn-sh-01.sensecoreapi-oss.cn/users/wuzehuan/models/stable-diffusion-3.5-medium",
+-        "model_checkpoint_path": "/mnt/afs/user/wuzehuan/Tasks/ctsd_35_tirda_nwao/checkpoints/20000.pth",
++        "pretrained_model_name_or_path": "base_model/stable-diffusion-3.5-medium",
++        "model_checkpoint_path": "pretrained/ctsd_35_tirda_nwao_20k.pth",
+         "model_load_state_args": {}
+     },
+     "inputs": [
+diff --git a/examples/ctsd_generation_example.py b/examples/ctsd_generation_example.py
+index 1e74e10..3896cba 100644
+--- a/examples/ctsd_generation_example.py
++++ b/examples/ctsd_generation_example.py
+@@ -6,7 +6,18 @@ import json
+ import os
+ import torch
+ import torchvision
++import time
++import numpy as np
++import copy  # 用于深拷贝输入配置
+ 
++if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++    USE_NPU = True
++    os.environ['DEVICE_TYPE'] = "npu"
++    DEVICE_TYPE = "npu"
++    print("Enable NPU!")
++    import torch_npu
++    from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
+ 
+ def create_parser():
+     parser = argparse.ArgumentParser(
+@@ -18,6 +29,9 @@ def create_parser():
+     parser.add_argument(
+         "-o", "--output-path", type=str, required=True,
+         help="The path to save checkpoint files.")
++    parser.add_argument(
++        "-r", "--repeat", type=int, default=1,
++        help="Number of times to repeat inference for each sample.")
+     return parser
+ 
+ 
+@@ -44,10 +58,17 @@ if __name__ == "__main__":
+     print("The pipeline is loaded.")
+ 
+     os.makedirs(args.output_path, exist_ok=True)
+-    for i_id, i in enumerate(config["inputs"]):
+-        i["batch"] = {
++    
++    # 初始化耗时统计变量
++    inference_stats = []
++    
++    # 预热模型（可选）
++    if args.repeat > 1:
++        print("Warming up model...")
++        warmup_input = copy.deepcopy(config["inputs"][0])
++        warmup_input["batch"] = {
+             k: torch.tensor(v) if k != "clip_text" else v
+-            for k, v in i["batch"].items()
++            for k, v in warmup_input["batch"].items()
+         }
+         with torch.no_grad():
+             if (
+@@ -55,49 +76,169 @@ if __name__ == "__main__":
+                 config["pipeline"]["inference_config"]
+             ):
+                 latent_shape = tuple(
+-                    i["latent_shape"][:1] + [
++                    warmup_input["latent_shape"][:1] + [
+                         config["pipeline"]["inference_config"]
+                         ["sequence_length_per_iteration"],
+-                    ] + i["latent_shape"][2:]
++                    ] + warmup_input["latent_shape"][2:]
+                 )
+-                pipeline_output = pipeline.autoregressive_inference_pipeline(
++                pipeline.autoregressive_inference_pipeline(
+                     **{
+                         k: latent_shape if k == "latent_shape" else v
+-                        for k, v in i.items()
++                        for k, v in warmup_input.items()
+                     })
+             else:
+-                pipeline_output = pipeline.inference_pipeline(**i)
++                pipeline.inference_pipeline(**warmup_input)
++        print("Model warmed up.")
++
++    for i_id, i_orig in enumerate(config["inputs"]):
++        # 深拷贝输入配置，避免修改原始配置
++        i = copy.deepcopy(i_orig)
++        i["batch"] = {
++            k: torch.tensor(v) if k != "clip_text" else v
++            for k, v in i["batch"].items()
++        }
++        
++        # 记录原始潜在形状（用于后续统计）
++        original_latent_shape = i["latent_shape"]
++        
++        # 存储该样本的所有推理时间
++        sample_times = []
++        
++        # 重复推理多次
++        for repeat_idx in range(args.repeat):
++            # 记录推理开始前的时间
++            start_time = time.perf_counter()
++            
++            with torch.no_grad():
++                if (
++                    "sequence_length_per_iteration" in
++                    config["pipeline"]["inference_config"]
++                ):
++                    latent_shape = tuple(
++                        i["latent_shape"][:1] + [
++                            config["pipeline"]["inference_config"]
++                            ["sequence_length_per_iteration"],
++                        ] + i["latent_shape"][2:]
++                    )
++                    # 记录实际使用的潜在形状
++                    actual_latent_shape = latent_shape
++                    
++                    # 核心推理步骤
++                    pipeline_output = pipeline.autoregressive_inference_pipeline(
++                        **{
++                            k: latent_shape if k == "latent_shape" else v
++                            for k, v in i.items()
++                        })
++                else:
++                    # 记录实际使用的潜在形状
++                    actual_latent_shape = i["latent_shape"]
++                    
++                    # 核心推理步骤
++                    pipeline_output = pipeline.inference_pipeline(**i)
++                    
++                # 同步所有进程以确保准确计时
++                if ddp:
++                    torch.distributed.barrier()
+ 
+-            output_images = pipeline_output["images"]
+-            collected_images = [
+-                output_images.cpu().unflatten(0, i["latent_shape"][:3])
+-            ]
++                output_images = pipeline_output["images"]
++                collected_images = [
++                    output_images.cpu().unflatten(0, i["latent_shape"][:3])
++                ]
+ 
+-        stacked_images = torch.stack(collected_images)
+-        resized_images = torch.nn.functional.interpolate(
+-            stacked_images.flatten(0, 3),
+-            tuple(pipeline.inference_config["preview_image_size"][::-1])
+-        )
+-        resized_images = resized_images.view(
+-            *stacked_images.shape[:4], -1, *resized_images.shape[-2:])
++            # 记录推理结束后的时间
++            end_time = time.perf_counter()
++            elapsed_time = end_time - start_time
++            sample_times.append(elapsed_time)
++            
++            # 打印每次推理的耗时
++            print(f"Sample {i_id} - Run {repeat_idx+1}/{args.repeat}: "
++                  f"{elapsed_time:.4f} seconds | Shape: {actual_latent_shape}")
++            
++            # 只在第一次运行时保存结果
++            if repeat_idx == 0:
++                stacked_images = torch.stack(collected_images)
++                resized_images = torch.nn.functional.interpolate(
++                    stacked_images.flatten(0, 3),
++                    tuple(pipeline.inference_config["preview_image_size"][::-1])
++                )
++                resized_images = resized_images.view(
++                    *stacked_images.shape[:4], -1, *resized_images.shape[-2:])
+ 
+-        if not ddp or torch.distributed.get_rank() == 0:
+-            if i["latent_shape"][1] == 1:
+-                # [C, B * T * S * H, V * W]
+-                preview_tensor = resized_images.permute(4, 1, 2, 0, 5, 3, 6)\
+-                    .flatten(-2).flatten(1, 4)
+-                image_output_path = os.path.join(
+-                    args.output_path, "{}.png".format(i_id))
+-                torchvision.transforms.functional.to_pil_image(preview_tensor)\
+-                    .save(image_output_path)
+-            else:
+-                # [T, C, B * S * H, V * W]
+-                preview_tensor = resized_images.permute(2, 4, 1, 0, 5, 3, 6)\
+-                    .flatten(-2).flatten(2, 4)
+-                video_output_path = os.path.join(
+-                    args.output_path, "{}.mp4".format(i_id))
+-                dwm.utils.preview.save_tensor_to_video(
+-                    video_output_path, "libx264", i["batch"]["fps"][0].item(),
+-                    preview_tensor)
++                if not ddp or torch.distributed.get_rank() == 0:
++                    if i["latent_shape"][1] == 1:
++                        # [C, B * T * S * H, V * W]
++                        preview_tensor = resized_images.permute(4, 1, 2, 0, 5, 3, 6)\
++                            .flatten(-2).flatten(1, 4)
++                        image_output_path = os.path.join(
++                            args.output_path, "{}.png".format(i_id))
++                        torchvision.transforms.functional.to_pil_image(preview_tensor)\
++                            .save(image_output_path)
++                    else:
++                        # [T, C, B * S * H, V * W]
++                        preview_tensor = resized_images.permute(2, 4, 1, 0, 5, 3, 6)\
++                            .flatten(-2).flatten(2, 4)
++                        video_output_path = os.path.join(
++                            args.output_path, "{}.mp4".format(i_id))
++                        dwm.utils.preview.save_tensor_to_video(
++                            video_output_path, "libx264", i["batch"]["fps"][0].item(),
++                            preview_tensor)
+ 
+-            print("{} done".format(i_id))
++                    print(f"Sample {i_id} output saved")
++        
++        # 计算该样本的统计指标
++        sample_stats = {
++            "id": i_id,
++            "times": sample_times,
++            "mean_time": np.mean(sample_times),
++            "std_time": np.std(sample_times),
++            "min_time": min(sample_times),
++            "max_time": max(sample_times),
++            "original_latent_shape": original_latent_shape,
++            "actual_latent_shape": actual_latent_shape,
++            "fps": i["batch"]["fps"][0].item() if "fps" in i["batch"] else None
++        }
++        inference_stats.append(sample_stats)
++        
++        # 打印该样本的统计摘要
++        print(f"\nSample {i_id} inference stats:")
++        print(f"  Runs: {args.repeat}")
++        print(f"  Mean time: {sample_stats['mean_time']:.4f} ± {sample_stats['std_time']:.4f} seconds")
++        print(f"  Min time: {sample_stats['min_time']:.4f} seconds")
++        print(f"  Max time: {sample_stats['max_time']:.4f} seconds")
++        
++        # 计算并打印每帧处理时间（如果是视频）
++        if sample_stats["fps"] is not None:
++            frames = original_latent_shape[0] * original_latent_shape[1]
++            time_per_frame = sample_stats["mean_time"] / frames
++            print(f"  Time per frame: {time_per_frame:.6f} seconds")
++            print(f"  Equivalent FPS: {1/time_per_frame:.2f}")
++    
++    # 保存详细的耗时统计信息
++    if not ddp or torch.distributed.get_rank() == 0:
++        # 计算全局统计指标
++        all_times = [t for stats in inference_stats for t in stats["times"]]
++        global_stats = {
++            "total_samples": len(inference_stats),
++            "total_runs": len(all_times),
++            "total_time": sum(all_times),
++            "avg_time": np.mean(all_times),
++            "std_time": np.std(all_times),
++            "min_time": min(all_times),
++            "max_time": max(all_times),
++            "samples": inference_stats
++        }
++        
++        # 保存到JSON文件
++        stats_path = os.path.join(args.output_path, "inference_stats.json")
++        with open(stats_path, "w") as f:
++            json.dump(global_stats, f, indent=4)
++            
++        # 打印全局汇总统计
++        print("\n======= Global Inference Time Summary =======")
++        print(f"Total samples processed: {global_stats['total_samples']}")
++        print(f"Total inference runs: {global_stats['total_runs']}")
++        print(f"Total inference time: {global_stats['total_time']:.2f} seconds")
++        print(f"Average per run: {global_stats['avg_time']:.4f} ± {global_stats['std_time']:.4f} seconds")
++        print(f"Fastest run: {global_stats['min_time']:.4f} seconds")
++        print(f"Slowest run: {global_stats['max_time']:.4f} seconds")
++        print(f"Detailed stats saved to: {stats_path}")
+\ No newline at end of file
+diff --git a/src/dwm/train.py b/src/dwm/train.py
+index 4d22e9b..0b16f28 100644
+--- a/src/dwm/train.py
++++ b/src/dwm/train.py
+@@ -2,8 +2,21 @@ import argparse
+ import dwm.common
+ import json
+ import os
++import sys
+ import torch
++import pickle
+ from dwm.utils.sampler import VariableVideoBatchSampler
++from dwm.tools.patch import generate_patcher_builder
++from mindspeed.optimizer.adamw import AdamW
++if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++    USE_NPU = True
++    os.environ['DEVICE_TYPE'] = "npu"
++    DEVICE_TYPE = "npu"
++    print("Enable NPU!")
++    import torch_npu
++    from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
++    torch.npu.set_compile_mode(jit_compile=False)
+ 
+ 
+ def create_parser():
+@@ -42,8 +55,7 @@ def create_parser():
+         help="The wandb run name.")
+     return parser
+ 
+-
+-if __name__ == "__main__":
++def main():
+     parser = create_parser()
+     args = parser.parse_args()
+ 
+@@ -88,11 +100,48 @@ if __name__ == "__main__":
+         import wandb
+         wandb.init(project=args.wandb_project, name=args.wandb_run_name, config=config)
+ 
++
+     # load the dataset
+-    training_dataset = dwm.common.create_instance_from_config(
+-        config["training_dataset"])
+-    validation_dataset = dwm.common.create_instance_from_config(
+-        config["validation_dataset"])
++    CACHE_DIR = "cache"
++    training_cache_path = os.path.join(CACHE_DIR, "train_dataset.pkl")
++    valid_cache_path = os.path.join(CACHE_DIR, "valid_dataset.pkl")
++
++    # 确保缓存目录存在
++    os.makedirs(CACHE_DIR, exist_ok=True)
++
++    if os.getenv("CACHE_ENV_VAR", "0") == "1":
++        try:
++            with open(training_cache_path, 'rb') as f:
++                training_dataset = pickle.load(f)
++            with open(valid_cache_path, 'rb') as f:
++                validation_dataset = pickle.load(f)
++            print("Loading dataset from cache success.")
++        except FileNotFoundError as e:
++            print(f"Cache file not found: {e}")
++            print("Proceeding to create dataset from config and cache it...")
++            # 如果缓存文件不存在，则从配置创建并保存
++            training_dataset = dwm.common.create_instance_from_config(config["training_dataset"])
++            validation_dataset = dwm.common.create_instance_from_config(config["validation_dataset"])
++
++            with open(training_cache_path, 'wb') as f:
++                pickle.dump(training_dataset, f)
++                print("Training dataset cached to:", training_cache_path)
++            with open(valid_cache_path, 'wb') as f:
++                pickle.dump(validation_dataset, f)
++                print("Validation dataset cached to:", valid_cache_path)
++    else:
++        # 不使用缓存，直接从配置创建并保存
++        training_dataset = dwm.common.create_instance_from_config(config["training_dataset"])
++        validation_dataset = dwm.common.create_instance_from_config(config["validation_dataset"])
++
++        # with open(training_cache_path, 'wb') as f:
++        #     pickle.dump(training_dataset, f)
++        #     print("Training dataset written to:", training_cache_path)
++        # with open(valid_cache_path, 'wb') as f:
++        #     pickle.dump(validation_dataset, f)
++        #     print("Validation dataset written to:", valid_cache_path)
++
++
+     if ddp:
+ 
+         if "mix_config" in config.keys():
+@@ -162,6 +211,9 @@ if __name__ == "__main__":
+ 
+     # train loop
+     global_step = 0 if args.resume_from is None else args.resume_from
++    break_step = 5000
++    if os.getenv("PERFORMANCE", "0") == "1":
++        break_step = 500
+     for epoch in range(config["train_epochs"]):
+ 
+         if ddp:
+@@ -206,9 +258,24 @@ if __name__ == "__main__":
+                 pipeline.evaluate_pipeline(
+                     global_step, len(validation_dataset),
+                     validation_dataloader, validation_datasampler)
++            
++            # break_training
++            if global_step >= break_step:
++                sys.exit(0)
+ 
+         if should_log:
+             print("Epoch {} done.".format(epoch))
+ 
+     if torch.distributed.is_initialized():
+         torch.distributed.destroy_process_group()
++
++
++
++if __name__ == "__main__":
++    import gc
++    gc.set_threshold(700, 10, 1000)
++    from torch.distributed.device_mesh import init_device_mesh
++
++    opendwm_patcher_builder = generate_patcher_builder()
++    with opendwm_patcher_builder.build():
++        main()
