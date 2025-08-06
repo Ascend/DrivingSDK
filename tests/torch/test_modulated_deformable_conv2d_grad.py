@@ -23,10 +23,10 @@ class TestModulatedDeformableConv2d(TestCase):
 
     @golden_data_cache(__file__)
     def get_cpu_golden(self, x, offset, mask, weight, groups, grad_out):
-        x_cpu = x.detach().clone().cpu()
-        offset_cpu = offset.detach().clone().cpu()
-        mask_cpu = mask.detach().clone().cpu()
-        weight_cpu = weight.detach().clone().cpu()
+        x_cpu = x.detach().clone().cpu().double()
+        offset_cpu = offset.detach().clone().cpu().double()
+        mask_cpu = mask.detach().clone().cpu().double()
+        weight_cpu = weight.detach().clone().cpu().double()
         x_cpu.grad, offset_cpu.grad, mask_cpu.grad, weight_cpu.grad = None, None, None, None
         
         x_cpu.requires_grad = True

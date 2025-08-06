@@ -387,16 +387,16 @@ __aicore__ inline void DeformableConv2dV2Kernel<modulated>::ProcessVector(uint32
     GatherMask(xOffsetLocal_, copyInOffsetLocal_, 1, true, maskForGatherMask_, {1, 1, 8, 0}, cnt_);
     GatherMask(yOffsetLocal_, copyInOffsetLocal_, 2, true, maskForGatherMask_, {1, 1, 8, 0}, cnt_);
 
-    Add(xOffsetLocal_, xOffsetLocal_, constKHIdxLocal_, X_OFFSET_ALIGNED_SIZE);
-    Add(yOffsetLocal_, yOffsetLocal_, constKWIdxLocal_, X_OFFSET_ALIGNED_SIZE);
-
-    Floor(topPosLocal_, xOffsetLocal_, X_OFFSET_ALIGNED_SIZE);
-    Floor(leftPosLocal_, yOffsetLocal_, X_OFFSET_ALIGNED_SIZE);
-    Adds(bottomPosLocal_, topPosLocal_, 1.0f, X_OFFSET_ALIGNED_SIZE);
-    Adds(rightPosLocal_, leftPosLocal_, 1.0f, X_OFFSET_ALIGNED_SIZE);
+    Cast(topPosLocal_, xOffsetLocal_, RoundMode::CAST_FLOOR, X_OFFSET_ALIGNED_SIZE);
+    Cast(leftPosLocal_, yOffsetLocal_, RoundMode::CAST_FLOOR, X_OFFSET_ALIGNED_SIZE);
 
     Sub(fracHLocal_, xOffsetLocal_, topPosLocal_, X_OFFSET_ALIGNED_SIZE);
     Sub(fracWLocal_, yOffsetLocal_, leftPosLocal_, X_OFFSET_ALIGNED_SIZE);
+
+    Add(topPosLocal_, topPosLocal_, constKHIdxLocal_, X_OFFSET_ALIGNED_SIZE);
+    Add(leftPosLocal_, leftPosLocal_, constKWIdxLocal_, X_OFFSET_ALIGNED_SIZE);
+    Adds(bottomPosLocal_, topPosLocal_, 1.0f, X_OFFSET_ALIGNED_SIZE);
+    Adds(rightPosLocal_, leftPosLocal_, 1.0f, X_OFFSET_ALIGNED_SIZE);
 
     // global position
     Adds(topPosLocal_, topPosLocal_, hOutIdx - kH_ / 2 + 0.0f, 2 * X_OFFSET_ALIGNED_SIZE);
