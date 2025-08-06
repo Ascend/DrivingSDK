@@ -59,19 +59,24 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
   source {cann_root_dir}/set_env.sh
   ```
 
-1. 安装 mmcv
+1. 安装 Driving SDK 加速库
+   
+  安装方法参考原仓：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+
+2. 安装 mmcv
 
   在 FCOS3D 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装
 
   ```
   git clone https://github.com/open-mmlab/mmcv
   cd mmcv
+  pip install -r requirements.txt
   MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
   cd ../
   ```
 
-2. 安装 mmdet
+3. 安装 mmdet
   
   ```
   git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
@@ -79,16 +84,6 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
   cp -f ../mmdet.patch ./
   git apply --reject --whitespace=fix mmdet.patch
   pip install -e .
-  ```
-
-3. 安装 mx_driving
-
-  在 DrivingSDK 根目录下安装 mx_driving
-  
-  ```
-  # 请先 cd 到 DrivingSDK 根目录
-  pip install -r requirements.txt
-  python setup.py develop --release
   ```
 
 4. 准备模型源码，安装 mmdetection3d
@@ -225,7 +220,7 @@ mv /path/to/resnet101_msra-6cc46731.pth /root/.cache/torch/hub/checkpoints/resne
 |     芯片      | 卡数 | global batch size | epoch | mAP | NDS | FPS |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: |--------------|
 |     竞品A     |  8p  |         16        |  12   |         0.3049          |         0.3824          |       44.30      |
-| Atlas 800T A2 |  8p  |         16         |  12   |         0.3007          |         0.3829          |       37.51    |
+| Atlas 800T A2 |  8p  |         16         |  12   |         0.3012          |         0.3797          |       44.31    |
 
 # 版本说明
 
@@ -236,6 +231,7 @@ mv /path/to/resnet101_msra-6cc46731.pth /root/.cache/torch/hub/checkpoints/resne
 2025.02.18: 新增性能FPS计算，并添加到日志中。
 2025.03.04: 新增性能测试脚本，大幅提升性能测试效率。
 2025.03.25: 性能进一步优化。
+2025.08.05: 优化算子，进一步提升性能。
 
 ## FAQ
 
