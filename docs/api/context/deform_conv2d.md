@@ -23,7 +23,7 @@ mx_driving.fused.deform_conv2d(Tensor x, Tensor offset, Tensor weight, Union[int
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 约束说明
-1. `deformable_groups`和`groups`当前只支持1。
+1. `deformable_groups`当前只支持1。
 2. `h_in`,`w_in`,`h_out`,`w_out`需满足
 $$
 w_{out}=(w_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1 \\

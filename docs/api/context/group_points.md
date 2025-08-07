@@ -1,4 +1,4 @@
-## group_points[beta]
+## group_points
 ### 接口原型
 ```python
 mx_driving.group_points(Tensor features, Tensor indices) -> Tensor
@@ -16,8 +16,9 @@ mx_driving.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
 ### 返回值
 - `output(Tensor)`：分组后的点云数据，数据类型为`float32`。shape为`[B, C, npoints, nsample]`。
 ### 约束说明
-- `indices`的元素值需小于`features`的第三维度，即值在[0, N)。
-- C <= 1024
+- `features`和`indices`第一维度相同，且均不支持标量和空`tensor`。
+- `indices`元素的值需小于`features`的第三维度，即值在[0, N)。
+- C <= 1024。
 - 反向具有相同约束。
 ### 支持的型号
 - Atlas A2 训练系列产品

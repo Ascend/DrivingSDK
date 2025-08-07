@@ -42,7 +42,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/group_points[beta].md>group_points[beta]</a></td>
+        <td align=center><a href=./context/group_points.md>group_points</a></td>
         <td align=center>N</td>
     </tr>
     <tr>

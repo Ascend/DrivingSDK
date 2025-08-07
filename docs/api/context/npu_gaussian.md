@@ -5,7 +5,7 @@ mx_driving.npu_gaussian(Tensor boxes, int out_size_factor, float gaussian_overla
     float pc_range_y, int feature_map_size_x, int feature_map_size_y, bool norm_bbox, bool with_velocity, bool flip_angle, int max_objs) -> (Tensor center_int, Tensor radius, Tensor mask, Tensor ind, Tensor anno_box)
 ```
 ### 功能描述
-实现`centerpoint_head.py`脚本中`get_targets_single`函数的部分功能，`draw_gaussian`函数未适配。
+实现`centerpoint_head.py`脚本中`get_targets_single`函数的部分功能。
 ### 参数说明
 - `boxes(Tensor)`：每个目标的3D边界框信息，数据类型为`float32`，shape为`[Num_objs, W]`。
 - `out_size_factor(int)`：特征图缩放因子。
