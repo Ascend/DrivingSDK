@@ -33,7 +33,7 @@
   url=https://github.com/HuangJunJie2017/BEVDet.git
   commit_id=58c2587a8f89a1927926f0bdb6cde2917c91a9a5
   ```
-  
+
 - 适配昇腾 AI 处理器的实现：
 
   ```
@@ -44,13 +44,13 @@
 # 准备训练环境
 ## 安装昇腾环境
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   支持版本   |
   |:------------------:|:--------:|
-  | FrameworkPTAdapter | 6.0.0  |
-  |       CANN         | 8.0.0  |
+  | FrameworkPTAdapter | 7.1.0  |
+  |       CANN         | 8.2.RC1  |
 
 ## 安装模型环境
 
@@ -61,7 +61,6 @@
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
   |    PyTorch     |  2.1   |
-  |    Driving SDK   | 6.0.0 |
   |      mmcv      |  1.x   |
   |     mmdet      | 2.28.2 |
   | mmsegmentation | 0.30.0 |
@@ -69,12 +68,12 @@
 - 安装Driving SDK
 
   请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
-  >【注意】请使用最新版本Driving SDK（包含bevpoolv3算子的版本）
+  >【注意】请使用7.0.RC1及之后的Driving SDK
 
 - 安装基础依赖
 
   在模型源码包根目录下执行命令，安装模型需要的依赖。
-  
+
   ```shell
   pip install -r requirements.txt
   ```
@@ -98,7 +97,7 @@
   git checkout 58c2587a8f89a1927926f0bdb6cde2917c91a9a5
   git apply BEVDet.patch
   ```
-  
+
 # 准备数据集
 
 ## 预训练数据集
@@ -112,7 +111,7 @@
   整理好的数据集目录如下:
 
 ```
-BEVDet_for_PyTorch/data
+BEVDet/data
     nuscenes
         lidarseg
         maps
@@ -125,11 +124,7 @@ BEVDet_for_PyTorch/data
         bevdetv3-nuscenes_infos_val.pkl
 ```
 ## 获取预训练权重
-1. 联网情况下，预训练权重会自动下载。
-2. 无网络情况下，用户可以访问pytorch官网自行下载*resnet50*预训练[*resnet50-0676ba61.pth*](https://download.pytorch.org/models/resnet50-0676ba61.pth)。获取对应的预训练模型后，将预训练文件拷贝至对应目录。
-```
-${torch_hub}/checkpoints/resnet50-0676ba61.pth
-```
+联网情况下，预训练权重会自动下载。
 
 # 快速开始
 
@@ -138,7 +133,7 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 1. 进入解压后的源码包根目录。
 
    ```shell
-   cd /${模型文件夹名称} 
+   cd /${模型文件夹名称}
    ```
 
 2. *lidar segmentation dim64*任务训练
@@ -149,7 +144,7 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
      bash ./test/train_1p.sh --py_config=configs/bevdet/bevdet-r50.py # 单卡精度
      bash ./test/train_1p.sh --py_config=configs/bevdet/bevdet-r50.py --performance=1  # 单卡性能(只运行一个Epoch)
      ```
-   
+
 - 单机8卡训练
 
      ```shell
@@ -158,7 +153,7 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
      ```
 
   模型训练脚本参数说明如下。
-   
+
    ```
    公共参数：
    --py_config                              //不同类型任务配置文件
@@ -175,8 +170,8 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
   max_epochs=24
   eval_log_file=eval.log
   bash ./tools/dist_test.sh ${py_config} train_output_dir/epoch_${max_epochs}_ema.pth 8 --eval mAP | tee ${eval_log_file}
-     
-  ``` 
+
+  ```
 
 
 ## 训练结果
@@ -198,7 +193,13 @@ ${torch_hub}/checkpoints/resnet50-0676ba61.pth
 - 2025.8.1: 优化batch_matmul算子提升模型性能。
 
 ## FAQ
-暂无。
+Q: 在无网络或设有防火墙的环境下如何下载预训练权重？
+
+A: 无网络情况下，用户可以访问pytorch官网自行下载*resnet50*预训练[*resnet50-0676ba61.pth*](https://download.pytorch.org/models/resnet50-0676ba61.pth)。获取对应的预训练模型后，将预训练文件拷贝至对应目录。将${torch_hub}替换为Torch hub模型的下载位置，默认为 ~/.cache/torch/hub
+```
+${torch_hub}/checkpoints/resnet50-0676ba61.pth
+```
+
 
 
 
