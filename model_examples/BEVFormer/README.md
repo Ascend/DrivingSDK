@@ -2,7 +2,7 @@
 
 # 概述
 
-BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环视特征通过模型学习的方式转换到 BEV 空间（模型去学习如何将特征从 图像坐标系转换到 BEV 坐标系），从而实现 3D 目标检测和地图分割任务。
+BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环视特征通过模型学习的方式转换到 BEV 空间（模型去学习如何将特征从图像坐标系转换到 BEV 坐标系），从而实现 3D 目标检测和地图分割任务。
 
 - 参考实现：
 
@@ -32,18 +32,34 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 ## 安装模型环境
 
-- 当前模型支持的 PyTorch 版本如下表所示。
+- 当前模型支持的 PyTorch 版本如下表所示
 
   **表 2**  版本支持表
 
   | Torch_Version      |
   | :--------: | 
   | PyTorch 2.1 | 
-  
-- 安装依赖。
 
-  1. 源码编译安装 mmcv 1.x
-     ```
+- 安装 Driving SDK 加速库
+
+      参考：https://gitee.com/ascend/DrivingSDK/blob/branch_v7.1.RC1/README.md
+
+- 克隆代码仓到当前目录
+  ```shell
+  git clone https://gitee.com/ascend/DrivingSDK.git -b branch_v7.1.RC1
+  cd DrivingSDK/model_examples/BEVFormer
+  ```
+- 安装基础依赖
+
+  在模型源码包根目录下执行命令，安装模型需要的依赖。
+  
+  ```shell
+  pip install -r requirements.txt
+  ```
+- 安装其他依赖
+
+   1. 源码编译安装 mmcv 1.x
+      ```
       git clone -b 1.x https://github.com/open-mmlab/mmcv.git
       cp mmcv_config.patch mmcv
       cd mmcv
@@ -51,32 +67,33 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
       pip install -r requirements/runtime.txt
       MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
       MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-     ```
-  2. 源码安装 mmdetection3d v1.0.0rc4
-     ```
-     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
-     cp mmdet3d_config.patch mmdetection3d
-     cd mmdetection3d
-     git apply --reject mmdet3d_config.patch
-     pip install -e .
-     ```
-  3. 源码安装 mmdet 2.24.0
-     ```
-     git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
-     cp mmdet_config.patch mmdetection
-     cd mmdetection
-     git apply --reject mmdet_config.patch
-     pip install -e .
-     ```
-  4. 安装 detectron2
-     ``` 
-     python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
-     ```
-  5. 安装其他依赖
-     ```
-     pip install -r requirements.txt
-     ```
-  6. 模型代码更新
+      cd ..
+      ```
+   2. 源码安装 mmdetection3d v1.0.0rc4
+      ```
+      git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
+      cp mmdet3d_config.patch mmdetection3d
+      cd mmdetection3d
+      git apply --reject mmdet3d_config.patch
+      pip install -e .
+      cd ..
+      ```
+   3. 源码安装 mmdet 2.24.0
+      ```
+      git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
+      cp mmdet_config.patch mmdetection
+      cd mmdetection
+      git apply --reject mmdet_config.patch
+      pip install -e .
+      cd ..
+      ```
+   4. 安装 detectron2
+      ``` 
+      python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
+      ```
+
+
+- 模型代码更新
      ```
      git clone https://github.com/fundamentalvision/BEVFormer.git
      cp bev_former_config.patch BEVFormer
@@ -85,9 +102,6 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
      git apply --reject --whitespace=fix bev_former_config.patch
      cd ../
      ```
-  7. 安装Driving SDK加速库
-    参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
-
 ## 准备数据集
 
 1. 用户需自行下载 nuScenes V1.0 full 和 CAN bus 数据集放置在BEVFormer模型代码目录下，结构如下：
@@ -151,7 +165,10 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 ## 变更
 
 2024.3.8：首次发布。
+
 2025.1.6：更新发布。
+
 2025.2.6：更新性能数据。
+
 2025.4.23：base模型支持混合精度训练。
 ## FAQ
