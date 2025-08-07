@@ -40,10 +40,26 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
   | :--------: | 
   | PyTorch 2.1 | 
   
-- 安装依赖。
+- 安装 Driving SDK 加速库
 
-  1. 源码编译安装 mmcv 1.x
-     ```
+      参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+
+- 克隆代码仓到当前目录
+  ```shell
+  git clone https://gitee.com/ascend/DrivingSDK.git
+  cd DrivingSDK/model_examples/BEVFormer
+  ```
+- 安装基础依赖
+
+  在模型源码包根目录下执行命令，安装模型需要的依赖。
+  
+  ```shell
+  pip install -r requirements.txt
+  ```
+- 安装其他依赖
+
+   1. 源码编译安装 mmcv 1.x
+      ```
       git clone -b 1.x https://github.com/open-mmlab/mmcv.git
       cp mmcv_config.patch mmcv
       cd mmcv
@@ -51,42 +67,41 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
       pip install -r requirements/runtime.txt
       MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
       MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-     ```
-  2. 源码安装 mmdetection3d v1.0.0rc4
-     ```
-     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
-     cp mmdet3d_config.patch mmdetection3d
-     cd mmdetection3d
-     git apply --reject mmdet3d_config.patch
-     pip install -e .
-     ```
-  3. 源码安装 mmdet 2.24.0
-     ```
-     git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
-     cp mmdet_config.patch mmdetection
-     cd mmdetection
-     git apply --reject mmdet_config.patch
-     pip install -e .
-     ```
-  4. 安装 detectron2
-     ``` 
-     python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
-     ```
-  5. 安装其他依赖
-     ```
-     pip install -r requirements.txt
-     ```
-  6. 模型代码更新
+      cd ..
+      ```
+   2. 源码安装 mmdetection3d v1.0.0rc4
+      ```
+      git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
+      cp mmdet3d_config.patch mmdetection3d
+      cd mmdetection3d
+      git apply --reject mmdet3d_config.patch
+      pip install -e .
+      cd ..
+      ```
+   3. 源码安装 mmdet 2.24.0
+      ```
+      git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
+      cp mmdet_config.patch mmdetection
+      cd mmdetection
+      git apply --reject mmdet_config.patch
+      pip install -e .
+      cd ..
+      ```
+   4. 安装 detectron2
+      ``` 
+      python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
+      ```
+
+
+- 模型代码更新
      ```
      git clone https://github.com/fundamentalvision/BEVFormer.git
      cp bev_former_config.patch BEVFormer
      cd BEVFormer
      git checkout 66b65f3a1f58caf0507cb2a971b9c0e7f842376c
      git apply --reject --whitespace=fix bev_former_config.patch
-     cd ../
+     cd ..
      ```
-  7. 安装Driving SDK加速库
-    参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
 
 ## 准备数据集
 
@@ -116,7 +131,6 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
     BEVFormer
     ├── ckpts/
     │   ├── r101_dcn_fcos3d_pretrain.pth
-
    ```
 
 # 开始训练
@@ -141,8 +155,10 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 |  NAME       | Backbone          | Method          |   训练方式     |  Epoch  |   global batch size      |      NDS     |     mAP      |     FPS      |
 |-------------|-------------------|-----------------|---------------|--------------|--------------|--------------|--------------|--------------|
-|  8p-Atlas 800T A2 | R101-DCN    | BEVFormer-base  |       FP32    |        4     |   8   |    44.23   |      35.52   |      3.343    |
-|  8p-竞品A   | R101-DCN          | BEVFormer-base  |       FP32    |        4     |   8   |      43.58   |      34.45   |      3.320    |
+|  8p-Atlas 800T A2 | R101-DCN    | BEVFormer-base  |       FP32    |        4     |   8   |    44.23   |      35.52   |      3.66    |
+|  8p-竞品A   | R101-DCN          | BEVFormer-base  |       FP32    |        4     |   8   |      43.58   |      34.45   |      3.32    |
+|  8p-Atlas 800T A2 | R101-DCN    | BEVFormer-base  |       FP32    |        4     |   16   |    -   |      -   |      3.89    |
+|  8p-竞品A   | R101-DCN          | BEVFormer-base  |       FP32    |        4     |   16  |      -   |      -   |      3.39   |
 |  8p-Atlas 800T A2 | R101-DCN    | BEVFormer-base  |       混合精度    |       4     |   8   |      46.23   |      37.92   |      3.33    |
 |  8p-竞品A   | R101-DCN          | BEVFormer-base  |       混合精度    |       4     |   8   |      44.50   |      34.05   |      3.75    |
 
@@ -151,7 +167,13 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 ## 变更
 
 2024.3.8：首次发布。
+
 2025.1.6：更新发布。
+
 2025.2.6：更新性能数据。
+
 2025.4.23：base模型支持混合精度训练。
+
+2025.8.7：增加batch_size=2性能，更新性能数据。
+
 ## FAQ
