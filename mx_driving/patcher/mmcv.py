@@ -25,11 +25,23 @@ def patch_mmcv_version(expected_version: str):
 
 
 def msda(mmcvops: ModuleType, options: Dict):
-    from mx_driving import MultiScaleDeformableAttnFunction, multi_scale_deformable_attn
+    from mx_driving import MultiScaleDeformableAttnFunction
 
-    if hasattr(mmcvops, "multi_scale_deformable_attn"):
-        mmcvops.multi_scale_deformable_attn.MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction
-        mmcvops.multi_scale_deformable_attn.multi_scale_deformable_attn = multi_scale_deformable_attn
+    def apply_mxdriving_msda_forward_param(function):
+        # pylint: disable=too-many-arguments,huawei-too-many-arguments
+        def wrapper(ctx, value, spatial_shapes, level_start_index, sampling_locations, attention_weights, im2col_step):
+            return function(ctx, value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
+        return wrapper
+    
+    def apply_mxdriving_msda_backward_param(function):
+        def wrapper(ctx, grad_output):
+            return *(function(ctx, grad_output)), None
+        return wrapper
+
+    if hasattr(mmcvops, "multi_scale_deform_attn"):
+        MultiScaleDeformableAttnFunction.forward = apply_mxdriving_msda_forward_param(MultiScaleDeformableAttnFunction.forward)
+        MultiScaleDeformableAttnFunction.backward = apply_mxdriving_msda_backward_param(MultiScaleDeformableAttnFunction.backward)
+        mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction
 
 
 def dc(mmcvops: ModuleType, options: Dict):
