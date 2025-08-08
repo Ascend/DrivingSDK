@@ -136,10 +136,42 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
 ### 准备数据集
 
-- 根据原仓**Train**章节准备数据集，数据集目录及结构如下：
+- 根据原仓**Train**章节准备数据集
+
+  1. 下载[nuScences数据集](https://www.nuscenes.org/download)到${model-root-path}/data/nuscenes，目录结构如下
+
+      ```bash
+      ${model-root-path}/data/nuscenes
+      ├── interp_12Hz_trainval
+      ├── v1.0-trainval01_blobs.tgz
+      ├── v1.0-trainval02_blobs.tgz
+      ├── v1.0-trainval03_blobs.tgz
+      ├── v1.0-trainval04_blobs.tgz
+      ├── v1.0-trainval05_blobs.tgz
+      ├── v1.0-trainval06_blobs.tgz
+      ├── v1.0-trainval07_blobs.tgz
+      ├── v1.0-trainval08_blobs.tgz
+      ├── v1.0-trainval09_blobs.tgz
+      ├── v1.0-trainval10_blobs.tgz
+      └── v1.0-trainval_meta.tgz
+      ```
+
+  2. 在model-root-path下执行如下命令处理数据集
+
+      ```python
+      python src/dwm/tools/tar2zip.py -i data/nuscenes/v1.0-trainval_meta.tgz -o data/nuscenes/v1.0-trainval_meta.zip
+      python src/dwm/tools/tar2zip.py -i data/nuscenes/v1.0-trainval01_blobs.tgz -o data/nuscenes/v1.0-trainval01_blobs.zip
+      python src/dwm/tools/tar2zip.py -i data/nuscenes/v1.0-trainval02_blobs.tgz -o data/nuscenes/v1.0-trainval02_blobs.zip
+      ...
+      python src/dwm/tools/tar2zip.py -i data/nuscenes/v1.0-trainval10_blobs.tgz -o data/nuscenes/v1.0-trainval10_blobs.zip
+      ```
+
+  3. 下载对应的[captions文件](https://huggingface.co/datasets/wzhgba/opendwm-data/resolve/main/nuscenes_v1.0-trainval_caption_v2.zip?download=true)
+
+- 数据集目录及结构最终按照如下格式：
 
 ```bash
-${CODE_ROOT}/data/nuscenes
+${model-root-path}/data/nuscenes
 ├── interp_12Hz_trainval.zip
 ├── nuScenes-map-expansion-v1.3.zip
 ├── nuscenes_v1.0-trainval_caption_v2_times_train.json
@@ -161,18 +193,18 @@ ${CODE_ROOT}/data/nuscenes
 
 ### 准备base_model
 
-- 根据原仓**Models**章节准备，目录及结构如下：
+- 根据原仓**Models**章节准备SD3.5的[模型权重](https://huggingface.co/stabilityai/stable-diffusion-3.5-medium)，目录及结构如下：
 
 ```bash
-${CODE_ROOT}/base_model/
+${model-root-path}/base_model/
 └── stable-diffusion-3.5-medium
 ```
 
 ### 准备预训练权重
 
-- 推理需要CogVideoX VAE预训练权重，目录如下：
+- 推理需要[预训练权重](https://huggingface.co/wzhgba/opendwm-models/resolve/main/ctsd_35_tirda_nwao_20k.pth?download=true)，目录如下：
 ```bash
-${CODE_ROOT}/pretrained/
+${model-root-path}/pretrained/
 └── ctsd_35_tirda_nwao_20k.pth
 ```
 
@@ -192,6 +224,13 @@ ${CODE_ROOT}/pretrained/
    # 单机8卡训练，XX.XX.XX.XX为当前IP
    bash test/train.sh XX.XX.XX.XX
    ```
+
+   - 单机8卡的性能训练
+   ```
+   # 单机8卡训练，XX.XX.XX.XX为当前IP
+   bash test/train_performance.sh XX.XX.XX.XX
+   ```
+
 #### 训练结果
 
 | 芯片          | 卡数 | device_mesh | Precision | Loss | 性能-单步迭代耗时(s) |
