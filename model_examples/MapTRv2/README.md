@@ -44,7 +44,7 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
   commit_id=e03f097abef19e1ba3fed5f471a8d80fbfa0a064
   ```
 
-# MapTR
+# MapTRv2
 
 ## 准备训练环境
 
@@ -64,8 +64,8 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 7.0.0  |
-|       CANN        | 8.1.RC1  |
+| FrameworkPTAdapter | 7.1.0  |
+|       CANN        | 8.2.RC1  |
 
 1. 在模型根目录下安装依赖
     ```
@@ -194,13 +194,13 @@ MapTRv2
 |   |   ├── nuscenes_map_infos_temporal_val.pkl
 ├── patch/
 ├── test/
-├── MapTR/
+├── MapTRv2/
 ```
 
 > **说明：**
 > nuscenes数据集下的文件，通过运行以下指令生成：
 ```
-python tools/maptrv2/custom_nusc_map_converter.py --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data
+python MapTRv2/tools/maptrv2/custom_nusc_map_converter.py --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data
 ```
 
 ### 准备预训练权重
@@ -243,14 +243,16 @@ wget https://download.pytorch.org/models/resnet18-f37072fd.pth
 
 | 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :-------------------: |
-| 竞品A           |  8p  |         32         |   fp32    |  24   | 61.7 |         -          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  24   | 60.9 |         -          |
-| 竞品A           |  8p  |         32         |   fp32    |  1   | - |         21.91          |
-| Atlas 800T A2 |  8p  |         32         |   fp32    |  1   | - |         18.44          |
+| 竞品A           |  8p  |         32         |   fp16    |  24   | 61.7 |         -          |
+| Atlas 800T A2 |  8p  |         32         |   fp16    |  24   | 60.9 |         -          |
+| 竞品A           |  8p  |         32         |   fp16    |  1   | - |         21.91          |
+| Atlas 800T A2 |  8p  |         32         |   fp16    |  1   | - |         18.44          |
 
 # 变更说明
 
 2025.07.26：首次发布
+
+2025.08.07：修复数据集相关描述
 
 
 # FAQ
