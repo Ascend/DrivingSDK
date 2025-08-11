@@ -29,7 +29,7 @@ def msda(mmcvops: ModuleType, options: Dict):
 
     def apply_mxdriving_msda_forward_param(function):
         # pylint: disable=too-many-arguments,huawei-too-many-arguments
-        def wrapper(ctx, value, spatial_shapes, level_start_index, sampling_locations, attention_weights, im2col_step):
+        def wrapper(ctx, value, spatial_shapes, level_start_index, sampling_locations, attention_weights, im2col_step=None):
             return function(ctx, value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
         return wrapper
     
@@ -39,9 +39,8 @@ def msda(mmcvops: ModuleType, options: Dict):
         return wrapper
 
     if hasattr(mmcvops, "multi_scale_deform_attn"):
-        MultiScaleDeformableAttnFunction.forward = apply_mxdriving_msda_forward_param(MultiScaleDeformableAttnFunction.forward)
-        MultiScaleDeformableAttnFunction.backward = apply_mxdriving_msda_backward_param(MultiScaleDeformableAttnFunction.backward)
-        mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction
+        mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction.forward = apply_mxdriving_msda_forward_param(MultiScaleDeformableAttnFunction.forward)
+        mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction.backward = apply_mxdriving_msda_backward_param(MultiScaleDeformableAttnFunction.backward)
 
 
 def dc(mmcvops: ModuleType, options: Dict):

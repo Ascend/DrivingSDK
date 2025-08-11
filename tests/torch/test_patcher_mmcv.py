@@ -67,13 +67,15 @@ class TestPatcherMMCV(TestCase):
     def test_msda(self):
         """Test monkeypatching for multi_scale_deformable_attn"""
         mock_mmcvops = MagicMock()
-        mock_mmcvops.multi_scale_deform_attn = MagicMock()
+        mock_mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction.forward = MagicMock()
+        mock_mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction.backward = MagicMock()
         
         # Call msda function
         mx_mmcv.msda(mock_mmcvops, {})
         
         # Assert function replacements
-        assertIsNotInstance(mock_mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction, MagicMock)
+        assertIsNotInstance(mock_mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction.forward, MagicMock)
+        assertIsNotInstance(mock_mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction.backward, MagicMock)
 
 
 if __name__ == '__main__':
