@@ -167,7 +167,7 @@ ln -s $DATA_PATH/v1.0-trainval ./data/nuscenes/v1.0-trainval
 运行数据预处理脚本生成DiffusionDrive模型训练需要的pkl文件与初始锚框（预处理耗时约5h左右）
 
 ```bash
-python ./migrate_to_ascened/preprocess.py
+python ./migrate_to_ascend/preprocess.py
 ```
 
 ## 下载权重
