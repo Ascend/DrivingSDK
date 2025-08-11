@@ -29,11 +29,15 @@ export MKL_NUM_THREADS=16
 gpu_num=$1
 echo "number of gpus: "${gpu_num}
 
+batch_size=12
+global_batch_size=$((gpu_num * batch_size))
+
 config=projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
 work_dir=work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704
 
 export SPARSE4D_PERFORMANCE_FLAG=1
-sed -i 's/total_batch_size = 48/total_batch_size = 96/' $config
+sed -i "s/total_batch_size = 48/total_batch_size = ${global_batch_size}/" "$config"
+sed -i "s/num_gpus = 8/num_gpus = ${gpu_num}/" "$config"
 
 #训练开始时间
 start_time=$(date +%s)
@@ -53,7 +57,8 @@ fi
 end_time=$(date +%s)
 e2e_time=$(( $end_time - $start_time ))
 
-sed -i 's/total_batch_size = 96/total_batch_size = 48/' $config
+sed -i "s/total_batch_size = ${global_batch_size}/total_batch_size = 48/" "$config"
+sed -i "s/num_gpus = ${gpu_num}/num_gpus = 8/" "$config"
 
 log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
 batch_size=12
