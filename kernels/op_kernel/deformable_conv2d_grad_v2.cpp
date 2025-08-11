@@ -390,17 +390,17 @@ __aicore__ inline void DeformableConv2dGradV2Kernel<modulated>::Process()
         }
         GatherMask(xOffsetLocal_, copyInOffsetLocal_, 1, true, maskForGatherMask_, {1, 1, 8, 0}, cnt_);
         GatherMask(yOffsetLocal_, copyInOffsetLocal_, 2, true, maskForGatherMask_, {1, 1, 8, 0}, cnt_);
-        
+
+        Adds(topPosLocal_, constInnerBufferKHIdxLocal_, hOutIdx - hConstOffset_, X_OFFSET_BUFFER_SIZE);
+        Adds(leftPosLocal_, constInnerBufferKWIdxLocal_, wOutIdx - wConstOffset_, X_OFFSET_BUFFER_SIZE);
+        Add(xOffsetLocal_, xOffsetLocal_, topPosLocal_, X_OFFSET_BUFFER_SIZE);
+        Add(yOffsetLocal_, yOffsetLocal_, leftPosLocal_, X_OFFSET_BUFFER_SIZE);
+
         Cast(topPosLocal_, xOffsetLocal_, RoundMode::CAST_FLOOR, X_OFFSET_BUFFER_SIZE);
         Cast(leftPosLocal_, yOffsetLocal_, RoundMode::CAST_FLOOR, X_OFFSET_BUFFER_SIZE);
-
         Sub(fracHLocal_, xOffsetLocal_, topPosLocal_, X_OFFSET_BUFFER_SIZE);
         Sub(fracWLocal_, yOffsetLocal_, leftPosLocal_, X_OFFSET_BUFFER_SIZE);
 
-        Add(topPosLocal_, topPosLocal_, constInnerBufferKHIdxLocal_, X_OFFSET_BUFFER_SIZE);
-        Add(leftPosLocal_, leftPosLocal_, constInnerBufferKWIdxLocal_, X_OFFSET_BUFFER_SIZE);
-        Adds(topPosLocal_, topPosLocal_, hOutIdx - hConstOffset_, X_OFFSET_BUFFER_SIZE);
-        Adds(leftPosLocal_, leftPosLocal_, wOutIdx - wConstOffset_, X_OFFSET_BUFFER_SIZE);
         Adds(bottomPosLocal_, topPosLocal_, 1.0f, X_OFFSET_BUFFER_SIZE);
         Adds(rightPosLocal_, leftPosLocal_, 1.0f, X_OFFSET_BUFFER_SIZE);
 
