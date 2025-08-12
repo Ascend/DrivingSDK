@@ -214,4 +214,8 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 # FAQ
 
-1. 若遇到`ImportError: cannot import name 'gcd' from 'fraction'` 报错，升级`networkx`即可。
+## 训练时报错`ImportError: cannot import name 'gcd' from 'fraction'` 
+报错原因为networkx版本低，使用`pip install networkx==3.1`升级依赖版本即可。
+
+## 训练时报错`libGL.so.1`文件不存在
+使用opencv-python时，需配套安装相同版本的opencv-python-headless，使用opencv-contrib-python时，需配套安装相同版本的opencv-contrib-python-headless依赖。

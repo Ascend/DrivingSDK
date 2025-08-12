@@ -245,7 +245,8 @@ bash test/train_multi_server.sh 8 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
 2025.8.5: 更新性能数据。
 
 ## FAQ
-暂无。
+### 训练时报错`ImportError: cannot import name 'gcd' from 'fraction'` 
+报错原因是networkx版本低，使用`pip install networkx==3.1`升级依赖版本即可。
 
-
-
+### 训练时报错`torch`没有`uint64_t`属性
+报错原因是`safetensors`版本与`PyTorch`版本不匹配，`PyTorch`版本为2.1.0，需匹配0.6.0以下的`safetensors`，使用`pip install safetensors==0.5.1`改变依赖版本即可。
