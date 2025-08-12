@@ -304,6 +304,8 @@ cd model_examples/PivotNet
 
 2025.07.04：修改性能脚本
 
+2025.08.11：更新依赖版本
+
 # FAQ
 
 无
