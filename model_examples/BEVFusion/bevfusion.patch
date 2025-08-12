@@ -1023,7 +1023,7 @@ index 00000000..44801857
 +    $CONFIG \
 +    --launcher pytorch ${@:7}
 diff --git a/tools/train.py b/tools/train.py
-index b2ced54b..6f866f39 100644
+index b2ced54b..27de2112 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -8,6 +8,10 @@ from mmengine.config import Config, DictAction
@@ -1037,14 +1037,15 @@ index b2ced54b..6f866f39 100644
  
  from mmdet3d.utils import replace_ceph_backend
  
-@@ -132,4 +136,19 @@ def main():
+@@ -132,4 +136,20 @@ def main():
  
  
  if __name__ == '__main__':
 -    main()
 +    from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+    from mx_driving.patcher import batch_matmul
-+    
++    from mx_driving.patcher import batch_matmul, patch_mmcv_version
++    patch_mmcv_version("2.0.1")
++
 +    torch_npu.npu.set_compile_mode(jit_compile=False)
 +    torch_npu.npu.config.allow_internal_format = False
 +    
