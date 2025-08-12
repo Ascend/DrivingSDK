@@ -80,6 +80,9 @@
   ```
   git clone https://github.com/motional/nuplan-devkit.git && cd nuplan-devkit
   pip install -e .
+  ```
+  如需对数据集进行预处理，可选：
+  ```
   pip install -r requirements.txt
   ```
 
@@ -176,4 +179,73 @@
 
 2025.06.12：首次发布。
 
+# FAQ
 
+Q: 安装nuplan devkit的依赖包时无法成功安装Fiona，报错：No such file or directory: 'gdal-config', 如何解决？
+
+A: 需要手动安装gmp, mpfr, OpenBLAS, sqlite3, curl, PROJ, GDAL等一些C++依赖库，此处提供采用源码编译安装的方法。
+安装gmp
+```
+https://ftp.swin.edu.au/gnu/gmp/ 在这里找到 gmp-6.1.0.tar.bz2
+tar -jxvf gmp-6.1.0.tar.bz2
+cd gmp-6.1.0
+./configure --prefix=/usr/local/gmp (如果报错：error: No usable m4 in $PATH or /usr/5bin (see config.log for reasons).，说明没有安装m4，使用yum install m4，然后再执行)
+make
+make install
+```
+安装mpfr的命令
+```
+wget https://ftp.swin.edu.au/gnu/mpfr/mpfr-4.1.1.tar.gz --no-check-certificate
+tar -zxvf mpfr-4.1.1.tar.gz
+cd mpfr-4.1.1
+./configure --prefix=/usr/local/mpfr --with-gmp=/usr/local/gmp
+如果报错：configure: error: gmp.h can't be found, or is unusable.
+替换为
+./configure --with-gmp=/usr/local/gmp
+make
+make install
+```
+安装OpenBLAS
+```
+wget https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.24.zip --no-check-certificate
+unzip v0.3.24.zip
+cd OpenBLAS-0.3.24
+make -j8
+make PREFIX=/usr/local install
+```
+安装sqlite3
+```
+wget https://github.com/sqlite/sqlite/archive/refs/tags/version-3.36.0.tar.gz
+tar -xzvf version-3.36.0.tar.gz
+cd sqlite-version-3.36.0
+CFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1" ./configure
+make
+make install
+```
+安装curl
+```
+yum install libcurl-devel
+```
+安装PROJ
+```
+wget https://github.com/OSGeo/PROJ/archive/refs/tags/7.2.0.tar.gz
+tar -xzvf 7.2.0.tar.gz
+cd PROJ-7.2.0
+mkdir build
+cd build
+cmake ..
+如果报Could NOT find TIFF (missing: TIFF_LIBRARY TIFF_INCLUDE_DIR)： yum install libtiff-devel
+cmake --build .
+cmake --build . --target install
+```
+GDAL编译安装 (编译需要约1小时)
+```
+git clone https://github.com/OSGeo/gdal.git
+cd gdal
+mkdir build
+cd build
+cmake ..
+cmake --build .
+cmake --build . --target install
+```
+依赖库安装成功后，Fiona可以正常安装。
