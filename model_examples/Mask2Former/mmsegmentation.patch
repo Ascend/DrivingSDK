@@ -188,7 +188,7 @@ index 501bddc8..b37504ed 100644
 +cffi
 +pathlib2
 +psutil
-+protobuf==3.20.3
++protobuf==4.25.0
 +scipy
 +requests
 +absl-py
