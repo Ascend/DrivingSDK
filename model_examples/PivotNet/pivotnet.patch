@@ -384,7 +384,7 @@ index 7120c16..8e55b13 100644
 +scikit-image
 +tabulate
 +tensorboardX
-+Pillow==9.4.0
++Pillow==10.0.0
 +numpy==1.23.5
 +visvalingamwyatt==0.2.0
 \ No newline at end of file

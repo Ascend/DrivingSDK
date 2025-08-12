@@ -275,6 +275,8 @@ cd model_examples/PivotNet
 
 2025.04.24：性能优化
 
+2025.08.11：更新依赖版本
+
 # FAQ
 
 无
