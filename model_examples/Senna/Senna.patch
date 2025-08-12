@@ -39,12 +39,6 @@ index 024b1b3..46dcc01 100644
  
 -CUDA_VISIBLE_DEVICES=1 python eval_tools/senna_plan_cmd_eval_multi_img.py
 +python eval_tools/senna_plan_cmd_eval_multi_img.py
-diff --git a/llava/model/language_model/__pycache__/llava_llama.cpython-310.pyc b/llava/model/language_model/__pycache__/llava_llama.cpython-310.pyc
-index fa18755..418dace 100644
-Binary files a/llava/model/language_model/__pycache__/llava_llama.cpython-310.pyc and b/llava/model/language_model/__pycache__/llava_llama.cpython-310.pyc differ
-diff --git a/llava/model/language_model/__pycache__/llava_mpt.cpython-310.pyc b/llava/model/language_model/__pycache__/llava_mpt.cpython-310.pyc
-index d2982c1..980e090 100644
-Binary files a/llava/model/language_model/__pycache__/llava_mpt.cpython-310.pyc and b/llava/model/language_model/__pycache__/llava_mpt.cpython-310.pyc differ
 diff --git a/llava/senna/senna_llava_llama.py b/llava/senna/senna_llava_llama.py
 index 8fa159c..c2db4bd 100644
 --- a/llava/senna/senna_llava_llama.py
@@ -73,7 +67,8 @@ index f1df450..57617c5 100644
  absl-py==2.1.0
  accelerate==0.29.2
 -aidisdk==0.18.0
- aiohttp==3.9.5
+-aiohttp==3.9.5
++aiohttp==3.12.14
  aiohttp-cors==0.7.0
  aiomultiprocess==0.9.1
 @@ -72,7 +71,6 @@ msgpack==1.0.8
