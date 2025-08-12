@@ -41,6 +41,8 @@ def msda(mmcvops: ModuleType, options: Dict):
     if hasattr(mmcvops, "multi_scale_deform_attn"):
         mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction.forward = apply_mxdriving_msda_forward_param(MultiScaleDeformableAttnFunction.forward)
         mmcvops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction.backward = apply_mxdriving_msda_backward_param(MultiScaleDeformableAttnFunction.backward)
+    else:
+        raise AttributeError("multi_scale_deform_attn not found")
 
 
 def dc(mmcvops: ModuleType, options: Dict):
@@ -49,6 +51,8 @@ def dc(mmcvops: ModuleType, options: Dict):
     if hasattr(mmcvops, "deform_conv"):
         mmcvops.deform_conv.DeformConv2dFunction = DeformConv2dFunction
         mmcvops.deform_conv.deform_conv2d = deform_conv2d
+    else:
+        raise AttributeError("deform_conv not found")
 
 
 def mdc(mmcvops: ModuleType, options: Dict):
@@ -57,3 +61,5 @@ def mdc(mmcvops: ModuleType, options: Dict):
     if hasattr(mmcvops, "modulated_deform_conv"):
         mmcvops.modulated_deform_conv.ModulatedDeformConv2dFunction = ModulatedDeformConv2dFunction
         mmcvops.modulated_deform_conv.modulated_deform_conv2d = modulated_deform_conv2d
+    else:
+        raise AttributeError("modulated_deform_conv not found")

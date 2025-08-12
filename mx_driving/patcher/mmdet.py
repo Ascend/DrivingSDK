@@ -19,6 +19,8 @@ def pseudo_sampler(mmdetsamplers: ModuleType, options: Dict):
             return sampling_result
 
         mmdetsamplers.pseudo_sampler.PseudoSampler.sample = sample
+    else:
+        raise AttributeError("pseudo_sampler not found")
 
 
 def resnet_add_relu(mmdetresnet: ModuleType, options: Dict):
@@ -50,6 +52,8 @@ def resnet_add_relu(mmdetresnet: ModuleType, options: Dict):
             return out
 
         mmdetresnet.BasicBlock.forward = forward
+    else:
+        raise AttributeError("BasicBlock not found")
 
     if hasattr(mmdetresnet, "Bottleneck"):
 
@@ -93,6 +97,8 @@ def resnet_add_relu(mmdetresnet: ModuleType, options: Dict):
             return out
 
         mmdetresnet.Bottleneck.forward = forward
+    else:
+        raise AttributeError("Bottleneck not found")
 
 
 def resnet_maxpool(mmdetresnet: ModuleType, options: Dict):
@@ -119,6 +125,8 @@ def resnet_maxpool(mmdetresnet: ModuleType, options: Dict):
             return tuple(out)
 
         mmdetresnet.ResNet.forward = forward
+    else:
+        raise AttributeError("ResNet not found")
 
 
 def resnet_fp16(mmdetresnet: ModuleType, options: Dict):
@@ -144,3 +152,5 @@ def resnet_fp16(mmdetresnet: ModuleType, options: Dict):
             return tuple([out.float() for out in tuple(outs)])
 
         mmdetresnet.ResNet.forward = forward
+    else:
+        raise AttributeError("ResNet not found")

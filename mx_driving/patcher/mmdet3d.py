@@ -34,6 +34,8 @@ def nuscenes_dataset(mmdet3ddatasets: ModuleType, options: Dict):
             return box_list
 
         mmdet3ddatasets.output_to_nusc_box = output_to_nusc_box
+    else:
+        raise AttributeError("output_to_nusc_box not found")
 
 
 def nuscenes_metric(mmdet3dmetrics: ModuleType, options: Dict):
@@ -96,3 +98,5 @@ def nuscenes_metric(mmdet3dmetrics: ModuleType, options: Dict):
             return box_list, attrs
         
         mmdet3dmetrics.output_to_nusc_box = output_to_nusc_box
+    else:
+        raise AttributeError("output_to_nusc_box not found")

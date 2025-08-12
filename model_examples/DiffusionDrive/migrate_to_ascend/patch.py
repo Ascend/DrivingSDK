@@ -16,7 +16,7 @@ import torch_npu
 import mx_driving
 from mx_driving import deformable_aggregation
 from mx_driving.patcher import PatcherBuilder, Patch
-from mx_driving.patcher import index, batch_matmul, numpy_type, ddp, stream, ddp_forward
+from mx_driving.patcher import index, batch_matmul, numpy_type, ddp, stream
 from mx_driving.patcher import resnet_add_relu, resnet_maxpool
 
 
@@ -402,22 +402,6 @@ def get_hccl_init_dist(runner: ModuleType):
     return None
 
 
-def run_ddp_forward(parallel: ModuleType, options: Dict):
-
-    def _run_ddp_forward(self, *inputs, **kwargs):
-        module_to_run = self.module
-
-        if self.device_ids:
-            inputs, kwargs = self.to_kwargs(  # type: ignore
-                inputs, kwargs, self.device_ids[0])
-            return module_to_run(*inputs[0], **kwargs[0])  # type: ignore
-        else:
-            return module_to_run(*inputs, **kwargs)
-
-    if hasattr(parallel, "MMDistributedDataParallel"):
-        parallel.MMDistributedDataParallel._run_ddp_forward = _run_ddp_forward
-
-
 def instance_queue(queue: ModuleType, options: Dict):
 
     def prepare_motion(
@@ -470,7 +454,8 @@ def generate_patcher_builder(performance=False):
         PatcherBuilder()
         .add_module_patch("torch", Patch(index), Patch(batch_matmul))
         .add_module_patch("numpy", Patch(numpy_type))
-        .add_module_patch("mmcv.parallel", Patch(ddp), Patch(stream), Patch(ddp_forward), Patch(run_ddp_forward))
+        .add_module_patch("mmcv.parallel", Patch(stream))
+        .add_module_patch("mmcv.parallel.distributed", Patch(ddp))
         .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
 
         .add_module_patch("projects.mmdet3d_plugin.models.attention", Patch(flash_attn))

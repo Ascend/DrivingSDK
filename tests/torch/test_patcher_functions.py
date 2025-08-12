@@ -109,18 +109,6 @@ class TestPatcherStream(TestCase):
         self.mock_mmcvparallel._functions.scatter.assert_called_once()
         self.assertIsInstance(result, tuple)
 
-    def test_no_scatter_class(self):
-        """Verify graceful handling when Scatter class is missing"""
-        mock_mmcvparallel = MagicMock()
-        mock_mmcvparallel._functions = MagicMock()
-        delattr(mock_mmcvparallel._functions, "Scatter")
-        
-        from mx_driving.patcher import stream
-        try:
-            stream(mock_mmcvparallel, {})
-        except AttributeError:
-            self.fail("stream should handle missing Scatter class gracefully")
-
 
 if __name__ == "__main__":
     run_tests()

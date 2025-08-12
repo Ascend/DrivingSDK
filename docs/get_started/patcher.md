@@ -73,7 +73,7 @@ import torch
 import torch_npu
 import mx_driving
 from mx_driving.patcher import PatcherBuilder, Patch
-from mx_driving.patcher import ddp, ddp_forward
+from mx_driving.patcher import ddp
 from mx_driving.patcher import resnet_add_relu, resnet_maxpool, nuscenes_dataset
 from mx_driving.patcher import dc, mdc, msda
 
@@ -82,7 +82,7 @@ bev_former_patcher_builder = (
     .add_module_patch("mmcv.ops", Patch(msda), Patch(dc), Patch(mdc))
     .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
     .add_module_patch("mmdet3d.datasets.nuscenes_dataset", Patch(nuscenes_dataset))
-    .add_module_patch("mmcv.parallel", Patch(ddp), Patch(ddp_forward))
+    .add_module_patch("mmcv.parallel.distributed", Patch(ddp))
 )
 ```
 
@@ -100,7 +100,7 @@ if __name__ == '__main__':
 ```
 
 ### patcher使能特性说明
-- ddp, ddp_forward用于修改mmcv框架中并行相关代码适配NPU训练。
+- ddp用于修改mmcv框架中并行相关代码适配NPU训练。
 - resnet_add_relu, resnet_maxpool用于resnet结构中特定算子的优化，替换为DrivingSDK中高性能算子。
 - dc, mdc, msda用于mmcv中DeformConv2d，ModulatedDeformConv2d，MultiScaleDeformableAttn算子替换为DrivingSDK中高性能算子。
 - nuscenes_dataset用于针对BEVFormer模型的性能优化。

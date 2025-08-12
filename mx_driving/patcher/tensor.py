@@ -18,7 +18,10 @@ def index(torch: ModuleType, options: Dict):
             return torch.masked_select(self, indices).view(-1, self.shape[1])
         return fn(self, indices)  # fallback to the original function
 
-    torch.Tensor.__getitem__ = new_fn
+    if hasattr(torch, "Tensor"):
+        torch.Tensor.__getitem__ = new_fn
+    else:
+        raise AttributeError('Tensor not found')
 
 
 def check_shape_bmm(a, b):
@@ -44,6 +47,13 @@ def batch_matmul(torch: ModuleType, options: Dict):
             return original_fn(a, b)
         return wrapper
 
-    torch.matmul = create_wrapper(torch.matmul)
-    torch.Tensor.matmul = create_wrapper(torch.Tensor.matmul)
-    torch.Tensor.__matmul__ = create_wrapper(torch.Tensor.__matmul__)
+    if hasattr(torch, "matmul"):
+        torch.matmul = create_wrapper(torch.matmul)
+    else:
+        raise AttributeError("matmul not found")
+    
+    if hasattr(torch, "Tensor"):
+        torch.Tensor.matmul = create_wrapper(torch.Tensor.matmul)
+        torch.Tensor.__matmul__ = create_wrapper(torch.Tensor.__matmul__)
+    else:
+        raise AttributeError("Tensor not found")

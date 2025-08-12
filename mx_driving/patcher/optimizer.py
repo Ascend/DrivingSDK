@@ -251,6 +251,8 @@ def optimizer_hooks(mmcvhooks: ModuleType, options: Dict):
                     # clear grads
                     runner.model.zero_grad()
                     runner.optimizer.zero_grad()
+    else:
+        raise AttributeError("optimizer not found")
 
 
 def optimizer_wrapper(mmcvoptwrapper: ModuleType, options: Dict):
@@ -274,3 +276,5 @@ def optimizer_wrapper(mmcvoptwrapper: ModuleType, options: Dict):
             self.clip_grads = _get_clip_func(self.optimizer)
 
         OptimWrapper.__init__ = new_init
+    else:
+        raise AttributeError("OptimWrapper not found")

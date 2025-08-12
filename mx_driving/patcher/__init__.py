@@ -40,7 +40,6 @@ __all__ = [
     "pseudo_sampler",
     "numpy_type",
     "ddp",
-    "ddp_forward",
     "stream",
     "resnet_add_relu",
     "resnet_maxpool",
@@ -51,7 +50,7 @@ __all__ = [
     "optimizer",
 ]
 
-from mx_driving.patcher.distribute import ddp, ddp_forward
+from mx_driving.patcher.distribute import ddp
 from mx_driving.patcher.functions import stream
 from mx_driving.patcher.mmcv import dc, mdc, msda, patch_mmcv_version
 from mx_driving.patcher.mmdet import pseudo_sampler, resnet_add_relu, resnet_maxpool, resnet_fp16
@@ -69,7 +68,8 @@ default_patcher_builder = (
     .add_module_patch("torch", Patch(index), Patch(batch_matmul))
     .add_module_patch("numpy", Patch(numpy_type))
     .add_module_patch("mmdet.core.bbox.samplers", Patch(pseudo_sampler))
-    .add_module_patch("mmcv.parallel", Patch(ddp), Patch(stream), Patch(ddp_forward))
+    .add_module_patch("mmcv.parallel", Patch(stream))
+    .add_module_patch("mmcv.parallel.distributed", Patch(ddp))
     .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
     .add_module_patch("mmdet3d.datasets.nuscenes_dataset", Patch(nuscenes_dataset))
     .add_module_patch("mmdet3d.evaluation.metrics", Patch(nuscenes_metric))

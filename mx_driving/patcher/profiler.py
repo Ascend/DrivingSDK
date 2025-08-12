@@ -180,9 +180,23 @@ def profiler(runner: ModuleType, options: Dict):
 
     if hasattr(runner, "EpochBasedRunner"):
         runner.EpochBasedRunner.train = train
+    else:
+        raise AttributeError("EpochBasedRunner not found")
+    
     if hasattr(runner, "EpochBasedTrainLoop"):
         runner.EpochBasedTrainLoop.run_epoch = run_epoch
+    else:
+        raise AttributeError("EpochBasedTrainLoop not found")
+    
+    
     if hasattr(runner, "IterBasedTrainLoop"):
         runner.IterBasedTrainLoop.run = run
+    else:
+        raise AttributeError("IterBasedTrainLoop not found")
+    
+    
     if hasattr(runner, "IterBasedRunner"):
         runner.IterBasedRunner.run = run_iter
+    else:
+        raise AttributeError("IterBasedRunner not found")
+    

@@ -32,3 +32,5 @@ def stream(mmcvparallel: ModuleType, options: Dict):
 
     if hasattr(mmcvparallel._functions, "Scatter"):
         mmcvparallel._functions.Scatter.forward = new_forward
+    else:
+        raise AttributeError("Scatter not found")

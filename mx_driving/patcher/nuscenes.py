@@ -61,3 +61,5 @@ def nuscenes_mot_metric(nusceneseval: ModuleType, options: Dict):
     
     if hasattr(nusceneseval, "mot"):
         nusceneseval.mot.MOTAccumulatorCustom.merge_event_dataframes = merge_event_dataframes_new
+    else:
+        raise AttributeError("mot not found")

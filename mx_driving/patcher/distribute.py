@@ -3,14 +3,10 @@ from types import ModuleType
 from typing import Dict
 
 
-def ddp(mmcvparallel: ModuleType, options: Dict):
-    if hasattr(mmcvparallel, "distributed"):
-        import mmcv.device
-        mmcvparallel.distributed.MMDistributedDataParallel = mmcv.device.npu.NPUDistributedDataParallel
-
-
-def ddp_forward(mmcvparallel: ModuleType, options: Dict):
-    def new_forward(self, *inputs, **kwargs):
+def ddp(module: ModuleType, options: Dict): 
+    # For mmcv 1.x: module path is mmcv.parallel.distributed
+    
+    def _run_ddp_forward(self, *inputs, **kwargs):
         module_to_run = self.module
 
         if self.device_ids:
@@ -20,5 +16,10 @@ def ddp_forward(mmcvparallel: ModuleType, options: Dict):
         else:
             return module_to_run(*inputs, **kwargs)
     
-    if hasattr(mmcvparallel, "distributed"):
-        mmcvparallel.distributed.MMDistributedDataParallel._run_ddp_forward = new_forward
+    
+    if hasattr(module, "MMDistributedDataParallel"):
+        import mmcv.device
+        module.MMDistributedDataParallel._run_ddp_forward = _run_ddp_forward
+        module.MMDistributedDataParallel = mmcv.device.npu.NPUDistributedDataParallel
+    else:
+        raise AttributeError("MMDistributedDataParallel not found")
