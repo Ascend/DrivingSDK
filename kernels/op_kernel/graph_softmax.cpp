@@ -144,7 +144,6 @@ private:
     {
         pipe_->InitBuffer(srcBuf_, singleLoopTaskCount_ * NUM_FEATURE * FLOAT_BYTE_SIZE);
         pipe_->InitBuffer(scatterMaxBuf_, singleLoopTaskCount_ * NUM_FEATURE * FLOAT_BYTE_SIZE);
-        pipe_->InitBuffer(scatterSumBuf_, singleLoopTaskCount_ * NUM_FEATURE * FLOAT_BYTE_SIZE);
         pipe_->InitBuffer(indexBuf_, singleLoopTaskCount_ * INT_BYTE_SIZE);
 
         srcLocal_ = srcBuf_.Get<float>();
@@ -177,7 +176,7 @@ private:
     GlobalTensor<float> scatterSumResGm_;
     GlobalTensor<uint32_t> indexGm_;
 
-    TBuf<TPosition::VECCALC> srcBuf_, indexBuf_, scatterMaxBuf_, scatterSumBuf_;
+    TBuf<TPosition::VECCALC> srcBuf_, indexBuf_, scatterMaxBuf_;
     LocalTensor<float> srcLocal_;
     LocalTensor<float> scatterMaxLocal_;
     LocalTensor<uint32_t> indexLocal_;

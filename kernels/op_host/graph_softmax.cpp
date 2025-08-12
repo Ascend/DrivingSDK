@@ -9,7 +9,7 @@ namespace {
     constexpr uint32_t EDGE_IDX = 0;
     constexpr uint32_t FEATURE_IDX = 1;
     constexpr uint32_t N_IDX = 0;
-    constexpr uint32_t SINGLE_LOOP_TASK = 1810;   // 198(UB)*0.8(AVALIABLE_UB_RATIO)/9/8
+    constexpr uint32_t SINGLE_LOOP_TASK = 2360;   // 198*1024*0.8/4/(8*2+1),  UB*AVALIABLE_UB_RATIO*(size_of_float/int)/(8*2+1)
 }   // some const express
 
 namespace optiling {

@@ -22,10 +22,7 @@ python QCNet/train_qcnet.py --root /path/to/datasets --train_batch_size 4 \
     --pl2pl_radius 150 --time_span 10 --pl2a_radius 50 --a2a_radius 50 \
     --num_t2m_steps 30 --pl2m_radius 150 --a2m_radius 150 --T_max 64 --max_epochs 64 >$log_file 2>&1
 
-num_epoch=$(tac "$log_file" | grep -m1 "Epoch " | grep -oP 'Epoch \K\d+')
-final_epoch_time=$(tac "$log_file" | grep -m1 "Average Training Time" | grep -oP 'Average Training Time \K\d+\.\d+')
 final_minADE=$(tac "$log_file" | grep -m1 "val_minADE" | grep -oP 'val_minADE=\K\d+\.\d+')
 final_minFDE=$(tac "$log_file" | grep -m1 "val_minFDE" | grep -oP 'val_minFDE=\K\d+\.\d+')
-echo "Epoch ${num_epoch}的训练时间: ${first_epoch_time}s"
-echo "Epoch ${num_epoch}的val_minADE: ${final_minADE}"
-echo "Epoch ${num_epoch}的val_minFDE: ${final_minFDE}"
+echo "val_minADE: ${final_minADE}"
+echo "val_minFDE: ${final_minFDE}"
