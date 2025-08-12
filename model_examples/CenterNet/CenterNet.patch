@@ -10,7 +10,7 @@ index d18aef0..1c85091 100644
  easydict
  scipy
 +torchvision==0.16.0
-+pillow==9.1.0
++pillow==10.0.0
 +decorator
 +sympy
 diff --git a/2.2_requirements.txt b/2.2_requirements.txt
