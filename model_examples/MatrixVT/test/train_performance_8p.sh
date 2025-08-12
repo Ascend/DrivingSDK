@@ -62,8 +62,7 @@ if [ -d ${test_path_dir}/output/${ASCEND_DEVICE_ID} ];then
 else
     mkdir -p ${test_path_dir}/output/$ASCEND_DEVICE_ID
 fi
-mkdir data
-ln -s /npu/traindata/nuScenes data/
+
 #非平台场景时source 环境变量
 check_etp_flag=`env | grep etp_running_flag`
 etp_flag=`echo ${check_etp_flag#*=}`
