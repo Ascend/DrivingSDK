@@ -413,6 +413,8 @@ wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 
 # 变更说明
 
+2025.08.13：优化模型性能计算脚本。
+
 2025.05.22：更新Ubuntu系统安装tcmalloc高性能内存库的方式。
 
 2025.04.17：优化模型性能打屏格式，修改Torch2.1.0适配的依赖包版本。
