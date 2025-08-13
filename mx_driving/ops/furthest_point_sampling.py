@@ -28,7 +28,11 @@ class AdsFurthestPointSampling(Function):
         B, N = point_xyz.size()[:2]
         point_xyz = point_xyz.permute(0, 2, 1).contiguous()
 
-        nearest_dist = torch.tensor(np.ones((B, N)) * 1e10, dtype=torch.float32, device="npu").contiguous()
+        nearest_dtype = point_xyz.dtype
+        if point_xyz.dtype == torch.bfloat16:
+            nearest_dtype = torch.float32
+
+        nearest_dist = torch.tensor(np.ones((B, N)) * 1e10, dtype=nearest_dtype, device="npu").contiguous()
         output = mx_driving._C.npu_furthest_point_sampling(point_xyz, nearest_dist, num_points)
 
         return output

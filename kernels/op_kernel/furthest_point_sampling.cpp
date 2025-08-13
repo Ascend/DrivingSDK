@@ -7,6 +7,12 @@
 
 using namespace AscendC;
 
+// size
+constexpr int64_t SIZE_2 = 2;
+constexpr int64_t SIZE_32 = 32;
+constexpr int64_t SIZE_64 = 64;
+constexpr int64_t POINTSDIMSNUM = 3;
+
 // Entrance of kernel
 extern "C" __global__ __aicore__ void furthest_point_sampling(
     GM_ADDR point_xyz,
@@ -32,13 +38,21 @@ extern "C" __global__ __aicore__ void furthest_point_sampling(
     TA.repeats        = tiling_data.repeats;
 
     if (TILING_KEY_IS(0)) {
-        furthestPointSamplingKernel<float, int32_t> op(point_xyz, temp, index, workspace, &TA);
+        furthestPointSamplingKernel<float, float, int32_t> op(point_xyz, temp, index, workspace, &TA);
+        op.Process();
+    }
+    if (TILING_KEY_IS(1)) {
+        furthestPointSamplingKernel<half, half, int32_t> op(point_xyz, temp, index, workspace, &TA);
+        op.Process();
+    }
+    if (TILING_KEY_IS(2)) {
+        furthestPointSamplingKernel<float, bfloat16_t, int32_t> op(point_xyz, temp, index, workspace, &TA);
         op.Process();
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline furthestPointSamplingKernel<dataType, idxType>::furthestPointSamplingKernel(GM_ADDR point_xyz,
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline furthestPointSamplingKernel<dataType, gmDataType, idxType>::furthestPointSamplingKernel(GM_ADDR point_xyz,
     GM_ADDR temp, GM_ADDR index, GM_ADDR workspace, tilingArgs *tiling)
 {
     // Init tiling args.
@@ -46,8 +60,10 @@ __aicore__ inline furthestPointSamplingKernel<dataType, idxType>::furthestPointS
     // host tiling have ensured formerNum is aligned with 32bytes and bigger than tailNum.
     this->sizeofFormer = this->TA->formerNum * sizeof(dataType);
     this->sizeofTail = this->TA->tailNum * sizeof(dataType);
-    this->dataNumIn32Bytes = 32 / sizeof(dataType);
-    this->dataNumIn64Bytes = 64 / sizeof(dataType);
+    this->sizeofGmFormer = this->TA->formerNum * sizeof(gmDataType);
+    this->sizeofGmTail = this->TA->tailNum * sizeof(gmDataType);
+    this->dataNumIn32Bytes = SIZE_32 / sizeof(gmDataType);
+    this->dataNumIn64Bytes = SIZE_64 / sizeof(gmDataType);
     this->dataNumIn256Bytes = 256 / sizeof(dataType);
     this->dataNumIn1024Bytes = 1024 / sizeof(dataType);
     // Init GM.
@@ -64,10 +80,10 @@ __aicore__ inline furthestPointSamplingKernel<dataType, idxType>::furthestPointS
     this->pipe.InitBuffer(this->distUb, BUFFER_NUM, this->sizeofFormer);
     this->pipe.InitBuffer(this->workUb, BUFFER_NUM, this->TA->workSize);
 
-    this->pipe.InitBuffer(this->idxQue, BUFFER_NUM, 1024); // 1024: copy out 256 fp32s once
+    this->pipe.InitBuffer(this->idxQue, BUFFER_NUM, this->dataNumIn1024Bytes * sizeof(idxType)); // 1024: copy out 256 fp32s once
 
     this->pipe.InitBuffer(this->idxTempUb, BUFFER_NUM, this->TA->idxTempSize);
-    this->pipe.InitBuffer(this->pointSampled, BUFFER_NUM, 32 * 3);
+    this->pipe.InitBuffer(this->pointSampled, BUFFER_NUM, SIZE_32 * POINTSDIMSNUM * SIZE_2);
     // Malloc.
     this->ubBlocks.pointXLocal = pointXQue.AllocTensor<dataType>();
     this->ubBlocks.pointYLocal = pointYQue.AllocTensor<dataType>();
@@ -83,10 +99,15 @@ __aicore__ inline furthestPointSamplingKernel<dataType, idxType>::furthestPointS
 
     this->ubBlocks.idxTempLocal = idxTempUb.AllocTensor<dataType>();
     this->ubBlocks.pointSampledLocal = pointSampled.AllocTensor<dataType>();
+
+    if constexpr(std::is_same_v<bfloat16_t, gmDataType>) {
+        this->pipe.InitBuffer(this->pointTemp, BUFFER_NUM, this->TA->formerNum * sizeof(gmDataType));
+        this->ubBlocks.pointTempLocal = pointTemp.AllocTensor<gmDataType>();
+    }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process()
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::Process()
 {
     uint32_t batch_num = (GetBlockIdx() < this->TA->bigCoreNum) ? (this->TA->bigCoreBatch) : (this->TA->smallCoreBatch);
 
@@ -106,8 +127,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process()
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInIdx(uint32_t loopNum)
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::CopyInIdx(uint32_t loopNum)
 {
     DataCopyParams data_copy_param = {1, 1, 0, 0};
     uint32_t offsetGmX    = this->batchOffsetPoint + this->maxDistIdx;
@@ -117,29 +138,44 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInIdx
     uint32_t offsetLocalY = this->dataNumIn32Bytes;
     uint32_t offsetLocalZ = this->dataNumIn64Bytes;
     uint32_t offsetIdx    = loopNum & (this->dataNumIn1024Bytes - 1); // aka. loopNum % this->dataNumIn1024Bytes
+    uint32_t mask = 32 * 3 / sizeof(gmDataType);
 
     set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
     wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
 
 #ifndef __GET_CODE_CHANNEL__
-    DataCopy(this->ubBlocks.pointSampledLocal[offsetLocalX], pointGm[offsetGmX], data_copy_param);
-    DataCopy(this->ubBlocks.pointSampledLocal[offsetLocalY], pointGm[offsetGmY], data_copy_param);
-    DataCopy(this->ubBlocks.pointSampledLocal[offsetLocalZ], pointGm[offsetGmZ], data_copy_param);
+    if constexpr(std::is_same_v<bfloat16_t, gmDataType>) {
+        DataCopy<bfloat16_t>(this->ubBlocks.pointTempLocal[offsetLocalX], pointGm[offsetGmX], data_copy_param);
+        DataCopy<bfloat16_t>(this->ubBlocks.pointTempLocal[offsetLocalY], pointGm[offsetGmY], data_copy_param);
+        DataCopy<bfloat16_t>(this->ubBlocks.pointTempLocal[offsetLocalZ], pointGm[offsetGmZ], data_copy_param);
+    } else {
+        DataCopy(this->ubBlocks.pointSampledLocal[offsetLocalX], pointGm[offsetGmX], data_copy_param);
+        DataCopy(this->ubBlocks.pointSampledLocal[offsetLocalY], pointGm[offsetGmY], data_copy_param);
+        DataCopy(this->ubBlocks.pointSampledLocal[offsetLocalZ], pointGm[offsetGmZ], data_copy_param);
+    }
 #endif
 
-    set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 
+    if constexpr(std::is_same_v<bfloat16_t, gmDataType>) {
+        Cast(this->ubBlocks.pointSampledLocal, this->ubBlocks.pointTempLocal, AscendC::RoundMode::CAST_NONE, mask, 1, {1, 1, 8, 4});
+        pipe_barrier(PIPE_V);
+    }
+
+    Muls<dataType>(this->ubBlocks.pointSampledLocal, this->ubBlocks.pointSampledLocal, dataType(-1.0), mask);
+    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
     this->ubBlocks.idxLocal.SetValue(offsetIdx, this->maxDistIdx);
-    this->pointXSampled = -1 * this->ubBlocks.pointSampledLocal.GetValue(offsetLocalX);
-    this->pointYSampled = -1 * this->ubBlocks.pointSampledLocal.GetValue(offsetLocalY);
-    this->pointZSampled = -1 * this->ubBlocks.pointSampledLocal.GetValue(offsetLocalZ);
+    this->pointXSampled = this->ubBlocks.pointSampledLocal.GetValue(offsetLocalX);
+    this->pointYSampled = this->ubBlocks.pointSampledLocal.GetValue(offsetLocalY);
+    this->pointZSampled = this->ubBlocks.pointSampledLocal.GetValue(offsetLocalZ);
     this->maxDist = 0;
     this->maxDistIdx = 0;
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process_complete_data()
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::Process_complete_data()
 {
     uint32_t loopNum;
 
@@ -167,8 +203,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process_c
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process_split_data()
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::Process_split_data()
 {
     uint32_t loopNum, loopSplit;
 
@@ -185,21 +221,21 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process_s
                 set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
                 wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
 
-                CopyInPointAxis(pointAxis_x, loopSplit);
+                CopyInPointAxis(PointAxis::X, loopSplit);
 
                 ComputePointDeltaSquare(this->ubBlocks.pointYLocal, this->ubBlocks.pointTempYLocal, this->pointYSampled);
 
                 set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
                 wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
 
-                CopyInPointAxis(pointAxis_y, loopSplit);
+                CopyInPointAxis(PointAxis::Y, loopSplit);
 
                 ComputePointDeltaSquare(this->ubBlocks.pointZLocal, this->ubBlocks.pointTempZLocal, this->pointZSampled);
 
                 set_flag(PIPE_V, PIPE_MTE2, EVENT_ID2);
                 wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID2);
 
-                CopyInPointAxis(pointAxis_z, loopSplit);
+                CopyInPointAxis(PointAxis::Z, loopSplit);
 
                 pipe_barrier(PIPE_ALL);
 
@@ -228,25 +264,25 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process_s
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process_first_sampling(uint32_t loopSplit)
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::Process_first_sampling(uint32_t loopSplit)
 {
     // Mov point_x -> Cal point_x, Mov point_y -> Cal point_y, Mov point_z -> Cal point_z
-    CopyInPointAxis(pointAxis_x, loopSplit);
+    CopyInPointAxis(PointAxis::X, loopSplit);
 
     set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
     wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 
     ComputePointDeltaSquare(this->ubBlocks.pointXLocal, this->ubBlocks.pointTempXLocal, this->pointXSampled);
 
-    CopyInPointAxis(pointAxis_y, loopSplit);
+    CopyInPointAxis(PointAxis::Y, loopSplit);
 
     set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
     wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
 
     ComputePointDeltaSquare(this->ubBlocks.pointYLocal, this->ubBlocks.pointTempYLocal, this->pointYSampled);
 
-    CopyInPointAxis(pointAxis_z, loopSplit);
+    CopyInPointAxis(PointAxis::Z, loopSplit);
 
     set_flag(PIPE_MTE2, PIPE_V, EVENT_ID2);
     wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID2);
@@ -265,27 +301,32 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::Process_f
     ComputeSamplePoints(loopSplit, loopSplit);
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInPointAxis(PointAxis pointAxis,
-    uint32_t loopSplit)
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::CopyInPointAxis(PointAxis pointAxis, uint32_t loopSplit)
 {
     uint64_t offset;
     DataCopyParams data_copy_param = {1, 0, 0, 0};
     DataCopyPadParams pad_param = {false, 0, 0, 0};
+    uint64_t mask = this->dataNumIn256Bytes;
+    uint64_t repeatTimes;
+    UnaryRepeatParams repeatParams = {1, 1, 8, 4};
 
     if (loopSplit == (this->TA->pieces - 1)) {
-        data_copy_param.blockLen = this->sizeofTail;
+        data_copy_param.blockLen = this->sizeofGmTail;
+        repeatTimes = (this->TA->tailNum + mask - 1) / mask;
     } else {
-        data_copy_param.blockLen = this->sizeofFormer;
+        data_copy_param.blockLen = this->sizeofGmFormer;
+        repeatTimes = (this->TA->formerNum + mask - 1) / mask;
     }
+
     switch (pointAxis) {
-        case pointAxis_x:
+        case PointAxis::X:
             offset = this->batchOffsetPoint + this->TA->formerNum * loopSplit;
             break;
-        case pointAxis_y:
+        case PointAxis::Y:
             offset = this->batchOffsetPoint + this->TA->formerNum * loopSplit + this->TA->N;
             break;
-        case pointAxis_z:
+        case PointAxis::Z:
             offset = this->batchOffsetPoint + this->TA->formerNum * loopSplit + this->TA->N * 2;
             break;
         default:
@@ -295,29 +336,63 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInPoi
     set_flag(PIPE_S, PIPE_MTE2, EVENT_ID1);
     wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID1);
 
-    switch (pointAxis) {
-        case pointAxis_x:
+    if constexpr (std::is_same_v<float, gmDataType> || std::is_same_v<half, gmDataType>) {
+        switch (pointAxis) {
+            case PointAxis::X:
 #ifndef __GET_CODE_CHANNEL__
-            DataCopyPad(this->ubBlocks.pointXLocal, pointGm[offset], data_copy_param, pad_param);
+                DataCopyPad(this->ubBlocks.pointXLocal, pointGm[offset], data_copy_param, pad_param);
 #endif
-            break;
-        case pointAxis_y:
+                break;
+            case PointAxis::Y:
 #ifndef __GET_CODE_CHANNEL__
-            DataCopyPad(this->ubBlocks.pointYLocal, pointGm[offset], data_copy_param, pad_param);
+                DataCopyPad(this->ubBlocks.pointYLocal, pointGm[offset], data_copy_param, pad_param);
 #endif
-            break;
-        case pointAxis_z:
+                break;
+            case PointAxis::Z:
 #ifndef __GET_CODE_CHANNEL__
-            DataCopyPad(this->ubBlocks.pointZLocal, pointGm[offset], data_copy_param, pad_param);
+                DataCopyPad(this->ubBlocks.pointZLocal, pointGm[offset], data_copy_param, pad_param);
 #endif
-            break;
-        default:
-            break;
+                break;
+            default:
+                break;
+        }
+    } else {
+        switch (pointAxis) {
+            case PointAxis::X:
+#ifndef __GET_CODE_CHANNEL__
+                DataCopyPad(this->ubBlocks.pointTempLocal, pointGm[offset], data_copy_param, pad_param);
+                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+                Cast(this->ubBlocks.pointXLocal, this->ubBlocks.pointTempLocal, AscendC::RoundMode::CAST_NONE, mask, repeatTimes, repeatParams);
+                pipe_barrier(PIPE_ALL);
+#endif
+                break;
+            case PointAxis::Y:
+#ifndef __GET_CODE_CHANNEL__
+                DataCopyPad(this->ubBlocks.pointTempLocal, pointGm[offset], data_copy_param, pad_param);
+                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+                Cast(this->ubBlocks.pointYLocal, this->ubBlocks.pointTempLocal, AscendC::RoundMode::CAST_NONE, mask, repeatTimes, repeatParams);
+                pipe_barrier(PIPE_ALL);
+#endif
+                break;
+            case PointAxis::Z:
+#ifndef __GET_CODE_CHANNEL__
+                DataCopyPad(this->ubBlocks.pointTempLocal, pointGm[offset], data_copy_param, pad_param);
+                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID2);
+                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID2);
+                Cast(this->ubBlocks.pointZLocal, this->ubBlocks.pointTempLocal, AscendC::RoundMode::CAST_NONE, mask, repeatTimes, repeatParams);
+                pipe_barrier(PIPE_ALL);
+#endif
+                break;
+            default:
+                break;
+        }
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInNearestDist(uint32_t loopSplit)
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::CopyInNearestDist(uint32_t loopSplit)
 {
     uint64_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
     DataCopyParams data_copy_param = {1, 0, 0, 0};
@@ -337,29 +412,29 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInNea
 #endif
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyInNearestDistTemp(uint32_t loopSplit)
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::CopyInNearestDistTemp(uint32_t loopSplit)
 {
-    uint64_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
-    DataCopyParams data_copy_param = {1, 0, 0, 0};
-    DataCopyPadParams pad_param = {false, 0, 0, 0};
+    uint64_t offset_temp = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
+    DataCopyParams data_copy_param_temp = {1, 0, 0, 0};
+    DataCopyPadParams pad_param_temp = {false, 0, 0, 0};
 
     if (loopSplit == (this->TA->pieces - 1)) {
-        data_copy_param.blockLen = this->sizeofTail;
+        data_copy_param_temp.blockLen = this->sizeofTail;
     } else {
-        data_copy_param.blockLen = this->sizeofFormer;
+        data_copy_param_temp.blockLen = this->sizeofFormer;
     }
 
     set_flag(PIPE_S, PIPE_MTE2, EVENT_ID2);
     wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID2);
 
 #ifndef __GET_CODE_CHANNEL__
-    DataCopyPad(this->ubBlocks.nearestDistLocal, nearestDistTempGm[offset], data_copy_param, pad_param);
+    DataCopyPad(this->ubBlocks.nearestDistLocal, nearestDistTempGm[offset_temp], data_copy_param_temp, pad_param_temp);
 #endif
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputePointsSquare()
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::ComputePointsSquare()
 {
     uint32_t total_num, dupTime, offset, comp_num;
 
@@ -390,8 +465,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputePo
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputePointDeltaSquare(
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::ComputePointDeltaSquare(
         LocalTensor<dataType> &pointLocal, LocalTensor<dataType> &pointTempLocal, dataType pointSampled)
 {
     uint32_t total_num, dupTime, offset, comp_num;
@@ -415,8 +490,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputePo
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeDist()
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::ComputeDist()
 {
     uint32_t total_num, dupTime, offset, comp_num;
 
@@ -439,8 +514,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeDi
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeSamplePoints(uint32_t loopSplit,
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::ComputeSamplePoints(uint32_t loopSplit,
     uint32_t comBlock)
 {
     uint32_t total_num, dupTime, offset, comp_num, reduceCnt, reduceOffset;
@@ -475,23 +550,23 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::ComputeSa
         this->ubBlocks.workLocal, reduceCnt, 1);
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::updateDist()
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::updateDist()
 {
     dataType tempValue;
 
     // this->TA->pieces >= 1
     for (uint32_t i = 1; i < (2 * this->TA->pieces); i = (i + 2)) {
         tempValue = this->ubBlocks.idxTempLocal.GetValue(i);
-        if (this->maxDist < this->ubBlocks.idxTempLocal.GetValue(i-1)) {
+        if (float(this->maxDist) < float(this->ubBlocks.idxTempLocal.GetValue(i-1))) {
             this->maxDist = this->ubBlocks.idxTempLocal.GetValue(i-1);
             this->maxDistIdx = (this->TA->formerNum * (i / 2)) + (*reinterpret_cast<idxType*>(&tempValue));
         }
     }
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyOut(uint32_t loopNum)
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::CopyOut(uint32_t loopNum)
 {
     uint32_t elemNum = this->dataNumIn1024Bytes;
     // elemNum is a multiple of 2.
@@ -503,10 +578,10 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyOut(u
     uint64_t offset = this->core_batch * this->TA->numPoints;
     DataCopyExtParams data_copy_param = {1, sizeof(dataType), 0, 0, 0};
     if (((loopNum + 1) & (elemNum - 1)) == 0) {
-        data_copy_param.blockLen = 1024;
+        data_copy_param.blockLen = this->dataNumIn1024Bytes * sizeof(idxType);
         offset = offset + loopNum / elemNum * elemNum;
     } else if ((loopNum + 1) == this->TA->numPoints) {
-        data_copy_param.blockLen = sizeof(dataType) *
+        data_copy_param.blockLen = sizeof(idxType) *
             (this->TA->numPoints - (this->TA->numPoints / elemNum * elemNum));
         offset = offset + (this->TA->numPoints / elemNum * elemNum);
     }
@@ -519,8 +594,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyOut(u
 #endif
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyOutNearestDistTemp(uint32_t loopSplit)
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::CopyOutNearestDistTemp(uint32_t loopSplit)
 {
     uint64_t offset = this->batchOffsetNearest + this->TA->formerNum * loopSplit;
     DataCopyExtParams data_copy_param = {1, 0, 0, 0, 0};
@@ -539,8 +614,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::CopyOutNe
 #endif
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::InitGm(GM_ADDR point_xyz, GM_ADDR temp,
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType>::InitGm(GM_ADDR point_xyz, GM_ADDR temp,
     GM_ADDR index, GM_ADDR workspace)
 {
     GM_ADDR usrWorkspace = AscendC::GetUserWorkspace(workspace);
@@ -561,14 +636,14 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, idxType>::InitGm(GM
         skipIdx = this->TA->bigCoreNum * numIdxBigCore + (coreId - this->TA->bigCoreNum) * numIdx;
     }
 
-    this->pointGm.SetGlobalBuffer((__gm__ dataType*)point_xyz + skipData * 3, numData * 3);
+    this->pointGm.SetGlobalBuffer((__gm__ gmDataType*)point_xyz + skipData * 3, numData * 3);
     this->nearestDistGm.SetGlobalBuffer((__gm__ dataType*)temp + skipData, numData);
     this->idxGm.SetGlobalBuffer((__gm__ idxType*)index + skipIdx, numIdx);
     this->nearestDistTempGm.SetGlobalBuffer((__gm__ dataType*)usrWorkspace + skipData, numData);
 }
 
-template<typename dataType, typename idxType>
-__aicore__ inline furthestPointSamplingKernel<dataType, idxType>::~furthestPointSamplingKernel()
+template<typename dataType, typename gmDataType, typename idxType>
+__aicore__ inline furthestPointSamplingKernel<dataType, gmDataType, idxType>::~furthestPointSamplingKernel()
 {
     this->pointXQue.FreeTensor(this->ubBlocks.pointXLocal);
     this->pointYQue.FreeTensor(this->ubBlocks.pointYLocal);
@@ -584,4 +659,8 @@ __aicore__ inline furthestPointSamplingKernel<dataType, idxType>::~furthestPoint
 
     this->idxTempUb.FreeTensor(this->ubBlocks.idxTempLocal);
     this->pointSampled.FreeTensor(this->ubBlocks.pointSampledLocal);
+
+    if constexpr(std::is_same_v<bfloat16_t, gmDataType>) {
+        this->pointTemp.FreeTensor(this->ubBlocks.pointTempLocal);
+    }
 }

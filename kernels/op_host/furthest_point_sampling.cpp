@@ -30,7 +30,12 @@ using namespace AscendC;
 namespace optiling {
 /****************constexpr definition*****************/
 constexpr int64_t FP32_MODE = 0;
+constexpr int64_t FP16_MODE = 1;
+constexpr int64_t BF16_MODE = 2;
 constexpr int64_t POINTSDIMSNUM = 3;
+// datatype size
+constexpr int64_t SIZE_2 = 2;
+constexpr int64_t SIZE_4 = 4;
 
 /****************struct definition*****************/
 struct ub_memory_tag {
@@ -80,18 +85,19 @@ private:
     uint32_t N;
     uint32_t numPoints;
     uint32_t pieces;
+    uint32_t bigCoreNum;
+    uint32_t bigCoreBatch;
+    uint32_t smallCoreBatch;
     uint32_t formerNum;
     uint32_t tailNum;
     uint32_t workSize;
     uint32_t idxTempSize;
-    uint32_t bigCoreBatch;
-    uint32_t smallCoreBatch;
-    uint32_t bigCoreNum;
     uint32_t repeats;
 
     ub_memory_tag ub_memory;
 
     uint64_t point_dtype_size;
+    uint32_t needPointTemp;
 };
 
 /****************class impl*****************/
@@ -141,6 +147,7 @@ ge::graphStatus FurthestPointSamplingTiling::Init()
     if (this->repeats == 0) {
         return ge::GRAPH_FAILED;
     }
+    UbBlocksSpace(max_data_num);
 
     // Tiling Args calc
     this->bigCoreBatch   = getSmallestMulVal<uint32_t>(this->batch, this->coreNum);
@@ -162,7 +169,8 @@ ge::graphStatus FurthestPointSamplingTiling::Init()
 
 ge::graphStatus FurthestPointSamplingTiling::RunKernelTiling()
 {
-    size_t sysWorkspaceSize = 16 * 1024 * 1024; // Alloc 16M workspace
+    auto ascendcPlatform = platform_ascendc::PlatformAscendC(TilingContext->GetPlatformInfo());
+    uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t userWorkSpaceSize = this->batch * this->N * this->point_dtype_size; // NearestDist needs a space to be moved out
     size_t *currentWorkSpace = TilingContext->GetWorkspaceSizes(1);
     if (currentWorkSpace == nullptr) {
@@ -245,11 +253,23 @@ inline void FurthestPointSamplingTiling::SetTilingKeyMode(ge::DataType dType)
     switch (dType) {
         case ge::DT_FLOAT:
             TilingContext->SetTilingKey(FP32_MODE);
-            this->point_dtype_size = 4; // 4: float32, 4 bytes
+            this->point_dtype_size = SIZE_4; // 4: float32, 4 bytes
+            this->needPointTemp = 0;
+            break;
+        case ge::DT_FLOAT16:
+            TilingContext->SetTilingKey(FP16_MODE);
+            this->point_dtype_size = SIZE_2;
+            this->needPointTemp = 0;
+            break;
+        case ge::DT_BF16:
+            TilingContext->SetTilingKey(BF16_MODE);
+            this->point_dtype_size = SIZE_4; // bf need cast float, 4 bytes
+            this->needPointTemp = 1;
             break;
         default:
             TilingContext->SetTilingKey(FP32_MODE);
-            this->point_dtype_size = 4; // 4: float32, 4 bytes
+            this->point_dtype_size = SIZE_4; // 4: float32, 4 bytes
+            this->needPointTemp = 0;
             break;
     }
 }
@@ -278,7 +298,7 @@ inline uint64_t FurthestPointSamplingTiling::UbBlocksSpace(uint64_t data_num)
     this->workSize = workSpace;
     this->idxTempSize = getSmallestMul<uint32_t>(this->pieces * 2 * this->point_dtype_size, 32);
 
-    return (this->ub_memory.ub_data_blocks * dataSpace + workSpace + this->idxTempSize);
+    return ((this->needPointTemp + this->ub_memory.ub_data_blocks) * dataSpace + workSpace + this->idxTempSize);
 }
 
 /****************main body*****************/
@@ -335,19 +355,19 @@ public:
     {
         this->Input("point_xyz")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("nearest_temp")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("index")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32})
-            .Format({ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND});
+            .DataType({ge::DT_INT32, ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Attr("num_points")
             .AttrType(REQUIRED)
             .Int();

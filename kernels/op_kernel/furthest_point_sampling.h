@@ -14,16 +14,17 @@ constexpr uint32_t BUFFER_NUM = 1u;
 constexpr uint32_t OP_MAX_REPEAT_NUM = 255u;
 constexpr uint32_t ALLIGNED_BYTES = 256u;
 
-enum PointAxis {
-    pointAxis_x,
-    pointAxis_y,
-    pointAxis_z
+enum class PointAxis {
+    X = 0,
+    Y = 1,
+    Z = 2,
 };
 
-template<typename dataType, typename idxType>
+template<typename dataType, typename gmDataType, typename idxType>
 struct UbBlocks_tag {
     __aicore__ UbBlocks_tag() = default;
 
+    LocalTensor<gmDataType> pointTempLocal;
     LocalTensor<dataType> pointXLocal;
     LocalTensor<dataType> pointYLocal;
     LocalTensor<dataType> pointZLocal;
@@ -37,8 +38,8 @@ struct UbBlocks_tag {
     LocalTensor<dataType> pointSampledLocal;
     LocalTensor<dataType> workLocal;
 };
-template<typename dataType, typename idxType>
-using UbBlocks = UbBlocks_tag<dataType, idxType>;
+template<typename dataType, typename gmDataType, typename idxType>
+using UbBlocks = UbBlocks_tag<dataType, gmDataType, idxType>;
 
 class tilingArgs {
 public:
@@ -58,7 +59,7 @@ public:
     uint32_t repeats;
 };
 
-template<typename dataType, typename idxType>
+template<typename dataType, typename gmDataType, typename idxType>
 class furthestPointSamplingKernel {
 public:
     __aicore__ inline furthestPointSamplingKernel(GM_ADDR point_xyz, GM_ADDR temp, GM_ADDR index, GM_ADDR workspace,
@@ -92,6 +93,7 @@ private:
 
 private:
     TPipe pipe;
+    TQue<QuePosition::VECIN, BUFFER_NUM> pointTemp;
     TQue<QuePosition::VECIN, BUFFER_NUM> pointXQue;
     TQue<QuePosition::VECIN, BUFFER_NUM> pointYQue;
     TQue<QuePosition::VECIN, BUFFER_NUM> pointZQue;
@@ -108,11 +110,11 @@ private:
     TQue<QuePosition::VECOUT, BUFFER_NUM> pointSampled;
 
 private:
-    GlobalTensor<dataType> pointGm;
+    GlobalTensor<gmDataType> pointGm;
     GlobalTensor<dataType> nearestDistGm;
     GlobalTensor<idxType> idxGm;
     GlobalTensor<dataType> nearestDistTempGm;
-    UbBlocks<dataType, idxType> ubBlocks;
+    UbBlocks<dataType, gmDataType, idxType> ubBlocks;
 
 private:
     dataType pointXSampled {0};
@@ -129,6 +131,8 @@ private:
 private:
     uint32_t sizeofFormer;
     uint32_t sizeofTail;
+    uint32_t sizeofGmFormer;
+    uint32_t sizeofGmTail;
     uint32_t dataNumIn32Bytes;
     uint32_t dataNumIn64Bytes;
     uint32_t dataNumIn256Bytes;
