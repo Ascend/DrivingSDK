@@ -29,6 +29,10 @@ std::tuple<at::Tensor, at::Tensor> radius(at::Tensor& x, at::Tensor& y, at::Tens
     TORCH_CHECK_NPU(y);
     TORCH_CHECK_NPU(ptr_x);
     TORCH_CHECK_NPU(ptr_y);
+    TORCH_CHECK(x.size(1) == NUM_COORDINATES, "x must be a 2D coordinates, but got: ", x.size(1));
+    TORCH_CHECK(y.size(1) == NUM_COORDINATES, "y must be a 2D coordinates, but got: ", y.size(1));
+    TORCH_CHECK(x.dim() == NUM_COORDINATES, "x must be a 2D Tensor, but got: ", x.dim());
+    TORCH_CHECK(y.dim() == NUM_COORDINATES, "y must be a 2D Tensor, but got: ", y.dim());
     auto x_shape = x.sizes(); // [num_points_x, 2]
     auto y_shape = y.sizes(); // [num_points_y, 2]
     auto ptr_x_shape = ptr_x.sizes(); // [batch_size + 1]
