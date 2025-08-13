@@ -57,9 +57,9 @@ CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
 # 结果打印，不需要修改
 echo "------------------ Final result ------------------"
 # 输出性能FPS，需要模型审视修改
-epoch_start_time=`grep "mmcv - INFO - Reducer buckets have been rebuilt in this iteration*" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -1 | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9]`
-epoch_end_time=`grep "Saving checkpoint at 1 epochs*" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -1 | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9]`
-epoch_duration=$(($(date +%s -d $epoch_end_time) - $(date +%s -d $epoch_start_time)))
+epoch_start_time=$(grep "mmcv - INFO - Reducer buckets have been rebuilt in this iteration" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -1 | awk -F" " '{print $1" "$2}' | cut -d, -f1)
+epoch_end_time=$(grep "Saving checkpoint at 1 epochs" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -1 | awk -F" " '{print $1" "$2}' | cut -d, -f1)
+epoch_duration=$(($(date +%s -d "$epoch_end_time") - $(date +%s -d "$epoch_start_time")))
 iteration_steps=`grep "mmdet - INFO - Epoch" ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log | tail -1 | grep -Po '\[\K[^]]*' | awk -F/ '{printf $2}'`
 fps_value=$(awk -v i="$iteration_steps" -v bs="$BatchSize" -v ws="$WORLD_SIZE" -v dur="$epoch_duration" 'BEGIN { printf "%.4f", i*bs*ws/dur }')
 
