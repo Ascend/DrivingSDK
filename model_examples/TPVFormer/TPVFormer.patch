@@ -1787,7 +1787,7 @@ index 507cfeb..d551a42 100644
 +pyyaml
 +pathlib2
 +psutil
-+protobuf==3.19.6
++protobuf==4.25.8
 +scipy
 +requests
 +absl-py
