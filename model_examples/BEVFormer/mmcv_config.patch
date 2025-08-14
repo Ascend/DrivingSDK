@@ -705,6 +705,6 @@ index 66e90d67..5d78dc05 100644
  pyyaml
  regex;sys_platform=='win32'
  yapf
-+protobuf==3.20.0
++protobuf==4.25.8
 +opencv-python
 \ No newline at end of file
