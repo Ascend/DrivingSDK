@@ -47,13 +47,22 @@ def batch_matmul(torch: ModuleType, options: Dict):
             return original_fn(a, b)
         return wrapper
 
+
+    matmul_not_found = False
+    tensor_not_found = False
     if hasattr(torch, "matmul"):
         torch.matmul = create_wrapper(torch.matmul)
     else:
-        raise AttributeError("matmul not found")
+        matmul_not_found = True
     
     if hasattr(torch, "Tensor"):
         torch.Tensor.matmul = create_wrapper(torch.Tensor.matmul)
         torch.Tensor.__matmul__ = create_wrapper(torch.Tensor.__matmul__)
     else:
+        tensor_not_found = True
+        
+    
+    if matmul_not_found:
+        raise AttributeError("matmul not found")
+    if tensor_not_found:
         raise AttributeError("Tensor not found")

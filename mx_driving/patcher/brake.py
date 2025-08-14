@@ -140,25 +140,24 @@ def brake(runner: ModuleType, options: Dict):
         self.call_hook('after_epoch')
         self.call_hook('after_run')
 
+
+    brake_patch_target_found = False
+    
     if hasattr(runner, "EpochBasedRunner"):
         runner.EpochBasedRunner.train = train
-    else:
-        raise AttributeError("EpochBasedRunner not found")
-    
+        brake_patch_target_found = True
+        
     if hasattr(runner, "EpochBasedTrainLoop"):
         runner.EpochBasedTrainLoop.run_epoch = run_epoch
-    else:
-        raise AttributeError("EpochBasedTrainLoop not found")
-    
+        brake_patch_target_found = True
     
     if hasattr(runner, "IterBasedTrainLoop"):
         runner.IterBasedTrainLoop.run = run
-    else:
-        raise AttributeError("IterBasedTrainLoop not found")
-    
+        brake_patch_target_found = True
     
     if hasattr(runner, "IterBasedRunner"):
         runner.IterBasedRunner.run = run_iter
-    else:
-        raise AttributeError("IterBasedRunner not found")
-    
+        brake_patch_target_found = True
+        
+    if not brake_patch_target_found:
+        raise AttributeError('brake patch target not found')
