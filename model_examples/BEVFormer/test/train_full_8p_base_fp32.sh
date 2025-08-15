@@ -40,10 +40,13 @@ sed -i "s|log_config = dict(interval=1,|log_config = dict(interval=50,|g" projec
 sed -i "s|total_epochs = .*|total_epochs = ${epochs}|g" projects/configs/bevformer/bevformer_base.py
 sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=500)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|g" projects/configs/bevformer/bevformer_base.py
 sed -i "7s/^/#/" ./projects/mmdet3d_plugin/bevformer/detectors/bevformer_fp16.py
+sed -i "202s|samples_per_gpu=1|samples_per_gpu=$batch_size|g" projects/configs/bevformer/bevformer_base.py
 
 bash ./tools/dist_train.sh ./projects/configs/bevformer/bevformer_base.py ${world_size} > ${test_path_dir}/output/train_full_8p_base_fp32.log 2>&1 &
 cd ..
 wait
+
+sed -i "202s|samples_per_gpu=$batch_size|samples_per_gpu=1|g" projects/configs/bevformer/bevformer_base.py
 
 #训练结束时间，不需要修改
 end_time=$(date +%s)

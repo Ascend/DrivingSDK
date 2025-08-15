@@ -1,17 +1,26 @@
 diff --git a/projects/configs/bevformer/bevformer_base.py b/projects/configs/bevformer/bevformer_base.py
-index fda635c..315ef73 100644
+index fda635c..e6197c6 100644
 --- a/projects/configs/bevformer/bevformer_base.py
 +++ b/projects/configs/bevformer/bevformer_base.py
-@@ -29,12 +29,13 @@ input_modality = dict(
-     use_external=True)
- 
- _dim_ = 256
+@@ -26,18 +26,19 @@ input_modality = dict(
+     use_camera=True,
+     use_radar=False,
+     use_map=False,
+-    use_external=True)
+-
+-_dim_ = 256
 -_pos_dim_ = _dim_//2
 -_ffn_dim_ = _dim_*2
 -_num_levels_ = 4
 -bev_h_ = 200
 -bev_w_ = 200
 -queue_length = 4 # each sequence contains `queue_length` frames.
+-
+-model = dict(
+-    type='BEVFormer',
++    use_external=True)
++
++_dim_ = 256
 +_pos_dim_ = _dim_//2
 +_ffn_dim_ = _dim_*2
 +_num_levels_ = 4
@@ -19,19 +28,31 @@ index fda635c..315ef73 100644
 +bev_h_ = 200
 +bev_w_ = 200
 +queue_length = 4 # each sequence contains `queue_length` frames.
- 
- model = dict(
-     type='BEVFormer',
-@@ -58,12 +59,13 @@ model = dict(
-         start_level=0,
-         add_extra_convs='on_output',
-         num_outs=4,
++
++model = dict(
++    type='BEVFormer',
+     use_grid_mask=True,
+     video_test_mode=True,
+     img_backbone=dict(
+@@ -55,18 +56,19 @@ model = dict(
+         type='FPN',
+         in_channels=[512, 1024, 2048],
+         out_channels=_dim_,
+-        start_level=0,
+-        add_extra_convs='on_output',
+-        num_outs=4,
 -        relu_before_extra_convs=True),
 -    pts_bbox_head=dict(
 -        type='BEVFormerHead',
 -        bev_h=bev_h_,
 -        bev_w=bev_w_,
 -        num_query=900,
+-        num_classes=10,
+-        in_channels=_dim_,
+-        sync_cls_avg_factor=True,
++        start_level=0,
++        add_extra_convs='on_output',
++        num_outs=4,
 +        relu_before_extra_convs=True),
 +    pts_bbox_head=dict(
 +        type='BEVFormerHead',
@@ -39,19 +60,31 @@ index fda635c..315ef73 100644
 +        bev_h=bev_h_,
 +        bev_w=bev_w_,
 +        num_query=900,
-         num_classes=10,
-         in_channels=_dim_,
-         sync_cls_avg_factor=True,
-@@ -80,12 +82,14 @@ model = dict(
-                 num_layers=6,
-                 pc_range=point_cloud_range,
-                 num_points_in_pillar=4,
++        num_classes=10,
++        in_channels=_dim_,
++        sync_cls_avg_factor=True,
+         with_box_refine=True,
+         as_two_stage=False,
+         transformer=dict(
+@@ -77,18 +79,20 @@ model = dict(
+             embed_dims=_dim_,
+             encoder=dict(
+                 type='BEVFormerEncoder',
+-                num_layers=6,
+-                pc_range=point_cloud_range,
+-                num_points_in_pillar=4,
 -                return_intermediate=False,
 -                transformerlayers=dict(
 -                    type='BEVFormerLayer',
 -                    attn_cfgs=[
 -                        dict(
 -                            type='TemporalSelfAttention',
+-                            embed_dims=_dim_,
+-                            num_levels=1),
+-                        dict(
++                num_layers=6,
++                pc_range=point_cloud_range,
++                num_points_in_pillar=4,
 +                return_intermediate=False,
 +                transformerlayers=dict(
 +                    type='BEVFormerLayer',
@@ -60,13 +93,19 @@ index fda635c..315ef73 100644
 +                    attn_cfgs=[
 +                        dict(
 +                            type='TemporalSelfAttention',
-                             embed_dims=_dim_,
-                             num_levels=1),
-                         dict(
-@@ -223,13 +227,14 @@ data = dict(
-               classes=class_names, modality=input_modality),
-     shuffler_sampler=dict(type='DistributedGroupSampler'),
-     nonshuffler_sampler=dict(type='DistributedSampler')
++                            embed_dims=_dim_,
++                            num_levels=1),
++                        dict(
+                             type='SpatialCrossAttention',
+                             pc_range=point_cloud_range,
+                             deformable_attention=dict(
+@@ -220,35 +224,36 @@ data = dict(
+               data_root=data_root,
+               ann_file=data_root + 'nuscenes_infos_temporal_val.pkl',
+               pipeline=test_pipeline, bev_size=(bev_h_, bev_w_),
+-              classes=class_names, modality=input_modality),
+-    shuffler_sampler=dict(type='DistributedGroupSampler'),
+-    nonshuffler_sampler=dict(type='DistributedSampler')
 -)
 -
 -optimizer = dict(
@@ -74,6 +113,12 @@ index fda635c..315ef73 100644
 -    lr=2e-4,
 -    paramwise_cfg=dict(
 -        custom_keys={
+-            'img_backbone': dict(lr_mult=0.1),
+-        }),
+-    weight_decay=0.01)
++              classes=class_names, modality=input_modality),
++    shuffler_sampler=dict(type='DistributedGroupSampler'),
++    nonshuffler_sampler=dict(type='DistributedSampler')
 +)
 +
 +optimizer = dict(
@@ -82,13 +127,15 @@ index fda635c..315ef73 100644
 +    lr=2e-4,
 +    paramwise_cfg=dict(
 +        custom_keys={
-             'img_backbone': dict(lr_mult=0.1),
-         }),
-     weight_decay=0.01)
-@@ -239,13 +244,13 @@ optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
- lr_config = dict(
-     policy='CosineAnnealing',
-     warmup='linear',
++            'img_backbone': dict(lr_mult=0.1),
++        }),
++    weight_decay=0.01)
+ 
+ optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
+ # learning policy
+-lr_config = dict(
+-    policy='CosineAnnealing',
+-    warmup='linear',
 -    warmup_iters=500,
 -    warmup_ratio=1.0 / 3,
 -    min_lr_ratio=1e-3)
@@ -96,6 +143,12 @@ index fda635c..315ef73 100644
 -evaluation = dict(interval=1, pipeline=test_pipeline)
 -
 -runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
+-load_from = 'ckpts/r101_dcn_fcos3d_pretrain.pth'
+-log_config = dict(
+-    interval=50,
++lr_config = dict(
++    policy='CosineAnnealing',
++    warmup='linear',
 +    warmup_iters=500,
 +    warmup_ratio=1.0 / 3,
 +    min_lr_ratio=1e-3)
@@ -103,9 +156,12 @@ index fda635c..315ef73 100644
 +evaluation = dict(interval=1, pipeline=test_pipeline)
 +
 +runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
- load_from = 'ckpts/r101_dcn_fcos3d_pretrain.pth'
- log_config = dict(
-     interval=50,
++load_from = 'ckpts/r101_dcn_fcos3d_pretrain.pth'
++log_config = dict(
++    interval=50,
+     hooks=[
+         dict(type='TextLoggerHook'),
+         dict(type='TensorboardLoggerHook')
 diff --git a/projects/configs/bevformer_fp16/bevformer_base_fp16.py b/projects/configs/bevformer_fp16/bevformer_base_fp16.py
 new file mode 100644
 index 0000000..7f39f01
@@ -459,19 +515,28 @@ index 93c7cd7..4ca3e63 100644
          if only_bev:  # only use encoder to obtain BEV features, TODO: refine the workaround
              return self.transformer.get_bev_features(
 diff --git a/projects/mmdet3d_plugin/bevformer/modules/decoder.py b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
-index 33024f8..4598eed 100644
+index 33024f8..e6debc2 100644
 --- a/projects/mmdet3d_plugin/bevformer/modules/decoder.py
 +++ b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
-@@ -26,12 +26,13 @@ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
- from mmcv.utils import ext_loader
- from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
-     MultiScaleDeformableAttnFunction_fp16
+@@ -23,18 +23,19 @@ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
+                         to_2tuple)
+ 
+-from mmcv.utils import ext_loader
+-from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
+-    MultiScaleDeformableAttnFunction_fp16
 -
 -ext_module = ext_loader.load_ext(
 -    '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
 -
 -
 -def inverse_sigmoid(x, eps=1e-5):
+-    """Inverse function of sigmoid.
+-    Args:
+-        x (Tensor): The tensor to do the
++from mmcv.utils import ext_loader
++from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
++    MultiScaleDeformableAttnFunction_fp16
 +
 +ext_module = ext_loader.load_ext(
 +    '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
@@ -479,13 +544,19 @@ index 33024f8..4598eed 100644
 +
 +
 +def inverse_sigmoid(x, eps=1e-5):
-     """Inverse function of sigmoid.
-     Args:
-         x (Tensor): The tensor to do the
-@@ -320,21 +321,14 @@ class CustomMSDeformableAttention(BaseModule):
-                 * 0.5
-         else:
-             raise ValueError(
++    """Inverse function of sigmoid.
++    Args:
++        x (Tensor): The tensor to do the
+             inverse.
+         eps (float): EPS avoid numerical
+             overflow. Defaults 1e-5.
+@@ -317,27 +318,20 @@ class CustomMSDeformableAttention(BaseModule):
+             sampling_locations = reference_points[:, :, None, :, None, :2] \
+                 + sampling_offsets / self.num_points \
+                 * reference_points[:, :, None, :, None, 2:] \
+-                * 0.5
+-        else:
+-            raise ValueError(
 -                f'Last dim of reference_points must be'
 -                f' 2 or 4, but get {reference_points.shape[-1]} instead.')
 -        if torch.cuda.is_available() and value.is_cuda:
@@ -501,6 +572,12 @@ index 33024f8..4598eed 100644
 -        else:
 -            output = multi_scale_deformable_attn_pytorch(
 -                value, spatial_shapes, sampling_locations, attention_weights)
+-
+-        output = self.output_proj(output)
+-
++                * 0.5
++        else:
++            raise ValueError(
 +                f'Last dim of reference_points must be'
 +                f' 2 or 4, but get {reference_points.shape[-1]} instead.')
 +        if torch.cuda.is_available() and value.is_cuda:
@@ -509,17 +586,23 @@ index 33024f8..4598eed 100644
 +        else:
 +            output = multi_scale_deformable_attn_pytorch(
 +                value, spatial_shapes, sampling_locations, attention_weights)
- 
-         output = self.output_proj(output)
- 
++
++        output = self.output_proj(output)
++
+         if not self.batch_first:
+             # (num_query, bs ,embed_dims)
+             output = output.permute(1, 0, 2)
 diff --git a/projects/mmdet3d_plugin/bevformer/modules/encoder.py b/projects/mmdet3d_plugin/bevformer/modules/encoder.py
-index 6758847..4ca2608 100644
+index 6758847..b3e6f8d 100644
 --- a/projects/mmdet3d_plugin/bevformer/modules/encoder.py
 +++ b/projects/mmdet3d_plugin/bevformer/modules/encoder.py
-@@ -116,14 +116,14 @@ class BEVFormerEncoder(TransformerLayerSequence):
-         reference_points = reference_points.view(
-             D, B, 1, num_query, 4).repeat(1, 1, num_cam, 1, 1).unsqueeze(-1)
+@@ -113,20 +113,20 @@ class BEVFormerEncoder(TransformerLayerSequence):
+         D, B, num_query = reference_points.size()[:3]
+         num_cam = lidar2img.size(1)
  
+-        reference_points = reference_points.view(
+-            D, B, 1, num_query, 4).repeat(1, 1, num_cam, 1, 1).unsqueeze(-1)
+-
 -        lidar2img = lidar2img.view(
 -            1, B, num_cam, 1, 4, 4).repeat(D, 1, 1, num_query, 1, 1)
 -
@@ -528,6 +611,12 @@ index 6758847..4ca2608 100644
 -        eps = 1e-5
 -
 -        bev_mask = (reference_points_cam[..., 2:3] > eps)
+-        reference_points_cam = reference_points_cam[..., 0:2] / torch.maximum(
+-            reference_points_cam[..., 2:3], torch.ones_like(reference_points_cam[..., 2:3]) * eps)
+-
++        reference_points = reference_points.view(
++            D, B, 1, num_query, 4).repeat(1, 1, num_cam, 1, 1).unsqueeze(-1)
++
 +        lidar2img = lidar2img.view(
 +            1, B, num_cam, 1, 4, 4).repeat(D, 1, 1, num_query, 1, 1)
 +
@@ -536,19 +625,31 @@ index 6758847..4ca2608 100644
 +        eps = 1e-5
 +
 +        bev_mask = (reference_points_cam[..., 2:3] > eps)
-         reference_points_cam = reference_points_cam[..., 0:2] / torch.maximum(
-             reference_points_cam[..., 2:3], torch.ones_like(reference_points_cam[..., 2:3]) * eps)
++        reference_points_cam = reference_points_cam[..., 0:2] / torch.maximum(
++            reference_points_cam[..., 2:3], torch.ones_like(reference_points_cam[..., 2:3]) * eps)
++
+         reference_points_cam[..., 0] /= img_metas[0]['img_shape'][0][1]
+         reference_points_cam[..., 1] /= img_metas[0]['img_shape'][0][0]
  
-@@ -259,12 +259,14 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
-             Default: `LN`.
-         ffn_num_fcs (int): The number of fully-connected layers in FFNs.
-             Default：2.
+@@ -256,36 +256,40 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
+             Default：None
+         act_cfg (dict): The activation config for FFNs. Default: `LN`
+         norm_cfg (dict): Config dict for normalization layer.
+-            Default: `LN`.
+-        ffn_num_fcs (int): The number of fully-connected layers in FFNs.
+-            Default：2.
 -    """
 -
 -    def __init__(self,
 -                 attn_cfgs,
 -                 feedforward_channels,
 -                 ffn_dropout=0.0,
+-                 operation_order=None,
+-                 act_cfg=dict(type='ReLU', inplace=True),
+-                 norm_cfg=dict(type='LN'),
++            Default: `LN`.
++        ffn_num_fcs (int): The number of fully-connected layers in FFNs.
++            Default：2.
 +    """
 +
 +    def __init__(self,
@@ -557,19 +658,30 @@ index 6758847..4ca2608 100644
 +                 attn_cfgs,
 +                 feedforward_channels,
 +                 ffn_dropout=0.0,
-                  operation_order=None,
-                  act_cfg=dict(type='ReLU', inplace=True),
-                  norm_cfg=dict(type='LN'),
-@@ -277,12 +279,14 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
-             operation_order=operation_order,
-             act_cfg=act_cfg,
-             norm_cfg=norm_cfg,
++                 operation_order=None,
++                 act_cfg=dict(type='ReLU', inplace=True),
++                 norm_cfg=dict(type='LN'),
+                  ffn_num_fcs=2,
+                  **kwargs):
+         super(BEVFormerLayer, self).__init__(
+             attn_cfgs=attn_cfgs,
+             feedforward_channels=feedforward_channels,
+             ffn_dropout=ffn_dropout,
+-            operation_order=operation_order,
+-            act_cfg=act_cfg,
+-            norm_cfg=norm_cfg,
 -            ffn_num_fcs=ffn_num_fcs,
 -            **kwargs)
 -        self.fp16_enabled = False
 -        assert len(operation_order) == 6
 -        assert set(operation_order) == set(
 -            ['self_attn', 'norm', 'cross_attn', 'ffn'])
+-
+-    def forward(self,
+-                query,
++            operation_order=operation_order,
++            act_cfg=act_cfg,
++            norm_cfg=norm_cfg,
 +            ffn_num_fcs=ffn_num_fcs,
 +            **kwargs)
 +        self.fp16_enabled = False
@@ -578,13 +690,19 @@ index 6758847..4ca2608 100644
 +        assert len(operation_order) == 6
 +        assert set(operation_order) == set(
 +            ['self_attn', 'norm', 'cross_attn', 'ffn'])
- 
-     def forward(self,
-                 query,
-@@ -364,15 +368,14 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
-                     identity if self.pre_norm else None,
-                     query_pos=bev_pos,
-                     key_pos=bev_pos,
++
++    def forward(self,
++                query,
+                 key=None,
+                 value=None,
+                 bev_pos=None,
+@@ -361,21 +365,20 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
+                     query,
+                     prev_bev,
+                     prev_bev,
+-                    identity if self.pre_norm else None,
+-                    query_pos=bev_pos,
+-                    key_pos=bev_pos,
 -                    attn_mask=attn_masks[attn_index],
 -                    key_padding_mask=query_key_padding_mask,
 -                    reference_points=ref_2d,
@@ -594,6 +712,12 @@ index 6758847..4ca2608 100644
 -                    **kwargs)
 -                attn_index += 1
 -                identity = query
+-
+-            elif layer == 'norm':
+-                query = self.norms[norm_index](query)
++                    identity if self.pre_norm else None,
++                    query_pos=bev_pos,
++                    key_pos=bev_pos,
 +                    attn_mask=attn_masks[attn_index],
 +                    key_padding_mask=query_key_padding_mask,
 +                    reference_points=ref_2d,
@@ -602,149 +726,29 @@ index 6758847..4ca2608 100644
 +                    **kwargs)
 +                attn_index += 1
 +                identity = query
++
++            elif layer == 'norm':
++                query = self.norms[norm_index](query)
+                 norm_index += 1
  
-             elif layer == 'norm':
-                 query = self.norms[norm_index](query)
+             # spaital cross attention
 diff --git a/projects/mmdet3d_plugin/bevformer/modules/spatial_cross_attention.py b/projects/mmdet3d_plugin/bevformer/modules/spatial_cross_attention.py
-index 100d94f..e1c293f 100644
+index 100d94f..2b01580 100644
 --- a/projects/mmdet3d_plugin/bevformer/modules/spatial_cross_attention.py
 +++ b/projects/mmdet3d_plugin/bevformer/modules/spatial_cross_attention.py
-@@ -23,12 +23,19 @@ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
- from mmcv.utils import ext_loader
- from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
-     MultiScaleDeformableAttnFunction_fp16
--from projects.mmdet3d_plugin.models.utils.bricks import run_time
--ext_module = ext_loader.load_ext(
--    '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+@@ -26,7 +26,7 @@ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFuncti
+ from projects.mmdet3d_plugin.models.utils.bricks import run_time
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
 -
--
--@ATTENTION.register_module()
-+from projects.mmdet3d_plugin.models.utils.bricks import run_time
-+ext_module = ext_loader.load_ext(
-+    '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
 +import mx_driving
-+
-+bev_mask_global = torch.tensor([]).npu()
-+indexes_global = None
-+max_len_global = None
-+bev_mask_id_global = -1
-+count_global = None
-+
-+
-+@ATTENTION.register_module()
- class SpatialCrossAttention(BaseModule):
-     """An attention module used in BEVFormer.
-     Args:
-@@ -132,47 +139,63 @@ class SpatialCrossAttention(BaseModule):
-             query = query + query_pos
- 
-         bs, num_query, _ = query.size()
--
--        D = reference_points_cam.size(3)
--        indexes = []
--        for i, mask_per_img in enumerate(bev_mask):
--            index_query_per_img = mask_per_img[0].sum(-1).nonzero().squeeze(-1)
--            indexes.append(index_query_per_img)
--        max_len = max([len(each) for each in indexes])
--
--        # each camera only interacts with its corresponding BEV queries. This step can  greatly save GPU memory.
--        queries_rebatch = query.new_zeros(
-+
-+        D = reference_points_cam.size(3)
-+        indexes = []
-+        global bev_mask_global, indexes_global, max_len_global, bev_mask_id_global, count_global
-+        bev_mask_id = id(bev_mask)
-+        if bev_mask_id == bev_mask_id_global:
-+            indexes = indexes_global
-+            max_len = max_len_global
-+            count = count_global
-+        else:
-+            count = torch.any(bev_mask, 3)
-+            bev_mask_ = count.squeeze()
-+            for i, mask_per_img in enumerate(bev_mask_):
-+                index_query_per_img = mask_per_img.nonzero().squeeze(-1)
-+                indexes.append(index_query_per_img)
-+
-+            max_len = max([len(each) for each in indexes])
-+            count = count.permute(1, 2, 0).sum(-1)
-+            count = torch.clamp(count, min=1.0)
-+            count = count[..., None]
-+            count_global = count
-+            bev_mask_global = bev_mask.clone()
-+            indexes_global = indexes
-+            max_len_global = max_len
-+            bev_mask_id_global = bev_mask_id
-+
-+        # each camera only interacts with its corresponding BEV queries. This step can  greatly save GPU memory.
-+        queries_rebatch = query.new_zeros(
-             [bs, self.num_cams, max_len, self.embed_dims])
--        reference_points_rebatch = reference_points_cam.new_zeros(
--            [bs, self.num_cams, max_len, D, 2])
--        
--        for j in range(bs):
--            for i, reference_points_per_img in enumerate(reference_points_cam):   
--                index_query_per_img = indexes[i]
--                queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
--                reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
--
-+        reference_points_rebatch = reference_points_cam.new_zeros(
-+            [bs, self.num_cams, max_len, D, 2])
-+
-+        for i, reference_points_per_img in enumerate(reference_points_cam):
-+            index_query_per_img = indexes[i]
-+            for j in range(bs):
-+                queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
-+                reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
-+
-         num_cams, l, bs, embed_dims = key.shape
--
--        key = key.permute(2, 0, 1, 3).reshape(
--            bs * self.num_cams, l, self.embed_dims)
--        value = value.permute(2, 0, 1, 3).reshape(
--            bs * self.num_cams, l, self.embed_dims)
--
--        queries = self.deformable_attention(query=queries_rebatch.view(bs*self.num_cams, max_len, self.embed_dims), key=key, value=value,
--                                            reference_points=reference_points_rebatch.view(bs*self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
--                                            level_start_index=level_start_index).view(bs, self.num_cams, max_len, self.embed_dims)
--        for j in range(bs):
--            for i, index_query_per_img in enumerate(indexes):
--                slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
--
--        count = bev_mask.sum(-1) > 0
--        count = count.permute(1, 2, 0).sum(-1)
--        count = torch.clamp(count, min=1.0)
--        slots = slots / count[..., None]
--        slots = self.output_proj(slots)
--
--        return self.dropout(slots) + inp_residual
-+
-+        key = key.permute(2, 0, 1, 3).reshape(
-+            bs * self.num_cams, l, self.embed_dims)
-+        value = value.permute(2, 0, 1, 3).reshape(
-+            bs * self.num_cams, l, self.embed_dims)
-+
-+        queries = self.deformable_attention(query=queries_rebatch.view(bs * self.num_cams, max_len, self.embed_dims), key=key, value=value,
-+                                            reference_points=reference_points_rebatch.view(bs * self.num_cams, max_len, D, 2), spatial_shapes=spatial_shapes,
-+                                            level_start_index=level_start_index).view(bs, self.num_cams, max_len, self.embed_dims)
-+        for j in range(bs):
-+            for i, index_query_per_img in enumerate(indexes):
-+                slots[j, index_query_per_img] += queries[j, i, :len(index_query_per_img)]
-+
-+
-+        slots = slots / count
-+        slots = self.output_proj(slots)
-+
-+        return self.dropout(slots) + inp_residual
- 
  
  @ATTENTION.register_module()
-@@ -380,19 +403,14 @@ class MSDeformableAttention3D(BaseModule):
+ class SpatialCrossAttention(BaseModule):
+@@ -383,17 +383,12 @@ class MSDeformableAttention3D(BaseModule):
+         #
  
-         #  sampling_locations.shape: bs, num_query, num_heads, num_levels, num_all_points, 2
-         #  attention_weights.shape: bs, num_query, num_heads, num_levels, num_all_points
--        #
--
--        if torch.cuda.is_available() and value.is_cuda:
+         if torch.cuda.is_available() and value.is_cuda:
 -            if value.dtype == torch.float16:
 -                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
 -            else:
@@ -752,52 +756,33 @@ index 100d94f..e1c293f 100644
 -            output = MultiScaleDeformableAttnFunction.apply(
 -                value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
--        else:
--            output = multi_scale_deformable_attn_pytorch(
--                value, spatial_shapes, sampling_locations, attention_weights)
-+        #
-+
-+        if torch.cuda.is_available() and value.is_cuda:
 +            output = mx_driving.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
 +                                                            sampling_locations, attention_weights)
-+        else:
-+            output = multi_scale_deformable_attn_pytorch(
-+                value, spatial_shapes, sampling_locations, attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
          if not self.batch_first:
              output = output.permute(1, 0, 2)
  
+-        return output
++        return output
+\ No newline at end of file
 diff --git a/projects/mmdet3d_plugin/bevformer/modules/temporal_self_attention.py b/projects/mmdet3d_plugin/bevformer/modules/temporal_self_attention.py
-index 78fb9f5..7d2d1e6 100644
+index 78fb9f5..208dcce 100644
 --- a/projects/mmdet3d_plugin/bevformer/modules/temporal_self_attention.py
 +++ b/projects/mmdet3d_plugin/bevformer/modules/temporal_self_attention.py
-@@ -18,12 +18,14 @@ from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
-                         to_2tuple)
- 
- from mmcv.utils import ext_loader
--ext_module = ext_loader.load_ext(
--    '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
--
--
--@ATTENTION.register_module()
--class TemporalSelfAttention(BaseModule):
-+ext_module = ext_loader.load_ext(
-+    '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
-+
+@@ -10,6 +10,7 @@ from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
+ import warnings
+ import torch
+ import torch.nn as nn
 +import mx_driving
-+
-+
-+@ATTENTION.register_module()
-+class TemporalSelfAttention(BaseModule):
-     """An attention module used in BEVFormer based on Deformable-Detr.
- 
-     `Deformable DETR: Deformable Transformers for End-to-End Object Detection.
-@@ -235,21 +237,14 @@ class TemporalSelfAttention(BaseModule):
-                 * 0.5
-         else:
-             raise ValueError(
--                f'Last dim of reference_points must be'
--                f' 2 or 4, but get {reference_points.shape[-1]} instead.')
--        if torch.cuda.is_available() and value.is_cuda:
+ from mmcv.cnn import xavier_init, constant_init
+ from mmcv.cnn.bricks.registry import ATTENTION
+ import math
+@@ -238,15 +239,8 @@ class TemporalSelfAttention(BaseModule):
+                 f'Last dim of reference_points must be'
+                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
+         if torch.cuda.is_available() and value.is_cuda:
 -
 -            # using fp16 deformable attention is unstable because it performs many sum operations
 -            if value.dtype == torch.float16:
@@ -807,28 +792,22 @@ index 78fb9f5..7d2d1e6 100644
 -            output = MultiScaleDeformableAttnFunction.apply(
 -                value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
--        else:
--
--            output = multi_scale_deformable_attn_pytorch(
-+                f'Last dim of reference_points must be'
-+                f' 2 or 4, but get {reference_points.shape[-1]} instead.')
-+        if torch.cuda.is_available() and value.is_cuda:
 +            output = mx_driving.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
 +                                                            sampling_locations, attention_weights)
-+        else:
-+
-+            output = multi_scale_deformable_attn_pytorch(
-                 value, spatial_shapes, sampling_locations, attention_weights)
+         else:
  
-         # output shape (bs*num_bev_queue, num_query, embed_dims)
+             output = multi_scale_deformable_attn_pytorch(
 diff --git a/projects/mmdet3d_plugin/bevformer/modules/transformer.py b/projects/mmdet3d_plugin/bevformer/modules/transformer.py
-index b740fcc..afe081b 100644
+index b740fcc..d62388b 100644
 --- a/projects/mmdet3d_plugin/bevformer/modules/transformer.py
 +++ b/projects/mmdet3d_plugin/bevformer/modules/transformer.py
-@@ -12,13 +12,13 @@ from mmcv.cnn.bricks.transformer import build_transformer_layer_sequence
- from mmcv.runner.base_module import BaseModule
- 
- from mmdet.models.utils.builder import TRANSFORMER
+@@ -9,19 +9,19 @@ import torch
+ import torch.nn as nn
+ from mmcv.cnn import xavier_init
+ from mmcv.cnn.bricks.transformer import build_transformer_layer_sequence
+-from mmcv.runner.base_module import BaseModule
+-
+-from mmdet.models.utils.builder import TRANSFORMER
 -from torch.nn.init import normal_
 -from projects.mmdet3d_plugin.models.utils.visual import save_tensor
 -from mmcv.runner.base_module import BaseModule
@@ -836,6 +815,12 @@ index b740fcc..afe081b 100644
 -from .temporal_self_attention import TemporalSelfAttention
 -from .spatial_cross_attention import MSDeformableAttention3D
 -from .decoder import CustomMSDeformableAttention
+-from projects.mmdet3d_plugin.models.utils.bricks import run_time
+-from mmcv.runner import force_fp32, auto_fp16
+-
++from mmcv.runner.base_module import BaseModule
++
++from mmdet.models.utils.builder import TRANSFORMER
 +from torch.nn.init import normal_
 +from projects.mmdet3d_plugin.models.utils.visual import save_tensor
 +from mmcv.runner.base_module import BaseModule
@@ -843,19 +828,31 @@ index b740fcc..afe081b 100644
 +from .temporal_self_attention import TemporalSelfAttention
 +from .spatial_cross_attention import MSDeformableAttention3D
 +from .decoder import CustomMSDeformableAttention
- from projects.mmdet3d_plugin.models.utils.bricks import run_time
- from mmcv.runner import force_fp32, auto_fp16
++from projects.mmdet3d_plugin.models.utils.bricks import run_time
++from mmcv.runner import force_fp32, auto_fp16
++
  
-@@ -147,12 +147,13 @@ class PerceptionTransformer(BaseModule):
-                 for i in range(bs):
-                     # num_prev_bev = prev_bev.size(1)
-                     rotation_angle = kwargs['img_metas'][i]['can_bus'][-1]
+ @TRANSFORMER.register_module()
+ class PerceptionTransformer(BaseModule):
+@@ -144,18 +144,19 @@ class PerceptionTransformer(BaseModule):
+             if prev_bev.shape[1] == bev_h * bev_w:
+                 prev_bev = prev_bev.permute(1, 0, 2)
+             if self.rotate_prev_bev:
+-                for i in range(bs):
+-                    # num_prev_bev = prev_bev.size(1)
+-                    rotation_angle = kwargs['img_metas'][i]['can_bus'][-1]
 -                    tmp_prev_bev = prev_bev[:, i].reshape(
 -                        bev_h, bev_w, -1).permute(2, 0, 1)
 -                    tmp_prev_bev = rotate(tmp_prev_bev, rotation_angle,
 -                                          center=self.rotate_center)
 -                    tmp_prev_bev = tmp_prev_bev.permute(1, 2, 0).reshape(
 -                        bev_h * bev_w, 1, -1)
+-                    prev_bev[:, i] = tmp_prev_bev[:, 0]
+-
+-        # add can bus signals
++                for i in range(bs):
++                    # num_prev_bev = prev_bev.size(1)
++                    rotation_angle = kwargs['img_metas'][i]['can_bus'][-1]
 +                    tmp_prev_bev = prev_bev[:, i].reshape(
 +                        bev_h, bev_w, -1).permute(2, 0, 1)
 +                    tmp_prev_bev = rotate(tmp_prev_bev, rotation_angle,
@@ -863,9 +860,12 @@ index b740fcc..afe081b 100644
 +                                          center=self.rotate_center)
 +                    tmp_prev_bev = tmp_prev_bev.permute(1, 2, 0).reshape(
 +                        bev_h * bev_w, 1, -1)
-                     prev_bev[:, i] = tmp_prev_bev[:, 0]
- 
-         # add can bus signals
++                    prev_bev[:, i] = tmp_prev_bev[:, 0]
++
++        # add can bus signals
+         can_bus = bev_queries.new_tensor(
+             [each['can_bus'] for each in kwargs['img_metas']])  # [:, :]
+         can_bus = self.can_bus_mlp(can_bus)[None, :, :]
 diff --git a/projects/mmdet3d_plugin/datasets/builder.py b/projects/mmdet3d_plugin/datasets/builder.py
 index f9bf5be..9586277 100644
 --- a/projects/mmdet3d_plugin/datasets/builder.py
@@ -954,18 +954,30 @@ index 4ac9a15..faa970b 100755
 +torchrun --nproc_per_node=$GPUS --master_port=$PORT \
      $(dirname "$0")/train.py $CONFIG --launcher pytorch ${@:3} --deterministic
 diff --git a/tools/fp16/train.py b/tools/fp16/train.py
-index eddc349..631be33 100644
+index eddc349..acf9e2a 100644
 --- a/tools/fp16/train.py
 +++ b/tools/fp16/train.py
-@@ -23,6 +23,8 @@ from mmdet.apis import set_random_seed
- from mmseg import __version__ as mmseg_version
- 
- from mmcv.utils import TORCH_VERSION, digit_version
+@@ -20,12 +20,14 @@ from mmdet3d.datasets import build_dataset
+ from mmdet3d.models import build_model
+ from mmdet3d.utils import collect_env, get_root_logger
+ from mmdet.apis import set_random_seed
+-from mmseg import __version__ as mmseg_version
+-
+-from mmcv.utils import TORCH_VERSION, digit_version
+-
+-def parse_args():
+-    parser = argparse.ArgumentParser(description='Train a detector')
++from mmseg import __version__ as mmseg_version
++
++from mmcv.utils import TORCH_VERSION, digit_version
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
- 
- def parse_args():
-     parser = argparse.ArgumentParser(description='Train a detector')
++
++def parse_args():
++    parser = argparse.ArgumentParser(description='Train a detector')
+     parser.add_argument('config', help='train config file path')
+     parser.add_argument('--work-dir', help='the dir to save logs and models')
+     parser.add_argument(
 diff --git a/tools/test.py b/tools/test.py
 index acce20b..12ed94e 100755
 --- a/tools/test.py
