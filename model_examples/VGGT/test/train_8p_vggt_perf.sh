@@ -8,7 +8,7 @@ WORLD_SIZE=8
 BATCH_SIZE=15
 
 # 训练用例名称
-CASE_NAME=${NETWORK}_${WORLD_SIZE}p_full
+CASE_NAME=${NETWORK}_${WORLD_SIZE}p_perf
 echo "[VGGT] CASE_NAME = ${CASE_NAME}"
 
 # 创建输出目录
@@ -59,7 +59,7 @@ start_time=$(date +%s)
 
 #开始训练
 echo "[VGGT] Training..."
-torchrun --nproc_per_node=${WORLD_SIZE) launch.py > ${OUTPUT_PATH}/train.log 2>&1 &
+torchrun --nproc_per_node=${WORLD_SIZE} launch.py > ${OUTPUT_PATH}/train.log 2>&1 &
 wait
 
 #训练结束时间
