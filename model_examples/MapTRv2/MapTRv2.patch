@@ -1,9 +1,12 @@
+diff --git a/0 b/0
+new file mode 100644
+index 0000000..e69de29
 diff --git a/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py b/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py
 new file mode 100644
-index 0000000..e1020fd
+index 0000000..d5fe327
 --- /dev/null
 +++ b/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py
-@@ -0,0 +1,337 @@
+@@ -0,0 +1,343 @@
 +_base_ = [
 +    '../datasets/custom_nus-3d.py',
 +    '../_base_/default_runtime.py'
@@ -256,7 +259,7 @@ index 0000000..e1020fd
 +
 +data = dict(
 +    samples_per_gpu=4,
-+    workers_per_gpu=4, # TODO
++    workers_per_gpu=8, # TODO
 +    train=dict(
 +        type=dataset_type,
 +        data_root=data_root,
@@ -272,6 +275,8 @@ index 0000000..e1020fd
 +        fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
 +        eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
 +        padding_value=-10000,
++        gt_shift_pts_pattern='v2',
++        k_one2many=6,
 +        map_classes=map_classes,
 +        queue_length=queue_length,
 +        # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
@@ -287,6 +292,8 @@ index 0000000..e1020fd
 +        fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
 +        eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
 +        padding_value=-10000,
++        gt_shift_pts_pattern='v2',
++        k_one2many=6,
 +        map_classes=map_classes,
 +        classes=class_names, modality=input_modality, samples_per_gpu=1),
 +    test=dict(
@@ -300,6 +307,8 @@ index 0000000..e1020fd
 +        fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
 +        eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
 +        padding_value=-10000,
++        gt_shift_pts_pattern='v2',
++        k_one2many=6,
 +        map_classes=map_classes,
 +        classes=class_names,
 +        modality=input_modality),
@@ -339,9 +348,114 @@ index 0000000..e1020fd
 +        dict(type='TensorboardLoggerHook')
 +    ])
 +fp16 = dict(loss_scale=512.)
-+checkpoint_config = dict(max_keep_ckpts=1, interval=2)
++checkpoint_config = dict(max_keep_ckpts=1, interval=1)
 +find_unused_parameters=True
 \ No newline at end of file
+diff --git a/projects/configs/maptrv2/maptrv2_nusc_r50_24ep.py b/projects/configs/maptrv2/maptrv2_nusc_r50_24ep.py
+index 0f02709..04b00a6 100644
+--- a/projects/configs/maptrv2/maptrv2_nusc_r50_24ep.py
++++ b/projects/configs/maptrv2/maptrv2_nusc_r50_24ep.py
+@@ -179,13 +179,13 @@ model = dict(
+             loss_weight=2.0),
+         loss_bbox=dict(type='L1Loss', loss_weight=0.0),
+         loss_iou=dict(type='GIoULoss', loss_weight=0.0),
+-        loss_pts=dict(type='PtsL1Loss',
++        loss_pts=dict(type='PtsL1Loss',
+                       loss_weight=5.0),
+         loss_dir=dict(type='PtsDirCosLoss', loss_weight=0.005),
+-        loss_seg=dict(type='SimpleLoss',
++        loss_seg=dict(type='SimpleLoss',
+             pos_weight=4.0,
+             loss_weight=1.0),
+-        loss_pv_seg=dict(type='SimpleLoss',
++        loss_pv_seg=dict(type='SimpleLoss',
+                     pos_weight=1.0,
+                     loss_weight=2.0),),
+     # model training and testing settings
+@@ -201,7 +201,7 @@ model = dict(
+             # reg_cost=dict(type='BBox3DL1Cost', weight=0.25),
+             # iou_cost=dict(type='IoUCost', weight=1.0), # Fake cost. This is just to make it compatible with DETR head.
+             iou_cost=dict(type='IoUCost', iou_mode='giou', weight=0.0),
+-            pts_cost=dict(type='OrderedPtsL1Cost',
++            pts_cost=dict(type='OrderedPtsL1Cost',
+                       weight=5),
+             pc_range=point_cloud_range))))
+
+@@ -222,7 +222,7 @@ train_pipeline = [
+         use_dim=5,
+         file_client_args=file_client_args),
+     dict(type='CustomPointToMultiViewDepth', downsample=1, grid_config=grid_config),
+-    dict(type='PadMultiViewImageDepth', size_divisor=32),
++    dict(type='PadMultiViewImageDepth', size_divisor=32),
+     dict(type='DefaultFormatBundle3D', with_gt=False, with_label=False,class_names=map_classes),
+     dict(type='CustomCollect3D', keys=['img', 'gt_depth'])
+ ]
+@@ -231,7 +231,7 @@ test_pipeline = [
+     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+     dict(type='RandomScaleImageMultiViewImage', scales=[0.5]),
+     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
+-
++
+     dict(
+         type='MultiScaleFlipAug3D',
+         img_scale=(1600, 900),
+@@ -240,8 +240,8 @@ test_pipeline = [
+         transforms=[
+             dict(type='PadMultiViewImage', size_divisor=32),
+             dict(
+-                type='DefaultFormatBundle3D',
+-                with_gt=False,
++                type='DefaultFormatBundle3D',
++                with_gt=False,
+                 with_label=False,
+                 class_names=map_classes),
+             dict(type='CustomCollect3D', keys=['img'])
+@@ -250,7 +250,7 @@ test_pipeline = [
+
+ data = dict(
+     samples_per_gpu=4,
+-    workers_per_gpu=4, # TODO
++    workers_per_gpu=8, # TODO
+     train=dict(
+         type=dataset_type,
+         data_root=data_root,
+@@ -266,6 +266,8 @@ data = dict(
+         fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
+         eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
+         padding_value=-10000,
++        gt_shift_pts_pattern='v2',
++        k_one2many=6,
+         map_classes=map_classes,
+         queue_length=queue_length,
+         # we use box_type_3d='LiDAR' in kitti and nuscenes dataset
+@@ -281,6 +283,8 @@ data = dict(
+         fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
+         eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
+         padding_value=-10000,
++        gt_shift_pts_pattern='v2',
++        k_one2many=6,
+         map_classes=map_classes,
+         classes=class_names, modality=input_modality, samples_per_gpu=1),
+     test=dict(
+@@ -288,14 +292,16 @@ data = dict(
+         data_root=data_root,
+         ann_file=data_root + 'nuscenes_map_infos_temporal_val.pkl',
+         map_ann_file=data_root + 'nuscenes_map_anns_val.json',
+-        pipeline=test_pipeline,
++        pipeline=test_pipeline,
+         bev_size=(bev_h_, bev_w_),
+         pc_range=point_cloud_range,
+         fixed_ptsnum_per_line=fixed_ptsnum_per_gt_line,
+         eval_use_same_gt_sample_num_flag=eval_use_same_gt_sample_num_flag,
+         padding_value=-10000,
++        gt_shift_pts_pattern='v2',
++        k_one2many=6,
+         map_classes=map_classes,
+-        classes=class_names,
++        classes=class_names,
+         modality=input_modality),
+     shuffler_sampler=dict(type='DistributedGroupSampler'),
+     nonshuffler_sampler=dict(type='DistributedSampler')
 diff --git a/projects/mmdet3d_plugin/bevformer/apis/mmdet_train.py b/projects/mmdet3d_plugin/bevformer/apis/mmdet_train.py
 index e57bd22..03c3589 100644
 --- a/projects/mmdet3d_plugin/bevformer/apis/mmdet_train.py
@@ -383,25 +497,40 @@ index e57bd22..03c3589 100644
 
 
 diff --git a/projects/mmdet3d_plugin/bevformer/modules/decoder.py b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
-index 33024f8..16a3c5e 100644
+index 33024f8..3dc3dd7 100644
 --- a/projects/mmdet3d_plugin/bevformer/modules/decoder.py
 +++ b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
-@@ -14,6 +14,11 @@ import numpy as np
- import torch
- import torch.nn as nn
- import torch.nn.functional as F
+@@ -11,12 +11,17 @@ import copy
+ import warnings
+ from matplotlib import pyplot as plt
+ import numpy as np
+-import torch
+-import torch.nn as nn
+-import torch.nn.functional as F
+-from mmcv.cnn import xavier_init, constant_init
+-from mmcv.cnn.bricks.registry import (ATTENTION,
+-                                      TRANSFORMER_LAYER_SEQUENCE)
++import torch
++import torch.nn as nn
++import torch.nn.functional as F
 +
 +import torch_npu
 +import mx_driving
 +from mx_driving.fused import npu_multi_scale_deformable_attn_function
 +
- from mmcv.cnn import xavier_init, constant_init
- from mmcv.cnn.bricks.registry import (ATTENTION,
-                                       TRANSFORMER_LAYER_SEQUENCE)
-@@ -324,17 +329,7 @@ class CustomMSDeformableAttention(BaseModule):
-                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
-         if torch.cuda.is_available() and value.is_cuda:
-
++from mmcv.cnn import xavier_init, constant_init
++from mmcv.cnn.bricks.registry import (ATTENTION,
++                                      TRANSFORMER_LAYER_SEQUENCE)
+ from mmcv.cnn.bricks.transformer import TransformerLayerSequence
+ import math
+ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+@@ -321,23 +326,13 @@ class CustomMSDeformableAttention(BaseModule):
+         else:
+             raise ValueError(
+                 f'Last dim of reference_points must be'
+-                f' 2 or 4, but get {reference_points.shape[-1]} instead.')
+-        if torch.cuda.is_available() and value.is_cuda:
+-
 -            # using fp16 deformable attention is unstable because it performs many sum operations
 -            if value.dtype == torch.float16:
 -                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
@@ -413,10 +542,19 @@ index 33024f8..16a3c5e 100644
 -        else:
 -            output = multi_scale_deformable_attn_pytorch(
 -                value, spatial_shapes, sampling_locations, attention_weights)
+-
+-        output = self.output_proj(output)
+-
++                f' 2 or 4, but get {reference_points.shape[-1]} instead.')
++        if torch.cuda.is_available() and value.is_cuda:
++
 +            output = npu_multi_scale_deformable_attn_function(value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
-
-         output = self.output_proj(output)
-
++
++        output = self.output_proj(output)
++
+         if not self.batch_first:
+             # (num_query, bs ,embed_dims)
+             output = output.permute(1, 0, 2)
 diff --git a/projects/mmdet3d_plugin/datasets/builder.py b/projects/mmdet3d_plugin/datasets/builder.py
 index 0ad7a92..02f942f 100644
 --- a/projects/mmdet3d_plugin/datasets/builder.py
@@ -431,8 +569,185 @@ index 0ad7a92..02f942f 100644
          worker_init_fn=init_fn,
          **kwargs)
 
+diff --git a/projects/mmdet3d_plugin/datasets/nuscenes_offlinemap_dataset.py b/projects/mmdet3d_plugin/datasets/nuscenes_offlinemap_dataset.py
+index d531c3a..2c4939f 100644
+--- a/projects/mmdet3d_plugin/datasets/nuscenes_offlinemap_dataset.py
++++ b/projects/mmdet3d_plugin/datasets/nuscenes_offlinemap_dataset.py
+@@ -73,6 +73,101 @@ def perspective(cam_coords, proj_mat):
+     pix_coords = pix_coords[:2, :] / (pix_coords[2, :] + 1e-7)
+     pix_coords = pix_coords.transpose(1, 0)
+     return pix_coords
++
++def fixed_num_sampled_points(instance_list, fixed_num, max_x, max_y):
++    """
++    return torch.Tensor([N,fixed_num,2]), in xmin, ymin, xmax, ymax form
++        N means the num of instances
++    """
++    assert len(instance_list) != 0
++    instance_points_list = []
++    for instance in instance_list:
++        distances = np.linspace(0, instance.length, fixed_num)
++        sampled_points = np.array(
++            [list(instance.interpolate(distance).coords) for distance in distances]).reshape(-1, 2)
++        instance_points_list.append(sampled_points)
++    instance_points_array = np.array(instance_points_list)
++    instance_points_tensor = to_tensor(instance_points_array)
++    instance_points_tensor = instance_points_tensor.to(
++        dtype=torch.float32)
++    instance_points_tensor[:, :, 0] = torch.clamp(instance_points_tensor[:, :, 0], min=-max_x,
++                                                  max=max_x)
++    instance_points_tensor[:, :, 1] = torch.clamp(instance_points_tensor[:, :, 1], min=-max_y,
++                                                  max=max_y)
++    return instance_points_tensor
++
++
++def shift_fixed_num_sampled_points_v2(instance_list, instance_labels, fixed_num, max_x, max_y, padding_value):
++    """
++    return  [instances_num, num_shifts, fixed_num, 2]
++    """
++    assert len(instance_list) != 0
++    instances_list = []
++    for idx, instance in enumerate(instance_list):
++        # import ipdb;ipdb.set_trace()
++        instance_label = instance_labels[idx]
++        distances = np.linspace(0, instance.length, fixed_num)
++        poly_pts = np.array(list(instance.coords))
++        start_pts = poly_pts[0]
++        end_pts = poly_pts[-1]
++        is_poly = np.equal(start_pts, end_pts)
++        is_poly = is_poly.all()
++        shift_pts_list = []
++        pts_num, coords_num = poly_pts.shape
++        shift_num = pts_num - 1
++        final_shift_num = fixed_num - 1
++        if instance_label == 3:
++            # import ipdb;ipdb.set_trace()
++            sampled_points = np.array(
++                [list(instance.interpolate(distance).coords) for distance in distances]).reshape(-1, 2)
++            shift_pts_list.append(sampled_points)
++        else:
++            if is_poly:
++                pts_to_shift = poly_pts[:-1, :]
++                for shift_right_i in range(shift_num):
++                    shift_pts = np.roll(pts_to_shift, shift_right_i, axis=0)
++                    pts_to_concat = shift_pts[0]
++                    pts_to_concat = np.expand_dims(pts_to_concat, axis=0)
++                    shift_pts = np.concatenate((shift_pts, pts_to_concat), axis=0)
++                    shift_instance = LineString(shift_pts)
++                    shift_sampled_points = np.array(
++                        [list(shift_instance.interpolate(distance).coords) for distance in distances]).reshape(
++                        -1, 2)
++                    shift_pts_list.append(shift_sampled_points)
++                # import pdb;pdb.set_trace()
++            else:
++                sampled_points = np.array(
++                    [list(instance.interpolate(distance).coords) for distance in distances]).reshape(-1, 2)
++                flip_sampled_points = np.flip(sampled_points, axis=0)
++                shift_pts_list.append(sampled_points)
++                shift_pts_list.append(flip_sampled_points)
++
++        multi_shifts_pts = np.stack(shift_pts_list, axis=0)
++        shifts_num, _, _ = multi_shifts_pts.shape
++
++        if shifts_num > final_shift_num:
++            index = np.random.choice(multi_shifts_pts.shape[0], final_shift_num, replace=False)
++            multi_shifts_pts = multi_shifts_pts[index]
++
++        multi_shifts_pts_tensor = to_tensor(multi_shifts_pts)
++        multi_shifts_pts_tensor = multi_shifts_pts_tensor.to(
++            dtype=torch.float32)
++
++        multi_shifts_pts_tensor[:, :, 0] = torch.clamp(multi_shifts_pts_tensor[:, :, 0], min=-max_x,
++                                                       max=max_x)
++        multi_shifts_pts_tensor[:, :, 1] = torch.clamp(multi_shifts_pts_tensor[:, :, 1], min=-max_y,
++                                                       max=max_y)
++        # if not is_poly:
++        if multi_shifts_pts_tensor.shape[0] < final_shift_num:
++            padding = torch.full([final_shift_num - multi_shifts_pts_tensor.shape[0], fixed_num, 2],
++                                 padding_value)
++            multi_shifts_pts_tensor = torch.cat([multi_shifts_pts_tensor, padding], dim=0)
++        instances_list.append(multi_shifts_pts_tensor)
++    instances_tensor = torch.stack(instances_list, dim=0)
++    instances_tensor = instances_tensor.to(
++        dtype=torch.float32)
++    return instances_tensor
++
+ class LiDARInstanceLines(object):
+     """Line instance in LIDAR coordinates
+
+@@ -1036,6 +1131,8 @@ class CustomNuScenesOfflineLocalMapDataset(CustomNuScenesDataset):
+                  eval_use_same_gt_sample_num_flag=False,
+                  padding_value=-10000,
+                  map_classes=None,
++                 gt_shift_pts_pattern='v2',
++                 k_one2many=6,
+                  noise='None',
+                  noise_std=0,
+                  aux_seg = dict(
+@@ -1073,6 +1170,8 @@ class CustomNuScenesOfflineLocalMapDataset(CustomNuScenesDataset):
+         self.is_vis_on_test = False
+         self.noise = noise
+         self.noise_std = noise_std
++        self.gt_shift_pts_pattern = gt_shift_pts_pattern
++        self.k_one2many = k_one2many
+     @classmethod
+     def get_map_classes(cls, map_classes=None):
+         """Get class names of current dataset.
+@@ -1233,6 +1332,52 @@ class CustomNuScenesOfflineLocalMapDataset(CustomNuScenesDataset):
+         queue[-1]['img'] = DC(torch.stack(imgs_list),
+                               cpu_only=False, stack=True)
+         queue[-1]['img_metas'] = DC(metas_map, cpu_only=True)
++
++        gt_bboxes_list = queue[-1]['gt_bboxes_3d'].data
++        gt_vecs_list = copy.deepcopy(gt_bboxes_list)
++        gt_bboxes = DC(gt_vecs_list.bbox, cpu_only=False)
++        gt_bboxes_k_one2many = DC(gt_vecs_list.bbox.repeat(self.k_one2many, 1), cpu_only=False)
++
++        res = fixed_num_sampled_points(gt_vecs_list.instance_list, gt_vecs_list.fixed_num, gt_vecs_list.max_x, gt_vecs_list.max_y)
++        gt_pts_list = DC(res, cpu_only=False)
++
++        if self.gt_shift_pts_pattern == 'v0':
++            gt_shifts_pts_list = DC(gt_vecs_list.shift_fixed_num_sampled_points, cpu_only=False)
++        elif self.gt_shift_pts_pattern == 'v1':
++            gt_shifts_pts_list = DC(gt_vecs_list.shift_fixed_num_sampled_points_v1, cpu_only=False)
++        elif self.gt_shift_pts_pattern == 'v2':
++            res = shift_fixed_num_sampled_points_v2(gt_vecs_list.instance_list,gt_vecs_list.instance_labels, gt_vecs_list.fixed_num, gt_vecs_list.max_x, gt_vecs_list.max_y,gt_vecs_list.padding_value)
++            gt_shifts_pts_list = DC(res, cpu_only=False)
++        elif self.gt_shift_pts_pattern == 'v3':
++            gt_shifts_pts_list = DC(gt_vecs_list.shift_fixed_num_sampled_points_v3, cpu_only=False)
++        elif self.gt_shift_pts_pattern == 'v4':
++            gt_shifts_pts_list = DC(gt_vecs_list.shift_fixed_num_sampled_points_v4, cpu_only=False)
++        else:
++            raise NotImplementedError
++        queue[-1].update({"gt_bboxes_list": gt_bboxes, "gt_shifts_pts_list": gt_shifts_pts_list, "gt_pts_list": gt_pts_list})
++
++        gt_vecs_list_k_one2many = copy.deepcopy(gt_vecs_list)
++        gt_vecs_list_k_one2many.instance_list = gt_vecs_list_k_one2many.instance_list * self.k_one2many
++        gt_vecs_list_k_one2many.instance_labels = gt_vecs_list_k_one2many.instance_labels * self.k_one2many
++        queue[-1].update({'gt_labels_3d_k_one2many': DC(queue[-1]['gt_labels_3d'].data.repeat(self.k_one2many), cpu_only=False)})
++        res = fixed_num_sampled_points(gt_vecs_list_k_one2many.instance_list, gt_vecs_list_k_one2many.fixed_num, gt_vecs_list_k_one2many.max_x, gt_vecs_list_k_one2many.max_y)
++        gt_pts_list_k_one2many = DC(res, cpu_only=False)
++
++        if self.gt_shift_pts_pattern == 'v0':
++            gt_shifts_pts_list_k_one2many = DC(gt_vecs_list.shift_fixed_num_sampled_points, cpu_only=False)
++        elif self.gt_shift_pts_pattern == 'v1':
++            gt_shifts_pts_list_k_one2many = DC(gt_vecs_list.shift_fixed_num_sampled_points_v1, cpu_only=False)
++        elif self.gt_shift_pts_pattern == 'v2':
++            res = shift_fixed_num_sampled_points_v2(gt_vecs_list_k_one2many.instance_list,gt_vecs_list_k_one2many.instance_labels, gt_vecs_list_k_one2many.fixed_num, gt_vecs_list_k_one2many.max_x, gt_vecs_list_k_one2many.max_y,gt_vecs_list_k_one2many.padding_value)
++            gt_shifts_pts_list_k_one2many = DC(res, cpu_only=False)
++        elif self.gt_shift_pts_pattern == 'v3':
++            gt_shifts_pts_list_k_one2many = DC(gt_vecs_list.shift_fixed_num_sampled_points_v3, cpu_only=False)
++        elif self.gt_shift_pts_pattern == 'v4':
++            gt_shifts_pts_list_k_one2many = DC(gt_vecs_list.shift_fixed_num_sampled_points_v4, cpu_only=False)
++        else:
++            raise NotImplementedError
++        queue[-1].update({"gt_bboxes_k_one2many": gt_bboxes_k_one2many, "gt_shifts_pts_list_k_one2many": gt_shifts_pts_list_k_one2many, "gt_pts_list_k_one2many": gt_pts_list_k_one2many})
++
+         queue = queue[-1]
+         return queue
+
 diff --git a/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py b/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
-index 47cea8c..0ba44d8 100644
+index 47cea8c..55a42ae 100644
 --- a/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
 +++ b/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
 @@ -73,6 +73,127 @@ def denormalize_2d_pts(pts, pc_range):
@@ -572,45 +887,128 @@ index 47cea8c..0ba44d8 100644
      def _init_layers(self):
          """Initialize classification branch and regression branch of head."""
          cls_branch = []
-@@ -802,10 +925,20 @@ class MapTRv2Head(DETRHead):
-         # import pdb;pdb.set_trace()
-         # gt_bboxes_list = [
-         #     gt_bboxes.to(device) for gt_bboxes in gt_bboxes_list]
+@@ -748,6 +871,8 @@ class MapTRv2Head(DETRHead):
+     @force_fp32(apply_to=('preds_dicts'))
+     def loss(self,
+              gt_bboxes_list,
++             gt_shifts_pts_list,
++             gt_pts_list,
+              gt_labels_list,
+              gt_seg_mask,
+              gt_pv_seg_mask,
+@@ -784,8 +909,7 @@ class MapTRv2Head(DETRHead):
+         assert gt_bboxes_ignore is None, \
+             f'{self.__class__.__name__} only supports ' \
+             f'for gt_bboxes_ignore setting to None.'
+-        gt_vecs_list = copy.deepcopy(gt_bboxes_list)
+-        # import pdb;pdb.set_trace()
 +
-+
-         gt_bboxes_list = [
-             gt_bboxes.bbox.to(device) for gt_bboxes in gt_vecs_list]
+         all_cls_scores = preds_dicts['all_cls_scores']
+         all_bbox_preds = preds_dicts['all_bbox_preds']
+         all_pts_preds  = preds_dicts['all_pts_preds']
+@@ -796,33 +920,6 @@ class MapTRv2Head(DETRHead):
+         num_dec_layers = len(all_cls_scores)
+         device = gt_labels_list[0].device
+
+-        # gt_bboxes_list = [torch.cat(
+-        #     (gt_bboxes.gravity_center, gt_bboxes.tensor[:, 3:]),
+-        #     dim=1).to(device) for gt_bboxes in gt_bboxes_list]
+-        # import pdb;pdb.set_trace()
+-        # gt_bboxes_list = [
+-        #     gt_bboxes.to(device) for gt_bboxes in gt_bboxes_list]
+-        gt_bboxes_list = [
+-            gt_bboxes.bbox.to(device) for gt_bboxes in gt_vecs_list]
 -        gt_pts_list = [
 -            gt_bboxes.fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
-+
-+        gt_bboxes_args_list = [
-+            (gt_bboxes.instance_list, gt_bboxes.fixed_num, gt_bboxes.max_x, gt_bboxes.max_y)
-+            for gt_bboxes in gt_vecs_list]
-+        res = self.pool.starmap(fixed_num_sampled_points, gt_bboxes_args_list)
-+        gt_pts_list = [i.to(device) for i in res]
-+        # gt_pts_list = [
-+        #     gt_bboxes.fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
-+
-+
-         if self.gt_shift_pts_pattern == 'v0':
-             gt_shifts_pts_list = [
-                 gt_bboxes.shift_fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
-@@ -813,8 +946,13 @@ class MapTRv2Head(DETRHead):
-             gt_shifts_pts_list = [
-                 gt_bboxes.shift_fixed_num_sampled_points_v1.to(device) for gt_bboxes in gt_vecs_list]
-         elif self.gt_shift_pts_pattern == 'v2':
+-        if self.gt_shift_pts_pattern == 'v0':
+-            gt_shifts_pts_list = [
+-                gt_bboxes.shift_fixed_num_sampled_points.to(device) for gt_bboxes in gt_vecs_list]
+-        elif self.gt_shift_pts_pattern == 'v1':
+-            gt_shifts_pts_list = [
+-                gt_bboxes.shift_fixed_num_sampled_points_v1.to(device) for gt_bboxes in gt_vecs_list]
+-        elif self.gt_shift_pts_pattern == 'v2':
 -            gt_shifts_pts_list = [
 -                gt_bboxes.shift_fixed_num_sampled_points_v2.to(device) for gt_bboxes in gt_vecs_list]
-+            gt_bboxes_args_list = [
-+                (gt_bboxes.instance_list,gt_bboxes.instance_labels, gt_bboxes.fixed_num, gt_bboxes.max_x, gt_bboxes.max_y,gt_bboxes.padding_value)
-+                for gt_bboxes in gt_vecs_list]
-+            res = self.pool.starmap(shift_fixed_num_sampled_points_v2, gt_bboxes_args_list)
-+            gt_shifts_pts_list = [i.to(device) for i in res]
-+            # gt_shifts_pts_list = [
-+            #     gt_bboxes.shift_fixed_num_sampled_points_v2.to(device) for gt_bboxes in gt_vecs_list]
-         elif self.gt_shift_pts_pattern == 'v3':
-             gt_shifts_pts_list = [
-                 gt_bboxes.shift_fixed_num_sampled_points_v3.to(device) for gt_bboxes in gt_vecs_list]
+-        elif self.gt_shift_pts_pattern == 'v3':
+-            gt_shifts_pts_list = [
+-                gt_bboxes.shift_fixed_num_sampled_points_v3.to(device) for gt_bboxes in gt_vecs_list]
+-        elif self.gt_shift_pts_pattern == 'v4':
+-            gt_shifts_pts_list = [
+-                gt_bboxes.shift_fixed_num_sampled_points_v4.to(device) for gt_bboxes in gt_vecs_list]
+-        else:
+-            raise NotImplementedError
+         all_gt_bboxes_list = [gt_bboxes_list for _ in range(num_dec_layers)]
+         all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
+         all_gt_pts_list = [gt_pts_list for _ in range(num_dec_layers)]
+diff --git a/projects/mmdet3d_plugin/maptr/detectors/maptrv2.py b/projects/mmdet3d_plugin/maptr/detectors/maptrv2.py
+index 027f0c7..71851aa 100644
+--- a/projects/mmdet3d_plugin/maptr/detectors/maptrv2.py
++++ b/projects/mmdet3d_plugin/maptr/detectors/maptrv2.py
+@@ -119,8 +119,14 @@ class MapTRv2(MVXTwoStageDetector):
+     def forward_pts_train(self,
+                           pts_feats,
+                           lidar_feat,
+-                          gt_bboxes_3d,
++                          gt_bboxes_list,
++                          gt_shifts_pts_list,
++                          gt_pts_list,
+                           gt_labels_3d,
++                          gt_bboxes_k_one2many,
++                          gt_shifts_pts_list_k_one2many,
++                          gt_pts_list_k_one2many,
++                          gt_labels_3d_k_one2many,
+                           img_metas,
+                           gt_bboxes_ignore=None,
+                           prev_bev=None,
+@@ -154,20 +160,13 @@ class MapTRv2(MVXTwoStageDetector):
+                 loss_depth = torch.nan_to_num(loss_depth)
+             losses.update(loss_depth=loss_depth)
+
+-        loss_inputs = [gt_bboxes_3d, gt_labels_3d, gt_seg_mask, gt_pv_seg_mask, outs]
++        loss_inputs = [gt_bboxes_list, gt_shifts_pts_list, gt_pts_list, gt_labels_3d, gt_seg_mask, gt_pv_seg_mask, outs]
+         losses_pts = self.pts_bbox_head.loss(*loss_inputs, img_metas=img_metas)
+         losses.update(losses_pts)
+         # import ipdb;ipdb.set_trace()
+-        k_one2many = self.pts_bbox_head.k_one2many
+-        multi_gt_bboxes_3d = copy.deepcopy(gt_bboxes_3d)
+-        multi_gt_labels_3d = copy.deepcopy(gt_labels_3d)
+-        for i, (each_gt_bboxes_3d, each_gt_labels_3d) in enumerate(zip(multi_gt_bboxes_3d, multi_gt_labels_3d)):
+-            each_gt_bboxes_3d.instance_list = each_gt_bboxes_3d.instance_list * k_one2many
+-            each_gt_bboxes_3d.instance_labels = each_gt_bboxes_3d.instance_labels * k_one2many
+-            multi_gt_labels_3d[i] = each_gt_labels_3d.repeat(k_one2many)
+         # import ipdb;ipdb.set_trace()
+         one2many_outs = outs['one2many_outs']
+-        loss_one2many_inputs = [multi_gt_bboxes_3d, multi_gt_labels_3d, gt_seg_mask, gt_pv_seg_mask, one2many_outs]
++        loss_one2many_inputs = [gt_bboxes_k_one2many, gt_shifts_pts_list_k_one2many, gt_pts_list_k_one2many, gt_labels_3d_k_one2many, gt_seg_mask, gt_pv_seg_mask, one2many_outs]
+         loss_dict_one2many = self.pts_bbox_head.loss(*loss_one2many_inputs, img_metas=img_metas)
+
+         lambda_one2many = self.pts_bbox_head.lambda_one2many
+@@ -261,7 +260,14 @@ class MapTRv2(MVXTwoStageDetector):
+                       points=None,
+                       img_metas=None,
+                       gt_bboxes_3d=None,
++                      gt_bboxes_list=None,
++                      gt_shifts_pts_list=None,
++                      gt_pts_list=None,
+                       gt_labels_3d=None,
++                      gt_bboxes_k_one2many=None,
++                      gt_shifts_pts_list_k_one2many=None,
++                      gt_pts_list_k_one2many=None,
++                      gt_labels_3d_k_one2many=None,
+                       gt_labels=None,
+                       gt_bboxes=None,
+                       img=None,
+@@ -312,9 +318,7 @@ class MapTRv2(MVXTwoStageDetector):
+         img_metas = [each[len_queue-1] for each in img_metas]
+         img_feats = self.extract_feat(img=img, img_metas=img_metas)
+         losses = dict()
+-        losses_pts = self.forward_pts_train(img_feats, lidar_feat, gt_bboxes_3d,
+-                                            gt_labels_3d, img_metas,
+-                                            gt_bboxes_ignore, prev_bev, gt_depth,gt_seg_mask,gt_pv_seg_mask)
++        losses_pts = self.forward_pts_train(img_feats, lidar_feat, gt_bboxes_list, gt_shifts_pts_list, gt_pts_list, gt_labels_3d, gt_bboxes_k_one2many, gt_shifts_pts_list_k_one2many, gt_pts_list_k_one2many, gt_labels_3d_k_one2many, img_metas, gt_bboxes_ignore, prev_bev, gt_depth,gt_seg_mask,gt_pv_seg_mask)
+
+         losses.update(losses_pts)
+         return losses
 diff --git a/projects/mmdet3d_plugin/maptr/modules/__init__.py b/projects/mmdet3d_plugin/maptr/modules/__init__.py
 index f2c624f..61511d9 100644
 --- a/projects/mmdet3d_plugin/maptr/modules/__init__.py
@@ -623,7 +1021,7 @@ index f2c624f..61511d9 100644
  from .encoder import LSSTransform
 \ No newline at end of file
 diff --git a/projects/mmdet3d_plugin/maptr/modules/encoder.py b/projects/mmdet3d_plugin/maptr/modules/encoder.py
-index fc34528..ad3db3b 100644
+index fc34528..e68c98e 100644
 --- a/projects/mmdet3d_plugin/maptr/modules/encoder.py
 +++ b/projects/mmdet3d_plugin/maptr/modules/encoder.py
 @@ -5,8 +5,8 @@ import torch.nn as nn
@@ -637,9 +1035,12 @@ index fc34528..ad3db3b 100644
  from mmcv.runner import force_fp32, auto_fp16
  from torch.cuda.amp.autocast_mode import autocast
  from mmcv.cnn import build_conv_layer
-@@ -109,32 +109,30 @@ class BaseTransform(BaseModule):
+@@ -107,34 +107,32 @@ class BaseTransform(BaseModule):
+             self.frustum = self.create_frustum(fH,fW,img_metas)
+             self.frustum = self.frustum.to(device)
              # self.D = self.frustum.shape[0]
-
+-
++
          # undo post-transformation
 -        # B x N x D x H x W x 3
          points = self.frustum - post_trans.view(B, N, 1, 1, 1, 3)

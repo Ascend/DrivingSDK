@@ -244,9 +244,9 @@ wget https://download.pytorch.org/models/resnet18-f37072fd.pth
 | 芯片          | 卡数 | global batch size | Precision | epoch |  mAP  | 性能-FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :-------------------: |
 | 竞品A           |  8p  |         32         |   fp16    |  24   | 61.7 |         -          |
-| Atlas 800T A2 |  8p  |         32         |   fp16    |  24   | 60.9 |         -          |
+| Atlas 800T A2 |  8p  |         32         |   fp16    |  24   | 60.8 |         -          |
 | 竞品A           |  8p  |         32         |   fp16    |  1   | - |         21.91          |
-| Atlas 800T A2 |  8p  |         32         |   fp16    |  1   | - |         18.44          |
+| Atlas 800T A2 |  8p  |         32         |   fp16    |  1   | - |         23.03          |
 
 # 变更说明
 
@@ -254,6 +254,7 @@ wget https://download.pytorch.org/models/resnet18-f37072fd.pth
 
 2025.08.07：修复数据集相关描述
 
+2025.08.18: 优化模型性能
 
 # FAQ
 
