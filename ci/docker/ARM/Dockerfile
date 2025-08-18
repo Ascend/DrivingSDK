@@ -15,23 +15,23 @@ RUN mkdir /root/.pip \
     && echo "timeout=120" >> /root/.pip/pip.conf
 
 RUN pip3.7 install pyyaml  \
-    && pip3.7 install numpy==1.21.3 \
-    && pip3.7 install protobuf==3.19.6 \
+    && pip3.7 install numpy==1.23 \
+    && pip3.7 install protobuf==4.25.8 \
     && pip3.7 install decorator sympy scipy attrs cloudpickle psutil synr==0.5.0 tornado
 
 RUN pip3.8 install pyyaml  \
-    && pip3.8 install numpy==1.21.3 \
-    && pip3.8 install protobuf==3.19.6 \
+    && pip3.8 install numpy==1.23 \
+    && pip3.8 install protobuf==4.25.8 \
     && pip3.8 install decorator sympy scipy attrs cloudpickle psutil synr==0.5.0 tornado
 
 RUN pip3.9 install pyyaml  \
-    && pip3.9 install numpy==1.21.3 \
-    && pip3.9 install protobuf==3.19.6 \
+    && pip3.9 install numpy==1.23 \
+    && pip3.9 install protobuf==4.25.8 \
     && pip3.9 install decorator sympy scipy attrs cloudpickle psutil synr==0.5.0 tornado
 
 RUN pip3.10 install pyyaml  \
-    && pip3.10 install numpy==1.21.3 \
-    && pip3.10 install protobuf==3.19.6 \
+    && pip3.10 install numpy==1.23 \
+    && pip3.10 install protobuf==4.25.8 \
     && pip3.10 install decorator sympy scipy attrs cloudpickle psutil synr==0.5.0 tornado
 
 RUN yum install -y java-1.8.0-openjdk wget blas blas-devel lapack lapack-devel ninja-build python2
