@@ -88,4 +88,18 @@ class DeformConv2dFunction(Function):
         )
 
 
-deform_conv2d = DeformConv2dFunction.apply
+def deform_conv2d(
+    x: torch.Tensor,
+    offset: torch.Tensor,
+    weight: torch.Tensor,
+    stride: Union[int, Tuple[int, ...]] = 1,
+    padding: Union[int, Tuple[int, ...]] = 0,
+    dilation: Union[int, Tuple[int, ...]] = 1,
+    groups: int = 1,
+    deformable_groups: int = 1,
+    bias=False,
+    im2col_step=32,
+):
+    return DeformConv2dFunction.apply(
+        x, offset, weight, stride, padding, dilation, groups, deformable_groups, bias, im2col_step
+    )

@@ -37,10 +37,10 @@ class ModulatedDeformConv2dFunction(Function):
         deformable_groups: int = 1,
     ):
         if (weight.size(2) != 3) | (weight.size(3) != 3):
-            raise ValueError('Kernel size only support 3')
+            raise ValueError("Kernel size only support 3")
         if (x.size(1) % 64 != 0) | (weight.size(0) % 64 != 0):
-            raise ValueError('Channel only support 64-aligned')
-        
+            raise ValueError("Channel only support 64-aligned")
+
         ctx.kernel_size = [weight.size(2), weight.size(3)]
         ctx.stride = _pair(stride)
         ctx.padding = _pair(padding)
@@ -67,9 +67,11 @@ class ModulatedDeformConv2dFunction(Function):
             ctx.deformable_groups,
             False,
         )
-        
+
         _, c_in, _, _ = x.shape
-        offset_output = torch.tensor([]).float() if (groups == 1) and ((c_in == 256) or (c_in == 512)) else offset_output
+        offset_output = (
+            torch.tensor([]).float() if (groups == 1) and ((c_in == 256) or (c_in == 512)) else offset_output
+        )
         ctx.save_for_backward(nhwc_x, nhwc_offset, nhwc_weight, nhwc_mask, offset_output)
         return out
 
@@ -111,4 +113,18 @@ class ModulatedDeformConv2dFunction(Function):
         )
 
 
-modulated_deform_conv2d = ModulatedDeformConv2dFunction.apply
+def modulated_deform_conv2d(
+    x: torch.Tensor,
+    offset: torch.Tensor,
+    mask: torch.Tensor,
+    weight: torch.Tensor,
+    bias: Optional[nn.Parameter] = None,
+    stride: Union[int, Tuple[int, ...]] = 1,
+    padding: Union[int, Tuple[int, ...]] = 0,
+    dilation: Union[int, Tuple[int, ...]] = 1,
+    groups: int = 1,
+    deformable_groups: int = 1,
+):
+    return ModulatedDeformConv2dFunction.apply(
+        x, offset, mask, weight, bias, stride, padding, dilation, groups, deformable_groups
+    )

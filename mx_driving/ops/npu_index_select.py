@@ -43,4 +43,6 @@ class IndexSelectFunction(Function):
         return grad_input, None, None
 
 
-npu_index_select = IndexSelectFunction.apply
+def npu_index_select(feature: torch.Tensor, dim: int, index: torch.Tensor):
+
+    return IndexSelectFunction.apply(feature, dim, index)
