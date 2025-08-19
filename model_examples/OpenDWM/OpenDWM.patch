@@ -7,7 +7,7 @@ index 41eaad2..910a69d 100644
              "fs": {
                  "_class_name": "dwm.fs.dirfs.DirFileSystem",
 -                "path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan"
-+                "path": "data/nuscences"
++                "path": "data/nuscenes"
              },
              "paths": [
 -                "workspaces/worldmodels/data/nuscenes/interp_12Hz_trainval.zip",
@@ -71,8 +71,8 @@ index 41eaad2..910a69d 100644
              "image_description_settings": {
 -                "path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/workspaces/worldmodels/data/nuscenes_v1.0-trainval_caption_v2_train.json",
 -                "time_list_dict_path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/workspaces/worldmodels/data/nuscenes_v1.0-trainval_caption_v2_times_train.json",
-+                "path": "data/nuscences/nuscenes_v1.0-trainval_caption_v2_train.json",
-+                "time_list_dict_path": "data/nuscences/nuscenes_v1.0-trainval_caption_v2_times_train.json",
++                "path": "data/nuscenes/nuscenes_v1.0-trainval_caption_v2_train.json",
++                "time_list_dict_path": "data/nuscenes/nuscenes_v1.0-trainval_caption_v2_times_train.json",
                  "align_keys": [
                      "time",
                      "weather"
@@ -82,8 +82,8 @@ index 41eaad2..910a69d 100644
              "image_description_settings": {
 -                "path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/workspaces/worldmodels/data/nuscenes_v1.0-trainval_caption_v2_val.json",
 -                "time_list_dict_path": "/cache/aoss-v2.st-sh-01.sensecoreapi-oss.cn/users/wuzehuan/workspaces/worldmodels/data/nuscenes_v1.0-trainval_caption_v2_times_val.json",
-+                "path": "data/nuscences/nuscenes_v1.0-trainval_caption_v2_val.json",
-+                "time_list_dict_path": "data/nuscences/nuscenes_v1.0-trainval_caption_v2_times_val.json",
++                "path": "data/nuscenes/nuscenes_v1.0-trainval_caption_v2_val.json",
++                "time_list_dict_path": "data/nuscenes/nuscenes_v1.0-trainval_caption_v2_times_val.json",
                  "align_keys": [
                      "time",
                      "weather"
@@ -321,7 +321,7 @@ index 1e74e10..3896cba 100644
 +        # 打印该样本的统计摘要
 +        print(f"\nSample {i_id} inference stats:")
 +        print(f"  Runs: {args.repeat}")
-+        print(f"  Mean time: {sample_stats['mean_time']:.4f} ± {sample_stats['std_time']:.4f} seconds")
++        print(f"  Mean time: {sample_stats['mean_time']:.4f} seconds")
 +        print(f"  Min time: {sample_stats['min_time']:.4f} seconds")
 +        print(f"  Max time: {sample_stats['max_time']:.4f} seconds")
 +        
@@ -357,7 +357,7 @@ index 1e74e10..3896cba 100644
 +        print(f"Total samples processed: {global_stats['total_samples']}")
 +        print(f"Total inference runs: {global_stats['total_runs']}")
 +        print(f"Total inference time: {global_stats['total_time']:.2f} seconds")
-+        print(f"Average per run: {global_stats['avg_time']:.4f} ± {global_stats['std_time']:.4f} seconds")
++        print(f"Average per run: {global_stats['avg_time']:.4f} seconds")
 +        print(f"Fastest run: {global_stats['min_time']:.4f} seconds")
 +        print(f"Slowest run: {global_stats['max_time']:.4f} seconds")
 +        print(f"Detailed stats saved to: {stats_path}")

@@ -35,8 +35,6 @@ python -m torch.distributed.run \
     --nnodes $NNODES \
     --nproc-per-node $NPROC_PER_NODE \
     --node-rank $NODE_RANK \
-    --master-addr $MASTER_ADDR \
-    --master-port $MASTER_PORT \
     src/dwm/train.py \
     -c $CONFIG_FILE \
     -o $OUTPUT_DIR 2>&1 | tee "${OUTPUT_DIR}/train.log"

@@ -84,15 +84,11 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
     source {cann_root_dir}/set_env.sh
     ```
 
-2. 安装其他依赖项
-    ```
-    pip install -r requirements.txt
-    ```
-3. 安装Driving SDK
+2. 安装Driving SDK
 
     请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
-4. 安装MindSpeed
+3. 安装MindSpeed
     
     源码安装：
     ```
@@ -100,7 +96,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
     pip install -e MindSpeed
     ```
 
-3. 克隆代码仓到当前目录：
+4. 克隆代码仓到当前目录：
 
     ```
     git clone https://gitee.com/ascend/DrivingSDK.git -b master
@@ -112,7 +108,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
     将模型根目录记作 `model-root-path`
 
-4. 安装模型相关的依赖项。
+5. 安装模型相关的依赖项。
   
     ```
     python -m pip install torchvision==0.20.1
@@ -126,7 +122,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
     pip install $ASCEND_CUSTOM_PATH/latest/lib64/hccl-*-py3-none-any.whl
     ```
     
-5. 使用 patch 文件：
+6. 使用 patch 文件：
     ```
     cp -f ../OpenDWM.patch .
     git apply --reject --whitespace=fix OpenDWM.patch
@@ -138,7 +134,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
 - 根据原仓**Train**章节准备数据集
 
-  1. 下载[nuScences数据集](https://www.nuscenes.org/download)到${model-root-path}/data/nuscenes，目录结构如下
+  1. 下载[nuScenes数据集](https://www.nuscenes.org/download)到${model-root-path}/data/nuscenes，目录结构如下
 
       ```bash
       ${model-root-path}/data/nuscenes
@@ -221,14 +217,14 @@ ${model-root-path}/pretrained/
    - 单机8卡精度训练
    
    ```
-   # 单机8卡训练，XX.XX.XX.XX为当前IP
-   bash test/train.sh XX.XX.XX.XX
+   # 单机8卡训练
+   bash test/train.sh
    ```
 
    - 单机8卡的性能训练
    ```
-   # 单机8卡训练，XX.XX.XX.XX为当前IP
-   bash test/train_performance.sh XX.XX.XX.XX
+   # 单机8卡训练
+   bash test/train_performance.sh
    ```
 
 #### 训练结果
@@ -253,8 +249,8 @@ ${model-root-path}/pretrained/
 #### 推理结果
 | 芯片          | 卡数 | 性能-单步迭代耗时(s) |
 | ------------- | :--: |:-------------------: |
-| 竞品A           |  1p  |11.2805 ± 0.0075|
-| Atlas 800T A2 |  1p  |11.0295 ± 1.3301|
+| 竞品A           |  1p  |11.2805|
+| Atlas 800T A2 |  1p  |11.0295|
 
 # 变更说明
 
@@ -271,3 +267,5 @@ apt-get update && apt-get install -y gawk
 # CentOS/OpenEuler
 yum install -y gawk
 ```
+
+2. 训练过程会自动下载inception权重，如果遇到网络问题等下载失败，可以本地下载后，手动将该权重文件放到日志指定路径
