@@ -15,8 +15,9 @@
     - [准备数据集](#准备数据集)
     - [准备预训练权重](#准备预训练权重)
   - [快速开始](#快速开始)
-    - [训练任务](#训练任务)
-      - [开始训练](#开始训练)
+    - [单机8卡验证训练性能](#单机8卡验证训练性能)
+    - [单机8卡完整训练验证精度](#单机8卡完整训练验证精度)
+    - [训练脚本支持的命令行参数](#训练脚本支持的命令行参数)
       - [训练结果](#训练结果)
 - [变更说明](#变更说明)
 - [FAQ](#faq)
@@ -47,6 +48,7 @@
 # PanoOcc（在研版本）
 
 ## 准备训练环境
+环境默认采用 Python 3.8
 
 ### 安装昇腾环境
 
@@ -56,8 +58,8 @@
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 6.0.0  |
-|       CANN        | 8.0.0  |
+| FrameworkPTAdapter | 7.1.0  |
+|       CANN        | 8.2.RC1  |
 
 ### 安装模型环境
 
@@ -66,6 +68,10 @@
 | 三方库  | 支持版本 |
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
+| mmcv |   1.7.2 |
+| mmdet |   2.24.0   |
+| mmdet3d |   1.0.0rc4   |
+
 
 0. 激活 CANN 环境
 
@@ -73,27 +79,60 @@
     ```
     source {cann_root_dir}/set_env.sh
     ```
-1. 准备模型源码
+1. 安装Driving SDK：请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK，在完成README安装步骤后，应当完成了以下包的安装：
 
-    在当前目录下，克隆并准备 PanoOcc 源码
+     - CANN包
+     - torch_npu包
+        - torch_npu安装步骤包含了pyyaml和setuptools的安装，如果是通过whl包安装，请先安装`pip install pyyaml setuptools`
+     - 根目录下requirements.txt里列出的依赖
+     - 源码编译并安装了的drivingsdk包
+  
+2. 准备模型源码
+
+    克隆并准备 PanoOcc 源码
+    * 仅以clone至`DrivingSDK/model_example/PanoOcc/`目录举例
+      * 完成clone后路径会包含`.../PanoOcc/PanoOcc/`连续两个PanoOcc字段。
+      * 前者的PanoOcc主要存放DrivingSDK仓内的昇腾迁移优化补丁文件
+      * 后者的PanoOcc是模型源码仓目录
+    * 实际工程路径可用户自行选择，只需将`migrate_to_ascend`文件夹拷贝到实际的PanoOcc源码目录下即可
 
     ```
     git clone https://github.com/Robertwyq/PanoOcc.git
-    cp panoocc.patch PanoOcc
-    cp -r test/ PanoOcc/
     cd PanoOcc
     git checkout 3d93b119fcced35612af05587b395e8b38d8271f
-    git apply --reject --whitespace=fix panoocc.patch
-    cd ../
     ```
 
-2. 源码编译安装 mmcv
+3. - 拷贝该模型专用的昇腾迁移补丁文件`migrate_to_ascend`至PanoOcc源码仓内
+    
+    如果PanoOcc源码仓clone至`DrivingSDK/model_example/PanoOcc/`目录下，在该路径里面的那个`PanoOcc`源码仓路径下运行：    
+    ```
+    cp -r ../migrate_to_ascend ./
+    ```
+    如果在其他路径下，则:
+    ```
+    cp -r DrivingSDK/model_example/PanoOcc/migrate_to_ascend/ [PATH_TO_PANOOCC_SOURCE_CODE]/PanoOcc/ 
+    ```
+    补丁文件主要包含以下内容：
+    * 通过一键patcher特性实现的纯Python文件补丁，通过动态函数/类的替换对源码打迁移优化补丁
+    * .patch补丁文件
+    * requirements.txt 整合了模型原本的需要安装的依赖以及迁移到昇腾环境下所需的额外依赖
+    * 在昇腾环境下运行模型的脚本
+4. 安装依赖
 
-    克隆 mmcv 仓，并进入 mmcv 目录编译安装
+    ```bash
+    cd migrate_to_ascend
+    pip install -r requirements.txt
+    cd ..
+    ```
+
+
+5. 源码编译安装 mmcv
+
+    在PanoOcc源码仓目录下，克隆 mmcv 仓，应用patch替换其中部分代码，并进入 mmcv 目录使用NPU编译选项编译安装（路径并非必须在PanoOcc目录下，仅以此举例）
 
     ```
     git clone -b 1.x https://github.com/open-mmlab/mmcv
-    cp mmcv.patch mmcv
+    cp migrate_to_ascend/mmcv.patch mmcv/
     cd mmcv
     git apply --reject mmcv.patch
     MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
@@ -101,43 +140,18 @@
     cd ../
     ```
 
-3. 安装 mmdet
+6. 应用patch并源码编译安装 mmdet3d
 
-    克隆 mmdet 仓，并进入 mmdet 目录编译安装
-
-    ```
-    git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
-    cp mmdetection.patch mmdetection
-    cd mmdetection
-    git apply --reject mmdetection.patch
-    pip install -e .
-    cd ../
-    ```
-
-4. 安装 mmdet3d
-
-    在模型根目录下，克隆 mmdet3d 仓，替换其中部分代码，并进入 mmdet3d 目录安装
+    在PanoOcc源码仓目录下克隆 mmdet3d 仓，应用patch替换其中部分代码，并进入 mmdet3d 目录安装（路径并非必须在PanoOcc目录下，仅以此举例）
 
     ```
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
-    cp mmdetection3d.patch mmdetection3d
+    cp migrate_to_ascend/mmdetection3d.patch mmdetection3d
     cd mmdetection3d
     git apply --reject mmdetection3d.patch
     pip install -v -e .
     cd ../
     ```
-
-5. 安装其他依赖
-
-    ```
-    pip install mmsegmentation==0.30.0
-    pip install torch==2.1.0 torchvision
-    pip install ipython==8.18.1
-    ```
-
-5. 安装 Driving SDK 加速库
-
-    安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)
 
 ### 准备数据集
 
@@ -177,31 +191,70 @@
 
 ## 快速开始
 
-### 训练任务
 
 本任务主要提供**单机**的**8卡**训练脚本。
 
-#### 开始训练
+在模型源码根目录下，运行训练脚本:
 
-  - 在模型源码根目录下，运行训练脚本。
+* 以下`${CASE_NAME}`变量指代由脚本自动生成的目录名，包含了
+  * 模型网络名称（对应config文件名称，有small、base、large等几种变种）
+  * batch size
+  * 训练卡数
+  * 时间戳
+  * epoch数
+* 以下示例均以PanoOcc_Base_4f举例，可通过--config入参来指定不同的config文件并使用对应变种的模型
 
-     ```
-     bash test/train_8p_panoocc_base_4f_fp32.sh --epochs=3 # 8卡性能
-     bash test/train_8p_panoocc_base_4f_fp32.sh # 8卡精度
-     ```
+
+### 单机8卡验证训练性能
+
+仅训练少量迭代检验8卡训练性能，1000个训练step后会早停（预计耗时45分钟）
+```
+bash migrate_to_ascend/train_8p.sh --performance # 8卡性能
+```
+脚本默认通过nohup于后台不挂断进行训练，训练日志默认存放在`output/${CASE_NAME}/train_8p_performance.log`
+
+
+### 单机8卡完整训练验证精度
+全量长跑config文件里所配置的epoch数（默认24个epochs）的训练（预计耗时约3天）
+```
+bash migrate_to_ascend/train_8p.sh # 8卡精度
+```
+脚本默认通过nohup于后台不挂断进行训练，训练日志默认存放在`output/${CASE_NAME}/train_8p_full.log`（${CASE_NAME}目录的命名包含了batch size、训练卡数、时间戳等信息）
+
+完整训练获得`latest.pth`后，脚本会自动运行`eval.sh`进行模型推理验证精度（latest.pth存放在`output/${CASE_NAME}/work_dir`下），推理精度结果会添加到`output/${CASE_NAME}/train_result.log`
+
+`eval.sh`也可以单独使用：
+```
+# [CHECKPOINT_FILE]： 指定latest.pth或epoch_xx.pth文件的路径
+# [OUTPUT_PATH]： 指定存放生成精度结果文件的路径
+# [NUM_NPUS]: 指定卡数
+bash eval_8p.sh [CHECKPOINT_FILE] [OUTPUT_PATH] [NUM_NPUS] [NUM_NPUS]
+```
+
+### 训练脚本支持的命令行参数
+`train_8p.sh`
+* `--performance`：添加该参数，训练脚本仅验机器性能；未添加时，正常长跑训练完整epochs数
+* `--epochs=*`: 可调整训练epochs数，取值范围为正整数，默认24个epochs
+* `--num_npu=*`: 可调整训练使用的npu卡数，取值范围[1, 8]，默认为8
+* `--workers_per_npu=*`：可调整每张卡的数据加载子进程的数量，取值范围为>=0的整数，上限由共享内存等多方面因素决定，默认值为6
+* `--batch_size`: （当前版本暂不支持bs大于1，仅作为预埋参数，待后续更新）可调整每张卡的batch size，取值范围为>1的整数，上限由显存占用决定，默认为1
 
 #### 训练结果
 
 | 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | mAP | NDS | 性能-单步迭代耗时(ms) |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :----: | :-------------------: |
-| 竞品A           |  8p  |         8         |   fp32    |  24   | 0.712 | 0.411 | 0.497 |         1322          |
-| Atlas 800T A2 |  8p  |         8         |   fp32    |  24   | 0.710 | 0.416 | 0.499 |         2211          |
+| 竞品A           |  8p  |         8         |   fp32    |  24   | 0.7116 | 0.4141 | 0.4986 |         1643          |
+| Atlas 800T A2 |  8p  |         8         |   fp32    |  24   | 0.7012 | 0.4084 | 0.4994 |         1851          |
 
 # 变更说明
 
 2024.09.10：首次发布。
 
+2025.8.18: 迁移至一键patcher实现，性能优化，脚本优化，更新基线。
+
+
+
 
 # FAQ
 
-无
+* 当前版本暂不支持bs大于1，仅作为预埋参数，待后续更新
