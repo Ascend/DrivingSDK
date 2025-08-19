@@ -1,0 +1,592 @@
+diff --git a/lerobot/common/optim/optimizers.py b/lerobot/common/optim/optimizers.py
+index 0cf4124c..7856400b 100644
+--- a/lerobot/common/optim/optimizers.py
++++ b/lerobot/common/optim/optimizers.py
+@@ -73,11 +73,13 @@ class AdamWConfig(OptimizerConfig):
+     grad_clip_norm: float = 10.0
+
+     def build(self, params: dict) -> torch.optim.Optimizer:
++        import torch_npu
++        from mindspeed.optimizer.adamw import AdamW
++        torch.optim.AdamW = AdamW
+         kwargs = asdict(self)
+         kwargs.pop("grad_clip_norm")
+         return torch.optim.AdamW(params, **kwargs)
+
+-
+ @OptimizerConfig.register_subclass("sgd")
+ @dataclass
+ class SGDConfig(OptimizerConfig):
+diff --git a/lerobot/common/policies/factory.py b/lerobot/common/policies/factory.py
+index 8def95a3..4f28c685 100644
+--- a/lerobot/common/policies/factory.py
++++ b/lerobot/common/policies/factory.py
+@@ -17,7 +17,7 @@
+ import logging
+
+ from torch import nn
+-
++from typing import Callable
+ from lerobot.common.datasets.lerobot_dataset import LeRobotDatasetMetadata
+ from lerobot.common.datasets.utils import dataset_to_policy_features
+ from lerobot.common.envs.configs import EnvConfig
+@@ -84,7 +84,8 @@ def make_policy(
+     cfg: PreTrainedConfig,
+     ds_meta: LeRobotDatasetMetadata | None = None,
+     env_cfg: EnvConfig | None = None,
+-) -> PreTrainedPolicy:
++    accelerator: Callable = None,
++    ) -> PreTrainedPolicy:
+     """Make an instance of a policy class.
+
+     This function exists because (for now) we need to parse features from either a dataset or an environment
+@@ -144,7 +145,9 @@ def make_policy(
+         # Load a pretrained policy and override the config if needed (for example, if there are inference-time
+         # hyperparameters that we want to vary).
+         kwargs["pretrained_name_or_path"] = cfg.pretrained_path
++        kwargs['accelerator']=accelerator
+         policy = policy_cls.from_pretrained(**kwargs)
++
+     else:
+         # Make a fresh policy.
+         policy = policy_cls(**kwargs)
+diff --git a/lerobot/common/policies/pretrained.py b/lerobot/common/policies/pretrained.py
+index da4ef157..f0a784ce 100644
+--- a/lerobot/common/policies/pretrained.py
++++ b/lerobot/common/policies/pretrained.py
+@@ -25,7 +25,7 @@ from huggingface_hub.errors import HfHubHTTPError
+ from safetensors.torch import load_model as load_model_as_safetensor
+ from safetensors.torch import save_model as save_model_as_safetensor
+ from torch import Tensor, nn
+-
++from typing import Callable
+ from lerobot.common.utils.hub import HubMixin
+ from lerobot.configs.policies import PreTrainedConfig
+
+@@ -78,6 +78,7 @@ class PreTrainedPolicy(nn.Module, HubMixin, abc.ABC):
+         cls: Type[T],
+         pretrained_name_or_path: str | Path,
+         *,
++        accelerator: Callable = None,
+         config: PreTrainedConfig | None = None,
+         force_download: bool = False,
+         resume_download: bool | None = None,
+@@ -110,7 +111,7 @@ class PreTrainedPolicy(nn.Module, HubMixin, abc.ABC):
+         if os.path.isdir(model_id):
+             print("Loading weights from local directory")
+             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
+-            policy = cls._load_as_safetensor(instance, model_file, config.device, strict)
++            policy = cls._load_as_safetensor(instance, model_file, config.device, strict, accelerator)
+         else:
+             try:
+                 model_file = hf_hub_download(
+@@ -135,7 +136,7 @@ class PreTrainedPolicy(nn.Module, HubMixin, abc.ABC):
+         return policy
+
+     @classmethod
+-    def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
++    def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool, accelerator: Callable) -> T:
+         if packaging.version.parse(safetensors.__version__) < packaging.version.parse("0.4.3"):
+             load_model_as_safetensor(model, model_file, strict=strict)
+             if map_location != "cpu":
+@@ -147,7 +148,9 @@ class PreTrainedPolicy(nn.Module, HubMixin, abc.ABC):
+                 )
+                 model.to(map_location)
+         else:
+-            safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)
++            if (accelerator.is_main_process):
++
++                safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)
+         return model
+
+     # def generate_model_card(self, *args, **kwargs) -> ModelCard:
+diff --git a/lerobot/common/utils/logging_utils.py b/lerobot/common/utils/logging_utils.py
+index 56c9abb2..30e18b45 100644
+--- a/lerobot/common/utils/logging_utils.py
++++ b/lerobot/common/utils/logging_utils.py
+@@ -13,7 +13,7 @@
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+-from typing import Any
++from typing import Any, Callable
+
+ from lerobot.common.utils.utils import format_big_number
+
+@@ -84,6 +84,7 @@ class MetricsTracker:
+         "samples",
+         "episodes",
+         "epochs",
++        "accelerator",
+     ]
+
+     def __init__(
+@@ -93,12 +94,14 @@ class MetricsTracker:
+         num_episodes: int,
+         metrics: dict[str, AverageMeter],
+         initial_step: int = 0,
++        accelerator: Callable = None,
+     ):
+         self.__dict__.update(dict.fromkeys(self.__keys__))
+         self._batch_size = batch_size
+         self._num_frames = num_frames
+         self._avg_samples_per_ep = num_frames / num_episodes
+         self.metrics = metrics
++        self.accelerator= accelerator
+
+         self.steps = initial_step
+         # A sample is an (observation,action) pair, where observation and action
+@@ -128,7 +131,7 @@ class MetricsTracker:
+         Updates metrics that depend on 'step' for one step.
+         """
+         self.steps += 1
+-        self.samples += self._batch_size
++        self.samples += self._batch_size * (self.accelerator.num_processes if self.accelerator else 1 )
+         self.episodes = self.samples / self._avg_samples_per_ep
+         self.epochs = self.samples / self._num_frames
+
+diff --git a/lerobot/common/utils/random_utils.py b/lerobot/common/utils/random_utils.py
+index 3d9bf4dd..5d394b51 100644
+--- a/lerobot/common/utils/random_utils.py
++++ b/lerobot/common/utils/random_utils.py
+@@ -16,7 +16,7 @@
+ import random
+ from contextlib import contextmanager
+ from pathlib import Path
+-from typing import Any, Generator
++from typing import Any, Callable, Generator
+
+ import numpy as np
+ import torch
+@@ -55,7 +55,7 @@ def serialize_numpy_rng_state() -> dict[str, torch.Tensor]:
+     # Ensure no breaking changes from numpy
+     assert np_state[0] == "MT19937"
+     return {
+-        "np_rng_state_values": torch.tensor(np_state[1], dtype=torch.int64),
++        "np_rng_state_values": torch.tensor([np_state[1]], dtype=torch.int64),
+         "np_rng_state_index": torch.tensor([np_state[2]], dtype=torch.int64),
+         "np_rng_has_gauss": torch.tensor([np_state[3]], dtype=torch.int64),
+         "np_rng_cached_gaussian": torch.tensor([np_state[4]], dtype=torch.float32),
+@@ -163,13 +163,17 @@ def set_rng_state(random_state_dict: dict[str, Any]):
+         torch.cuda.random.set_rng_state(random_state_dict["torch_cuda_random_state"])
+
+
+-def set_seed(seed) -> None:
++def set_seed(seed, accelerator: Callable = None) -> None:
+     """Set seed for reproducibility."""
+     random.seed(seed)
+     np.random.seed(seed)
+     torch.manual_seed(seed)
+     if torch.cuda.is_available():
+         torch.cuda.manual_seed_all(seed)
++    if accelerator:
++        from accelerate.utils import set_seed
++
++        set_seed(seed)
+
+
+ @contextmanager
+diff --git a/lerobot/common/utils/utils.py b/lerobot/common/utils/utils.py
+index 563a7b81..72b7f375 100644
+--- a/lerobot/common/utils/utils.py
++++ b/lerobot/common/utils/utils.py
+@@ -21,6 +21,7 @@ import subprocess
+ from copy import copy
+ from datetime import datetime, timezone
+ from pathlib import Path
++from typing import Callable
+
+ import numpy as np
+ import torch
+@@ -52,13 +53,13 @@ def auto_select_torch_device() -> torch.device:
+
+
+ # TODO(Steven): Remove log. log shouldn't be an argument, this should be handled by the logger level
+-def get_safe_torch_device(try_device: str, log: bool = False) -> torch.device:
++def get_safe_torch_device(try_device: str, log: bool = False, accelerator: Callable = None) -> torch.device:
+     """Given a string, return a torch.device with checks on whether the device is available."""
+     try_device = str(try_device)
+     match try_device:
+         case "cuda":
+             assert torch.cuda.is_available()
+-            device = torch.device("cuda")
++            device = accelerator.device if accelerator else torch.device("cuda")
+         case "mps":
+             assert torch.backends.mps.is_available()
+             device = torch.device("mps")
+@@ -107,7 +108,8 @@ def is_amp_available(device: str):
+         raise ValueError(f"Unknown device '{device}.")
+
+
+-def init_logging():
++def init_logging(accelerator : Callable = None):
++
+     def custom_format(record):
+         dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+         fnameline = f"{record.pathname}:{record.lineno}"
+@@ -124,6 +126,10 @@ def init_logging():
+     console_handler = logging.StreamHandler()
+     console_handler.setFormatter(formatter)
+     logging.getLogger().addHandler(console_handler)
++    if accelerator is not None and not accelerator.is_main_process:
++        #Disable duplicate logging on non-main processes
++        logging.info(f"Setting logging level on non-main process {accelerator.process_index} to WARNING.")
++        logging.getLogger().setLevel(logging.WARNING)
+
+
+ def format_big_number(num, precision=0):
+@@ -228,3 +234,7 @@ def is_valid_numpy_dtype_string(dtype_str: str) -> bool:
+     except TypeError:
+         # If a TypeError is raised, the string is not a valid dtype
+         return False
++
++def is_launched_with_accelerate() -> bool:
++    return "ACCELERATE_MIXED_PROCISION" in os.environ
++
+diff --git a/lerobot/configs/train.py b/lerobot/configs/train.py
+index 7a787b83..a360392e 100644
+--- a/lerobot/configs/train.py
++++ b/lerobot/configs/train.py
+@@ -54,7 +54,7 @@ class TrainPipelineConfig(HubMixin):
+     batch_size: int = 8
+     steps: int = 100_000
+     eval_freq: int = 20_000
+-    log_freq: int = 200
++    log_freq: int = 20
+     save_checkpoint: bool = True
+     # Checkpoint is saved every `save_freq` training iterations and after the last training step.
+     save_freq: int = 20_000
+diff --git a/lerobot/scripts/train.py b/lerobot/scripts/train.py
+index 0de247be..3d040744 100644
+--- a/lerobot/scripts/train.py
++++ b/lerobot/scripts/train.py
+@@ -15,13 +15,20 @@
+ # limitations under the License.
+ import logging
+ import time
++import os
++import random
++import numpy as np
+ from contextlib import nullcontext
+ from pprint import pformat
+-from typing import Any
++from typing import Any, Callable
+
+ import torch
++import torch_npu
++
++from torch_npu.contrib import transfer_to_npu
++
+ from termcolor import colored
+-from torch.amp import GradScaler
++from torch.cuda.amp import GradScaler
+ from torch.optim import Optimizer
+
+ from lerobot.common.datasets.factory import make_dataset
+@@ -46,6 +53,7 @@ from lerobot.common.utils.utils import (
+     get_safe_torch_device,
+     has_method,
+     init_logging,
++    is_launched_with_accelerate,
+ )
+ from lerobot.common.utils.wandb_utils import WandBLogger
+ from lerobot.configs import parser
+@@ -63,30 +71,41 @@ def update_policy(
+     lr_scheduler=None,
+     use_amp: bool = False,
+     lock=None,
++    accelerator: Callable = None,
+ ) -> tuple[MetricsTracker, dict]:
+     start_time = time.perf_counter()
+     device = get_device_from_parameters(policy)
+     policy.train()
+-    with torch.autocast(device_type=device.type) if use_amp else nullcontext():
++    with torch.autocast(device_type=device.type) if use_amp and accelerator is None else nullcontext():
+         loss, output_dict = policy.forward(batch)
+         # TODO(rcadene): policy.unnormalize_outputs(out_dict)
+-    grad_scaler.scale(loss).backward()
++    if accelerator:
++        accelerator.backward(loss)
++        accelerator.unscale_gradients(optimizer=optimizer)
++        grad_norm = torch.nn.utils.clip_grad_norm_(
++            policy.parameters(),
++            grad_clip_norm,
++            error_if_nonfinite=False,
++         )
++        optimizer.step()
++    else:
++        grad_scaler.scale(loss).backward()
++        grad_scaler.unscale_(optimizer)
+
+-    # Unscale the gradient of the optimizer's assigned params in-place **prior to gradient clipping**.
+-    grad_scaler.unscale_(optimizer)
++        grad_norm = torch.nn.utils.clip_grad_norm_(
++            policy.parameters(),
++            grad_clip_norm,
++            error_if_nonfinite=False,
++        )
+
+-    grad_norm = torch.nn.utils.clip_grad_norm_(
+-        policy.parameters(),
+-        grad_clip_norm,
+-        error_if_nonfinite=False,
+-    )
++    # Unscale the gradient of the optimizer's assigned params in-place **prior to gradient clipping**.
+
+-    # Optimizer's gradients are already unscaled, so scaler.step does not unscale them,
+-    # although it still skips optimizer.step() if the gradients contain infs or NaNs.
+-    with lock if lock is not None else nullcontext():
+-        grad_scaler.step(optimizer)
+-    # Updates the scale for next iteration.
+-    grad_scaler.update()
++        # Optimizer's gradients are already unscaled, so scaler.step does not unscale them,
++        # although it still skips optimizer.step() if the gradients contain infs or NaNs.
++        with lock if lock is not None else nullcontext():
++            grad_scaler.step(optimizer)
++        # Updates the scale for next iteration.
++        grad_scaler.update()
+
+     optimizer.zero_grad()
+
+@@ -94,9 +113,13 @@ def update_policy(
+     if lr_scheduler is not None:
+         lr_scheduler.step()
+
+-    if has_method(policy, "update"):
++    if accelerator:
++        if has_method(accelerator.unwrap_model(policy, keep_fp32_wrapper=True), "update"):
++            accelerator.unwrap_model(policy, keep_fp32_wrapper=True).update()
++    else:
++        if has_method(policy, "update"):
+         # To possibly update an internal buffer (for instance an Exponential Moving Average like in TDMPC).
+-        policy.update()
++            policy.update()
+
+     train_metrics.loss = loss.item()
+     train_metrics.grad_norm = grad_norm.item()
+@@ -106,9 +129,23 @@ def update_policy(
+
+
+ @parser.wrap()
+-def train(cfg: TrainPipelineConfig):
++def train(cfg: TrainPipelineConfig, accelerator: Callable = None):
++
++    def seed_all(seed=1234, mode=False):
++        random.seed(seed)
++        os.environ['PYTHONHASHSEED'] = str(seed)
++        np.random.seed(seed)
++        torch.manual_seed(seed)
++        torch.use_deterministic_algorithms(mode)
++        torch_npu.npu.manual_seed_all(seed)
++        torch_npu.npu.manual_seed(seed)
++    seed_all()
+     cfg.validate()
++
+     logging.info(pformat(cfg.to_dict()))
++
++    if accelerator and not accelerator.is_main_process:
++        cfg.wandb.enable = False
+
+     if cfg.wandb.enable and cfg.wandb.project:
+         wandb_logger = WandBLogger(cfg)
+@@ -117,10 +154,11 @@ def train(cfg: TrainPipelineConfig):
+         logging.info(colored("Logs will be saved locally.", "yellow", attrs=["bold"]))
+
+     if cfg.seed is not None:
+-        set_seed(cfg.seed)
++        set_seed(cfg.seed, accelerator=accelerator)
+
+     # Check device is available
+-    device = get_safe_torch_device(cfg.policy.device, log=True)
++    device = get_safe_torch_device(cfg.policy.device, log=True, accelerator=accelerator)
++
+     torch.backends.cudnn.benchmark = True
+     torch.backends.cuda.matmul.allow_tf32 = True
+
+@@ -139,8 +177,9 @@ def train(cfg: TrainPipelineConfig):
+     policy = make_policy(
+         cfg=cfg.policy,
+         ds_meta=dataset.meta,
++        accelerator=accelerator,
+     )
+-
++    policy.to(device)
+     logging.info("Creating optimizer and scheduler")
+     optimizer, lr_scheduler = make_optimizer_and_scheduler(cfg, policy)
+     grad_scaler = GradScaler(device.type, enabled=cfg.policy.use_amp)
+@@ -153,14 +192,15 @@ def train(cfg: TrainPipelineConfig):
+     num_learnable_params = sum(p.numel() for p in policy.parameters() if p.requires_grad)
+     num_total_params = sum(p.numel() for p in policy.parameters())
+
+-    logging.info(colored("Output dir:", "yellow", attrs=["bold"]) + f" {cfg.output_dir}")
+-    if cfg.env is not None:
+-        logging.info(f"{cfg.env.task=}")
+-    logging.info(f"{cfg.steps=} ({format_big_number(cfg.steps)})")
+-    logging.info(f"{dataset.num_frames=} ({format_big_number(dataset.num_frames)})")
+-    logging.info(f"{dataset.num_episodes=}")
+-    logging.info(f"{num_learnable_params=} ({format_big_number(num_learnable_params)})")
+-    logging.info(f"{num_total_params=} ({format_big_number(num_total_params)})")
++    if not accelerator or accelerator.is_main_process:
++        logging.info(colored("Output dir:", "yellow", attrs=["bold"]) + f" {cfg.output_dir}")
++        if cfg.env is not None:
++            logging.info(f"{cfg.env.task=}")
++        logging.info(f"{cfg.steps=} ({format_big_number(cfg.steps)})")
++        logging.info(f"{dataset.num_frames=} ({format_big_number(dataset.num_frames)})")
++        logging.info(f"{dataset.num_episodes=}")
++        logging.info(f"{num_learnable_params=} ({format_big_number(num_learnable_params)})")
++        logging.info(f"{num_total_params=} ({format_big_number(num_total_params)})")
+
+     # create dataloader for offline training
+     if hasattr(cfg.policy, "drop_n_last_frames"):
+@@ -183,12 +223,16 @@ def train(cfg: TrainPipelineConfig):
+         pin_memory=device.type != "cpu",
+         drop_last=False,
+     )
++    if accelerator:
++        policy, optimizer, dataloader, lr_scheduler = accelerator.prepare(
++            policy, optimizer, dataloader, lr_scheduler
++        )
+     dl_iter = cycle(dataloader)
+
+     policy.train()
+
+     train_metrics = {
+-        "loss": AverageMeter("loss", ":.3f"),
++        "loss": AverageMeter("loss", ":.6f"),
+         "grad_norm": AverageMeter("grdn", ":.3f"),
+         "lr": AverageMeter("lr", ":0.1e"),
+         "update_s": AverageMeter("updt_s", ":.3f"),
+@@ -196,10 +240,16 @@ def train(cfg: TrainPipelineConfig):
+     }
+
+     train_tracker = MetricsTracker(
+-        cfg.batch_size, dataset.num_frames, dataset.num_episodes, train_metrics, initial_step=step
++        cfg.batch_size,
++        dataset.num_frames,
++        dataset.num_episodes,
++        train_metrics,
++        initial_step=step,
++        accelerator=accelerator,
+     )
+
+-    logging.info("Start offline training on a fixed dataset")
++    if not accelerator or accelerator.is_main_process:
++        logging.info("Start offline training on a fixed dataset")
+     for _ in range(step, cfg.steps):
+         start_time = time.perf_counter()
+         batch = next(dl_iter)
+@@ -218,15 +268,28 @@ def train(cfg: TrainPipelineConfig):
+             grad_scaler=grad_scaler,
+             lr_scheduler=lr_scheduler,
+             use_amp=cfg.policy.use_amp,
++            accelerator=accelerator,
+         )
+
+         # Note: eval and checkpoint happens *after* the `step`th training update has completed, so we
+         # increment `step` here.
+         step += 1
+         train_tracker.step()
+-        is_log_step = cfg.log_freq > 0 and step % cfg.log_freq == 0
+-        is_saving_step = step % cfg.save_freq == 0 or step == cfg.steps
+-        is_eval_step = cfg.eval_freq > 0 and step % cfg.eval_freq == 0
++        #is_log_step = cfg.log_freq > 0 and step % cfg.log_freq == 0
++        #is_saving_step = step % cfg.save_freq == 0 or step == cfg.steps
++        #is_eval_step = cfg.eval_freq > 0 and step % cfg.eval_freq == 0
++        is_log_step = (
++            cfg.log_freq > 0 and step % cfg.log_freq == 0 and (not accelerator or accelerator.is_main_process)
++        )
++        is_saving_step = (
++            step % cfg.save_freq == 0
++            and (not accelerator or accelerator.is_main_process)
++        )
++        is_eval_step = (
++            cfg.eval_freq > 0
++            and step % cfg.eval_freq == 0
++            and (not accelerator or accelerator.is_main_process)
++        )
+
+         if is_log_step:
+             logging.info(train_tracker)
+@@ -240,21 +304,28 @@ def train(cfg: TrainPipelineConfig):
+         if cfg.save_checkpoint and is_saving_step:
+             logging.info(f"Checkpoint policy after step {step}")
+             checkpoint_dir = get_step_checkpoint_dir(cfg.output_dir, cfg.steps, step)
+-            save_checkpoint(checkpoint_dir, step, cfg, policy, optimizer, lr_scheduler)
++            save_checkpoint(checkpoint_dir,
++                    step,
++                    cfg,
++                    policy if not accelerator else accelerator.unwrap_model(policy),
++                    optimizer,
++                    lr_scheduler)
+             update_last_checkpoint(checkpoint_dir)
+             if wandb_logger:
+                 wandb_logger.log_policy(checkpoint_dir)
++        if accelerator:
++            accelerator.wait_for_everyone()
+
+         if cfg.env and is_eval_step:
+             step_id = get_step_identifier(step, cfg.steps)
+             logging.info(f"Eval policy at step {step}")
+             with (
+                 torch.no_grad(),
+-                torch.autocast(device_type=device.type) if cfg.policy.use_amp else nullcontext(),
++                torch.autocast(device_type=device.type) if cfg.policy.use_amp and not accelerator else nullcontext(),
+             ):
+                 eval_info = eval_policy(
+                     eval_env,
+-                    policy,
++                    policy if not accelerator else accelerator.unwrap_model(policy),
+                     cfg.eval.n_episodes,
+                     videos_dir=cfg.output_dir / "eval" / f"videos_step_{step_id}",
+                     max_episodes_rendered=4,
+@@ -267,7 +338,12 @@ def train(cfg: TrainPipelineConfig):
+                 "eval_s": AverageMeter("eval_s", ":.3f"),
+             }
+             eval_tracker = MetricsTracker(
+-                cfg.batch_size, dataset.num_frames, dataset.num_episodes, eval_metrics, initial_step=step
++                cfg.batch_size,
++                dataset.num_frames,
++                dataset.num_episodes,
++                eval_metrics,
++                initial_step=step,
++                accelerator=None,
+             )
+             eval_tracker.eval_s = eval_info["aggregated"].pop("eval_s")
+             eval_tracker.avg_sum_reward = eval_info["aggregated"].pop("avg_sum_reward")
+@@ -280,9 +356,18 @@ def train(cfg: TrainPipelineConfig):
+
+     if eval_env:
+         eval_env.close()
+-    logging.info("End of training")
++    if not accelerator or accelerator.is_main_process:
++        logging.info("End of training")
+
+
+ if __name__ == "__main__":
+     init_logging()
+-    train()
++    import accelerate
++
++    # We set step_scheduler_with_optimizer False to prevent accelerate from
++    # adjusting the lr_scheduler steps based on the num_processes
++    from accelerate import DistributedDataParallelKwargs
++    ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
++
++    accelerator = accelerate.Accelerator(step_scheduler_with_optimizer=False, kwargs_handlers=[ddp_kwargs])
++    train(accelerator=accelerator)
+diff --git a/pyproject.toml b/pyproject.toml
+index 9386f163..5b1c4b18 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -68,9 +68,8 @@ dependencies = [
+     "pyzmq>=26.2.1",
+     "rerun-sdk>=0.21.0",
+     "termcolor>=2.4.0",
+-    "torch>=2.2.1",
+     "torchcodec>=0.2.1; sys_platform != 'win32' and (sys_platform != 'linux' or (platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'armv7l')) and (sys_platform != 'darwin' or platform_machine != 'x86_64')",
+-    "torchvision>=0.21.0",
++    "torchvision==0.16.0",
+     "wandb>=0.16.3",
+     "zarr>=2.17.0",
+ ]
+

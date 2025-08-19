@@ -1,0 +1,5 @@
+accelerate==1.7.0
+datasets==3.6.0
+numpy==1.26.0
+safetensors==0.5.3
+transformers==4.48.0
