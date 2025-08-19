@@ -51,8 +51,8 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Up
 
 template<bool aligned, bool fastMode>
 __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::CopyFullPoint(
-    const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
-    const LocalTensor<float>& cornerWeightBrc,
+    const LocalTensor<int32_t>& location,
+    const LocalTensor<float>& value, const LocalTensor<float>& gradValue,
     uint64_t& valid, uint32_t baseIdx, uint32_t innerLoops)
 {
     for (int32_t i = ScalarGetSFFValue<1>(valid); i < innerLoops && i >= 0;
@@ -65,18 +65,16 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
         this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmY0Offset], this->cpRowDoubleParams_);
         this->CopyInValue(value[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
             this->valueGm_[gmY1Offset], this->cpRowDoubleParams_);
-        this->CopyOutValue(
-            gradValueGm_[gmY0Offset], cornerWeightBrc[i * this->alignedEmbedDims_], cpGradRowDoubleParams_);
+        this->CopyOutValue(gradValueGm_[gmY0Offset], gradValue[i * this->alignedEmbedDims_], cpGradRowDoubleParams_);
         this->CopyOutValue(gradValueGm_[gmY1Offset],
-            cornerWeightBrc[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_],
-            cpGradRowDoubleParams_);
+            gradValue[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_], cpGradRowDoubleParams_);
     }
 }
 
 template<bool aligned, bool fastMode>
 __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::CopyBorderPoint(
     const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
-    const LocalTensor<float>& cornerWeightBrc,
+    const LocalTensor<float>& gradValue,
     const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
     uint64_t& valid, uint32_t baseIdx, uint32_t innerLoops)
 {
@@ -90,37 +88,39 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
         int32_t gmOffset = location.GetValue(idx);
         if (x != -1) {
             this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmOffset], this->cpOneValParams_);
-            this->CopyOutValue(
-                gradValueGm_[gmOffset], cornerWeightBrc[i * this->alignedEmbedDims_], cpGradOneValParams_);
+            this->CopyOutValue(gradValueGm_[gmOffset], gradValue[i * this->alignedEmbedDims_], cpGradOneValParams_);
         }
         if (x != w - 1) {
             this->CopyInValue(value[i * this->alignedEmbedDims_ + this->alignedCornerEmbedDims_],
                 this->valueGm_[gmOffset + this->outDims_], this->cpOneValParams_);
             this->CopyOutValue(gradValueGm_[gmOffset + this->outDims_],
-                cornerWeightBrc[i * this->alignedEmbedDims_ + this->alignedCornerEmbedDims_], cpGradOneValParams_);
+                gradValue[i * this->alignedEmbedDims_ + this->alignedCornerEmbedDims_], cpGradOneValParams_);
         }
     }
 }
 
 template<bool aligned, bool fastMode>
 __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::PrepareOutTensor(
-    const LocalTensor<float>& weight, const LocalTensor<float>& cornerWeightBrc,
-    const LocalTensor<float>& gradOut, uint32_t baseIdx, uint32_t outOffset)
+    const LocalTensor<float>& weight, const LocalTensor<float>& dst,
+    const LocalTensor<float>& gradOut, const LocalTensor<float>& gradMulTmp,
+    uint32_t baseIdx, uint32_t outOffset)
 {
     ResetMask();
     for (uint32_t i = 0; i < 4; ++i) {
-        Brcb(cornerWeightBrc[i * this->alignedCornerEmbedDims_], weight[baseIdx + i * this->alignedOneTaskNum_],
+        Brcb(gradMulTmp[i * this->alignedCornerEmbedDims_], weight[baseIdx + i * this->alignedOneTaskNum_],
             (fastMode ? this->alignedOneQueryNum_ : this->alignedOneHeadNum_) / B32_DATA_NUM_PER_BLOCK,
             {this->embedBlk_, static_cast<uint16_t>(8 * this->embedBlk_)});
     }
     for (uint32_t i = 1; i < this->embedBlk_; ++i) {
-        Adds<float, false>(cornerWeightBrc[i * B32_DATA_NUM_PER_BLOCK], cornerWeightBrc, 0.f, MASK_PLACEHOLDER,
+        Adds<float, false>(gradMulTmp[i * B32_DATA_NUM_PER_BLOCK], gradMulTmp, 0.f, MASK_PLACEHOLDER,
             this->brcRpt_,
             {this->embedBlk_, this->embedBlk_, static_cast<uint8_t>(8 * this->embedBlk_),
                 static_cast<uint8_t>(8 * this->embedBlk_)});
     }
     SetVectorMask<float>(0, this->embedMask_);
-    GradMul(cornerWeightBrc, cornerWeightBrc, gradOut, outOffset);
+    WaitFlag<HardEvent::MTE3_V>(0);
+    GradMul(dst, gradMulTmp, gradOut, outOffset);
+    SetFlag<HardEvent::V_MTE3>(0);
 }
 
 template<bool aligned, bool fastMode>
@@ -129,7 +129,7 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
     const LocalTensor<int32_t>& loc, const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production,
     const LocalTensor<float>& value, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
     const LocalTensor<float>& attentionWeight, const LocalTensor<float>& cornerWeightBrc,
-    const LocalTensor<float>& gradOut, const LocalTensor<float>& gradMulTmp)
+    const LocalTensor<float>& gradOut, const LocalTensor<float>& gradValue)
 {
     WaitFlag<HardEvent::V_MTE2>(this->biEvt_);
     this->ComputeWeight(locFloat, shapeFloat, production, weight, attentionWeight);
@@ -140,32 +140,34 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
         uint64_t headOffset = baseIdx / B32_DATA_NUM_PER_REPEAT;
         uint64_t byteOffset = baseIdx - headOffset * B32_DATA_NUM_PER_REPEAT;
         uint64_t valid = validFlag.GetValue(headOffset) >> byteOffset;
-        uint64_t bottomInvalid = validFlag.GetValue(headOffset + 2 * this->validFlagMaskLen_ / 8) >> byteOffset;
-        uint64_t topInvalid = validFlag.GetValue(headOffset + 3 * this->validFlagMaskLen_ / 8) >> byteOffset;
+        uint64_t bottomValid = validFlag.GetValue(headOffset + 2 * this->validFlagMaskLen_ / 8) >> byteOffset;
+        uint64_t topValid = validFlag.GetValue(headOffset + 3 * this->validFlagMaskLen_ / 8) >> byteOffset;
         uint32_t outOffset = fastMode ? head * this->numHeads_ * this->alignedEmbedDims_ : head * this->alignedEmbedDims_;
 
         uint32_t nextOffset = fastMode ? (head + 1) * this->numHeads_ * this->alignedEmbedDims_ : (head + 1) * this->alignedEmbedDims_;
         uint32_t nextIdx = (head + 1) * this->innerLoopsAligned_;
 
         if (head == 0) {
-            WaitFlag<HardEvent::MTE3_V>(0);
-            PrepareOutTensor(weight, cornerWeightBrc, gradOut, baseIdx, outOffset);
-            SetFlag<HardEvent::V_MTE3>(0);
+            PrepareOutTensor(weight, gradValue, gradOut, cornerWeightBrc, baseIdx, outOffset);
         }
 
         WaitFlag<HardEvent::V_MTE3>(0);
         WaitFlag<HardEvent::V_MTE2>(0);
         SetAtomicAdd<float>();
-        CopyFullPoint(location, value, cornerWeightBrc, valid, baseIdx, this->innerLoops_);
-        CopyBorderPoint(location, value, cornerWeightBrc, shapeInt, loc, bottomInvalid, baseIdx, this->innerLoops_);
+        CopyFullPoint(location, value, gradValue, valid, baseIdx, this->innerLoops_);
+        CopyBorderPoint(location, value, gradValue, shapeInt, loc, bottomValid, baseIdx, this->innerLoops_);
         CopyBorderPoint(location[this->alignedOneTaskNum_], value[2 * this->alignedCornerEmbedDims_],
-            cornerWeightBrc[2 * this->alignedCornerEmbedDims_], shapeInt, loc, topInvalid, baseIdx, this->innerLoops_);
+            gradValue[2 * this->alignedCornerEmbedDims_], shapeInt, loc, topValid, baseIdx, this->innerLoops_);
         SetAtomicNone();
         SetFlag<HardEvent::MTE2_V>(0);
         SetFlag<HardEvent::MTE3_V>(0);
 
+        if (head != this->outerLoops_ - 1) {
+            PrepareOutTensor(weight, gradValue, gradOut, cornerWeightBrc, nextIdx, nextOffset);
+        }
+
         WaitFlag<HardEvent::MTE2_V>(0);
-        GradMul(gradMulTmp, value, gradOut, outOffset);
+        GradMul(cornerWeightBrc, value, gradOut, outOffset);
         if (head == this->outerLoops_ - 1) {
             SetFlag<HardEvent::V_MTE2>(1);
         }
@@ -180,16 +182,10 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
         }
         SetVectorMask<float>(0, this->embedMask_);
         SetFlag<HardEvent::V_MTE2>(0);
-        
-        if (head != this->outerLoops_ - 1) {
-            WaitFlag<HardEvent::MTE3_V>(0);
-            PrepareOutTensor(weight, cornerWeightBrc, gradOut, nextIdx, nextOffset);
-            SetFlag<HardEvent::V_MTE3>(0);
-        }
 
         for (uint32_t i = 0; i < 4; ++i) {
             WholeReduceSum<float, false>(weight[baseIdx + i * this->alignedOneTaskNum_],
-                gradMulTmp[i * this->alignedCornerEmbedDims_], MASK_PLACEHOLDER, this->innerLoops_, 1, 1, this->embedBlk_);
+                cornerWeightBrc[i * this->alignedCornerEmbedDims_], MASK_PLACEHOLDER, this->innerLoops_, 1, 1, this->embedBlk_);
         }
     }
     ResetMask();
@@ -242,6 +238,7 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Pr
     LocalTensor<int32_t> shapeInt = this->shapeIntBuf_.template Get<int32_t>();
     LocalTensor<int32_t> offsetInt = this->offsetIntBuf_.template Get<int32_t>();
     LocalTensor<float> value = this->valueQue_.template Get<float>();
+    LocalTensor<float> gradValue = value[this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT];
     LocalTensor<float> cornerWeightBrc = this->cornerWeightBrcBuf_.template Get<float>();
     LocalTensor<float> gradOut = this->outputQue_.template Get<float>();
     LocalTensor<uint64_t> validFlag = this->validFlagBuf_.template Get<uint64_t>();
@@ -250,7 +247,6 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Pr
     LocalTensor<float> locFloat = this->locFloatBuf_.template Get<float>();
     LocalTensor<float> production = this->productionBuf_.template Get<float>();
     LocalTensor<float> weight = this->weightBuf_.template Get<float>();
-    LocalTensor<float> gradMulTmp = this->gradMulTmpBuf_.template Get<float>();
     LocalTensor<float> gradLocation = this->gradLocationQue_.template Get<float>();
     LocalTensor<float> gradAttentionWeight = this->gradAttentionWeightsQue_.template Get<float>();
 
@@ -279,7 +275,7 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Pr
         this->ComputeLocation(taskIdx, locationFloat, locationInt, shapeFloat, shapeInt, locFloat, locInt, offsetInt,
             validFlag.ReinterpretCast<uint8_t>());
         ComputeBilinearInterpolation(validFlag, shapeInt, locationInt, locInt, shapeFloat, production, value, locFloat,
-            weight, attentionWeight, cornerWeightBrc, gradOut, gradMulTmp);
+            weight, attentionWeight, cornerWeightBrc, gradOut, gradValue);
         ComputeGrad(
             production, locFloat, weight, attentionWeight, gradLocation, gradAttentionWeight, gatherOffset, taskIdx);
     }

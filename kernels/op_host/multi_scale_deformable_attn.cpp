@@ -50,7 +50,7 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     uint64_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
     uint64_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
     bool aligned = embedDims % B32_DATA_NUM_PER_BLOCK == 0;
-    bool fastMode = numHeads * numLevels * numPoints <= B32_DATA_NUM_PER_REPEAT;
+    bool fastMode = (numHeads * numLevels * numPoints <= B32_DATA_NUM_PER_REPEAT) && (numHeads * numLevels * numPoints * embedDims <= 2048);
 
     context->SetTilingKey((aligned ? 1 : 0) * 10 + (fastMode ? 1 : 0));
 

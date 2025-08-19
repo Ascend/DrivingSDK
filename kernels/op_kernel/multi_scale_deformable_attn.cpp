@@ -28,14 +28,13 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Update
 template<bool aligned, bool fastMode>
 __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::CopyFullPoint(
     const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
-    const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
     uint64_t valid, uint32_t baseIdx, uint32_t innerLoops)
 {
     for (int32_t i = ScalarGetSFFValue<1>(valid); i < innerLoops && i >= 0;
         i = ScalarGetSFFValue<1>(valid)) {
         valid = sbitset0(valid, i);
         uint32_t idx = baseIdx + i;
-        // // WARN: dangerous!
+        // WARN: dangerous!
         int32_t gmY0Offset = location.GetValue(idx);
         int32_t gmY1Offset = location.GetValue(idx + this->alignedOneTaskNum_);
         this->CopyInValue(value[i * this->alignedEmbedDims_], this->valueGm_[gmY0Offset], this->cpRowDoubleParams_);
@@ -73,8 +72,7 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Comput
     const LocalTensor<uint64_t>& validFlag, const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location,
     const LocalTensor<int32_t>& loc, const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production,
     const LocalTensor<float>& value, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
-    const LocalTensor<float>& attentionWeight, const LocalTensor<float>& cornerWeightBrc,
-    const LocalTensor<float>& output)
+    const LocalTensor<float>& attentionWeight, const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output)
 {
     WaitFlag<HardEvent::V_MTE2>(this->biEvt_);
     for (uint32_t head = 0; head < this->outerLoops_; ++head) {
@@ -82,12 +80,14 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Comput
         uint64_t headOffset = baseIdx / B32_DATA_NUM_PER_REPEAT;
         uint64_t byteOffset = baseIdx - headOffset * B32_DATA_NUM_PER_REPEAT;
         uint64_t valid = validFlag.GetValue(headOffset) >> byteOffset;
-        uint64_t bottomInvalid = validFlag.GetValue(headOffset + 2 * this->validFlagMaskLen_ / 8) >> byteOffset;
-        uint64_t topInvalid = validFlag.GetValue(headOffset + 3 * this->validFlagMaskLen_ / 8) >> byteOffset;
+        uint64_t bottomValid = validFlag.GetValue(headOffset + 2 * this->validFlagMaskLen_ / 8) >> byteOffset;
+        uint64_t topValid = validFlag.GetValue(headOffset + 3 * this->validFlagMaskLen_ / 8) >> byteOffset;
         uint32_t outOffset = fastMode ? head * this->numHeads_ * this->alignedEmbedDims_ : head * this->alignedEmbedDims_;
+        uint32_t bufferFlag = head % 2;
+        LocalTensor<float> valueSrc = value[bufferFlag * this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT];
 
-        WaitFlag<HardEvent::V_MTE2>(0);
-        CopyFullPoint(location, value, shapeInt, loc, valid, baseIdx, this->innerLoops_);
+        WaitFlag<HardEvent::V_MTE2>(bufferFlag);
+        CopyFullPoint(location, valueSrc, valid, baseIdx, this->innerLoops_);
         if (head == 0) {
             this->ComputeWeight(locFloat, shapeFloat, production, weight, attentionWeight);
         }
@@ -96,34 +96,34 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Comput
                 (fastMode ? this->alignedOneQueryNum_ : this->alignedOneHeadNum_) / B32_DATA_NUM_PER_BLOCK,
                 {this->embedBlk_, static_cast<uint16_t>(8 * this->embedBlk_)});
         }
-        CopyBorderPoint(location, value, shapeInt, loc, bottomInvalid, baseIdx, this->innerLoops_);
-        CopyBorderPoint(location[this->alignedOneTaskNum_], value[2 * this->alignedCornerEmbedDims_],
-            shapeInt, loc, topInvalid, baseIdx, this->innerLoops_);
-        SetFlag<HardEvent::MTE2_V>(0);
+        CopyBorderPoint(location, valueSrc, shapeInt, loc, bottomValid, baseIdx, this->innerLoops_);
+        CopyBorderPoint(location[this->alignedOneTaskNum_], valueSrc[2 * this->alignedCornerEmbedDims_],
+            shapeInt, loc, topValid, baseIdx, this->innerLoops_);
+        SetFlag<HardEvent::MTE2_V>(bufferFlag);
         for (uint32_t i = 1; i < this->embedBlk_; ++i) {
             Adds<float, false>(cornerWeightBrc[i * B32_DATA_NUM_PER_BLOCK], cornerWeightBrc, 0.f, MASK_PLACEHOLDER,
                 this->brcRpt_,
                 {this->embedBlk_, this->embedBlk_, static_cast<uint8_t>(8 * this->embedBlk_),
                     static_cast<uint8_t>(8 * this->embedBlk_)});
         }
-        WaitFlag<HardEvent::MTE2_V>(0);
+        WaitFlag<HardEvent::MTE2_V>(bufferFlag);
 
         if (unlikely(this->cornerRpt_ > MAX_REPEAT_TIMES)) {
             Mul<float, false>(
-                cornerWeightBrc, value, cornerWeightBrc, MASK_PLACEHOLDER, this->cornerRpt_ / 2, {1, 1, 1, 8, 8, 8});
-            Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
+                cornerWeightBrc, valueSrc, cornerWeightBrc, MASK_PLACEHOLDER, this->cornerRpt_ / 2, {1, 1, 1, 8, 8, 8});
+            Duplicate<float, false>(valueSrc, 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
             Mul<float, false>(cornerWeightBrc[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT],
-                value[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT],
+                valueSrc[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT],
                 cornerWeightBrc[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT], MASK_PLACEHOLDER, this->cornerRpt_ / 2,
                 {1, 1, 1, 8, 8, 8});
-            Duplicate<float, false>(value[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER,
+            Duplicate<float, false>(valueSrc[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER,
                 this->cornerRpt_ / 2, 1, 8);
         } else {
             Mul<float, false>(
-                cornerWeightBrc, value, cornerWeightBrc, MASK_PLACEHOLDER, this->cornerRpt_, {1, 1, 1, 8, 8, 8});
-            Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
+                cornerWeightBrc, valueSrc, cornerWeightBrc, MASK_PLACEHOLDER, this->cornerRpt_, {1, 1, 1, 8, 8, 8});
+            Duplicate<float, false>(valueSrc, 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
         }
-        SetFlag<HardEvent::V_MTE2>(0);
+        SetFlag<HardEvent::V_MTE2>(bufferFlag);
 
         Add<float>(cornerWeightBrc, cornerWeightBrc[2 * this->alignedCornerEmbedDims_], cornerWeightBrc,
             2 * this->alignedCornerEmbedDims_);
@@ -176,14 +176,17 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Proces
     // note that the repeat times can be 256 when one head num comes to 64 and embeddims comes to 64
     if (unlikely(this->cornerRpt_ > MAX_REPEAT_TIMES)) {
         Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
-        Duplicate<float, false>(
-            value[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
+        Duplicate<float, false>(value[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
+        Duplicate<float, false>(value[this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
+        Duplicate<float, false>(value[this->cornerRpt_ * 3 / 2 * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
     } else {
         Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
+        Duplicate<float, false>(value[this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
     }
 
     SetFlag<HardEvent::V_MTE2>(this->copyEvt_);
     SetFlag<HardEvent::V_MTE2>(0);
+    SetFlag<HardEvent::V_MTE2>(1);
     SetFlag<HardEvent::MTE3_V>(0);
 
     for (uint32_t taskIdx = this->startOffset_; taskIdx < this->endOffset_; taskIdx+=this->compTaskNum_) {
@@ -199,6 +202,7 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Proces
     }
     WaitFlag<HardEvent::V_MTE2>(this->copyEvt_);
     WaitFlag<HardEvent::V_MTE2>(0);
+    WaitFlag<HardEvent::V_MTE2>(1);
     WaitFlag<HardEvent::MTE3_V>(0);
 }
 

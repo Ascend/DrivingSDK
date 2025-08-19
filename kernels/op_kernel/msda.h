@@ -100,11 +100,10 @@ protected:
         InitTask();
         uint32_t totalUbSize = 192 * 1024;
         uint32_t reservedUbSize = 16 * 1024;
-        uint32_t usedUbSize = 8 * validFlagMaskLen_ + 2 * cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE;
+        uint32_t usedUbSize = 8 * validFlagMaskLen_ + 3 * cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE;
         uint32_t queryUbSize = 26 * alignedOneQueryNum_ * B32_BYTE_SIZE + alignedHeadEmbedDims_ * B32_BYTE_SIZE;
         if (!forward) {
             queryUbSize = queryUbSize + 7 * alignedOneQueryNum_ * B32_BYTE_SIZE;
-            usedUbSize = usedUbSize + cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE;
         }
         uint32_t modeUpperNum_ = 1024 / alignedOneQueryNum_;
         compTaskNum_ = (totalUbSize - reservedUbSize - usedUbSize) / queryUbSize;
@@ -171,7 +170,6 @@ protected:
             pipe_->InitBuffer(gatherOffsetBuf_, 2 * alignedOneTaskNum_ * B32_BYTE_SIZE);
             pipe_->InitBuffer(gradLocationQue_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE); // x, y
             pipe_->InitBuffer(gradAttentionWeightsQue_, alignedOneTaskNum_ * B32_BYTE_SIZE);
-            pipe_->InitBuffer(gradMulTmpBuf_, cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE);
         }
         pipe_->InitBuffer(shapeQue_, AlignUp(numLevels_ * 2, B32_DATA_NUM_PER_BLOCK) * B32_BYTE_SIZE);
         pipe_->InitBuffer(offsetQue_, AlignUp(numLevels_, B32_DATA_NUM_PER_BLOCK) * B32_BYTE_SIZE);
@@ -185,7 +183,7 @@ protected:
         pipe_->InitBuffer(weightBuf_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE);     // w1-w4
         pipe_->InitBuffer(locationQue_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE);   // x, y
         pipe_->InitBuffer(attentionWeightsQue_, alignedOneTaskNum_ * B32_BYTE_SIZE);
-        pipe_->InitBuffer(valueQue_, cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE);
+        pipe_->InitBuffer(valueQue_, 2 * cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE); // 2 for double buffer for forward and gradValue for backward
         pipe_->InitBuffer(outputQue_, compTaskNum_ * alignedHeadEmbedDims_ * B32_BYTE_SIZE);
         // WARN: cornerWeightBrcBuf_ must be at the end of the buffer!
         pipe_->InitBuffer(cornerWeightBrcBuf_, cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE);
@@ -273,7 +271,7 @@ protected:
     TBuf<TPosition::VECCALC> locIntBuf_, locFloatBuf_, shapeIntBuf_, shapeFloatBuf_, offsetIntBuf_, productionBuf_,
         weightBuf_, cornerWeightBrcBuf_, validFlagBuf_, gatherOffsetBuf_;
 
-    TBuf<TPosition::VECCALC> gradLocationQue_, gradAttentionWeightsQue_, gradMulTmpBuf_;
+    TBuf<TPosition::VECCALC> gradLocationQue_, gradAttentionWeightsQue_;
 
     int32_t blkIdx_;
 
@@ -492,7 +490,6 @@ private:
 
     __aicore__ inline void CopyFullPoint(
         const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
-        const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
         uint64_t valid, uint32_t baseIdx, uint32_t innerLoops);
     
     __aicore__ inline void CopyBorderPoint(
@@ -611,25 +608,26 @@ private:
     __aicore__ inline void UpdateParams(uint32_t tailCompNum);
 
     __aicore__ inline void CopyFullPoint(
-        const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
-        const LocalTensor<float>& cornerWeightBrc,
+        const LocalTensor<int32_t>& location,
+        const LocalTensor<float>& value, const LocalTensor<float>& gradValue,
         uint64_t& valid, uint32_t baseIdx, uint32_t innerLoops);
     
     __aicore__ inline void CopyBorderPoint(
         const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
-        const LocalTensor<float>& cornerWeightBrc,
+        const LocalTensor<float>& gradValue,
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
         uint64_t& valid, uint32_t baseIdx, uint32_t innerLoops);
     
     __aicore__ inline void PrepareOutTensor(
-        const LocalTensor<float>& weight, const LocalTensor<float>& cornerWeightBrc,
-        const LocalTensor<float>& gradOut, uint32_t baseIdx, uint32_t outOffset);
+        const LocalTensor<float>& weight, const LocalTensor<float>& dst,
+        const LocalTensor<float>& gradOut, const LocalTensor<float>& gradMulTmp,
+        uint32_t baseIdx, uint32_t outOffset);
 
     __aicore__ inline void ComputeBilinearInterpolation(const LocalTensor<uint64_t>& validFlag,
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location, const LocalTensor<int32_t>& loc,
         const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production, const LocalTensor<float>& value,
         const LocalTensor<float>& locFloat, const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
-        const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& gradOut, const LocalTensor<float>& gradMulTmp);
+        const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& gradOut, const LocalTensor<float>& gradValue);
 
     __aicore__ inline void ComputeGrad(const LocalTensor<float>& production, const LocalTensor<float>& locFloat,
         const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
