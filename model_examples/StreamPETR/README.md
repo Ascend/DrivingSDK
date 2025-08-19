@@ -373,3 +373,6 @@ A1：通过毕昇编译器对源码构建编译Python、PyTorch、torch_npu（As
 
 Q2：若不需要得到使用编译优化后的模型性能，是否可以在安装模型环境中只完成至步骤9，跳过步骤10？<br>
 A2：如果不需要追求编译优化后的更高模型性能，那么可以不完成步骤10. 编译优化，不影响模型其他部分。
+
+Q3：模型训练时，yapf组件报错`EOFError: Ran out of input`。<br>
+A3：该报错的原因是，yapf组件会创建`~/.cache/YAPF`缓存，在多进程环境中，部分进程创建该缓存后，还未向缓存文件写入内容时，其他进程识别到缓存文件存在，并试图读取文件中的内容，从而报出`EOFError: Ran out of input`错误。遇见此报错时，重新拉起模型训练即可解决。更详细的报错原因及解决方案可参考yapf社区issue[[Bug] [Crash][Reproducible] EOFError: Ran out of input when import yapf with multiprocess](https://github.com/google/yapf/issues/1204)。
