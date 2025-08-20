@@ -1,6 +1,6 @@
 diff --git a/projects/configs/flashocc/flashocc-r50-perf.py b/projects/configs/flashocc/flashocc-r50-perf.py
 new file mode 100644
-index 0000000..c4bac01
+index 0000000..f4cc30d
 --- /dev/null
 +++ b/projects/configs/flashocc/flashocc-r50-perf.py
 @@ -0,0 +1,268 @@
@@ -189,7 +189,7 @@ index 0000000..c4bac01
 +
 +data = dict(
 +    samples_per_gpu=24,
-+    workers_per_gpu=4,
++    workers_per_gpu=24,
 +    train=dict(
 +        data_root=data_root,
 +        ann_file=data_root + 'bevdetv2-nuscenes_infos_train.pkl',
@@ -274,18 +274,20 @@ index 0000000..c4bac01
 +# ===> mIoU of 6019 samples: 18.3
 \ No newline at end of file
 diff --git a/projects/configs/flashocc/flashocc-r50.py b/projects/configs/flashocc/flashocc-r50.py
-index ff4d67f..7ad0a44 100644
+index ff4d67f..c1b6008 100644
 --- a/projects/configs/flashocc/flashocc-r50.py
 +++ b/projects/configs/flashocc/flashocc-r50.py
-@@ -182,7 +182,7 @@ test_data_config = dict(
+@@ -182,8 +182,8 @@ test_data_config = dict(
      ann_file=data_root + 'bevdetv2-nuscenes_infos_val.pkl')
  
  data = dict(
 -    samples_per_gpu=4,
+-    workers_per_gpu=4,
 +    samples_per_gpu=24,
-     workers_per_gpu=4,
++    workers_per_gpu=24,
      train=dict(
          data_root=data_root,
+         ann_file=data_root + 'bevdetv2-nuscenes_infos_train.pkl',
 @@ -201,7 +201,7 @@ for key in ['val', 'train', 'test']:
      data[key].update(share_data_config)
  
