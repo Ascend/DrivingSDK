@@ -2,7 +2,7 @@
 Network="DiffusionPlanner"
 batch_size=2048
 world_size=8
-epoch=30
+epoch=500
 
 # cd到与test文件夹同层级目录下执行脚本，提高兼容性；test_path_dir为包含test文件夹的路径
 cur_path=$(pwd)

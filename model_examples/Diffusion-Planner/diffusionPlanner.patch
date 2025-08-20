@@ -1,3 +1,22 @@
+diff --git a/diffusion_planner/train_epoch.py b/diffusion_planner/train_epoch.py
+index 23f2d4c..4106d86 100644
+--- a/diffusion_planner/train_epoch.py
++++ b/diffusion_planner/train_epoch.py
+@@ -118,6 +118,7 @@ def train_epoch(data_loader, model, optimizer, args, ema, aug: StatePerturbation
+
+             data_epoch.set_postfix(loss='{:.4f}'.format(total_loss))
+             epoch_loss.append(loss)
++            print(f"step loss: {total_loss}\n")
+
+     epoch_mean_loss = get_epoch_mean_loss(epoch_loss)
+
+@@ -127,4 +128,4 @@ def train_epoch(data_loader, model, optimizer, args, ema, aug: StatePerturbation
+     if ddp.get_rank() == 0:
+         print(f"epoch train loss: {epoch_mean_loss['loss']:.4f}\n")
+
+-    return epoch_mean_loss, epoch_mean_loss['loss']
+\ No newline at end of file
++    return epoch_mean_loss, epoch_mean_loss['loss']
 diff --git a/diffusion_planner/model/module/decoder.py b/diffusion_planner/model/module/decoder.py
 index c17e793..adc2e7a 100644
 --- a/diffusion_planner/model/module/decoder.py
