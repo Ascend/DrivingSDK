@@ -1,0 +1,97 @@
+diff --git a/prismatic/models/load.py b/prismatic/models/load.py
+index dba78ab..ddf4d4f 100644
+--- a/prismatic/models/load.py
++++ b/prismatic/models/load.py
+@@ -26,7 +26,7 @@ overwatch = initialize_overwatch(__name__)
+ 
+ # === HF Hub Repository ===
+ HF_HUB_REPO = "TRI-ML/prismatic-vlms"
+-VLA_HF_HUB_REPO = "openvla/openvla-dev"
++VLA_HF_HUB_REPO = ""
+ 
+ 
+ # === Available Models ===
+@@ -125,7 +125,7 @@ def load_vla(
+     cache_dir: Optional[Union[str, Path]] = None,
+     load_for_training: bool = False,
+     step_to_load: Optional[int] = None,
+-    model_type: str = "pretrained",
++    model_type: str = "",
+ ) -> OpenVLA:
+     """Loads a pretrained OpenVLA from either local disk or the HuggingFace Hub."""
+ 
+diff --git a/prismatic/util/torch_utils.py b/prismatic/util/torch_utils.py
+index 8fc08f6..5ac1cb6 100644
+--- a/prismatic/util/torch_utils.py
++++ b/prismatic/util/torch_utils.py
+@@ -79,16 +79,18 @@ def worker_init_function(worker_id: int) -> None:
+ 
+ def check_bloat16_supported() -> bool:
+     try:
+-        import packaging.version
+-        import torch.cuda.nccl as nccl
++        # import packaging.version
++        # import torch.cuda.nccl as nccl
+         import torch.distributed as dist
+ 
+         return (
+-            (torch.version.cuda is not None)
+-            and torch.cuda.is_bf16_supported()
+-            and (packaging.version.parse(torch.version.cuda).release >= (11, 0))
+-            and dist.is_nccl_available()
+-            and (nccl.version() >= (2, 10))
++            # (torch.version.cuda is not None)
++            # and torch.cuda.is_bf16_supported()
++            # and (packaging.version.parse(torch.version.cuda).release >= (11, 0))
++            # and dist.is_nccl_available()
++            # and (nccl.version() >= (2, 10))
++            torch.npu.is_bf16_supported()
++            and dist.is_hccl_available()
+         )
+ 
+     except Exception:
+diff --git a/pyproject.toml b/pyproject.toml
+index f72cae0..2c86e82 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -43,11 +43,11 @@ dependencies = [
+     "rich",
+     "sentencepiece==0.1.99",
+     "timm==0.9.10",
+-    "tokenizers==0.19.1",
+-    "torch==2.2.0",
+-    "torchvision==0.17.0",
+-    "torchaudio==2.2.0",
+-    "transformers==4.40.1",
++    "tokenizers==0.21.0",
++    "torch==2.6.0",
++    "torchvision==0.21.0",
++    "torchaudio==2.6.0",
++    "transformers==4.51.0",
+     "wandb",
+     "tensorflow==2.15.0",
+     "tensorflow_datasets==4.9.3",
+diff --git a/vla-scripts/train.py b/vla-scripts/train.py
+index 5c38038..b7adfd9 100644
+--- a/vla-scripts/train.py
++++ b/vla-scripts/train.py
+@@ -24,6 +24,9 @@ from typing import Optional, Tuple, Union
+ 
+ import draccus
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++
+ import torch.distributed as dist
+ import yaml
+ 
+@@ -260,4 +263,8 @@ def train(cfg: TrainConfig) -> None:
+ 
+ 
+ if __name__ == "__main__":
+-    train()
++    from patch import generate_patcher_builder
++    openvla_patcher_builder = generate_patcher_builder()
++    with openvla_patcher_builder.build():
++        train()
++    
