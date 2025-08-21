@@ -17,18 +17,22 @@ max_epochs=24
 
 # 帮助信息
 if [[ $1 == --help || $1 == -h ]];then
-    echo"usage:./train_8p.sh <args>"
+    echo "usage: ./train_8p.sh <args>"
     echo " "
     echo "parameter explain:
     --py_config               train config
     --test              switch to test mode when != 0
     --work_dir                 set output dir for training
-    -h/--help		             show help message
+    --fp16                     enable fp16 mode (set BEVDET4D_FP16=1)
+    -h/--help                  show help message
     "
     exit 1
 fi
 
-#参数校验
+# 参数校验
+# 初始化fp16标志
+fp16=0
+
 for para in $*
 do
     if [[ $para == --py_config* ]];then
@@ -37,6 +41,8 @@ do
         test=`echo ${para#*=}`
     elif [[ $para == --work_dir* ]];then
         work_dir=`echo ${para#*=}`
+    elif [[ $para == --fp16 ]];then
+        fp16=1
     fi
 done
 
@@ -88,7 +94,10 @@ fi
 echo "Device ID: $ASCEND_DEVICE_ID"
 export RANK_ID=$RANK_ID
 export WORLD_SIZE=8
-export BEVDET4D_FP16=1
+if [[ $fp16 -eq 1 ]];then
+    export BEVDET4D_FP16=1
+    echo "Enabled fp16 mode (BEVDET4D_FP16=1)"
+fi
 
 bash ./tools/dist_train.sh ${py_config} ${WORLD_SIZE} \
 --work-dir ${work_dir} \
@@ -111,10 +120,6 @@ echo "------------------ Final result ------------------"
 #训练用例信息
 DeviceType=`uname -m`
 CaseName=${Network}_bs${batch_size}_${RANK_SIZE}'p'_'loss'
-
-##获取性能数据
-#吞吐量
-ActualFPS=${FPS}
 
 #从train_$ASCEND_DEVICE_ID.log提取Loss到train_${CaseName}_loss.txt中
 grep "Epoch " ${log_file}|awk -F "loss: " '!/Epoch \[1\]\[1/ {print $NF}' | awk -F "," '{print $1}' >> ${test_path_dir}/output/$ASCEND_DEVICE_ID/train_${CaseName}_loss.txt

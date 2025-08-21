@@ -10,11 +10,10 @@
   - [安装昇腾环境](#安装昇腾环境)
   - [安装模型环境](#安装模型环境)
 - [准备数据集](#准备数据集)
-  - [预训练数据集](#预训练数据集)
+  - [获取训练数据集](#获取训练数据集)
   - [获取预训练权重](#获取预训练权重)
 - [快速开始](#快速开始)
   - [模型训练](#模型训练)
-  - [模型验证](#模型验证)
   - [训练结果](#训练结果)
 - [变更说明](#变更说明)
   - [FAQ](#faq)
@@ -102,7 +101,7 @@ BEVDet4D 是一种将 BEVDet 从仅空间的 3D 扩展到时空 4D 工作空间�
 
 # 准备数据集
 
-## 预训练数据集
+## 获取训练数据集
 用户自行获取*nuscenes*数据集，在源码目录创建软连接`data/nuscenes`指向解压后的nuscenes数据目录
 
 运行数据预处理脚本生成BEVDet模型训练需要的pkl文件
@@ -142,11 +141,11 @@ BEVDet/data
 
 - 8卡性能
   ```shell
-  bash test/train_8p.sh --py_config=configs/bevdet/bevdet-stbase-4d-stereo-512x1408-cbgs.py
+  bash test/train_performance_8p.sh --py_config=configs/bevdet/bevdet-stbase-4d-stereo-512x1408-cbgs.py --fp16
   ```
 - 8卡精度
   ```shell
-  bash test/train_full_8p.sh --py_config=configs/bevdet/bevdet-stbase-4d-stereo-512x1408-cbgs.py --test=1
+  bash test/train_full_8p.sh --py_config=configs/bevdet/bevdet-stbase-4d-stereo-512x1408-cbgs.py --test=1 --fp16
   ```
 
   模型训练脚本参数说明如下。
@@ -155,6 +154,7 @@ BEVDet/data
    公共参数：
    --py_config                       //不同类型任务配置文件
    --test                            //--test=1固定随机性用于测试精度，默认不开启
+   --fp16                            //使能混合精度训练
    --work_dir                        //输出路径包括日志和训练参数
    ```
 
@@ -180,7 +180,7 @@ Q: 在无网络或设有防火墙的环境下如何下载预训练权重？
 
 A: 无网络情况下，用户可以自行下载 *SwinTransformer* 预训练权重 [*swin_base_patch4_window12_384_22k.pth*](https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_base_patch4_window12_384_22k.pth)。将下载好的权重拷贝至以下目录，其中 ${torch_hub} 替换为实际下载位置，默认为 ~/.cache/torch/hub
 ```
-${torch_hub}/checkpoints/resnet50-0676ba61.pth
+${torch_hub}/checkpoints/swin_base_patch4_window12_384_22k.pth
 ```
 
 
