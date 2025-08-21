@@ -26,8 +26,6 @@
 
 - 当前模型支持的 PyTorch 版本：`PyTorch 2.1`
 
-- 搭建 PyTorch 环境参考：https://gitee.com/link?target=https%3A%2F%2Fwww.hiascend.com%2Fdocument%2Fdetail%2Fzh%2FModelZoo%2Fpytorchframework%2Fptes
-
 **表1** 昇腾软件版本支持列表
 
 | 软件类型 | 支持列表 |
@@ -46,7 +44,12 @@ conda create -n deformable_detr python=3.9
 conda activate deformable_detr
 ```
 
-3、克隆代码仓到当前目录并使用 patch 文件
+3、安装`Pytorch2.1`、`torch_npu2.1.0`和`mx_driving`。
+
+- 搭建 PyTorch 环境参考：https://gitee.com/link?target=https%3A%2F%2Fwww.hiascend.com%2Fdocument%2Fdetail%2Fzh%2FModelZoo%2Fpytorchframework%2Fptes
+- 搭建 mx_driving 环境参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+
+4、克隆代码仓到当前目录并使用 patch 文件
 ```
 git clone https://gitee.com/ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/Deformable-DETR
@@ -105,13 +108,16 @@ bash test/train_8p_performance.sh --data_path='.data/coco'		# 替换成你的coc
 | 芯片          | 卡数 | epoch | global batch size| mAP(IoU=0.50:0.95) | 性能-单步迭代耗时(s)	 | FPS  |
 | ------------- | ---- | ----- | ----- | ------------------ | ---- | ---- |
 | 竞品A         | 8p   | 50    | 64 | 0.437              | 1.01 | 65   |
-| Atlas 800T A2 | 8p   | 50    | 64 | 0.436              | 1.14 | 56   |
+| Atlas 800T A2 | 8p   | 50    | 64 | 0.428              | 1.01 | 65   |
 
 ## 变更说明
 
 2024.12.23：首次发布
 
 2025.5.7：性能优化、更新性能数据
-## FQA
+
+2025.8.21：性能优化、更新性能和精度数据
+
+## FAQ
 
 暂无

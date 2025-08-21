@@ -74,6 +74,7 @@ nohup python -m torch.distributed.launch \
           --launcher pytorch \
           --cfg_file ${cfg_file} \
           --epochs 1 \
+          --use_dynamic_dataloader \
           --logger_iter_interval 1 > ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 

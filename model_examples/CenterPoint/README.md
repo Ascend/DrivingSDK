@@ -27,7 +27,7 @@ code_path=model_examples/CenterPoint
 ### 准备环境
 #### 安装昇腾环境
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   支持版本   |
@@ -389,7 +389,7 @@ python setup.py develop
 | Exp | global batchsize | FPS |
 | - | - | - |
 | 8p-竞品A | 32 | 48.48 |
-| 8p-Atlas 800T A2| 32 | 33.23 |
+| 8p-Atlas 800T A2| 32 | 39.41 |
 
 ## FAQ
 ### ImportError:/usr/local/gcc-7.5.0/lib64/libgomp.so.1:cannot allocate memory in static TLS block,
@@ -441,3 +441,4 @@ pip install -r 2.5_requirements.txt
 [2025-03-12] **NEW:** CenterPoint仓CenterHead模块性能优化，并提供高性能内存库安装指导，更新了CenterPoint3d的性能数据
 [2025-04-21] **NEW:** CenterPoint2d模型优化fps计算方式，乘以卡数，更新性能指标，readme中添加global batch size
 [2025-05-29] **NEW:** CenterPoint3d模型优化，更新性能
+[2025-08-21] **NEW:** CenterPoint3d模型性能优化，更新性能

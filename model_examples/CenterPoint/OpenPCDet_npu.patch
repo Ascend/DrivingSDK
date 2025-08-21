@@ -123,10 +123,65 @@ index 9fdf7d2..e69de29 100644
 -if script_version not in __version__:
 -    __version__ = __version__ + '+py%s' % script_version
 diff --git a/pcdet/datasets/__init__.py b/pcdet/datasets/__init__.py
-index 47c3900..81d40f4 100644
+index 47c3900..226223d 100644
 --- a/pcdet/datasets/__init__.py
 +++ b/pcdet/datasets/__init__.py
-@@ -75,7 +75,7 @@ def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None,
+@@ -15,6 +15,8 @@ from .once.once_dataset import ONCEDataset
+ from .argo2.argo2_dataset import Argo2Dataset
+ from .custom.custom_dataset import CustomDataset
+ 
++from mx_driving.dataset import ReplicasDistributedSampler
++
+ __all__ = {
+     'DatasetTemplate': DatasetTemplate,
+     'KittiDataset': KittiDataset,
+@@ -52,15 +54,25 @@ class DistributedSampler(_DistributedSampler):
+ 
+ 
+ def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None, workers=4, seed=None,
+-                     logger=None, training=True, merge_all_iters_to_one_epoch=False, total_epochs=0):
+-
+-    dataset = __all__[dataset_cfg.DATASET](
+-        dataset_cfg=dataset_cfg,
+-        class_names=class_names,
+-        root_path=root_path,
+-        training=training,
+-        logger=logger,
+-    )
++                     logger=None, training=True, merge_all_iters_to_one_epoch=False, total_epochs=0, use_dynamic_dataloader=False):
++
++    if dataset_cfg.DATASET == 'NuScenesDataset':
++        dataset = __all__[dataset_cfg.DATASET](
++            dataset_cfg=dataset_cfg,
++            class_names=class_names,
++            root_path=root_path,
++            training=training,
++            logger=logger,
++            use_dynamic_dataloader=use_dynamic_dataloader
++        )
++    else:
++        dataset = __all__[dataset_cfg.DATASET](
++            dataset_cfg=dataset_cfg,
++            class_names=class_names,
++            root_path=root_path,
++            training=training,
++            logger=logger,
++        )
+ 
+     if merge_all_iters_to_one_epoch:
+         assert hasattr(dataset, 'merge_all_iters_to_one_epoch')
+@@ -68,14 +80,17 @@ def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None,
+ 
+     if dist:
+         if training:
+-            sampler = torch.utils.data.distributed.DistributedSampler(dataset)
++            if use_dynamic_dataloader:
++                sampler = ReplicasDistributedSampler(dataset)
++            else:
++                sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+         else:
+             rank, world_size = common_utils.get_dist_info()
+             sampler = DistributedSampler(dataset, world_size, rank, shuffle=False)
      else:
          sampler = None
      dataloader = DataLoader(
@@ -651,7 +706,7 @@ index 543d8f2..3cce4c2 100644
 +    return dev_iou
 \ No newline at end of file
 diff --git a/pcdet/datasets/nuscenes/nuscenes_dataset.py b/pcdet/datasets/nuscenes/nuscenes_dataset.py
-index 0f70005..19ccf95 100644
+index 0f70005..084ec8f 100644
 --- a/pcdet/datasets/nuscenes/nuscenes_dataset.py
 +++ b/pcdet/datasets/nuscenes/nuscenes_dataset.py
 @@ -1,3 +1,5 @@
@@ -660,17 +715,111 @@ index 0f70005..19ccf95 100644
  import copy
  import pickle
  from pathlib import Path
-@@ -11,6 +13,10 @@ from ..dataset import DatasetTemplate
+@@ -10,13 +12,13 @@ from ...utils import common_utils
+ from ..dataset import DatasetTemplate
  from pyquaternion import Quaternion
  from PIL import Image
++from mx_driving.dataset import PointCloudDynamicDataset
  
-+import torch
-+import torch_npu
-+from torch_npu.contrib import transfer_to_npu
+-
+-class NuScenesDataset(DatasetTemplate):
+-    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
++class NuScenesDataset(PointCloudDynamicDataset, DatasetTemplate):
++    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None, use_dynamic_dataloader=False):
+         root_path = (root_path if root_path is not None else Path(dataset_cfg.DATA_PATH)) / dataset_cfg.VERSION
+-        super().__init__(
+-            dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
++        DatasetTemplate.__init__(
++            self, dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
+         )
+         self.infos = []
+         self.camera_config = self.dataset_cfg.get('CAMERA_CONFIG', None)
+@@ -29,6 +31,11 @@ class NuScenesDataset(DatasetTemplate):
+         self.include_nuscenes_data(self.mode)
+         if self.training and self.dataset_cfg.get('BALANCED_RESAMPLING', False):
+             self.infos = self.balanced_infos_resampling(self.infos)
++        if training and use_dynamic_dataloader:
++            self.sorting()
++            self.buckets = self.bucketing(bucket_capacity=8)
++        else:
++            self.buckets = None
+ 
+     def include_nuscenes_data(self, mode):
+         self.logger.info('Loading NuScenes dataset')
+@@ -141,17 +148,17 @@ class NuScenesDataset(DatasetTemplate):
+                 crop_h = newH - fH
+                 crop_w = int(max(0, newW - fW) / 2)
+                 crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
+-            
++
+             # reisze and crop image
+             img = img.resize(resize_dims)
+             img = img.crop(crop)
+             crop_images.append(img)
+             img_process_infos.append([resize, crop, False, 0])
+-        
++
+         input_dict['img_process_infos'] = img_process_infos
+         input_dict['camera_imgs'] = crop_images
+         return input_dict
+-    
++
+     def load_camera_info(self, input_dict, info):
+         input_dict["image_paths"] = []
+         input_dict["lidar2camera"] = []
+@@ -200,10 +207,10 @@ class NuScenesDataset(DatasetTemplate):
+         images = []
+         for name in filename:
+             images.append(Image.open(str(self.root_path / name)))
+-        
++
+         input_dict["camera_imgs"] = images
+         input_dict["ori_shape"] = images[0].size
+-        
++
+         # resize and crop image
+         input_dict = self.crop_image(input_dict)
+ 
+diff --git a/pcdet/datasets/nuscenes/nuscenes_utils.py b/pcdet/datasets/nuscenes/nuscenes_utils.py
+index 4e2421d..6a9a9ea 100644
+--- a/pcdet/datasets/nuscenes/nuscenes_utils.py
++++ b/pcdet/datasets/nuscenes/nuscenes_utils.py
+@@ -12,6 +12,7 @@ import tqdm
+ from nuscenes.utils.data_classes import Box
+ from nuscenes.utils.geometry_utils import transform_matrix
+ from pyquaternion import Quaternion
++from mx_driving.dataset.utils import get_voxel_number_from_mean_vfe
+ 
+ map_name_from_general_to_detection = {
+     'human.pedestrian.adult': 'pedestrian',
+@@ -247,7 +248,7 @@ def quaternion_yaw(q: Quaternion) -> float:
+     yaw = np.arctan2(v[1], v[0])
+ 
+     return yaw
+-    
 +
  
- class NuScenesDataset(DatasetTemplate):
-     def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
+ def obtain_sensor2top(
+     nusc, sensor_token, l2e_t, l2e_r_mat, e2g_t, e2g_r_mat, sensor_type="lidar"
+@@ -378,7 +379,7 @@ def fill_trainval_infos(data_path, nusc, train_scenes, val_scenes, test=False, m
+                 cam_info['data_path'] = Path(cam_info['data_path']).relative_to(data_path).__str__()
+                 cam_info.update(camera_intrinsics=camera_intrinsics)
+                 info["cams"].update({cam: cam_info})
+-        
++
+ 
+         sample_data_token = sample['data'][chan]
+         curr_sd_rec = nusc.get('sample_data', sample_data_token)
+@@ -434,6 +435,9 @@ def fill_trainval_infos(data_path, nusc, train_scenes, val_scenes, test=False, m
+             f"sweep {curr_sd_rec['token']} only has {len(info['sweeps'])} sweeps, " \
+             f"you should duplicate to sweep num {max_sweeps - 1}"
+ 
++        voxel_num = get_voxel_number_from_mean_vfe(data_path, ref_sd_rec['filename'], sweeps, max_sweeps)
++        info["voxel_num"] = voxel_num
++
+         if not test:
+             annotations = [nusc.get('sample_annotation', token) for token in sample['anns']]
+ 
 diff --git a/pcdet/datasets/processor/data_processor.py b/pcdet/datasets/processor/data_processor.py
 index 4f72ab5..ed9f904 100644
 --- a/pcdet/datasets/processor/data_processor.py
@@ -2268,7 +2417,7 @@ index 51b7178..cd8652d 100644
                          help='set extra config keys if needed')
  
 diff --git a/tools/train.py b/tools/train.py
-index 29a88bd..340a65b 100644
+index 29a88bd..a0d5fc3 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -7,6 +7,8 @@ from pathlib import Path
@@ -2289,6 +2438,30 @@ index 29a88bd..340a65b 100644
      parser.add_argument('--max_ckpt_save_num', type=int, default=30, help='max number of saved checkpoint')
      parser.add_argument('--merge_all_iters_to_one_epoch', action='store_true', default=False, help='')
      parser.add_argument('--set', dest='set_cfgs', default=None, nargs=argparse.REMAINDER,
+@@ -43,20 +45,20 @@ def parse_config():
+     parser.add_argument('--start_epoch', type=int, default=0, help='')
+     parser.add_argument('--num_epochs_to_eval', type=int, default=0, help='number of checkpoints to be evaluated')
+     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
+-    
++
+     parser.add_argument('--use_tqdm_to_record', action='store_true', default=False, help='if True, the intermediate losses will not be logged to file, only tqdm will be used')
+     parser.add_argument('--logger_iter_interval', type=int, default=50, help='')
+     parser.add_argument('--ckpt_save_time_interval', type=int, default=300, help='in terms of seconds')
+     parser.add_argument('--wo_gpu_stat', action='store_true', help='')
+     parser.add_argument('--use_amp', action='store_true', help='use mix precision training')
+-    
++    parser.add_argument('--use_dynamic_dataloader', action='store_true', help='use mx_driving dynamic dataloader training')
+ 
+     args = parser.parse_args()
+ 
+     cfg_from_yaml_file(args.cfg_file, cfg)
+     cfg.TAG = Path(args.cfg_file).stem
+     cfg.EXP_GROUP_PATH = '/'.join(args.cfg_file.split('/')[1:-1])  # remove 'cfgs' and 'xxxx.yaml'
+-    
++
+     args.use_amp = args.use_amp or cfg.OPTIMIZATION.get('USE_AMP', False)
+ 
+     if args.set_cfgs is not None:
 @@ -72,7 +74,7 @@ def main():
          total_gpus = 1
      else:
@@ -2298,7 +2471,12 @@ index 29a88bd..340a65b 100644
          )
          dist_train = True
  
-@@ -108,7 +110,7 @@ def main():
+@@ -104,11 +106,11 @@ def main():
+         logger.info('Training in distributed mode : total_batch_size: %d' % (total_gpus * args.batch_size))
+     else:
+         logger.info('Training with a single process')
+-        
++
      for key, val in vars(args).items():
          logger.info('{:16} {}'.format(key, val))
      log_config_to_file(cfg, logger=logger)
@@ -2307,7 +2485,15 @@ index 29a88bd..340a65b 100644
          os.system('cp %s %s' % (args.cfg_file, output_dir))
  
      tb_log = SummaryWriter(log_dir=str(output_dir / 'tensorboard')) if cfg.LOCAL_RANK == 0 else None
-@@ -129,7 +131,7 @@ def main():
+@@ -123,13 +125,14 @@ def main():
+         training=True,
+         merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
+         total_epochs=args.epochs,
+-        seed=666 if args.fix_random_seed else None
++        seed=666 if args.fix_random_seed else None,
++        use_dynamic_dataloader=True if args.use_dynamic_dataloader else False
+     )
+ 
      model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=train_set)
      if args.sync_bn:
          model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -2316,6 +2502,30 @@ index 29a88bd..340a65b 100644
  
      optimizer = build_optimizer(model, cfg.OPTIMIZATION)
  
+@@ -144,7 +147,7 @@ def main():
+         last_epoch = start_epoch + 1
+     else:
+         ckpt_list = glob.glob(str(ckpt_dir / '*.pth'))
+-              
++
+         if len(ckpt_list) > 0:
+             ckpt_list.sort(key=os.path.getmtime)
+             while len(ckpt_list) > 0:
+@@ -189,11 +192,11 @@ def main():
+         lr_warmup_scheduler=lr_warmup_scheduler,
+         ckpt_save_interval=args.ckpt_save_interval,
+         max_ckpt_save_num=args.max_ckpt_save_num,
+-        merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch, 
+-        logger=logger, 
++        merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
++        logger=logger,
+         logger_iter_interval=args.logger_iter_interval,
+         ckpt_save_time_interval=args.ckpt_save_time_interval,
+-        use_logger_to_record=not args.use_tqdm_to_record, 
++        use_logger_to_record=not args.use_tqdm_to_record,
+         show_gpu_stat=not args.wo_gpu_stat,
+         use_amp=args.use_amp,
+         cfg=cfg
 diff --git a/tools/train_utils/optimization/__init__.py b/tools/train_utils/optimization/__init__.py
 index 888cfcf..aa631f0 100644
 --- a/tools/train_utils/optimization/__init__.py
