@@ -71,3 +71,18 @@ FPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$step_time'}')
 # 打印性能
 echo "Final Performance images/sec (FPS) : ${FPS}"
 echo "FPS = ${FPS}" >>${log_path}
+
+# 提取最后一个mAP和NDS值
+# 提取包含评估结果的最后一行
+last_eval_line=$(grep -a "NuScenes metric/pred_instances_3d_NuScenes/.*mAP:" "${log_path}" | tail -n 1)
+
+if [ -n "$last_eval_line" ]; then
+    last_map=$(echo "$last_eval_line" | grep -oP 'mAP: \K[0-9.]+' | tail -n 1)
+    last_nds=$(echo "$last_eval_line" | grep -oP 'NDS: \K[0-9.]+' | tail -n 1)
+
+    echo "Final mAP: ${last_map}"
+    echo "Final NDS: ${last_nds}"
+
+else
+    echo "Warning: Evaluation metrics not found in log" >&2
+fi
