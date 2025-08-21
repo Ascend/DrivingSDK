@@ -1,6 +1,27 @@
 # DiffusionDrive
 
-# 目录 
+## 目录 
+- [DiffusionDrive](#diffusiondrive)
+  - [目录](#目录)
+- [简介](#简介)
+  - [模型介绍](#模型介绍)
+  - [支持任务列表](#支持任务列表)
+  - [代码实现](#代码实现)
+- [准备训练环境](#准备训练环境)
+  - [安装昇腾环境](#安装昇腾环境)
+  - [安装模型环境](#安装模型环境)
+- [准备数据集与权重](#准备数据集与权重)
+  - [Nuscenes数据集](#nuscenes数据集)
+  - [数据集预处理](#数据集预处理)
+  - [下载权重](#下载权重)
+- [快速开始](#快速开始)
+  - [训练模型](#训练模型)
+  - [验证性能](#验证性能)
+  - [训练结果](#训练结果)
+- [版本说明](#版本说明)
+  - [变更](#变更)
+  - [FAQ](#faq)
+
 
 # 简介
 
@@ -30,9 +51,6 @@
   code_path=model_examples/DiffusionDrive
   ```
 
-
-
-# DiffusionDrive（在研版本）
 
 # 准备训练环境
 
@@ -120,8 +138,7 @@
 
 ## Nuscenes数据集
 
-用户自行获取*nuscenes*数据集，在源码目录创建软连接`data/nuscenes`指向解压后的nuscenes数据目录
-结构如下：
+用户自行获取*nuscenes*数据集，在源码目录创建软连接`data/nuscenes`指向存放数据的具体路径，nuscenes数据目录结构如下：
 
 ```shell
 DiffusionDrive/
@@ -152,12 +169,12 @@ ln -s [path/to/nuscenes] ./data/nuscenes
 
 ```
 export DATA_PATH=[path/to/nuscenes]
-ln -s $DATA_PATH/can_bus/ ./data/nuscenes/can_bus
-ln -s $DATA_PATH/lidarseg/ ./data/nuscenes/lidarseg
-ln -s $DATA_PATH/maps/ ./data/nuscenes/maps
-ln -s $DATA_PATH/nuscenes_gt_database/ ./data/nuscenes/nuscenes_gt_database
-ln -s $DATA_PATH/samples/ ./data/nuscenes/samples
-ln -s $DATA_PATH/sweeps/ ./data/nuscenes/sweeps
+ln -s $DATA_PATH/can_bus ./data/nuscenes/can_bus
+ln -s $DATA_PATH/lidarseg ./data/nuscenes/lidarseg
+ln -s $DATA_PATH/maps ./data/nuscenes/maps
+ln -s $DATA_PATH/nuscenes_gt_database ./data/nuscenes/nuscenes_gt_database
+ln -s $DATA_PATH/samples ./data/nuscenes/samples
+ln -s $DATA_PATH/sweeps ./data/nuscenes/sweeps
 ln -s $DATA_PATH/v1.0-test ./data/nuscenes/v1.0-test
 ln -s $DATA_PATH/v1.0-trainval ./data/nuscenes/v1.0-trainval
 ```

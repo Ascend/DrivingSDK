@@ -8,7 +8,7 @@
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [PanoOcc（在研版本）](#panoocc在研版本)
+- [PanoOcc](#panoocc)
   - [准备训练环境](#准备训练环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [安装模型环境](#安装模型环境)
@@ -18,7 +18,7 @@
     - [单机8卡验证训练性能](#单机8卡验证训练性能)
     - [单机8卡完整训练验证精度](#单机8卡完整训练验证精度)
     - [训练脚本支持的命令行参数](#训练脚本支持的命令行参数)
-      - [训练结果](#训练结果)
+- [训练结果](#训练结果)
 - [变更说明](#变更说明)
 - [FAQ](#faq)
 
@@ -45,7 +45,7 @@
     commit_id=3d93b119fcced35612af05587b395e8b38d8271f
     ```
 
-# PanoOcc（在研版本）
+# PanoOcc
 
 ## 准备训练环境
 环境默认采用 Python 3.8
@@ -155,7 +155,7 @@
 
 ### 准备数据集
 
-1. 根据原仓数据集准备中的 [NuScenes LiDAR Benchmark](https://github.com/Robertwyq/PanoOcc/blob/main/docs/dataset.md#1-nuscenes-lidar-benchmark) 章节在模型源码根目录下准备数据集，参考数据集结构如下：
+1. 根据原仓数据集准备中的 [NuScenes LiDAR Benchmark](https://github.com/Robertwyq/PanoOcc/blob/main/docs/dataset.md#1-nuscenes-lidar-benchmark) 章节在模型源码根目录下准备数据集，参考数据集结构如下（数据预处理部分查看下文，预处理脚本会生成额外的json文件，没有列在该数据集结构里，不影响运行）：
 
     ```
     PanoOcc
@@ -174,13 +174,26 @@
     │   │   ├── nuscenes_infos_temporal_test.pkl (经数据预处理后生成)
     │   │   ├── nuscenes.yaml
     ```
-
+    可通过创建软链接的方式链接用户实际的下载解压后存放数据集的路径，假设实际存放数据集的路径已设为环境变量`$DATA_PATH`（例：`export DATA_PATH=/home/data/nuscenes`）在PanoOcc源码仓目录下（例：`DrivingSDK/model_example/PanoOcc/PanoOcc/`），运行以下命令创建软连接：
+    ```
+    ln -s $DATA_PATH/can_bus ./data/nuscenes/can_bus
+    ln -s $DATA_PATH/maps ./data/nuscenes/maps
+    ln -s $DATA_PATH/lidarseg ./data/nuscenes/lidarseg
+    ln -s $DATA_PATH/panoptic ./data/nuscenes/panoptic
+    ln -s $DATA_PATH/samples ./data/nuscenes/samples
+    ln -s $DATA_PATH/sweeps ./data/nuscenes/sweeps
+    ln -s $DATA_PATH/v1.0-trainval ./data/nuscenes/v1.0-trainval
+    ln -s $DATA_PATH/v1.0-test ./data/nuscenes/v1.0-test
+    ln -s $DATA_PATH/nuscenes.yaml ./data/nuscenes/nuscenes.yaml
+    ```
 2. 在模型源码根目录下进行数据预处理
 
-   ```
+   （预计耗时1个小时左右）
+   ``` 
+   # 运行数据预处理脚本，运行结束后会在./data/nuscenes里生成.pkl文件
    python tools/create_data.py nuscenes --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data/nuscenes
    ```
-
+    （如果遇到`AssertionError: MMCV==1.7.2 is used but incompatible`报错，参考下方FAQ章节）
 ### 准备预训练权重
 
 在模型源码根目录下创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中
@@ -198,10 +211,10 @@
 
 * 以下`${CASE_NAME}`变量指代由脚本自动生成的目录名，包含了
   * 模型网络名称（对应config文件名称，有small、base、large等几种变种）
-  * batch size
   * 训练卡数
-  * 时间戳
+  * batch size
   * epoch数
+  * 时间戳
 * 以下示例均以PanoOcc_Base_4f举例，可通过--config入参来指定不同的config文件并使用对应变种的模型
 
 
@@ -239,7 +252,7 @@ bash eval_8p.sh [CHECKPOINT_FILE] [OUTPUT_PATH] [NUM_NPUS] [NUM_NPUS]
 * `--workers_per_npu=*`：可调整每张卡的数据加载子进程的数量，取值范围为>=0的整数，上限由共享内存等多方面因素决定，默认值为6
 * `--batch_size`: （当前版本暂不支持bs大于1，仅作为预埋参数，待后续更新）可调整每张卡的batch size，取值范围为>1的整数，上限由显存占用决定，默认为1
 
-#### 训练结果
+# 训练结果
 
 | 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | mAP | NDS | 性能-单步迭代耗时(ms) |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :----: | :-------------------: |
@@ -258,3 +271,10 @@ bash eval_8p.sh [CHECKPOINT_FILE] [OUTPUT_PATH] [NUM_NPUS] [NUM_NPUS]
 # FAQ
 
 * 当前版本暂不支持bs大于1，仅作为预埋参数，待后续更新
+* 运行`PanoOcc/tools/`里的脚本如遇到`AssertionError: MMCV==1.7.2 is used but incompatible`，可通过以下任意一种方式解决：
+  * 在脚本最上方添加以下两行解决
+    ```
+    from mx_driving.patcher.mmcv import patch_mmcv_version
+    patch_mmcv_version("1.6.0")
+    ```
+  * 安装mmcv 1.6.0，使用完脚本后，再重新使用npu编译选项编译安装回mmcv 1.7.2
