@@ -197,7 +197,7 @@ index 4afc2559..a3500eb7 100644
  # TODO: support fuse_conv_bn and format_only
  def parse_args():
 diff --git a/tools/train.py b/tools/train.py
-index 6b9c3b08..22e9475e 100644
+index 6b9c3b08..00964fcc 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -11,6 +11,15 @@ from mmengine.runner import Runner
@@ -216,11 +216,33 @@ index 6b9c3b08..22e9475e 100644
  
  def parse_args():
      parser = argparse.ArgumentParser(description='Train a 3D detector')
-@@ -142,4 +151,6 @@ def main():
+@@ -141,5 +150,28 @@ def main():
+     runner.train()
  
  
++def seed_all(seed=1234, is_gpu=True):
++    import random
++    import numpy as np
++
++    random.seed(seed)
++    os.environ['PYTHONHASHSEED'] = str(seed)
++    np.random.seed(seed)
++    torch.manual_seed(seed)
++
++    if is_gpu:
++        torch.cuda.manual_seed_all(seed)
++        torch.cuda.manual_seed(seed)
++        torch.backends.cudnn.deterministic = True
++        torch.backends.cudnn.enable = False
++        torch.backends.cudnn.benchmark = False
++    else:
++        torch_npu.npu.manual_seed_all(seed)
++        torch_npu.npu.manual_seed(seed)
++ 
++
  if __name__ == '__main__':
 -    main()
++    seed_all(1024, is_gpu=False) # npu
 +    pb = PatcherBuilder().add_module_patch("mmcv.ops", Patch(dc), Patch(mdc))
 +    with pb.build():
 +        main()
