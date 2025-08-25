@@ -1,31 +1,15 @@
 #!/bin/bash
 ###############基本配置###############
 # 模型配置
-export RANK_SIZE=8
+num_npu=8
 batch_size=8
 epochs=20
 data_path=""
 
-# 参数校验，data_path为必传参数，其他参数的增删由模型自身决定；此处新增参数需在上面有定义并赋值
-for para in $*
-do
-    if [[ $para == --data_path* ]];then
-        data_path=`echo ${para#*=}`
-    fi
-    if [[ $para == --epochs* ]];then
-        epochs=`echo ${para#*=}`
-    fi
-done
-
-if [[ "$data_path" == "" ]];then
-    echo "[DETR] [Error] para \"data_path\" must be confing"
-    exit 1
-fi
-
 # 训练用例信息
 network="DETR"
 device_type=`uname -m`
-case_name=${network}_${RANK_SIZE}p_bs${batch_size}_epochs${epochs}
+case_name=${network}_${num_npu}p_bs${batch_size}_epochs${epochs}
 echo "[DETR] case_name = ${case_name}"
 
 # 配置环境变量
@@ -70,6 +54,10 @@ fi
 output_path_dir=${test_path_dir}/output
 mkdir -p ${output_path_dir}
 
+# 解析参数
+source ${test_path_dir}/parse_args.sh
+declare_required_params data_path batch_size num_npu epochs # 接收参数顺序
+parse_common_args "$@"
 
 ###############开始训练###############
 # 训练开始时间
@@ -77,12 +65,12 @@ start_time=$(date +%s)
 echo "[DETR] start_time=$(date -d @${start_time} "+%Y-%m-%d %H:%M:%S")"
 
 nohup torchrun --standalone --nnodes=1 \
-    --nproc_per_node=${RANK_SIZE} \
+    --nproc_per_node=${num_npu} \
     main.py \
     --batch_size=${batch_size} \
     --epochs=${epochs} \
     --coco_path=${data_path} \
-    --output_dir=${output_path_dir} > ${output_path_dir}/train_${RANK_SIZE}p_bs${batch_size}_epochs${epochs}.log 2>&1 &
+    --output_dir=${output_path_dir} > ${output_path_dir}/train_${num_npu}p_bs${batch_size}_epochs${epochs}.log 2>&1 &
 
 wait
 
@@ -92,11 +80,11 @@ echo "[DETR] end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
 e2e_time=$(( $end_time - $start_time ))
 
 # 输出性能
-avg_time=`grep -P 'Epoch: \[\d+\] Total time' ${output_path_dir}/train_${RANK_SIZE}p_bs${batch_size}_epochs${epochs}.log | tail -n 5 | grep -oP '(?<=\()[0-9]+\.[0-9]+' | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
-avg_fps=`awk 'BEGIN{printf "%.3f\n", '$batch_size'*'${RANK_SIZE}'/'$avg_time'}'`
+avg_time=`grep -P 'Epoch: \[\d+\] Total time' ${output_path_dir}/train_${num_npu}p_bs${batch_size}_epochs${epochs}.log | tail -n 5 | grep -oP '(?<=\()[0-9]+\.[0-9]+' | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
+avg_fps=`awk 'BEGIN{printf "%.3f\n", '$batch_size'*'${num_npu}'/'$avg_time'}'`
 
 # 输出训练精度
-mAP=`grep "Average Precision.* IoU=0.50\:0.95.* all" ${output_path_dir}/train_${RANK_SIZE}p_bs${batch_size}_epochs${epochs}.log |awk -F "=" '{print $NF}'|awk 'END {print}'`
+mAP=`grep "Average Precision.* IoU=0.50\:0.95.* all" ${output_path_dir}/train_${num_npu}p_bs${batch_size}_epochs${epochs}.log |awk -F "=" '{print $NF}'|awk 'END {print}'`
 
 # 结果打印
 echo "------------------ Final result ------------------"
@@ -107,7 +95,7 @@ echo "[DETR] Final mAP(IoU=0.50:0.95) : ${mAP}"
 # 将关键信息打印到 ${CASE_NAME}.log 中
 echo "Network = ${network}" > ${output_path_dir}/${case_name}.log
 echo "DeviceType = ${device_type}" >> ${output_path_dir}/${case_name}.log
-echo "RankSize = ${RANK_SIZE}" >> ${output_path_dir}/${case_name}.log
+echo "RankSize = ${num_npu}" >> ${output_path_dir}/${case_name}.log
 echo "BatchSize = ${batch_size}" >> ${output_path_dir}/${case_name}.log
 echo "CaseName = ${case_name}" >> ${output_path_dir}/${case_name}.log
 echo "E2ETrainingTime = ${e2e_time}" >> ${output_path_dir}/${case_name}.log

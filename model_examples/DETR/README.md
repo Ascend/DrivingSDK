@@ -140,8 +140,8 @@ coco_path/
 
   ```
   cd model_examples/DETR/detr
-  bash test/train_8p_full.sh --data_path='/coco_path' # 8p 精度训练，epochs 默认 300
-  bash test/train_8p_performance.sh --data_path='/coco_path' # 8p 性能训练，epochs 默认 20
+  bash test/train_8p_full.sh --data-path='/coco_path' --batch-size=8 --num-npu=8 # 8p 精度训练，epochs 默认 300
+  bash test/train_8p_performance.sh --data-path='/coco_path' --batch-size=8 --num-npu=8 # 8p 性能训练，epochs 默认 20
   ```
 
   训练脚本参数说明：
@@ -149,6 +149,8 @@ coco_path/
   ```
   --data_path    # 数据集路径，必填
   --epochs       # 重复训练次数，可选项
+  --batch-size   # 训练batch size，可选填，默认值为8
+  --num-npu      # 训练卡数，可选填，默认值为8
   ```
 
 #### 训练结果
