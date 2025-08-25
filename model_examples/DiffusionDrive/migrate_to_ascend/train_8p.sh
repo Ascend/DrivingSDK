@@ -8,35 +8,77 @@ if [ -d ${OUTPUT_PATH} ]; then
 fi
 mkdir -p ${OUTPUT_PATH}
 
-# Default路径
-CONFIG=projects/configs/diffusiondrive_configs/diffusiondrive_small_stage2.py
+
+##################################################################
+# 默认参数
+
+CONFIG_FILE=projects/configs/diffusiondrive_configs/diffusiondrive_small_stage2.py
 
 GLOBAL_BATCH_SIZE=48
 
-# 设置NPU卡数
-RANK_SIZE=8
+RANK_SIZE=8 # NPU卡数       
 
+BATCH_SIZE=6
 
-# 传参：
-# 如果设置了--performance，仅验性能（仅需少量epochs，建议同步设置--epoch为小一点的数字），不验精度。
-# 不设置时默认为验精度模式，将运行config文件里设置的全量epochs，较为耗时
-# 如果设置了--config，则可以指定config文件路径覆盖default路径
 PERFORMANCE_MODE=0
-TEE_TO_STDOUT=0
+##################################################################
+
+# 获取传入的命令行参数
 for para in $*
 do    
+    # 如果设置了--performance，仅验性能（仅需训练1k步），不验精度。
+    # 不设置时默认为精度模式，将训练全量epochs，较为耗时
     if [[ $para == --performance ]]; then
         PERFORMANCE_MODE=1
     fi
 
+    # 可指定其他的config文件路径
     if [[ $para == --config=* ]]; then
         CONFIG_FILE=`echo ${para#*=}`
+    fi
+
+    # 可通过入参设置单卡的Batch Size（对应config文件里的samples_per_gpu）
+    if [[ $para == --batch_size=* ]]; then
+        BATCH_SIZE=`echo ${para#*=}`
+    fi
+
+    # 可通过入参修改单机场景下使用多少块NPU，即RANK_SIZE
+    if [[ $para == --num_npu=* ]]; then
+        RANK_SIZE=`echo ${para#*=}`
     fi
 done
 
 
+GLOBAL_BATCH_SIZE=$(expr $RANK_SIZE \* $BATCH_SIZE)
 
-##################################################################
+# ##################################################################
+# 修改config文件更新参数
+
+# 备份config文件
+cp ${CONFIG_FILE} ${CONFIG_FILE}.bak
+
+# 更新config文件里的参数
+sed -i "s|total_batch_size[[:space:]]*=[[:space:]]*[0-9]\{1,\}|total_batch_size = ${GLOBAL_BATCH_SIZE}|g" ${CONFIG_FILE}
+sed -i "s|num_gpus[[:space:]]*=[[:space:]]*[0-9]\{1,\}|num_gpus = ${RANK_SIZE}|g" ${CONFIG_FILE}
+
+# 定义复原config文件的callback
+restore_config() { 
+    if [ -f ${CONFIG_FILE}.bak ]; then
+        mv -f ${CONFIG_FILE}.bak ${CONFIG_FILE}
+    fi
+}
+
+# 设置信号捕获，如果训练
+#   正常退出（EXIT）
+#   用户中断（SIGINT）
+#   Kill终止请求（SIGTERM）
+#   命令执行失败（ERR）
+# 可以自动还原对config文件的修改
+trap restore_config EXIT SIGINT SIGTERM ERR
+# ##################################################################
+
+
+# ##################################################################
 # 配置环境变量
 echo "[INFO] Start setting ENV VAR"
 
@@ -90,17 +132,22 @@ MPORT=${PORT:-28651}
 
 # 训练
 #################################################
+echo "[DiffusionDrive] Training..."
+echo "Path to realtime training logs: ${OUTPUT_PATH}"
+
 start_time=$(date +%s)
 echo "start_time=$(date -d @${start_time} "+%Y-%m-%d %H:%M:%S")"
 
 PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
+
+# $(dirname "$0")指定此脚本的上级目录，因此训练调用的train.py文件应与此脚本位于同一个目录内
 
 # 验精度
 if [[ ${PERFORMANCE_MODE} == 0 ]]; then
     nohup python -m torch.distributed.run \
         --nproc_per_node=$RANK_SIZE \
         --master_port=$MPORT \
-        migrate_to_ascend/train.py $CONFIG \
+        $(dirname "$0")/train.py $CONFIG_FILE \
         --launcher pytorch \
         --deterministic > ${OUTPUT_PATH}/train_8p_full.log 2>&1 &
     wait
@@ -110,7 +157,7 @@ else
     nohup python -m torch.distributed.run \
         --nproc_per_node=$RANK_SIZE \
         --master_port=$MPORT \
-        migrate_to_ascend/train.py $CONFIG \
+        $(dirname "$0")/train.py $CONFIG_FILE \
         --launcher pytorch \
         --deterministic --performance > ${OUTPUT_PATH}/train_8p_performance.log 2>&1 &
     wait
@@ -144,3 +191,6 @@ if [[ ${PERFORMANCE_MODE} == 0 ]]; then
     L2=`grep "val" ${log_file}  | awk -F "L2: " '{print $2}' | awk 'END {print}'`
     echo " - L2 : ${L2}"
 fi
+
+
+

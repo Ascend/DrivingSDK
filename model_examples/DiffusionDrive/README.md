@@ -17,6 +17,7 @@
 - [快速开始](#快速开始)
   - [训练模型](#训练模型)
   - [验证性能](#验证性能)
+  - [训练脚本支持的命令行参数](#训练脚本支持的命令行参数)
   - [训练结果](#训练结果)
 - [版本说明](#版本说明)
   - [变更](#变更)
@@ -214,6 +215,13 @@ bash migrate_to_ascend/train_8p.sh
 # 仅跑1000个step后打印8卡训练性能（AvgStepTime、FPS）
 bash migrate_to_ascend/train_8p.sh --performance
 ```
+
+## 训练脚本支持的命令行参数
+`train_8p.sh`
+* `--performance`：添加该参数，训练脚本仅验机器性能；未添加时，正常长跑训练完整epochs数
+* `--num_npu`: 可调整训练使用的npu卡数
+* `--batch_size`: 可调整每张卡的batch size
+
 
 
 

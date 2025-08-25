@@ -32,7 +32,7 @@ do
     fi
 
     # 可通过入参修改单机场景下使用多少块NPU，即RANK_SIZE
-    if [[ $para == --num_npus=* ]]; then
+    if [[ $para == --num_npu=* ]]; then
         RANK_SIZE=`echo ${para#*=}`
     fi
 
@@ -122,6 +122,7 @@ start_time=$(date +%s)
 # 开始训练
 
 echo "[PanoOcc] Training..."
+echo "Path to realtime training logs: ${OUTPUT_PATH}"
 
 NNODES=${NNODES:-1}
 NODE_RANK=${NODE_RANK:-0}

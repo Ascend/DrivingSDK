@@ -247,10 +247,10 @@ bash eval_8p.sh [CHECKPOINT_FILE] [OUTPUT_PATH] [NUM_NPUS] [NUM_NPUS]
 ### 训练脚本支持的命令行参数
 `train_8p.sh`
 * `--performance`：添加该参数，训练脚本仅验机器性能；未添加时，正常长跑训练完整epochs数
-* `--epochs=*`: 可调整训练epochs数，取值范围为正整数，默认24个epochs
-* `--num_npu=*`: 可调整训练使用的npu卡数，取值范围[1, 8]，默认为8
-* `--workers_per_npu=*`：可调整每张卡的数据加载子进程的数量，取值范围为>=0的整数，上限由共享内存等多方面因素决定，默认值为6
-* `--batch_size`: （当前版本暂不支持bs大于1，仅作为预埋参数，待后续更新）可调整每张卡的batch size，取值范围为>1的整数，上限由显存占用决定，默认为1
+* `--epochs`: 可调整训练epochs数
+* `--num_npu`: 可调整训练使用的npu卡数
+* `--workers_per_npu`：可调整每张卡的数据加载子进程的数量
+* `--batch_size`: （当前版本暂不支持bs大于1，仅作为预埋参数，待后续更新）可调整每张卡的batch size
 
 # 训练结果
 
