@@ -1,14 +1,16 @@
+#!/bin/bash
+
 # 网络名称,同目录名称,需要模型审视修改
 Network="BEVFusion"
-batch_size=4
-gpus=8
-
-NNODES=$1
-NODE_RANK=$2
-PORT=$3
-MASTER_ADDR=$4
-world_size=$((NNODES * gpus))
 export PERFORMANCE_MODE=1 # Performance-Testing mode
+
+batch_size=4                    # 单卡batch_size
+num_npu=8                       # 每节点NPU卡数
+nnodes=2                        # 节点总数
+node_rank=0                     # 当前节点编号（0 ~ nnodes-1），默认为主节点
+port=29500                      # 通信端口号
+master_addr=""                  # 主节点IP地址
+world_size=$((nnodes * num_npu))
 
 # cd到与test文件夹同层级目录下执行脚本，提高兼容性；test_path_dir为包含test文件夹的路径
 cur_path=$(pwd)
@@ -22,6 +24,12 @@ else
 fi
 
 source ${test_path_dir}/env_npu.sh
+# 解析参数
+source ${test_path_dir}/parse_args.sh
+declare_required_params batch_size num_npu nnodes node_rank port master_addr # 接收参数顺序
+parse_common_args "$@"
+
+base_batch_size=$(($batch_size * $num_npu))
 
 #创建DeviceID输出目录，不需要修改
 output_path=${cur_path}/test/output/
@@ -35,9 +43,10 @@ sed -i "s|max_epochs=6|max_epochs=1|g" projects/BEVFusion/configs/bevfusion_lida
 #训练开始时间，不需要修改
 start_time=$(date +%s)
 bash tools/nnodes_dist_train.sh \
-    projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${gpus} ${NNODES} ${NODE_RANK} ${PORT} ${MASTER_ADDR}\
-    --cfg-options load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
-    > ${test_path_dir}/output/train_performance_8p_base_fp32.log 2>&1 &
+    projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${num_npu} ${nnodes} ${node_rank} ${port} ${master_addr}\
+    --cfg-options train_dataloader.batch_size=${batch_size} auto_scale_lr.base_batch_size=${base_batch_size} \
+    load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
+    > ${test_path_dir}/output/train_performance_${num_npu}p_base_fp32.log 2>&1 &
 
 wait
 #训练结束时间，不需要修改
@@ -49,13 +58,13 @@ sed -i "s|max_epochs=1|max_epochs=6|g" projects/BEVFusion/configs/bevfusion_lida
 cd ..
 
 # 主节点打印性能数据
-if [ "$NODE_RANK" -eq 0 ]; then
+if [ "$node_rank" -eq 0 ]; then
   #结果打印，不需要修改
   echo "------------------ Final result ------------------"
 
   #获取性能数据，不需要修改
   #单迭代训练时长，不需要修改
-  TrainingTime=$(grep -v val ${test_path_dir}/output/train_performance_8p_base_fp32.log | grep -o " time: [0-9.]*"  | tail -n +200 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
+  TrainingTime=$(grep -v val ${test_path_dir}/output/train_performance_${num_npu}p_base_fp32.log | grep -o " time: [0-9.]*"  | tail -n +200 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
 
   #吞吐量
   ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$TrainingTime'}')
@@ -64,7 +73,7 @@ if [ "$NODE_RANK" -eq 0 ]; then
   echo "Final Performance images/sec : $ActualFPS"
 
   #loss值，不需要修改
-  ActualLoss=$(grep -o "loss: [0-9.]*" ${test_path_dir}/output/train_performance_8p_base_fp32.log | awk 'END {print $NF}')
+  ActualLoss=$(grep -o "loss: [0-9.]*" ${test_path_dir}/output/train_performance_${num_npu}p_base_fp32.log | awk 'END {print $NF}')
 
   #打印，不需要修改
   echo "Final Train Loss : ${ActualLoss}"

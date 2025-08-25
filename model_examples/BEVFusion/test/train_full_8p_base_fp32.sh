@@ -1,7 +1,8 @@
+#!/bin/bash
 # 网络名称,同目录名称,需要模型审视修改
 Network="BEVFusion"
 batch_size=4
-world_size=8
+num_npu=8
 epochs=6
 
 # cd到与test文件夹同层级目录下执行脚本，提高兼容性；test_path_dir为包含test文件夹的路径
@@ -16,6 +17,12 @@ else
 fi
 
 source ${test_path_dir}/env_npu.sh
+# 解析参数
+source ${test_path_dir}/parse_args.sh
+declare_required_params batch_size num_npu # 接收参数顺序
+parse_common_args "$@"
+
+base_batch_size=$(($batch_size * $num_npu))
 
 #创建DeviceID输出目录，不需要修改
 output_path=${cur_path}/test/output/
@@ -34,9 +41,10 @@ cd mmdetection3d
 #训练开始时间，不需要修改
 start_time=$(date +%s)
 bash tools/dist_train.sh \
-    projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${world_size} \
-    --cfg-options load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
-    > ${test_path_dir}/output/train_full_8p_base_fp32.log 2>&1 &
+    projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${num_npu} \
+    --cfg-options train_dataloader.batch_size=${batch_size} auto_scale_lr.base_batch_size=${base_batch_size} \
+    load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth \
+    > ${test_path_dir}/output/train_full_${num_npu}p_base_fp32.log 2>&1 &
 
 wait
 #训练结束时间，不需要修改
@@ -50,22 +58,22 @@ echo "------------------ Final result ------------------"
 
 #获取性能数据，不需要修改
 #单迭代训练时长，不需要修改
-TrainingTime=$(grep -v val ${test_path_dir}/output/train_full_8p_base_fp32.log | grep -o " time: [0-9.]*"  | tail -n +200 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
+TrainingTime=$(grep -v val ${test_path_dir}/output/train_full_${num_npu}p_base_fp32.log | grep -o " time: [0-9.]*"  | tail -n +200 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
 
 #吞吐量
-ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$TrainingTime'}')
+ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$num_npu') / '$TrainingTime'}')
 
 #打印，不需要修改
 echo "Final Performance images/sec : $ActualFPS"
 
 #loss值，不需要修改
-ActualLoss=$(grep -o "loss: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
+ActualLoss=$(grep -o "loss: [0-9.]*" ${test_path_dir}/output/train_full_${num_npu}p_base_fp32.log | awk 'END {print $NF}')
 
 #NDS值
-NDS=$(grep -o "pred_instances_3d_NuScenes/NDS: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
+NDS=$(grep -o "pred_instances_3d_NuScenes/NDS: [0-9.]*" ${test_path_dir}/output/train_full_${num_npu}p_base_fp32.log | awk 'END {print $NF}')
 
 #mAP值
-mAP=$(grep -o "pred_instances_3d_NuScenes/mAP: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | awk 'END {print $NF}')
+mAP=$(grep -o "pred_instances_3d_NuScenes/mAP: [0-9.]*" ${test_path_dir}/output/train_full_${num_npu}p_base_fp32.log | awk 'END {print $NF}')
 
 #打印，不需要修改
 echo "Final Train Loss : ${ActualLoss}"
@@ -76,7 +84,7 @@ echo "E2E Training Duration sec : $e2e_time"
 #性能看护结果汇总
 #训练用例信息，不需要修改
 BatchSize=${batch_size}
-WORLD_SIZE=${world_size}
+WORLD_SIZE=${num_npu}
 DeviceType=$(uname -m)
 CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
 

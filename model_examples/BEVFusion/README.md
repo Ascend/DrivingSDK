@@ -129,15 +129,31 @@ cd ../
 ```
 
 - 单机8卡训练
+  
+  运行脚本支持命令行参数（支持默认值+关键字参数+位置参数）
+  - `--batch-size`：每卡batch size大小，默认值4；
+  - `--num-npu`：每节点NPU卡数，默认值8；
 
   ```shell
-  bash test/train_full_8p_base_fp32.sh # 8卡训练，默认训练6个epochs
-  bash test/train_performance_8p_base_fp32.sh # 8卡性能，默认训练1个epochs
+  # 精度测试拉起脚本，默认训练6个epochs
+  bash test/train_full_8p_base_fp32.sh --batch-size=4 --num-npu=8 # batch-size 和 num-npu 可不指定直接使用默认值，下同
+  # 性能测试拉起脚本，默认训练1个epochs
+  bash test/train_performance_8p_base_fp32.sh --batch-size=4 --num-npu=8 
   ```
 - 双机16卡性能
+  
+  运行脚本支持命令行参数（支持默认值+关键字参数+位置参数）
+  - `--batch-size`：每卡batch size大小，默认值4；
+  - `--num-npu`：每节点NPU卡数，默认值8；
+  - `--nnodes`：节点总数，默认值2；
+  - `--node-rank`：当前节点编号（0 ~ nnodes-1），默认为主节点0；
+  - `--port`：通信端口号，默认值29500；
+  - `--master-addr`：主节点IP地址；
   ```shell
-  bash test/nnodes_train_performance_16p_base_fp32.sh 2 0 port master_addr # 主节点，默认训练1个epochs
-  bash test/nnodes_train_performance_16p_base_fp32.sh 2 1 port master_addr # 副节点
+  # 主节点拉起脚本，默认训练1个epochs
+  bash test/nnodes_train_performance_16p_base_fp32.sh --batch-size=4 --num-npu=8 --nnodes=2 --node-rank=0 --port=port --master-addr=master_addr # master-addr 必须指定，其余可省略以使用默认值
+  # 主节点拉起脚本，默认训练1个epochs
+  bash test/nnodes_train_performance_16p_base_fp32.sh --batch-size=4 --num-npu=8 --nnodes=2 --node-rank=1 --port=port --master-addr=master_addr # node-rank，master-addr 必须指定，其余可省略以使用默认值
   ```
 
 # 训练结果
