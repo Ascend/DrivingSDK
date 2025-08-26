@@ -185,6 +185,9 @@ DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模�
 | MapTRv2  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTRv2 |N|
 | OpenDWM  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenDWM |N|
 | Pi-0  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/pi-0 |N|
+| BEVDet4D  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet4D |N|
+| OpenVLA  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenVLA |N|
+
 # 支持的产品型号
 - Atlas A2 训练系列产品
 

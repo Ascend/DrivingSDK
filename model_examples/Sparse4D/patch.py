@@ -1118,12 +1118,11 @@ def generate_patcher_builder():
         .add_module_patch("torch", Patch(index), Patch(batch_matmul))
         .add_module_patch("numpy", Patch(numpy_type))
         .add_module_patch("mmcv.parallel", Patch(ddp), Patch(stream), Patch(run_ddp_forward))
-        # .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool)) # conflict with graph_mode
+        .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
         .add_module_patch("projects.mmdet3d_plugin.models.detection3d.detection3d_blocks", Patch(detection_blocks))
         .add_module_patch("projects.mmdet3d_plugin.models.detection3d.losses", Patch(detection_losses))
         .add_module_patch("projects.mmdet3d_plugin.models.blocks", Patch(models_blocks))
         .add_module_patch("projects.mmdet3d_plugin.models.detection3d.target", Patch(detection_target))
-        .add_module_patch("projects.mmdet3d_plugin.models.sparse4d", Patch(graph_mode))
         .add_module_patch("projects.mmdet3d_plugin.models.sparse4d_head", Patch(sparse4d_head))
         .add_module_patch("mmcv.runner.hooks.optimizer", Patch(mmcv_optimizer))
     )

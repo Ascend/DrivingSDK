@@ -10,7 +10,7 @@
   - [安装昇腾环境](#安装昇腾环境)
   - [安装模型环境](#安装模型环境)
 - [准备数据集](#准备数据集)
-  - [预训练数据集](#预训练数据集)
+  - [获取训练数据](#获取训练数据)
   - [获取预训练权重](#获取预训练权重)
 - [快速开始](#快速开始)
   - [训练模型](#训练模型)
@@ -120,7 +120,7 @@
 
 # 准备数据集
 
-## 预训练数据集
+## 获取训练数据
 用户自行获取*nuscenes*数据集，在源码目录创建软连接`data/nuscenes`指向解压后的nuscenes数据目录
   ```shell
   mkdir data
@@ -222,7 +222,7 @@ bash test/train_multi_server.sh 8 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
 |      芯片       | 卡数 | global batchsize  | Max steps |  FPS |
 |:-------------:|:----:|:----:|:----------:|:----------:|
 |      竞品A      | 8p | 96 | 500 |  65.75   |
-| Atlas 800T A2   | 8p | 96 | 500 |   75.59   |
+| Atlas 800T A2   | 8p | 96 | 500 |   70.59   |
 
 多机多卡线性度：
 |      芯片       | 卡数 | global batchsize | 平均step耗时(s) | Max epochs  | FPS | 线性度 |
@@ -243,6 +243,8 @@ bash test/train_multi_server.sh 8 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
 2025.7.22: 性能优化，更新patcher方式，刷新性能数据。
 
 2025.8.5: 更新性能数据。
+
+2025.8.26: 关闭图模式，更新性能数据。
 
 ## FAQ
 ### 训练时报错`ImportError: cannot import name 'gcd' from 'fraction'` 
