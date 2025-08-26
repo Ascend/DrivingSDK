@@ -1,20 +1,18 @@
 diff --git a/datamodules/argoverse_v2_datamodule.py b/datamodules/argoverse_v2_datamodule.py
-index 1b55133..525d394 100644
+index 1b55133..e3c92bb 100644
 --- a/datamodules/argoverse_v2_datamodule.py
 +++ b/datamodules/argoverse_v2_datamodule.py
-@@ -13,10 +13,11 @@
+@@ -13,8 +13,9 @@
  # limitations under the License.
  from typing import Callable, Optional
  
 -import pytorch_lightning as pl
 +import lightning.pytorch as pl
  from torch_geometric.loader import DataLoader
++from mx_driving.dataset import AgentDynamicBatchDataLoader
  
  from datasets import ArgoverseV2Dataset
-+from .dataloader import DynamicBatchDataLoader
  from transforms import TargetBuilder
- 
- 
 @@ -40,6 +41,7 @@ class ArgoverseV2DataModule(pl.LightningDataModule):
                   train_transform: Optional[Callable] = TargetBuilder(50, 60),
                   val_transform: Optional[Callable] = TargetBuilder(50, 60),
@@ -31,7 +29,21 @@ index 1b55133..525d394 100644
  
      def prepare_data(self) -> None:
          ArgoverseV2Dataset(self.root, 'train', self.train_raw_dir, self.train_processed_dir, self.train_transform)
-@@ -74,9 +77,14 @@ class ArgoverseV2DataModule(pl.LightningDataModule):
+@@ -66,17 +69,26 @@ class ArgoverseV2DataModule(pl.LightningDataModule):
+         ArgoverseV2Dataset(self.root, 'test', self.test_raw_dir, self.test_processed_dir, self.test_transform)
+ 
+     def setup(self, stage: Optional[str] = None) -> None:
+-        self.train_dataset = ArgoverseV2Dataset(self.root, 'train', self.train_raw_dir, self.train_processed_dir,
+-                                                self.train_transform)
++        if self.dynamic_sort:
++            self.train_dataset = ArgoverseV2Dataset(self.root, 'train', self.train_raw_dir, self.train_processed_dir,
++                                                    self.train_transform, use_dynamic_sort=True)
++        else:
++            self.train_dataset = ArgoverseV2Dataset(self.root, 'train', self.train_raw_dir, self.train_processed_dir,
++                                                    self.train_transform)
+         self.val_dataset = ArgoverseV2Dataset(self.root, 'val', self.val_raw_dir, self.val_processed_dir,
+                                               self.val_transform)
+         self.test_dataset = ArgoverseV2Dataset(self.root, 'test', self.test_raw_dir, self.test_processed_dir,
                                                 self.test_transform)
  
      def train_dataloader(self):
@@ -39,7 +51,7 @@ index 1b55133..525d394 100644
 -                          num_workers=self.num_workers, pin_memory=self.pin_memory,
 -                          persistent_workers=self.persistent_workers)
 +        if self.dynamic_sort:
-+            return DynamicBatchDataLoader(self.train_dataset, batch_size=self.train_batch_size, actual_batch_size=self.train_batch_size, shuffle=self.shuffle,
++            return AgentDynamicBatchDataLoader(self.train_dataset, batch_size=self.train_batch_size, train_batch_size=self.train_batch_size, shuffle=self.shuffle,
 +                                          num_workers=self.num_workers, pin_memory=self.pin_memory,
 +                                          persistent_workers=self.persistent_workers)
 +        else:
@@ -49,206 +61,8 @@ index 1b55133..525d394 100644
  
      def val_dataloader(self):
          return DataLoader(self.val_dataset, batch_size=self.val_batch_size, shuffle=False,
-diff --git a/datamodules/dataloader.py b/datamodules/dataloader.py
-new file mode 100644
-index 0000000..b218e7c
---- /dev/null
-+++ b/datamodules/dataloader.py
-@@ -0,0 +1,192 @@
-+import math
-+from collections.abc import Mapping
-+from typing import List, Optional, Sequence, Union
-+
-+import torch.utils.data
-+from torch.utils.data.dataloader import default_collate
-+from torch.utils.data import Sampler
-+from torch.utils.data.distributed import DistributedSampler
-+from torch.utils.data import BatchSampler
-+import torch.distributed as dist
-+
-+from torch_geometric.data import Batch, Dataset
-+from torch_geometric.data.data import BaseData
-+from torch_geometric.data.datapipes import DatasetAdapter
-+
-+import numpy as np
-+
-+class Collater:
-+    def __init__(self, follow_batch, exclude_keys):
-+        self.follow_batch = follow_batch
-+        self.exclude_keys = exclude_keys
-+
-+    def __call__(self, batch):
-+        elem = batch[0]
-+        if isinstance(elem, BaseData):
-+            return Batch.from_data_list(batch, self.follow_batch,
-+                                        self.exclude_keys)
-+        elif isinstance(elem, torch.Tensor):
-+            return default_collate(batch)
-+        elif isinstance(elem, float):
-+            return torch.tensor(batch, dtype=torch.float)
-+        elif isinstance(elem, int):
-+            return torch.tensor(batch)
-+        elif isinstance(elem, str):
-+            return batch
-+        elif isinstance(elem, Mapping):
-+            return {key: self([data[key] for data in batch]) for key in elem}
-+        elif isinstance(elem, tuple) and hasattr(elem, '_fields'):
-+            return type(elem)(*(self(s) for s in zip(*batch)))
-+        elif isinstance(elem, Sequence) and not isinstance(elem, str):
-+            return [self(s) for s in zip(*batch)]
-+
-+        raise TypeError(f'DataLoader found invalid type: {type(elem)}')
-+
-+    def collate(self, batch):  # pragma: no cover
-+        # TODO Deprecated, remove soon.
-+        return self(batch)
-+
-+class DynamicBatchSampler(BatchSampler):
-+    def __init__(self, dataset, sampler, batch_size, drop_last=False):
-+        super().__init__(sampler, batch_size, drop_last)
-+        self.lengths = dataset.agents_num
-+        self.batch_size = batch_size
-+        self.drop_last = drop_last
-+
-+    def __iter__(self):
-+        batch = []
-+        for idx in self.sampler:
-+            batch.append(idx)
-+            if len(batch) == self.batch_size:
-+                yield batch
-+                batch = []
-+        if batch and not self.drop_last:
-+            yield batch
-+
-+class DynamicDistributedSampler(DistributedSampler):
-+    def __init__(self, dataset: Dataset, batch_size, num_replicas: Optional[int] = None,
-+                 rank: Optional[int] = None, shuffle: bool = True,
-+                 seed: int = 0, drop_last: bool = False) -> None:
-+        if num_replicas is None:
-+            if not dist.is_available():
-+                raise RuntimeError("Requires distributed package to be available")
-+            num_replicas = dist.get_world_size()
-+        if rank is None:
-+            if not dist.is_available():
-+                raise RuntimeError("Requires distributed package to be available")
-+            rank = dist.get_rank()
-+        if rank >= num_replicas or rank < 0:
-+            raise ValueError(
-+                f"Invalid rank {rank}, rank should be in the interval [0, {num_replicas - 1}]")
-+        self.dataset = dataset
-+        self.num_replicas = num_replicas
-+        self.rank = rank
-+        self.batch_size = batch_size
-+        self.epoch = 0
-+        self.drop_last = drop_last
-+        self.lengths = dataset.agents_num
-+        # If the dataset length is evenly divisible by # of replicas, then there
-+        # is no need to drop any data, since the dataset will be split equally.
-+        if self.drop_last and len(self.dataset) % self.num_replicas != 0:  # type: ignore[arg-type]
-+            # Split to nearest available length that is evenly divisible.
-+            # This is to ensure each rank receives the same amount of data when
-+            # using this Sampler.
-+            self.num_samples = math.ceil(
-+                (len(self.dataset) - self.num_replicas) / self.num_replicas  # type: ignore[arg-type]
-+            )
-+        else:
-+            self.num_samples = math.ceil(len(self.dataset) / self.num_replicas)  # type: ignore[arg-type]
-+        self.total_size = self.num_samples * self.num_replicas
-+        self.shuffle = shuffle
-+        self.seed = seed
-+
-+    def __iter__(self):
-+        dataset_len = len(self.dataset)
-+        g = torch.Generator()
-+        g.manual_seed(self.seed + self.epoch)
-+        indices = torch.arange(dataset_len)
-+
-+        if not self.drop_last:
-+            padding_size = self.total_size - len(indices)
-+            indices = torch.cat([indices, indices[:padding_size]])
-+        else:
-+            indices = indices[:self.total_size]
-+        assert len(indices) == self.total_size, "The input dataset cannot be evenly distributed to each card."
-+
-+        lengths_tensor = torch.tensor(self.lengths)[indices]
-+        cluster_ids = lengths_tensor // 10
-+        n_clusters = int(cluster_ids.max().item()) + 1
-+        sorted_indices = indices[cluster_ids.argsort()]
-+        sorted_cluster_ids = cluster_ids.sort()[0]
-+        cluster_indices = []
-+        start_idx = 0
-+
-+        for i in range(n_clusters):
-+            end_idx = torch.searchsorted(sorted_cluster_ids, i+1, side='left')
-+            
-+            if end_idx > start_idx:
-+                cluster_data = sorted_indices[start_idx:end_idx]
-+                if self.shuffle and n_clusters > 0:
-+                    shuffled_indices = torch.randperm(len(cluster_data), generator=g)
-+                    cluster_indices.append(cluster_data[shuffled_indices])
-+                else:
-+                    cluster_indices.append(cluster_data)
-+                start_idx = end_idx
-+        # combine clusters
-+        if cluster_indices and self.shuffle:
-+            # shuffle
-+            bucket_order = torch.randperm(len(cluster_indices), generator=g)
-+            indices = torch.cat([cluster_indices[i] for i in bucket_order])
-+        else:
-+            indices = torch.cat(cluster_indices)
-+        
-+        # sampler
-+        indice = indices[self.rank:self.total_size:self.num_replicas]
-+        assert len(indice) == self.num_samples
-+        
-+        return iter(indice.tolist())
-+
-+class DynamicBatchDataLoader(torch.utils.data.DataLoader):
-+    r"""A data loader which merges data objects from a
-+    :class:`torch_geometric.data.Dataset` to a mini-batch.
-+    Data objects can be either of type :class:`~torch_geometric.data.Data` or
-+    :class:`~torch_geometric.data.HeteroData`.
-+
-+    Args:
-+        dataset (Dataset): The dataset from which to load the data.
-+        batch_size (int, optional): How many samples per batch to load.
-+            (default: :obj:`1`)
-+        shuffle (bool, optional): If set to :obj:`True`, the data will be
-+            reshuffled at every epoch. (default: :obj:`False`)
-+        follow_batch (List[str], optional): Creates assignment batch
-+            vectors for each key in the list. (default: :obj:`None`)
-+        exclude_keys (List[str], optional): Will exclude each key in the
-+            list. (default: :obj:`None`)
-+        **kwargs (optional): Additional arguments of
-+            :class:`torch.utils.data.DataLoader`.
-+    """
-+    def __init__(
-+        self,
-+        dataset: Union[Dataset, Sequence[BaseData], DatasetAdapter],
-+        batch_size: int,
-+        actual_batch_size:int,
-+        shuffle: bool = True,
-+        follow_batch: Optional[List[str]] = None,
-+        exclude_keys: Optional[List[str]] = None,
-+        **kwargs,
-+    ):
-+        # Remove for PyTorch Lightning:
-+        kwargs.pop('collate_fn', None)
-+        kwargs.pop('batch_sampler', None)
-+
-+        # Save for PyTorch Lightning < 1.6:
-+        self.follow_batch = follow_batch
-+        self.exclude_keys = exclude_keys
-+        sampler = DynamicDistributedSampler(dataset, actual_batch_size, shuffle=True)
-+
-+        super().__init__(
-+            dataset,
-+            collate_fn=Collater(follow_batch, exclude_keys),
-+            batch_sampler=DynamicBatchSampler(dataset, sampler, actual_batch_size),
-+            **kwargs,
-+        )
 diff --git a/datasets/argoverse_v2_dataset.py b/datasets/argoverse_v2_dataset.py
-index f78b02f..776f8e1 100644
+index f78b02f..a32a9be 100644
 --- a/datasets/argoverse_v2_dataset.py
 +++ b/datasets/argoverse_v2_dataset.py
 @@ -16,6 +16,7 @@ import os
@@ -259,7 +73,34 @@ index f78b02f..776f8e1 100644
  from pathlib import Path
  from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
  from urllib import request
-@@ -105,6 +106,9 @@ class ArgoverseV2Dataset(Dataset):
+@@ -27,6 +28,7 @@ from torch_geometric.data import Dataset
+ from torch_geometric.data import HeteroData
+ from torch_geometric.data import extract_tar
+ from tqdm import tqdm
++from mx_driving.dataset import AgentDynamicDataset
+ 
+ from utils import safe_list_index
+ from utils import side_to_directed_lineseg
+@@ -43,7 +45,7 @@ except ImportError:
+     read_json_file = object
+ 
+ 
+-class ArgoverseV2Dataset(Dataset):
++class ArgoverseV2Dataset(Dataset, AgentDynamicDataset):
+     """Dataset class for Argoverse 2 Motion Forecasting Dataset.
+ 
+     See https://www.argoverse.org/av2.html for more information about the dataset.
+@@ -80,7 +82,8 @@ class ArgoverseV2Dataset(Dataset):
+                  num_historical_steps: int = 50,
+                  num_future_steps: int = 60,
+                  predict_unseen_agents: bool = False,
+-                 vector_repr: bool = True) -> None:
++                 vector_repr: bool = True,
++                 use_dynamic_sort: bool = False) -> None:
+         root = os.path.expanduser(os.path.normpath(root))
+         if not os.path.isdir(root):
+             os.makedirs(root)
+@@ -105,6 +108,9 @@ class ArgoverseV2Dataset(Dataset):
              else:
                  self._raw_file_names = []
  
@@ -269,7 +110,7 @@ index f78b02f..776f8e1 100644
          if processed_dir is None:
              processed_dir = os.path.join(root, split, 'processed')
              self._processed_dir = processed_dir
-@@ -123,8 +127,8 @@ class ArgoverseV2Dataset(Dataset):
+@@ -123,8 +129,8 @@ class ArgoverseV2Dataset(Dataset):
                                                name.endswith(('pkl', 'pickle'))]
              else:
                  self._processed_file_names = []
@@ -279,7 +120,7 @@ index f78b02f..776f8e1 100644
          self.num_historical_steps = num_historical_steps
          self.num_future_steps = num_future_steps
          self.num_steps = num_historical_steps + num_future_steps
-@@ -136,6 +140,11 @@ class ArgoverseV2Dataset(Dataset):
+@@ -136,6 +142,11 @@ class ArgoverseV2Dataset(Dataset):
              'val': 24988,
              'test': 24984,
          }[split]
@@ -291,35 +132,22 @@ index f78b02f..776f8e1 100644
          self._agent_types = ['vehicle', 'pedestrian', 'motorcyclist', 'cyclist', 'bus', 'static', 'background',
                               'construction', 'riderless_bicycle', 'unknown']
          self._agent_categories = ['TRACK_FRAGMENT', 'UNSCORED_TRACK', 'SCORED_TRACK', 'FOCAL_TRACK']
-@@ -148,6 +157,7 @@ class ArgoverseV2Dataset(Dataset):
+@@ -147,7 +158,11 @@ class ArgoverseV2Dataset(Dataset):
+                              'NONE', 'UNKNOWN', 'CROSSWALK', 'CENTERLINE']
          self._point_sides = ['LEFT', 'RIGHT', 'CENTER']
          self._polygon_to_polygon_types = ['NONE', 'PRED', 'SUCC', 'LEFT', 'RIGHT']
-         super(ArgoverseV2Dataset, self).__init__(root=root, transform=transform, pre_transform=None, pre_filter=None)
+-        super(ArgoverseV2Dataset, self).__init__(root=root, transform=transform, pre_transform=None, pre_filter=None)
++        Dataset.__init__(self, root=root, transform=transform, pre_transform=None, pre_filter=None)
 +        self.get_agents_num()
++        if use_dynamic_sort:
++            self.sorting()
++            self.bucketing()
  
      @property
      def raw_dir(self) -> str:
-@@ -181,8 +191,27 @@ class ArgoverseV2Dataset(Dataset):
-             shutil.move(os.path.join(self.raw_dir, self.split, raw_file_name), self.raw_dir)
+@@ -182,7 +197,9 @@ class ArgoverseV2Dataset(Dataset):
          os.rmdir(os.path.join(self.raw_dir, self.split))
  
-+    def get_agents_num(self) -> None:
-+        if self.split != 'train':
-+            return
-+        agents_num_file_name = f"{self.split}_agents_num.json"
-+        agents_num_file_path = os.path.join(self.processed_dir, agents_num_file_name)
-+        if os.path.exists(agents_num_file_path):
-+            with open(agents_num_file_path, "r") as handle:
-+                self.agents_num = json.load(handle)
-+            return
-+
-+        for idx in tqdm(range(self._num_samples)):
-+            data = self.get(idx)
-+            self.agents_num[idx] = data["agent"]['num_nodes']
-+
-+        with open(agents_num_file_path, 'w') as handle:
-+            json.dump(self.agents_num, handle)
-+
      def process(self) -> None:
 -        for raw_file_name in tqdm(self.raw_file_names):
 +        agents_num_file_name = f"{self.split}_agents_num.json"
@@ -328,7 +156,7 @@ index f78b02f..776f8e1 100644
              df = pd.read_parquet(os.path.join(self.raw_dir, raw_file_name, f'scenario_{raw_file_name}.parquet'))
              map_dir = Path(self.raw_dir) / raw_file_name
              map_path = map_dir / sorted(map_dir.glob('log_map_archive_*.json'))[0]
-@@ -194,10 +223,14 @@ class ArgoverseV2Dataset(Dataset):
+@@ -194,10 +211,14 @@ class ArgoverseV2Dataset(Dataset):
              data['scenario_id'] = self.get_scenario_id(df)
              data['city'] = self.get_city(df)
              data['agent'] = self.get_agent_features(df)

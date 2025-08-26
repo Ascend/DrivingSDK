@@ -4,7 +4,7 @@
 import os
 import math
 from abc import ABC, abstractmethod
-from typing import Any, List
+from typing import Any, List, Optional
 
 import torch
 import torch.distributed as dist
@@ -19,7 +19,14 @@ class DynamicSampler(ABC):
 
 
 class DynamicDistributedSampler(Sampler, DynamicSampler):
-    def __init__(self, dataset, num_replicas=None, rank=None, local_rank=None, local_size=None, shuffle=True):
+    def __init__(self, 
+                 dataset, 
+                 num_replicas: Optional[int] = None, 
+                 rank: Optional[int] = None, 
+                 local_rank: Optional[int] = None,
+                 local_size: Optional[int] = None,
+                 shuffle: bool = True, 
+                 seed: int = 0) -> None:
         if not hasattr(dataset, 'buckets') or not isinstance(dataset.buckets, list):
             raise ValueError("Dataset must have a 'buckets' attribute of type list")
         if not all(isinstance(bucket, list) for bucket in dataset.buckets):
@@ -33,6 +40,9 @@ class DynamicDistributedSampler(Sampler, DynamicSampler):
             if not dist.is_available():
                 raise RuntimeError("Requires distributed package to be available")
             rank = dist.get_rank()
+        if rank >= num_replicas or rank < 0:
+            raise ValueError(
+                f"Invalid rank {rank}, rank should be in the interval [0, {num_replicas - 1}]")
 
         self.dataset = dataset
         self.num_replicas = num_replicas
@@ -41,6 +51,7 @@ class DynamicDistributedSampler(Sampler, DynamicSampler):
         self.num_samples = int(math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
         self.total_size = self.num_samples * self.num_replicas
         self.shuffle = shuffle
+        self.seed = seed
 
     def __iter__(self):
         if self.shuffle:
@@ -65,12 +76,14 @@ class DynamicDistributedSampler(Sampler, DynamicSampler):
 
     def bucket_arange(self):
         g = torch.Generator()
-        g.manual_seed(self.epoch)
-
+        g.manual_seed(self.epoch + self.seed)
+        
+        # Shuffling buckets order.
         bucket_index = torch.randperm(len(self.dataset.buckets), generator=g).tolist()
         indices = []
         for bct_idx in bucket_index:
             bucket = self.dataset.buckets[bct_idx]
+            # Shuffling samples in a bucket.
             indices.extend([bucket[i] for i in torch.randperm(len(bucket), generator=g).tolist()])
 
         return indices
@@ -83,7 +96,14 @@ class DynamicDistributedSampler(Sampler, DynamicSampler):
 
 
 class ReplicasDistributedSampler(Sampler, DynamicSampler):
-    def __init__(self, dataset, num_replicas=None, rank=None, local_rank=None, local_size=None, shuffle=True):
+    def __init__(self, 
+                 dataset, 
+                 num_replicas: Optional[int] = None, 
+                 rank: Optional[int] = None, 
+                 local_rank: Optional[int] = None,
+                 local_size: Optional[int] = None,
+                 shuffle: bool = True, 
+                 seed: int = 0) -> None:
         if not hasattr(dataset, 'buckets') or not isinstance(dataset.buckets, list):
             raise ValueError("Dataset must have a 'buckets' attribute of type list")
         if not all(isinstance(bucket, list) for bucket in dataset.buckets):
@@ -97,6 +117,9 @@ class ReplicasDistributedSampler(Sampler, DynamicSampler):
             if not dist.is_available():
                 raise RuntimeError("Requires distributed package to be available")
             rank = dist.get_rank()
+        if rank >= num_replicas or rank < 0:
+            raise ValueError(
+                f"Invalid rank {rank}, rank should be in the interval [0, {num_replicas - 1}]")
 
         self.dataset = dataset
         self.num_replicas = num_replicas
@@ -105,6 +128,7 @@ class ReplicasDistributedSampler(Sampler, DynamicSampler):
         self.num_samples = int(math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
         self.total_size = self.num_samples * self.num_replicas
         self.shuffle = shuffle
+        self.seed = seed
 
     def __iter__(self):
         if self.shuffle:
@@ -129,15 +153,19 @@ class ReplicasDistributedSampler(Sampler, DynamicSampler):
 
     def bucket_arange(self):
         g = torch.Generator()
-        g.manual_seed(self.epoch)
+        g.manual_seed(self.epoch + self.seed)
         indices = []
         replicas_buckets = [[] for _ in range(self.num_replicas)]
+        
+        # Shuffling buckets order.
         bucket_index = torch.randperm(len(self.dataset.buckets), generator=g).tolist()
         for bct_idx in bucket_index:
+            # Shuffling samples in a bucket.
             bct = [self.dataset.buckets[bct_idx][i] for i in torch.randperm(len(self.dataset.buckets[bct_idx]), generator=g).tolist()]
             for i in range(len(bct)):
                 replicas_buckets[i].append(bct[i])
-
+        
+        # Shuffling `replicas_buckets` order.
         replicas_bucket_index = torch.randperm(self.num_replicas, generator=g).tolist()
         for bct_idx in replicas_bucket_index:
             indices.extend(replicas_buckets[bct_idx])
