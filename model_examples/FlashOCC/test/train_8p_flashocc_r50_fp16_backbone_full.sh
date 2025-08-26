@@ -4,12 +4,47 @@
 NETWORK="FlashOCC_R50"
 DEVICE_TYPE=$(uname -m)
 
-WORLD_SIZE=8
+NUM_NPU=8
 BATCH_SIZE=24
 TOTAL_EPOCHS=24
 
+while [[ $# -gt 0 ]]; do 
+  case $1 in
+    --NUM-NPU|--num-npu)
+      NUM_NPU="$2"
+      shift 2
+      ;;
+    --BATCH-SIZE|--batch-size)
+      BATCH_SIZE="$2"
+      shift 2
+      ;;
+    --TOTAL-EPOCHS|--total-epochs)
+      TOTAL_EPOCHS="$2"
+      shift 2
+      ;;
+    --help)
+      echo "用法: $0 [选项]"
+      echo "选项:"
+      echo " --NUM-NPU 设置 NUM-NPU (默认: 8)"
+      echo " --BATCH-SIZE 设置 BATCH_SIZE (默认: 24)"
+      echo " --TOTAL-EPOCHS 设置 TOTAL_EPOCHS (默认: 24)"
+      echo " --help 显示帮助信息"
+      exit 0
+      ;;
+    *)
+      echo "未知选项: $1"
+      echo "使用 --help 查看帮助"
+      exit 1
+      ;;
+  esac
+done
+
+echo "NUM_NPU: $NUM_NPU"
+echo "BATCH_SIZE: $BATCH_SIZE"
+echo "TOTAL_EPOCHS: $TOTAL_EPOCHS"
+
 # 训练用例名称
-CASE_NAME=${NETWORK}_${WORLD_SIZE}p_bs${BATCH_SIZE}_e${TOTAL_EPOCHS}_full
+CASE_NAME=${NETWORK}_${NUM_NPU}p_bs${BATCH_SIZE}_e${TOTAL_EPOCHS}_full
 echo "[FlashOCC] CASE_NAME = ${CASE_NAME}"
 
 # 创建输出目录
@@ -65,12 +100,30 @@ sed -i 's/^\(\s*\)is_cuda\s*=\s*True/\1is_cuda = False/' projects/mmdet3d_plugin
 # 每个step打印时间
 sed -i 's/interval=1,/interval=50,/g' mmdetection3d/configs/_base_/default_runtime.py
 
+cfg_file="projects/configs/flashocc/flashocc-r50.py"
+
+# 备份config文件
+cp ${cfg_file} ${cfg_file}.bak
+
+# 修改batchsize
+sed -i "s/samples_per_gpu=*[0-9]\{1,\},/samples_per_gpu=$BATCH_SIZE,/g" ${cfg_file}
+
+#复原callback
+restore_config() {
+    if [ -f ${cfg_file}.bak ]; then
+        mv -f ${cfg_file}.bak ${cfg_file}
+    fi
+}
+
+#异常复原
+trap restore_config EXIT SIGINT SIGTERM ERR
+
 # 训练开始时间
 start_time=$(date +%s)
 
 # 开始训练
 echo "[FlashOCC] Training..."
-bash ./tools/dist_train_fp16_backbone.sh ./projects/configs/flashocc/flashocc-r50.py ${WORLD_SIZE} --work-dir ${OUTPUT_PATH}/work_dir > ${OUTPUT_PATH}/train.log 2>&1 &
+bash ./tools/dist_train_fp16_backbone.sh ./projects/configs/flashocc/flashocc-r50.py ${NUM_NPU} --work-dir ${OUTPUT_PATH}/work_dir > ${OUTPUT_PATH}/train.log 2>&1 &
 wait
 
 # 训练结束时间
@@ -87,7 +140,7 @@ echo "[FlashOCC] E2E Training Time (sec) : ${e2e_time}"
 if [[ ${TOTAL_EPOCHS} == 24 ]]; then
     # 验证精度
     echo "[FlashOCC] Evaluating ..."
-    bash ./tools/dist_test.sh ./projects/configs/flashocc/flashocc-r50.py ${OUTPUT_PATH}/work_dir/epoch_24_ema.pth ${WORLD_SIZE} --eval mAP > ${OUTPUT_PATH}/eval_result.log 2>&1 &
+    bash ./tools/dist_test.sh ./projects/configs/flashocc/flashocc-r50.py ${OUTPUT_PATH}/work_dir/epoch_24_ema.pth ${NUM_NPU} --eval mAP > ${OUTPUT_PATH}/eval_result.log 2>&1 &
     wait
     mIoU=$(grep -o "mIoU of 6019 samples: [0-9.]*" ${OUTPUT_PATH}/eval_result.log | awk 'END {print $NF}')
     echo "[FlashOCC] mIoU : ${mIoU}"
@@ -96,7 +149,7 @@ fi
 # 将关键信息打印到 ${CASE_NAME}.log 中
 echo "Network = ${NETWORK}" > ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "DeviceType = ${DEVICE_TYPE}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
-echo "RankSize = ${WORLD_SIZE}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
+echo "RankSize = ${NUM_NPU}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "BatchSize = ${BATCH_SIZE}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "CaseName = ${CASE_NAME}" >> ${OUTPUT_PATH}/${CASE_NAME}.log
 echo "E2ETrainingTime = ${e2e_time}" >> ${OUTPUT_PATH}/${CASE_NAME}.log

@@ -168,28 +168,36 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 #### 开始训练
 
   - 在模型源码根目录下，运行训练脚本。
+    
+    运行脚本支持命令行参数：
+    - '--num-npu'：NPU卡数，默认为8；
+    - '--batch-size': 每卡batch-size大小，默认为24；
     - 单机8卡性能训练
 
      ```
-     bash test/train_8p_flashocc_r50_perf.sh # 8卡性能
+     bash test/train_8p_flashocc_r50_perf.sh
+     (option) bash test/train_8p_flashocc_r50_perf.sh --num-npu 8 --batch-size 24 # 8卡性能
      ```
 
      - 单机8卡精度训练
 
      ```
-     bash test/train_8p_flashocc_r50_full.sh # 8卡精度
+     bash test/train_8p_flashocc_r50_full.sh
+     (option) bash test/train_8p_flashocc_r50_full.sh --num-npu 8 --batch-size 24 # 8卡精度
      ```
 
      - 单机8卡backbone FP16性能训练
 
      ```
      bash test/train_8p_flashocc_r50_fp16_backbone_perf.sh
+     (option) bash test/train_8p_flashocc_r50_fp16_backbone_perf.sh --num-npu 8 --batch-size 24
      ```
 
      - 单机8卡backbone FP16精度训练
 
      ```
      bash test/train_8p_flashocc_r50_fp16_backbone_full.sh
+     (option) bash test/train_8p_flashocc_r50_fp16_backbone_full.sh --num-npu 8 --batch-size 24
      ```
 
 #### 训练结果
@@ -213,6 +221,8 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 2025.7.23：优化fps计算方式，添加backbone fp16混合精度训练。
 
 2025.8.20：增大num worker，更新fp16性能。
+
+2025.8.25：优化训练脚本，增加入参。
 
 # FAQ
 
