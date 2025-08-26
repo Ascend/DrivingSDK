@@ -125,6 +125,14 @@ out, argmax = scatter_max(updates, indices, out)
 - [x] 支持PyTorch 2.1.0，2.3.1，2.4.0
 - [x] 支持ONNX模型转换，训推一体
 - [ ] 支持图模式
+## onnx转换om
+转换前需要手动添加环境变量
+```shell
+# 查看mx_driving安装路径
+pip3 show mx_driving
+export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/
+export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
+```
 
 ## 模型清单
 DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模型基于昇腾机器的实操案例。每个模型都有详细的使用指导，后续将持续增加和优化典型模型。如下列表中Released为Y的表示已经过测试验证，N的表示开发自验通过。

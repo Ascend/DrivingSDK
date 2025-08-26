@@ -100,6 +100,8 @@ static graphStatus InferDataTypeForMultiScaleDeformableAttn(gert::InferDataTypeC
     context->SetOutputDataType(0, valueDtype);
     return GRAPH_SUCCESS;
 }
+
+IMPL_OP_INFERSHAPE(MultiScaleDeformableAttn).InferShape(InferShapeForMultiScaleDeformableAttn).InferDataType(InferDataTypeForMultiScaleDeformableAttn);
 } // namespace ge
 
 namespace ops {

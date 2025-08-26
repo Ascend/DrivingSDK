@@ -62,6 +62,16 @@ class MultiScaleDeformableAttnFunction(Function):
         sampling_locations: torch.Tensor,
         attention_weights: torch.Tensor,
     ):
+        value_spatial_shapes = g.op(
+            "Cast",
+            value_spatial_shapes,
+            to_i=torch._C._onnx.TensorProtoDataType.INT32
+        )
+        value_level_start_index = g.op(
+            "Cast",
+            value_level_start_index,
+            to_i=torch._C._onnx.TensorProtoDataType.INT32
+        )
         return g.op(
             "npu::MultiScaleDeformableAttn",
             value,
@@ -69,7 +79,7 @@ class MultiScaleDeformableAttnFunction(Function):
             value_level_start_index,
             sampling_locations,
             attention_weights,
-        )
+        ).setType(value.type())
 
 
 multi_scale_deformable_attn = MultiScaleDeformableAttnFunction.apply
