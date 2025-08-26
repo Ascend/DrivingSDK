@@ -149,18 +149,30 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
 ## 训练模型
 
-开始训练与验证
+- 单机训练
+
+    训练脚本支持命令行参数（支持默认值/关键字参数/位置参数）
+    - `--batch_node_size_stage1` : stage1的global_batch_size，默认值为64（单卡batch_size=global_batch_size/NPU卡数）
+    - `--batch_node_size_stage2` : stage2的global_batch_size，默认值为48
+    - `--num_npu` : NPU卡数，默认值为8
+
+- 单机多卡精度训练脚本
 ```shell
-  # train
+  #stage1默认训练100个epoch,stage2训练10个epoch
   bash test/train_8p_full.sh
-
-  # (option) downloading the stage1 weights to test the stage2 performance
-  wget https://github.com/swc-17/SparseDrive/releases/download/v1.0/sparsedrive_stage1.pth --no-check-certificate -O ckpt/sparsedrive_stage1.pth
-
-  # performance
+  (option) bash test/train_8p_full.sh 64 48 8
+  (option) bash test/train_8p_full.sh --batch_node_size_stage1=64 --batch_node_size_stage2=48 --num_npu=8
+```
+- 单机多卡性能测试脚本
+```shell
+  #stage1\stage2默认训练1000个step
   bash test/train_8p_performance.sh
-  ```
+  (option) bash test/train_8p_performance.sh 64 48 8
+  (option) bash test/train_8p_performance.sh --batch_node_size_stage1=64 --batch_node_size_stage2=48 --num_npu=8
 
+  # (option)若没有进行全量精度训练，可使用如下命令下载stage1的权重以测试stage2的性能
+  wget https://github.com/swc-17/SparseDrive/releases/download/v1.0/sparsedrive_stage1.pth --no-check-certificate -O ckpt/sparsedrive_stage1.pth
+```
 
 ## 训练结果
 
@@ -181,6 +193,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
 2025.07.07：瓶颈算子优化，刷新性能数据
 
+2025.08.25：训练脚本优化
 ## FAQ
 暂无。
 

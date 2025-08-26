@@ -39,9 +39,54 @@ export CPU_AFFINITY_CONF=1
 #减少显存占用
 export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
 
+#网络名称，同目录名称，需要模型审视修改
+Network='SparseDrive'
+#stage1 batch_size
 batch_node_size_stage1=64
+#stage2 batch_size
 batch_node_size_stage2=48
-rank_size=8
+#分配的NPU数量
+num_npu=8
+
+##################################################################################
+# 解析参数
+source ./test/parse_args.sh
+declare_required_params batch_node_size_stage1 batch_node_size_stage2 num_npu
+parse_common_args "$@"
+
+#配置文件路径
+STAGE1_CONFIG_FILE='./projects/configs/sparsedrive_small_stage1.py'
+STAGE2_CONFIG_FILE='./projects/configs/sparsedrive_small_stage2.py'
+
+#备份配置文件
+cp ${STAGE1_CONFIG_FILE} ${STAGE1_CONFIG_FILE}.bak
+cp ${STAGE2_CONFIG_FILE} ${STAGE2_CONFIG_FILE}.bak
+
+#更新config文件里的参数
+sed -i "s|total_batch_size[[:space:]]*=[[:space:]]*[0-9]\{1,\}|total_batch_size = ${batch_node_size_stage1}|g" ${STAGE1_CONFIG_FILE}
+sed -i "s|num_gpus[[:space:]]*=[[:space:]]*[0-9]\{1,\}|num_gpus = ${num_npu}|g" ${STAGE1_CONFIG_FILE}
+
+sed -i "s|total_batch_size[[:space:]]*=[[:space:]]*[0-9]\{1,\}|total_batch_size = ${batch_node_size_stage2}|g" ${STAGE2_CONFIG_FILE}
+sed -i "s|num_gpus[[:space:]]*=[[:space:]]*[0-9]\{1,\}|num_gpus = ${num_npu}|g" ${STAGE2_CONFIG_FILE}
+
+#定义复原config文件的callback
+restore_config() {
+    if [ -f "${STAGE1_CONFIG_FILE}.bak" ]; then
+        mv -f "${STAGE1_CONFIG_FILE}.bak" "${STAGE1_CONFIG_FILE}"
+    fi
+    if [ -f "${STAGE2_CONFIG_FILE}.bak" ]; then
+        mv -f "${STAGE2_CONFIG_FILE}.bak" "${STAGE2_CONFIG_FILE}"
+    fi
+}
+
+#设置信号捕获，如果训练过程中：
+#   正常退出(EXIT)
+#   用户中断(SIGINT)
+#   kill中止请求(SIGTERM)
+#   命令执行失败(ERR)
+#   可以自动还原对config的修改
+trap restore_config EXIT SIGINT SIGTERM ERR
+##################################################################################
 
 cur_path=`pwd`
 cur_path_last_diename=${cur_path##*/}
@@ -76,7 +121,7 @@ echo $PORT
 ## stage1
 nohup bash ./tools/dist_train.sh \
    projects/configs/sparsedrive_small_stage1.py \
-   ${rank_size} \
+   ${num_npu} \
    --deterministic > ${output_path_dir}/stage1_train_8p_full.log 2>&1 &
 
 wait
@@ -86,7 +131,7 @@ cp -f work_dirs/sparsedrive_small_stage1/iter_43900.pth ckpt/sparsedrive_stage1.
 ## stage2
 nohup bash ./tools/dist_train.sh \
    projects/configs/sparsedrive_small_stage2.py \
-   ${rank_size} \
+   ${num_npu} \
    --deterministic > ${output_path_dir}/stage2_train_8p_full.log 2>&1 &
 
 wait
