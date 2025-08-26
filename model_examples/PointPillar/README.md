@@ -195,10 +195,18 @@ code_path=model_examples/PointPillar
    ```
 2. 运行训练脚本。
    该模型支持单机单机8卡训练
+   
+   运行脚本支持命令行参数：
+   - '--num-npu'：NPU卡数，默认为8；
+   - '--batch-size': 每卡batch-size大小，默认为4；
    ```
    cd tools/test
+   # 8卡精度脚本
    bash train_pointpillar_full_8p.sh
+   (option) bash train_pointpillar_full_8p.sh --num-npu 8 --batch-size 4
+   # 8卡性能脚本
    bash train_pointpillar_performance_8p.sh
+   (option) bash train_pointpillar_performance_8p.sh --num-npu 8 --batch-size 4
    ```
    训练完成后，权重文件保存在当前路径下，并输出模型训练精度和性能信息
 
@@ -214,8 +222,8 @@ code_path=model_examples/PointPillar
 训练性能结果展示表
 | Exp | global batch size | FPS |
 | - | - | - |
-| 8p-竞品A | 256 | 486 |
-| 8p-Atlas 800T A2| 256 | 576 |
+| 8p-竞品A | 32 | 60.75 |
+| 8p-Atlas 800T A2| 32 | 70.79 |
 
 ## FAQ
 ### ImportError:/usr/local/gcc-7.5.0/lib64/libgomp.so.1:cannot allocate memory in static TLS block,
@@ -263,3 +271,4 @@ pip install protobuf
 
 [2025-06-12] **NEW:** PointPillar模型更新fps计算方式，更新性能指标
 
+[2025-08-25] **NEW:** PointPillar模型更新fps，更新脚本传参
