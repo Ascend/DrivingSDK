@@ -65,6 +65,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 | 三方库  | 支持版本 |
 | :-----: | :------: |
 | PyTorch |   2.5.1   |
+| PyTorch |   2.6.0   |
 
 ### 安装昇腾环境
 
@@ -76,7 +77,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 | :---------------: | :------: |
 | FrameworkPTAdapter | 7.1.0  |
 |       CANN        | 8.2.RC1  |
-|       Python        | >=3.9  |
+|       Python        | 3.9  |
 
 1. 激活 CANN 环境
     将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
@@ -108,11 +109,23 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
     将模型根目录记作 `model-root-path`
 
+
+
 5. 安装模型相关的依赖项。
-  
+    根据已安装的 PyTorch 版本，选择对应版本的 torchvision 进行安装：
+    * 若 PyTorch 版本为 2.5.1：
     ```
     python -m pip install torchvision==0.20.1
+    ```
     
+    * 若 PyTorch 版本为 2.6.0：
+    ```
+    python -m pip install torchvision==0.21.0
+    ```
+    
+    请确保 torch 与 torchvision 版本兼容。可通过 `python -c "import torch; print(torch.__version__)"` 查看当前 PyTorch 版本。
+  
+    ```
     # 安装其他依赖项
     python -m pip install -r requirements.txt
 
