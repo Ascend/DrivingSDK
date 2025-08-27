@@ -196,7 +196,7 @@ index 501bddc8..b37504ed 100644
 +ftfy
 +prettytable
 diff --git a/tools/train.py b/tools/train.py
-index 10fdaa18..07151688 100644
+index 10fdaa18..4be91a88 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -3,6 +3,9 @@ import argparse
@@ -206,13 +206,33 @@ index 10fdaa18..07151688 100644
 +import torch
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
- 
+
  from mmengine.config import Config, DictAction
  from mmengine.logging import print_log
-@@ -101,4 +104,6 @@ def main():
- 
- 
+@@ -101,4 +104,11 @@ def main():
+
+
  if __name__ == '__main__':
+-    main()
 +    torch_npu.npu.set_compile_mode(jit_compile=False)
 +    torch.npu.config.allow_internal_format = False
-     main()
++    from mx_driving.patcher.patcher import PatcherBuilder, Patch
++    from mx_driving.patcher.mmcv import msda
++
++    pb = PatcherBuilder().add_module_patch("torch", Patch(msda))
++    with pb.build():
++        main()
+diff --git a/mmseg/__init__.py b/mmseg/__init__.py
+index 5fcb84e8..77326df7 100644
+--- a/mmseg/__init__.py
++++ b/mmseg/__init__.py
+@@ -8,7 +8,7 @@ from packaging.version import parse
+ from .version import __version__, version_info
+
+ MMCV_MIN = '2.0.0rc4'
+-MMCV_MAX = '2.2.0'
++MMCV_MAX = '2.3.0'
+ MMENGINE_MIN = '0.5.0'
+ MMENGINE_MAX = '1.0.0'
+
+

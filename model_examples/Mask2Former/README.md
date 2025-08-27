@@ -14,7 +14,7 @@
   url=https://github.com/open-mmlab/mmsegmentation.git
   commit_id=c685fe6767c4cadf6b051983ca6208f1b9d1ccb8
   ```
-  
+
 - 适配昇腾 AI 处理器的实现：
 
   ```
@@ -54,7 +54,7 @@
   ```
   cd model_examples/Mask2Former
   ```
-  
+
   1. 下载包含 `Mask2Former` 模型的原始仓库代码，并执行如下命令：
 
       ```
@@ -65,19 +65,16 @@
       pip install -r requirements.txt
       cd ../
       ```
-  
+
   2. 源码编译安装 `mmcv rc4main` 分支：
 
       ```
-      git clone -b rc4main https://github.com/momo609/mmcv.git
-      cp -f mmcv.patch mmcv
-      cd mmcv
-      git checkout 10d07678aa14266637e23a97945ae39f00b6ce35
-      git apply mmcv.patch
-      pip install -r requirements/runtime.txt
-      MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py build_ext
-      MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-      cd ../
+       git clone https://github.com/open-mmlab/mmcv
+       cd mmcv/
+       pip install -r requirements/runtime.txt
+       MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
+       MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
+       cd ../
       ```
 
   3. 源码编译安装 `mmdetection v3.3.0` 版本：
@@ -150,7 +147,7 @@ python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
 2. 运行训练脚本。
 
     启动 8 卡训练。
-   
+
     ```
     bash ./test/train_full_8p.sh  # 8卡精度
 
