@@ -410,7 +410,7 @@ export LD_PRELOAD={conda_env_path}/lib/python3.8/site-packages/sklearn/__check_b
 conda install -c conda-forge blas
 ```
 ### 数据预处理序列化时报错
-可能时网络不稳定导致数据集下载时缺失部分image或者.bin文件
+可能是网络不稳定导致数据集下载时缺失部分image或者.bin文件
 ### 报错：KeyError:'road_plane'
 修改`tools/cfgs/kitti_models/pointpillar.yaml`，`USE_ROAD_PLANE: False`
 ### 安装编译cumm时报错：TypeError: ccimport() got multiple values for argument 'std'
