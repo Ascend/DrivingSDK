@@ -54,7 +54,7 @@
         <td align=center>Y</td>
     </tr>
     <tr>
-        <td align=center><a href=./context/radius[beta].md>radius[beta]</a></td>
+        <td align=center><a href=./context/radius.md>radius</a></td>
         <td align=center>N</td>
     </tr>
     <tr>

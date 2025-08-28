@@ -139,54 +139,55 @@ DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模�
 |  Model   | 链接  | Released |
 |  :----:  |  :----  | :----  |
 | BEVDepth  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDepth |Y|
-| CenterNet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterNet |Y|
-| PointPillar(2D)  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointPillar |Y|
-| CenterPoint(2D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |Y|
-| BevFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFormer |Y|
-| SurroundOcc  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc |Y|
-| GameFormer-Planner  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner |Y|
-| StreamPETR  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/StreamPETR |Y|
 | BEVDet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet |Y|
-| Sparse4D  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Sparse4D |Y|
-| TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |Y|
-| DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR |Y|
-| Deformable-DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR |Y|
-| LaneSegNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LaneSegNet |Y|
+| BEVDet4D  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet4D |Y|
+| BevFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFormer |Y|
 | BEVFusion | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFusion |Y|
+| CenterNet  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterNet |Y|
+| CenterPoint(2D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |Y|
+| CenterPoint(3D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |Y|
+| Deformable-DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR |Y|
+| DenseTNT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT |Y|
+| DETR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR |Y|
+| DETR3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR3D |Y|
+| Diffusion-Planner | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner |Y|
+| DiffusionDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive |Y|
 | FCOS-resnet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS |Y|
 | FCOS3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS3D |Y|
-| MapTR |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTR|Y|
-| UniAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD |Y|
-| PivotNet|https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PivotNet|Y|
-| CenterPoint(3D)  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint |Y|
-| DETR3D | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR3D |Y|
-| DenseTNT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT |Y|
-| Mask2Former | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Mask2Former |Y|
-| GameFormer | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer |Y|
-| MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |Y|
-| SalsaNext | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SalsaNext |Y|
 | FlashOCC | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FlashOCC |Y|
-| SparseDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SparseDrive |Y|
+| GameFormer | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer |Y|
+| GameFormer-Planner  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner |Y|
+| LaneSegNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LaneSegNet |Y|
+| MapTR |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTR|Y|
+| MapTRv2  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTRv2 |Y|
+| Mask2Former | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Mask2Former |Y|
 | MatrixVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MatrixVT |Y|
-| Diffusion-Planner | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner |N|
-| DiffusionDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive |N|
-| Panoptic-PolarNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet |N|
-| MagicDriveDiT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT |N|
+| MultiPath++ | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++ |Y|
+| OpenDWM  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenDWM |Y|
+| OpenVLA  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenVLA |Y|
+| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |Y|
+| Pi-0  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Pi-0 |Y|
+| PivotNet|https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PivotNet|Y|
+| PointPillar(2D)  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointPillar |Y|
+| SalsaNext | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SalsaNext |Y|
+| Sparse4D  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Sparse4D |Y|
+| SparseDrive | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SparseDrive |Y|
+| StreamPETR  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/StreamPETR |Y|
+| SurroundOcc  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc |Y|
+| TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |Y|
+| UniAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD |Y|
+| BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
 | HiVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HiVT |N|
 | HPTR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HPTR |N|
-| Senna  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Senna |N|
-| PanoOcc  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc |N|
 | LMDrive  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LMDrive |N|
-| VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |N|
+| MagicDriveDiT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT |N|
+| Panoptic-PolarNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet |N|
+| PointTransformerV3  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointTransformerV3 |N|
 | QCNet | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet |N|
-| BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
-| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |N|
+| Senna  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Senna |N|
+| VAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD |N|
 | VGGT  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VGGT |N|
-| MapTRv2  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTRv2 |N|
-| OpenDWM  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenDWM |N|
-| Pi-0  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/pi-0 |N|
-| BEVDet4D  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet4D |N|
-| OpenVLA  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenVLA |N|
+| YoloV8  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8 |N|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品

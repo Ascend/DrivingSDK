@@ -1,4 +1,4 @@
-## radius[beta]
+## radius
 ### 接口原型
 ```python
 mx_driving.radius(Tensor x,Tensor y,Tensor ptr_x, Tensor ptr_y, 
