@@ -118,7 +118,7 @@
 2. 下载[pi-0预训练权重](https://huggingface.co/lerobot/pi0)，将权重路径记作 pi0_weights
 
 ## 快速开始
-本任务主要提供**单机8卡**的训练脚本。在训练前，需要在torch_run.sh文件中修改对应路径信息。
+本任务主要提供**单机8卡**的训练脚本。
 ### 开始训练
 
 - 单机8卡性能
@@ -153,5 +153,5 @@ Q: 在无网络或者有防火墙的网络下，模型无法自动下载paligemm
 A: 可自行下载[paligemma权重](https://huggingface.co/google/paligemma-3b-pt-224)，将权重路径记作 paligemma_weights。再执行以下命令，使用脚本将本地权重路径替换进模型代码：
 
   ```
-  bash test/paligemma_path_mod.sh {paligemma_weights}
+  bash test/paligemma_weights_mod.sh {paligemma_weights}
   ```

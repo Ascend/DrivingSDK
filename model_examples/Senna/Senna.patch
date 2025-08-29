@@ -60,17 +60,18 @@ index 8fa159c..c2db4bd 100644
  class LlavaConfig(LlamaConfig):
      model_type = "llava_llama"
 diff --git a/requirements.txt b/requirements.txt
-index f1df450..57617c5 100644
+index f1df450..1cd5768 100644
 --- a/requirements.txt
 +++ b/requirements.txt
-@@ -1,6 +1,5 @@
+@@ -1,7 +1,6 @@
  absl-py==2.1.0
  accelerate==0.29.2
 -aidisdk==0.18.0
 -aiohttp==3.9.5
-+aiohttp==3.12.14
++aiohttp
  aiohttp-cors==0.7.0
  aiomultiprocess==0.9.1
+ aiosignal==1.3.1
 @@ -72,7 +71,6 @@ msgpack==1.0.8
  multidict==6.0.5
  multiprocess==0.70.15
@@ -79,6 +80,15 @@ index f1df450..57617c5 100644
  networkx==3.3
  ninja==1.11.1.1
  nltk==3.8.1
+@@ -88,7 +86,7 @@ pillow==10.3.0
+ platformdirs==4.2.1
+ prometheus_client==0.20.0
+ proto-plus==1.23.0
+-protobuf==4.25.3
++protobuf
+ psutil==5.9.8
+ py-cpuinfo==9.0.0
+ py-spy==0.3.14
 @@ -108,7 +106,6 @@ python-dateutil==2.9.0.post0
  python-dotenv==1.0.1
  pytz==2024.1
