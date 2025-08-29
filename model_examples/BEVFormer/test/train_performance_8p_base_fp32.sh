@@ -1,7 +1,31 @@
 # 网络名称,同目录名称,需要模型审视修改
 Network="BEVFormer_Base"
+
+# 初始化参数
 batch_size=1
 world_size=8
+
+# 帮助信息
+if [[ $1 == --help || $1 == -h ]];then
+    echo "usage: ./train_*.sh <args>"
+    echo " "
+    echo "parameter explain:
+    --batch-size               specify batch size
+    --num-npu                  specify the number of NPUs
+    -h/--help                  show help message
+    "
+    exit 1
+fi
+
+# 参数校验
+for para in "$@"
+do
+    if [[ $para == --batch-size* ]];then
+        batch_size=$(echo "${para#*=}")
+    elif [[ $para == --num-npu* ]];then
+        world_size=$(echo "${para#*=}")
+    fi
+done
 
 # cd到与test文件夹同层级目录下执行脚本，提高兼容性；test_path_dir为包含test文件夹的路径
 cur_path=$(pwd)
@@ -25,10 +49,30 @@ fi
 
 mkdir -p ${output_path}
 cd BEVFormer
-sed -i "256s/interval=50/interval=1/g" projects/configs/bevformer/bevformer_base.py
+config=projects/configs/bevformer/bevformer_base.py
+
+# 备份config文件
+cp ${config} ${config}.bak
+
+sed -i "256s/interval=50/interval=1/g" "$config"
 sed -i "202s|samples_per_gpu=1|samples_per_gpu=$batch_size|g" projects/configs/bevformer/bevformer_base.py
 sed -i "s|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)|runner = dict(type='EpochBasedRunner', max_epochs=total_epochs, stop_iters=500)|g" projects/configs/bevformer/bevformer_base.py
 sed -i "7s/^/#/" ./projects/mmdet3d_plugin/bevformer/detectors/bevformer_fp16.py
+
+# 定义复原config文件的callback
+restore_config() { 
+    if [ -f ${config}.bak ]; then
+        mv -f ${config}.bak ${config}
+    fi
+}
+
+# 设置信号捕获，如果训练
+#   正常退出（EXIT）
+#   用户中断（SIGINT）
+#   Kill终止请求（SIGTERM）
+#   命令执行失败（ERR）
+# 可以自动还原对config文件的修改
+trap restore_config EXIT SIGINT SIGTERM ERR
 
 #训练开始时间，不需要修改
 start_time=$(date +%s)

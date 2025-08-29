@@ -148,17 +148,21 @@ BEVDet/data
 - 单机8卡训练
 
      ```shell
-     bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py # 8卡精度
-     bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py --performance=1 # 8卡性能(只运行一个Epoch)
+     bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py
+     (option) bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py --batch-size=8 --num-npu=8 # 8卡精度
+     bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py --performance=1
+     (option) bash ./test/train_8p.sh --py_config=configs/bevdet/bevdet-r50.py --performance=1 --batch-size=8 --num-npu=8 # 8卡性能(只运行一个Epoch)
      ```
 
-  模型训练脚本参数说明如下。
+  模型多卡训练脚本参数说明如下。
 
    ```
    公共参数：
    --py_config                              //不同类型任务配置文件
    --performance                            //--performance=1开启性能测试，默认不开启
    --work_dir                               //输出路径包括日志和训练参数
+   --batch-size                             //指定batchsize，默认值为8
+   --num-npu                                //指定卡数，默认值为8
    ```
 
    训练完成后，权重文件保存在当前路径下，并输出模型训练精度和性能信息。
@@ -170,7 +174,6 @@ BEVDet/data
   max_epochs=24
   eval_log_file=eval.log
   bash ./tools/dist_test.sh ${py_config} train_output_dir/epoch_${max_epochs}_ema.pth 8 --eval mAP | tee ${eval_log_file}
-
   ```
 
 

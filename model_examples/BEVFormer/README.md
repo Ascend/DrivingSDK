@@ -133,22 +133,37 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 # 开始训练
 
-- 单机8卡训练(fp32训练精度)
+- 单机8卡训练（fp32训练精度）
    ```shell
-   bash test/train_full_8p_base_fp32.sh --epochs=4 # 8卡训练，默认训练24个epochs，这里只训练4个epochs
+   bash test/train_full_8p_base_fp32.sh
+   (option) bash test/train_full_8p_base_fp32.sh --epochs=4 --batch-size=1 --num-npu=8 # 8卡训练，默认训练24个epochs，这里只训练4个epochs
    ```
 - 单机8卡训练（fp32训练性能）
    ```shell
-   bash test/train_performance_8p_base_fp32.sh # 8卡性能
+   bash test/train_performance_8p_base_fp32.sh
+   (option) bash test/train_performance_8p_base_fp32.sh --batch-size=1 --num-npu=8 # 8卡性能
    ```
-- 单机8卡训练(混合精度训练精度)
+- 单机8卡训练（混合精度训练精度）
    ```shell
-   bash test/train_full_8p_base_fp16.sh --epochs=4 # 8卡训练，默认训练24个epochs，这里只训练4个epochs
+   bash test/train_full_8p_base_fp16.sh
+   (option) bash test/train_full_8p_base_fp16.sh --epochs=4 --batch-size=1 --num-npu=8 # 8卡训练，默认训练24个epochs，这里只训练4个epochs
    ```
 - 单机8卡训练（混合精度训练性能）
    ```shell
-   bash test/train_performance_8p_base_fp16.sh # 8卡性能
+   bash test/train_performance_8p_base_fp16.sh
+   (option) bash test/train_performance_8p_base_fp16.sh --batch-size=1 --num-npu=8 # 8卡性能
    ```
+
+  模型训练脚本参数说明如下。
+
+   ```
+   公共参数：
+   --batch-size                             //指定batchsize，默认值为1
+   --num-npu                                //指定卡数，默认值为8
+   精度训练脚本参数：
+   --epochs                                 //指定训练epoch数，默认值为24
+   ```
+
 # 结果
 
 |  NAME       | Backbone          | Method          |   训练方式     |  Epoch  |   global batch size      |      NDS     |     mAP      |     FPS      |

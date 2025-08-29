@@ -26,17 +26,58 @@ export MULTI_STREAM_MEMORY_REUSE=1
 export OMP_NUM_THREADS=16
 export MKL_NUM_THREADS=16
 
-gpu_num=$1
-echo "number of gpus: "${gpu_num}
-
+# 初始化参数
+gpu_num=8
 batch_size=6
+
+# 帮助信息
+if [[ $1 == --help || $1 == -h ]];then
+    echo "usage: ./train_*.sh <args>"
+    echo " "
+    echo "parameter explain:
+    --batch-size               specify batch size
+    --num-npu                  specify the number of NPUs
+    -h/--help                  show help message
+    "
+    exit 1
+fi
+
+# 参数校验
+for para in "$@"
+do
+    if [[ $para == --batch-size* ]];then
+        batch_size=$(echo "${para#*=}")
+    elif [[ $para == --num-npu* ]];then
+        gpu_num=$(echo "${para#*=}")
+    fi
+done
+
+echo "number of gpus: "${gpu_num}
 global_batch_size=$((gpu_num * batch_size))
 
 config=projects/configs/sparse4dv3_temporal_r50_1x8_bs6_256x704.py
 work_dir=work_dirs/sparse4dv3_temporal_r50_1x8_bs6_256x704
 
+# 备份config文件
+cp ${config} ${config}.bak
+
 sed -i "s/total_batch_size = 48/total_batch_size = ${global_batch_size}/" "$config"
 sed -i "s/num_gpus = 8/num_gpus = ${gpu_num}/" "$config"
+
+# 定义复原config文件的callback
+restore_config() { 
+    if [ -f ${config}.bak ]; then
+        mv -f ${config}.bak ${config}
+    fi
+}
+
+# 设置信号捕获，如果训练
+#   正常退出（EXIT）
+#   用户中断（SIGINT）
+#   Kill终止请求（SIGTERM）
+#   命令执行失败（ERR）
+# 可以自动还原对config文件的修改
+trap restore_config EXIT SIGINT SIGTERM ERR
 
 #训练开始时间
 start_time=$(date +%s)

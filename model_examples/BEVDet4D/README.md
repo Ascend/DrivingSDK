@@ -119,13 +119,12 @@ BEVDet/data
         samples
         sweeps
         v1.0-trainval
-        nuscenes_infos_train.pkl
-        nuscenes_infos_val.pkl
+        bevdetv3-nuscenes_dbinfos_train.pkl
         bevdetv3-nuscenes_infos_train.pkl
         bevdetv3-nuscenes_infos_val.pkl
 ```
 ## 获取预训练权重
-联网情况下，预训练权重会自动下载。
+联网情况下，预训练权重会自动下载。无网络的情况参见 [FAQ](#faq)
 
 # 快速开始
 

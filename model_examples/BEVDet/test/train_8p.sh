@@ -8,12 +8,13 @@ export RANK_SIZE=8
 export JOB_ID=10087
 RANK_ID_START=0
 
-performance=0
-
-#基础参数
+# 初始化参数
 batch_size=8
+WORLD_SIZE=8
 #训练step
 max_epochs=24
+
+performance=0
 
 # 帮助信息
 if [[ $1 == --help || $1 == -h ]];then
@@ -23,6 +24,8 @@ if [[ $1 == --help || $1 == -h ]];then
     --py_config               train config
     --performance              switch to performance mode when != 0
     --work_dir                 set output dir for training
+    --batch-size               specify batch size
+    --num-npu                  specify the number of NPUs
     -h/--help		             show help message
     "
     exit 1
@@ -37,6 +40,10 @@ do
         performance=`echo ${para#*=}`
     elif [[ $para == --work_dir* ]];then
         work_dir=`echo ${para#*=}`
+    elif [[ $para == --batch-size* ]];then
+        batch_size=$(echo "${para#*=}")
+    elif [[ $para == --num-npu* ]];then
+        WORLD_SIZE=$(echo "${para#*=}")
     fi
 done
 
@@ -88,11 +95,10 @@ fi
 #设置环境变量
 echo "Device ID: $ASCEND_DEVICE_ID"
 export RANK_ID=$RANK_ID
-export WORLD_SIZE=8
 
 bash ./tools/dist_train.sh ${py_config} ${WORLD_SIZE} \
 --work-dir ${work_dir} \
---cfg-options runner.max_epochs=$max_epochs
+--cfg-options runner.max_epochs=$max_epochs data.samples_per_gpu=$batch_size
 
 
 #训练结束时间

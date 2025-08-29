@@ -101,7 +101,7 @@ fi
 
 bash ./tools/dist_train.sh ${py_config} ${WORLD_SIZE} \
 --work-dir ${work_dir} \
---cfg-options runner.max_epochs=$max_epochs data.samples_per_gpu=$batch_size
+--cfg-options runner.max_epochs=$max_epochs data.samples_per_gpu=$batch_size > train_full.log 2>&1
 
 #训练结束时间
 end_time=$(date +%s)

@@ -201,4 +201,28 @@ bash test/train_performance_8p.sh $VLA_HOME/models $VLA_HOME/datasets
 2025.8.21: 首次发布。
 
 ## FAQ
+Q: 在无法访问 Hugging Face hub 的情况下运行模型报错？
 
+A: 用户可以使用 Hugging Face 镜像源在有网络的情况下自主下载，文件结构如下：
+
+```shell
+caches
+├── models--meta-llama--Llama-2-7b-hf
+│   ├── blobs
+│   ├── refs
+│   └── snapshots
+├── models--timm--vit_large_patch14_reg4_dinov2.lvd142m
+│   ├── blobs
+│   ├── refs
+│   └── snapshots
+├── models--timm--ViT-SO400M-14-SigLIP
+│   ├── blobs
+│   ├── refs
+│   └── snapshots
+└── version.txt
+```
+并设置环境变量：
+```shell
+export HF_HOME="/{path_to_caches}/caches/"
+export HUGGINGFACE_HUB_CACHE="/{path_to_caches}/caches/"
+```

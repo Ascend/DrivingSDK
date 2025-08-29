@@ -195,12 +195,23 @@ export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
 
 - 单机8卡精度训练
 ```shell
-bash test/train_full_8p.sh 8
+bash test/train_full_8p.sh
+(option) bash test/train_full_8p.sh --batch-size=6 --num-npu=8
 ```
 - 单机8卡性能训练
 ```shell
-bash test/train_performance_8p.sh 8
+bash test/train_performance_8p.sh
+(option) bash test/train_performance_8p.sh --batch-size=12 --num-npu=8
 ```
+
+  模型训练脚本参数说明如下：
+
+  ```
+  公共参数：
+  --batch-size                             //指定batchsize，默认值如上指定值
+  --num-npu                                //指定卡数，默认值为8
+  ```
+
 - 多机多卡训练
 ```shell
 # 'XX.XX.XX.XX'为主节点的IP地址；端口号可以换成未被占用的可用端口
