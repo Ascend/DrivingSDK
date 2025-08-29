@@ -123,7 +123,7 @@ index 9fdf7d2..e69de29 100644
 -if script_version not in __version__:
 -    __version__ = __version__ + '+py%s' % script_version
 diff --git a/pcdet/datasets/__init__.py b/pcdet/datasets/__init__.py
-index 47c3900..226223d 100644
+index 47c3900..7e7b835 100644
 --- a/pcdet/datasets/__init__.py
 +++ b/pcdet/datasets/__init__.py
 @@ -15,6 +15,8 @@ from .once.once_dataset import ONCEDataset
@@ -135,7 +135,7 @@ index 47c3900..226223d 100644
  __all__ = {
      'DatasetTemplate': DatasetTemplate,
      'KittiDataset': KittiDataset,
-@@ -52,15 +54,25 @@ class DistributedSampler(_DistributedSampler):
+@@ -52,15 +54,26 @@ class DistributedSampler(_DistributedSampler):
  
  
  def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None, workers=4, seed=None,
@@ -148,7 +148,7 @@ index 47c3900..226223d 100644
 -        training=training,
 -        logger=logger,
 -    )
-+                     logger=None, training=True, merge_all_iters_to_one_epoch=False, total_epochs=0, use_dynamic_dataloader=False):
++                     logger=None, training=True, merge_all_iters_to_one_epoch=False, total_epochs=0, num_replicas=8, use_dynamic_dataloader=False):
 +
 +    if dataset_cfg.DATASET == 'NuScenesDataset':
 +        dataset = __all__[dataset_cfg.DATASET](
@@ -157,6 +157,7 @@ index 47c3900..226223d 100644
 +            root_path=root_path,
 +            training=training,
 +            logger=logger,
++            num_replicas=num_replicas,
 +            use_dynamic_dataloader=use_dynamic_dataloader
 +        )
 +    else:
@@ -170,7 +171,7 @@ index 47c3900..226223d 100644
  
      if merge_all_iters_to_one_epoch:
          assert hasattr(dataset, 'merge_all_iters_to_one_epoch')
-@@ -68,14 +80,17 @@ def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None,
+@@ -68,14 +81,17 @@ def build_dataloader(dataset_cfg, class_names, batch_size, dist, root_path=None,
  
      if dist:
          if training:
@@ -706,16 +707,24 @@ index 543d8f2..3cce4c2 100644
 +    return dev_iou
 \ No newline at end of file
 diff --git a/pcdet/datasets/nuscenes/nuscenes_dataset.py b/pcdet/datasets/nuscenes/nuscenes_dataset.py
-index 0f70005..084ec8f 100644
+index 0f70005..a4b1811 100644
 --- a/pcdet/datasets/nuscenes/nuscenes_dataset.py
 +++ b/pcdet/datasets/nuscenes/nuscenes_dataset.py
-@@ -1,3 +1,5 @@
+@@ -1,8 +1,13 @@
 +# Copyright 2024 Huawei Technologies Co., Ltd
 +
  import copy
  import pickle
  from pathlib import Path
-@@ -10,13 +12,13 @@ from ...utils import common_utils
+ 
+ import numpy as np
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from tqdm import tqdm
+ 
+ from ...ops.roiaware_pool3d import roiaware_pool3d_utils
+@@ -10,13 +15,13 @@ from ...utils import common_utils
  from ..dataset import DatasetTemplate
  from pyquaternion import Quaternion
  from PIL import Image
@@ -725,7 +734,7 @@ index 0f70005..084ec8f 100644
 -class NuScenesDataset(DatasetTemplate):
 -    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
 +class NuScenesDataset(PointCloudDynamicDataset, DatasetTemplate):
-+    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None, use_dynamic_dataloader=False):
++    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None, num_replicas=8, use_dynamic_dataloader=False):
          root_path = (root_path if root_path is not None else Path(dataset_cfg.DATA_PATH)) / dataset_cfg.VERSION
 -        super().__init__(
 -            dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=root_path, logger=logger
@@ -734,19 +743,19 @@ index 0f70005..084ec8f 100644
          )
          self.infos = []
          self.camera_config = self.dataset_cfg.get('CAMERA_CONFIG', None)
-@@ -29,6 +31,11 @@ class NuScenesDataset(DatasetTemplate):
+@@ -29,6 +34,11 @@ class NuScenesDataset(DatasetTemplate):
          self.include_nuscenes_data(self.mode)
          if self.training and self.dataset_cfg.get('BALANCED_RESAMPLING', False):
              self.infos = self.balanced_infos_resampling(self.infos)
 +        if training and use_dynamic_dataloader:
 +            self.sorting()
-+            self.buckets = self.bucketing(bucket_capacity=8)
++            self.buckets = self.bucketing(bucket_capacity=num_replicas)
 +        else:
 +            self.buckets = None
  
      def include_nuscenes_data(self, mode):
          self.logger.info('Loading NuScenes dataset')
-@@ -141,17 +148,17 @@ class NuScenesDataset(DatasetTemplate):
+@@ -141,17 +151,17 @@ class NuScenesDataset(DatasetTemplate):
                  crop_h = newH - fH
                  crop_w = int(max(0, newW - fW) / 2)
                  crop = (crop_w, crop_h, crop_w + fW, crop_h + fH)
@@ -767,7 +776,7 @@ index 0f70005..084ec8f 100644
      def load_camera_info(self, input_dict, info):
          input_dict["image_paths"] = []
          input_dict["lidar2camera"] = []
-@@ -200,10 +207,10 @@ class NuScenesDataset(DatasetTemplate):
+@@ -200,10 +210,10 @@ class NuScenesDataset(DatasetTemplate):
          images = []
          for name in filename:
              images.append(Image.open(str(self.root_path / name)))
@@ -2417,19 +2426,21 @@ index 51b7178..cd8652d 100644
                          help='set extra config keys if needed')
  
 diff --git a/tools/train.py b/tools/train.py
-index 29a88bd..a0d5fc3 100644
+index 29a88bd..c3fd102 100644
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -7,6 +7,8 @@ from pathlib import Path
+@@ -7,7 +7,10 @@ from pathlib import Path
  from test import repeat_eval_ckpt
  
  import torch
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
  import torch.nn as nn
++import torch.distributed as dist
  from tensorboardX import SummaryWriter
  
-@@ -33,7 +35,7 @@ def parse_config():
+ from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
+@@ -33,7 +36,7 @@ def parse_config():
      parser.add_argument('--sync_bn', action='store_true', default=False, help='whether to use sync bn')
      parser.add_argument('--fix_random_seed', action='store_true', default=False, help='')
      parser.add_argument('--ckpt_save_interval', type=int, default=1, help='number of training epochs')
@@ -2438,7 +2449,7 @@ index 29a88bd..a0d5fc3 100644
      parser.add_argument('--max_ckpt_save_num', type=int, default=30, help='max number of saved checkpoint')
      parser.add_argument('--merge_all_iters_to_one_epoch', action='store_true', default=False, help='')
      parser.add_argument('--set', dest='set_cfgs', default=None, nargs=argparse.REMAINDER,
-@@ -43,20 +45,20 @@ def parse_config():
+@@ -43,20 +46,20 @@ def parse_config():
      parser.add_argument('--start_epoch', type=int, default=0, help='')
      parser.add_argument('--num_epochs_to_eval', type=int, default=0, help='number of checkpoints to be evaluated')
      parser.add_argument('--save_to_file', action='store_true', default=False, help='')
@@ -2462,7 +2473,7 @@ index 29a88bd..a0d5fc3 100644
      args.use_amp = args.use_amp or cfg.OPTIMIZATION.get('USE_AMP', False)
  
      if args.set_cfgs is not None:
-@@ -72,7 +74,7 @@ def main():
+@@ -72,7 +75,7 @@ def main():
          total_gpus = 1
      else:
          total_gpus, cfg.LOCAL_RANK = getattr(common_utils, 'init_dist_%s' % args.launcher)(
@@ -2471,7 +2482,7 @@ index 29a88bd..a0d5fc3 100644
          )
          dist_train = True
  
-@@ -104,11 +106,11 @@ def main():
+@@ -104,11 +107,11 @@ def main():
          logger.info('Training in distributed mode : total_batch_size: %d' % (total_gpus * args.batch_size))
      else:
          logger.info('Training with a single process')
@@ -2485,12 +2496,13 @@ index 29a88bd..a0d5fc3 100644
          os.system('cp %s %s' % (args.cfg_file, output_dir))
  
      tb_log = SummaryWriter(log_dir=str(output_dir / 'tensorboard')) if cfg.LOCAL_RANK == 0 else None
-@@ -123,13 +125,14 @@ def main():
+@@ -123,13 +126,15 @@ def main():
          training=True,
          merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
          total_epochs=args.epochs,
 -        seed=666 if args.fix_random_seed else None
 +        seed=666 if args.fix_random_seed else None,
++        num_replicas=dist.get_world_size(),
 +        use_dynamic_dataloader=True if args.use_dynamic_dataloader else False
      )
  
@@ -2502,7 +2514,7 @@ index 29a88bd..a0d5fc3 100644
  
      optimizer = build_optimizer(model, cfg.OPTIMIZATION)
  
-@@ -144,7 +147,7 @@ def main():
+@@ -144,7 +149,7 @@ def main():
          last_epoch = start_epoch + 1
      else:
          ckpt_list = glob.glob(str(ckpt_dir / '*.pth'))
@@ -2511,7 +2523,7 @@ index 29a88bd..a0d5fc3 100644
          if len(ckpt_list) > 0:
              ckpt_list.sort(key=os.path.getmtime)
              while len(ckpt_list) > 0:
-@@ -189,11 +192,11 @@ def main():
+@@ -189,11 +194,11 @@ def main():
          lr_warmup_scheduler=lr_warmup_scheduler,
          ckpt_save_interval=args.ckpt_save_interval,
          max_ckpt_save_num=args.max_ckpt_save_num,

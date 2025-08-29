@@ -31,10 +31,6 @@ from torch.utils.data import DataLoader, Sampler, BatchSampler, DistributedSampl
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data.distributed import DistributedSampler
 
-from torch_geometric.data import Batch, Dataset
-from torch_geometric.data.data import BaseData
-from torch_geometric.data.datapipes import DatasetAdapter
-
 from ..dataset.utils.dynamic_dataset import UniformBucketingDynamicDataset
 from ..dataset.utils.dynamic_sampler import DynamicDistributedSampler
 
@@ -45,6 +41,8 @@ class Collater:
         self.exclude_keys = exclude_keys
 
     def __call__(self, batch):
+        from torch_geometric.data import Batch
+        from torch_geometric.data.data import BaseData
         elem = batch[0]
         if isinstance(elem, BaseData):
             return Batch.from_data_list(batch, self.follow_batch,
@@ -122,7 +120,7 @@ class AgentDynamicDataset(UniformBucketingDynamicDataset):
 
 class DynamicBatchSampler(BatchSampler):
     def __init__(self, 
-                 dataset: Dataset, 
+                 dataset,
                  sampler, 
                  batch_size: int, 
                  drop_last: bool = False) -> None:
@@ -144,7 +142,7 @@ class DynamicBatchSampler(BatchSampler):
 
 class AgentDynamicBatchSampler(DynamicDistributedSampler):
     def __init__(self, 
-                 dataset: Dataset, 
+                 dataset, 
                  num_replicas: Optional[int] = None, 
                  rank: Optional[int] = None, 
                  shuffle: bool = True, 
@@ -185,7 +183,7 @@ class AgentDynamicBatchSampler(DynamicDistributedSampler):
 
 class AgentDynamicBatchDataLoader(DataLoader):
     def __init__(self, 
-                 dataset: Union[Dataset, Sequence[BaseData], DatasetAdapter],
+                 dataset,
                  batch_size: int,
                  train_batch_size: int,
                  shuffle: bool = True,

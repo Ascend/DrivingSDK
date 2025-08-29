@@ -442,3 +442,4 @@ pip install -r 2.5_requirements.txt
 [2025-04-21] **NEW:** CenterPoint2d模型优化fps计算方式，乘以卡数，更新性能指标，readme中添加global batch size
 [2025-05-29] **NEW:** CenterPoint3d模型优化，更新性能
 [2025-08-21] **NEW:** CenterPoint3d模型性能优化，更新性能
+[2025-08-29] **NEW:** CenterPoint3d修复数据处理问题
