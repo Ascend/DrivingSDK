@@ -135,7 +135,7 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 ```
 
 ## 模型清单
-DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模型基于昇腾机器的实操案例。每个模型都有详细的使用指导，后续将持续增加和优化典型模型。如下列表中Released为Y的表示已经过测试验证，N的表示开发自验通过。
+DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模型基于昇腾机器的实操案例。每个模型都有详细的使用指导，后续将持续增加和优化典型模型。使用过程中，若遇到报错问题，可查看[自动驾驶模型FAQ](https://gitee.com/ascend/DrivingSDK/blob/master/docs/faq/model_faq.md)自助解决，或在[Issues](https://gitee.com/ascend/DrivingSDK/issues)中留言。如下列表中Released为Y的表示已经过测试验证，N的表示开发自验通过。
 |  Model   | 链接  | Released |
 |  :----:  |  :----  | :----  |
 | BEVDepth  |https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDepth |Y|

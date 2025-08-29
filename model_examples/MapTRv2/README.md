@@ -182,13 +182,6 @@ MapTRv2
 │   │   ├── samples/
 │   │   ├── v1.0-test/
 |   |   ├── v1.0-trainval/
-|   |   ├── nuscenes_infos_temporal_test_mono3d.coco.json
-|   |   ├── nuscenes_infos_temporal_train_mono3d.coco.json
-|   |   ├── nuscenes_infos_temporal_val_mono3d.coco.json
-|   |   ├── nuscenes_map_anns_val.json
-|   |   ├── nuscenes_infos_temporal_test.pkl
-|   |   ├── nuscenes_infos_temporal_train.pkl
-|   |   ├── nuscenes_infos_temporal_val.pkl
 |   |   ├── nuscenes_map_infos_temporal_test.pkl
 |   |   ├── nuscenes_map_infos_temporal_train.pkl
 |   |   ├── nuscenes_map_infos_temporal_val.pkl
