@@ -140,11 +140,17 @@ BEVDet/data
 
 - 8卡性能
   ```shell
+  # fp16 性能
   bash test/train_performance_8p.sh --py_config=configs/bevdet/bevdet-stbase-4d-stereo-512x1408-cbgs.py --fp16
+  # fp32 性能
+  bash test/train_performance_8p.sh --py_config=configs/bevdet/bevdet-stbase-4d-stereo-512x1408-cbgs.py
   ```
 - 8卡精度
   ```shell
+  # fp16 精度
   bash test/train_full_8p.sh --py_config=configs/bevdet/bevdet-stbase-4d-stereo-512x1408-cbgs.py --test=1 --fp16
+  # fp32 精度
+  bash test/train_full_8p.sh --py_config=configs/bevdet/bevdet-stbase-4d-stereo-512x1408-cbgs.py --test=1
   ```
 
   模型训练脚本参数说明如下。
@@ -153,7 +159,7 @@ BEVDet/data
    公共参数：
    --py_config                       //不同类型任务配置文件
    --test                            //--test=1固定随机性用于测试精度，默认不开启
-   --fp16                            //使能混合精度训练
+   --fp16                            //使能fp16混合精度训练，默认精度为fp32
    --work_dir                        //输出路径包括日志和训练参数
    ```
 
