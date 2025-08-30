@@ -254,6 +254,41 @@ class TestSubmSparseConv3d(TestCase):
         res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
         self.assertRtolEqual(golden, res, 1e-3, 1e-3)
 
+    def test_1x1_small_spatial_shape(self):
+        num_points = [20000]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 32
+        out_channels = 64
+        kernel_size = 1
+        batch_size = len(num_points)
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
+
+    def test_1x1_small_spatial_shape_fp16(self):
+        num_points = [20000]
+        out_spatial_shape = [1180, 180, 5]
+        in_channels = 32
+        out_channels = 64
+        kernel_size = 1
+        batch_size = len(num_points)
+        dtype = torch.float16
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
+    
+    def test_1x1_large_spatial_shape_fp16(self):
+        num_points = [10000]
+        out_spatial_shape = [3280, 2480, 500]
+        in_channels = 128
+        out_channels = 256
+        kernel_size = 1
+        batch_size = len(num_points)
+        dtype = torch.float16
+
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
+
 if __name__ == "__main__":
     np.random.seed(100)
     run_tests()

@@ -19,6 +19,7 @@ constexpr uint8_t SRC_PARTTEN_1 = 4;
 constexpr uint8_t SRC_PARTTEN_2 = 5;
 constexpr uint8_t SRC_PARTTEN_3 = 6;
 constexpr uint8_t MAP_VAL_FLOAT_BUF_LENGTH = 3;
+constexpr uint8_t K2_SIZE_1 = 1;
 constexpr uint8_t K2_SIZE_3 = 3;
 constexpr uint8_t K2_SIZE_5 = 5;
 constexpr int8_t K2_IDX_0 = 0;
@@ -254,7 +255,9 @@ public:
             for (int8_t k0Idx = 0; k0Idx < k0_; k0Idx++) {
                 innerKernelOffset = k0Idx * k1_ * k2Aligned_;
                 for (int8_t k1Idx = 0; k1Idx < k1_; k1Idx++) {
-                    if (k2_ == K2_SIZE_3) {
+                    if (k2_ == K2_SIZE_1) {
+                        ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_0, mapValLocal_.GetValue(innerKernelOffset));
+                    } else if (k2_ == K2_SIZE_3) {
                         ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_0, mapValLocal_.GetValue(innerKernelOffset));
                         ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_1, mapValLocal_.GetValue(innerKernelOffset + MAP2_OFFSET_1));
                         ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_2, mapValLocal_.GetValue(innerKernelOffset + MAP2_OFFSET_2));
@@ -302,7 +305,9 @@ public:
                 int8_t k1Idx = mapIdx % k1Aligned_;
 
                 int32_t map2Offset = map1Val * spatialShape2_ + spatial2BaseIdx;
-                if (k2_ == K2_SIZE_3) {
+                if (k2_ == K2_SIZE_1) {
+                    ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_0, map2GM_.GetValue(map2Offset));
+                } else if (k2_ == K2_SIZE_3) {
                     ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_0, map2GM_.GetValue(map2Offset));
                     ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_1, map2GM_.GetValue(map2Offset + MAP2_OFFSET_1));
                     ProcessOnePoint(i, k0Idx, k1Idx, K2_IDX_2, map2GM_.GetValue(map2Offset + MAP2_OFFSET_2));

@@ -19,6 +19,7 @@
 
 namespace {
     constexpr size_t TOTAL_CAPACITY = 8;
+    constexpr uint8_t KERNEL_SIZE_1 = 1;
     constexpr uint8_t KERNEL_SIZE_3 = 3;
     constexpr uint8_t KERNEL_SIZE_5 = 5;
     constexpr uint32_t KERNEL_SIZE_IDX_0 = 0;
@@ -62,9 +63,10 @@ std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& f
 {
     TORCH_CHECK_NPU(feature);
     TORCH_CHECK_NPU(indices);
-    TORCH_CHECK((kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_3 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_3 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_3) ||
+    TORCH_CHECK((kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_1 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_1 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_1) ||
+        (kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_3 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_3 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_3) ||
         (kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_5 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_5 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_5),
-        "kernel size current only support (3, 3, 3) and (5, 5, 5) but got: (",
+        "kernel size current only support (1, 1, 1), (3, 3, 3) and (5, 5, 5) but got: (",
         kernel_size[KERNEL_SIZE_IDX_0], ", ", kernel_size[KERNEL_SIZE_IDX_1], ", ", kernel_size[KERNEL_SIZE_IDX_2], ")");
 
     auto indices_size = indices.sizes();
