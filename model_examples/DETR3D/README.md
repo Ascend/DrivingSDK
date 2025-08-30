@@ -2,20 +2,23 @@
 
 ## 目录
 
+- [DETR3D for PyTorch](#detr3d-for-pytorch)
+  - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [DETR3D（在研版本）](#DETR3D（在研版本）)
+- [DETR3D（在研版本）](#detr3d在研版本)
   - [准备训练环境](#准备训练环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [安装模型环境](#安装模型环境)
     - [模型数据准备](#模型数据准备)
   - [快速开始](#快速开始)
+    - [训练任务](#训练任务)
     - [开始训练](#开始训练)
     - [训练结果](#训练结果)
 - [变更说明](#变更说明)
-- [FAQ](#FAQ)
+- [FAQ](#faq)
 
 # 简介
 
@@ -80,12 +83,24 @@ code_path=model_examples/DETR3D
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
-2. 安装基础依赖
+2. 安装 Driving SDK 加速库
+
+  安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)。
+  ```
+  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  cd DrivingSDK
+  pip install -r requirements.txt
+  bash ci/build.sh --python=3.8
+  pip install dist/mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
+  cd model_examples\DETR3D
+  ```
+
+3. 安装基础依赖
   ```
   pip install mmsegmentation==0.29.1
   ```
 
-3. 安装mmcv
+4. 安装mmcv
 
   ```
   git clone -b 1.x https://github.com/open-mmlab/mmcv.git
@@ -94,9 +109,10 @@ code_path=model_examples/DETR3D
   git apply --reject --whitespace=fix mmcv.patch
   pip install -r requirements/runtime.txt
   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+  cd ../
   ```
 
-4. 安装mmdet
+5. 安装mmdet
 
   ```
   git clone -b v2.28.0 https://github.com/open-mmlab/mmdetection.git
@@ -104,9 +120,10 @@ code_path=model_examples/DETR3D
   cp -f ../mmdet.patch ./
   git apply --reject --whitespace=fix mmdet.patch
   pip install -e .
+  cd ../
   ```
 
-5. 准备模型源码并安装mmdet3d
+6. 准备模型源码并安装mmdet3d
 
   ```
   git clone https://github.com/WangYueFt/detr3d
@@ -114,7 +131,7 @@ code_path=model_examples/DETR3D
   cd detr3d
   git checkout 34a47673011fe13593a3e594a376668acca8bddb
   git apply --reject --whitespace=fix detr3d.patch
-  cp -f ../test/ .
+  cp -fr ../test/ .
   pip install -r requirements.txt
   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
   cp -f ../mmdet3d.patch mmdetection3d
@@ -124,9 +141,9 @@ code_path=model_examples/DETR3D
   pip install -e .
   ```
 
-6. 安装 Driving SDK 加速库
-
-  安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)
+7. 配置tcmalloc
+   
+   配置方法可以参考[昇腾社区](https://www.hiascend.com/document/detail/zh/Pytorch/710/ptmoddevg/trainingmigrguide/performance_tuning_0068.html)。
 
 ### 模型数据准备
 
@@ -201,8 +218,8 @@ cd model_examples/DETR3D/detr3d
 
 |     芯片      | 卡数 | global batch size | epoch | mAP | NDS | FPS |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: |--------------|
-|     竞品A     |  8p  |         8         |  24   |         0.3494          |         0.4222          |       13.16      |
-| Atlas 800T A2 |  8p  |         8         |  24   |         0.3521          |         0.4209          |       9.65    |
+|     竞品A     |  8p  |         24         |  24   |         0.3414          |         0.4133          |       14.28      |
+| Atlas 800T A2 |  8p  |         24         |  24   |         0.3420          |         0.4112          |       14.35    |
 
 # 变更说明
 
