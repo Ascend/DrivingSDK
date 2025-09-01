@@ -1,6 +1,6 @@
 # 网络名称,同目录名称,需要模型审视修改
 Network="DETR3D"
-batch_size=1
+batch_size=3
 world_size=8
 py_config="projects/configs/detr3d/detr3d_res101_gridmask.py"
 

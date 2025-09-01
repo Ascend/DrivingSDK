@@ -1,6 +1,6 @@
 # 网络名称,同目录名称,需要模型审视修改
 Network="DETR3D"
-batch_size=1
+batch_size=3
 world_size=8
 py_config="projects/configs/detr3d/detr3d_res101_gridmask.py"
 
@@ -41,7 +41,7 @@ echo "end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
 e2e_time=$(( $end_time - $start_time ))
 
 # 模型单epoch的step数量
-total_step=3517
+total_step=1173
 
 # 单迭代训练时长
 avg_time=$(echo "scale=3; $e2e_time / $total_step" | bc)
