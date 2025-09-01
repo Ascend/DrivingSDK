@@ -40,9 +40,7 @@ if(BUILD_STAGE EQUAL 2)
             ${TORCH_PATH}/include/torch/csrc/api/include)
   target_compile_options(
     _C
-    PRIVATE -fprofile-arcs
-            -ftest-coverage
-            -fPIC
+    PRIVATE -fPIC
             $<$<CONFIG:Release>:-O3>
             $<$<CONFIG:Debug>:-O0
             -g>
@@ -50,11 +48,10 @@ if(BUILD_STAGE EQUAL 2)
             -DTORCH_API_INCLUDE_EXTENSION_H
             -DTORCH_EXTENSION_NAME=_C
             -D_GLIBCXX_USE_CXX11_ABI=${ABI}
-            -D__FILENAME__=__FILE__
             ${EXT_CXX_FLAGS})
 
   target_link_directories(_C PRIVATE ${TORCH_PATH}/lib ${TORCH_NPU_PATH}/lib)
-  target_link_libraries(_C PRIVATE gcov c10 torch torch_python torch_npu)
+  target_link_libraries(_C PRIVATE c10 torch torch_python torch_npu)
   target_link_options(
     _C
     PRIVATE
