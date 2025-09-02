@@ -119,6 +119,8 @@ pip install -r requirements.txt
 cd {DrivingSDK_root_dir}/model_examples/StreamPETR
 git clone https://github.com/open-mmlab/mmcv.git -b 1.x
 cd mmcv
+cp ../mmcv.patch .
+git apply mmcv.patch
 cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/distributed.py mmcv/parallel/distributed.py
 cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/text.py mmcv/runner/hooks/logger/text.py
 cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/transformer.py mmcv/cnn/bricks/transformer.py
