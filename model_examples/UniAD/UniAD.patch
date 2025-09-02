@@ -1,6 +1,6 @@
 diff --git a/nuscenes_need/mot.py b/nuscenes_need/mot.py
 new file mode 100644
-index 0000000..9da27eb
+index 0000000..db4bd0b
 --- /dev/null
 +++ b/nuscenes_need/mot.py
 @@ -0,0 +1,139 @@
@@ -116,10 +116,10 @@ index 0000000..9da27eb
 +                    index_temp = np.array(index_temp)
 +                    index_temp_unique = np.unique(index_temp)
 +                    next_frame_id = max(np.max(index_temp)+1, index_temp_unique.shape[0])
-+                else:                
++                else:
 +                    next_frame_id = max(r.index.get_level_values(0).max() + 1,
 +                                        r.index.get_level_values(0).unique().shape[0])
-+                                        
++
 +                if np.isnan(next_frame_id):
 +                    next_frame_id = 0
 +                copy.index = copy.index.map(lambda x: (x[0] + next_frame_id, x[1]))
@@ -329,7 +329,7 @@ index 3cb635f..50f6a13 100644
  
      def __init__(self, eps=1e-6, reduction='mean', loss_weight=1.0):
 diff --git a/projects/mmdet3d_plugin/losses/planning_loss.py b/projects/mmdet3d_plugin/losses/planning_loss.py
-index 6d47070..4a7cd10 100644
+index 6d47070..bf70b26 100644
 --- a/projects/mmdet3d_plugin/losses/planning_loss.py
 +++ b/projects/mmdet3d_plugin/losses/planning_loss.py
 @@ -40,20 +40,41 @@ class CollisionLoss(nn.Module):
@@ -355,28 +355,28 @@ index 6d47070..4a7cd10 100644
 +                # Compute min/max for all target boxes (N, 2)
 +                target_min = future_gt_corners.min(dim=1)[0]  # (N, 2)
 +                target_max = future_gt_corners.max(dim=1)[0]  # (N, 2)
-+            
++
 +                # Compute intersection for all boxes (vectorized)
 +                intersect_min = torch.maximum(sdc_min, target_min)  # (N, 2)
 +                intersect_max = torch.minimum(sdc_max, target_max)  # (N, 2)
 +                intersect_dims = intersect_max - intersect_min  # (N, 2)
-+            
++
 +                # Clamp negative values to 0 and compute area
 +                intersect_area = torch.prod(
 +                    torch.clamp_min(intersect_dims, 0),
 +                    dim=1
 +                )  # (N,)
-+            
++
 +                # Sum all intersections for this frame
 +                inter_sum += intersect_area.sum()
-+                
++
          return inter_sum * self.weight
          
      def inter_bbox(self, corners_a, corners_b):
 +        device_stack = corners_a.device
 +        corners_a = corners_a.cpu()
 +        corners_b = corners_b.cpu()
-+        
++
          xa1, ya1 = torch.max(corners_a[:, 0]), torch.max(corners_a[:, 1])
          xa2, ya2 = torch.min(corners_a[:, 0]), torch.min(corners_a[:, 1])
          xb1, yb1 = torch.max(corners_b[:, 0]), torch.max(corners_b[:, 1])
@@ -392,10 +392,70 @@ index 6d47070..4a7cd10 100644
  
      def to_corners(self, bbox):
 diff --git a/projects/mmdet3d_plugin/losses/track_loss.py b/projects/mmdet3d_plugin/losses/track_loss.py
-index 549c5ae..c4d4711 100644
+index 549c5ae..16e80cf 100644
 --- a/projects/mmdet3d_plugin/losses/track_loss.py
 +++ b/projects/mmdet3d_plugin/losses/track_loss.py
-@@ -386,20 +386,31 @@ class ClipMatcher(nn.Module):
+@@ -244,33 +244,26 @@ class ClipMatcher(nn.Module):
+         filtered_idx = []
+         for src_per_img, tgt_per_img in indices:
+             keep = tgt_per_img != -1
+-            filtered_idx.append((src_per_img[keep], tgt_per_img[keep]))
+-        indices = filtered_idx
++            if not keep.all().item():
++                filtered_idx.append((src_per_img[keep], tgt_per_img[keep]))
++                indices = filtered_idx
+         idx = self._get_src_permutation_idx(indices)
+         src_boxes = outputs["pred_boxes"][idx]
+         sdc_boxes = outputs["pred_sdc_boxes"][0, -1:]
+         target_sdc_boxes = gt_instances[0].sdc_boxes[:1]
+-        target_boxes = torch.cat(
+-            [
+-                gt_per_img.boxes[i]
+-                for gt_per_img, (_, i) in zip(gt_instances, indices)
+-            ],
+-            dim=0,
+-        )
++
++        target_boxes_list = []
++        target_obj_ids_list = []
++        for gt_per_img, (_, i) in zip(gt_instances, indices):
++            target_boxes_list.append(gt_per_img.boxes[i])
++            target_obj_ids_list.append(gt_per_img.obj_ids[i])
++
++        target_boxes = torch.cat(target_boxes_list, dim=0)
++        target_obj_ids = torch.cat(target_obj_ids_list, dim=0)
+         
+         src_boxes = torch.cat([src_boxes, sdc_boxes], dim=0)
+         target_boxes = torch.cat([target_boxes, target_sdc_boxes], dim=0)
+ 
+-        # for pad target, don't calculate regression loss, judged by whether obj_id=-1
+-        target_obj_ids = torch.cat(
+-            [
+-                gt_per_img.obj_ids[i]
+-                for gt_per_img, (_, i) in zip(gt_instances, indices)
+-            ],
+-            dim=0,
+-        )
+-        # [num_matched]
+-
+         target_obj_ids = torch.cat([target_obj_ids, torch.zeros(1).to(target_obj_ids.device)], dim=0)
+         mask = target_obj_ids != -1
+         bbox_weights = torch.ones_like(target_boxes) * self.code_weights
+@@ -372,11 +365,8 @@ class ClipMatcher(nn.Module):
+         pred_past_trajs_i = track_instances.pred_past_trajs  # predicted past trajs of i-th image.
+ 
+         obj_idxes = gt_instances_i.obj_ids
+-        obj_idxes_list = obj_idxes.detach().cpu().numpy().tolist()
+-        obj_idx_to_gt_idx = {
+-            obj_idx: gt_idx
+-            for gt_idx, obj_idx in enumerate(obj_idxes_list)
+-        }
++        obj_idxes_npu = obj_idxes.clone()
++
+         outputs_i = {
+             "pred_logits": pred_logits_i.unsqueeze(0),
+             "pred_sdc_logits": pred_sdc_logits_i,
+@@ -386,19 +376,30 @@ class ClipMatcher(nn.Module):
          }
          # step1. inherit and update the previous tracks.
          num_disappear_track = 0
@@ -412,35 +472,61 @@ index 549c5ae..c4d4711 100644
 -                        j] = -1  # track-disappear case.
 -            else:
 -                track_instances.matched_gt_idxes[j] = -1
--
-+        
-+        obj_idxes = track_instances.obj_idxes  
++
++        obj_idxes = track_instances.obj_idxes
 +        mask_valid = obj_idxes >= 0
-+        
++
 +        current_max = obj_idxes.max().item() if mask_valid.any() else 0
-+        
-+        lookup_size = max(current_max + 1, 1)  
++
++        lookup_size = max(current_max + 1, 1)
 +        lookup_table = torch.full((lookup_size,), -1, dtype=torch.long, device=track_instances.obj_idxes.device)
-+        
-+        if obj_idx_to_gt_idx:
-+            keys = torch.tensor(list(obj_idx_to_gt_idx.keys()), dtype=torch.long, device=track_instances.obj_idxes.device)
-+            valid_keys = keys[keys < lookup_size]  
-+            valid_values = torch.tensor([obj_idx_to_gt_idx[k.item()] for k in valid_keys], device=track_instances.obj_idxes.device)
-+            lookup_table[valid_keys] = valid_values
-+        
++
++        if obj_idxes_npu.any():
++            valid_mask = obj_idxes_npu < lookup_size
++            valid_obj_idxes = obj_idxes_npu[valid_mask]
++            valid_gt_indices = torch.arange(len(obj_idxes_npu), device=obj_idxes_npu.device)[valid_mask]
++            lookup_table[valid_obj_idxes] = valid_gt_indices
++
 +        matched_gt_idxes = torch.where(
 +            mask_valid,
-+            lookup_table[torch.clamp(obj_idxes, max=lookup_size-1)],  
++            lookup_table[torch.clamp(obj_idxes, max=lookup_size-1)],
 +            torch.tensor(-1, dtype=torch.long, device=track_instances.obj_idxes.device)
 +        )
-+        
++
 +        num_disappear_track = (mask_valid & (matched_gt_idxes == -1)).sum().item()
 +        track_instances.matched_gt_idxes = matched_gt_idxes
-+        
-+        
++
+ 
          full_track_idxes = torch.arange(
              len(track_instances), dtype=torch.long).to(pred_logits_i.device)
-         # previsouly tracked, which is matched by rule
+@@ -438,15 +439,20 @@ class ClipMatcher(nn.Module):
+             bs, num_querys = bbox_preds.shape[:2]
+             # Also concat the target labels and boxes
+             targets = [untracked_gt_instances]
++            gt_labels_list = []
++            gt_bboxes_list = []
+             if isinstance(targets[0], Instances):
+-                # [num_box], [num_box, 9] (un-normalized bboxes)
+-                gt_labels = torch.cat(
+-                    [gt_per_img.labels for gt_per_img in targets])
+-                gt_bboxes = torch.cat(
+-                    [gt_per_img.boxes for gt_per_img in targets])
++                for gt_per_img in targets:
++                    gt_labels_list.append(gt_per_img.labels)
++                    gt_bboxes_list.append(gt_per_img.boxes)
++                gt_labels = torch.cat(gt_labels_list)
++                gt_bboxes = torch.cat(gt_bboxes_list)
+             else:
+-                gt_labels = torch.cat([v["labels"] for v in targets])
+-                gt_bboxes = torch.cat([v["boxes"] for v in targets])
++                for v in targets:
++                    gt_labels_list.append(v["labels"])
++                    gt_bboxes_list.append(v["boxes"])
++                gt_labels = torch.cat(gt_labels_list)
++                gt_bboxes = torch.cat(gt_bboxes_list)
+ 
+             bbox_pred = bbox_preds[0]
+             cls_pred = cls_preds[0]
 diff --git a/projects/mmdet3d_plugin/losses/traj_loss.py b/projects/mmdet3d_plugin/losses/traj_loss.py
 index 87b26ca..5650b49 100644
 --- a/projects/mmdet3d_plugin/losses/traj_loss.py
@@ -470,14 +556,14 @@ index 87b26ca..5650b49 100644
      dist, _ = torch.min(dist, dim=1)
      m_r = torch.sum(torch.as_tensor(dist > dist_thresh)) / len(dist)
 diff --git a/projects/mmdet3d_plugin/models/utils/functional.py b/projects/mmdet3d_plugin/models/utils/functional.py
-index b4ae933..d5f31ee 100644
+index b4ae933..fb557f9 100644
 --- a/projects/mmdet3d_plugin/models/utils/functional.py
 +++ b/projects/mmdet3d_plugin/models/utils/functional.py
 @@ -100,6 +100,14 @@ def anchor_coordinate_transform(anchors, bbox_results, with_translation_transfor
              rot_yaw = rot_2d(angle) # num_agents, 2, 2
              rot_yaw = rot_yaw[:, None, None,:, :] # num_agents, 1, 1, 2, 2
              transformed_anchors = rearrange(transformed_anchors, 'b g m t c -> b g m c t')  # 1, num_groups, num_modes, 12, 2 -> 1, num_groups, num_modes, 2, 12
-+            
++
 +            num_agents, _, _, _, _ = rot_yaw.shape
 +            _, num_groups, num_modes, _, _ = transformed_anchors.shape
 +            broadcast_shape1 = (num_agents, num_groups, num_modes, 2, 2)
@@ -583,21 +669,20 @@ index aa61597..ae762f8 100644
          self.n_classes = n_classes
          self.ignore_index = ignore_index
 diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py b/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
-index fdcf079..a52d3d6 100644
+index fdcf079..d4dc144 100644
 --- a/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
 +++ b/projects/mmdet3d_plugin/uniad/dense_heads/planning_head_plugin/planning_metrics.py
 @@ -108,9 +108,16 @@ class PlanningMetric(Metric):
              m1 = torch.logical_and(m1, torch.logical_not(gt_box_coll))
  
              ti = torch.arange(n_future)
--            obj_coll_sum[ti[m1]] += segmentation[i, ti[m1], yi[m1], xi[m1]].long()
-+            
++
 +            yi = yi.detach().cpu()
 +            xi = xi.detach().cpu()
 +            m1 = m1.detach().cpu()
++
+             obj_coll_sum[ti[m1]] += segmentation[i, ti[m1], yi[m1], xi[m1]].long()
  
-+            obj_coll_sum[ti[m1]] += segmentation[i, ti[m1], yi[m1], xi[m1]].long()
-+            
              m2 = torch.logical_not(gt_box_coll)
 +            m2 = m2.detach().cpu()
 +
@@ -605,14 +690,14 @@ index fdcf079..a52d3d6 100644
              obj_box_coll_sum[ti[m2]] += (box_coll[ti[m2]]).long()
  
 diff --git a/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py b/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py
-index ebfd3b8..a7ee677 100644
+index ebfd3b8..192482a 100644
 --- a/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py
 +++ b/projects/mmdet3d_plugin/uniad/dense_heads/seg_head_plugin/seg_assigner.py
 @@ -291,6 +291,9 @@ class HungarianAssigner_filter(BaseAssigner):
              assigned_labels[matched_row_inds] = gt_labels[matched_col_inds]
              if i == 0:
                  result = AssignResult(num_gts, assigned_gt_inds.clone(), None, labels=assigned_labels.clone())
-+                
++
 +            matched_row_inds = matched_row_inds.detach().cpu()
 +            matched_col_inds = matched_col_inds.detach().cpu()
              if cost[matched_row_inds,matched_col_inds].max()>=INF:
@@ -675,7 +760,7 @@ index 6875233..5e84f20 100644
  
          bev_mask = (reference_points_cam[..., 2:3] > eps)
 diff --git a/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py b/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
-index 77dfa91..49359c6 100644
+index 77dfa91..8b32eed 100644
 --- a/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
 +++ b/projects/mmdet3d_plugin/uniad/modules/spatial_cross_attention.py
 @@ -23,6 +23,13 @@ from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
@@ -732,9 +817,9 @@ index 77dfa91..49359c6 100644
 -        for j in range(bs):
 -            for i, reference_points_per_img in enumerate(reference_points_cam):   
 -                index_query_per_img = indexes[i]
-+        for i, reference_points_per_img in enumerate(reference_points_cam):   
++        for i, reference_points_per_img in enumerate(reference_points_cam):
 +            index_query_per_img = indexes[i]
-+            for j in range(bs):        
++            for j in range(bs):
                  queries_rebatch[j, i, :len(index_query_per_img)] = query[j, index_query_per_img]
                  reference_points_rebatch[j, i, :len(index_query_per_img)] = reference_points_per_img[j, index_query_per_img]
  
