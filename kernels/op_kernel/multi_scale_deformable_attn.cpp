@@ -194,7 +194,7 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Proces
             UpdateParams(this->endOffset_ - taskIdx);
         }
         this->CopyInSample(locationFloat[2 * this->alignedOneTaskNum_], attentionWeight, taskIdx);
-        this->ComputeLocation(taskIdx, locationFloat, locationInt, shapeFloat, shapeInt, locFloat, locInt, offsetInt,
+        this->ComputeLocation(taskIdx, locationFloat, attentionWeight, locationInt, shapeFloat, shapeInt, locFloat, locInt, offsetInt,
             validFlag.ReinterpretCast<uint8_t>());
         ComputeBilinearInterpolation(validFlag, shapeInt, locationInt, locInt, shapeFloat, production, value, locFloat,
             weight, attentionWeight, cornerWeightBrc, output);

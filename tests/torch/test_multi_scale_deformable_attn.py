@@ -1,6 +1,7 @@
 import unittest
 from collections import namedtuple
 
+import numpy as np
 import torch
 import torch_npu
 from data_cache import golden_data_cache
@@ -11,7 +12,7 @@ import mx_driving
 
 # pylint: disable=too-many-return-values
 @golden_data_cache(__file__)
-def cpu_gen_inputs(shape):
+def cpu_gen_inputs(shape, dtype):
     bs, num_queries, embed_dims, num_heads, num_levels, num_points = shape
     shapes = torch.tensor([60, 40] * num_levels).reshape(num_levels, 2)
     num_keys = sum((H * W).item() for H, W in shapes)
@@ -21,6 +22,11 @@ def cpu_gen_inputs(shape):
     attention_weights = torch.rand(bs, num_queries, num_heads, num_levels, num_points) + 1e-5
     offset = torch.cat((shapes.new_zeros((1,)), shapes.prod(1).cumsum(0)[:-1]))
     grad_output = torch.rand(bs, num_queries, num_heads * embed_dims) * 1e-3
+
+    value = value.to(dtype)
+    sampling_locations = sampling_locations.to(dtype)
+    attention_weights = attention_weights.to(dtype)
+    grad_output = grad_output.to(dtype)
 
     return shapes, num_keys, value, sampling_locations, attention_weights, offset, grad_output
 
@@ -75,9 +81,14 @@ Inputs = namedtuple("Inputs", ["value", "shapes", "offset", "sampling_locations"
 
 
 class TestMultiScaleDeformableAttnFunction(TestCase):
-    def gen_inputs(self, shape, dtype):
+    def gen_inputs(self, shape, dtype, data=None):
         bs, num_queries, embed_dims, num_heads, num_levels, num_points = shape
-        shapes, num_keys, value, sampling_locations, attention_weights, offset, grad_output = cpu_gen_inputs(shape)
+        shapes, _, value, sampling_locations, attention_weights, offset, grad_output = cpu_gen_inputs(shape, dtype)
+        if data is not None:
+            value.fill_(data)
+            sampling_locations.fill_(data)
+            attention_weights.fill_(data)
+            grad_output.fill_(data)
 
         cpu_value = value.double()
         cpu_shapes = shapes.long()
@@ -207,10 +218,28 @@ class TestMultiScaleDeformableAttnFunction(TestCase):
         cpu_inputs, npu_inputs = self.gen_inputs(shape, torch.float16)
         cpu_results = self.cpu_to_exec(cpu_inputs)
         npu_results = self.npu_to_exec(npu_inputs)
-        self.assertRtolEqual(cpu_results.output, npu_results.output)
-        self.assertRtolEqual(cpu_results.grad_value, npu_results.grad_value)
-        self.assertRtolEqual(cpu_results.grad_attention_weights, npu_results.grad_attention_weights)
-        self.assertRtolEqual(cpu_results.grad_sampling_locations, npu_results.grad_sampling_locations)
+        self.assertRtolEqual(cpu_results.output.astype(np.float16), npu_results.output)
+        self.assertRtolEqual(cpu_results.grad_value.astype(np.float16), npu_results.grad_value)
+        self.assertRtolEqual(cpu_results.grad_attention_weights.astype(np.float16), npu_results.grad_attention_weights)
+        self.assertRtolEqual(cpu_results.grad_sampling_locations.astype(np.float16), npu_results.grad_sampling_locations)
+
+    def test_nan(self):
+        shape = [6, 9680, 32, 8, 4, 4]
+        _, npu_inputs = self.gen_inputs(shape, torch.float32, float('nan'))
+        npu_results = self.npu_to_exec(npu_inputs)
+        self.assertRtolEqual(np.zeros_like(npu_results.output), npu_results.output)
+        self.assertRtolEqual(np.zeros_like(npu_results.grad_value), npu_results.grad_value)
+        self.assertRtolEqual(np.zeros_like(npu_results.grad_attention_weights), npu_results.grad_attention_weights)
+        self.assertRtolEqual(np.zeros_like(npu_results.grad_sampling_locations), npu_results.grad_sampling_locations)
+
+    def test_inf(self):
+        shape = [6, 9680, 32, 8, 4, 4]
+        _, npu_inputs = self.gen_inputs(shape, torch.float32, float('inf'))
+        npu_results = self.npu_to_exec(npu_inputs)
+        self.assertRtolEqual(np.zeros_like(npu_results.output), npu_results.output)
+        self.assertRtolEqual(np.zeros_like(npu_results.grad_value), npu_results.grad_value)
+        self.assertRtolEqual(np.zeros_like(npu_results.grad_attention_weights), npu_results.grad_attention_weights)
+        self.assertRtolEqual(np.zeros_like(npu_results.grad_sampling_locations), npu_results.grad_sampling_locations)
 
 
 if __name__ == "__main__":

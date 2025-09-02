@@ -194,8 +194,8 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
 template<bool aligned, bool fastMode>
 __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::ComputeGrad(
     const LocalTensor<float>& production, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
-    const LocalTensor<float>& attentionWeight, const LocalTensor<float>& gradLocation,
-    const LocalTensor<float>& gradAttentionWeight, const LocalTensor<uint32_t>& gatherOffset, uint32_t taskIdx)
+    const LocalTensor<float>& attentionWeight, const LocalTensor<float>& gradLocation, const LocalTensor<float>& gradAttentionWeight,
+    const LocalTensor<uint32_t>& gatherOffset, const LocalTensor<uint64_t>& validFlag, uint32_t taskIdx)
 {
     uint64_t sampleOffset = taskIdx * this->oneQueryNum_;
     Mul<float, false>(production, weight, production, MASK_PLACEHOLDER, 4 * this->taskRpt_, {1, 1, 1, 8, 8, 8});
@@ -204,6 +204,10 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
     WaitFlag<HardEvent::MTE3_V>(1);
     Add<float, false>(gradAttentionWeight, production, production[this->alignedOneTaskNum_], MASK_PLACEHOLDER,
         this->taskRpt_, {1, 1, 1, 8, 8, 8});
+    // fix the sampling location inputs nan and inf bug
+    Select<float, uint64_t, false>(gradAttentionWeight, validFlag[5 * this->validFlagMaskLen_ / 8], gradAttentionWeight,
+        0.0f, SELMODE::VSEL_TENSOR_SCALAR_MODE, 64, this->taskRpt_, {1, 1, 1, 8, 8, 8});
+    // fix end
 
     Sub<float, false>(gradLocation, weight[3 * this->alignedOneTaskNum_], weight[this->alignedOneTaskNum_],
         MASK_PLACEHOLDER, this->taskRpt_, {1, 1, 1, 8, 8, 8});
@@ -216,6 +220,12 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
     Mul<float, false>(gradLocation, locFloat, gradLocation, MASK_PLACEHOLDER, 4 * this->taskRpt_, {1, 1, 1, 8, 8, 8});
     Add<float, false>(gradLocation[2 * this->alignedOneTaskNum_], gradLocation,
         gradLocation[2 * this->alignedOneTaskNum_], MASK_PLACEHOLDER, 2 * this->taskRpt_, {1, 1, 1, 8, 8, 8});
+    // fix the sampling location inputs nan and inf bug
+    Select<float, uint64_t, false>(gradLocation[2 * this->alignedOneTaskNum_], validFlag[5 * this->validFlagMaskLen_ / 8],
+        gradLocation[2 * this->alignedOneTaskNum_], 0.0f, SELMODE::VSEL_TENSOR_SCALAR_MODE, 64, this->taskRpt_, {1, 1, 1, 8, 8, 8});
+    Select<float, uint64_t, false>(gradLocation[3 * this->alignedOneTaskNum_], validFlag[5 * this->validFlagMaskLen_ / 8],
+        gradLocation[3 * this->alignedOneTaskNum_], 0.0f, SELMODE::VSEL_TENSOR_SCALAR_MODE, 64, this->taskRpt_, {1, 1, 1, 8, 8, 8});
+    // fix end
     Gather(gradLocation, gradLocation[2 * this->alignedOneTaskNum_], gatherOffset, 0, 64, 2 * this->taskRpt_, 8);
 
     SetFlag<HardEvent::V_MTE3>(1);
@@ -272,12 +282,11 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Pr
         }
         this->CopyInSample(locationFloat[2 * this->alignedOneTaskNum_], attentionWeight, taskIdx);
         CopyInGradOut(gradOut, taskIdx);
-        this->ComputeLocation(taskIdx, locationFloat, locationInt, shapeFloat, shapeInt, locFloat, locInt, offsetInt,
+        this->ComputeLocation(taskIdx, locationFloat, attentionWeight, locationInt, shapeFloat, shapeInt, locFloat, locInt, offsetInt,
             validFlag.ReinterpretCast<uint8_t>());
         ComputeBilinearInterpolation(validFlag, shapeInt, locationInt, locInt, shapeFloat, production, value, locFloat,
             weight, attentionWeight, cornerWeightBrc, gradOut, gradValue);
-        ComputeGrad(
-            production, locFloat, weight, attentionWeight, gradLocation, gradAttentionWeight, gatherOffset, taskIdx);
+        ComputeGrad(production, locFloat, weight, attentionWeight, gradLocation, gradAttentionWeight, gatherOffset, validFlag, taskIdx);
     }
     WaitFlag<HardEvent::V_MTE2>(this->copyEvt_);
     WaitFlag<HardEvent::V_MTE2>(0);

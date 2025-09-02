@@ -232,7 +232,7 @@ protected:
     }
 
     __aicore__ inline void ComputeLocation(uint32_t taskIdx, const LocalTensor<float>& locationFloat,
-        const LocalTensor<int32_t>& locationInt, const LocalTensor<float>& shapeFloat,
+        const LocalTensor<float>& attentionWeight, const LocalTensor<int32_t>& locationInt, const LocalTensor<float>& shapeFloat,
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<float>& locFloat, const LocalTensor<int32_t>& locInt,
         const LocalTensor<int32_t>& offsetInt, const LocalTensor<uint8_t>& validFlag);
 
@@ -294,7 +294,7 @@ protected:
 
 template<bool aligned, bool forward, bool fastMode>
 __aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeLocation(uint32_t taskIdx,
-    const LocalTensor<float>& locationFloat, const LocalTensor<int32_t>& locationInt,
+    const LocalTensor<float>& locationFloat, const LocalTensor<float>& attentionWeight, const LocalTensor<int32_t>& locationInt,
     const LocalTensor<float>& shapeFloat, const LocalTensor<int32_t>& shapeInt, const LocalTensor<float>& locFloat,
     const LocalTensor<int32_t>& locInt, const LocalTensor<int32_t>& offsetInt, const LocalTensor<uint8_t>& validFlag)
 {
@@ -309,7 +309,30 @@ __aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeLocati
     ResetMask();
 
     Mul<float, false>(locationFloat, locationFloat, shapeFloat, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 1, 8, 8, 8});
-    Adds<float, false>(locFloat, locationFloat, 0.5f, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
+    Adds<float, false>(locFloat, locationFloat, -0.5f, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
+    // fix the sampling location inputs nan and inf bug
+    CompareScalar<float, uint8_t, false>(validFlag[4 * validFlagMaskLen_], locFloat, -1.f,
+        CMPMODE::GT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
+    CompareScalar<float, uint8_t, false>(validFlag[5 * validFlagMaskLen_], locFloat[alignedOneTaskNum_], -1.f,
+        CMPMODE::GT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 8, 8});
+    Compare<float, uint8_t, false>(validFlag[6 * validFlagMaskLen_], locFloat, shapeFloat,
+        CMPMODE::LT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Compare<float, uint8_t, false>(validFlag[7 * validFlagMaskLen_], locFloat[alignedOneTaskNum_], shapeFloat[alignedOneTaskNum_],
+        CMPMODE::LT, MASK_PLACEHOLDER, taskRpt_, {1, 1, 1, 8, 8, 8});
+    And<uint16_t, false>(validFlag[4 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
+        validFlag[4 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
+        validFlag[6 * validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 2, {1, 1, 1, 8, 8, 8});
+    And<uint16_t, false>(validFlag[5 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
+        validFlag[4 * validFlagMaskLen_].ReinterpretCast<uint16_t>(),
+        validFlag[5 * validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
+    Select<float, uint8_t, false>(locFloat, validFlag[5 * validFlagMaskLen_], locFloat,
+        -2.0f, SELMODE::VSEL_TENSOR_SCALAR_MODE, 64, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Select<float, uint8_t, false>(locFloat[alignedOneTaskNum_], validFlag[5 * validFlagMaskLen_], locFloat[alignedOneTaskNum_],
+        -2.0f, SELMODE::VSEL_TENSOR_SCALAR_MODE, 64, taskRpt_, {1, 1, 1, 8, 8, 8});
+    Select<float, uint8_t, false>(attentionWeight, validFlag[5 * validFlagMaskLen_], attentionWeight,
+        0.0f, SELMODE::VSEL_TENSOR_SCALAR_MODE, 64, taskRpt_, {1, 1, 1, 8, 8, 8});
+    // fix end
+    Adds<float, false>(locFloat, locFloat, 1.0f, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
     Cast<int32_t, float, false>(locInt, locFloat, RoundMode::CAST_FLOOR, MASK_PLACEHOLDER, 2 * taskRpt_, {1, 1, 8, 8});
     // fix the precesion issue of the floor operation(0.9999f -> 1.0f)
     Cast<float, int32_t, false>(
@@ -632,6 +655,6 @@ private:
     __aicore__ inline void ComputeGrad(const LocalTensor<float>& production, const LocalTensor<float>& locFloat,
         const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
         const LocalTensor<float>& gradLocation, const LocalTensor<float>& gradAttentionWeight,
-        const LocalTensor<uint32_t>& gatherOffset, uint32_t taskIdx);
+        const LocalTensor<uint32_t>& gatherOffset, const LocalTensor<uint64_t>& validFlag, uint32_t taskIdx);
 };
 #endif // MSDA_H
