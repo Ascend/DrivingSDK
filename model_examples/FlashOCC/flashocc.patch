@@ -883,11 +883,11 @@ index e5f2063..4f9f7f1 100644
  
  if __name__ == '__main__':
 -    main()
-+    from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+    from mx_driving.patcher.tensor import batch_matmul
-+    from mx_driving.patcher.mmdet import resnet_add_relu
++    from mx_driving.patcher import PatcherBuilder, Patch
++    from mx_driving.patcher import batch_matmul
++    from mx_driving.patcher import resnet_add_relu
 +
-+    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu))
++    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).add_module_patch("mmdet", Patch(resnet_add_relu))
 +    with pb.build():
 +        main()
 diff --git a/tools/train.py b/tools/train.py
@@ -917,11 +917,11 @@ index 4c89d46..994cb32 100644
  
  if __name__ == '__main__':
 -    main()
-+    from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+    from mx_driving.patcher.tensor import batch_matmul
-+    from mx_driving.patcher.mmdet import resnet_add_relu
++    from mx_driving.patcher import PatcherBuilder, Patch
++    from mx_driving.patcher import batch_matmul
++    from mx_driving.patcher import resnet_add_relu
 +
-+    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu))
++    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).add_module_patch("mmdet", Patch(resnet_add_relu))
 +    with pb.build():
 +        main()
 diff --git a/tools/train_fp16_backbone.py b/tools/train_fp16_backbone.py
@@ -1215,10 +1215,10 @@ index 0000000..9f2636e
 +
 +
 +if __name__ == '__main__':
-+    from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+    from mx_driving.patcher.tensor import batch_matmul
-+    from mx_driving.patcher.mmdet import resnet_fp16
++    from mx_driving.patcher import PatcherBuilder, Patch
++    from mx_driving.patcher import batch_matmul
++    from mx_driving.patcher import resnet_fp16
 +
-+    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_fp16))
++    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul)).add_module_patch("mmdet", Patch(resnet_fp16))
 +    with pb.build():
 +        main()
