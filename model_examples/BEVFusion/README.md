@@ -152,7 +152,7 @@ cd ../
   ```shell
   # 主节点拉起脚本，默认训练1个epochs
   bash test/nnodes_train_performance_16p_base_fp32.sh --batch-size=4 --num-npu=8 --nnodes=2 --node-rank=0 --port=port --master-addr=master_addr # master-addr 必须指定，其余可省略以使用默认值
-  # 主节点拉起脚本，默认训练1个epochs
+  # 副节点拉起脚本，默认训练1个epochs
   bash test/nnodes_train_performance_16p_base_fp32.sh --batch-size=4 --num-npu=8 --nnodes=2 --node-rank=1 --port=port --master-addr=master_addr # node-rank，master-addr 必须指定，其余可省略以使用默认值
   ```
 
@@ -160,22 +160,24 @@ cd ../
 单机8卡
 | NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size | NDS   | mAP   | FPS   |
 |------------------|-----------|-------------------------|------|-------|-------|-------|-------|-------|
-| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.44 | 66.45 | 22.38 |
+| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.44 | 66.45 | 23.62 |
 | 8p-竞品A           | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.78 | 67.36 | 22.54 |
 
 双机16卡
 | NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size |FPS   | 线性度 |
 |------------------|-----------|-------------------------|------|-------|-------|-------|-------|
-| 8p-Atlas 800T A2 | lidar-cam | 0.075 | FP32 | 1     | 64 | 43.76 | 97.07%  |
+| 8p-Atlas 800T A2 | lidar-cam | 0.075 | FP32 | 1     | 64 | 45.86 | 97.07%  |
 
 # 版本说明
 
 ## 变更
+2025.8.29：模型优化，更新单机性能。
+
 2025.8.1：模型性能优化，更新单机性能及精度。
 
 2025.7.10：更新单机性能及精度。
 
-2025.5.20：支持双机，更新单机性能。
+2025.5.20：支持双机，更新单机及双机性能。
 
 2024.12.5：首次发布。
 

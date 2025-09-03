@@ -12,7 +12,7 @@ index 56e8440b..b3a6382a 100644
              if ground_plane is not None:
                  xyz = sampled_gt_bboxes[:, :3]
 diff --git a/mmdet3d/models/layers/sparse_block.py b/mmdet3d/models/layers/sparse_block.py
-index 6ed7c8f4..13f69b0d 100644
+index 6ed7c8f4..31066f96 100644
 --- a/mmdet3d/models/layers/sparse_block.py
 +++ b/mmdet3d/models/layers/sparse_block.py
 @@ -2,17 +2,22 @@
@@ -193,7 +193,6 @@ index 6ed7c8f4..13f69b0d 100644
 +    layer = conv_layer(*args, **kwargs, **cfg_)
 +
 +    return layer
-\ No newline at end of file
 diff --git a/mmdet3d/models/middle_encoders/sparse_encoder.py b/mmdet3d/models/middle_encoders/sparse_encoder.py
 index ef141514..0e7a7998 100644
 --- a/mmdet3d/models/middle_encoders/sparse_encoder.py
@@ -302,15 +301,10 @@ index 9f56934e..12f579eb 100644
                  # hard voxelize
                  f, c, n = ret
 diff --git a/projects/BEVFusion/bevfusion/depth_lss.py b/projects/BEVFusion/bevfusion/depth_lss.py
-index 6cc0cc16..55fd6d62 100644
+index 6cc0cc16..9143981f 100644
 --- a/projects/BEVFusion/bevfusion/depth_lss.py
 +++ b/projects/BEVFusion/bevfusion/depth_lss.py
-@@ -1,11 +1,26 @@
- # modify from https://github.com/mit-han-lab/bevfusion
-+import os
-+import ctypes
-+import warnings
- from typing import Tuple
+@@ -3,9 +3,24 @@ from typing import Tuple
  
  import torch
  from torch import nn
@@ -321,6 +315,9 @@ index 6cc0cc16..55fd6d62 100644
 -from .ops import bev_pool
 +from mx_driving import bev_pool_v3
 +
++import os
++import ctypes
++import warnings
 +try:
 +    from mx_driving import npu_index_select
 +    npu_index_select_available = True
@@ -651,7 +648,7 @@ index 00000000..44801857
 +    $CONFIG \
 +    --launcher pytorch ${@:7}
 diff --git a/tools/train.py b/tools/train.py
-index b2ced54b..fcf09854 100644
+index b2ced54b..506747e8 100644
 --- a/tools/train.py
 +++ b/tools/train.py
 @@ -8,6 +8,13 @@ from mmengine.config import Config, DictAction
@@ -668,21 +665,20 @@ index b2ced54b..fcf09854 100644
  
  from mmdet3d.utils import replace_ceph_backend
  
-@@ -132,4 +139,16 @@ def main():
+@@ -132,4 +139,15 @@ def main():
  
  
  if __name__ == '__main__':
 -    main()
 +    torch_npu.npu.set_compile_mode(jit_compile=False)
-+    torch_npu.npu.config.allow_internal_format = False
 +    
 +    pb = PatcherBuilder().add_module_patch("torch", Patch(batch_matmul))
 +    if os.environ.get('PERFORMANCE_MODE', '0') == '1':
 +        # Performance-Testing mode: use Patcher to set breakpoints
 +        pb = pb.brake_at(1000)
-+        with pb.build():
++        with pb.build(allow_internal_format=True):
 +            main()
 +    else:
 +        # Training mode: run the main function directly
-+        with pb.build():
++        with pb.build(allow_internal_format=True):
 +            main()
