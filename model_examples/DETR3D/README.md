@@ -92,7 +92,7 @@ code_path=model_examples/DETR3D
   pip install -r requirements.txt
   bash ci/build.sh --python=3.8
   pip install dist/mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
-  cd model_examples\DETR3D
+  cd model_examples/DETR3D
   ```
 
 3. 安装基础依赖
