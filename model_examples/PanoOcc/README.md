@@ -274,7 +274,7 @@ bash eval_8p.sh [CHECKPOINT_FILE] [OUTPUT_PATH] [NUM_NPUS] [NUM_NPUS]
 * 运行`PanoOcc/tools/`里的脚本如遇到`AssertionError: MMCV==1.7.2 is used but incompatible`，可通过以下任意一种方式解决：
   * 在脚本最上方添加以下两行解决
     ```
-    from mx_driving.patcher.mmcv import patch_mmcv_version
+    from mx_driving.patcher import patch_mmcv_version
     patch_mmcv_version("1.6.0")
     ```
   * 安装mmcv 1.6.0，使用完脚本后，再重新使用npu编译选项编译安装回mmcv 1.7.2

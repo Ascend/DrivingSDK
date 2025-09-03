@@ -22,7 +22,7 @@ from mmcv.utils import TORCH_VERSION, digit_version
 
 # pylint: disable=huawei-redefined-outer-name, dangerous-default-value, too-many-return-values, huawei-too-many-arguments
 
-from mx_driving.patcher.mmcv import patch_mmcv_version
+from mx_driving.patcher import patch_mmcv_version
 # pylint: disable=huawei-wrong-import-position, wrong-import-order
 patch_mmcv_version('1.6.0')
 

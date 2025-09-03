@@ -454,9 +454,8 @@ def generate_patcher_builder(performance=False):
         PatcherBuilder()
         .add_module_patch("torch", Patch(index), Patch(batch_matmul))
         .add_module_patch("numpy", Patch(numpy_type))
-        .add_module_patch("mmcv.parallel", Patch(stream))
-        .add_module_patch("mmcv.parallel.distributed", Patch(ddp))
-        .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
+        .add_module_patch("mmcv", Patch(stream), Patch(ddp))
+        .add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
 
         .add_module_patch("projects.mmdet3d_plugin.models.attention", Patch(flash_attn))
         .add_module_patch("projects.mmdet3d_plugin.models.detection3d.losses", Patch(detection_losses))

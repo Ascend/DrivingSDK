@@ -8,9 +8,12 @@ from unittest.mock import ANY, patch, MagicMock, PropertyMock, Mock
 import torch
 import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
-from mx_driving.patcher.optimizer import optimizer_hooks, optimizer_wrapper
+from mx_driving.patcher import optimizer_hooks, optimizer_wrapper
+
+# MMCV 1.x modules = MMCV 2.x moudles + MMEngine modules, therefore, some module tested here correponds to mmcv instead of mmengine
 
 
+# For mmcv 1.x
 class TestOptimizerHooks(TestCase):
     def setUp(self):
         class UnifiedMeta(type):
@@ -42,7 +45,11 @@ class TestOptimizerHooks(TestCase):
                 return self._registry.get(name)
         
         self.mock_registry = MockRegistry()
-        self.mmcvhooks = ModuleType('mmcvhooks')
+        
+        self.mmcv = ModuleType('mmcv')
+        self.mmcv.runner = ModuleType('runner')
+        self.mmcv.runner.hooks = ModuleType('hooks')
+        self.mmcvhooks = self.mmcv.runner.hooks
         self.mmcvhooks.optimizer = ModuleType('optimizer')
         self.mmcvhooks.optimizer.HOOKS = self.mock_registry
         self.mmcvhooks.optimizer.Hook = MockHook
@@ -60,7 +67,7 @@ class TestOptimizerHooks(TestCase):
         self.mmcvhooks.optimizer.nn = MagicMock()
         
         # Apply patch and verify
-        optimizer_hooks(self.mmcvhooks, {})
+        optimizer_hooks(self.mmcv, {})
         self.assertEqual(len(self.mock_registry._registry), 4, "4 hook classes should be registered")
         
         # Fetch classes registered by patcher's hook decorator
@@ -342,25 +349,28 @@ class TestOptimizerHooks(TestCase):
 class TestOptimizerWrapperPatch(TestCase):
     def test_optimizer_wrapper_patch(self):
         # Create mock
-        mmcvoptwrapper = ModuleType('mmcvoptwrapper')
+        mmengine = ModuleType('mmengine')
+        mmengine.optim = ModuleType('optim')
+        mmengine.optim.optimizer = ModuleType('optimizer')
+        mmengine.optim.optimizer.optimizer_wrapper = ModuleType('optimizer_wrapper')
         
         class OptimWrapper:
             def __init__(self, optimizer):
                 self.optimizer = optimizer
-        mmcvoptwrapper.OptimWrapper = OptimWrapper
+        mmengine.optim.optimizer.optimizer_wrapper.OptimWrapper = OptimWrapper
         
         # Keep original __init__
         orig_init = OptimWrapper.__init__
         
         # Apply patch
-        optimizer_wrapper(mmcvoptwrapper, {})
+        optimizer_wrapper(mmengine, {})
         
         # Create mock optimizer
         mock_optimizer = MagicMock()
         mock_optimizer.clip_grad_norm_fused_ = MagicMock()
         
         # Instantiate to trigger calling of new_init
-        wrapper = mmcvoptwrapper.OptimWrapper(mock_optimizer)
+        wrapper = mmengine.optim.optimizer.optimizer_wrapper.OptimWrapper(mock_optimizer)
         
         # Validate clip_grads existence
         self.assertTrue(hasattr(wrapper, 'clip_grads'))

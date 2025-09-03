@@ -18,10 +18,10 @@ def index(torch: ModuleType, options: Dict):
             return torch.masked_select(self, indices).view(-1, self.shape[1])
         return fn(self, indices)  # fallback to the original function
 
-    if hasattr(torch, "Tensor"):
+    if hasattr(torch.Tensor, "__getitem__"):
         torch.Tensor.__getitem__ = new_fn
     else:
-        raise AttributeError('Tensor not found')
+        raise AttributeError('torch.Tensor.__getitem__ not found')
 
 
 def check_shape_bmm(a, b):
@@ -38,31 +38,27 @@ def check_shape_bmm(a, b):
 
 
 def batch_matmul(torch: ModuleType, options: Dict):
-    from mx_driving import npu_batch_matmul
-
+    
     def create_wrapper(original_fn):
         def wrapper(a, b):
             if check_shape_bmm(a, b):
                 return npu_batch_matmul(a, b)
             return original_fn(a, b)
         return wrapper
-
-
-    matmul_not_found = False
-    tensor_not_found = False
-    if hasattr(torch, "matmul"):
-        torch.matmul = create_wrapper(torch.matmul)
-    else:
-        matmul_not_found = True
     
-    if hasattr(torch, "Tensor"):
+    matmul_not_found = True
+    if hasattr(torch, "matmul"):
+        from mx_driving import npu_batch_matmul
+
+        torch.matmul = create_wrapper(torch.matmul)
+        matmul_not_found = False
+    
+    if hasattr(torch.Tensor, "matmul") and hasattr(torch.Tensor, "__matmul__"):
+        from mx_driving import npu_batch_matmul
+        
         torch.Tensor.matmul = create_wrapper(torch.Tensor.matmul)
         torch.Tensor.__matmul__ = create_wrapper(torch.Tensor.__matmul__)
-    else:
-        tensor_not_found = True
-        
+        matmul_not_found = False    
     
     if matmul_not_found:
-        raise AttributeError("matmul not found")
-    if tensor_not_found:
-        raise AttributeError("Tensor not found")
+        raise AttributeError("In torch, matmul or Tensor.matmul or Tensor.__matmul__ not found")

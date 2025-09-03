@@ -4,8 +4,8 @@ from types import ModuleType
 from typing import Dict
 
 
-def pseudo_sampler(mmdetsamplers: ModuleType, options: Dict):
-    if hasattr(mmdetsamplers, "pseudo_sampler"):
+def pseudo_sampler(mmdet: ModuleType, options: Dict):
+    if hasattr(mmdet.core.bbox.samplers.pseudo_sampler.PseudoSampler, "sample"):
 
         def sample(self, assign_result, bboxes, gt_bboxes, *args, **kwargs):
             import torch
@@ -13,18 +13,20 @@ def pseudo_sampler(mmdetsamplers: ModuleType, options: Dict):
             pos_inds = torch.squeeze(assign_result.gt_inds > 0, -1)
             neg_inds = torch.squeeze(assign_result.gt_inds == 0, -1)
             gt_flags = bboxes.new_zeros(bboxes.shape[0], dtype=torch.uint8)
-            sampling_result = mmdetsamplers.sampling_result.SamplingResult(
+            sampling_result = mmdet.core.bbox.samplers.sampling_result.SamplingResult(
                 pos_inds, neg_inds, bboxes, gt_bboxes, assign_result, gt_flags
             )
             return sampling_result
 
-        mmdetsamplers.pseudo_sampler.PseudoSampler.sample = sample
+        mmdet.core.bbox.samplers.pseudo_sampler.PseudoSampler.sample = sample
     else:
-        raise AttributeError("pseudo_sampler not found")
+        raise AttributeError("mmdet.core.bbox.samplers.pseudo_sampler.PseudoSampler.sample not found")
 
 
-def resnet_add_relu(mmdetresnet: ModuleType, options: Dict):
-    if hasattr(mmdetresnet, "BasicBlock"):
+def resnet_add_relu(mmdet: ModuleType, options: Dict):    
+    basic_block_not_found = True
+    bottle_neck_not_found = True
+    if hasattr(mmdet.models.backbones.resnet.BasicBlock, "forward"):
         from mx_driving import npu_add_relu
         import torch.utils.checkpoint as cp
 
@@ -51,12 +53,13 @@ def resnet_add_relu(mmdetresnet: ModuleType, options: Dict):
 
             return out
 
-        mmdetresnet.BasicBlock.forward = forward
-    else:
-        raise AttributeError("BasicBlock not found")
+        mmdet.models.backbones.resnet.BasicBlock.forward = forward
+        basic_block_not_found = False
 
-    if hasattr(mmdetresnet, "Bottleneck"):
-
+    if hasattr(mmdet.models.backbones.resnet.Bottleneck, "forward"):
+        from mx_driving import npu_add_relu
+        import torch.utils.checkpoint as cp
+        
         def forward(self, x):
             """Forward function."""
 
@@ -96,13 +99,16 @@ def resnet_add_relu(mmdetresnet: ModuleType, options: Dict):
 
             return out
 
-        mmdetresnet.Bottleneck.forward = forward
-    else:
-        raise AttributeError("Bottleneck not found")
+        mmdet.models.backbones.resnet.Bottleneck.forward = forward
+        bottle_neck_not_found = False
+    
+    if basic_block_not_found or bottle_neck_not_found:
+        raise AttributeError("In mmdet.models.backbones.resnet, BasicBlock.forward or Bottleneck.forward not found")
 
 
-def resnet_maxpool(mmdetresnet: ModuleType, options: Dict):
-    if hasattr(mmdetresnet, "ResNet"):
+
+def resnet_maxpool(mmdet: ModuleType, options: Dict):
+    if hasattr(mmdet.models.backbones.resnet.ResNet, "forward"):
         from mx_driving import npu_max_pool2d
 
         def forward(self, x):
@@ -124,13 +130,13 @@ def resnet_maxpool(mmdetresnet: ModuleType, options: Dict):
                     out.append(x)
             return tuple(out)
 
-        mmdetresnet.ResNet.forward = forward
+        mmdet.models.backbones.resnet.ResNet.forward = forward
     else:
-        raise AttributeError("ResNet not found")
+        raise AttributeError("mmdet.models.backbones.resnet.ResNet.forward not found")
 
 
-def resnet_fp16(mmdetresnet: ModuleType, options: Dict):
-    if hasattr(mmdetresnet, "ResNet"):
+def resnet_fp16(mmdet: ModuleType, options: Dict):
+    if hasattr(mmdet.models.backbones.resnet.ResNet, "forward"):
 
         def forward(self, x):
             import torch
@@ -151,6 +157,6 @@ def resnet_fp16(mmdetresnet: ModuleType, options: Dict):
                         outs.append(x)
             return tuple([out.float() for out in tuple(outs)])
 
-        mmdetresnet.ResNet.forward = forward
+        mmdet.models.backbones.resnet.ResNet.forward = forward
     else:
-        raise AttributeError("ResNet not found")
+        raise AttributeError("mmdet.models.backbones.resnet.ResNet.forward not found")

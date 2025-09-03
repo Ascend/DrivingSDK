@@ -2,6 +2,8 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 # Copyright (c) Robertwyq. All rights reserved.
 # Copyright (c) Alibaba; Inc. and its affiliates. All rights reserved.
+# Copyright (c) NVIDIA Corporation Affiliates. All rights reserved.
+
 
 # pylint: disable=huawei-wrong-import-position, wrong-import-order
 import importlib
@@ -9,6 +11,7 @@ import collections
 import sys
 import os
 import math
+
 import types
 import warnings
 import random
@@ -26,13 +29,13 @@ import mmcv.runner
 from .patch_panoseg_occ_head import panoseg_occ_head_patch
 
 from mx_driving.patcher import PatcherBuilder, Patch
-from mx_driving.patcher.distribute import ddp
-from mx_driving.patcher.functions import stream
-from mx_driving.patcher.tensor import index, batch_matmul
-from mx_driving.patcher.numpy import numpy_type
-from mx_driving.patcher.mmcv import mdc, msda, dc
-from mx_driving.patcher.optimizer import optimizer_hooks
-from mx_driving.patcher.mmdet import resnet_add_relu, resnet_maxpool
+from mx_driving.patcher import ddp
+from mx_driving.patcher import stream
+from mx_driving.patcher import index, batch_matmul
+from mx_driving.patcher import numpy_type
+from mx_driving.patcher import mdc, msda, dc
+from mx_driving.patcher import optimizer_hooks
+from mx_driving.patcher import resnet_add_relu, resnet_maxpool
 from mx_driving import multi_scale_deformable_attn
 
 
@@ -706,14 +709,8 @@ def generate_patcher_builder():
         PatcherBuilder()
         .add_module_patch("torch", Patch(index), Patch(batch_matmul))
         .add_module_patch("numpy", Patch(numpy_type))
-        
-        .add_module_patch('mmcv.parallel', Patch(stream))
-        .add_module_patch('mmcv.parallel.distributed', Patch(ddp))
-        
-        .add_module_patch('mmcv.ops', Patch(mdc), Patch(msda), Patch(dc))
-        
-        .add_module_patch('mmcv.runner.hooks', Patch(optimizer_hooks))
-        .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
+        .add_module_patch('mmcv', Patch(mdc), Patch(msda), Patch(dc), Patch(stream), Patch(ddp), Patch(optimizer_hooks))
+        .add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
         
         
         .add_module_patch('projects.mmdet3d_plugin.bevformer.dense_heads.panoseg_occ_head', 

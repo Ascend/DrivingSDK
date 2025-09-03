@@ -14,22 +14,6 @@ from mx_driving.patcher import index, batch_matmul, numpy_type, ddp, stream
 from mx_driving.patcher import resnet_add_relu, resnet_maxpool
 
 
-def run_ddp_forward(parallel: ModuleType, options: Dict):
-    def _run_ddp_forward(self, *inputs, **kwargs):
-        # change code
-        # MMDistributedDataParallel have no attribute _use_replicated_tensor_module
-        module_to_run = self.module
-
-        if self.device_ids:
-            inputs, kwargs = self.to_kwargs(  # type: ignore
-                inputs, kwargs, self.device_ids[0])
-            return module_to_run(*inputs[0], **kwargs[0])  # type: ignore
-        else:
-            return module_to_run(*inputs, **kwargs)
-    
-    if hasattr(parallel, "MMDistributedDataParallel"):
-        parallel.MMDistributedDataParallel._run_ddp_forward = _run_ddp_forward
-
 
 def flash_attn(attention: ModuleType, options: Dict):
     _in_projection_packed = attention._in_projection_packed
@@ -551,9 +535,8 @@ def generate_patcher_builder():
         PatcherBuilder()
         .add_module_patch("torch", Patch(index), Patch(batch_matmul))
         .add_module_patch("numpy", Patch(numpy_type))
-        .add_module_patch("mmcv.parallel", Patch(stream))
-        .add_module_patch("mmcv.parallel.distributed", Patch(ddp))
-        .add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
+        .add_module_patch("mmcv", Patch(stream), Patch(ddp), Patch(mmcv_optimizer))
+        .add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
         .add_module_patch("projects.mmdet3d_plugin.models.attention", Patch(flash_attn))
         .add_module_patch("projects.mmdet3d_plugin.models.detection3d.losses", Patch(detection_losses))
         .add_module_patch("projects.mmdet3d_plugin.models.blocks", Patch(models_blocks))
@@ -561,7 +544,6 @@ def generate_patcher_builder():
         .add_module_patch("projects.mmdet3d_plugin.models.map.target", Patch(map_target))
         .add_module_patch("projects.mmdet3d_plugin.models.motion.target", Patch(motion_planning_target))
         .add_module_patch("projects.mmdet3d_plugin.models.motion.instance_queue", Patch(instance_queue))
-        .add_module_patch("mmcv.runner.hooks.optimizer", Patch(mmcv_optimizer))
     )
     if os.environ.get("SPARSE_DRIVE_PERFORMANCE_FLAG"):
         sparse_drive_patcher_builder.brake_at(1000)
