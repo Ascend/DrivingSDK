@@ -216,10 +216,10 @@ index 10fdaa18..4be91a88 100644
 -    main()
 +    torch_npu.npu.set_compile_mode(jit_compile=False)
 +    torch.npu.config.allow_internal_format = False
-+    from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+    from mx_driving.patcher.mmcv import msda
++    from mx_driving.patcher import PatcherBuilder, Patch
++    from mx_driving.patcher import msda
 +
-+    pb = PatcherBuilder().add_module_patch("torch", Patch(msda))
++    pb = PatcherBuilder().add_module_patch("mmcv", Patch(msda))
 +    with pb.build():
 +        main()
 diff --git a/mmseg/__init__.py b/mmseg/__init__.py

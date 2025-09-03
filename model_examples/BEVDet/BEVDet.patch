@@ -703,8 +703,8 @@ index 72a1579..45afc79 100644
  import torch.distributed as dist
  from mmcv import Config, DictAction
  from mmcv.runner import get_dist_info, init_dist
-+from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+from mx_driving.patcher.tensor import batch_matmul
++from mx_driving.patcher import PatcherBuilder, Patch
++from mx_driving.patcher import batch_matmul
  
  from mmdet import __version__ as mmdet_version
  from mmdet3d import __version__ as mmdet3d_version

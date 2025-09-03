@@ -119,8 +119,8 @@ index 7e5b71f..d689231 100644
 +from torch_npu.contrib import transfer_to_npu
 +torch_npu.npu.set_compile_mode(jit_compile=False)
 +torch.npu.config.allow_internal_format = False
-+from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+from mx_driving.patcher.mmdet import resnet_add_relu, resnet_maxpool
++from mx_driving.patcher import PatcherBuilder, Patch
++from mx_driving.patcher import resnet_add_relu, resnet_maxpool
 +
  from mmengine.config import Config, DictAction
  from mmengine.registry import RUNNERS
@@ -130,6 +130,6 @@ index 7e5b71f..d689231 100644
  
  if __name__ == '__main__':
 -    main()
-+    pb = PatcherBuilder().add_module_patch("mmdet.models.backbones.resnet", Patch(resnet_add_relu), Patch(resnet_maxpool))
++    pb = PatcherBuilder().add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
 +    with pb.build():
 +        main()
