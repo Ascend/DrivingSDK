@@ -207,8 +207,8 @@ index 6b9c3b08..00964fcc 100644
 +import torch
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
-+from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+from mx_driving.patcher.mmcv import dc, mdc
++from mx_driving.patcher import PatcherBuilder, Patch
++from mx_driving.patcher import dc, mdc
 +
 +torch.npu.config.allow_internal_format = False
 +torch_npu.npu.set_compile_mode(jit_compile=False)
@@ -243,7 +243,7 @@ index 6b9c3b08..00964fcc 100644
  if __name__ == '__main__':
 -    main()
 +    seed_all(1024, is_gpu=False) # npu
-+    pb = PatcherBuilder().add_module_patch("mmcv.ops", Patch(dc), Patch(mdc))
++    pb = PatcherBuilder().add_module_patch("mmcv", Patch(dc), Patch(mdc))
 +    with pb.build():
 +        main()
 diff --git a/tools/train_performance.py b/tools/train_performance.py
@@ -259,8 +259,8 @@ index 00000000..627045a6
 +import os.path as osp
 +import torch
 +import torch_npu
-+from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+from mx_driving.patcher.mmcv import dc, mdc
++from mx_driving.patcher import PatcherBuilder, Patch
++from mx_driving.patcher import dc, mdc
 +
 +from mmengine.config import Config, DictAction
 +from mmengine.logging import print_log
@@ -403,6 +403,6 @@ index 00000000..627045a6
 +
 +
 +if __name__ == '__main__':
-+    pb = PatcherBuilder().add_module_patch("mmcv.ops", Patch(dc), Patch(mdc)).brake_at(1000)
++    pb = PatcherBuilder().add_module_patch("mmcv", Patch(dc), Patch(mdc)).brake_at(1000)
 +    with pb.build():
 +        main()
