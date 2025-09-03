@@ -399,7 +399,7 @@ index dea131b..6dafb49 100755
      --node_rank=$NODE_RANK \
      --master_addr=$MASTER_ADDR \
 diff --git a/tools/dist_train.sh b/tools/dist_train.sh
-index aa71bf4..49753e8 100755
+index aa71bf4..6059f0f 100755
 --- a/tools/dist_train.sh
 +++ b/tools/dist_train.sh
 @@ -8,7 +8,8 @@ PORT=${PORT:-29500}
@@ -407,7 +407,7 @@ index aa71bf4..49753e8 100755
  
  PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
 -python -m torch.distributed.launch \
-+# OMP_NUM_THREADS=16 MKL_NUM_THREADS=16 
++# OMP_NUM_THREADS=16 MKL_NUM_THREADS=16
 +MKL_NUM_THREADS=1 python -m torch.distributed.run \
      --nnodes=$NNODES \
      --node_rank=$NODE_RANK \
@@ -457,19 +457,10 @@ index c669247..904623e 100644
              device_ids=[torch.cuda.current_device()],
              broadcast_buffers=False)
 diff --git a/tools/train.py b/tools/train.py
-index 72a1579..8be5ffb 100644
+index 72a1579..f548321 100644
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -12,6 +12,8 @@ import torch
- import torch.distributed as dist
- from mmcv import Config, DictAction
- from mmcv.runner import get_dist_info, init_dist
-+from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+from mx_driving.patcher.tensor import batch_matmul
- 
- from mmdet import __version__ as mmdet_version
- from mmdet3d import __version__ as mmdet3d_version
-@@ -22,6 +24,10 @@ from mmdet3d.utils import collect_env, get_root_logger
+@@ -22,6 +22,10 @@ from mmdet3d.utils import collect_env, get_root_logger
  from mmdet.apis import set_random_seed
  from mmseg import __version__ as mmseg_version
  
@@ -480,7 +471,7 @@ index 72a1579..8be5ffb 100644
  try:
      # If mmdet version > 2.20.0, setup_multi_processes would be imported and
      # used from mmdet instead of mmdet3d.
-@@ -93,6 +99,7 @@ def parse_args():
+@@ -93,6 +97,7 @@ def parse_args():
          choices=['none', 'pytorch', 'slurm', 'mpi'],
          default='none',
          help='job launcher')
@@ -488,7 +479,7 @@ index 72a1579..8be5ffb 100644
      parser.add_argument('--local_rank', type=int, default=0)
      parser.add_argument(
          '--autoscale-lr',
-@@ -274,4 +281,10 @@ def main():
+@@ -274,4 +279,9 @@ def main():
  
  
  if __name__ == '__main__':
@@ -499,4 +490,3 @@ index 72a1579..8be5ffb 100644
 +    bevdet4d_patcher_builder = generate_patcher_builder()
 +    with bevdet4d_patcher_builder.build():
 +        main()
-+

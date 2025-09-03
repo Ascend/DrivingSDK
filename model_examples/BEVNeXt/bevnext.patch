@@ -330,8 +330,8 @@ index ad61e21..63275e0 100644
                           wrap_fp16_model)
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
-+from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+from mx_driving.patcher.tensor import batch_matmul
++from mx_driving.patcher import PatcherBuilder, Patch
++from mx_driving.patcher import batch_matmul
  
  import mmdet
  from mmdet3d.apis import single_gpu_test
@@ -375,8 +375,8 @@ index ed9c2a6..c9343d5 100644
  from mmcv.runner import get_dist_info, init_dist
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
-+from mx_driving.patcher.patcher import PatcherBuilder, Patch
-+from mx_driving.patcher.tensor import batch_matmul
++from mx_driving.patcher import PatcherBuilder, Patch
++from mx_driving.patcher import batch_matmul
  
  from mmdet import __version__ as mmdet_version
  from mmdet3d import __version__ as mmdet3d_version
