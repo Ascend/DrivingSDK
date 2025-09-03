@@ -13,7 +13,7 @@ export ACLNN_CACHE_LIMIT=500000
 
 cur_path=$(pwd)
 ASCEND_DEVICE_ID=0
-log_file="$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log"
+log_file="$cur_path/train_${ASCEND_DEVICE_ID}.log"
 
 # /path/to/datasets 请更改为存放数据的路径
 python QCNet/train_qcnet.py --root /path/to/datasets --train_batch_size 4 \

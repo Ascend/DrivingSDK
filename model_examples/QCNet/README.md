@@ -97,9 +97,9 @@ code_path=model_examples/QCNet
 
 3. 安装pytorch_lightening
     ```
-    git clone https://github.com/Lightning-AI/pytorch-lightning.git -b builds/2.3.1
+    git clone --branch 2.3.3 https://github.com/Lightning-AI/pytorch-lightning.git
     cd pytorch-lightning/
-    git checkout 8e39ef55142e3cf1878efee85cfbeb0ed0ce29b5
+    git checkout cf348673eda662cc2e9aa71a72a19b8774f85718
     git apply ../patch/lightning.patch
     pip install -e ./ --no-deps
     cd ..
@@ -190,7 +190,7 @@ cd model_examples/QCNet
 |     芯片      | 卡数 | global batch size | epoch | minFDE | minADE | 性能-单步迭代耗时(s) |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: | :--------------: |
 |     竞品A     |  8p  |         32         |  64   |         1.259          |         0.721          |       0.34         |
-| Atlas 800T A2 |  8p  |         32         |  64   |         1.250          |         0.723          |       0.43         |
+| Atlas 800T A2 |  8p  |         32         |  64   |         1.250          |         0.723          |       0.425         |
 
 # 变更说明
 

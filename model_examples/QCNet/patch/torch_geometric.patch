@@ -1,48 +1,100 @@
 diff --git a/torch_geometric/nn/conv/message_passing.py b/torch_geometric/nn/conv/message_passing.py
-index 2db5c9893..23fa4ba07 100644
+index 2db5c9893..cb99ec80f 100644
 --- a/torch_geometric/nn/conv/message_passing.py
 +++ b/torch_geometric/nn/conv/message_passing.py
-@@ -42,6 +42,7 @@ from torch_geometric.utils import (
-     to_edge_index,
+@@ -20,7 +20,6 @@ from uuid import uuid1
+ import torch
+ from torch import Tensor
+ from torch.utils.hooks import RemovableHandle
+-
+ from torch_geometric.nn.aggr import Aggregation, MultiAggregation
+ from torch_geometric.nn.conv.utils.inspector import (
+     Inspector,
+@@ -43,6 +42,18 @@ from torch_geometric.utils import (
  )
  from torch_geometric.utils.sparse import ptr2index
-+from mx_driving import npu_index_select
  
++import torch_npu
++import ctypes
++try:
++    from mx_driving import npu_index_select
++    npu_index_select_available = True
++except ImportError:
++    npu_index_select_available = False
++
++lib_path = os.path.join(os.environ.get('ASCEND_HOME_PATH', '/usr/local/Ascend'), 'lib64', 'libopapi.so')
++lib = ctypes.CDLL(lib_path)
++aclnnIndexAddV2_available = hasattr(lib, "aclnnIndexAddV2")
++index_select_op = None
  FUSE_AGGRS = {'add', 'sum', 'mean', 'min', 'max'}
  
-@@ -264,12 +265,16 @@ class MessagePassing(torch.nn.Module):
+ 
+@@ -190,6 +201,16 @@ class MessagePassing(torch.nn.Module):
+         self._edge_update_forward_pre_hooks = OrderedDict()
+         self._edge_update_forward_hooks = OrderedDict()
+ 
++        global index_select_op
++    
++        # 检查是否已初始化
++        if index_select_op is not None:
++            return
++        if npu_index_select_available and aclnnIndexAddV2_available:
++            index_select_op = npu_index_select
++        else:
++            index_select_op = torch_npu.index_select
++
+     def reset_parameters(self):
+         r"""Resets all learnable parameters of the module."""
+         if self.aggr_module is not None:
+@@ -264,12 +285,24 @@ class MessagePassing(torch.nn.Module):
              else:
                  raise ValueError(f"Unsupported sparse tensor layout "
                                   f"(got '{edge_index.layout}')")
 -            return src.index_select(self.node_dim, index)
 +            tmp = src.reshape(len(src), -1)
-+            x = npu_index_select(tmp, self.node_dim, index)
-+            return x.reshape(len(x), 8, -1)
++            x = index_select_op(tmp, self.node_dim, index)
++            if len(x) == 0:
++                x_shape = x.shape[1]
++                return x.reshape(len(x), 8, x_shape//8)
++            else:
++                return x.reshape(len(x), 8, -1)
  
          elif isinstance(edge_index, Tensor):
              try:
                  index = edge_index[dim]
 -                return src.index_select(self.node_dim, index)
 +                tmp = src.reshape(len(src), -1)
-+                x = npu_index_select(tmp, self.node_dim, index)
-+                return x.reshape(len(x), 8, -1)
++                x = index_select_op(tmp, self.node_dim, index)
++                if len(x) == 0:
++                    x_shape = x.shape[1]
++                    return x.reshape(len(x), 8, x_shape//8)
++                else:
++                    return x.reshape(len(x), 8, -1)
              except (IndexError, RuntimeError) as e:
                  if index.min() < 0 or index.max() >= src.size(self.node_dim):
                      raise IndexError(
-@@ -304,10 +309,14 @@ class MessagePassing(torch.nn.Module):
+@@ -304,10 +337,22 @@ class MessagePassing(torch.nn.Module):
          elif isinstance(edge_index, SparseTensor):
              if dim == 0:
                  col = edge_index.storage.col()
 -                return src.index_select(self.node_dim, col)
 +                tmp = src.reshape(len(src), -1)
-+                x = npu_index_select(tmp, self.node_dim, col)
-+                return x.reshape(len(x), 8, -1)
++                x = index_select_op(tmp, self.node_dim, col)
++                if len(x) == 0:
++                    x_shape = x.shape[1]
++                    return x.reshape(len(x), 8, x_shape//8)
++                else:
++                    return x.reshape(len(x), 8, -1)
              elif dim == 1:
                  row = edge_index.storage.row()
 -                return src.index_select(self.node_dim, row)
 +                tmp = src.reshape(len(src), -1)
-+                x = npu_index_select(tmp, self.node_dim, row)
-+                return x.reshape(len(x), 8, -1)
++                x = index_select_op(tmp, self.node_dim, row)
++                if len(x) == 0:
++                    x_shape = x.shape[1]
++                    return x.reshape(len(x), 8, x_shape//8)
++                else:
++                    return x.reshape(len(x), 8, -1)
  
          raise ValueError(
              ('`MessagePassing.propagate` only supports integer tensors of '

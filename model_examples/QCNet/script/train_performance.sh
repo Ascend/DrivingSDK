@@ -13,7 +13,7 @@ export ACLNN_CACHE_LIMIT=500000
 
 cur_path=$(pwd)
 ASCEND_DEVICE_ID=0
-log_file="$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log"
+log_file="$cur_path/train_${ASCEND_DEVICE_ID}.log"
 
 # /path/to/datasets 请更改为存放数据的路径
 python QCNet/train_qcnet.py --root /path/to/datasets --train_batch_size 4 \
@@ -22,5 +22,5 @@ python QCNet/train_qcnet.py --root /path/to/datasets --train_batch_size 4 \
     --pl2pl_radius 150 --time_span 10 --pl2a_radius 50 --a2a_radius 50 \
     --num_t2m_steps 30 --pl2m_radius 150 --a2m_radius 150 --T_max 1 --max_epochs 1 >$log_file 2>&1
 
-final_epoch_time=$(tac "$log_file" | grep -m1 "Average Training Time" | grep -oP 'Average Training Time \K\d+\.\d+')
+final_epoch_time=$(tac "$log_file" | grep -m1 "Average Training Time" | grep -oP 'Average Training Time.*: \K\d+\.\d+')
 echo "FPS: ${final_epoch_time}s"
