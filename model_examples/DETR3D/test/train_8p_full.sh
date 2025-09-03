@@ -40,7 +40,7 @@ e2e_time=$(( $end_time - $start_time ))
 
 #获取性能数据，不需要修改
 #单迭代训练时长，不需要修改
-TrainingTime=$(grep -oP ", time: \K[0-9.]+" ${test_path_dir}/output/train_8p_full.log | tail -n +15 | awk '{sum += $1} END {print sum/NR}')
+TrainingTime=$(grep -oP ", time: \K[0-9.]+" ${test_path_dir}/output/train_8p_full.log | tail -n 20 | awk '{sum += $1} END {print sum/NR}')
 
 #吞吐量
 ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$TrainingTime'}')

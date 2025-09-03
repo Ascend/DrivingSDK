@@ -40,14 +40,12 @@ end_time=$(date +%s)
 echo "end_time=$(date -d @${end_time} "+%Y-%m-%d %H:%M:%S")"
 e2e_time=$(( $end_time - $start_time ))
 
-# 模型单epoch的step数量
-total_step=1173
-
 # 单迭代训练时长
-avg_time=$(echo "scale=3; $e2e_time / $total_step" | bc)
+iter_time=$(grep -oP ", time: \K[0-9.]+" ${output_path_dir}/train_8p_performance.log | tail -n 20 | awk '{sum += $1} END {print sum/NR}')
 
 #吞吐量
-ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$avg_time'}')
+ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$iter_time'}')
+echo "FPS: ${ActualFPS}"
 
 #性能看护结果汇总
 #训练用例信息，不需要修改
@@ -64,5 +62,5 @@ echo "BatchSize: ${BatchSize}" >>${test_path_dir}/output/${CaseName}.log
 echo "DeviceType: ${DeviceType}" >>${test_path_dir}/output/${CaseName}.log
 echo "CaseName: ${CaseName}" >>${test_path_dir}/output/${CaseName}.log
 echo "E2E Training Duration sec: ${e2e_time}" >>${test_path_dir}/output/${CaseName}.log
-echo "Final Performance sec/iter: ${avg_time}" >>${test_path_dir}/output/${CaseName}.log
+echo "Final Performance sec/iter: ${iter_time}" >>${test_path_dir}/output/${CaseName}.log
 echo "ActualFPS: ${ActualFPS}" >>${test_path_dir}/output/${CaseName}.log
