@@ -535,7 +535,7 @@ def generate_patcher_builder():
         PatcherBuilder()
         .add_module_patch("torch", Patch(index), Patch(batch_matmul))
         .add_module_patch("numpy", Patch(numpy_type))
-        .add_module_patch("mmcv", Patch(stream), Patch(ddp), Patch(mmcv_optimizer))
+        .add_module_patch("mmcv", Patch(ddp), Patch(stream))
         .add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
         .add_module_patch("projects.mmdet3d_plugin.models.attention", Patch(flash_attn))
         .add_module_patch("projects.mmdet3d_plugin.models.detection3d.losses", Patch(detection_losses))
@@ -544,6 +544,7 @@ def generate_patcher_builder():
         .add_module_patch("projects.mmdet3d_plugin.models.map.target", Patch(map_target))
         .add_module_patch("projects.mmdet3d_plugin.models.motion.target", Patch(motion_planning_target))
         .add_module_patch("projects.mmdet3d_plugin.models.motion.instance_queue", Patch(instance_queue))
+        .add_module_patch("mmcv.runner.hooks.optimizer", Patch(mmcv_optimizer))
     )
     if os.environ.get("SPARSE_DRIVE_PERFORMANCE_FLAG"):
         sparse_drive_patcher_builder.brake_at(1000)
