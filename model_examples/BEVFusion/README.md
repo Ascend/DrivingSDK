@@ -75,7 +75,7 @@
 ```
 cd mmdetection3d/
 ```
-1. 在`mmdetection3d`的`data`文件夹下新建`nuscense`文件夹，`data`文件结构如下：
+1. 在`mmdetection3d`的`data`文件夹下新建`nuscenes`文件夹，`data`文件结构如下：
     ```
     data
     ├── lyft
