@@ -122,7 +122,8 @@ code_path=model_examples/QCNet
     ```
 
 5. 安装 tcmalloc 高效内存资源分配库
-    ```
+    安装tcmalloc（适用OS: __openEuler__）
+    ```shell
     mkdir gperftools && cd gperftools
     wget --no-check-certificate https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
     tar -zvxf gperftools-2.16.tar.gz
@@ -133,8 +134,30 @@ code_path=model_examples/QCNet
     export LD_PRELOAD=/usr/local/lib/libtcmalloc.so.4
     cd ..
     ```
+    注意：需要安装OS对应tcmalloc版本（以下以 __Ubuntu__ 为例）
+    ```shell
+    # 安装autoconf和libtool
+    apt-get update
+    apt install autoconf
+    apt install libtool
+    git clone https://github.com/libunwind/libunwind.git
+    cd libunwind
+    autoreconf -i
+    ./configure --prefix=/usr/local
+    make -j128
+    make install
+    cd ..
 
-5. 安装 DrivingSDK 加速库
+    # 安装tcmalloc
+    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+    tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+    ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+    make -j128
+    make install
+    export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+    ```
+
+6. 安装 DrivingSDK 加速库
 
    安装方法参考[官方文档](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK)。
 
