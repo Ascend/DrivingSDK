@@ -234,7 +234,7 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 #### 训练结果
 
 单机八卡
-| 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS |amota |   L2   |
+| 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS |amota &uarr;|   L2 &darr;  |
 |--------| ------------- | ---- |-------------------| --------- |---------------|--------|------|---------|
 | stage1 | 竞品A           | 8p   | 8                 | fp32      | 5883        |   1.359 | 0.380 | -      |
 | stage1 | Atlas 800T A2 | 8p   | 8                 | fp32      | 7979         |  1.002  | 0.376 | -      |
