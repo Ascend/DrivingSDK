@@ -1,0 +1,28 @@
+#!/bin/bash
+
+#将Host日志输出到串口,0-关闭/1-开启
+export ASCEND_SLOG_PRINT_TO_STDOUT=0
+#设置默认日志级别,0-debug/1-info/2-warning/3-error
+export ASCEND_GLOBAL_LOG_LEVEL=3
+#设置Event日志开启标志,0-关闭/1-开启
+export ASCEND_GLOBAL_EVENT_ENABLE=0
+#设置是否开启taskque,0-关闭/1-开启/2-流水优化
+export TASK_QUEUE_ENABLE=2
+#设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
+export CPU_AFFINITY_CONF=1
+# 设置是否开启 combined 标志, 0-关闭/1-开启
+export COMBINED_ENABLE=1
+
+
+#设置device侧日志登记为error
+msnpureport -g error -d 0
+msnpureport -g error -d 1
+msnpureport -g error -d 2
+msnpureport -g error -d 3
+msnpureport -g error -d 4
+msnpureport -g error -d 5
+msnpureport -g error -d 6
+msnpureport -g error -d 7
+#关闭Device侧Event日志
+msnpureport -e disable
+

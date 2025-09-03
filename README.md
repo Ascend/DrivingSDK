@@ -177,6 +177,7 @@ DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模�
 | TPVFormer  |  https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer |Y|
 | UniAD | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD |Y|
 | BEVNeXt | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt |N|
+| DexVLA | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Dexvla |N|
 | HiVT | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HiVT |N|
 | HPTR | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HPTR |N|
 | LMDrive  | https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LMDrive |N|
