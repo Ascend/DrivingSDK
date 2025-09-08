@@ -86,7 +86,7 @@ ge::graphStatus TilingForDeformableConv2dGradV2(gert::TilingContext* context)
     mm0Tiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mm0Tiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mm0Tiling.SetOrgShape(cubeTileTaskCount, kH * kW * cIn, cOut);
-    mm0Tiling.SetShape(-1, -1, -1);
+    mm0Tiling.SetShape(cubeTileTaskCount, kH * kW * cIn, cOut);
     mm0Tiling.SetBias(false);
     mm0Tiling.SetBufferSpace(-1, -1, -1);
     if (mm0Tiling.GetTiling(tilingData.mm0TilingData) == -1) {
@@ -97,7 +97,7 @@ ge::graphStatus TilingForDeformableConv2dGradV2(gert::TilingContext* context)
     mm1Tiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mm1Tiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     mm1Tiling.SetOrgShape(cOut, kH * kW * cIn, cubeTileTaskCount);
-    mm1Tiling.SetShape(-1, -1, -1);
+    mm1Tiling.SetShape(cOut, kH * kW * cIn, cubeTileTaskCount);
     mm1Tiling.SetBias(false);
     mm1Tiling.SetBufferSpace(-1, -1, -1);
     if (mm1Tiling.GetTiling(tilingData.mm1TilingData) == -1) {
