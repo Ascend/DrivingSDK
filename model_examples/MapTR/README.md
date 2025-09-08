@@ -207,7 +207,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   1） 创建编译优化基础镜像。以arm的镜像为例：
 
   - arm镜像地址：
-      https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/docker_images/pytorcharm_compile.tar.gz
+      https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/images/pytorcharm_compile.tar.gz
 
     将镜像的image_id记为image_id，将创建容器时的宿主机路径和容器路径分别记为path1和path2：
     ```
