@@ -262,6 +262,7 @@ Driving SDK代码中包含公网地址声明如下表所示：
 | 开源引入 | https://download.pytorch.org/whl/torch_stable.html | model_examples/Diffusion-Planner/diffusionPlanner.patch | https://download.pytorch.org/whl/torch_stable.html | 模型依赖包下载 |
 | 开源引入 | https://pypi.tuna.tsinghua.edu.cn/simple | model_examples/Diffusion-Planner/diffusionPlanner.patch | https://pypi.tuna.tsinghua.edu.cn/simple | 模型依赖包下载 |
 | 开源引入 | https://github.com/Pointcept/Pointcept | model_examples/PointTransformerV3/Ptv3.patch | xiaoyang.wu.cs@gmail.com | 模型作者邮箱声明 |
+| 开源引入 | https://www.argoverse.org/av2.html | model_examples/QCNet/patch/qcnet.patch | https://www.argoverse.org/av2.html | 模型数据集介绍 |
 
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，Driving SDK提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
