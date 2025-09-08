@@ -114,34 +114,21 @@ git apply --whitespace=fix salsanext.patch
 ```
 ### 安装模型环境
 
-0. 准备容器
+0. 准备conda
 
-   拉取镜像，本部分提供镜像内torch2.1.0环境为python3.9，若自主创建环境需要使用python>=3.9
+   创建conda环境，环境内需要python>=3.9
    ```
-   wget --no-check-certificate https://cmc-szver-artifactory.cmc.tools.huawei.com/artifactory/cmc-sz-inner/FrameworkPTAdapter/FrameworkPTAdapter%207/FrameworkPTAdapter%207.0.RC1.B030/DrivingSDK/DrivingSDK_7.0.RC1.tar
-   ```
-
-   创建镜像
-   ```
-   docker load -i DrivingSDK_7.0.RC1.tar
+   conda create -n salsanext python=3.9
    ```
 
-   在脚本run_drivingsdk_docker.sh中添加模型和数据集路径映射，映射方式：
-   ```
-   -v /宿主机绝对路径:/容器内路径
-   ```
-
-   创建并进入容器
-   ```
-   cd {DrivingSDK_root_dir}/model_examples/SalsaNext/
-   bash run_drivingsdk_docker.sh 7.0.RC1
-   ```
 1. 安装基础依赖
 
-   容器内提供了torch1.11.0、torch2.1.0、torch2.3.0三种版本的conda基础环境，进入torch2.1.0的conda环境
    ```
-   conda activate torch_2.1.0
+   conda activate salsanext
    ```
+
+   安装Driving SDK
+   请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
    进入模型源码根目录
    ```
