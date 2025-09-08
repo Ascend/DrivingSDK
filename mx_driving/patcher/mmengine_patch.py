@@ -579,7 +579,7 @@ def epoch_train_loop(mmengine: ModuleType, options: Dict):
                     sys.exit(0)
 
         self.runner.call_hook("after_train_epoch")
-        self.runner._epoch += 1
+        self._epoch += 1
     
     if hasattr(mmengine.runner.EpochBasedTrainLoop, "run_epoch"):
         mmengine.runner.EpochBasedTrainLoop.run_epoch = run_epoch

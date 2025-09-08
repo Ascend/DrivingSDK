@@ -105,24 +105,25 @@ class PatcherBuilder:
 
 
     def build(self, allow_internal_format: bool = False):
-        # Before building, append util patch for profiler and braker
-        # Try MMCV 1.x
-        if importlib.util.find_spec("mmcv") is not None:
-            self.add_module_patch("mmcv", Patch(epoch_runner, 
-                                                self.training_runner_loop_options, 
-                                                patch_failure_warning=True))
-            self.add_module_patch("mmcv", Patch(iter_runner, 
-                                                self.training_runner_loop_options,
-                                                patch_failure_warning=True))
-            
-        # Try MMCV 2.x
-        if importlib.util.find_spec("mmengine") is not None:
-            self.add_module_patch("mmengine", Patch(epoch_train_loop, 
+        if self.training_runner_loop_options['enable_profiler'] or self.training_runner_loop_options['enable_brake']:
+            # Before building, append util patch for profiler and braker
+            # Try MMCV 1.x
+            if importlib.util.find_spec("mmcv") is not None:
+                self.add_module_patch("mmcv", Patch(epoch_runner, 
+                                                    self.training_runner_loop_options, 
+                                                    patch_failure_warning=True))
+                self.add_module_patch("mmcv", Patch(iter_runner, 
                                                     self.training_runner_loop_options,
                                                     patch_failure_warning=True))
-            self.add_module_patch("mmengine", Patch(iter_train_loop, 
-                                                    self.training_runner_loop_options,
-                                                    patch_failure_warning=True))
+                
+            # Try MMCV 2.x
+            if importlib.util.find_spec("mmengine") is not None:
+                self.add_module_patch("mmengine", Patch(epoch_train_loop, 
+                                                        self.training_runner_loop_options,
+                                                        patch_failure_warning=True))
+                self.add_module_patch("mmengine", Patch(iter_train_loop, 
+                                                        self.training_runner_loop_options,
+                                                        patch_failure_warning=True))
             
         return Patcher(self.module_patches, self.blacklist, allow_internal_format)
 
