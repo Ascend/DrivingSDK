@@ -72,16 +72,9 @@ bash tools/dist_train.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_b
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train1_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 
-#运行脚本修改_function文件，加入代码定义新函数获取device，使得运行eval脚本
-bash testfunc.sh
-
 bash tools/dist_test.sh projects/configs/StreamPETR/stream_petr_vov_flash_800_bs2_seq_24e.py work_dirs/report_vision/latest.pth 8 --eval bbox \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
-
-#运行脚本退回，使_function文件退回至初始内容
-bash backfunc.sh
-
 
 
 # 训练结束时间，不需要修改

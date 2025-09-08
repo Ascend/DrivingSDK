@@ -10,3 +10,4 @@ numpy==1.23.0
 ipython==8.12.3
 opencv-python==4.8.0.76
 opencv-python-headless==4.11.0.86
+fsspec==2025.2.0

@@ -8,3 +8,4 @@ av2==0.2.1
 numba==0.58.1
 numpy==1.23.0
 ipython==8.12.3
+fsspec==2025.2.0

@@ -6,3 +6,4 @@ ipython
 seaborn
 attrs
 psutil
+fsspec==2025.2.0

@@ -225,12 +225,7 @@ pip install -e MindSpeed
 ```
 cd {DrivingSDK_root_dir}/model_examples/StreamPETR
 cp -rf test StreamPETR
-mv StreamPETR/test/testfunc.sh StreamPETR
-mv StreamPETR/test/backfunc.sh StreamPETR
-chmod 777 StreamPETR/testfunc.sh
-chmod 777 StreamPETR/backfunc.sh
 ```
-最后将环境路径加入testfunc.sh和backfunc.sh中的第二行 file_path
 
 10. 编译优化
 (1)python编译优化

@@ -587,7 +587,7 @@ new file mode 100644
 index 0000000..235a6a1
 --- /dev/null
 +++ b/patch/requirements.txt
-@@ -0,0 +1,15 @@
+@@ -0,0 +1,16 @@
 +numpy==1.23.5
 +pyyaml==6.0.2
 +mmsegmentation==0.30.0
@@ -603,6 +603,7 @@ index 0000000..235a6a1
 +mmengine==0.9.1
 +torchvision==0.9.1
 +setuptools==69.5.1
++fsspec==2025.2.0
 \ No newline at end of file
 diff --git a/patch/text.py b/patch/text.py
 new file mode 100644
