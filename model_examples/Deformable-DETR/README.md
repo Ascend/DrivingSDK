@@ -108,7 +108,7 @@ bash test/train_8p_performance.sh --data_path='.data/coco'		# 替换成你的coc
 | 芯片          | 卡数 | epoch | global batch size| mAP(IoU=0.50:0.95) | 性能-单步迭代耗时(s)	 | FPS  |
 | ------------- | ---- | ----- | ----- | ------------------ | ---- | ---- |
 | 竞品A         | 8p   | 50    | 64 | 0.437              | 1.01 | 65   |
-| Atlas 800T A2 | 8p   | 50    | 64 | 0.428              | 1.01 | 65   |
+| Atlas 800T A2 | 8p   | 50    | 64 | 0.436              | 1.01 | 63   |
 
 ## 变更说明
 
@@ -117,6 +117,8 @@ bash test/train_8p_performance.sh --data_path='.data/coco'		# 替换成你的coc
 2025.5.7：性能优化、更新性能数据
 
 2025.8.21：性能优化、更新性能和精度数据
+
+2025.9.9：更新性能和精度数据
 
 ## FAQ
 

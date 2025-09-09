@@ -44,8 +44,6 @@ export ASCEND_GLOBAL_LOG_LEVEL=3
 export ASCEND_GLOBAL_EVENT_ENABLE=0
 #设置是否开启taskque,0-关闭/1-开启/2-流水优化
 export TASK_QUEUE_ENABLE=2
-#设置aclnn cache，使能host侧算子下发缓存机制
-export DISABLE_L2_CACHE=0
 #设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 #HCCL白名单开关,配置在使用HCCL时是否关闭通信白名单。1-关闭/0-开启
