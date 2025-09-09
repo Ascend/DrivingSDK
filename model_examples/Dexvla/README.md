@@ -87,7 +87,7 @@
   pip install -r requirements.txt
   cd policy_heads
   pip install -e .
-  cd ..
+  cd ../..
   ```
   
 3. 安装bitsandbytes
@@ -181,3 +181,18 @@
 2025.09.02：首次发布。
 
 # FAQ
+Q:安装依赖包时，h5py安装失败，怎么办？
+A:安装h5py依赖，如：
+ ```
+ yum install hdf5-devel
+ pip install hdf5
+ ```
+
+Q:拉起模型训练时，遇到：ModuleNotFoundError: No module named 'models'，怎么办？
+A:可能安装好的policy_heads包的路径不在python的模块搜索范围内。可以尝试在train_vla.py中将policy_heads的安装路径添加至sys.path，如：
+```
+import sys
+#将policy_heads的安装路径记做POLICY_HEADS_PATH
+sys.path.append($POLICY_HEADS_PATH)
+```
+
