@@ -62,8 +62,8 @@ code_path=model_examples/DETR3D
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 7.0.0 |
-|       CANN        | 8.1.RC1 |
+| FrameworkPTAdapter | 7.1.0 |
+|       CANN        | 8.2.RC1 |
 
 ### 安装模型环境
 
@@ -147,7 +147,7 @@ code_path=model_examples/DETR3D
 
 ### 模型数据准备
 
-进入[NuScenes](https://www.nuscenes.org/nuscenes#download)官网，下载 Nuscenes 数据集。将数据集上传到服务器任意路径下并解压，数据集结构排布成如下格式：
+进入[NuScenes](https://www.nuscenes.org/nuscenes#download)官网，下载 Nuscenes 数据集。将数据集解压至`DETR3D/detr3d/data/nuscenes`目录下。数据集与模型目录结构排布成如下格式：
 
 - 数据集排布结构
 
@@ -184,8 +184,8 @@ code_path=model_examples/DETR3D
 - 生成模型训练数据
 
 ```
-cd /path/to/detr3d/
-python3 mmdetection3d/tools/create_data.py nuscenes --root-path=./data/nuscenes --out-dir=./data/nuscenes --extra-tag nuscenes
+cd /path/to/detr3d/mmdetection3d
+python3 tools/create_data.py nuscenes --root-path=../data/nuscenes --out-dir=../data/nuscenes --extra-tag nuscenes
 ```
 
 ## 快速开始
