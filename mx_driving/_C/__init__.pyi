@@ -29,9 +29,6 @@ def npu_scatter_mean(
     dim: Optional[int] = None,
     dim_size: Optional[int] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
-def npu_sort_pairs(
-    keys_in: torch.Tensor, values_in: torch.Tensor, dim: int, descending: bool
-) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_hypot(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor: ...
 def npu_hypot_grad(
     x: torch.Tensor, y: torch.Tensor, out: torch.Tensor, out_grad: torch.Tensor
@@ -461,7 +458,6 @@ __all__ = [
     "npu_scatter",
     "npu_scatter_mean_grad",
     "npu_scatter_mean",
-    "npu_sort_pairs",
     "npu_hypot",
     "npu_hypot_grad",
     "assign_score_withk",
