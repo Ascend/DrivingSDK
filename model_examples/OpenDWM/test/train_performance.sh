@@ -38,7 +38,7 @@ python -m torch.distributed.run \
     --node-rank $NODE_RANK \
     src/dwm/train.py \
     -c $CONFIG_FILE \
-    -o $OUTPUT_DIR 2>&1 | tee "${OUTPUT_DIR}/train_performance.log"
+    -o $OUTPUT_DIR > "${OUTPUT_DIR}/train_performance.log" 2>&1
 
 LOG_FILE="${OUTPUT_DIR}/train_performance.log"
 

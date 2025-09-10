@@ -129,10 +129,10 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
     # 安装其他依赖项
     python -m pip install -r requirements.txt
 
-    # 安装tbe和hccl
+    # 安装tbe和hccl, 将 CANN 包目录记作 cann_root_dir
     pip uninstall te topi hccl -y
-    pip install $ASCEND_CUSTOM_PATH/latest/lib64/te-*-py3-none-any.whl
-    pip install $ASCEND_CUSTOM_PATH/latest/lib64/hccl-*-py3-none-any.whl
+    pip install {cann_root_dir}/latest/lib64/te-*-py3-none-any.whl
+    pip install {cann_root_dir}/latest/lib64/hccl-*-py3-none-any.whl
     ```
     
 6. 使用 patch 文件：
@@ -282,3 +282,5 @@ yum install -y gawk
 ```
 
 2. 训练过程会自动下载inception权重，如果遇到网络问题等下载失败，可以本地下载后，手动将该权重文件放到日志指定路径
+
+3. 我们支持的训练方式是单数据集nuScenes，若在执行`python -m pip install -r requirements.txt` 时由于网络原因下载kitti仓失败，注释掉对应依赖即可
