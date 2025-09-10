@@ -13,7 +13,11 @@ def assertIsNotInstance(obj, cls):
     assert not isinstance(obj, cls), f"Expected {repr(obj)} to NOT be an instance of {cls.__name__}"
 
 
-class TestPseudoSamplerPatcher(TestCase):
+class EmptyAttribute:
+    pass
+
+
+class TestPseudoSamplerPatch(TestCase):
 
     def setUp(self):
         # mmdet.core.bbox.samplers.pseudo_sampler
@@ -67,8 +71,14 @@ class TestPseudoSamplerPatcher(TestCase):
         self.assertRtolEqual(pos_inds, torch.tensor([True, False, True]))
         self.assertRtolEqual(neg_inds, torch.tensor([False, True, False]))
 
+    def test_patch_failure(self):
+        mock_mmdet = MagicMock()
+        with self.assertRaises(AttributeError):
+            mock_mmdet.core.bbox.samplers.pseudo_sampler.PseudoSampler = EmptyAttribute
+            pseudo_sampler(mock_mmdet, {})
 
-class TestResNetAddReLU(TestCase):
+
+class TestResNetAddReLUPatch(TestCase):
     def setUp(self):
         # mmdet.models.backbones.resnet
         self.mock_mmdet = types.ModuleType('mmdet')
@@ -179,8 +189,14 @@ class TestResNetAddReLU(TestCase):
         result = block(x)
         self.assertRtolEqual(result, torch.tensor([2.0]).npu())
 
+    def test_patch_failure(self):
+        mock_mmdet = MagicMock()
+        with self.assertRaises(AttributeError):
+            mock_mmdet.models.backbones.resnet.BasicBlock = EmptyAttribute
+            resnet_add_relu(mock_mmdet, {})
 
-class TestResNetMaxPool(TestCase):
+
+class TestResNetMaxPoolPatch(TestCase):
     def setUp(self):
         # mmdet.models.backbones.resnet
         self.mock_mmdet = types.ModuleType('mmdet')
@@ -244,6 +260,13 @@ class TestResNetMaxPool(TestCase):
 
         result = model(x)
         self.assertEqual(len(result), 1)  # verify only output 1 layer
+
+    def test_patch_failure(self):
+        mock_mmdet = MagicMock()
+        with self.assertRaises(AttributeError):
+            mock_mmdet.models.backbones.resnet.ResNet = EmptyAttribute
+            resnet_maxpool(mock_mmdet, {})
+
 
 if __name__ == "__main__":
     run_tests()

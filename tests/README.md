@@ -17,6 +17,7 @@
     ```Bash
     git clone -b 1.x https://github.com/open-mmlab/mmcv.git
     cd mmcv
+    MMCV_WITH_OP=1 FORCE_NPU=1 python setup.py build_ext
     MMCV_WITH_OP=1 FORCE_NPU=1 python setup.py install
     cd ../
     ```
