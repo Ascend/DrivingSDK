@@ -20,13 +20,14 @@ class TestModulatedDeformableConv2d(TestCase):
         shape = item[2]
         input1 = np.random.uniform(minvalue, maxvalue, shape).astype(dtype)
         return torch.from_numpy(input1)
-
+    
     @golden_data_cache(__file__)
-    def get_cpu_golden(self, x, offset, mask, weight, groups, grad_out):
-        x_cpu = x.detach().clone().cpu().double()
-        offset_cpu = offset.detach().clone().cpu().double()
-        mask_cpu = mask.detach().clone().cpu().double()
-        weight_cpu = weight.detach().clone().cpu().double()
+    # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
+    def get_cpu_golden(self, dtype, x, offset, mask, weight, groups, grad_out):
+        x_cpu = x.detach().clone().cpu().to(dtype)
+        offset_cpu = offset.detach().clone().cpu().to(dtype)
+        mask_cpu = mask.detach().clone().cpu().to(dtype)
+        weight_cpu = weight.detach().clone().cpu().to(dtype)
         x_cpu.grad, offset_cpu.grad, mask_cpu.grad, weight_cpu.grad = None, None, None, None
         
         x_cpu.requires_grad = True
@@ -100,7 +101,7 @@ class TestModulatedDeformableConv2d(TestCase):
                 x, offset, mask, weight, grad_out = \
                     gpu_data["x"], gpu_data["offset"], gpu_data["mask"], gpu_data["weight"], gpu_data["grad_out"]
                     
-                cpu_out = self.get_cpu_golden(x, offset, mask, weight, groups, grad_out)
+                cpu_out = self.get_cpu_golden(torch.float64, x, offset, mask, weight, groups, grad_out)
                 npu_out = self.get_npu_output(x, offset, mask, weight, groups, grad_out)
                 
                 self.double_check_result(file_name, npu_out, cpu_out, gpu_data)
@@ -111,7 +112,7 @@ class TestModulatedDeformableConv2d(TestCase):
                 weight = self.create_single_cpu_tensor([np.float32, 0, (cOut, cIn // groups, K, K)], -5, 5) * 0.001
                 grad_out = self.create_single_cpu_tensor([np.float32, 0, (N, cIn, hOut, wOut)], -5, 5)
 
-                cpu_out = self.get_cpu_golden(x, offset, mask, weight, groups, grad_out)
+                cpu_out = self.get_cpu_golden(torch.float32, x, offset, mask, weight, groups, grad_out)
                 npu_out = self.get_npu_output(x, offset, mask, weight, groups, grad_out)
                 self.single_check_result(npu_out, cpu_out)
         
