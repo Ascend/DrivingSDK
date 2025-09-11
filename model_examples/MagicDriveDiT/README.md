@@ -193,7 +193,7 @@ ${CODE_ROOT}/pretrained/
 |stage2| 竞品A           |  8p  |         4         |   混精    | 0.830 | 3.429|
 |stage2| Atlas 800T A2 |  8p  |         4         |   混精    | 0.829 | 5.706 |
 |stage3| 竞品A           |  8p  |         4         |   混精    | 1.09 | 60.96|
-|stage| Atlas 800T A2 |  8p  |         4         |   混精    | 1.11 | 124.33 |
+|stage3| Atlas 800T A2 |  8p  |         4         |   混精    | 1.11 | 124.33 |
 
 # 变更说明
 

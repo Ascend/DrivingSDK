@@ -1,12 +1,28 @@
 # 自驾模型迁移优化指导
-## 1. 模型迁移
-自驾模型可通过自动迁移的方式进行快速迁移，迁移方式，在训练脚本中导入代码：
-```python
-import torch
-import torch_npu
-from torch_npu.contrib import transfer_to_npu
+## 1. 一键Patcher快速迁移
+
+为方便用户快速迁移原本基于GPU/CUDA生态实现的模型至昇腾生态，一键Patcher提供了一个预定义的PatcherBuilder实例，帮助用户仅需添加几行代码即可使模型在昇腾NPU上进行训练。
+
+### 定位模型训练脚本入口
+
+找到模型的训练脚本，通常命名为`train.py`，定位到它的入口函数，通常为：
+
+```Python
+if __name__ == '__main__':
+	main()
 ```
-具体可以参考：https://www.hiascend.com/document/detail/zh/Pytorch/700/ptmoddevg/trainingmigrguide/PT_LMTMOG_0014.html
+
+### 应用Context
+
+```Python
+from mx_driving.patcher import default_patcher_builder
+#......
+if __name__ == '__main__':
+	with default_patcher_builder.build() as patcher:
+		main()
+```
+
+然后照常运行模型即可。具体可以参考[一键patcher](patcher.md)
 
 ## 2. 模型优化
 ### 2.1 框架特性
