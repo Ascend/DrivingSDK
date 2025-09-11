@@ -4,3 +4,4 @@ hypothesis
 expecttest
 pyyaml
 prettytable 
+pydantic
