@@ -66,11 +66,12 @@
       cd ../
       ```
 
-  2. 源码编译安装 `mmcv rc4main` 分支：
+  2. 源码编译安装 `mmcv main` 分支：
 
       ```
        git clone https://github.com/open-mmlab/mmcv
        cd mmcv/
+       git checkout 90d83c94cfb967ef162c449faf559616f31f28c2
        pip install -r requirements/runtime.txt
        MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
        MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop

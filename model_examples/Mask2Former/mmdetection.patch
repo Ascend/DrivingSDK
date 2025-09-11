@@ -1,3 +1,16 @@
+diff --git a/mmdet/__init__.py b/mmdet/__init__.py
+index 3ac884ac..20633845 100644
+--- a/mmdet/__init__.py
++++ b/mmdet/__init__.py
+@@ -6,7 +6,7 @@ from mmengine.utils import digit_version
+ from .version import __version__, version_info
+
+ mmcv_minimum_version = '2.0.0rc4'
+-mmcv_maximum_version = '2.2.0'
++mmcv_maximum_version = '2.3.0'
+ mmcv_version = digit_version(mmcv.__version__)
+
+ mmengine_minimum_version = '0.7.1'
 diff --git a/mmdet/models/task_modules/samplers/mask_pseudo_sampler.py b/mmdet/models/task_modules/samplers/mask_pseudo_sampler.py
 index 307dd5d1..5270b80e 100644
 --- a/mmdet/models/task_modules/samplers/mask_pseudo_sampler.py
