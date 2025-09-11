@@ -226,10 +226,9 @@ chmod 777 StreamPETR/backfunc.sh
 
 10. 编译优化
 (1)python编译优化
-源码下载毕昇编译器：
+官网下载毕昇编译器4.1.0版本：https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler：
 ```
 ulimit -n 4096
-wget --no-check-certificate  https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/BiSheng%20Enterprise/BiSheng%20Enterprise%20203.0.0/BiShengCompiler-4.1.0-aarch64-linux.tar.gz
 tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
 export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
 export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
@@ -238,7 +237,7 @@ source {cann_root_dir}/set_env.sh
 
 下载所需依赖：
 ```
-wget --no-check-certificate https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
+wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
 tar -xvf mpdecimal-2.5.1.tar.gz
 cd mpdecimal-2.5.1
 bash ./configure --prefix=/path/to/install/mpdecimal

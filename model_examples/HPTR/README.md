@@ -96,7 +96,7 @@ HPTR 是一种用于自动驾驶实时运动预测的层次化Transformer模型�
     ```
     对于 arm64 架构 Linux 系统，waymo 官方并没有提供预先编译好 whl 包。为了方便用户使用，我们提供 arm64 系统编译的 whl 包，可以直接在华为云 OBS 上进行下载：
     ```
-    wget --no-check-certificate https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/packages/waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
+    wget https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/packages/waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     pip install waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     ```
 
