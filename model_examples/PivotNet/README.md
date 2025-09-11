@@ -154,9 +154,8 @@ code_path=model_examples/PivotNet
 
   - 安装毕昇编译器
 
-  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器。
+  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器，官网下载毕昇编译器4.1.0版本：https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler。
   ```
-  wget https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/BiSheng%20Enterprise/BiSheng%20Enterprise%20203.0.0/BiShengCompiler-4.1.0-aarch64-linux.tar.gz
   tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
   export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
   export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
@@ -165,7 +164,7 @@ code_path=model_examples/PivotNet
 
   - 安装依赖，将安装mpdecimal依赖包的目录记为mpdecimal_install_path。
   ```
-  wget --no-check-certificate https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
+  wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
   tar -xvf mpdecimal-2.5.1.tar.gz
   cd mpdecimal-2.5.1
   bash ./configure --prefix=mpdecimal_install_path
@@ -232,9 +231,9 @@ code_path=model_examples/PivotNet
 ```
 cd /path/to/pivotnet
 cd assets/weights
-wget --no-check-certificate https://github.com/wenjie710/PivotNet/releases/download/v1.0/efficientnet-b0-355c32eb.pth .
-wget --no-check-certificate https://github.com/wenjie710/PivotNet/releases/download/v1.0/resnet50-0676ba61.pth .
-wget --no-check-certificate https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_tiny_patch4_window7_512x512.pth .
+wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/efficientnet-b0-355c32eb.pth .
+wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/resnet50-0676ba61.pth .
+wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_tiny_patch4_window7_512x512.pth .
 ```
 
 - 生成模型训练数据

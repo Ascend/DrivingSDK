@@ -128,7 +128,7 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
 ```shell
 mkdir gperftools
 cd gperftools
-wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz --no-check-certificate
+wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
 tar -zvxf gperftools-2.16.tar.gz
 cd gperftools-2.16
 ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64

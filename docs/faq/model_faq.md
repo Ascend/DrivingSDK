@@ -219,27 +219,27 @@ cd gmp-6.1.0
 make -j128
 make install
 cd ../
-wget https://ftp.swin.edu.au/gnu/mpfr/mpfr-4.1.1.tar.gz --no-check-certificate
+wget https://ftp.swin.edu.au/gnu/mpfr/mpfr-4.1.1.tar.gz
 tar -zxvf mpfr-4.1.1.tar.gz
 cd mpfr-4.1.1
 ./configure --prefix=/usr/local/mpfr --with-gmp=/usr/local/gmp # 该步骤若报错，替换命令为：./configure --with-gmp=/usr/local/gmp
 make -j128
 make install
 cd ../
-wget https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.24.zip --no-check-certificate
+wget https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.24.zip
 unzip v0.3.24.zip
 cd OpenBLAS-0.3.24
 make -j128
 make PREFIX=/usr/local install
 cd ../
-wget https://github.com/sqlite/sqlite/archive/refs/tags/version-3.36.0.tar.gz --no-check-certificate
+wget https://github.com/sqlite/sqlite/archive/refs/tags/version-3.36.0.tar.gz
 tar -xzvf version-3.36.0.tar.gz
 cd sqlite-version-3.36.0
 CFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1" ./configure
 make -j128
 make install
 cd ../
-wget https://github.com/OSGeo/PROJ/archive/refs/tags/7.2.0.tar.gz --no-check-certificate
+wget https://github.com/OSGeo/PROJ/archive/refs/tags/7.2.0.tar.gz
 tar -xzvf 7.2.0.tar.gz
 cd PROJ-7.2.0
 mkdir build
@@ -405,7 +405,7 @@ export LD_PRELOAD={conda_env_path}/site-packages/sklearn/__check_build/../../sci
 #### 7.1 模型所需的预训练权重文件因网络问题下载失败如何解决？
 预训练权重文件下载失败，可以根据报错链接，手动下载，拷贝到用户名对应目录：
    ```
-   wget ckpt_file --no-check-certificate # 将预训练权重文件的链接记为ckpt_file
+   wget ckpt_file # 将预训练权重文件的链接记为ckpt_file
    cp ckpt_file {root}/.cache/torch/hub/checkpoints/resnet-*.pth # 将用户根目录记为{root}
    ```
 

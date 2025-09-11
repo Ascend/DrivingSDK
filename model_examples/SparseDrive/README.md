@@ -171,7 +171,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
   (option) bash test/train_8p_performance.sh --batch_node_size_stage1=64 --batch_node_size_stage2=48 --num_npu=8
 
   # (option)若没有进行全量精度训练，可使用如下命令下载stage1的权重以测试stage2的性能
-  wget https://github.com/swc-17/SparseDrive/releases/download/v1.0/sparsedrive_stage1.pth --no-check-certificate -O ckpt/sparsedrive_stage1.pth
+  wget https://github.com/swc-17/SparseDrive/releases/download/v1.0/sparsedrive_stage1.pth -O ckpt/sparsedrive_stage1.pth
 ```
 
 ## 训练结果

@@ -89,7 +89,7 @@
     ```
     对于arm64架构Linux系统，waymo官方并没有提供预先编译好whl包。为了方便用户使用，我们提供arm64系统编译的whl包，可以直接在华为云OBS上进行下载。
     ```
-    wget --no-check-certificate https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/packages/waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
+    wget https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/packages/waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     pip install -r requirements_waymo.txt
     pip install waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     ```

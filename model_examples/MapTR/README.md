@@ -158,9 +158,8 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
 
   - 安装毕昇编译器
 
-  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器。
+  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器，官网下载毕昇编译器4.1.0版本：https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler。
   ```
-  wget https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/BiSheng%20Enterprise/BiSheng%20Enterprise%20203.0.0/BiShengCompiler-4.1.0-aarch64-linux.tar.gz
   tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
   export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
   export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
@@ -169,7 +168,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
 
   - 安装依赖，将安装mpdecimal依赖包的目录记为mpdecimal_install_path。
   ```
-  wget --no-check-certificate https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
+  wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
   tar -xvf mpdecimal-2.5.1.tar.gz
   cd mpdecimal-2.5.1
   bash ./configure --prefix=mpdecimal_install_path

@@ -125,7 +125,7 @@ code_path=model_examples/QCNet
     安装tcmalloc（适用OS: __openEuler__）
     ```shell
     mkdir gperftools && cd gperftools
-    wget --no-check-certificate https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
     tar -zvxf gperftools-2.16.tar.gz
     cd gperftools-2.16
     ./configure

@@ -195,7 +195,7 @@ make install
 ```
 安装mpfr的命令
 ```
-wget https://ftp.swin.edu.au/gnu/mpfr/mpfr-4.1.1.tar.gz --no-check-certificate
+wget https://ftp.swin.edu.au/gnu/mpfr/mpfr-4.1.1.tar.gz
 tar -zxvf mpfr-4.1.1.tar.gz
 cd mpfr-4.1.1
 ./configure --prefix=/usr/local/mpfr --with-gmp=/usr/local/gmp
@@ -207,7 +207,7 @@ make install
 ```
 安装OpenBLAS
 ```
-wget https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.24.zip --no-check-certificate
+wget https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.24.zip
 unzip v0.3.24.zip
 cd OpenBLAS-0.3.24
 make -j8
