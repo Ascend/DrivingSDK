@@ -155,7 +155,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
   bash test/train_8p_full.sh
 
   # (option) downloading the stage1 weights to test the stage2 performance
-  wget https://github.com/swc-17/SparseDrive/releases/download/v1.0/sparsedrive_stage1.pth --no-check-certificate -O ckpt/sparsedrive_stage1.pth
+  wget https://github.com/swc-17/SparseDrive/releases/download/v1.0/sparsedrive_stage1.pth -O ckpt/sparsedrive_stage1.pth
 
   # performance
   bash test/train_8p_performance.sh
