@@ -163,8 +163,13 @@ code_path=model_examples/QCNet
 
 
 ### 模型数据准备
+方式一：自动下载数据
 
-进入[Argoverse 2](https://www.argoverse.org/av2.html)官网，下载Argoverse 2 Motion Forecasting Dataset数据集。将数据集放置或者链接到DrivingSDK/model_examples/QCNet/QCNet/datasets路径下，数据集结构排布成如下格式：
+直接运行训练脚本，可以自动下载数据集到脚本中--root指向的默认路径'/path/to/datasets'下，并自动进行数据预处理，该路径可以自行修改。
+
+方式二：手动下载数据
+
+进入[Argoverse 2](https://www.argoverse.org/av2.html)官网，下载Argoverse 2 Motion Forecasting Dataset数据集。将数据集放置或者链接到任意路径下，数据集结构排布成如下格式：
 
 - 文件夹结构
 
@@ -177,7 +182,7 @@ code_path=model_examples/QCNet
 
 - 数据预处理
 
-    当数据集的压缩包已经放置于dataset路径下，pytorch-lightening框架会在第一次执行训练脚本时，自动开始数据预处理过程，处理总时长大约3小时。
+    当数据集的压缩包已经放置于datasets路径下后，自行修改训练脚本中--root指向的路径'/path/to/datasets'为实际datasets的存放路径，pytorch-lightening框架会在第一次执行训练脚本时，自动开始数据预处理过程，处理总时长大约3小时。
 
 
 ## 快速开始
