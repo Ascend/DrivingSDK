@@ -130,7 +130,8 @@
 3. 下载[dexvla stage1 预训练权重](https://huggingface.co/lesjie/scale_dp_h/tree/main)，将权重路径记做 stage1_weights
 
 ## 快速开始
-本任务主要提供**单机8卡**的训练脚本。
+本任务主要提供**单机8卡**的训练脚本。在DrivingSDK/model_examples/Dexvla/DexVLA目录下执行以下脚本进行训练。
+
 ### 开始训练
 
 - 单机8卡stage2性能
