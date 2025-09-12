@@ -261,4 +261,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // graph_softmax_grad
     m.def("graph_softmax_grad", &graph_softmax_grad);
+
+    // cylinder_query
+    m.def("cylinder_query", &cylinder_query);
 }

@@ -304,4 +304,7 @@ at::Tensor graph_softmax(const at::Tensor& src, const at::Tensor& index, int N);
 at::Tensor graph_softmax_grad(const at::Tensor& index,
     const at::Tensor& softmax_out, const at::Tensor& grad_output, int32_t node_num);
 
+at::Tensor cylinder_query(double radius, double hmin, double hmax, int nsample, const at::Tensor& new_xyz,
+    const at::Tensor& xyz, const at::Tensor& rot);
+
 #endif // CSRC_FUNCTIONS_H_

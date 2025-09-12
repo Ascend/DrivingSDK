@@ -66,6 +66,7 @@ __all__ = [
     "radius",
     "npu_unique",
     "graph_softmax",
+    "cylinder_query",
 ]
 
 import os
@@ -135,6 +136,7 @@ from .ops.radius import radius
 from .ops.min_area_polygons import min_area_polygons
 from .ops.npu_unique import npu_unique
 from .ops.graph_softmax import graph_softmax
+from .ops.cylinder_query import cylinder_query
 
 
 def _set_env():

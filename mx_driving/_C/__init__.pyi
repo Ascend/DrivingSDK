@@ -447,6 +447,15 @@ def graph_softmax_grad(
     softmax_out: torch.Tensor,
     grad_output: torch.Tensor,
 ) -> torch.Tensor: ...
+def cylinder_query(
+    radius: float,
+    hmin: float,
+    hmax: float,
+    nsample: int,
+    new_xyz: torch.Tensor,
+    xyz: torch.Tensor,
+    rot: torch.Tensor,
+) -> torch.Tensor: ...
 
 __all__ = [
     "knn",
@@ -504,4 +513,5 @@ __all__ = [
     "radius",
     "graph_softmax",
     "graph_softmax_grad",
+    "cylinder_query",
 ]
