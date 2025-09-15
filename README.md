@@ -7,7 +7,7 @@ Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景的算子
 
 # 安装
 ## 前提条件
-1. 本项目依赖昇腾提供的pytorch_npu包和CANN包，需要先安装对应版本的pytorch_npu和CANN软件包，具体配套关系见pytorch仓[README](https://gitee.com/ascend/pytorch)。
+1. 本项目依赖昇腾提供的pytorch_npu包和CANN包，需要先安装对应版本的pytorch_npu和CANN软件包，具体配套关系见pytorch仓[README](https://gitcode.com/Ascend/pytorch)。
 请参考昇腾官方文档[Pytorch框架训练环境准备](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html)。
 2. 使用`pip3 install -r requirements.txt` 安装python依赖，`requirements.txt`文件位于项目根目录下。
 3. 如果您需要编译`ONNX`插件，请安装`protobuf-devel-3.14.0`, 在`centos` 系统上可以执行`yum install protobuf-devel-3-14.0`，否则请将`CMakePresets.json`中的`ENABLE_ONNX`选项改为`FALSE`，`CMakePresets.json`文件位于项目根目录下。
@@ -20,7 +20,7 @@ Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景的算子
 ## 从源码安装
 #### 1. 克隆原始仓。
 ```shell
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 ```
 #### 2. 编译Driving SDK。
 > 注意：请在仓库根目录下执行编译命令
@@ -43,7 +43,7 @@ pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
 
 DrivingSDK支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如下：
 
-| Gitee分支 |  CPU架构 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
+| Gitcode分支 |  CPU架构 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
 |-----------|-----------|-------------------|-------------------|---------------------|
 | master    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.5.1|v2.5.1|
@@ -135,61 +135,61 @@ export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/o
 ```
 
 ## 模型清单
-DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模型基于昇腾机器的实操案例。每个模型都有详细的使用指导，后续将持续增加和优化典型模型。使用过程中，若遇到报错问题，可查看[自动驾驶模型FAQ](https://gitee.com/ascend/DrivingSDK/blob/master/docs/faq/model_faq.md)自助解决，或在[Issues](https://gitee.com/ascend/DrivingSDK/issues)中留言。如下列表中Released为Y的表示已经过测试验证，N的表示开发自验通过。
+DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模型基于昇腾机器的实操案例。每个模型都有详细的使用指导，后续将持续增加和优化典型模型。使用过程中，若遇到报错问题，可查看[自动驾驶模型FAQ](https://gitcode.com/Ascend/DrivingSDK/blob/master/docs/faq/model_faq.md)自助解决，或在[Issues](https://gitcode.com/Ascend/DrivingSDK/issues)中留言。如下列表中Released为Y的表示已经过测试验证，N的表示开发自验通过。
 
 |  Model   | 8p-Atlas 800T A2性能(FPS)  | 8p-竞品性能(FPS)  | Released |
 |  :----:  |  :----  | :----  | :----  |
-| [BEVDepth](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDepth)  | 32.29 | 22.11 |Y|
-| [BEVDet](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet)  | 70.41 | 35.56 |Y|
-| [BEVDet4D](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVDet4D)  | 7.04 | 5.59 |Y|
-| [BevFormer](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFormer)  | 3.66 | 3.32 |Y|
-| [BEVFusion](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVFusion) | 23.62 | 22.54 |Y|
-| [CenterNet](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterNet)  | 1257.444 | 542 |Y|
-| [CenterPoint(2D)](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 66.160 | 85.712 |Y|
-| [CenterPoint(3D)](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 39.41 | 48.48 |Y|
-| [Deformable-DETR](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR) | 63 | 65 |Y|
-| [DenseTNT](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT) | 166 | 237 |Y|
-| [DETR](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR) | 122 | 126 |Y|
-| [DETR3D](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DETR3D) | 14.35 | 14.28 |Y|
-| [Diffusion-Planner](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner) | 5672.96 | 5304.32 |Y|
-| [DiffusionDrive](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive) | 28.43 | 30.53 |Y|
-| [FCOS-resnet](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS) | 196 | 196 |Y|
-| [FCOS3D](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FCOS3D) | 44.31 | 44.30 |Y|
-| [FlashOCC](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/FlashOCC) | 104.85 | 67.98 |Y|
-| [GameFormer](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer) | 7501.8 | 6400 |Y|
-| [GameFormer-Planner](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner)  | 5319 | 5185 |Y|
-| [LaneSegNet](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LaneSegNet) | 18.0 | 23.75 |Y|
-| [MapTR](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTR) | 34.85 | 33.2 |Y|
-| [MapTRv2](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MapTRv2)  | 23.03 | 21.91 |Y|
-| [Mask2Former](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Mask2Former)  | 26.03 | 28.42 |Y|
-| [MatrixVT](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MatrixVT)  | 46.19 | 36.89 |Y|
-| [MultiPath++](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MultiPath++) | 149.53 | 198.14 |Y|
-| [OpenDWM](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenDWM)  | 1.82 | 1.82 |Y|
-| [OpenVLA](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/OpenVLA)  | 56.14 | 73.12 |Y|
-| [PanoOcc](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PanoOcc)  | 4.32 | 4.87 |Y|
-| [Pi-0](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Pi-0)  | 116.36 | 136.17 |Y|
-| [PivotNet](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PivotNet) | 9.75 | 13.8 |Y|
-| [PointPillar(2D)](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointPillar)  | 70.79 | 60.75 |Y|
-| [SalsaNext](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SalsaNext) | 197.2 | 241.6 |Y|
-| [Sparse4D](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Sparse4D)  | 70.59 | 65.75 |Y|
-| [SparseDrive](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SparseDrive) | Stage1: 46.3<br>Stage2: 37.9 | Stage1: 41.0<br>Stage2: 35.2 |Y|
-| [StreamPETR](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/StreamPETR)  | 26.016 | 25.397 |Y|
-| [SurroundOcc](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/SurroundOcc)  | 7.59 | 7.78 |Y|
-| [TPVFormer](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/TPVFormer) | 6.69 | 10.32 |Y|
-| [UniAD](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/UniAD) | Stage1: 1.002<br>Stage2: 1.554 | Stage1: 1.359<br>Stage2: 2.000 |Y|
-| [BEVNeXt](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/BEVNeXt) | Stage1: 16.568<br>Stage2: 7.572 | Stage1: 36.643<br>Stage2: 11.651 |N|
-| [DexVLA](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Dexvla) | Stage2: 16.72<br>Stage3: 15.85 | Stage2: 18.88<br>Stage3: 18.67 |N|
-| [HiVT](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HiVT) | 645 | 652 |N|
-| [HPTR](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/HPTR) | 25.12 | 36.07 |N|
-| [LMDrive](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/LMDrive)  | 8.02 | 13.85 |N|
-| [MagicDriveDiT](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT) | Stage1: 0.83 | Stage1: 1.50 |N|
-| [Panoptic-PolarNet](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet) | 1.28 | 1.69 |N|
-| [PointTransformerV3](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/PointTransformerV3)  | 11.92 | 35.56 |N|
-| [QCNet](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/QCNet) | 75.29 | 94.11 |N|
-| [Senna](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Senna)  | 1.376 | 1.824 |N|
-| [VAD](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VAD) | 2.847 | 7.476 |N|
-| [VGGT](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/VGGT)  | 25.04 | 15.30 |N|
-| [YoloV8](https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Yolov8)   | 214.64 | 479.73 |N|
+| [BEVDepth](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDepth)  | 32.29 | 22.11 |Y|
+| [BEVDet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDet)  | 70.41 | 35.56 |Y|
+| [BEVDet4D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDet4D)  | 7.04 | 5.59 |Y|
+| [BevFormer](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVFormer)  | 3.66 | 3.32 |Y|
+| [BEVFusion](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVFusion) | 23.62 | 22.54 |Y|
+| [CenterNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterNet)  | 1257.444 | 542 |Y|
+| [CenterPoint(2D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 66.160 | 85.712 |Y|
+| [CenterPoint(3D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 39.41 | 48.48 |Y|
+| [Deformable-DETR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR) | 63 | 65 |Y|
+| [DenseTNT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DenseTNT) | 166 | 237 |Y|
+| [DETR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DETR) | 122 | 126 |Y|
+| [DETR3D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DETR3D) | 14.35 | 14.28 |Y|
+| [Diffusion-Planner](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner) | 5672.96 | 5304.32 |Y|
+| [DiffusionDrive](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive) | 28.43 | 30.53 |Y|
+| [FCOS-resnet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FCOS) | 196 | 196 |Y|
+| [FCOS3D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FCOS3D) | 44.31 | 44.30 |Y|
+| [FlashOCC](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FlashOCC) | 104.85 | 67.98 |Y|
+| [GameFormer](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/GameFormer) | 7501.8 | 6400 |Y|
+| [GameFormer-Planner](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/GameFormer-Planner)  | 5319 | 5185 |Y|
+| [LaneSegNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/LaneSegNet) | 18.0 | 23.75 |Y|
+| [MapTR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/MapTR) | 34.85 | 33.2 |Y|
+| [MapTRv2](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/MapTRv2)  | 23.03 | 21.91 |Y|
+| [Mask2Former](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Mask2Former)  | 26.03 | 28.42 |Y|
+| [MatrixVT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/MatrixVT)  | 46.19 | 36.89 |Y|
+| [MultiPath++](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/MultiPath++) | 149.53 | 198.14 |Y|
+| [OpenDWM](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/OpenDWM)  | 1.82 | 1.82 |Y|
+| [OpenVLA](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/OpenVLA)  | 56.14 | 73.12 |Y|
+| [PanoOcc](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/PanoOcc)  | 4.32 | 4.87 |Y|
+| [Pi-0](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Pi-0)  | 116.36 | 136.17 |Y|
+| [PivotNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/PivotNet) | 9.75 | 13.8 |Y|
+| [PointPillar(2D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/PointPillar)  | 70.79 | 60.75 |Y|
+| [SalsaNext](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/SalsaNext) | 197.2 | 241.6 |Y|
+| [Sparse4D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Sparse4D)  | 70.59 | 65.75 |Y|
+| [SparseDrive](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/SparseDrive) | Stage1: 46.3<br>Stage2: 37.9 | Stage1: 41.0<br>Stage2: 35.2 |Y|
+| [StreamPETR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/StreamPETR)  | 26.016 | 25.397 |Y|
+| [SurroundOcc](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/SurroundOcc)  | 7.59 | 7.78 |Y|
+| [TPVFormer](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/TPVFormer) | 6.69 | 10.32 |Y|
+| [UniAD](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/UniAD) | Stage1: 1.002<br>Stage2: 1.554 | Stage1: 1.359<br>Stage2: 2.000 |Y|
+| [BEVNeXt](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVNeXt) | Stage1: 16.568<br>Stage2: 7.572 | Stage1: 36.643<br>Stage2: 11.651 |N|
+| [DexVLA](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Dexvla) | Stage2: 16.72<br>Stage3: 15.85 | Stage2: 18.88<br>Stage3: 18.67 |N|
+| [HiVT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HiVT) | 645 | 652 |N|
+| [HPTR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HPTR) | 25.12 | 36.07 |N|
+| [LMDrive](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/LMDrive)  | 8.02 | 13.85 |N|
+| [MagicDriveDiT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT) | Stage1: 0.83 | Stage1: 1.50 |N|
+| [Panoptic-PolarNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet) | 1.28 | 1.69 |N|
+| [PointTransformerV3](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/PointTransformerV3)  | 11.92 | 35.56 |N|
+| [QCNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/QCNet) | 75.29 | 94.11 |N|
+| [Senna](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Senna)  | 1.376 | 1.824 |N|
+| [VAD](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/VAD) | 2.847 | 7.476 |N|
+| [VGGT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/VGGT)  | 25.04 | 15.30 |N|
+| [YoloV8](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Yolov8)   | 214.64 | 479.73 |N|
 
 # 支持的产品型号
 - Atlas A2 训练系列产品
@@ -268,9 +268,9 @@ Driving SDK代码中包含公网地址声明如下表所示：
 ## 公开接口声明
 参考[API清单](./docs/api/README.md)，Driving SDK提供了对外的自定义接口。如果一个函数在文档中有展示，则该接口是公开接口。否则，使用该功能前可以在社区询问该功能是否确实是公开的或意外暴露的接口，因为这些未暴露接口将来可能会被修改或者删除。
 ## 通信安全加固
-Driving SDK在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
+Driving SDK在运行时依赖于`PyTorch`及`torch_npu`，您需关注通信安全加固，具体方式请参考[torch_npu通信安全加固](https://gitcode.com/Ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA)。
 ## 通信矩阵
-Driving SDK在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitee.com/ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
+Driving SDK在运行时依赖于`PyTorch`及`torch_npu`，涉及通信矩阵，具体信息请参考[torch_npu通信矩阵](https://gitcode.com/Ascend/pytorch/blob/master/SECURITYNOTE.md#%E9%80%9A%E4%BF%A1%E7%9F%A9%E9%98%B5)。
 
 
 # 软件生命周期说明
@@ -304,7 +304,7 @@ Driving SDK版本分支的维护阶段如下：
 ## 致Driving SDK使用者
 1. Driving SDK提供的模型仅供您用于非商业目的。
 2. 对于各模型，Driving SDK平台仅提示性地向您建议可用于训练的数据集，华为不提供任何数据集，如您使用这些数据集进行训练，请您特别注意应遵守对应数据集的License，如您因使用数据集而产生侵权纠纷，华为不承担任何责任。
-3. 如您在使用Driving SDK模型过程中，发现任何问题（包括但不限于功能问题、合规问题），请在Gitee提交issue，我们将及时审视并解决。
+3. 如您在使用Driving SDK模型过程中，发现任何问题（包括但不限于功能问题、合规问题），请在Gitcode提交issue，我们将及时审视并解决。
 
 ## 致数据集所有者
-如果您不希望您的数据集在Driving SDK中的模型被提及，或希望更新Driving SDK中的模型关于您的数据集的描述，请在Gitee提交issue，我们将根据您的issue要求删除或更新您的数据集描述。衷心感谢您对Driving SDK的理解和贡献。
+如果您不希望您的数据集在Driving SDK中的模型被提及，或希望更新Driving SDK中的模型关于您的数据集的描述，请在Gitcode提交issue，我们将根据您的issue要求删除或更新您的数据集描述。衷心感谢您对Driving SDK的理解和贡献。

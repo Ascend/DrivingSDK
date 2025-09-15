@@ -48,7 +48,7 @@
 * 适配昇腾AI处理器的实现
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/DiffusionDrive
   ```
 
@@ -57,7 +57,7 @@
 
 ## 安装昇腾环境
 
-请参考昇腾社区中《[Pytorch框架训练环境准备](https://gitee.com/link?target=https%3A%2F%2Fwww.hiascend.com%2Fdocument%2Fdetail%2Fzh%2FModelZoo%2Fpytorchframework%2Fptes)》文档搭建昇腾环境，本仓已支持表1中软件版本。
+请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html)》文档搭建昇腾环境，本仓已支持表1中软件版本。
 
 **表 1** 昇腾软件版本支持表
 
@@ -80,7 +80,7 @@
 
 (需按照安装以下安装顺序进行安装)
 
-- 安装Driving SDK：请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK，在完成README安装步骤后，应当完成了以下包的安装：
+- 安装Driving SDK：请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK，在完成README安装步骤后，应当完成了以下包的安装：
 
   - pyyaml
   - setuptools

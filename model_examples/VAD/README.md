@@ -44,7 +44,7 @@ VAD是一个向量化端到端的自动驾驶网络，将驾驶场景建模完�
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/VAD
   ```
 
@@ -72,7 +72,7 @@ VAD是一个向量化端到端的自动驾驶网络，将驾驶场景建模完�
 - 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
     cd DrivingSDK/model_examples/VAD
     git clone https://github.com/hustvl/VAD.git
     cd VAD
@@ -106,7 +106,7 @@ VAD是一个向量化端到端的自动驾驶网络，将驾驶场景建模完�
     MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
     ```
-- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下，安装相关依赖。
 

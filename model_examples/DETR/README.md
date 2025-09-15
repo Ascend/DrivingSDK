@@ -47,7 +47,7 @@ commit_id=29901c51d7fe8712168b8d0d64351170bc0f83e0
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/DETR
 ```
 

@@ -46,7 +46,7 @@ commit_id=34a47673011fe13593a3e594a376668acca8bddb
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/DETR3D
 ```
 
@@ -85,9 +85,9 @@ code_path=model_examples/DETR3D
 
 2. 安装 Driving SDK 加速库
 
-  安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)。
+  安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)。
   ```
-  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
   cd DrivingSDK
   pip install -r requirements.txt
   bash ci/build.sh --python=3.8

@@ -20,7 +20,7 @@
 
 - 原始代码仓库：https://github.com/Tsinghua-MARS-Lab/DenseTNT
 - commit id：a07c237ea883b320aedf5e505185589ec4f88d76
-- 昇腾适配代码仓库：https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/DenseTNT
+- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DenseTNT
 
 ## 支持的任务列表
 
@@ -32,7 +32,7 @@
 
 - 当前模型支持的 PyTorch 版本：`PyTorch 2.1`
 
-- 搭建 PyTorch 环境参考：https://gitee.com/link?target=https%3A%2F%2Fwww.hiascend.com%2Fdocument%2Fdetail%2Fzh%2FModelZoo%2Fpytorchframework%2Fptes
+- 搭建 PyTorch 环境参考：https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html
 
 **表1** 昇腾软件版本支持列表
 
@@ -62,7 +62,7 @@ git checkout a07c237ea883b320aedf5e505185589ec4f88d76
 
 4、克隆 Driving SDK 仓并使用 patch 文件
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/DenseTNT
 cp -f DenseTNT_npu.patch ${path-to-DenseTNT}
 cp -rf test ${path-to-DenseTNT}

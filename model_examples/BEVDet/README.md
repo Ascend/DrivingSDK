@@ -37,7 +37,7 @@
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/BEVDet
   ```
 
@@ -67,7 +67,7 @@
 
 - 安装Driving SDK
 
-  请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
   >【注意】请使用7.0.RC1及之后的Driving SDK
 
 - 安装基础依赖

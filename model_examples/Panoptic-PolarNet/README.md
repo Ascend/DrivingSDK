@@ -24,7 +24,7 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/Panoptic-PolarNet
   ```
 

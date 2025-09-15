@@ -79,7 +79,7 @@
     ```
     source {cann_root_dir}/set_env.sh
     ```
-1. 安装Driving SDK：请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK，在完成README安装步骤后，应当完成了以下包的安装：
+1. 安装Driving SDK：请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK，在完成README安装步骤后，应当完成了以下包的安装：
 
      - CANN包
      - torch_npu包

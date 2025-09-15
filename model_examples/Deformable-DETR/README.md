@@ -14,7 +14,7 @@
 
 - 原始代码仓库：https://github.com/fundamentalvision/Deformable-DETR
 - commit id：11169a60c33333af00a4849f1808023eba96a931
-- 昇腾适配代码仓库：https://gitee.com/ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR
+- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR
 
 ## 支持的任务列表
 
@@ -46,12 +46,12 @@ conda activate deformable_detr
 
 3、安装`Pytorch2.1`、`torch_npu2.1.0`和`mx_driving`。
 
-- 搭建 PyTorch 环境参考：https://gitee.com/link?target=https%3A%2F%2Fwww.hiascend.com%2Fdocument%2Fdetail%2Fzh%2FModelZoo%2Fpytorchframework%2Fptes
-- 搭建 mx_driving 环境参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+- 搭建 PyTorch 环境参考：https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html
+- 搭建 mx_driving 环境参考：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
 
 4、克隆代码仓到当前目录并使用 patch 文件
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
 git clone https://github.com/fundamentalvision/Deformable-DETR.git
@@ -63,7 +63,7 @@ cp -rf ../test .
 如果需要将 Deformable-DETR 源码 clone 到用户自定义目录，执行下面的shell命令：
 ```
 your_path=/home/    # 替换为用户自定义目标目录地址
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
 git clone https://github.com/fundamentalvision/Deformable-DETR.git ${your_path}
@@ -74,7 +74,7 @@ git apply Deformable-DETR_npu.patch
 ```
 ## 准备数据集
 
-进入 [COCO](https://gitee.com/link?target=http%3A%2F%2Fcocodataset.org%2F%23download) 官网，下载 COCO2017 数据集。将数据集上传到服务器任意路径下并解压，数据集结构排布成如下格式：
+进入 [COCO](http://cocodataset.org/#download) 官网，下载 COCO2017 数据集。将数据集上传到服务器任意路径下并解压，数据集结构排布成如下格式：
 
 ```shell
 coco_path/

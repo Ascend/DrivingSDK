@@ -47,8 +47,8 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 - 适配昇腾 AI 处理器的实现：
 
     ```
-    url=https://gitee.com/ascend/ModelZoo-PyTorch.git
-    code_path=PyTorch/built-in/autonoumous_driving
+    url=https://gitcode.com/Ascend/DrivingSDK.git
+    code_path=model_examples/LMDrive
     ```
 
 # LMDrive
@@ -81,7 +81,7 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 ```
 conda create -n lmdrive python=3.8
 conda activate lmdrive
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 git clone https://github.com/opendilab/LMDrive.git
 cp -f {DrivingSDK_root_dir}/model_examples/LMDrive/npu.patch LMDrive
 cp -rf {DrivingSDK_root_dir}/model_examples/LMDrive/test LMDrive
@@ -135,7 +135,7 @@ git apply --whitespace=fix npu.patch
     python setup.py develop # if you have installed LAVIS before, please uninstall it
     ```
 
-- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 
 

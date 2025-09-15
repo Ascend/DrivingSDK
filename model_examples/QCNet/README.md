@@ -43,7 +43,7 @@ commit_id=55cacb418cbbce3753119c1f157360e66993d0d0
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/QCNet
 ```
 
@@ -159,7 +159,7 @@ code_path=model_examples/QCNet
 
 6. 安装 DrivingSDK 加速库
 
-   安装方法参考[官方文档](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK)。
+   安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK)。
 
 
 ### 模型数据准备

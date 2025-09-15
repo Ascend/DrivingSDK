@@ -35,7 +35,7 @@ HPTR 是一种用于自动驾驶实时运动预测的层次化Transformer模型�
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/HPTR
   ```
 
@@ -63,7 +63,7 @@ HPTR 是一种用于自动驾驶实时运动预测的层次化Transformer模型�
 - 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
     cd DrivingSDK/model_examples/HPTR
     git clone https://github.com/zhejz/HPTR.git
     cd HPTR
@@ -79,7 +79,7 @@ HPTR 是一种用于自动驾驶实时运动预测的层次化Transformer模型�
     ```
 
 
-- 安装 Driving SDK 加速库，安装 master 分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装 Driving SDK 加速库，安装 master 分支，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下，安装相关依赖：
 

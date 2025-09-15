@@ -44,7 +44,7 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/VGGT
   ```
 
@@ -73,7 +73,7 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
 - 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git
+    git clone https://gitcode.com/Ascend/DrivingSDK.git
     cd DrivingSDK/model_examples/VGGT
     git clone https://github.com/facebookresearch/vggt.git
     cd vggt

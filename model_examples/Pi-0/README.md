@@ -37,7 +37,7 @@
 
 - 适配昇腾 AI 处理器的实现：
     ```
-    url=https://gitee.com/ascend/DrivingSDK.git
+    url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/Pi-0
     ```
 
@@ -89,9 +89,9 @@
   pip install -e .
   ```
 
-3. 根据[Mindspeed仓](https://gitee.com/ascend/MindSpeed)安装Mindspeed组件，如：
+3. 根据[Mindspeed仓](https://gitcode.com/Ascend/MindSpeed)安装Mindspeed组件，如：
   ```
-  git clone https://gitee.com/ascend/MindSpeed.git
+  git clone https://gitcode.com/Ascend/MindSpeed.git
   pip install -e MindSpeed
   ```
 
@@ -108,7 +108,7 @@
 
 6. 安装Driving SDK
 
-请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 
 ### 准备数据集与预训练权重

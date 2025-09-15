@@ -24,7 +24,7 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/FCOS3D
   ```
 
@@ -61,7 +61,7 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
 
 1. 安装 Driving SDK 加速库
    
-  安装方法参考原仓：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
 
 2. 安装 mmcv
 

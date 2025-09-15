@@ -45,7 +45,7 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 
 - 适配昇腾 AI 处理器的实现：
     ```
-    url=https://gitee.com/ascend/DrivingSDK.git
+    url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/MagicDriveDiT
     ```
 
@@ -88,7 +88,7 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 3. 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
     cd DrivingSDK/model_examples/MagicDriveDiT
     git clone https://github.com/flymin/MagicDriveDiT.git 
     cd MagicDriveDiT
@@ -107,8 +107,8 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 4. 安装模型相关的依赖项。
   
   ```
-  # 安装apex (https://gitee.com/ascend/apex)
-  git clone -b master https://gitee.com/ascend/apex.git
+  # 安装apex (https://gitcode.com/Ascend/apex)
+  git clone -b master https://gitcode.com/Ascend/apex.git
   cd apex/
   bash scripts/build.sh --python=3.9
   cd apex/dist/

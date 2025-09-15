@@ -38,7 +38,7 @@
   |:-------------:|
   |  PyTorch 2.1  |
 
-- 下载并编译安装`DrivingSDK`加速库，参考https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+- 下载并编译安装`DrivingSDK`加速库，参考https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
 
 - 安装依赖。
 

@@ -44,7 +44,7 @@ commit_id=3f334e499bae6c9e2f3ed06cf77ac6cbd22d0ba8
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/PivotNet
 ```
 
@@ -99,7 +99,7 @@ code_path=model_examples/PivotNet
 
 4. 安装 Driving SDK 加速库
 
-   安装方法参考[官方文档](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK)。
+   安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK)。
 
 5. 根据操作系统，安装tcmalloc动态库。
 

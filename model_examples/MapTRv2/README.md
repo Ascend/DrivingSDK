@@ -102,11 +102,11 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
     pip install -v -e .
     ```
 
-5. 安装Driving SDK加速库，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+5. 安装Driving SDK加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 6. 安装MindSpeed加速库。
     ```
-    git clone https://gitee.com/ascend/MindSpeed.git
+    git clone https://gitcode.com/Ascend/MindSpeed.git
     pip install -e MindSpeed
     ```
 

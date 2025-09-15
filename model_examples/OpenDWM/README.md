@@ -50,7 +50,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
 - 适配昇腾 AI 处理器的实现：
     ```
-    url=https://gitee.com/ascend/DrivingSDK.git
+    url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/OpenDWM
     ```
 
@@ -87,20 +87,20 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
 2. 安装Driving SDK
 
-    请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+    请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 3. 安装MindSpeed
     
     源码安装：
     ```
-    git clone https://gitee.com/ascend/MindSpeed.git
+    git clone https://gitcode.com/Ascend/MindSpeed.git
     pip install -e MindSpeed
     ```
 
 4. 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
     cd DrivingSDK/model_examples/OpenDWM
     git clone https://github.com/SenseTime-FVG/OpenDWM 
     cd OpenDWM

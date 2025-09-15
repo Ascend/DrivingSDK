@@ -47,7 +47,7 @@ commit_id=5f202ce84dc4fe52949934ab0921e287d733ff8f
 
 - 适配昇腾 AI 处理器的实现：
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/Senna
 ```
 
@@ -99,7 +99,7 @@ conda activate senna
 
 3. 克隆代码仓并使用patch文件
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/Senna
 git clone https://github.com/hustvl/Senna.git
 cp -f Senna.patch Senna

@@ -48,7 +48,7 @@ commit_id=95f64702306ccdb7a78889578b2a55b5deb35b2a
 
 - 适配昇腾 AI 处理器的实现：
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/StreamPETR
 ```
 
@@ -97,7 +97,7 @@ conda activate streampetr
 
 3. 克隆代码仓并使用patch文件
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 cd DrivingSDK/model_examples/StreamPETR
 git clone https://github.com/exiawsh/StreamPETR.git
 cp -f streampetr.patch StreamPETR
@@ -170,7 +170,7 @@ pip install -v -e .
 源码安装：
 ```
 cd {DrivingSDK_root_dir}/model_examples/StreamPETR
-git clone https://gitee.com/ascend/MindSpeed.git
+git clone https://gitcode.com/Ascend/MindSpeed.git
 pip install -e MindSpeed
 ```
 

@@ -37,7 +37,7 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/OpenVLA
   ```
 
@@ -65,11 +65,11 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
 
 - 安装Driving SDK
 
-  请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 - 克隆代码仓到当前目录
   ```shell
-  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
   ```
 - 安装基础依赖
 

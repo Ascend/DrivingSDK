@@ -46,7 +46,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/SparseDrive
   ```
 
@@ -78,7 +78,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
 - 安装Driving SDK
 
-  请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 - 安装基础依赖
 

@@ -35,7 +35,7 @@
 
 - 适配昇腾 AI 处理器的实现：
     ```
-    url=https://gitee.com/ascend/DrivingSDK.git
+    url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/Dexvla
     ```
 
@@ -112,7 +112,7 @@
 
 4 安装Driving SDK
 
-请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 
 ### 准备数据集与预训练权重

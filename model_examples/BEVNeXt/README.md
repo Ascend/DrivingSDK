@@ -47,7 +47,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 - 适配昇腾 AI 处理器的实现：
 
     ```
-    url=https://gitee.com/ascend/DrivingSDK.git
+    url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/BEVNeXt
     ```
 
@@ -130,7 +130,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 6. 安装 Driving SDK 加速库
 
-    参考官方文档：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+    参考官方文档：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
 
 ### 准备数据集
 

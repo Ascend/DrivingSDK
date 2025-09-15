@@ -124,7 +124,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 5. 安装 Driving SDK 加速库
 
-    安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)
+    安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)
 
 ### 准备数据集
 

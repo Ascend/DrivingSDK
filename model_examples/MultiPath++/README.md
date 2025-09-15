@@ -35,7 +35,7 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/MultiPath++
   ```
 
@@ -63,7 +63,7 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
 - 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
     cd DrivingSDK/model_examples/MultiPath++
     git clone https://github.com/stepankonev/waymo-motion-prediction-challenge-2022-multipath-plus-plus.git
     cd waymo-motion-prediction-challenge-2022-multipath-plus-plus
@@ -79,7 +79,7 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
     ```
 
 
-- 安装 Driving SDK 加速库，安装 master 分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装 Driving SDK 加速库，安装 master 分支，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下，安装相关依赖：
 

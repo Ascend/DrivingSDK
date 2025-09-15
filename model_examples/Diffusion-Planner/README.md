@@ -35,7 +35,7 @@
 
 - 适配昇腾 AI 处理器的实现：
     ```
-    url=https://gitee.com/ascend/DrivingSDK.git
+    url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/Diffusion-Planner
     ```
 
@@ -100,7 +100,7 @@
 
 4. 安装Driving SDK加速库
   ```
-  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
   cd mx_driving
   bash ci/build.sh --python=3.9
   cd dist

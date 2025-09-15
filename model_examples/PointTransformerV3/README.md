@@ -46,7 +46,7 @@ commit_id=e4de3c25f57d0625cdcb66589cf180e838a05b19
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/PointTransformerV3
 ```
 

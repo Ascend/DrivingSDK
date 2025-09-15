@@ -43,7 +43,7 @@ commit_id=6876656ce7671982ebdc29113aaaa028c2931518
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/HiVT
 ```
 
@@ -86,7 +86,7 @@ code_path=model_examples/HiVT
     pip install torch-2.1.0.xxxxxxxxx.whl
     pip install torch_npu-2.1.0.xxxxxxxxx.whl
     ```
-2. 安装 DrivingSDK 加速库，安装方法参考[官方文档](https://gitee.com/ascend/DrivingSDK/wikis/DrivingSDK)。
+2. 安装 DrivingSDK 加速库，安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK)。
     ```
     # DrivingSDK 加速库安装完成后到HiVT模型目录下
     cd DrivingSDK/model_examples/HiVT

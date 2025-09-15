@@ -44,7 +44,7 @@ commit_id=7548c124b48f0259cdc40e98dfc3aeeadca6070c
 - 适配昇腾 AI 处理器的实现：
 
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/SalsaNext
 ```
 
@@ -73,7 +73,7 @@ code_path=model_examples/SalsaNext
 - 克隆代码仓并应用补丁。
 
 ```
-git clone https://gitee.com/ascend/DrivingSDK.git -b master
+git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 git clone https://github.com/TiagoCortinhal/SalsaNext.git
 cp -f {DrivingSDK_root_dir}/model_examples/SalsaNext/salsanext.patch SalsaNext
 cp -rf {DrivingSDK_root_dir}/model_examples/SalsaNext/test SalsaNext
@@ -128,7 +128,7 @@ git apply --whitespace=fix salsanext.patch
    ```
 
    安装Driving SDK
-   请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
    进入模型源码根目录
    ```

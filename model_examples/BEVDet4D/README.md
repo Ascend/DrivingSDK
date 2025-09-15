@@ -36,7 +36,7 @@ BEVDet4D 是一种将 BEVDet 从仅空间的 3D 扩展到时空 4D 工作空间�
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/BEVDet4D
   ```
 
@@ -66,7 +66,7 @@ BEVDet4D 是一种将 BEVDet 从仅空间的 3D 扩展到时空 4D 工作空间�
 
 - 安装Driving SDK
 
-  请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
   >【注意】请使用7.1.RC1及之后的Driving SDK
 
 - 安装基础依赖

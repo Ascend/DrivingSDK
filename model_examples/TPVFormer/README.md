@@ -60,7 +60,7 @@
 
 - 安装Mx_Driving-Accelerator
 
-  请参考昇腾[Driving SDK](https://gitee.com/ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 - 克隆代码到当前目录并使用patch文件
 ```

@@ -38,7 +38,7 @@
 - 适配昇腾 AI 处理器的实现：
 
     ```
-    url=https://gitee.com/ascend/DrivingSDK.git
+    url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/UniAD
     ```
 # UniAD
@@ -55,7 +55,7 @@
 
 ### 安装昇腾环境
 
-请参考昇腾社区中《[Pytorch框架训练环境准备](https://gitee.com/link?target=https%3A%2F%2Fwww.hiascend.com%2Fdocument%2Fdetail%2Fzh%2FModelZoo%2Fpytorchframework%2Fptes)》文档搭建昇腾环境，本仓已支持表2中软件版本。
+请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html)》文档搭建昇腾环境，本仓已支持表2中软件版本。
 
 **表 2** 昇腾软件版本支持表
 
@@ -72,7 +72,7 @@
   source {cann_root_dir}/set_env.sh
   ```
 
-- 安装Driving SDK加速库，安装方法参考[原仓](https://gitee.com/ascend/DrivingSDK)，安装后手动source环境变量或将其配置在test/env_npu.sh中。
+- 安装Driving SDK加速库，安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)，安装后手动source环境变量或将其配置在test/env_npu.sh中。
 
 
 - 安装mmcv

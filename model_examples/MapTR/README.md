@@ -95,7 +95,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
     MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
     ```
-3. 安装Driving SDK加速库，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+3. 安装Driving SDK加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 4. 在模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 
   ```
@@ -259,7 +259,7 @@ MapTR是一种高效的端到端Transformer模型，用于在线构建矢量化�
   ```
   pip3.8 install /dist/*.whl --force-reinstall --no-deps
   cd ../
-  git clone -b v2.1.0-7.0.0 https://gitee.com/ascend/pytorch.git torch_npu
+  git clone -b v2.1.0-7.0.0 https://gitcode.com/Ascend/pytorch.git torch_npu
   cd torch_npu
   git clean -dfx
   bash ci/build.sh --python=3.8 --enable_lto

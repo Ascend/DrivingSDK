@@ -20,7 +20,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   code_path=PyTorch/contrib/cv/detection # ModelZoo-PyTorch
   ```
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/CenterNet # Driving SDK
   ```
 
@@ -56,7 +56,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
 - 安装依赖。
   1. 首先下载Driving SDK仓，进入CenterNet模型代码目录：
   ```
-  git clone https://gitee.com/ascend/DrivingSDK.git -b master
+  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
   cd DrivingSDK/model_examples/CenterNet
   ```
 
@@ -82,7 +82,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   > **说明：**
   >只需执行一条对应的PyTorch版本依赖安装命令。
 
-  4. 根据 Ascend/Apex 代码仓安装步骤，安装apex (https://gitee.com/ascend/apex)
+  4. 根据 Ascend/Apex 代码仓安装步骤，安装apex (https://gitcode.com/Ascend/apex)
 
 - 安装COCOAPI
 

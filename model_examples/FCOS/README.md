@@ -26,7 +26,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/FCOS
   ```
 
@@ -116,7 +116,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 5. 安装 Driving SDK 加速库
 
-  参考：https://gitee.com/ascend/DrivingSDK/blob/master/README.md
+  参考：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
 
 6. 根据操作系统，安装tcmalloc动态库。
 

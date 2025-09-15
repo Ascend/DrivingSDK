@@ -45,7 +45,7 @@
 - 适配昇腾 AI 处理器的实现：
 
   ```
-  url=https://gitee.com/ascend/DrivingSDK.git
+  url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/SurroundOcc
   ```
 
@@ -75,7 +75,7 @@
 - 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git -b master
+    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
     cd DrivingSDK/model_examples/SurroundOcc
     git clone https://github.com/weiyithu/SurroundOcc.git
     cd SurroundOcc
@@ -125,7 +125,7 @@
     cd ../
     ```
 
-- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitee.com/ascend/DrivingSDK)。
+- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 

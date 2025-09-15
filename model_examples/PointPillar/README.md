@@ -12,7 +12,7 @@ commit_id=255db8f02a8bd07211d2c91f54602d63c4c93356
 
 - 适配昇腾AI处理器的实现：
 ```
-url=https://gitee.com/ascend/DrivingSDK.git
+url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/PointPillar
 ```
 
@@ -52,7 +52,7 @@ code_path=model_examples/PointPillar
   #### 0. 克隆代码仓到当前目录并使用patch文件
 
     ```
-    git clone https://gitee.com/ascend/DrivingSDK.git
+    git clone https://gitcode.com/Ascend/DrivingSDK.git
     cd DrivingSDK/model_examples/PointPillar
     git clone https://github.com/open-mmlab/OpenPCDet.git
     cd OpenPCDet
@@ -145,7 +145,7 @@ code_path=model_examples/PointPillar
       ```
 
    #### 3. 编译安装Driving SDK
-   参考Driving SDK官方gitee仓README安装编译构建并安装Driving SDK包：[参考链接](https://gitee.com/ascend/DrivingSDK)
+   参考Driving SDK官方gitcode仓README安装编译构建并安装Driving SDK包：[参考链接](https://gitcode.com/Ascend/DrivingSDK)
 
    【注意】安装完毕后建议运行以下命令，如无报错，证明安装无误，可继续安装流程
    ```shell

@@ -170,7 +170,7 @@ pip install ccimport==0.3.7
 
 <a id="1-3"></a>
 #### 1.3 CenterPoint2D或CenterPoint3D模型源码编译`OpenPCDet`时，执行`python setup.py develop`语句时报错：`subprocess.CalledProcessError: Command ['which', 'c++'] return non-zero exit status 1.`
-该报错是由于操作系统的GCC版本过高，推荐使用[DrivingSDK仓库README文档](https://gitee.com/ascend/DrivingSDK/blob/master/README.md)中的建议版本`gcc 10.2`进行编译，或使用[CenterPoint模型README文档](https://gitee.com/ascend/DrivingSDK/blob/master/model_examples/CenterPoint/README.md)中的建议版本`gcc 7.5`进行编译。
+该报错是由于操作系统的GCC版本过高，推荐使用[DrivingSDK仓库README文档](https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md)中的建议版本`gcc 10.2`进行编译，或使用[CenterPoint模型README文档](https://gitcode.com/Ascend/DrivingSDK/blob/master/model_examples/CenterPoint/README.md)中的建议版本`gcc 7.5`进行编译。
 
 ### 2. 数据集错误
 <a id="2-1"></a>
