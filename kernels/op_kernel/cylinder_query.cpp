@@ -44,6 +44,8 @@ constexpr uint32_t ROT_VALUE_OFFSET_8 = 8;
 
 class CylinderQuery {
 public:
+    __aicore__ inline CylinderQuery() {}
+
     __aicore__ inline void Init(TPipe *pipe, GM_ADDR newXyz, GM_ADDR xyz, GM_ADDR rot, GM_ADDR origin_index,
         GM_ADDR res, const CylinderQueryTilingData* tiling)
     {
