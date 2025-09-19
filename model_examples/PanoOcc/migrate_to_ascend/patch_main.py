@@ -41,7 +41,7 @@ from mx_driving import multi_scale_deformable_attn
 
 # pylint: disable=huawei-redefined-outer-name, inconsistent-return-statements
 def panoseg_transformer_occ_patch(panoseg_transformer_occ_module: ModuleType, options: Dict):
-    
+    # Patch: jit compile optimization
     def align_prev_bev(self, prev_bev, bev_h, bev_w, bev_z, **kwargs):
         if prev_bev is not None:
             pc_range = self.cam_encoder.pc_range
@@ -127,17 +127,18 @@ def mmdet3d_dataset_builder_patch(builder_module: ModuleType, options: Dict):
     from projects.mmdet3d_plugin.datasets.samplers.sampler import build_sampler
     from torch.utils.data import DataLoader
 
-    # PATCH: Pin Memory
+    # PATCH: Pin Memory, turn off shuffle
     def build_dataloader(dataset,
                         samples_per_gpu,
                         workers_per_gpu,
                         num_gpus=1,
                         dist=True,
-                        shuffle=True,
+                        shuffle=False,
                         seed=None,
                         shuffler_sampler=None,
                         nonshuffler_sampler=None,
                         **kwargs):
+        shuffle = False
         rank, world_size = get_dist_info()
         if dist:
             # DistributedGroupSampler will definitely shuffle the data to satisfy
@@ -702,6 +703,84 @@ def temporal_self_attention_patch(temporal_self_attention_module: ModuleType, op
         temporal_self_attention_module.TemporalSelfAttention.forward = forward
     else:
         raise AttributeError('TemporalSelfAttention attr not found')
+
+
+# pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
+def remove_dropout():
+    if torch.__version__ > "1.8":
+        import torch.nn.functional as F
+        from torch import _VF
+        from torch.overrides import has_torch_function_unary, handle_torch_function
+
+        def function_dropout(input_tensor: torch.Tensor, p: float = 0.5, training: bool = True,
+                             inplace: bool = False) -> torch.Tensor:
+            if has_torch_function_unary(input_tensor):
+                return handle_torch_function(
+                    function_dropout, (input_tensor,), input_tensor, p=0., training=training, inplace=inplace)
+            if p < 0.0 or p > 1.0:
+                raise ValueError("dropout probability has to be between 0 and 1, " "but got {}".format(p))
+            return _VF.dropout_(input_tensor, 0., training) if inplace else _VF.dropout(input_tensor, 0., training)
+
+        def function_dropout2d(input_tensor: torch.Tensor, p: float = 0.5, training: bool = True,
+                               inplace: bool = False) -> torch.Tensor:
+            if has_torch_function_unary(input_tensor):
+                return handle_torch_function(
+                    function_dropout2d, (input_tensor,), input_tensor, p=0., training=training, inplace=inplace)
+            if p < 0.0 or p > 1.0:
+                raise ValueError("dropout probability has to be between 0 and 1, " "but got {}".format(p))
+            return _VF.feature_dropout_(input_tensor, 0., training) if inplace else _VF.feature_dropout(input_tensor,
+                                                                                                        0., training)
+
+        def function_dropout3d(input_tensor: torch.Tensor, p: float = 0.5, training: bool = True,
+                               inplace: bool = False) -> torch.Tensor:
+            if has_torch_function_unary(input_tensor):
+                return handle_torch_function(
+                    function_dropout3d, (input_tensor,), input_tensor, p=0., training=training, inplace=inplace)
+            if p < 0.0 or p > 1.0:
+                raise ValueError("dropout probability has to be between 0 and 1, " "but got {}".format(p))
+            return _VF.feature_dropout_(input_tensor, 0., training) if inplace else _VF.feature_dropout(input_tensor,
+                                                                                                        0., training)
+
+        F.dropout = function_dropout
+        F.dropout2d = function_dropout2d
+        F.dropout3d = function_dropout3d
+
+
+# pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
+def fix_randomness(seed=123, is_gpu=False, deterministic=False, rm_dropout=False):
+    print("Fix randomness")
+    import random
+    import numpy as np
+    from packaging import version
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    cuda_version = torch.version.cuda
+    if cuda_version is not None and version.parse(cuda_version) >= version.parse("10.2"):
+        os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+    os.environ['HCCL_DETERMINISTIC'] = str(True)
+    if deterministic:
+        print("torch.use_deterministic_algorithms(True)")
+        torch.use_deterministic_algorithms(True)
+    
+    if is_gpu:
+        print("torch cuda manual seedall")
+        torch.cuda.manual_seed_all(seed)
+        torch.cuda.manual_seed(seed)
+        if deterministic:
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.enable = False
+            torch.backends.cudnn.benchmark = False
+    else:
+        print("torch_npu manual seedall")
+        torch_npu.npu.manual_seed_all(seed)
+        torch_npu.npu.manual_seed(seed)
+    
+    if rm_dropout:
+        print("remove dropout to fix randomness")
+        remove_dropout()
+    
 
 
 def generate_patcher_builder():

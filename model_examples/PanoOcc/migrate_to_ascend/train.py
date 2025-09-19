@@ -38,7 +38,7 @@ from mmseg import __version__ as mmseg_version
 import torch_npu
 from torch_npu.contrib import transfer_to_npu
 
-from migrate_to_ascend.patch_main import generate_patcher_builder, set_brake_at_step, set_profiling
+from migrate_to_ascend.patch_main import generate_patcher_builder, set_brake_at_step, set_profiling, fix_randomness
 import mx_driving
 
 
@@ -223,7 +223,7 @@ def main(args):
     if args.seed is not None:
         logger.info(f'Set random seed to {args.seed}, '
                     f'deterministic: {args.deterministic}')
-        set_random_seed(args.seed, deterministic=args.deterministic)
+        fix_randomness(args.seed, deterministic=args.deterministic, is_gpu=False, rm_dropout=False)
     cfg.seed = args.seed
     meta['seed'] = args.seed
     meta['exp_name'] = osp.basename(args.config)
@@ -269,6 +269,9 @@ def main(args):
         validate=(not args.no_validate),
         timestamp=timestamp,
         meta=meta)
+
+
+
 
 
 if __name__ == '__main__':    

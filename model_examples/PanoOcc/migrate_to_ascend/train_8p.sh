@@ -116,6 +116,7 @@ echo "WorkersPerGPU = ${WORKERS_PER_GPU}"
 
 
 
+
 # 训练开始时间
 start_time=$(date +%s)
 
@@ -150,7 +151,7 @@ if [[ ${PERFORMANCE_MODE} == 0 ]]; then
         --seed 0 \
         --work-dir ${OUTPUT_PATH}/work_dir \
         --launcher pytorch \
-        --deterministic > ${LOG_FILE} 2>&1 &
+        > ${LOG_FILE} 2>&1 &
 
     wait
 
@@ -172,7 +173,7 @@ else
         --seed 0 \
         --work-dir ${OUTPUT_PATH}/work_dir \
         --launcher pytorch \
-        --deterministic --performance > ${LOG_FILE} 2>&1 &
+        --performance > ${LOG_FILE} 2>&1 &
 
     wait
 fi

@@ -234,15 +234,8 @@ bash migrate_to_ascend/train_8p.sh # 8卡精度
 ```
 脚本默认通过nohup于后台不挂断进行训练，训练日志默认存放在`output/${CASE_NAME}/train_8p_full.log`（${CASE_NAME}目录的命名包含了batch size、训练卡数、时间戳等信息）
 
-完整训练获得`latest.pth`后，脚本会自动运行`eval.sh`进行模型推理验证精度（latest.pth存放在`output/${CASE_NAME}/work_dir`下），推理精度结果会添加到`output/${CASE_NAME}/train_result.log`
+完整训练获得`latest.pth`后，脚本会自动进行模型推理验证精度（latest.pth存放在`output/${CASE_NAME}/work_dir`下），推理精度结果会添加到`output/${CASE_NAME}/train_result.log`
 
-`eval.sh`也可以单独使用：
-```
-# [CHECKPOINT_FILE]： 指定latest.pth或epoch_xx.pth文件的路径
-# [OUTPUT_PATH]： 指定存放生成精度结果文件的路径
-# [NUM_NPUS]: 指定卡数
-bash eval_8p.sh [CHECKPOINT_FILE] [OUTPUT_PATH] [NUM_NPUS] [NUM_NPUS]
-```
 
 ### 训练脚本支持的命令行参数
 `train_8p.sh`
@@ -256,8 +249,8 @@ bash eval_8p.sh [CHECKPOINT_FILE] [OUTPUT_PATH] [NUM_NPUS] [NUM_NPUS]
 
 | 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | mAP | NDS | 性能-单步迭代耗时(ms) |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :----: | :-------------------: |
-| 竞品A           |  8p  |         8         |   fp32    |  24   | 0.7116 | 0.4141 | 0.4986 |         1643          |
-| Atlas 800T A2 |  8p  |         8         |   fp32    |  24   | 0.7012 | 0.4084 | 0.4994 |         1851          |
+| 竞品A           |  8p  |         8         |   fp32    |  24   | 0.6879 | 0.3976 | 0.4791 |         1590          |
+| Atlas 800T A2 |  8p  |         8         |   fp32    |  24   | 0.6838 | 0.3988 | 0.4810 |         1849          |
 
 # 变更说明
 
@@ -265,6 +258,7 @@ bash eval_8p.sh [CHECKPOINT_FILE] [OUTPUT_PATH] [NUM_NPUS] [NUM_NPUS]
 
 2025.8.18: 迁移至一键patcher实现，性能优化，脚本优化，更新基线。
 
+2025.9.18: 修复npu随机性固定，更新基线，修复test脚本因import顺序导致的libtorch_npu.so找不到的问题
 
 
 

@@ -11,7 +11,22 @@ CHECKPOINT_FILE=$1
 
 OUTPUT_PATH=$2
 
-RANK_SIZE=$3 # Number of NPUs/GPUs 
+# Number of NPUs/GPUs 
+RANK_SIZE=$3 
+
+echo "RankSize = ${RANK_SIZE}" 
+
+
+
+# 动态生成并检测本地可用高位端口（10000-59151），直至找到未被占用的空闲端口
+while true
+do
+    PORT=$(( ((RANDOM<<15)|RANDOM) % 49152 + 10000 ))
+    status="$(nc -z 127.0.0.1 $PORT < /dev/null &>/dev/null; echo $?)"
+    if [ "${status}" != "0" ]; then
+        break;
+    fi
+done
 
 
 # 验证 segmentation 精度
