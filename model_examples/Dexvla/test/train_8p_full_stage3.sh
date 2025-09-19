@@ -29,7 +29,7 @@ mkdir -p ${output_path}
 
 #训练开始时间，不需要修改
 start_time=$(date +%s)
-bash scripts/train_dexvla_stage3.sh $stage1_weights $stage2_output $stage3_output $num_step > ${test_path_dir}/output/train_stage3_performance_8p_base_fp32.log 2>&1 &
+bash scripts/train_dexvla_stage3.sh $stage1_weights $stage2_output $stage3_output $num_step > ${test_path_dir}/output/train_stage3_full_8p_base_fp32.log 2>&1 &
 
 wait
 #训练结束时间，不需要修改
