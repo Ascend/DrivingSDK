@@ -48,6 +48,8 @@ DrivingSDK支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如
 | master    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.5.1|v2.5.1|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0|
+| branch_v7.1.RC1   | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-7.2.0|
+|           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0-7.2.0|
 | branch_v7.1.RC1   | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-7.1.0|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.5.1|v2.5.1-7.1.0|
 |           |       |Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0-7.1.0|
@@ -122,7 +124,7 @@ out, argmax = scatter_max(updates, indices, out)
 ## 算子清单
 请参见[算子清单](./docs/api/README.md)。
 ## 支持特性
-- [x] 支持PyTorch 2.1.0，2.3.1，2.4.0
+- [x] 支持PyTorch 2.1.0，2.5.1，2.6.0
 - [x] 支持ONNX模型转换，训推一体
 - [ ] 支持图模式
 ## onnx转换om
@@ -177,8 +179,8 @@ DrivingSDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模�
 | [SurroundOcc](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/SurroundOcc)  | 7.59 | 7.78 |Y|
 | [TPVFormer](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/TPVFormer) | 6.69 | 10.32 |Y|
 | [UniAD](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/UniAD) | Stage1: 1.002<br>Stage2: 1.554 | Stage1: 1.359<br>Stage2: 2.000 |Y|
+| [DexVLA](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Dexvla) | Stage2: 16.72<br>Stage3: 15.85 | Stage2: 18.88<br>Stage3: 18.67 |Y|
 | [BEVNeXt](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVNeXt) | Stage1: 16.568<br>Stage2: 7.572 | Stage1: 36.643<br>Stage2: 11.651 |N|
-| [DexVLA](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Dexvla) | Stage2: 16.72<br>Stage3: 15.85 | Stage2: 18.88<br>Stage3: 18.67 |N|
 | [HiVT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HiVT) | 645 | 652 |N|
 | [HPTR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HPTR) | 25.12 | 36.07 |N|
 | [LMDrive](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/LMDrive)  | 8.02 | 13.85 |N|
@@ -291,6 +293,7 @@ Driving SDK版本分支的维护阶段如下：
 
 | **Driving SDK版本**     | **维护策略** | **当前状态** | **发布时间**   | **后续状态**           | **EOL日期** |
 |---------------------|-----------|---------|------------|--------------------|-----------|
+| v7.2.RC1  |  常规版本  | 维护      | 2025/09/30 | 预计2026/03/30起无维护	   |
 | v7.1.RC1  |  常规版本  | 维护      | 2025/06/30 | 预计2025/12/30起无维护	   |
 | v7.0.RC1  |  常规版本  | 维护      | 2025/03/30 | 预计2025/9/30起无维护	   |           |
 | v6.0.0   |  常规版本  | 无维护      | 2024/12/30 | 2025/6/30起无维护	   |           |          |

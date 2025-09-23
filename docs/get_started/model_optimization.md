@@ -399,7 +399,7 @@ assert (mmseg_version >= digit_version(mmseg_minimum_version)
     f'Please install mmseg>={mmseg_minimum_version}, '
     f'<={mmseg_maximum_version}.'
 ```
-7. 原始代码中bev_pool_v2算子为cuda代码，需要替换DrivingSDK仓的bev_pool_v3，更加亲和高效，安装DrivingSDK，参考DrivingSDK: https://gitcode.com/zhangchenrui2/DrivingSDK/blob/master/README.md 
+7. 原始代码中bev_pool_v2算子为cuda代码，需要替换DrivingSDK仓的bev_pool_v3，更加亲和高效，安装DrivingSDK，参考DrivingSDK: https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md 
 在mmdet3d/models/necks/view_transformer.py文件中，删除原始代码：
 ```python
 from mmdet3d.ops.bev_pool_v2.bev_pool import bev_pool_v2
