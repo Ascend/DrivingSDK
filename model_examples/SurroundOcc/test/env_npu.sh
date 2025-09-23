@@ -25,7 +25,8 @@ export TASK_QUEUE_ENABLE=2
 export CPU_AFFINITY_CONF=1
 # 设置是否开启 combined 标志, 0-关闭/1-开启
 export COMBINED_ENABLE=1
-
+# 设置ACL_OP_INIT_MODE=0，防止pickle报错
+export ACL_OP_INIT_MODE=0
 
 #设置device侧日志登记为error
 msnpureport -g error -d 0
