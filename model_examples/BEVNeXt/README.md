@@ -130,11 +130,11 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 6. 安装 Driving SDK 加速库
 
-    参考官方文档：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
+    参考官方文档：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
 
 ### 准备数据集
 
-根据原仓 [README](https://github.com/woxihuanjiangguo/BEVNeXt/blob/master/README.md) 的 **Installation & Dataset Preparation** 章节准备数据集。
+根据原仓 [README](https://github.com/woxihuanjiangguo/BEVNeXt/blob/branch_v7.2.RC1/README.md) 的 **Installation & Dataset Preparation** 章节准备数据集。
 
 1. 用户需自行下载 nuScenes 数据集，放置在 **BEVNeXt 模型源码**目录下或自行构建软连接，并**提前处理**好 nuScenes 数据集。
 

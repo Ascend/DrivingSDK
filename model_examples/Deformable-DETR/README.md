@@ -14,7 +14,7 @@
 
 - 原始代码仓库：https://github.com/fundamentalvision/Deformable-DETR
 - commit id：11169a60c33333af00a4849f1808023eba96a931
-- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR
+- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/Deformable-DETR
 
 ## 支持的任务列表
 
@@ -47,7 +47,7 @@ conda activate deformable_detr
 3、安装`Pytorch2.1`、`torch_npu2.1.0`和`mx_driving`。
 
 - 搭建 PyTorch 环境参考：https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html
-- 搭建 mx_driving 环境参考：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
+- 搭建 mx_driving 环境参考：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
 
 4、克隆代码仓到当前目录并使用 patch 文件
 ```

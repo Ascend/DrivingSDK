@@ -140,7 +140,7 @@ MatrixVT是一个基于Transformer结构的BEV 3D检测模型，没有定制化�
       git apply lightning.patch
       ``` 
 
-  5. 请参考 [Driving SDK 使用说明](https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md) 编译并安装 `Driving SDK` 包, 参考`从源码安装`章节。
+  5. 请参考 [Driving SDK 使用说明](https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md) 编译并安装 `Driving SDK` 包, 参考`从源码安装`章节。
 
   6.  返回BEVDepth模型根目录
       ```shell
