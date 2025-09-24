@@ -130,6 +130,7 @@ class SubMConvFunction(Function):
         bias,
     ) -> torch.Tensor:
         weight = weight.data
+        indices = indices.contiguous()
         map1, map2, spaned_spatial_shape, new_indices, sparse_rate = generate_map(indices, out_spatial_shape, batch_size, kernel_size)
         output_iml2col, indices_offset = mx_driving._C.npu_subm_sparse_conv3d_v2(features, new_indices, map1, map2, kernel_size,
             features.shape[1], spaned_spatial_shape, batch_size, sparse_rate)
