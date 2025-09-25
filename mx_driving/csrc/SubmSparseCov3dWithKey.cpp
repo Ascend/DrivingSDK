@@ -37,7 +37,7 @@ at::Tensor npu_subm_sparse_conv3d_with_key(const at::Tensor& ouidx_offset, const
     for (int32_t i = 0; i < static_cast<int32_t>(weight_size.size()) - unsumSize; i++) {
         kernelsum *= weight_size[i];
     }
-    c10::SmallVector<int64_t, 8> output_size = {indices_number, kernelsum, weight_size[4]};
+    c10::SmallVector<int64_t, 8> output_size = {indices_number, kernelsum, weight_size[3]};
     at::Tensor out = at::empty(output_size, weight.options()).fill_(0);
     int32_t inchannel = kernel_size[3];
     EXEC_NPU_CMD(aclnnSubmSparseConv3dWithKey, ouidx_offset, valid_indices, feature, kernel_size, inchannel, out);
