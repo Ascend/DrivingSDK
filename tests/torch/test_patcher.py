@@ -20,6 +20,9 @@ class TestPatcher(TestCase):
     def test_basic_monkey_patch(self): 
         def original_func():
             return 0
+
+        sys.modules['mmcv.runner'] = ModuleType('mmcv.runner')
+        sys.modules['mmengine.runner'] = ModuleType('mmengine.runner')
         
         mock_module = MagicMock()
         mock_module.__name__ = 'mock_module'
@@ -64,6 +67,9 @@ class TestPatcher(TestCase):
         def original_func():
             return 0
         
+        sys.modules['mmcv.runner'] = ModuleType('mmcv.runner')
+        sys.modules['mmengine.runner'] = ModuleType('mmengine.runner')
+
         mock_module = MagicMock()
         mock_module.__name__ = 'mock_module'
         sys.modules['mock_module'] = mock_module

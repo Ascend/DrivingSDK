@@ -29,6 +29,7 @@ def patch_mmcv_version(expected_version: str):
 
 
 def msda(mmcv: ModuleType, options: Dict):
+    importlib.import_module(f"{mmcv.__name__}.ops")
     if hasattr(mmcv.ops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction, "forward") \
         and hasattr(mmcv.ops.multi_scale_deform_attn.MultiScaleDeformableAttnFunction, "backward"):
         from mx_driving import MultiScaleDeformableAttnFunction
@@ -51,6 +52,7 @@ def msda(mmcv: ModuleType, options: Dict):
 
 
 def dc(mmcv: ModuleType, options: Dict):
+    importlib.import_module(f"{mmcv.__name__}.ops")
     if hasattr(mmcv.ops.deform_conv, "DeformConv2dFunction") and hasattr(mmcv.ops.deform_conv, "deform_conv2d"):
         from mx_driving import DeformConv2dFunction, deform_conv2d
         
@@ -61,6 +63,7 @@ def dc(mmcv: ModuleType, options: Dict):
 
 
 def mdc(mmcv: ModuleType, options: Dict):
+    importlib.import_module(f"{mmcv.__name__}.ops")
     if hasattr(mmcv.ops.modulated_deform_conv, "ModulatedDeformConv2dFunction") \
         and hasattr(mmcv.ops.modulated_deform_conv, "modulated_deform_conv2d"):
         from mx_driving import ModulatedDeformConv2dFunction, modulated_deform_conv2d

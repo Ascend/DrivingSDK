@@ -91,10 +91,20 @@ class PatcherBuilder:
         return self
 
 
-    def with_profiling(self, path: str, level: int = 0) -> PatcherBuilder:
+    # pylint: disable=huawei-too-many-arguments
+    def with_profiling(self, path: str, level: int = 0, 
+                       skip_first: int = 20,
+                       wait: int = 1,
+                       warmup: int = 1,
+                       active: int = 1,
+                       repeat: int = 1
+                       ) -> PatcherBuilder:            
         self.training_runner_loop_options['enable_profiler'] = True
         self.training_runner_loop_options['profiling_path'] = path
         self.training_runner_loop_options['profiling_level'] = level
+        
+        self.training_runner_loop_options['step_ctrl'] = (wait, warmup, active, repeat, skip_first)
+        
         return self
 
 
@@ -126,4 +136,5 @@ class PatcherBuilder:
                                                         patch_failure_warning=True))
             
         return Patcher(self.module_patches, self.blacklist, allow_internal_format)
+
 

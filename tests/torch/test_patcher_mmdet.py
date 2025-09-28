@@ -1,6 +1,8 @@
 import types
+import sys
 import unittest
 from unittest.mock import MagicMock, patch
+from types import ModuleType
 
 import torch
 import torch.nn as nn
@@ -23,6 +25,9 @@ class TestPseudoSamplerPatch(TestCase):
         # mmdet.core.bbox.samplers.pseudo_sampler
         # Create mock mmdetsamplers module
         self.mock_mmdet = types.ModuleType('mmdet')
+        self.mock_mmdet.__name__ = 'mmdet'
+        sys.modules['mmdet.models'] = ModuleType('mmdet.models')
+        sys.modules['mmdet.core'] = ModuleType('mmdet.core')
         self.mock_mmdet.core = types.ModuleType('core')
         self.mock_mmdet.core.bbox = types.ModuleType('bbox')
         self.mock_mmdet.core.bbox.samplers = types.ModuleType('samplers')
@@ -82,6 +87,9 @@ class TestResNetAddReLUPatch(TestCase):
     def setUp(self):
         # mmdet.models.backbones.resnet
         self.mock_mmdet = types.ModuleType('mmdet')
+        self.mock_mmdet.__name__ = 'mmdet'
+        sys.modules['mmdet.models'] = ModuleType('mmdet.models')
+        sys.modules['mmdet.core'] = ModuleType('mmdet.core')
         self.mock_mmdet.models = types.ModuleType('models')
         self.mock_mmdet.models.backbones = types.ModuleType('backbones')
         self.mock_mmdet.models.backbones.resnet = types.ModuleType('resnet')
@@ -191,6 +199,7 @@ class TestResNetAddReLUPatch(TestCase):
 
     def test_patch_failure(self):
         mock_mmdet = MagicMock()
+        mock_mmdet.__name__ = 'mmdet'
         with self.assertRaises(AttributeError):
             mock_mmdet.models.backbones.resnet.BasicBlock = EmptyAttribute
             resnet_add_relu(mock_mmdet, {})
@@ -200,6 +209,9 @@ class TestResNetMaxPoolPatch(TestCase):
     def setUp(self):
         # mmdet.models.backbones.resnet
         self.mock_mmdet = types.ModuleType('mmdet')
+        self.mock_mmdet.__name__ = 'mmdet'
+        sys.modules['mmdet.models'] = ModuleType('mmdet.models')
+        sys.modules['mmdet.core'] = ModuleType('mmdet.core')
         self.mock_mmdet.models = types.ModuleType('models')
         self.mock_mmdet.models.backbones = types.ModuleType('backbones')
         self.mock_mmdet.models.backbones.resnet = types.ModuleType('resnet')
@@ -263,6 +275,7 @@ class TestResNetMaxPoolPatch(TestCase):
 
     def test_patch_failure(self):
         mock_mmdet = MagicMock()
+        mock_mmdet.__name__ = 'mmdet'
         with self.assertRaises(AttributeError):
             mock_mmdet.models.backbones.resnet.ResNet = EmptyAttribute
             resnet_maxpool(mock_mmdet, {})

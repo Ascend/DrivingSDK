@@ -24,6 +24,7 @@ class TestMultiScaleDeformableAttnPatch(TestCase):
     def test_monkey_patch(self):
         """Test monkeypatching for multi_scale_deformable_attn"""
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
 
         # Call msda function
         mmcv_patch.msda(mock_mmcv, {})
@@ -34,6 +35,7 @@ class TestMultiScaleDeformableAttnPatch(TestCase):
     
     def test_patch_failure(self):
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         with self.assertRaises(AttributeError):
             mock_mmcv.ops = EmptyAttribute
             mmcv_patch.msda(mock_mmcv, {})
@@ -48,6 +50,7 @@ class TestDeformConv2dPatch(TestCase):
     def test_monkey_patch(self):
         """Test monkeypatching for deform_conv2d"""
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         
         # Call dc function
         mmcv_patch.dc(mock_mmcv, {})
@@ -58,6 +61,7 @@ class TestDeformConv2dPatch(TestCase):
         
     def test_patch_failure(self):
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         with self.assertRaises(AttributeError):
             mock_mmcv.ops = EmptyAttribute
             mmcv_patch.dc(mock_mmcv, {})
@@ -72,6 +76,7 @@ class TestModulatedDeformConv2dPatch(TestCase):
     def test_monkey_patch(self):
         """Test monkeypatching for modulated_deform_conv2d"""
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         
         # Call mdc function
         mmcv_patch.mdc(mock_mmcv, {})
@@ -82,6 +87,7 @@ class TestModulatedDeformConv2dPatch(TestCase):
 
     def test_patch_failure(self):
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         with self.assertRaises(AttributeError):
             mock_mmcv.ops = EmptyAttribute
             mmcv_patch.mdc(mock_mmcv, {})

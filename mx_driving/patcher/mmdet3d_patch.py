@@ -1,10 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+import importlib
 from types import ModuleType
 from typing import Dict, List, Tuple, Union
 
 
 def nuscenes_dataset(mmdet3d: ModuleType, options: Dict):
+    importlib.import_module(f"{mmdet3d.__name__}.datasets")
+    
     if hasattr(mmdet3d.datasets.nuscenes_dataset, "output_to_nusc_box"):
         import numpy as np
         import pyquaternion
@@ -39,6 +42,7 @@ def nuscenes_dataset(mmdet3d: ModuleType, options: Dict):
 
 
 def nuscenes_metric(mmdet3d: ModuleType, options: Dict):
+    importlib.import_module(f"{mmdet3d.__name__}.evaluation")
     if hasattr(mmdet3d.evaluation.metrics, "output_to_nusc_box"):
         import numpy as np
         import pyquaternion

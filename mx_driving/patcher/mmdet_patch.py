@@ -1,10 +1,12 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+import importlib
 from types import ModuleType
 from typing import Dict
 
 
 def pseudo_sampler(mmdet: ModuleType, options: Dict):
+    importlib.import_module(f"{mmdet.__name__}.core")
     if hasattr(mmdet.core.bbox.samplers.pseudo_sampler.PseudoSampler, "sample"):
 
         def sample(self, assign_result, bboxes, gt_bboxes, *args, **kwargs):
@@ -26,6 +28,9 @@ def pseudo_sampler(mmdet: ModuleType, options: Dict):
 def resnet_add_relu(mmdet: ModuleType, options: Dict):    
     basic_block_not_found = True
     bottle_neck_not_found = True
+    
+    importlib.import_module(f"{mmdet.__name__}.models")
+    
     if hasattr(mmdet.models.backbones.resnet.BasicBlock, "forward"):
         from mx_driving import npu_add_relu
         import torch.utils.checkpoint as cp
@@ -108,6 +113,8 @@ def resnet_add_relu(mmdet: ModuleType, options: Dict):
 
 
 def resnet_maxpool(mmdet: ModuleType, options: Dict):
+    importlib.import_module(f"{mmdet.__name__}.models")
+    
     if hasattr(mmdet.models.backbones.resnet.ResNet, "forward"):
         from mx_driving import npu_max_pool2d
 
@@ -136,6 +143,8 @@ def resnet_maxpool(mmdet: ModuleType, options: Dict):
 
 
 def resnet_fp16(mmdet: ModuleType, options: Dict):
+    importlib.import_module(f"{mmdet.__name__}.models")
+    
     if hasattr(mmdet.models.backbones.resnet.ResNet, "forward"):
 
         def forward(self, x):

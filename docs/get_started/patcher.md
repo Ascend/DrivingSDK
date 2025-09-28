@@ -210,11 +210,42 @@ profiling_level = 1
 my_patcher_builder.with_profiling(profiling_path, profiling_level)
 ```
 
+如果需要精确设置采集profiling的具体训练step，可配置以下可选参数：
+```
+# 例如以下配置，先跳过100步，等待1步，预热5步，采集10步，重复这16步2次
+my_patcher_builder.with_profiling(profiling_path, profiling_level,
+                                  skip_first=100, 
+                                  wait=1,
+                                  warmup=5,
+                                  active=10,
+                                  repeat=2)
+```
+默认step控制参数为：
+* skip_first = 20
+* wait = 1
+* warmup = 1
+* active = 1
+* repeat = 1
+
+如果仅需指定跳过开始的N步后完成一个默认的profiling采集cycle，用法可简化为：
+```
+my_patcher_builder.with_profiling(profiling_path, profiling_level, skip_first=N)
+```
+
 * profiling_level当前有三个level
   * level 0: 最小膨胀，只记录NPU活动，记录的过程本身的时延最小
   * level 1: 记录NPU和CPU活动
   * level 2: 记录NPU和CPU活动，并打印调用栈
-* 当前采集profiling的许多配置暂时未暴露接口，近期下个commit会加以补充，敬请期待
+* step控制的参数含义如下：
+  * skip_first: 跳过前N次迭代的profiling数据收集。由于前几次迭代可能包含初始化开销，跳过这些迭代可以获得更准确的性能分析数据。
+  * wait: 在开始记录profiling数据前等待的迭代次数。用于等待系统达到稳定状态后再开始记录。
+  * warmup: 预热阶段的迭代次数。在此期间会执行操作但不记录数据，确保缓存和优化已就绪。
+  * active: 实际记录profiling数据的迭代次数。这是真正收集性能数据的时间段。
+  * repeat: 整个profiling过程（wait+warmup+active）的重复次数（为0表示不重复）。可用于获取更稳定的性能分析结果。
+  * 这些参数的单位是迭代次数而非时间
+  * 总迭代次数 = skip_first + (wait + warmup + active) * (repeat + 1)
+  * 增大这些值会增加profiling时间但可能提高数据准确性
+* 完成采集profiling后，如果未设置Early Brake，模型训练会继续照常进行，如需采集完停止可参考下一章节关于Early Brake的介绍并与profiling采集结合使用
 
 ### 训练早停Early Brake
 
@@ -228,7 +259,7 @@ my_patcher_builder.with_brake(brake_step)
 
 ### Profiling与Brake组合
 
-仅使用Profiling，在采集完成后，不会自动早停，可以同时使用Profiling和Brake实现采集完profiling后停止，未有参数指定的情况下，Profiling默认值是在第21个step采集
+仅使用Profiling，在采集完成后，不会自动早停，可以同时使用Profiling和Brake实现采集完profiling后停止
 
 ## 一键Patcher框架
 

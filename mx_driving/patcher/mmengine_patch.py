@@ -3,6 +3,7 @@ import importlib
 from types import ModuleType
 from typing import List, Optional, Union, Dict, Tuple
 import warnings
+import re
 
 # Since MMCV 2.0 era, modules such as Runner, Hook, Parallel, Config, FileIO, have been moved to MMEngine
 # Many patches were moved from mmcv_patch.py to comply with MMCV 2.x style
@@ -11,6 +12,8 @@ import warnings
 
 # For mmcv 1.x
 def ddp(mmcv: ModuleType, options: Dict): 
+    importlib.import_module(f"{mmcv.__name__}.parallel")
+    
     # For mmcv 1.x: module path is mmcv.parallel.distributed
     
     def _run_ddp_forward(self, *inputs, **kwargs):
@@ -33,6 +36,8 @@ def ddp(mmcv: ModuleType, options: Dict):
 
 # For mmcv 1.x
 def stream(mmcv: ModuleType, options: Dict):
+    importlib.import_module(f"{mmcv.__name__}.parallel")
+    
     get_input_device = mmcv.parallel._functions.get_input_device
     scatter = mmcv.parallel._functions.scatter
     synchronize_stream = mmcv.parallel._functions.synchronize_stream
@@ -316,6 +321,8 @@ def optimizer_hooks(mmcv: ModuleType, options: Dict):
 
 # For mmcv 2.x
 def optimizer_wrapper(mmengine: ModuleType, options: Dict):
+    importlib.import_module(f"{mmengine.__name__}.optim")
+    
     """
     Patch mmengine optimizer wrapper to support gradient clipping.
     mmcv 2.x required.
@@ -345,6 +352,23 @@ def _parse_profiler_options(options: Dict):
     
     path = options["profiling_path"]
     level = options["profiling_level"]
+    
+    if bool(re.search(r'[ +#%&{}\<>*?/$!\'":@`|;=]', path)):
+        warnings.warn("profiling path contains illegal character, profiler might not generate output properly")
+    
+    if level < 0 or level > 2:
+        raise ValueError("valid profiling levels are integers within range [0, 2]")
+    
+    if 'step_ctrl' in options:
+        fine_grained_step_control = options['step_ctrl']
+    else:
+        # default step control configs
+        wait = 1
+        warmup = 1
+        active = 1
+        repeat = 1
+        skip_first = 20
+        fine_grained_step_control = (wait, warmup, active, repeat, skip_first)
 
     activities = (
         [torch_npu.profiler.ProfilerActivity.NPU]
@@ -355,11 +379,13 @@ def _parse_profiler_options(options: Dict):
         ]
     )
     profiler_level = torch_npu.profiler.ProfilerLevel.Level0 if level == 0 else torch_npu.profiler.ProfilerLevel.Level1
-    return path, level, activities, profiler_level
+    return path, level, activities, profiler_level, fine_grained_step_control
 
 
 # For MMCV 1.x
 def epoch_runner(mmcv: ModuleType, options: Dict):
+    importlib.import_module(f"{mmcv.__name__}.runner")
+    
     import time
     import sys
     import torch_npu
@@ -368,7 +394,8 @@ def epoch_runner(mmcv: ModuleType, options: Dict):
     enable_brake = False
     if options['enable_profiler']:
         enable_profiler = True
-        path, level, activities, profiler_level = _parse_profiler_options(options)
+        path, level, activities, profiler_level, step_ctrl = _parse_profiler_options(options)
+        wait, warmup, active, repeat, skip_first = step_ctrl
     if options['enable_brake']:
         enable_brake = True
         brake_step = options['brake_step']
@@ -387,7 +414,7 @@ def epoch_runner(mmcv: ModuleType, options: Dict):
                 with_stack=level == 2,
                 record_shapes=level > 0,
                 profile_memory=level == 2,
-                schedule=torch_npu.profiler.schedule(wait=1, warmup=1, active=1, repeat=1, skip_first=20),
+                schedule=torch_npu.profiler.schedule(wait, warmup, active, repeat, skip_first),
                 experimental_config=torch_npu.profiler._ExperimentalConfig(profiler_level=profiler_level),
                 on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(path),
             ) as prof:
@@ -427,6 +454,8 @@ def epoch_runner(mmcv: ModuleType, options: Dict):
 
 # For MMCV 1.x
 def iter_runner(mmcv: ModuleType, options: Dict):
+    importlib.import_module(f"{mmcv.__name__}.runner")
+    
     import time
     import sys
     import torch_npu
@@ -435,17 +464,17 @@ def iter_runner(mmcv: ModuleType, options: Dict):
     enable_brake = False
     if options['enable_profiler']:
         enable_profiler = True
-        path, level, activities, profiler_level = _parse_profiler_options(options)
+        path, level, activities, profiler_level, step_ctrl = _parse_profiler_options(options)
+        wait, warmup, active, repeat, skip_first = step_ctrl
     if options['enable_brake']:
         enable_brake = True
         brake_step = options['brake_step']
 
-    try:
-        IterLoader = mmcv.runner.iter_based_runner.IterLoader
-        get_host_info = mmcv.runner.iter_based_runner.get_host_info
-        DataLoader = mmcv.runner.iter_based_runner.DataLoader
-    except AttributeError:
-        DataLoader = None
+
+    IterLoader = mmcv.runner.iter_based_runner.IterLoader
+    get_host_info = mmcv.runner.iter_based_runner.get_host_info
+    DataLoader = mmcv.runner.iter_based_runner.DataLoader
+
 
     def run(self,
                  data_loaders: List[DataLoader],
@@ -487,7 +516,7 @@ def iter_runner(mmcv: ModuleType, options: Dict):
                 with_stack=level == 2,
                 record_shapes=level > 0,
                 profile_memory=level == 2,
-                schedule=torch_npu.profiler.schedule(wait=1, warmup=1, active=1, repeat=1, skip_first=20),
+                schedule=torch_npu.profiler.schedule(wait, warmup, active, repeat, skip_first),
                 experimental_config=torch_npu.profiler._ExperimentalConfig(profiler_level=profiler_level),
                 on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(path),
             ) as prof:
@@ -538,6 +567,8 @@ def iter_runner(mmcv: ModuleType, options: Dict):
 
 # For MMCV 2.x
 def epoch_train_loop(mmengine: ModuleType, options: Dict):
+    importlib.import_module(f"{mmengine.__name__}.runner")
+    
     import time
     import sys
     import torch_npu
@@ -546,7 +577,8 @@ def epoch_train_loop(mmengine: ModuleType, options: Dict):
     enable_brake = False
     if options['enable_profiler']:
         enable_profiler = True
-        path, level, activities, profiler_level = _parse_profiler_options(options)
+        path, level, activities, profiler_level, step_ctrl = _parse_profiler_options(options)
+        wait, warmup, active, repeat, skip_first = step_ctrl
     if options['enable_brake']:
         enable_brake = True
         brake_step = options['brake_step']
@@ -561,7 +593,7 @@ def epoch_train_loop(mmengine: ModuleType, options: Dict):
                 with_stack=level == 2,
                 record_shapes=level > 0,
                 profile_memory=level == 2,
-                schedule=torch_npu.profiler.schedule(wait=1, warmup=1, active=1, repeat=1, skip_first=20),
+                schedule=torch_npu.profiler.schedule(wait, warmup, active, repeat, skip_first),
                 experimental_config=torch_npu.profiler._ExperimentalConfig(profiler_level=profiler_level),
                 on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(path),
             ) as prof:
@@ -589,6 +621,8 @@ def epoch_train_loop(mmengine: ModuleType, options: Dict):
 
 # For MMCV 2.x
 def iter_train_loop(mmengine: ModuleType, options: Dict):
+    importlib.import_module(f"{mmengine.__name__}.runner")
+    
     import time
     import sys
     import torch_npu
@@ -597,16 +631,15 @@ def iter_train_loop(mmengine: ModuleType, options: Dict):
     enable_brake = False
     if options['enable_profiler']:
         enable_profiler = True
-        path, level, activities, profiler_level = _parse_profiler_options(options)
+        path, level, activities, profiler_level, step_ctrl = _parse_profiler_options(options)
+        wait, warmup, active, repeat, skip_first = step_ctrl
     if options['enable_brake']:
         enable_brake = True
         brake_step = options['brake_step']
     
-    try:
-        print_log = mmengine.logging.print_log
-        logging = mmengine.logging
-    except AttributeError:
-        pass
+
+    print_log = mmengine.logging.print_log
+    logging = mmengine.logging
 
     def run(self) -> None:
         self.runner.call_hook("before_train")
@@ -625,7 +658,7 @@ def iter_train_loop(mmengine: ModuleType, options: Dict):
                 with_stack=level == 2,
                 record_shapes=level > 0,
                 profile_memory=level == 2,
-                schedule=torch_npu.profiler.schedule(wait=1, warmup=1, active=1, repeat=1, skip_first=20),
+                schedule=torch_npu.profiler.schedule(wait, warmup, active, repeat, skip_first),
                 experimental_config=torch_npu.profiler._ExperimentalConfig(profiler_level=profiler_level),
                 on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(path),
             ) as prof:

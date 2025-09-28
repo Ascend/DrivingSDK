@@ -1,5 +1,6 @@
 import random
 import types
+import sys
 from types import ModuleType
 
 import unittest
@@ -60,6 +61,7 @@ class TestOptimizerHooks(TestCase):
         self.mock_registry = MockRegistry()
         
         self.mmcv = ModuleType('mmcv')
+        self.mmcv.__name__ = 'mmcv'
         self.mmcv.runner = ModuleType('runner')
         self.mmcv.runner.hooks = ModuleType('hooks')
         self.mmcvhooks = self.mmcv.runner.hooks
@@ -363,6 +365,10 @@ class TestOptimizerWrapperPatch(TestCase):
     def test_optimizer_wrapper_patch(self):
         # Create mock
         mmengine = ModuleType('mmengine')
+        
+        mmengine.__name__ = 'mmengine'
+        sys.modules['mmengine.optim'] = ModuleType('mmengine.optim')
+        
         mmengine.optim = ModuleType('optim')
         mmengine.optim.optimizer = ModuleType('optimizer')
         mmengine.optim.optimizer.optimizer_wrapper = ModuleType('optimizer_wrapper')
@@ -394,6 +400,8 @@ class TestOptimizerWrapperPatch(TestCase):
 
     def test_patch_failure(self):
         mock_mmengine = MagicMock()
+        mock_mmengine.__name__ = 'mmengine'
+        sys.modules['mmengine.optim'] = ModuleType('mmengine.optim')
         with self.assertRaises(AttributeError):
             mock_mmengine.optim.optimizer.optimizer_wrapper = EmptyAttribute
             mmengine_patch.optimizer_wrapper(mock_mmengine, {})
@@ -403,6 +411,7 @@ class TestStreamPatch(TestCase):
     def setUp(self):
         # Create mock mmcvparallel module
         self.mock_mmcv = types.ModuleType('mmcv')
+        self.mock_mmcv.__name__ = 'mmcv'
         self.mock_mmcv.parallel = types.ModuleType('mmcvparallel')
         self.mock_mmcv.parallel._functions = types.ModuleType('_functions')
         self.mock_mmcv.parallel._functions.Scatter = MagicMock()
@@ -440,6 +449,7 @@ class TestStreamPatch(TestCase):
 
     def test_patch_failure(self):
         _mock_mmcv = MagicMock()
+        _mock_mmcv.__name__ = 'mmcv'
         with self.assertRaises(AttributeError):
             _mock_mmcv.parallel._functions.Scatter = EmptyAttribute
             mmengine_patch.stream(_mock_mmcv, {})
@@ -502,6 +512,7 @@ class TestStreamPatch(TestCase):
 class TestDdpPatch(TestCase):
     def test_monkey_patch(self):
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         mock_mmcv.device.npu.NPUDistributedDataParallel = types.ModuleType('npuddp')
         mmddp_b4replacement = mock_mmcv.parallel.distributed.MMDistributedDataParallel
         
@@ -512,6 +523,7 @@ class TestDdpPatch(TestCase):
 
     def test_patch_failure(self):
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         
         with self.assertRaises(AttributeError):
             mock_mmcv.parallel.distributed.MMDistributedDataParallel = EmptyAttribute
@@ -533,6 +545,7 @@ class TestDdpPatch(TestCase):
         test_kwargs = {'kwarg1': 'value1'}
         
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         
         # In actual MMCV library, npuddp extends from the mmddp class, here setting them as the same
         mock_mmcv.device.npu.NPUDistributedDataParallel = mock_mmcv.parallel.distributed.MMDistributedDataParallel
@@ -556,6 +569,7 @@ class TestDdpPatch(TestCase):
         test_kwargs = {'kwarg1': 'value1'}
         
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         
         # In actual MMCV library, npuddp extends from the mmddp class, here setting them as the same
         mock_mmcv.device.npu.NPUDistributedDataParallel = mock_mmcv.parallel.distributed.MMDistributedDataParallel
@@ -570,38 +584,83 @@ class TestDdpPatch(TestCase):
         
         self.assertEqual(result, expected_result)
 
-
+# pylint: disable=protected-access
 class TestProfiler(TestCase):
     def test_parse_profiler_options_level0(self):
         options = {}
         options['profiling_path'] = "/xxx/yyy/level0"
         options['profiling_level'] = 0
-        path, level, activities, profiler_level = mmengine_patch._parse_profiler_options(options)
+        path, level, activities, profiler_level, step_ctrl = mmengine_patch._parse_profiler_options(options)
         self.assertEqual(path, options['profiling_path'])
         self.assertEqual(level, options['profiling_level'])
         self.assertIn(torch_npu.profiler.ProfilerActivity.NPU, activities)
         self.assertNotIn(torch_npu.profiler.ProfilerActivity.CPU, activities)
+        self.assertEqual(profiler_level, torch_npu.profiler.ProfilerLevel.Level0)
 
     def test_parse_profiler_options_level1(self):
         options = {}
         options['profiling_path'] = "/xxx/yyy/level1"
         options['profiling_level'] = 1
-        path, level, activities, profiler_level = mmengine_patch._parse_profiler_options(options)
+        path, level, activities, profiler_level, step_ctrl = mmengine_patch._parse_profiler_options(options)
         self.assertEqual(path, options['profiling_path'])
         self.assertEqual(level, options['profiling_level'])
         self.assertIn(torch_npu.profiler.ProfilerActivity.NPU, activities)
         self.assertIn(torch_npu.profiler.ProfilerActivity.CPU, activities)
+        self.assertEqual(profiler_level, torch_npu.profiler.ProfilerLevel.Level1)
 
     def test_parse_profiler_options_level2(self):
         options = {}
         options['profiling_path'] = "/xxx/yyy/level2"
         options['profiling_level'] = 2
-        path, level, activities, profiler_level = mmengine_patch._parse_profiler_options(options)
+        path, level, activities, profiler_level, step_ctrl = mmengine_patch._parse_profiler_options(options)
         self.assertEqual(path, options['profiling_path'])
         self.assertEqual(level, options['profiling_level'])
         self.assertIn(torch_npu.profiler.ProfilerActivity.NPU, activities)
         self.assertIn(torch_npu.profiler.ProfilerActivity.CPU, activities)
-
+        self.assertEqual(profiler_level, torch_npu.profiler.ProfilerLevel.Level1)
+        
+    def test_parse_profiler_options_invalid_level(self):
+        options = {}
+        options['profiling_path'] = "/xxx/+++/level2"
+        options['profiling_level'] = -1
+        with self.assertRaises(ValueError):
+            path, level, activities, profiler_level, step_ctrl = mmengine_patch._parse_profiler_options(options)
+        
+        options['profiling_level'] = 3
+        with self.assertRaises(ValueError):
+            path, level, activities, profiler_level, step_ctrl = mmengine_patch._parse_profiler_options(options)
+    
+    def test_parse_default_step_ctrl(self):
+        options = {}
+        options['profiling_path'] = "/xxx/yyy/levelx"
+        options['profiling_level'] = random.randint(0, 2)
+        
+        path, level, activities, profiler_level, step_ctrl = mmengine_patch._parse_profiler_options(options)
+        self.assertEqual(path, options['profiling_path'])
+        self.assertEqual(level, options['profiling_level'])
+        wait, warmup, active, repeat, skip_first = step_ctrl
+        self.assertEqual(wait, 1)
+        self.assertEqual(warmup, 1)
+        self.assertEqual(active, 1)
+        self.assertEqual(repeat, 1)
+        self.assertEqual(skip_first, 20)
+        
+    def test_parse_find_grained_step_ctrl(self):
+        options = {}
+        options['profiling_path'] = "/xxx/yyy/levelx"
+        options['profiling_level'] = random.randint(0, 2)
+        options['step_ctrl'] = (1, 2, 3, 4, 5)
+        
+        path, level, activities, profiler_level, step_ctrl = mmengine_patch._parse_profiler_options(options)
+        self.assertEqual(path, options['profiling_path'])
+        self.assertEqual(level, options['profiling_level'])
+        wait, warmup, active, repeat, skip_first = step_ctrl
+        self.assertEqual(wait, 1)
+        self.assertEqual(warmup, 2)
+        self.assertEqual(active, 3)
+        self.assertEqual(repeat, 4)
+        self.assertEqual(skip_first, 5)
+        
     def _execute_mock_profiler(self, profiler_level, dataloader_len, max_iter, extra_args=None, initial_iter=0):
         if extra_args is None:
             val_begin = 0
@@ -612,6 +671,7 @@ class TestProfiler(TestCase):
             val_begin, val_interval, workflow, batch_size = extra_args
             
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         mock_mmcv.runner.EpochBasedRunner._iter = initial_iter
         mmengine_patch.epoch_runner(mock_mmcv, {'enable_profiler': True, 
                                                 'enable_brake': True,
@@ -636,6 +696,7 @@ class TestProfiler(TestCase):
   
   
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         mock_mmcv.runner.EpochBasedTrainLoop._iter = initial_iter
         mmengine_patch.epoch_train_loop(mock_mmcv, {'enable_profiler': True,
                                                     'enable_brake': True,
@@ -662,6 +723,7 @@ class TestProfiler(TestCase):
         
 
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         mmengine_patch.iter_train_loop(mock_mmcv, {'enable_profiler': True,
                                                    'enable_brake': True,
                                                    'brake_step': 1001,
@@ -693,6 +755,7 @@ class TestProfiler(TestCase):
 
 
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         mmengine_patch.iter_runner(mock_mmcv, {'enable_profiler': True,
                                                'enable_brake': True,
                                                'brake_step': 1001,
@@ -867,6 +930,7 @@ class TestProfiler(TestCase):
          
     def test_max_iters_warning(self):
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         mmengine_patch.iter_runner(mock_mmcv, {'enable_profiler': True, 'enable_brake': False,
                                                 'profiling_path': "/.../profiling_path/",
                                                 'profiling_level': random.randint(0, 2)})
@@ -899,6 +963,7 @@ class TestProfiler(TestCase):
 
     def test_patch_failure(self):        
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         with self.assertRaises(AttributeError):
             mock_mmcv.runner.EpochBasedRunner = EmptyAttribute
             mmengine_patch.epoch_runner(mock_mmcv, {'enable_profiler': True, 'enable_brake': False,
@@ -907,6 +972,7 @@ class TestProfiler(TestCase):
             
         
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         with self.assertRaises(AttributeError):
             mock_mmcv.runner.IterBasedRunner = EmptyAttribute
             mmengine_patch.iter_runner(mock_mmcv, {'enable_profiler': True, 'enable_brake': False,
@@ -915,6 +981,8 @@ class TestProfiler(TestCase):
 
         
         mock_mmengine = MagicMock()
+        mock_mmengine.__name__ = 'mmengine'
+        sys.modules['mmengine.runner'] = ModuleType('mmengine.runner')
         with self.assertRaises(AttributeError):
             mock_mmengine.runner.EpochBasedTrainLoop = EmptyAttribute
             mmengine_patch.epoch_train_loop(mock_mmengine, {'enable_profiler': True, 'enable_brake': False,
@@ -923,6 +991,8 @@ class TestProfiler(TestCase):
             
             
         mock_mmengine = MagicMock()
+        mock_mmengine.__name__ = 'mmengine'
+        sys.modules['mmengine.runner'] = ModuleType('mmengine.runner')
         with self.assertRaises(AttributeError):
             mock_mmengine.runner.IterBasedTrainLoop = EmptyAttribute
             mmengine_patch.iter_train_loop(mock_mmengine, {'enable_profiler': True, 'enable_brake': False,
@@ -933,6 +1003,7 @@ class TestProfiler(TestCase):
 class TestBrake(TestCase):
     def test_epoch_runner_brake(self):
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         
         # apply monkeypatch, brake at 1000th step
         mmengine_patch.epoch_runner(mock_mmcv, {'enable_profiler': False, 
@@ -954,6 +1025,7 @@ class TestBrake(TestCase):
 
     def test_epoch_train_loop_brake(self):
         mock_mmcv = MagicMock()
+        mock_mmcv.__name__ = 'mmcv'
         
         # apply monkeypatch, brake at 1000th step
         mmengine_patch.epoch_train_loop(mock_mmcv, {'enable_profiler': False, 
@@ -982,6 +1054,8 @@ class TestBrake(TestCase):
 
     def test_iter_train_loop_brake(self):
         mock_engine = MagicMock()
+        mock_engine.__name__ = 'mmengine'
+        sys.modules['mmengine.runner'] = ModuleType('mmengine.runner')
         
         # apply monkeypatch, brake at 1000th step
         mmengine_patch.iter_train_loop(mock_engine, {'enable_profiler': False, 
@@ -1010,6 +1084,8 @@ class TestBrake(TestCase):
 
     def test_iter_runner_brake(self):
         mock_engine = MagicMock()
+        mock_engine.__name__ = 'mmengine'
+        sys.modules['mmengine.runner'] = ModuleType('mmengine.runner')
         
         # apply monkeypatch, brake at 1000th step
         mmengine_patch.iter_runner(mock_engine, {'enable_profiler': False, 
