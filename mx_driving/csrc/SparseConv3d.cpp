@@ -22,7 +22,7 @@ std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d(const at::Tensor& indices, 
 {
     TORCH_CHECK_NPU(indices);
     TORCH_CHECK(
-        out_channel <= 128, "out_channel must less or equal than 128 expected but got out_channel: ", out_channel);
+        out_channel <= 1024, "out_channel must less or equal than 1024 expected but got out_channel: ", out_channel);
     TORCH_CHECK(out_channel % 8 == 0, "out_channel must be divisible by 8 but got out_channel: ", out_channel);
     auto indices_size = indices.sizes();
     int64_t kernelsum = 1;

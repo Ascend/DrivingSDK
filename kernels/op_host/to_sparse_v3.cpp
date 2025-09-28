@@ -75,10 +75,14 @@ ge::graphStatus ToSparseV3Tiling::GetCubeTilingData()
 
     uint32_t originSingleN = N;
     uint32_t originSingleM = Ceil(M, (uint64_t)aivNum);
-    uint32_t baseN = originSingleN;
+    uint32_t baseN = AlignUp(originSingleN, 16);
     uint32_t baseM = AlignUp(originSingleM, 16);
-    if (baseM > 64) {
-        baseM = 64;
+    uint32_t baseNum = 128;
+    if (baseM > baseNum) {
+        baseM = baseNum;
+    }
+    if (baseN > baseNum) {
+        baseN = baseNum;
     }
 
     auto featureDataTypePtr = tilingContext->GetInputDesc(0);
