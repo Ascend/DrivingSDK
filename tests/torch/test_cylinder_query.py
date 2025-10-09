@@ -18,7 +18,7 @@ def gen_data(B, N, M):
     return new_xyz, xyz, rot
 
 
-class TestCylinderQuert(TestCase):
+class TestCylinderQuery(TestCase):
     # 'pylint: disable=too-many-arguments,huawei-too-many-arguments
     def cpu_forward_op(self,
         radius,

@@ -23,19 +23,18 @@ class CylinderQuery(Function):
         out = CylinderQuery.sortRes(group_idx, nsample)
         return out
     
-    @staticmethod
-    def backward(ctx, gradout):
-        return ()
-    
     @classmethod
     def sortRes(cls, group_idx, nsample):
         b = group_idx.shape[0]
         m = group_idx.shape[1]
         n = group_idx.shape[2]
-        group_idx = group_idx.sort(dim=-1)[0][:, :, :nsample]
+        sorted_idx = group_idx.sort(dim=-1)[0]
+        head, _ = torch.split(sorted_idx, [nsample, sorted_idx.size(-1) - nsample], dim=-1)
+        group_idx = head
         mask = group_idx >= n
-        group_first = torch.where(mask, 0, group_idx)
-        group_idx = torch.where(mask, group_first[..., 0:1], group_idx)
+        group_first = (~mask).float() * group_idx
+        group_idx = torch.lerp(group_idx, group_first[..., 0:1], mask.float())
+
         return group_idx.to(dtype=torch.int32)
     
     
