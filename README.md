@@ -40,7 +40,12 @@ DrivingSDK支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如
 
 ##  环境部署
 
-###  前提条件
+### 容器安装
+推荐基于[Driving SDK容器](https://www.hiascend.com/developer/ascendhub/detail/696b50584fa04d4a8e99f7894f8eb176)配置环境。
+
+### 裸机环境
+
+####  前提条件
 1. 本项目依赖昇腾提供的torch_npu包和CANN包，需要先安装对应版本的torch_npu和CANN软件包，具体配套关系见Ascend Extension for PyTorch仓[README](https://gitcode.com/Ascend/pytorch)。
 请参考昇腾官方文档[Pytorch框架训练环境准备](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html)。
 2. 使用`pip3 install -r requirements.txt` 安装Python依赖，`requirements.txt`文件位于项目根目录下。
@@ -49,10 +54,10 @@ DrivingSDK支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如
 5. 建议您以非root用户身份执行以下操作。
 6. 使用gcc编译本仓时，推荐使用gcc 10.2版本。
 
-### 发布包安装
+#### 发布包安装
 当前并未正式发布whl包 ，请参考源码安装方式。
 
-### 源码安装
+#### 源码安装
 
 1. 克隆原始仓。
     ```shell
@@ -188,6 +193,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [TPVFormer](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/TPVFormer) | 6.69 | 10.32 |Y|
 | [UniAD](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/UniAD) | Stage1: 1.002<br>Stage2: 1.554 | Stage1: 1.359<br>Stage2: 2.000 |Y|
 | [DexVLA](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/Dexvla) | Stage2: 16.72<br>Stage3: 15.85 | Stage2: 18.88<br>Stage3: 18.67 |Y|
+| [QCNet](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/QCNet) | 75.29 | 94.11 |Y|
 | [BEVNeXt](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/BEVNeXt) | Stage1: 16.568<br>Stage2: 7.572 | Stage1: 36.643<br>Stage2: 11.651 |N|
 | [HiVT](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/HiVT) | 645 | 652 |N|
 | [HPTR](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/HPTR) | 25.12 | 36.07 |N|
@@ -195,7 +201,6 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [MagicDriveDiT](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/MagicDriveDiT) | Stage1: 0.83 | Stage1: 1.50 |N|
 | [Panoptic-PolarNet](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/Panoptic-PolarNet) | 1.28 | 1.69 |N|
 | [PointTransformerV3](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/PointTransformerV3)  | 11.92 | 35.56 |N|
-| [QCNet](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/QCNet) | 75.29 | 94.11 |N|
 | [Senna](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/Senna)  | 1.376 | 1.824 |N|
 | [VAD](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/VAD) | 2.847 | 7.476 |N|
 | [VGGT](https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.2.RC1/model_examples/VGGT)  | 25.04 | 15.30 |N|
@@ -229,7 +234,7 @@ Driving SDK版本分支的维护阶段如下：
 |---------------------|-----------|---------|------------|--------------------|-----------|
 | v7.2.RC1  |  常规版本  | 维护      | 2025/09/30 | 预计2026/03/30起无维护	   |
 | v7.1.RC1  |  常规版本  | 维护      | 2025/06/30 | 预计2025/12/30起无维护	   |
-| v7.0.RC1  |  常规版本  | 维护      | 2025/03/30 | 预计2025/9/30起无维护	   |           |
+| v7.0.RC1  |  常规版本  | 无维护      | 2025/03/30 | 2025/9/30起无维护	   |           |
 | v6.0.0   |  常规版本  | 无维护      | 2024/12/30 | 2025/6/30起无维护	   |           |          |
 | v6.0.0-RC3 |  常规版本  | 无维护      | 2024/09/30 | 2025/3/30起无维护	   |           |
 | v6.0.0-RC2             |  常规版本  | 无维护      | 2024/06/30 | 2024/12/30起无维护	   |           |
