@@ -8,7 +8,7 @@
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [DETR3D（在研版本）](#detr3d在研版本)
+- [DETR3D](#detr3d)
   - [准备训练环境](#准备训练环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [安装模型环境](#安装模型环境)
@@ -50,7 +50,7 @@ url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/DETR3D
 ```
 
-# DETR3D（在研版本）
+# DETR3D
 
 ## 准备训练环境
 
