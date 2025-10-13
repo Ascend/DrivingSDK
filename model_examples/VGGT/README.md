@@ -70,11 +70,9 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
 | FrameworkPTAdapter | 7.0.0  |
 |       CANN        | 8.1.RC1 |
 
-- 克隆代码仓到当前目录并使用patch文件
+- 使用patch文件
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git
-    cd DrivingSDK/model_examples/VGGT
     git clone https://github.com/facebookresearch/vggt.git
     cd vggt
     git checkout 97bbde571faddde3ace3cfa7724a20448026c4c8

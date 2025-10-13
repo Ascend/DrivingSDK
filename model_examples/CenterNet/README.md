@@ -54,11 +54,7 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
 - 安装依赖。
-  1. 首先下载Driving SDK仓，进入CenterNet模型代码目录：
-  ```
-  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-  cd DrivingSDK/model_examples/CenterNet
-  ```
+  1. 首先，进入CenterNet模型代码目录
 
   2. 源码安装 CenterNet
   ```

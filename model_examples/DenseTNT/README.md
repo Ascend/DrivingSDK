@@ -60,10 +60,8 @@ git checkout a07c237ea883b320aedf5e505185589ec4f88d76
 ```
 将模型根目录记作`path-to-DenseTNT`
 
-4、克隆 Driving SDK 仓并使用 patch 文件
+4、当前路径使用 patch 文件
 ```
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/DenseTNT
 cp -f DenseTNT_npu.patch ${path-to-DenseTNT}
 cp -rf test ${path-to-DenseTNT}
 cd ${path-to-DenseTNT}

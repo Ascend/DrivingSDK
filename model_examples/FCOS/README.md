@@ -116,7 +116,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 5. 安装 Driving SDK 加速库
 
-  参考：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
+  参考：https://gitcode.com/Ascend/DrivingSDK
 
 6. 根据操作系统，安装tcmalloc动态库。
 

@@ -72,11 +72,9 @@
 | FrameworkPTAdapter | 6.0.0  |
 |       CANN        | 8.0.0  |
 
-- 克隆代码仓到当前目录并使用patch文件
+- 使用patch文件
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-    cd DrivingSDK/model_examples/SurroundOcc
     git clone https://github.com/weiyithu/SurroundOcc.git
     cd SurroundOcc
     git checkout 05263c6a8fe464a7f9d28358ff7196ba58dc0de6

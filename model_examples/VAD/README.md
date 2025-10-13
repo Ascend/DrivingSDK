@@ -69,11 +69,9 @@ VAD是一个向量化端到端的自动驾驶网络，将驾驶场景建模完�
 | FrameworkPTAdapter | 7.0.0  |
 |       CANN        | 8.1.RC1 |
 
-- 克隆代码仓到当前目录并使用patch文件
+- 使用patch文件
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-    cd DrivingSDK/model_examples/VAD
     git clone https://github.com/hustvl/VAD.git
     cd VAD
     git checkout 70bb364aa3f33316960da06053c0d168628fb15f

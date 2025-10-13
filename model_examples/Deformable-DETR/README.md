@@ -47,12 +47,10 @@ conda activate deformable_detr
 3、安装`Pytorch2.1`、`torch_npu2.1.0`和`mx_driving`。
 
 - 搭建 PyTorch 环境参考：https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html
-- 搭建 mx_driving 环境参考：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
+- 搭建 mx_driving 环境参考：https://gitcode.com/Ascend/DrivingSDK
 
-4、克隆代码仓到当前目录并使用 patch 文件
+4、使用 patch 文件
 ```
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
 git clone https://github.com/fundamentalvision/Deformable-DETR.git
 cp -f Deformable-DETR_npu.patch Deformable-DETR
@@ -63,8 +61,6 @@ cp -rf ../test .
 如果需要将 Deformable-DETR 源码 clone 到用户自定义目录，执行下面的shell命令：
 ```
 your_path=/home/    # 替换为用户自定义目标目录地址
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
 git clone https://github.com/fundamentalvision/Deformable-DETR.git ${your_path}
 cp -f Deformable-DETR_npu.patch ${your_path}

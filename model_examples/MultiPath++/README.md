@@ -63,8 +63,6 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
 - 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-    cd DrivingSDK/model_examples/MultiPath++
     git clone https://github.com/stepankonev/waymo-motion-prediction-challenge-2022-multipath-plus-plus.git
     cd waymo-motion-prediction-challenge-2022-multipath-plus-plus
     git checkout 359670b954431d8d26b6807cbd4e5aa1ebbf98dd

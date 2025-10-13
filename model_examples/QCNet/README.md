@@ -6,7 +6,7 @@
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [QCNet（在研版本）](#QCNet(在研版本))
+- [QCNet](#QCNet)
   - [准备训练环境](#准备训练环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [安装模型环境](#安装模型环境)
@@ -47,7 +47,7 @@ url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/QCNet
 ```
 
-# QCNet（在研版本）
+# QCNet
 
 ## 准备训练环境
 
@@ -159,7 +159,7 @@ code_path=model_examples/QCNet
 
 6. 安装 DrivingSDK 加速库
 
-   安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK)。
+   安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK)。
 
 
 ### 模型数据准备

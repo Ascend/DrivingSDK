@@ -88,8 +88,6 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 3. 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-    cd DrivingSDK/model_examples/MagicDriveDiT
     git clone https://github.com/flymin/MagicDriveDiT.git 
     cd MagicDriveDiT
     git checkout 78b65f9db34c52164926815ab6ee51902960ef8a

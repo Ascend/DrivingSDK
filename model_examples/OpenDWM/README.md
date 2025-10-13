@@ -100,8 +100,6 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 4. 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-    cd DrivingSDK/model_examples/OpenDWM
     git clone https://github.com/SenseTime-FVG/OpenDWM 
     cd OpenDWM
     git checkout b0ecc3d4020612376ea5a87500f98bc76893428f

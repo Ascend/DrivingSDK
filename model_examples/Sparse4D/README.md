@@ -72,10 +72,6 @@
 
   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
-- 克隆代码仓到当前目录
-  ```shell
-  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-  ```
 - 安装基础依赖
 
   在模型根目录下执行命令，安装模型需要的依赖

@@ -83,7 +83,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 
 5. 安装Driving SDK加速库
 
-  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
+  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK
 
 6. 根据操作系统，安装tcmalloc动态库。
 

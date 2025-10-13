@@ -130,7 +130,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 6. 安装 Driving SDK 加速库
 
-    参考官方文档：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
+    参考官方文档：https://gitcode.com/Ascend/DrivingSDK
 
 ### 准备数据集
 

@@ -85,7 +85,7 @@ code_path=model_examples/DETR3D
 
 2. 安装 Driving SDK 加速库
 
-  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
+  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK
 
 3. 安装基础依赖
   ```

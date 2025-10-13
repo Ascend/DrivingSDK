@@ -49,11 +49,9 @@ code_path=model_examples/PointPillar
 
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
-  #### 0. 克隆代码仓到当前目录并使用patch文件
+  #### 0. 使用patch文件
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git
-    cd DrivingSDK/model_examples/PointPillar
     git clone https://github.com/open-mmlab/OpenPCDet.git
     cd OpenPCDet
     git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356

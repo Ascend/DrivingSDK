@@ -99,8 +99,6 @@ conda activate senna
 
 3. 克隆代码仓并使用patch文件
 ```
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/Senna
 git clone https://github.com/hustvl/Senna.git
 cp -f Senna.patch Senna
 cd Senna

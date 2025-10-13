@@ -39,7 +39,7 @@
     code_path=model_examples/Diffusion-Planner
     ```
 
-# Diffusion-Planner (在研版本)
+# Diffusion-Planner
 
 ## 准备训练环境
 
@@ -100,7 +100,7 @@
 
 4. 安装Driving SDK加速库
   
-  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
+  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK
 
 
 ### 准备数据集

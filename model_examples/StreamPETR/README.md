@@ -95,10 +95,8 @@ conda create -n streampetr python=3.8
 conda activate streampetr
 ```
 
-3. 克隆代码仓并使用patch文件
+3. 使用patch文件
 ```
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/StreamPETR
 git clone https://github.com/exiawsh/StreamPETR.git
 cp -f streampetr.patch StreamPETR
 cd StreamPETR

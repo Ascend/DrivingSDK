@@ -62,7 +62,7 @@ YOLOv8（You Only Look Once version 8）是YOLO系列算法中的第八个版本
 
   2. 安装Driving SDK加速库
   
-  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
+  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK
   
   3. 对应的环境变量添加至 test/env_npu.sh 文件中。
 

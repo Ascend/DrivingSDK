@@ -41,7 +41,7 @@
     code_path=model_examples/Pi-0
     ```
 
-# Pi-0 (在研版本)
+# Pi-0
 
 ## 准备训练环境
 
