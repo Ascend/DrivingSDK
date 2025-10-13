@@ -8,7 +8,7 @@ Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景的算子
 
 ### 配套关系
 
-DrivingSDK支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如下：
+DrivingSDK算子支持的CPU架构，Python，PyTorch和torch_npu版本对应关系如下：
 
 | Gitcode分支 |  CPU架构 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
 |-----------|-----------|-------------------|-------------------|---------------------|
@@ -136,7 +136,7 @@ out, argmax = scatter_max(updates, indices, out)
 请参见[算子清单](./docs/api/README.md)。
 
 ### 支持特性
-- [x] 支持PyTorch 2.1.0，2.6.0
+- [x] 支持PyTorch 2.1.0，2.6.0，2.7.1，2.8.0(算子)
 - [x] 支持ONNX模型转换，训推一体
 - [ ] 支持图模式
 

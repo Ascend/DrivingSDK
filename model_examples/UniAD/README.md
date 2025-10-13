@@ -72,7 +72,7 @@
   source {cann_root_dir}/set_env.sh
   ```
 
-- 安装Driving SDK加速库，安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)，安装后手动source环境变量或将其配置在test/env_npu.sh中。
+- 安装Driving SDK加速库，安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 
 - 安装mmcv

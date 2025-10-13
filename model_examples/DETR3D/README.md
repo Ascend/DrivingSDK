@@ -85,15 +85,7 @@ code_path=model_examples/DETR3D
 
 2. 安装 Driving SDK 加速库
 
-  安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)。
-  ```
-  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-  cd DrivingSDK
-  pip install -r requirements.txt
-  bash ci/build.sh --python=3.8
-  pip install dist/mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
-  cd model_examples/DETR3D
-  ```
+  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
 
 3. 安装基础依赖
   ```

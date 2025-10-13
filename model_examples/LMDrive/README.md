@@ -135,7 +135,7 @@ git apply --whitespace=fix npu.patch
     python setup.py develop # if you have installed LAVIS before, please uninstall it
     ```
 
-- 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
+- 安装Driving SDK加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 
 

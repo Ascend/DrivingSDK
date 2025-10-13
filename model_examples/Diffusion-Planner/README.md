@@ -99,13 +99,8 @@
   ```
 
 4. 安装Driving SDK加速库
-  ```
-  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-  cd mx_driving
-  bash ci/build.sh --python=3.9
-  cd dist
-  pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
-  ```
+  
+  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK/blob/branch_v7.2.RC1/README.md
 
 
 ### 准备数据集
