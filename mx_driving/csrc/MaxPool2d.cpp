@@ -17,6 +17,8 @@
 #include "csrc/OpApiCommon.h"
 #include "csrc/functions.h"
 
+constexpr uint8_t CHANNEL_INDEX = 1;
+constexpr uint32_t CHANNEL_LIMIT = 1024;
 constexpr size_t C_LIMIT = 64;
 constexpr size_t X_NUM_LIMIT = 1000000000;
 
@@ -25,6 +27,7 @@ at::Tensor npu_max_pool2d(const at::Tensor& x, int kernel_size, int stride, int 
     TORCH_CHECK_NPU(x);
     TORCH_CHECK(x.scalar_type() == at::kFloat || x.scalar_type() == at::kHalf,
         "x: float32 or float16 tensor expected but got a tensor with dtype: ", x.scalar_type());
+    TORCH_CHECK(x.size(CHANNEL_INDEX) <= CHANNEL_LIMIT, "channel must less or equal than 1024 expected but got channel: ", x.size(CHANNEL_INDEX));
     TORCH_CHECK(kernel_size == 3, "kernel_size: expected 3 but got: ", kernel_size);
     TORCH_CHECK(stride == 2, "stride: expected 2 but got: ", stride);
     TORCH_CHECK(padding == 1, "padding: expected 1 but got: ", padding);

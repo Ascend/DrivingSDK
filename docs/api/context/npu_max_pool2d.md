@@ -15,7 +15,7 @@ mx_driving.fused.npu_max_pool2d(Tensor x, int kernel_size, int stride, int paddi
 - `y (Tensor)`：池化后的最大值，数据类型为`float32`，format为NCHW。
 ### 约束说明
 1、kernel_size仅支持3，stride仅支持2，padding仅支持1，且输入C轴数据量要求为8的倍数，H和W需要大于100。
-2、性能在C值较大的场景下较优，建议使用规格为C>=64。
+2、支持C<=1024，性能在C值较大的场景下较优，建议使用规格为C>=64。
 ### 支持的型号
 - Atlas A2 训练系列产品
 ### 调用示例
