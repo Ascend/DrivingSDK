@@ -20,8 +20,8 @@ mx_driving.preprocess.roipoint_pool3d(int num_sampled_points, Tensor points, Ten
 ### 约束说明
 - `points`、`point_features`和`boxes3d`的数据类型必须相同，以及`B`也必须相同。
 - `num_sampled_points`必须小于等于`N`。
-- 数据类型为`float32`时，建议`B`小于100、`N`小于等于2640、`M`小于等于48、`num_sampled_points`小于等于48，个别shape值略微超过建议值无影响，但所有shape值均大于建议值时，算子执行会发生错误。
-- 数据类型为`float16`时，建议`B`小于100、`N`小于等于3360、`M`小于等于60、`num_sampled_points`小于等于60，个别shape值略微超过建议值无影响，但所有shape值均大于建议值时，算子执行会发生错误。
+- 数据类型为`float32`时，建议`B`小于96、`N`小于等于2048、`M`小于等于48、`num_sampled_points`小于等于48，`C`小于等于8，个别shape值略微超过建议值无影响，但所有shape值均大于建议值时，算子执行会发生错误。
+- 数据类型为`float16`时，建议`B`小于96、`N`小于等于,3192、`M`小于等于60、`num_sampled_points`小于等于60，`C`小于等于8，个别shape值略微超过建议值无影响，但所有shape值均大于建议值时，算子执行会发生错误。
 - `N`/`M`的值越大，性能劣化越严重，建议`N`小于`M`的六百倍，否则性能可能会低于0.1x A100。
 ### 支持的型号
 - Atlas A2 训练系列产品

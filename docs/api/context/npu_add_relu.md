@@ -10,11 +10,12 @@ mx_driving.fused.npu_add_relu(Tensor x, Tensor y) -> Tensor
 ### 功能描述
 与`relu(x + y)`功能相同。
 ### 参数说明
-- `x(Tensor)`：输入数据，数据类型为`float32`，shape无限制。
+- `x(Tensor)`：输入数据，数据类型为`float32`，shape维度无限制。
 - `y(Tensor)`：输入数据，数据类型为`float32`，shape需要和x一致。
 ### 返回值
 - `output(Tensor)`：输出数据，数据类型为`float32`，shape和x一致。
 ### 约束说明
+- `x`或`y`shape所有维度的元素乘积应在`int32`数据类型的有效表示范围内，否则会产生计算错误。
 - 输入`x`与输入`y`的shape和dtype需要保持一致，不支持广播。
 - 仅在x的元素个数超过2000000时，相较于`relu(x + y)`有性能提升。
 ### 支持的型号
