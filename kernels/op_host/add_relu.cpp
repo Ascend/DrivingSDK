@@ -31,7 +31,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
     auto coreNumber = ascendplatformInfo.GetCoreNumAiv();
-    uint32_t totalResult = context->GetInputTensor(0)->GetShapeSize();
+    int32_t totalResult = context->GetInputTensor(0)->GetShapeSize();
     int32_t coreData;
     int32_t coreUsed;
     int32_t coreLast;
