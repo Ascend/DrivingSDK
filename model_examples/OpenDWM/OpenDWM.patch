@@ -1,5 +1,5 @@
 diff --git a/configs/ctsd/single_dataset/ctsd_35_crossview_tirda_bm_nusc_a.json b/configs/ctsd/single_dataset/ctsd_35_crossview_tirda_bm_nusc_a.json
-index 41eaad2..910a69d 100644
+index 41eaad2..6448bc6 100644
 --- a/configs/ctsd/single_dataset/ctsd_35_crossview_tirda_bm_nusc_a.json
 +++ b/configs/ctsd/single_dataset/ctsd_35_crossview_tirda_bm_nusc_a.json
 @@ -9,35 +9,35 @@
@@ -103,7 +103,7 @@ index 52b8335..0851cd1 100644
      },
      "inputs": [
 diff --git a/examples/ctsd_generation_example.py b/examples/ctsd_generation_example.py
-index 1e74e10..3896cba 100644
+index 1e74e10..1943187 100644
 --- a/examples/ctsd_generation_example.py
 +++ b/examples/ctsd_generation_example.py
 @@ -6,7 +6,18 @@ import json
@@ -141,10 +141,10 @@ index 1e74e10..3896cba 100644
      os.makedirs(args.output_path, exist_ok=True)
 -    for i_id, i in enumerate(config["inputs"]):
 -        i["batch"] = {
-+    
++
 +    # 初始化耗时统计变量
 +    inference_stats = []
-+    
++
 +    # 预热模型（可选）
 +    if args.repeat > 1:
 +        print("Warming up model...")
@@ -176,68 +176,12 @@ index 1e74e10..3896cba 100644
                      })
              else:
 -                pipeline_output = pipeline.inference_pipeline(**i)
-+                pipeline.inference_pipeline(**warmup_input)
-+        print("Model warmed up.")
-+
-+    for i_id, i_orig in enumerate(config["inputs"]):
-+        # 深拷贝输入配置，避免修改原始配置
-+        i = copy.deepcopy(i_orig)
-+        i["batch"] = {
-+            k: torch.tensor(v) if k != "clip_text" else v
-+            for k, v in i["batch"].items()
-+        }
-+        
-+        # 记录原始潜在形状（用于后续统计）
-+        original_latent_shape = i["latent_shape"]
-+        
-+        # 存储该样本的所有推理时间
-+        sample_times = []
-+        
-+        # 重复推理多次
-+        for repeat_idx in range(args.repeat):
-+            # 记录推理开始前的时间
-+            start_time = time.perf_counter()
-+            
-+            with torch.no_grad():
-+                if (
-+                    "sequence_length_per_iteration" in
-+                    config["pipeline"]["inference_config"]
-+                ):
-+                    latent_shape = tuple(
-+                        i["latent_shape"][:1] + [
-+                            config["pipeline"]["inference_config"]
-+                            ["sequence_length_per_iteration"],
-+                        ] + i["latent_shape"][2:]
-+                    )
-+                    # 记录实际使用的潜在形状
-+                    actual_latent_shape = latent_shape
-+                    
-+                    # 核心推理步骤
-+                    pipeline_output = pipeline.autoregressive_inference_pipeline(
-+                        **{
-+                            k: latent_shape if k == "latent_shape" else v
-+                            for k, v in i.items()
-+                        })
-+                else:
-+                    # 记录实际使用的潜在形状
-+                    actual_latent_shape = i["latent_shape"]
-+                    
-+                    # 核心推理步骤
-+                    pipeline_output = pipeline.inference_pipeline(**i)
-+                    
-+                # 同步所有进程以确保准确计时
-+                if ddp:
-+                    torch.distributed.barrier()
- 
+-
 -            output_images = pipeline_output["images"]
 -            collected_images = [
 -                output_images.cpu().unflatten(0, i["latent_shape"][:3])
 -            ]
-+                output_images = pipeline_output["images"]
-+                collected_images = [
-+                    output_images.cpu().unflatten(0, i["latent_shape"][:3])
-+                ]
- 
+-
 -        stacked_images = torch.stack(collected_images)
 -        resized_images = torch.nn.functional.interpolate(
 -            stacked_images.flatten(0, 3),
@@ -245,25 +189,7 @@ index 1e74e10..3896cba 100644
 -        )
 -        resized_images = resized_images.view(
 -            *stacked_images.shape[:4], -1, *resized_images.shape[-2:])
-+            # 记录推理结束后的时间
-+            end_time = time.perf_counter()
-+            elapsed_time = end_time - start_time
-+            sample_times.append(elapsed_time)
-+            
-+            # 打印每次推理的耗时
-+            print(f"Sample {i_id} - Run {repeat_idx+1}/{args.repeat}: "
-+                  f"{elapsed_time:.4f} seconds | Shape: {actual_latent_shape}")
-+            
-+            # 只在第一次运行时保存结果
-+            if repeat_idx == 0:
-+                stacked_images = torch.stack(collected_images)
-+                resized_images = torch.nn.functional.interpolate(
-+                    stacked_images.flatten(0, 3),
-+                    tuple(pipeline.inference_config["preview_image_size"][::-1])
-+                )
-+                resized_images = resized_images.view(
-+                    *stacked_images.shape[:4], -1, *resized_images.shape[-2:])
- 
+-
 -        if not ddp or torch.distributed.get_rank() == 0:
 -            if i["latent_shape"][1] == 1:
 -                # [C, B * T * S * H, V * W]
@@ -282,6 +208,85 @@ index 1e74e10..3896cba 100644
 -                dwm.utils.preview.save_tensor_to_video(
 -                    video_output_path, "libx264", i["batch"]["fps"][0].item(),
 -                    preview_tensor)
+-
+-            print("{} done".format(i_id))
++                pipeline.inference_pipeline(**warmup_input)
++        print("Model warmed up.")
++
++    for i_id, i_orig in enumerate(config["inputs"]):
++        # 深拷贝输入配置，避免修改原始配置
++        i = copy.deepcopy(i_orig)
++        i["batch"] = {
++            k: torch.tensor(v) if k != "clip_text" else v
++            for k, v in i["batch"].items()
++        }
++
++        # 记录原始潜在形状（用于后续统计）
++        original_latent_shape = i["latent_shape"]
++
++        # 存储该样本的所有推理时间
++        sample_times = []
++
++        # 重复推理多次
++        for repeat_idx in range(args.repeat):
++            # 记录推理开始前的时间
++            start_time = time.perf_counter()
++
++            with torch.no_grad():
++                if (
++                    "sequence_length_per_iteration" in
++                    config["pipeline"]["inference_config"]
++                ):
++                    latent_shape = tuple(
++                        i["latent_shape"][:1] + [
++                            config["pipeline"]["inference_config"]
++                            ["sequence_length_per_iteration"],
++                        ] + i["latent_shape"][2:]
++                    )
++                    # 记录实际使用的潜在形状
++                    actual_latent_shape = latent_shape
++
++                    # 核心推理步骤
++                    pipeline_output = pipeline.autoregressive_inference_pipeline(
++                        **{
++                            k: latent_shape if k == "latent_shape" else v
++                            for k, v in i.items()
++                        })
++                else:
++                    # 记录实际使用的潜在形状
++                    actual_latent_shape = i["latent_shape"]
++
++                    # 核心推理步骤
++                    pipeline_output = pipeline.inference_pipeline(**i)
++
++                # 同步所有进程以确保准确计时
++                if ddp:
++                    torch.distributed.barrier()
++
++                output_images = pipeline_output["images"]
++                collected_images = [
++                    output_images.cpu().unflatten(0, i["latent_shape"][:3])
++                ]
++
++            # 记录推理结束后的时间
++            end_time = time.perf_counter()
++            elapsed_time = end_time - start_time
++            sample_times.append(elapsed_time)
++
++            # 打印每次推理的耗时
++            print(f"Sample {i_id} - Run {repeat_idx+1}/{args.repeat}: "
++                  f"{elapsed_time:.4f} seconds | Shape: {actual_latent_shape}")
++
++            # 只在第一次运行时保存结果
++            if repeat_idx == 0:
++                stacked_images = torch.stack(collected_images)
++                resized_images = torch.nn.functional.interpolate(
++                    stacked_images.flatten(0, 3),
++                    tuple(pipeline.inference_config["preview_image_size"][::-1])
++                )
++                resized_images = resized_images.view(
++                    *stacked_images.shape[:4], -1, *resized_images.shape[-2:])
++
 +                if not ddp or torch.distributed.get_rank() == 0:
 +                    if i["latent_shape"][1] == 1:
 +                        # [C, B * T * S * H, V * W]
@@ -300,10 +305,9 @@ index 1e74e10..3896cba 100644
 +                        dwm.utils.preview.save_tensor_to_video(
 +                            video_output_path, "libx264", i["batch"]["fps"][0].item(),
 +                            preview_tensor)
- 
--            print("{} done".format(i_id))
++
 +                    print(f"Sample {i_id} output saved")
-+        
++
 +        # 计算该样本的统计指标
 +        sample_stats = {
 +            "id": i_id,
@@ -317,21 +321,21 @@ index 1e74e10..3896cba 100644
 +            "fps": i["batch"]["fps"][0].item() if "fps" in i["batch"] else None
 +        }
 +        inference_stats.append(sample_stats)
-+        
++
 +        # 打印该样本的统计摘要
 +        print(f"\nSample {i_id} inference stats:")
 +        print(f"  Runs: {args.repeat}")
 +        print(f"  Mean time: {sample_stats['mean_time']:.4f} seconds")
 +        print(f"  Min time: {sample_stats['min_time']:.4f} seconds")
 +        print(f"  Max time: {sample_stats['max_time']:.4f} seconds")
-+        
++
 +        # 计算并打印每帧处理时间（如果是视频）
 +        if sample_stats["fps"] is not None:
 +            frames = original_latent_shape[0] * original_latent_shape[1]
 +            time_per_frame = sample_stats["mean_time"] / frames
 +            print(f"  Time per frame: {time_per_frame:.6f} seconds")
 +            print(f"  Equivalent FPS: {1/time_per_frame:.2f}")
-+    
++
 +    # 保存详细的耗时统计信息
 +    if not ddp or torch.distributed.get_rank() == 0:
 +        # 计算全局统计指标
@@ -346,12 +350,12 @@ index 1e74e10..3896cba 100644
 +            "max_time": max(all_times),
 +            "samples": inference_stats
 +        }
-+        
++
 +        # 保存到JSON文件
 +        stats_path = os.path.join(args.output_path, "inference_stats.json")
 +        with open(stats_path, "w") as f:
 +            json.dump(global_stats, f, indent=4)
-+            
++
 +        # 打印全局汇总统计
 +        print("\n======= Global Inference Time Summary =======")
 +        print(f"Total samples processed: {global_stats['total_samples']}")
@@ -362,8 +366,26 @@ index 1e74e10..3896cba 100644
 +        print(f"Slowest run: {global_stats['max_time']:.4f} seconds")
 +        print(f"Detailed stats saved to: {stats_path}")
 \ No newline at end of file
+diff --git a/requirements.txt b/requirements.txt
+index 9250293..f66fb74 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -7,7 +7,7 @@ diffusers==0.31.0
+ einops
+ easydict
+ fsspec
+-numpy
++numpy==1.24.0
+ pandas
+ protobuf==4.21.6
+ pyarrow
+@@ -26,4 +26,3 @@ timm
+ rotary-embedding-torch
+ opencv-python
+ wandb
+-git+https://github.com/autonomousvision/kitti360Scripts.git
 diff --git a/src/dwm/train.py b/src/dwm/train.py
-index 4d22e9b..0b16f28 100644
+index 4d22e9b..48a0156 100644
 --- a/src/dwm/train.py
 +++ b/src/dwm/train.py
 @@ -2,8 +2,21 @@ import argparse
@@ -461,15 +483,14 @@ index 4d22e9b..0b16f28 100644
      for epoch in range(config["train_epochs"]):
  
          if ddp:
-@@ -206,9 +258,24 @@ if __name__ == "__main__":
-                 pipeline.evaluate_pipeline(
+@@ -207,8 +259,23 @@ if __name__ == "__main__":
                      global_step, len(validation_dataset),
                      validation_dataloader, validation_datasampler)
-+            
+ 
 +            # break_training
 +            if global_step >= break_step:
 +                sys.exit(0)
- 
++
          if should_log:
              print("Epoch {} done.".format(epoch))
  
