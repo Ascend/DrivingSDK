@@ -3,6 +3,8 @@
 # Config文件路径
 CONFIG_FILE="./projects/configs/PanoOcc/Panoptic/PanoOcc_base_4f.py"
 
+# 设置ACL_OP_INIT_MODE=0，防止pickle报错
+export ACL_OP_INIT_MODE=0
 
 
 TOTAL_EPOCHS=24
