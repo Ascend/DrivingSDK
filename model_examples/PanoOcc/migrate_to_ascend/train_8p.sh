@@ -107,6 +107,9 @@ export COMBINED_ENABLE=1
 #减少显存占用
 export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
 
+# 设置ACL_OP_INIT_MODE=0，防止pickle报错
+export ACL_OP_INIT_MODE=0
+
 
 echo "DeviceType = ${DEVICE_TYPE}"
 echo "RankSize = ${RANK_SIZE}" 
