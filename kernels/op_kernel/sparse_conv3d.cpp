@@ -104,7 +104,7 @@ private:
 
         DTYPE_INDICES onesVal = -1;
         Duplicate<DTYPE_INDICES>(outIndicesTemp, onesVal, moveLen * kernelSize);
-        Duplicate<DTYPE_INDICES>(outIndicesTemp, 0, moveLen * kernelSize * 4);
+        Duplicate<DTYPE_INDICES>(outIndicesPairTemp, 0, moveLen * kernelSize * 4);
 
         event_t eventIDSToMTE2 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::S_MTE2));
 
