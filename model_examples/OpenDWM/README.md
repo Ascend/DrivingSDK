@@ -102,9 +102,15 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
     将模型根目录记作 `model-root-path`
 
+5. 使用 patch 文件：
+    ```
+    cp -f ../OpenDWM.patch .
+    git apply --reject --whitespace=fix OpenDWM.patch
+    cp -rf ../test .
+    cp -rf ../tools/patch.py ./src/dwm/tools/
+    ```
 
-
-5. 安装模型相关的依赖项。
+6. 安装模型相关的依赖项。
     安装对应版本的 torchvision：
     ```
     python -m pip install torchvision==0.21.0
@@ -122,13 +128,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
     pip install {cann_root_dir}/latest/lib64/hccl-*-py3-none-any.whl
     ```
     
-6. 使用 patch 文件：
-    ```
-    cp -f ../OpenDWM.patch .
-    git apply --reject --whitespace=fix OpenDWM.patch
-    cp -rf ../test .
-    cp -rf ../tools/patch.py ./src/dwm/tools/
-    ```
+
 
 ### 准备数据集
 
