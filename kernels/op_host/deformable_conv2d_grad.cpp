@@ -21,7 +21,7 @@ ge::graphStatus TilingForDeformableConv2dGrad(gert::TilingContext* context)
     CHECK_NULLPTR(xShapePtr);
     CHECK_NULLPTR(offsetShapePtr);
     CHECK_NULLPTR(weightShapePtr);
-    auto xShape = xShapePtr->GetStorageShape();           // n, cIn, hIn, wIn
+    auto xShape = xShapePtr->GetStorageShape();           // n, hIn, wIn, cIn
     auto offsetShape = offsetShapePtr->GetStorageShape(); // n, hOut, wOut, 2*kH*kW
     auto weightShape = weightShapePtr->GetStorageShape(); // kH, kW, cIn, cOut
 
