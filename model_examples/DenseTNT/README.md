@@ -41,10 +41,7 @@
 | FrameworkPTAdapter | 7.0.0 |
 | CANN | 8.1.RC1 |
 
-1、激活 CANN 包环境：将 CANN 包所在目录记为 cann_root_dir，执行以下命令以激活环境：
-```
-source {cann_root_dir}/set_env.sh
-```
+1、激活 CANN 包环境
 
 2、创建 conda 环境并激活：
 ```
@@ -60,10 +57,8 @@ git checkout a07c237ea883b320aedf5e505185589ec4f88d76
 ```
 将模型根目录记作`path-to-DenseTNT`
 
-4、克隆 Driving SDK 仓并使用 patch 文件
+4、使用 patch 文件
 ```
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/DenseTNT
 cp -f DenseTNT_npu.patch ${path-to-DenseTNT}
 cp -rf test ${path-to-DenseTNT}
 cd ${path-to-DenseTNT}

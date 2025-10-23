@@ -72,12 +72,6 @@ code_path=model_examples/HiVT
 
 0. 激活 CANN 环境
 
-   将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-
-   ```
-   source {cann_root_dir}/set_env.sh
-   ```
-
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
     ```
     conda create -n HiVT python=3.8
@@ -86,7 +80,7 @@ code_path=model_examples/HiVT
     pip install torch-2.1.0.xxxxxxxxx.whl
     pip install torch_npu-2.1.0.xxxxxxxxx.whl
     ```
-2. 安装 DrivingSDK 加速库，安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK)。
+2. 安装 DrivingSDK 加速库，安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK)。
     ```
     # DrivingSDK 加速库安装完成后到HiVT模型目录下
     cd DrivingSDK/model_examples/HiVT

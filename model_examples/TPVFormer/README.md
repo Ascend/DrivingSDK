@@ -58,7 +58,7 @@
   |     mmdet      | 2.28.2 |
   | mmsegmentation | 0.30.0 |
 
-- 安装Mx_Driving-Accelerator
+- 安装DrivingSDK
 
   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
@@ -172,7 +172,7 @@ TPVFormer_for_PyTorch/data
 
 **表 3**  *lidar segmentation dim64*训练结果展示表
 
-|  芯片      | 卡数 |  Max epochs  | global_batch_size  | mIoU | 性能-单步迭代耗时(ms) | FPS |
+|  芯片      | 卡数 |  Max Epochs  | global_batch_size  | mIoU | 性能-单步迭代耗时(ms) | FPS |
 |:--------:|----|:------:|:----:|:----:|:----------:|:----------:|
 |   竞品A    | 8p | 24 | 8 | 67.984% | 775 | 10.32 |
 | Atlas 800T A2 | 8p | 24 | 8 | 68.661% | 1195 | 6.69 |

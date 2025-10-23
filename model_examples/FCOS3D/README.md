@@ -54,14 +54,9 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
 
 0. 激活 CANN 环境
 
-  将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-  ```
-  source {cann_root_dir}/set_env.sh
-  ```
-
 1. 安装 Driving SDK 加速库
    
-  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
+  安装方法参考原仓：https://gitcode.com/Ascend/DrivingSDK
 
 2. 安装 mmcv
 
@@ -215,7 +210,7 @@ mv /path/to/resnet101_msra-6cc46731.pth /root/.cache/torch/hub/checkpoints/resne
 
 # 训练结果展示
 
-**表 2**  训练结果展示表
+**表 3**  训练结果展示表
 
 |     芯片      | 卡数 | global batch size | epoch | mAP | NDS | FPS |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: |--------------|

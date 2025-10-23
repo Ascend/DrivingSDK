@@ -66,10 +66,6 @@
 
 
 0. 激活 CANN 环境
-    将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-    ```
-    source {cann_root_dir}/set_env.sh
-    ```
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件，并安装其它依赖项。
     ```
@@ -94,7 +90,7 @@
     pip install waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     ```
 
-3. 拉取GamFormer模型代码仓库：
+3. 拉取GameFormer模型代码仓库：
     ```
     git clone https://github.com/MCZhi/GameFormer.git
     cd GameFormer
@@ -220,11 +216,12 @@
 1. Openexr包编译安装失败？
 
 在某些操作系统里，可能由于缺少依赖库的原因，pip install openexr执行失败，解决方案是升级gcc、g++、cmake版本，并且安装OpenEXR和OpenEXR-devel库。EulerOS/CentOS系统，执行以下命令：
+
     ```
     sudo yum makecache
     sudo yum install gcc gcc-c++ cmake
-    sudo yum install OpenEXR
-    sudo yum install OpenEXR-devel
+    sudo yum install openexr
+    sudo yum install openexr-devel
     ```
 
     对于Ubuntu系统，执行以下命令：

@@ -75,14 +75,6 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 | :-----: | :------: |
 | PyTorch 2.1 | torchvision==0.16.0 |
 
-0. 激活 CANN 环境
-
-    将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-
-    ```
-    source {cann_root_dir}/set_env.sh
-    ```
-
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
 2. 源码安装 mmcv
@@ -130,7 +122,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 6. 安装 Driving SDK 加速库
 
-    参考官方文档：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
+    参考官方文档：https://gitcode.com/Ascend/DrivingSDK
 
 ### 准备数据集
 

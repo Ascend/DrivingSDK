@@ -42,11 +42,9 @@ code_path=model_examples/CenterPoint
 | - |--------------------|
 | PyTorch 2.1.0 | torchvision 0.16.0 |
 
-#### 0. 克隆代码仓到当前目录并使用patch文件
+#### 0. 使用patch文件
 
 ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git
-    cd DrivingSDK/model_examples/CenterPoint
     git clone https://github.com/open-mmlab/OpenPCDet.git
     cd OpenPCDet
     git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
@@ -231,11 +229,9 @@ python setup.py develop
 
     请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
-#### 0. 克隆代码仓到当前目录并使用patch文件
+#### 0. 使用patch文件
 
 ```
-git clone https://gitcode.com/Ascend/DrivingSDK.git
-cd DrivingSDK/model_examples/CenterPoint
 git clone https://github.com/open-mmlab/OpenPCDet.git
 cd OpenPCDet
 git checkout 255db8f02a8bd07211d2c91f54602d63c4c93356
@@ -418,7 +414,7 @@ conda install -c conda-forge blas
 pip install ccimport==0.3.7
 ```
 ### 训练卡住，日志记录`Wait 30 seconds for next check`
-需要删除上次训练的存储，位置在`OpenPCDet/output/kitti_models/pointpillat/default`
+需要删除上次训练的存储，位置在`OpenPCDet/output/kitti_models/pointpillar/default`
 ### 运行报错：bc: command not found
 bc命令是linux系统上的任意精度计算器语言, 有上述提示说明操作系统尚未安装bc，执行以下命令安装bc
 ```shell
@@ -437,9 +433,15 @@ pip install -r 2.5_requirements.txt
 
 ## 版本说明
 [2024-12-23] **NEW:** CenterPoint3d模型在NPU设备首次适配.
+
 [2025-02-18] **NEW:** CenterPoint2d模型增加PT2.5相关依赖.
+
 [2025-03-12] **NEW:** CenterPoint仓CenterHead模块性能优化，并提供高性能内存库安装指导，更新了CenterPoint3d的性能数据
+
 [2025-04-21] **NEW:** CenterPoint2d模型优化fps计算方式，乘以卡数，更新性能指标，readme中添加global batch size
+
 [2025-05-29] **NEW:** CenterPoint3d模型优化，更新性能
+
 [2025-08-21] **NEW:** CenterPoint3d模型性能优化，更新性能
+
 [2025-08-29] **NEW:** CenterPoint3d修复数据处理问题

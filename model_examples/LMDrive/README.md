@@ -81,7 +81,6 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 ```
 conda create -n lmdrive python=3.8
 conda activate lmdrive
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
 git clone https://github.com/opendilab/LMDrive.git
 cp -f {DrivingSDK_root_dir}/model_examples/LMDrive/npu.patch LMDrive
 cp -rf {DrivingSDK_root_dir}/model_examples/LMDrive/test LMDrive

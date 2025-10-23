@@ -40,13 +40,10 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
   | :--------: | 
   | PyTorch 2.1 | 
   
-- 安装 [Driving SDK 加速库](https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md)
+- 安装 [Driving SDK 加速库](https://gitcode.com/Ascend/DrivingSDK)
 
 - 克隆代码仓到当前目录
-  ```shell
-  git clone https://gitcode.com/Ascend/DrivingSDK.git
-  cd DrivingSDK/model_examples/BEVFormer
-  ```
+  
 - 安装基础依赖
 
   在模型源码包根目录下执行命令，安装模型需要的依赖。

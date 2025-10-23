@@ -63,8 +63,6 @@ HPTR 是一种用于自动驾驶实时运动预测的层次化Transformer模型�
 - 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-    cd DrivingSDK/model_examples/HPTR
     git clone https://github.com/zhejz/HPTR.git
     cd HPTR
     git checkout d2c1cb31ff5138ebf4b2490e2689c2f9da962120

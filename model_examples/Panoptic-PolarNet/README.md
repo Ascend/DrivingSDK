@@ -54,12 +54,7 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
 
 0. 激活 CANN 环境
 
-  将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-  ```
-  source {cann_root_dir}/set_env.sh
-  ```
-
-3. 安装 mx_driving
+1. 安装 mx_driving
 
   在 DrivingSDK 根目录下安装 mx_driving
   ```
@@ -68,7 +63,7 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
   python setup.py develop --release
   ```
 
-4. 准备模型源码，安装依赖项
+2. 准备模型源码，安装依赖项
 
   在 Panoptic-PolarNet 根目录下，克隆 Panoptic-PolarNet 仓，替换其中部分代码并安装依赖项
 

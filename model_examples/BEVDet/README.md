@@ -68,7 +68,6 @@
 - 安装Driving SDK
 
   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
-  >【注意】请使用7.0.RC1及之后的Driving SDK
 
 - 安装基础依赖
 

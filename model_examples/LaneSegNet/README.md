@@ -82,13 +82,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   ```
 
 5. 安装Driving SDK加速库
-  ```
-  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-  cd mx_driving
-  bash ci/build.sh --python=3.8
-  cd dist
-  pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
-  ```
+
+  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 6. 根据操作系统，安装tcmalloc动态库。
 

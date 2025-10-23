@@ -58,11 +58,6 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 0. 激活 CANN 环境
 
-  将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-  ```
-  source {cann_root_dir}/set_env.sh
-  ```
-
 1. 源码安装 mmcv
 
   在 FCOS 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装（安装完为 2.2.0 版本）
@@ -116,7 +111,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 5. 安装 Driving SDK 加速库
 
-  参考：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
+  参考：https://gitcode.com/Ascend/DrivingSDK
 
 6. 根据操作系统，安装tcmalloc动态库。
 
@@ -228,7 +223,7 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 # 训练结果展示
 
-**表 2**  训练结果展示表
+**表 3**  训练结果展示表
 
 |  NAME  | cards | Epochs |Global Batchsize| FPS | mAP |
 |:------:|:--------:|:-----:|:-----:|:-----:|:-----:|

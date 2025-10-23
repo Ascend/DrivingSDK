@@ -65,10 +65,6 @@
 
 
 0. 激活 CANN 环境
-  将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-  ```
-  source {cann_root_dir}/set_env.sh
-  ```
 
 1. 创建conda环境
   ```
@@ -99,13 +95,8 @@
   ```
 
 4. 安装Driving SDK加速库
-  ```
-  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-  cd mx_driving
-  bash ci/build.sh --python=3.9
-  cd dist
-  pip3 install mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
-  ```
+
+  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 
 ### 准备数据集
@@ -189,7 +180,7 @@ A: 需要手动安装gmp, mpfr, OpenBLAS, sqlite3, curl, PROJ, GDAL等一些C++�
 https://ftp.swin.edu.au/gnu/gmp/ 在这里找到 gmp-6.1.0.tar.bz2
 tar -jxvf gmp-6.1.0.tar.bz2
 cd gmp-6.1.0
-./configure --prefix=/usr/local/gmp (如果报错：error: No usable m4 in $PATH or /usr/5bin (see config.log for reasons).，说明没有安装m4，使用yum install m4，然后再执行)
+./configure --prefix=/usr/local/gmp (如果报错：error: No usable m4 in $PATH or /usr/bin (see config.log for reasons).，说明没有安装m4，使用yum install m4，然后再执行)
 make
 make install
 ```

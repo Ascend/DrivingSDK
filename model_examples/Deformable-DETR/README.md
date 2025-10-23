@@ -33,10 +33,7 @@
 | FrameworkPTAdapter | 7.0.RC1 |
 | CANN | 8.1.RC1 |
 
-1、激活 CANN 包环境：将 CANN 包所在目录记为 cann_root_dir，执行以下命令以激活环境：
-```
-source {cann_root_dir}/set_env.sh
-```
+1、激活 CANN 包环境
 
 2、创建 conda 环境并激活：
 ```
@@ -47,12 +44,10 @@ conda activate deformable_detr
 3、安装`Pytorch2.1`、`torch_npu2.1.0`和`mx_driving`。
 
 - 搭建 PyTorch 环境参考：https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html
-- 搭建 mx_driving 环境参考：https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md
+- 搭建 mx_driving 环境参考：https://gitcode.com/Ascend/DrivingSDK
 
-4、克隆代码仓到当前目录并使用 patch 文件
+4、使用 patch 文件
 ```
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/Deformable-DETR
 pip install -r requirements.txt
 git clone https://github.com/fundamentalvision/Deformable-DETR.git
 cp -f Deformable-DETR_npu.patch Deformable-DETR
@@ -60,18 +55,7 @@ cd Deformable-DETR
 git apply Deformable-DETR_npu.patch
 cp -rf ../test .
 ```
-如果需要将 Deformable-DETR 源码 clone 到用户自定义目录，执行下面的shell命令：
-```
-your_path=/home/    # 替换为用户自定义目标目录地址
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/Deformable-DETR
-pip install -r requirements.txt
-git clone https://github.com/fundamentalvision/Deformable-DETR.git ${your_path}
-cp -f Deformable-DETR_npu.patch ${your_path}
-cp -rf test ${your_path}
-cd ${your_path}
-git apply Deformable-DETR_npu.patch
-```
+
 ## 准备数据集
 
 进入 [COCO](http://cocodataset.org/#download) 官网，下载 COCO2017 数据集。将数据集上传到服务器任意路径下并解压，数据集结构排布成如下格式：

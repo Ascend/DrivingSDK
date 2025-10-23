@@ -61,11 +61,6 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 0. 激活 CANN 环境
 
-    将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-    ```
-    source {cann_root_dir}/set_env.sh
-    ```
-
 1. 准备模型源码及安装基础依赖
 
     在当前目录下，克隆并准备 FlashOCC 源码

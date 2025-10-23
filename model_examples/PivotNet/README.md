@@ -73,12 +73,6 @@ code_path=model_examples/PivotNet
 
 0. 激活 CANN 环境
 
-   将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-
-   ```
-   source {cann_root_dir}/set_env.sh
-   ```
-
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
 2. 安装mmcv
@@ -99,7 +93,7 @@ code_path=model_examples/PivotNet
 
 4. 安装 Driving SDK 加速库
 
-   安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK)。
+   安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK)。
 
 5. 根据操作系统，安装tcmalloc动态库。
 
@@ -241,7 +235,7 @@ wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_t
 ```
 cd /path/to/pivotnet
 pip install nuscenes-devkit
-python3 tools/anno_converter/nuscenes/convert.py -d .data/nuscenes
+python3 tools/anno_converter/nuscenes/convert.py -d ./data/nuscenes
 ```
 
 ## 快速开始

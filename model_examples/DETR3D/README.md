@@ -75,25 +75,12 @@ code_path=model_examples/DETR3D
 
 0. 激活 CANN 环境
 
-  将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-
-  ```
-  source {cann_root_dir}/set_env.sh
-  ```
-
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
 2. 安装 Driving SDK 加速库
 
-  安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK/wikis/DrivingSDK%20%E4%BD%BF%E7%94%A8)。
-  ```
-  git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-  cd DrivingSDK
-  pip install -r requirements.txt
-  bash ci/build.sh --python=3.8
-  pip install dist/mx_driving-1.0.0+git{commit_id}-cp{python_version}-linux_{arch}.whl
-  cd model_examples/DETR3D
-  ```
+  安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
+  
 
 3. 安装基础依赖
   ```

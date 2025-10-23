@@ -89,7 +89,7 @@
       cd ../
       ```
 
-  4. 请参考 [Driving SDK 使用说明](https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md) 编译并安装 `Driving SDK` 包。
+  4. 请参考 [Driving SDK 使用说明](https://gitcode.com/Ascend/DrivingSDK) 编译并安装 `Driving SDK` 包。
 
 
 

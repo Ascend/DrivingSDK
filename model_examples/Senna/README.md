@@ -81,12 +81,6 @@ code_path=model_examples/Senna
 
 0. 激活 CANN 环境
 
-将 CANN 包所在目录记作 cann_root_dir，执行以下命令以激活环境
-
-```
-source {cann_root_dir}/set_env.sh
-```
-
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
 
@@ -99,8 +93,6 @@ conda activate senna
 
 3. 克隆代码仓并使用patch文件
 ```
-git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-cd DrivingSDK/model_examples/Senna
 git clone https://github.com/hustvl/Senna.git
 cp -f Senna.patch Senna
 cd Senna

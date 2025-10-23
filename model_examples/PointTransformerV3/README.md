@@ -75,12 +75,6 @@ code_path=model_examples/PointTransformerV3
 
 0. 激活 CANN 环境
 
-   将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-
-   ```
-   source {cann_root_dir}/set_env.sh
-   ```
-
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
 2. 设置 PointTransformerV3 并安装相关依赖

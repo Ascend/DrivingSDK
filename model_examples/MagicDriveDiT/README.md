@@ -73,10 +73,6 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 |       CANN        | 8.1.RC1  |
 
 1. 激活 CANN 环境
-    将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-    ```
-    source {cann_root_dir}/set_env.sh
-    ```
 
 2. 安装torch2.3、torch_npu2.3 以及其他依赖项
     ```
@@ -88,8 +84,6 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 3. 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-    cd DrivingSDK/model_examples/MagicDriveDiT
     git clone https://github.com/flymin/MagicDriveDiT.git 
     cd MagicDriveDiT
     git checkout 78b65f9db34c52164926815ab6ee51902960ef8a

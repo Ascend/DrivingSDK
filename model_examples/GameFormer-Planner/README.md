@@ -66,11 +66,7 @@
 
 
 0. 激活 CANN 环境
-    将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-    ```
-    source {cann_root_dir}/set_env.sh
-    ```
-
+    
 1. 安装torch2.1、torch_npu2.1 以及其他依赖项
     ```
     pip install torch==2.1.0

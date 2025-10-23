@@ -79,11 +79,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 |       Python        | 3.9  |
 
 1. 激活 CANN 环境
-    将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
-    ```
-    source {cann_root_dir}/set_env.sh
-    ```
-
+    
 2. 安装Driving SDK
 
     请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
@@ -99,8 +95,6 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 4. 克隆代码仓到当前目录：
 
     ```
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
-    cd DrivingSDK/model_examples/OpenDWM
     git clone https://github.com/SenseTime-FVG/OpenDWM 
     cd OpenDWM
     git checkout b0ecc3d4020612376ea5a87500f98bc76893428f
