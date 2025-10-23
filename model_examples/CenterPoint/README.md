@@ -414,7 +414,7 @@ conda install -c conda-forge blas
 pip install ccimport==0.3.7
 ```
 ### 训练卡住，日志记录`Wait 30 seconds for next check`
-需要删除上次训练的存储，位置在`OpenPCDet/output/kitti_models/pointpillat/default`
+需要删除上次训练的存储，位置在`OpenPCDet/output/kitti_models/pointpillar/default`
 ### 运行报错：bc: command not found
 bc命令是linux系统上的任意精度计算器语言, 有上述提示说明操作系统尚未安装bc，执行以下命令安装bc
 ```shell

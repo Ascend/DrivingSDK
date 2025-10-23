@@ -215,7 +215,7 @@ mv /path/to/resnet101_msra-6cc46731.pth /root/.cache/torch/hub/checkpoints/resne
 
 # 训练结果展示
 
-**表 2**  训练结果展示表
+**表 3**  训练结果展示表
 
 |     芯片      | 卡数 | global batch size | epoch | mAP | NDS | FPS |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------: |--------------|

@@ -184,7 +184,7 @@ A: 需要手动安装gmp, mpfr, OpenBLAS, sqlite3, curl, PROJ, GDAL等一些C++�
 https://ftp.swin.edu.au/gnu/gmp/ 在这里找到 gmp-6.1.0.tar.bz2
 tar -jxvf gmp-6.1.0.tar.bz2
 cd gmp-6.1.0
-./configure --prefix=/usr/local/gmp (如果报错：error: No usable m4 in $PATH or /usr/5bin (see config.log for reasons).，说明没有安装m4，使用yum install m4，然后再执行)
+./configure --prefix=/usr/local/gmp (如果报错：error: No usable m4 in $PATH or /usr/bin (see config.log for reasons).，说明没有安装m4，使用yum install m4，然后再执行)
 make
 make install
 ```

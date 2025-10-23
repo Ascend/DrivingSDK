@@ -241,7 +241,7 @@ wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_t
 ```
 cd /path/to/pivotnet
 pip install nuscenes-devkit
-python3 tools/anno_converter/nuscenes/convert.py -d .data/nuscenes
+python3 tools/anno_converter/nuscenes/convert.py -d ./data/nuscenes
 ```
 
 ## 快速开始

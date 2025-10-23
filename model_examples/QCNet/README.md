@@ -182,7 +182,7 @@ code_path=model_examples/QCNet
 
 - 数据预处理
 
-    当数据集的压缩包已经放置于datasets路径下后，自行修改训练脚本中--root指向的路径'/path/to/datasets'为实际datasets的存放路径，pytorch-lightening框架会在第一次执行训练脚本时，自动开始数据预处理过程，处理总时长大约3小时。
+    当数据集的压缩包已经放置于datasets路径下后，自行修改训练脚本中--root指向的路径'/path/to/datasets'为实际datasets的存放路径，pytorch-lightning框架会在第一次执行训练脚本时，自动开始数据预处理过程，处理总时长大约3小时。
 
 
 ## 快速开始

@@ -94,7 +94,7 @@
     pip install waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     ```
 
-3. 拉取GamFormer模型代码仓库：
+3. 拉取GameFormer模型代码仓库：
     ```
     git clone https://github.com/MCZhi/GameFormer.git
     cd GameFormer
@@ -220,11 +220,12 @@
 1. Openexr包编译安装失败？
 
 在某些操作系统里，可能由于缺少依赖库的原因，pip install openexr执行失败，解决方案是升级gcc、g++、cmake版本，并且安装OpenEXR和OpenEXR-devel库。EulerOS/CentOS系统，执行以下命令：
+
     ```
     sudo yum makecache
     sudo yum install gcc gcc-c++ cmake
-    sudo yum install OpenEXR
-    sudo yum install OpenEXR-devel
+    sudo yum install openexr
+    sudo yum install openexr-devel
     ```
 
     对于Ubuntu系统，执行以下命令：
