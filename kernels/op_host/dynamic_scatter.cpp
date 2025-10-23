@@ -167,7 +167,9 @@ ge::graphStatus TilingForDynamicScatter(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
     DynamicScatterTiling tilingObject(context);
-    tilingObject.Init();
+    if (tilingObject.Init() == ge::GRAPH_FAILED) {
+        return ge::GRAPH_FAILED;
+    }
     return tilingObject.RunKernelTiling();
 }
 } // namespace optiling

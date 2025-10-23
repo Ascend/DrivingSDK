@@ -54,6 +54,11 @@ static ge::graphStatus TilingForCartesianToFrenet1(gert::TilingContext* context)
     uint32_t pointDim = distVecShape.GetDim(POINT_DIM_IDX);
     uint32_t taskLength = numPoints * pointDim;
 
+    // 如果pointDim是0，会导致taskSize和taskSizeAligned变成0，最终导致tileLength和tileTaskNum出现除0错误。需判0
+    if (pointDim == 0) {
+        return ge::GRAPH_FAILED;
+    }
+
     // /* Calculate tiling info */
     uint32_t bigCoreCount = (batchSize * numPoints) % aivNum;
     uint32_t taskSize = pointDim * numPolyLinePoints * ELEM_BYTE_SIZE;  // 一个task（指k2*2大小的数据）需要占多少内存，在对齐32字节后的block中前多少个字节为有效数据
