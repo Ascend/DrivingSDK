@@ -22,7 +22,7 @@
         return ge::GRAPH_FAILED; \
     }
 
-#define ADD_TILING_DATA(contex, tiling)                                                                      \
+#define ADD_TILING_DATA(context, tiling)                                                                     \
     CHECK_NULLPTR(context->GetRawTilingData())                                                               \
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity()); \
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
