@@ -100,6 +100,9 @@ ge::graphStatus DynamicScatterTiling::Init()
         return ge::GRAPH_FAILED;
     }
     const char* reduceTypePtr = attrs->GetAttrPointer<char>(DIM_INDEX0);
+    if (reduceTypePtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     std::string reduceType(reduceTypePtr);
     if (reduceType != "sum" && reduceType != "mean" && reduceType != "max") {
         return ge::GRAPH_PARAM_INVALID;
@@ -150,6 +153,9 @@ ge::graphStatus DynamicScatterTiling::RunKernelTiling()
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
     uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = sysWorkspaceSize;
     
     if (tilingContext->GetRawTilingData() == nullptr) {

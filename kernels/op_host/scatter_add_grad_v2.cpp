@@ -317,6 +317,9 @@ ge::graphStatus ScatterAddGradTiling::SetKernelTiling(gert::TilingContext* conte
     context->GetRawTilingData()->SetDataSize(TilingData.GetDataSize());
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = 0;
     return ge::GRAPH_SUCCESS;
 }

@@ -108,6 +108,9 @@ static ge::graphStatus TilingForGeometricKernelAttention(gert::TilingContext* co
     context->SetTilingKey(1);
     size_t systemWorkspaceSize = platformInfo.GetLibApiWorkSpaceSize();
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = systemWorkspaceSize;
 
     return ge::GRAPH_SUCCESS;

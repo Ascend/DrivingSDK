@@ -338,6 +338,9 @@ ge::graphStatus ScatterMeanGradTiling::RunKernelTiling()
 
     size_t sysWorkspaceSize = WORKSPACE_16MBYTE_SIZE;
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = sysWorkspaceSize;
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;

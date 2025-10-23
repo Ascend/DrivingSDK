@@ -80,6 +80,9 @@ static ge::graphStatus TilingForRoiawareMaxpool3dGrad(gert::TilingContext* conte
 
     size_t systemWorkspaceSize = ascendplatformInfo.GetLibApiWorkSpaceSize();
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = systemWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }
@@ -97,7 +100,13 @@ static ge::graphStatus InferShapeForRoiawareMaxpool3dGrad(gert::InferShapeContex
     
     int64_t channels = argmax->GetDim(4);
     auto runtimeAttrs = context->GetAttrs();
+    if (runtimeAttrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     const int32_t *npoints = (int32_t *)runtimeAttrs->GetInt(5);
+    if (npoints == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     *gradIn = {*npoints, channels};
     return GRAPH_SUCCESS;
 }

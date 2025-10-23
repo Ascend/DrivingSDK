@@ -175,6 +175,9 @@ ge::graphStatus AddWorkspace(gert::TilingContext* context, optiling::HardVoxeliz
     uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     uint32_t usrWorkspaceSize = tilingData.get_totalPts() * sizeof(int32_t); // uniLens
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = sysWorkspaceSize + usrWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

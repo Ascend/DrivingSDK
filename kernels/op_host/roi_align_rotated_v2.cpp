@@ -145,6 +145,9 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
     context->SetBlockDim(BLOCK_DIM);
     context->SetTilingKey(TILING_KEY);
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = 0;
 
     return ge::GRAPH_SUCCESS;

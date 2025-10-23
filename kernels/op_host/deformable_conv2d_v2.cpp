@@ -152,6 +152,7 @@ static ge::graphStatus InferShapeForDeformableConv2dV2(gert::InferShapeContext* 
     auto attrsPtr = context->GetAttrs();
     CHECK_NULLPTR(attrsPtr);
     const auto* kernelSizePtr = attrsPtr->GetListInt(ATTR_KERNEL_DIM);
+    CHECK_NULLPTR(kernelSizePtr);
     auto kernelSize = kernelSizePtr->GetData();
 
     int64_t B = xShape->GetDim(DIM_ZERO);
