@@ -62,6 +62,9 @@ static ge::graphStatus TilingForBEVPool(gert::TilingContext* context)
 
     auto intervalShape =
         version == V1 ? context->GetInputShape(INTERVAL_IDX_V1) : context->GetInputShape(INTERVAL_IDX_V2);
+    if (intervalShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     uint64_t nInterval = intervalShape->GetStorageShape().GetDim(0);
 
     uint64_t usedCoreNum = std::min(static_cast<uint64_t>(coreNum), nInterval);
@@ -82,7 +85,7 @@ static ge::graphStatus TilingForBEVPool(gert::TilingContext* context)
     auto getAttr = [attrs](size_t idx) -> uint64_t {
         auto ptr = attrs->GetInt(idx);
         if (!ptr) {
-            return -1;
+            return ge::GRAPH_FAILED;
         }
         return static_cast<uint64_t>(*ptr);
     };
@@ -115,7 +118,7 @@ static graphStatus InferShapeForBEVPool(gert::InferShapeContext* context)
     auto getAttr = [attrs](size_t idx) -> int64_t {
         auto ptr = attrs->GetInt(idx);
         if (!ptr) {
-            return -1;
+            return ge::GRAPH_FAILED;
         }
         return static_cast<int64_t>(*ptr);
     };
