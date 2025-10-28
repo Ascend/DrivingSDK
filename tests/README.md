@@ -17,8 +17,8 @@
     ```Bash
     git clone -b 1.x https://github.com/open-mmlab/mmcv.git
     cd mmcv
-    MMCV_WITH_OP=1 FORCE_NPU=1 python setup.py build_ext
-    MMCV_WITH_OP=1 FORCE_NPU=1 python setup.py install
+    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py build_ext
+    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
     cd ../
     ```
 * 可通过pip安装的依赖，已列于当前目录下的requirements.txt
