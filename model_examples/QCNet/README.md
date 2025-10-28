@@ -6,7 +6,7 @@
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [QCNet（在研版本）](#QCNet(在研版本))
+- [QCNet](#QCNet)
   - [准备训练环境](#准备训练环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [安装模型环境](#安装模型环境)
@@ -47,7 +47,7 @@ url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/QCNet
 ```
 
-# QCNet（在研版本）
+# QCNet
 
 ## 准备训练环境
 

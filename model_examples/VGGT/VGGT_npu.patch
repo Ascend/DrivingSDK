@@ -271,6 +271,27 @@ index 5636626..0573afb 100644
  
          if split == "train":
              split_name_list = ["train"]
+diff --git a/training/data/dynamic_dataloader.py b/training/data/dynamic_dataloader.py
+index 11d1224..b17f156 100644
+--- a/training/data/dynamic_dataloader.py
++++ b/training/data/dynamic_dataloader.py
+@@ -162,6 +162,8 @@ class DynamicBatchSampler(Sampler):
+                 # Sample random image number and aspect ratio
+                 random_image_num = int(np.random.choice(self.possible_nums, p=self.normalized_weights))
+                 random_aspect_ratio = round(self.rng.uniform(self.aspect_ratio_range[0], self.aspect_ratio_range[1]), 2)
++                random_image_num = 2
++                random_aspect_ratio = 1.0
+ 
+                 # Update sampler parameters
+                 self.sampler.update_parameters(
+@@ -172,6 +174,7 @@ class DynamicBatchSampler(Sampler):
+                 # Calculate batch size based on max images per GPU and current image number
+                 batch_size = self.max_img_per_gpu / random_image_num
+                 batch_size = np.floor(batch_size).astype(int)
++                batch_size = 15
+                 batch_size = max(1, batch_size)  # Ensure batch size is at least 1
+ 
+                 # Collect samples for the current batch
 diff --git a/training/launch.py b/training/launch.py
 index 5511f51..649747a 100644
 --- a/training/launch.py

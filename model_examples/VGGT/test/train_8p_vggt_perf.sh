@@ -49,10 +49,34 @@ export TASK_QUEUE_ENABLE=2
 export CPU_AFFINITY_CONF=1
 #优化非连续两个算子组合类场景
 export COMBINED_ENABLE=1
+# 使能内存池扩展段功能，由PyTorch管理虚拟地址和物理地址的映射关系，降低内存碎片化
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+
+while [[ $# -gt 0 ]]; do 
+  case $1 in
+    --MAX-EPOCHS|--max-epochs)
+      MAX_EPOCHS="$2"
+      shift 2
+      ;;
+    --help)
+      echo "用法: $0 [选项]"
+      echo "选项:"
+      echo " --MAX-EPOCHS 设置 MAX_EPOCHS (默认: 20)"
+      echo " --help 显示帮助信息"
+      exit 0
+      ;;
+    *)
+      echo "未知选项: $1"
+      echo "使用 --help 查看帮助"
+      exit 1
+      ;;
+  esac
+done
+
+echo "MAX_EPOCHS: $MAX_EPOCHS"
 
 #修改参数
-sed -i 's/limit_train_batches: 800/limit_train_batches: 400/' config/default.yaml
-sed -i 's/max_epochs: 20/max_epochs: 1/' config/default.yaml
+sed -i "s/max_epochs: [0-9]\+/max_epochs: $MAX_EPOCHS/g" config/default.yaml
 
 #训练开始时间
 start_time=$(date +%s)
@@ -74,6 +98,7 @@ echo "[VGGT] E2E Training Time (sec) : ${e2e_time}"
 
 avg_time=`grep -a 'Train Epoch: ' ${OUTPUT_PATH}/train.log | tail -n 100 | awk -F "Batch Time: " '{print $2}' | awk -F ", " '{print $1}' | awk 'NR>10 {sum+=$1; count++} END {if (count != 0) printf("%.3f",sum/count)}'`
 fps_value=$(awk BEGIN'{print ('$BATCH_SIZE' * '$WORLD_SIZE')/'$avg_time'}')
+echo "Final Performance images/sec : $fps_value"
 
 # 将关键信息打印到 ${CASE_NAME}.log 中
 echo "Network = ${NETWORK}" > ${OUTPUT_PATH}/${CASE_NAME}.log

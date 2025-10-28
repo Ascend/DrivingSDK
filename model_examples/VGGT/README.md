@@ -31,7 +31,6 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
 |    模型     | 任务列表 | 是否支持 |
 | :---------: | :------: | :------: |
 | VGGT |   训练   |    ✔     |
-| VGGT |   推理   |    ✔     |
 
 ## 代码实现
 
@@ -48,7 +47,7 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
   code_path=model_examples/VGGT
   ```
 
-# VGGT (在研版本)
+# VGGT
 ## 准备训练环境
 
 ### 安装环境
@@ -67,8 +66,8 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
 
 |     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 7.0.0  |
-|       CANN        | 8.1.RC1 |
+| FrameworkPTAdapter | 7.2.0  |
+|       CANN        | 8.3.RC1 |
 
 - 克隆代码仓到当前目录并使用patch文件
 
@@ -133,14 +132,14 @@ vggt
      - 单机八卡性能
 
      ```
-     bash test/train_8p_vggt_perf.sh
+     bash test/train_8p_vggt_perf.sh --max-epochs 1
      ```
 
      - 单机八卡长跑
 
 
      ```
-     bash test/train_8p_vggt_full.sh
+     bash test/train_8p_vggt_full.sh --max-epochs 7
      ```
 
 #### 单机八卡训练性能和loss，以tv场景，固定随机性，random_aspect_ratio为1，random_image_num为2，batch_size为15
@@ -149,53 +148,6 @@ vggt
 | 竞品A         |  8p | 120 |    0.0164  |     7.841     |  15.30 |
 | Atlas 800T A2 |  8p | 120 |  0.0165    |      4.792      | 25.04 |
 
-
-
-### 推理任务
-
-#### 准备数据集
-
-- 可以使用应用过patch的模型源码仓中的示例场景,提供脚本中默认选用kitchen场景中的照片作为推理数据：
-
-```
-vggt
-├── examples/
-│   ├── kitchen/
-│   ├── llff_fern/
-│   ├── llff_flower/
-│   ├── room/
-│   ├── single_cartoon/
-│   ├── single_oil_painting/
-|   ├── videos/
-```
-
-> **说明：**  
-> 该数据的推理过程脚本只作为一种参考示例。   
-
-本任务主要提供**单机**的**单卡**推理脚本。
-
-#### 执行推理
-
-  1. 在应用过patch的模型根目录下，执行以下指令对应源仓中的quick_start和detailed_usage，脚本中默认按照上述的权重和数据位置，有需要可以自行更改。
-
-     - 单机单卡quick start
-
-     ```
-     python demo_quick_start.py
-     ```
-
-     - 单机单卡detailed usage
-
-
-     ```
-     python demo_detailed_usage.py
-     ```
-
-#### 单机单卡推理性能，以examples/kitchen中场景为例
-| 芯片          | 卡数 | Precision | FPS |
-| ------------- | :--: | :-------: | :-------------------: |
-| 竞品A           |  1p  |   bf16    |     18.116         |
-| Atlas 800T A2 |  1p  |   bf16    |    15.060          |
 
 # 变更说明
 

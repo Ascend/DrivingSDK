@@ -39,7 +39,7 @@
     code_path=model_examples/Diffusion-Planner
     ```
 
-# Diffusion-Planner (在研版本)
+# Diffusion-Planner
 
 ## 准备训练环境
 

@@ -39,7 +39,7 @@
     code_path=model_examples/Dexvla
     ```
 
-# DexVLA (在研版本)
+# DexVLA 
 
 ## 准备训练环境
 
