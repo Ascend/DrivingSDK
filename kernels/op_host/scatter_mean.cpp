@@ -258,8 +258,8 @@ static uint64_t GetAvailableDimNum(gert::TilingContext* context)
     auto indicesShape = context->GetInputShape(1)->GetStorageShape();
     uint64_t indicesDim = indicesShape.GetDimNum();
     uint64_t lastIndicesDim = 0;
-    for (uint64_t i = indicesDim - 1; i >= 0; i--) {
-        if (indicesShape.GetDim(i) == 1) {
+    for (uint64_t i = indicesDim; i > 0; i--) {
+        if (indicesShape.GetDim(i - 1) == 1) {
             lastIndicesDim++;
         } else {
             break;
