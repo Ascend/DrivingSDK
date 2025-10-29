@@ -138,6 +138,9 @@ static ge::graphStatus TilingFuncForGridSampler2dV2(gert::TilingContext* context
     context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
 
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = 16 * 1024 * 1024;
     return ge::GRAPH_SUCCESS;
 }

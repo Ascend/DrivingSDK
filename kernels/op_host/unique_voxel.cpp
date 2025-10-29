@@ -89,6 +89,9 @@ ge::graphStatus AddWorkspace(gert::TilingContext* context, optiling::UniqueVoxel
     // outputIdx0, count0, outputIdx1, ...
     uint32_t usrWorkspaceSize = tilingData.get_usedBlkNum() * sizeof(int32_t) * 2;
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = sysWorkspaceSize + usrWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

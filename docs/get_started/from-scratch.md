@@ -242,6 +242,9 @@ context->GetRawTilingData()->SetDataSize(tiling.GetDataSize()); // 设置buffer�
 ```cpp
 uint32_t sysWorkspaceSize = platform.GetLibApiWorkSpaceSize();
 size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
+if (currentWorkspace == nullptr) {
+    return ge::GRAPH_FAILED;
+}
 currentWorkspace[0] = sysWorkspaceSize;
 ```
 ### 8. 算子实现

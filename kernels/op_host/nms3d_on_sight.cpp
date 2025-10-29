@@ -88,6 +88,9 @@ static ge::graphStatus Nms3dOnSightTilingFunc(gert::TilingContext *context)
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = 0;
     return ge::GRAPH_SUCCESS;
 }

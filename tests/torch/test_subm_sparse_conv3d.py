@@ -105,6 +105,8 @@ def get_output(num_points, batch_size, in_channels, out_channels,
     golden_output = get_golden_output(features, indices, net.weight.data, net.bias.data, batch_size,
         in_channels, out_channels, kernel_size, spatial_shape)
     res = net(x).features
+    if isinstance(golden_output, tuple):
+        golden_output = golden_output[0]
     return res.detach().cpu().numpy(), golden_output.detach().cpu().numpy()
 
 

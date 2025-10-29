@@ -66,6 +66,9 @@ static ge::graphStatus MinAreaPolygonsTilingFunc(gert::TilingContext* context)
 
     uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = sysWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

@@ -246,6 +246,9 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = 0;
     return ge::GRAPH_SUCCESS;
 }
@@ -390,6 +393,9 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = 0;
     return ge::GRAPH_SUCCESS;
 }
@@ -598,6 +604,9 @@ static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext* context)
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = 0;
     return ge::GRAPH_SUCCESS;
 }
