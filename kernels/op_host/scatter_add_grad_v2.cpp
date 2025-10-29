@@ -61,7 +61,7 @@ private:
     int32_t dim = 0;
     uint32_t coreUsed = 1;
 
-    uint64_t ubSize = 192 * 1024;
+    uint64_t ubSize = 184 * 1024;
     uint64_t gradInUbSize = 1;
     uint64_t indexUbSize = 1;
     uint64_t gradOutUbSize = 1;
@@ -119,7 +119,7 @@ void ScatterAddGradTiling::SetModeNoTail(gert::TilingContext* context, int32_t g
     if (coreNum == 0 || gradDims == 0 || indexDims == 0) {
         return;
     }
-    
+
     uint64_t headOutSize = dimRangeOut * paramsPro;
     uint64_t headIndicesSize = dimRange * paramsPro;
 
@@ -198,7 +198,7 @@ void ScatterAddGradTiling::SetModeLine(gert::TilingContext* context, int32_t gra
         gradOutUbSize = CeilAlign(tail, dataEachBlock) * taskEachLine;
     } else {
         tilingMode = 0;
-        uint64_t totalTailUb = ubSize - taskEachLine * indexDsize;
+        uint64_t totalTailUb = ubSize;
         dbTimes = std::min(totalTailUb / gradDsize / std::min(tail, MAX_DEAL_NUM), BUFFER_NUM_MAX);
 
         auto availIndicesSize = ubSize - std::min(CeilAlign(tail, dataEachBlock), MAX_DEAL_NUM) * dbTimes * gradDsize;
@@ -303,7 +303,7 @@ ge::graphStatus ScatterAddGradTiling::SetKernelTiling(gert::TilingContext* conte
     TilingData.set_indexUbSize(indexUbSize);
     TilingData.set_gradOutUbSize(gradOutUbSize);
     TilingData.set_indexSumUbSize(indexSumUbSize);
-    
+
     TilingData.set_gradInNum(gradInNum);
     TilingData.set_indexNum(indexNum);
     TilingData.set_gradOutNum(gradOutNum);
