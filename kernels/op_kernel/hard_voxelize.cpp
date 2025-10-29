@@ -28,7 +28,7 @@ public:
         adjOffset_ = avgPts_;
 
         cpParam_.blockLen = static_cast<uint16_t>(avgPts_ / B32_DATA_NUM_PER_BLOCK);
-        cpTailParam_.blockLen = static_cast<uint16_t>(Ceil(tailPts_, B32_DATA_NUM_PER_BLOCK));
+        cpTailParam_.blockLen = static_cast<uint32_t>(tailPts_ * B32_BYTE_SIZE);
         cpExtParam_.blockLen = static_cast<uint32_t>(tailPts_ * B32_BYTE_SIZE);
 
         uniIdxsGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(uniIdxs));
@@ -53,8 +53,8 @@ private:
     int32_t avgTasks_, tailTasks_, totalTasks_, coreTasks_;
     int32_t avgPts_, tailPts_, totalPts_, numPts_; // here, avgPts_must be multiple of 64
     int32_t adjOffset_;
-    DataCopyParams cpParam_, cpTailParam_;
-    DataCopyExtParams cpExtParam_;
+    DataCopyParams cpParam_;
+    DataCopyExtParams cpExtParam_, cpTailParam_;
     BinaryRepeatParams binRptParam_ {1, 1, 1, 8, 8, 8};
     uint8_t rptTimes_;
 
@@ -111,8 +111,8 @@ __aicore__ inline void HardVoxelizeDiffKernel::CopyIn()
     LocalTensor<int32_t> idxT0 = inT[0];
     LocalTensor<int32_t> idxT1 = inT[adjOffset_];
     if (is_tail) {
-        DataCopy(idxT0, uniIdxsGm_[curPtsIdx_], cpTailParam_);
-        DataCopy(idxT1, uniIdxsGm_[curPtsIdx_ + 1], cpTailParam_);
+        DataCopyPad(idxT0, uniIdxsGm_[curPtsIdx_], cpTailParam_, {0, 0, 0, 0});
+        DataCopyPad(idxT1, uniIdxsGm_[curPtsIdx_ + 1], cpTailParam_, {0, 0, 0, 0});
     } else {
         DataCopy(idxT0, uniIdxsGm_[curPtsIdx_], cpParam_);
         DataCopy(idxT1, uniIdxsGm_[curPtsIdx_ + 1], cpParam_);
@@ -173,13 +173,12 @@ public:
         ptsStride_ = maxPoints_ * featNum_;
 
         cpVoxParam_.blockLen = static_cast<uint16_t>(avgVoxs_ / B32_DATA_NUM_PER_BLOCK);
-        cpVoxTailParam_.blockLen = static_cast<uint16_t>(Ceil(tailVoxs_, B32_DATA_NUM_PER_BLOCK));
+        cpVoxTailParam_.blockLen = static_cast<uint32_t>(tailVoxs_ * B32_BYTE_SIZE);
         cpExtParam_.blockLen = static_cast<uint32_t>(featNum_ * B32_BYTE_SIZE); // not aligned
         featBlk_ = Ceil(static_cast<uint16_t>(featNum_), B32_DATA_NUM_PER_BLOCK);
-        cpPtParam_.blockLen = featBlk_;
+        cpPtParam_.blockLen = static_cast<uint32_t>(featNum_ * B32_BYTE_SIZE);
         alignedFeatNum_ = AlignUp(featNum_, B32_DATA_NUM_PER_BLOCK);
         alignedMaxPointsNum_ = AlignUp(maxPoints_, B32_DATA_NUM_PER_BLOCK);
-        cpArgsortIdxParam_.blockLen = static_cast<uint16_t>(alignedMaxPointsNum_ / B32_DATA_NUM_PER_BLOCK);
 
         // init global memory
         ptsGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(points));
@@ -225,9 +224,8 @@ private:
     int32_t maxPoints_, ptsStride_;
     uint16_t featBlk_;
 
-    DataCopyParams cpVoxParam_, cpVoxTailParam_, cpOneParam_ {1, 1, 0, 0}, cpArgsortIdxParam_, cpPtParam_,
-        cpOutParam_ {1, 0, 0, 0};
-    DataCopyExtParams cpExtParam_, cp4BytesParam_ {1, 4, 0, 0, 0};
+    DataCopyParams cpVoxParam_, cpOutParam_ {1, 0, 0, 0};
+    DataCopyExtParams  cpVoxTailParam_, cpArgsortIdxParam_, cpPtParam_, cpExtParam_, cp4BytesParam_ {1, 4, 0, 0, 0};
 
     TEventID cpInId_, cpOutId_, calcId_;
 
@@ -284,7 +282,7 @@ __aicore__ inline void HardVoxelizeCopyKernel<is_aligned>::CopyIn()
 {
     LocalTensor<int32_t> uniArgsortIdxT = uniArgsortIdxQue_.AllocTensor<int32_t>();
     if (is_tail) {
-        DataCopy(uniArgsortIdxT, uniArgsortIdxGm_[curVoxIdx_], this->cpVoxTailParam_);
+        DataCopyPad(uniArgsortIdxT, uniArgsortIdxGm_[curVoxIdx_], this->cpVoxTailParam_, {0, 0, 0, 0});
     } else {
         DataCopy(uniArgsortIdxT, uniArgsortIdxGm_[curVoxIdx_], cpVoxParam_);
     }
@@ -307,9 +305,9 @@ __aicore__ inline void HardVoxelizeCopyKernel<is_aligned>::CopyOut()
     for (int32_t i = 0; i < loops; ++i) {
         int32_t idx = uniArgsortIdxT.GetValue(i);
         WaitFlag<HardEvent::MTE3_MTE2>(cpOutId_);
-        DataCopy(uniIdxT, uniIdxGm_[idx], cpOneParam_);
-        DataCopy(uniLenT, uniLenGm_[idx], cpOneParam_);
-        DataCopy(uniVoxT, uniVoxGm_[idx], cpOneParam_);
+        DataCopyPad(uniIdxT, uniIdxGm_[idx], cp4BytesParam_, {0, 0, 0, 0});
+        DataCopyPad(uniLenT, uniLenGm_[idx], cp4BytesParam_, {0, 0, 0, 0});
+        DataCopyPad(uniVoxT, uniVoxGm_[idx], cp4BytesParam_, {0, 0, 0, 0});
         auto uniIdx = uniIdxT.GetValue(0);
         auto uniLen = uniLenT.GetValue(0);
         auto uniVox = uniVoxT.GetValue(0);
@@ -318,12 +316,13 @@ __aicore__ inline void HardVoxelizeCopyKernel<is_aligned>::CopyOut()
             uniLenT.SetValue(0, maxPoints_);
         }
 
-        DataCopy(argsortVoxT, argsortVoxIdxGm_[uniIdx], cpArgsortIdxParam_);
+        cpArgsortIdxParam_.blockLen = static_cast<uint32_t>(uniLen * B32_BYTE_SIZE);
+        DataCopyPad(argsortVoxT, argsortVoxIdxGm_[uniIdx], cpArgsortIdxParam_, {0, 0, 0, 0});
         SetFlag<HardEvent::MTE2_V>(calcId_);
         WaitFlag<HardEvent::MTE2_V>(calcId_);
         Muls(argsortVoxT, argsortVoxT, featNum_, alignedMaxPointsNum_);
         for (int32_t j = 0; j < uniLen; ++j) {
-            DataCopy(ptsT[j * alignedFeatNum_], ptsGm_[argsortVoxT.GetValue(j)], cpPtParam_);
+            DataCopyPad(ptsT[j * alignedFeatNum_], ptsGm_[argsortVoxT.GetValue(j)], cpPtParam_, {0, 0, 0, 0});
         }
         SetFlag<HardEvent::MTE2_MTE3>(cpInId_);
         
