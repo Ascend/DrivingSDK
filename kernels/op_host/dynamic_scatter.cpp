@@ -150,6 +150,9 @@ ge::graphStatus DynamicScatterTiling::RunKernelTiling()
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
     uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = sysWorkspaceSize;
     
     if (tilingContext->GetRawTilingData() == nullptr) {

@@ -131,6 +131,9 @@ ge::graphStatus ToSparseV3Tiling::SetTilingData()
     size_t userWorkspaceSize = actualNum * kernelSize * kernelIC * sizeof(featureDataType);
     size_t systemWorkspaceSize = static_cast<size_t>(ascendcPlatform.GetLibApiWorkSpaceSize());
     size_t *currentWorkspace = tilingContext->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = userWorkspaceSize + systemWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

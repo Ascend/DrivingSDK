@@ -211,6 +211,9 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
     size_t sysWorkspaceSize = 16 * 1024 * 1024;
 
     size_t* currentWorkspace = tilingContext->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = sysWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

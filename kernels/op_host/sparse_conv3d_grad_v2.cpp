@@ -139,6 +139,9 @@ ge::graphStatus SparseConv3dGradV2Tiling::SetTilingData()
     size_t workspaceSize = (actualNum * kernelSize * kernelOC + vectorActualNum * kernelSize * kernelIC) * sizeof(float);
     size_t systemWorkspaceSize = static_cast<size_t>(ascendcPlatform.GetLibApiWorkSpaceSize());
     size_t *currentWorkspace = tilingContext->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = systemWorkspaceSize + workspaceSize;
     return ge::GRAPH_SUCCESS;
 }

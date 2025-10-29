@@ -38,7 +38,11 @@ namespace optiling {
         if (srcShape == nullptr || attr == nullptr) {
             return ge::GRAPH_FAILED;
         }
-        uint32_t N = *(attr->GetAttrPointer<int>(N_IDX));
+        auto NPtr = attr->GetAttrPointer<int>(N_IDX);
+        if (NPtr == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
+        uint32_t N = *NPtr;
         uint32_t numEdge = srcShape->GetStorageShape().GetDim(EDGE_IDX);
         uint32_t numFeature = srcShape->GetStorageShape().GetDim(FEATURE_IDX);
         uint32_t totalTask = numEdge;
@@ -66,6 +70,9 @@ namespace optiling {
         size_t systemWorkspaceSize = ascendplatformInfo.GetLibApiWorkSpaceSize();
         size_t usrWorkSpaceSize = 2 * totalWorkspace * numFeature * sizeof(float);
         size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+        if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
         currentWorkspace[0] = systemWorkspaceSize + usrWorkSpaceSize;
         return ge::GRAPH_SUCCESS;
     }

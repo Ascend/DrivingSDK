@@ -90,6 +90,9 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = 16 * 1024 * 1024;
 
     return ge::GRAPH_SUCCESS;

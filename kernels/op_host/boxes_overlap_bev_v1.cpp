@@ -103,6 +103,9 @@ static ge::graphStatus TilingFunc4BoxesOverlapBevV1(gert::TilingContext* context
 
     size_t systemWorkspaceSize = ascendplatformInfo.GetLibApiWorkSpaceSize();
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = systemWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

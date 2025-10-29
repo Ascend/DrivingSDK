@@ -93,6 +93,9 @@ static ge::graphStatus TilingFuncForPixelGroup(gert::TilingContext *context)
     size_t usrSize = (kernelRegionNum * embeddingDim * 2) * SIZE_OF_FP32;
     size_t systemWorkspaceSize = static_cast<size_t>(ascendplatformInfo.GetLibApiWorkSpaceSize());
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+            return ge::GRAPH_FAILED;
+        }
     currentWorkspace[0] = usrSize + systemWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }
