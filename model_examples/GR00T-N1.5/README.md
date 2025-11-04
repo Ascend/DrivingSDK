@@ -122,8 +122,8 @@ Isaac GR00T-N1 是 NVIDIA 在2025年初发布的视觉 - 语言 - 动作（VLA�
     # 编译whl包
     cd ../python
     python setup.py sdist bdist_wheel
-    pip install ./dist/decord-0.6.0-cp310-cp310-linux_aarch64.whl
     cd ../..
+    pip install decord/python/dist/decord-0.6.0-cp310-cp310-linux_aarch64.whl
     ```
 
 
