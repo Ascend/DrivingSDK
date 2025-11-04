@@ -164,6 +164,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [CenterNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterNet)  | 1257.444 | 542 |Y|
 | [CenterPoint(2D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 66.160 | 85.712 |Y|
 | [CenterPoint(3D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 39.41 | 48.48 |Y|
+| [Cosmos-Transfer1](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Cosmos-Transfer1)  | - | - |N|
 | [Deformable-DETR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR) | 63 | 65 |Y|
 | [DenseTNT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DenseTNT) | 166 | 237 |Y|
 | [DETR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DETR) | 122 | 126 |Y|

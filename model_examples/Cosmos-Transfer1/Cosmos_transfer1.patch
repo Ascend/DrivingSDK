@@ -1,0 +1,1565 @@
+diff --git a/cosmos_transfer1/diffusion/config/config_train.py b/cosmos_transfer1/diffusion/config/config_train.py
+index 7b20b5a..e194d9d 100644
+--- a/cosmos_transfer1/diffusion/config/config_train.py
++++ b/cosmos_transfer1/diffusion/config/config_train.py
+@@ -38,7 +38,8 @@ class Config(config.Config):
+             "_self_",
+             {"data_train": None},
+             {"data_val": None},
+-            {"optimizer": "fusedadamw"},
++            # {"optimizer": "fusedadamw"},
++            {"optimizer": "adamw"},
+             {"scheduler": "lambdalinear"},
+             {"callbacks": None},
+             #
+diff --git a/cosmos_transfer1/diffusion/config/training/callbacks.py b/cosmos_transfer1/diffusion/config/training/callbacks.py
+index 85a0d68..3a676e3 100644
+--- a/cosmos_transfer1/diffusion/config/training/callbacks.py
++++ b/cosmos_transfer1/diffusion/config/training/callbacks.py
+@@ -25,5 +25,5 @@ BASIC_CALLBACKS = dict(
+     grad_clip=L(GradClip)(fsdp_enabled=True, model_key="model"),
+     low_prec=L(LowPrecisionCallback)(config=PLACEHOLDER, trainer=PLACEHOLDER, update_iter=1),
+     # for the first 1000 iterations, log the iteration speed per iteration, after that, log every 200 iterations
+-    iter_speed=L(IterSpeed)(every_n=200, hit_thres=1000),
++    iter_speed=L(IterSpeed)(every_n=20, hit_thres=10000),
+ )
+diff --git a/cosmos_transfer1/diffusion/config/training/experiment/ctrl_7b_tp_sample_av.py b/cosmos_transfer1/diffusion/config/training/experiment/ctrl_7b_tp_sample_av.py
+index fb36f36..69eccb5 100644
+--- a/cosmos_transfer1/diffusion/config/training/experiment/ctrl_7b_tp_sample_av.py
++++ b/cosmos_transfer1/diffusion/config/training/experiment/ctrl_7b_tp_sample_av.py
+@@ -74,7 +74,7 @@ def make_ctrlnet_config(
+         num_frames=num_frames,
+         hint_key=hint_key,
+         resolution="720",
+-        view_keys=["front"],
++        view_keys=["pinhole_front"],
+         sample_n_views=-1,
+         load_mv_emb=False,
+     )
+@@ -111,9 +111,9 @@ def make_ctrlnet_config(
+             trainer=dict(
+                 distributed_parallelism="ddp",
+                 logging_iter=200,
+-                max_iter=999_999_999,
++                max_iter=10000,
+                 callbacks=dict(
+-                    iter_speed=dict(hit_thres=5),
++                    iter_speed=dict(hit_thres=10000),
+                 ),
+                 timestamp_seed=True,  # important for dataver dataloader!!!
+             ),
+diff --git a/cosmos_transfer1/diffusion/config/training/experiment/ctrl_7b_tp_sample_av_mv.py b/cosmos_transfer1/diffusion/config/training/experiment/ctrl_7b_tp_sample_av_mv.py
+index 29449cf..3c6be0f 100644
+--- a/cosmos_transfer1/diffusion/config/training/experiment/ctrl_7b_tp_sample_av_mv.py
++++ b/cosmos_transfer1/diffusion/config/training/experiment/ctrl_7b_tp_sample_av_mv.py
+@@ -153,9 +153,9 @@ def make_ctrlnet_config(
+             trainer=dict(
+                 distributed_parallelism="ddp",
+                 logging_iter=200,
+-                max_iter=999_999_999,
++                max_iter=10000,
+                 callbacks=dict(
+-                    iter_speed=dict(hit_thres=5),
++                    iter_speed=dict(hit_thres=10000),
+                 ),
+                 timestamp_seed=True,  # important for dataver dataloader!!!
+             ),
+diff --git a/cosmos_transfer1/diffusion/config/training/optim.py b/cosmos_transfer1/diffusion/config/training/optim.py
+index 5555895..c711a11 100644
+--- a/cosmos_transfer1/diffusion/config/training/optim.py
++++ b/cosmos_transfer1/diffusion/config/training/optim.py
+@@ -31,6 +31,17 @@ FusedAdamWConfig: LazyDict = L(get_base_optimizer)(
+     capturable=True,
+ )
+ 
++AdamWConfig: LazyDict = L(get_base_optimizer)(
++    model=PLACEHOLDER,
++    lr=1e-4,
++    weight_decay=0.3,
++    betas=[0.9, 0.999],
++    optim_type="adamw",  # 注意：这里必须是 get_base_optimizer 支持的类型
++    eps=1e-8,
++    sharding=False,
++    capturable=True,
++)
++
+ LambdaLinearSchedulerConfig: LazyDict = L(LambdaLinearScheduler)(
+     warm_up_steps=[1000],
+     cycle_lengths=[10000000000000],
+diff --git a/cosmos_transfer1/diffusion/config/training/registry.py b/cosmos_transfer1/diffusion/config/training/registry.py
+index 930149a..f267dc6 100644
+--- a/cosmos_transfer1/diffusion/config/training/registry.py
++++ b/cosmos_transfer1/diffusion/config/training/registry.py
+@@ -28,7 +28,7 @@ from cosmos_transfer1.diffusion.config.training.checkpoint import (
+     MULTI_RANK_CHECKPOINTER,
+ )
+ from cosmos_transfer1.diffusion.config.training.ema import PowerEMAConfig
+-from cosmos_transfer1.diffusion.config.training.optim import FusedAdamWConfig, LambdaLinearSchedulerConfig
++from cosmos_transfer1.diffusion.config.training.optim import AdamWConfig, LambdaLinearSchedulerConfig
+ 
+ 
+ def register_ema(cs):
+@@ -36,7 +36,7 @@ def register_ema(cs):
+ 
+ 
+ def register_optimizer(cs):
+-    cs.store(group="optimizer", package="optimizer", name="fusedadamw", node=FusedAdamWConfig)
++    cs.store(group="optimizer", package="optimizer", name="adamw", node=AdamWConfig)
+ 
+ 
+ def register_scheduler(cs):
+diff --git a/cosmos_transfer1/diffusion/datasets/augmentor_provider.py b/cosmos_transfer1/diffusion/datasets/augmentor_provider.py
+index cea83d1..bd6e5ef 100644
+--- a/cosmos_transfer1/diffusion/datasets/augmentor_provider.py
++++ b/cosmos_transfer1/diffusion/datasets/augmentor_provider.py
+@@ -137,6 +137,7 @@ for hint_key in CTRL_HINT_KEYS:
+                     input_keys=["video", hint_key],
+                     args={"size": VIDEO_RES_SIZE_INFO[resolution]},
+                 ),
++                # 在运行sample-av-multiview需要把text_transform注释掉
+                 "text_transform": L(TextTransformForVideo)(
+                     input_keys=["t5_text_embeddings"],
+                     args={
+diff --git a/cosmos_transfer1/diffusion/datasets/example_transfer_dataset.py b/cosmos_transfer1/diffusion/datasets/example_transfer_dataset.py
+index 0c698dc..a4fb503 100644
+--- a/cosmos_transfer1/diffusion/datasets/example_transfer_dataset.py
++++ b/cosmos_transfer1/diffusion/datasets/example_transfer_dataset.py
+@@ -74,7 +74,7 @@ class ExampleTransferDataset(Dataset):
+ 
+         # Set up directories - only collect paths
+         video_dir = os.path.join(self.dataset_dir, "videos")
+-        self.video_paths = [os.path.join(video_dir, f) for f in os.listdir(video_dir) if f.endswith(".mp4")]
++        self.video_paths = sorted([os.path.join(video_dir, f) for f in os.listdir(video_dir) if f.endswith(".mp4")])
+         self.t5_dir = os.path.join(self.dataset_dir, "t5_xxl")
+         print(f"Finish initializing dataset with {len(self.video_paths)} videos in total.")
+ 
+@@ -315,7 +315,7 @@ class AVTransferDataset(ExampleTransferDataset):
+ 
+         # Set up directories - only collect paths
+         video_dir = os.path.join(self.dataset_dir, "videos", "pinhole_front")
+-        self.video_paths = [os.path.join(video_dir, f) for f in os.listdir(video_dir) if f.endswith(".mp4")]
++        self.video_paths = sorted([os.path.join(video_dir, f) for f in os.listdir(video_dir) if f.endswith(".mp4")])
+         self.t5_dir = os.path.join(self.dataset_dir, "t5_xxl")
+ 
+         cache_dir = os.path.join(self.dataset_dir, "cache")
+@@ -415,6 +415,7 @@ class AVTransferDataset(ExampleTransferDataset):
+                         t5_embedding = self.prefix_t5_embeddings[view_key]
+ 
+                     t5_embedding = torch.from_numpy(t5_embedding)
++                    t5_embedding = t5_embedding.reshape(-1, t5_embedding.shape[-1]) # NOTE:qianqian
+                     t5_mask = torch.ones(t5_embedding.shape[0], dtype=torch.int64)
+                     if t5_embedding.shape[0] < 512:
+                         t5_embedding = torch.cat([t5_embedding, torch.zeros(512 - t5_embedding.shape[0], 1024)], dim=0)
+diff --git a/cosmos_transfer1/diffusion/diffusion/functional/runge_kutta.py b/cosmos_transfer1/diffusion/diffusion/functional/runge_kutta.py
+index 406b390..818620a 100644
+--- a/cosmos_transfer1/diffusion/diffusion/functional/runge_kutta.py
++++ b/cosmos_transfer1/diffusion/diffusion/functional/runge_kutta.py
+@@ -31,7 +31,7 @@ def phi1(t: torch.Tensor) -> torch.Tensor:
+         Tensor: Result of phi1 function.
+     """
+     input_dtype = t.dtype
+-    t = t.to(dtype=torch.float64)
++    t = t.to(dtype=torch.float32)
+     return (torch.expm1(t) / t).to(dtype=input_dtype)
+ 
+ 
+@@ -46,7 +46,7 @@ def phi2(t: torch.Tensor) -> torch.Tensor:
+         Tensor: Result of phi2 function.
+     """
+     input_dtype = t.dtype
+-    t = t.to(dtype=torch.float64)
++    t = t.to(dtype=torch.float32)
+     return ((phi1(t) - 1.0) / t).to(dtype=input_dtype)
+ 
+ 
+@@ -84,6 +84,7 @@ def res_x0_rk2_step(
+     assert not torch.any(torch.isclose(m - s, torch.zeros_like(dt), atol=1e-6)), "Step size is too small"
+ 
+     c2 = (m - s) / dt
++    c2 = c2.to(torch.float32)
+     phi1_val, phi2_val = phi1(-dt), phi2(-dt)
+ 
+     # Handle edge case where t = s = m
+diff --git a/cosmos_transfer1/diffusion/inference/transfer.py b/cosmos_transfer1/diffusion/inference/transfer.py
+index 88811ca..2ab734f 100644
+--- a/cosmos_transfer1/diffusion/inference/transfer.py
++++ b/cosmos_transfer1/diffusion/inference/transfer.py
+@@ -27,6 +27,16 @@ from io import BytesIO
+ 
+ import torch
+ 
++if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++    USE_NPU = True
++    os.environ['DEVICE_TYPE'] = "npu"
++    DEVICE_TYPE = "npu"
++    print("Enable NPU!")
++    import torch_npu
++    from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
++    torch.npu.set_compile_mode(jit_compile=False)
++
+ from cosmos_transfer1.checkpoints import (
+     BASE_7B_CHECKPOINT_AV_SAMPLE_PATH,
+     BASE_7B_CHECKPOINT_PATH,
+diff --git a/cosmos_transfer1/diffusion/inference/transfer_multiview.py b/cosmos_transfer1/diffusion/inference/transfer_multiview.py
+index 8c06948..9b8e066 100644
+--- a/cosmos_transfer1/diffusion/inference/transfer_multiview.py
++++ b/cosmos_transfer1/diffusion/inference/transfer_multiview.py
+@@ -25,6 +25,16 @@ from io import BytesIO
+ 
+ import torch
+ 
++if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++    USE_NPU = True
++    os.environ['DEVICE_TYPE'] = "npu"
++    DEVICE_TYPE = "npu"
++    print("Enable NPU!")
++    import torch_npu
++    from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
++    torch.npu.set_compile_mode(jit_compile=False)
++
+ from cosmos_transfer1.checkpoints import (
+     BASE_t2w_7B_SV2MV_CHECKPOINT_AV_SAMPLE_PATH,
+     BASE_v2w_7B_SV2MV_CHECKPOINT_AV_SAMPLE_PATH,
+diff --git a/cosmos_transfer1/diffusion/inference/world_generation_pipeline.py b/cosmos_transfer1/diffusion/inference/world_generation_pipeline.py
+index 8a8749d..14203d0 100644
+--- a/cosmos_transfer1/diffusion/inference/world_generation_pipeline.py
++++ b/cosmos_transfer1/diffusion/inference/world_generation_pipeline.py
+@@ -728,7 +728,8 @@ class DiffusionControl2WorldGenerationPipeline(BaseWorldGenerationPipeline):
+         log.info("Running guardrail checks on all prompts")
+         safe_indices = []
+         for i, single_prompt in enumerate(prompts):
+-            is_safe = self._run_guardrail_on_prompt_with_offload(single_prompt)
++            # is_safe = self._run_guardrail_on_prompt_with_offload(single_prompt)
++            is_safe = True
+             if is_safe:
+                 safe_indices.append(i)
+             else:
+@@ -787,7 +788,8 @@ class DiffusionControl2WorldGenerationPipeline(BaseWorldGenerationPipeline):
+ 
+         log.info("Run guardrail on generated videos")
+         for i, video in enumerate(videos):
+-            safe_video = self._run_guardrail_on_video_with_offload(video)
++            # safe_video = self._run_guardrail_on_video_with_offload(video)
++            safe_video = video
+             if safe_video is not None:
+                 all_videos.append(safe_video)
+                 all_final_prompts.append(safe_prompts[i])
+@@ -1240,7 +1242,8 @@ class DiffusionControl2WorldMultiviewGenerationPipeline(DiffusionControl2WorldGe
+ 
+         # Process prompts into multiview format
+         log.info("Run guardrail on prompt")
+-        is_safe = self._run_guardrail_on_prompt_with_offload(". ".join(mv_prompts))
++        # is_safe = self._run_guardrail_on_prompt_with_offload(". ".join(mv_prompts))
++        is_safe = True
+         if not is_safe:
+             log.critical("Input text prompt is not safe")
+             return None
+@@ -1262,10 +1265,10 @@ class DiffusionControl2WorldMultiviewGenerationPipeline(DiffusionControl2WorldGe
+         )
+         log.info("Finish generation")
+         log.info("Run guardrail on generated video")
+-        video = self._run_guardrail_on_video_with_offload(video)
+-        if video is None:
+-            log.critical("Generated video is not safe")
+-            raise ValueError("Guardrail check failed: Generated video is unsafe")
++        # video = self._run_guardrail_on_video_with_offload(video)
++        # if video is None:
++        #     log.critical("Generated video is not safe")
++        #     raise ValueError("Guardrail check failed: Generated video is unsafe")
+ 
+         log.info("Pass guardrail on generated video")
+ 
+diff --git a/cosmos_transfer1/diffusion/module/attention.py b/cosmos_transfer1/diffusion/module/attention.py
+index 3e9e30f..ac0e64b 100644
+--- a/cosmos_transfer1/diffusion/module/attention.py
++++ b/cosmos_transfer1/diffusion/module/attention.py
+@@ -14,19 +14,20 @@
+ # limitations under the License.
+ 
+ from typing import List, Optional
+-
++import torch.distributed as dist
+ import numpy as np
++import numbers
+ import torch
+-import transformer_engine as te
++# import transformer_engine as te
+ from einops import rearrange
+ from torch import Tensor, nn
+ from torch.utils.checkpoint import checkpoint
+-from transformer_engine.pytorch.attention.dot_product_attention.dot_product_attention import DotProductAttention
+-from transformer_engine.pytorch.attention.rope import apply_rotary_pos_emb
++# from transformer_engine.pytorch.attention.dot_product_attention.dot_product_attention import DotProductAttention
++# from transformer_engine.pytorch.attention.rope import apply_rotary_pos_emb
+ 
+ # ---------------------- Feed Forward Network -----------------------
+ 
+-
++_seq_chunk_ids_cache_for_reordering_before_attn = {}
+ class FeedForward(nn.Module):
+     """
+     Transformer FFN with optional gating
+@@ -104,7 +105,68 @@ class GPT2FeedForward(FeedForward):
+ 
+ 
+ # ---------------------- Normalization Layer -----------------------
++class RMSNorm(nn.Module):
++    r"""
++    Args:
++        dim (`int`): Number of dimensions to use for `weights`. Only effective when `elementwise_affine` is True.
++        eps (`float`): Small value to use when calculating the reciprocal of the square-root.
++        elementwise_affine (`bool`, defaults to `True`):
++            Boolean flag to denote if affine transformation should be applied.
++        bias (`bool`, defaults to False): If also training the `bias` param.
++    """
++
++    def __init__(self, dim, eps: float, elementwise_affine: bool = True, bias: bool = False):
++        super().__init__()
++
++        self.eps = eps
++        self.elementwise_affine = elementwise_affine
++
++        if isinstance(dim, numbers.Integral):
++            dim = (dim,)
+ 
++        self.dim = torch.Size(dim)
++
++        self.weight = None
++        self.bias = None
++
++        if elementwise_affine:
++            self.weight = nn.Parameter(torch.ones(dim))
++            if bias:
++                self.bias = nn.Parameter(torch.zeros(dim))
++    
++
++    def reset_parameters(self):
++        # 初始化 weight 为全 1
++        # RMSNorm 通常初始化为 1，因为它是缩放因子（类似 LayerNorm）
++        nn.init.zeros_(self.weight)
++
++    def forward(self, hidden_states):
++        if not torch.cuda.is_available():
++            import torch_npu
++
++            if self.weight is not None:
++                # convert into half-precision if necessary
++                if self.weight.dtype in [torch.float16, torch.bfloat16]:
++                    hidden_states = hidden_states.to(self.weight.dtype)
++            hidden_states = torch_npu.npu_rms_norm(hidden_states, self.weight, epsilon=self.eps)[0]
++            if self.bias is not None:
++                hidden_states = hidden_states + self.bias
++        else:
++            input_dtype = hidden_states.dtype
++            variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
++            hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
++
++            if self.weight is not None:
++                # convert into half-precision if necessary
++                if self.weight.dtype in [torch.float16, torch.bfloat16]:
++                    hidden_states = hidden_states.to(self.weight.dtype)
++                hidden_states = hidden_states * self.weight
++                if self.bias is not None:
++                    hidden_states = hidden_states + self.bias
++            else:
++                hidden_states = hidden_states.to(input_dtype)
++
++        return hidden_states
+ 
+ def normalize(x: torch.Tensor, dim: Optional[List[int]] = None, eps: float = 0) -> torch.Tensor:
+     """
+@@ -129,11 +191,12 @@ def get_normalization(name: str, channels: int):
+     if name == "I":
+         return nn.Identity()
+     elif name == "R":
+-        return te.pytorch.RMSNorm(channels, eps=1e-6)
++        return RMSNorm(channels, eps=1e-6)
+     else:
+         raise ValueError(f"Normalization {name} not found")
+ 
+ 
++
+ class BaseAttentionOp(nn.Module):
+     def __init__(self):
+         super().__init__()
+@@ -284,6 +347,200 @@ class RegionalAttentionOp(BaseAttentionOp):
+ 
+         return output
+ 
++def _rotate_half(x: torch.Tensor) -> torch.Tensor:
++    """
++    change sign so the last dimension becomes [-odd, +even]
++    """
++    x = x.view(x.shape[:-1] + torch.Size((2, x.shape[-1] // 2)))
++    x1, x2 = x.unbind(dim=-2)
++    return torch.cat((-x2, x1), dim=-1)
++
++from typing import Union
++def apply_rotary_pos_emb(
++    t: torch.Tensor,
++    freqs: torch.Tensor,
++    tensor_format: str = "sbhd",
++    fused: bool = False,
++    cu_seqlens: Union[torch.Tensor, None] = None,
++    cp_size: int = 1,
++    cp_rank: int = 0,
++) -> torch.Tensor:
++    """
++    Apply rotary positional embedding tensor to the input tensor.
++
++    Parameters
++    ----------
++    t: torch.Tensor
++        Input tensor of shape `[s, b, h, d]`, `[b, s, h, d]` or `[t, h, d]`, on which
++        rotary positional embedding will be applied.
++    freqs: torch.Tensor
++        Rotary positional embedding tensor of shape `[s2, 1, 1, d2]` and dtype 'float',
++        with `s2 >= s` and `d2 <= d`.
++    fused: bool, default = False
++        Whether to use a fused applying RoPE implementation.
++    tensor_format: {'sbhd', 'bshd', 'thd'}, default = 'sbhd'
++        is `bshd` if `t` is of shape `[bs, seq, ...]`, or `sbhd` if `t` is
++        of shape `[seq, bs, ...]`. 'thd' is only supported when `fused` is True.
++    cu_seqlens: torch.Tensor, default = None.
++        Cumulative sum of sequence lengths in a batch for `t`, with shape [b + 1] and
++        dtype torch.int32. Only valid when `tensor_format` is 'thd'.
++        Should be `cu_seqlens_padded` when cp_size > 1.
++    cp_size: int, default = 1.
++        Context parallel world size. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    cp_rank: int, default = 0.
++        Context parallel rank. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    """
++    # if fused:
++    #     assert (
++    #         tensor_format != "thd" or cu_seqlens is not None
++    #     ), "cu_seqlens must not be None when tensor_format is 'thd'."
++    #     return FusedRoPEFunc.apply(t, freqs, tensor_format, cu_seqlens, cp_size, cp_rank)
++
++    assert tensor_format in ("sbhd", "bshd"), (
++        "Only formats `sbhd` or `bshd` are supported for input tensor `t` "
++        f"when fused is False, got {tensor_format}."
++    )
++
++    max_seq_len = freqs.shape[0]
++    cur_seq_len = t.shape[1] if tensor_format == "bshd" else t.shape[0]
++
++    # Only apply the rotary embeddings up to the sequence length of the running
++    # input.
++    assert (
++        cur_seq_len <= max_seq_len
++    ), f"Rotary Embeddings only supported up to {max_seq_len} sequence length!"
++    freqs = freqs[:cur_seq_len]
++    if tensor_format == "bshd":
++        freqs = freqs.transpose(0, 1)  # [seq, 1, 1, dim] -> [1, seq, 1, dim]
++    # cos/sin first then dtype conversion for better precision
++    cos_ = torch.cos(freqs).to(t.dtype)
++    sin_ = torch.sin(freqs).to(t.dtype)
++
++    rot_dim = freqs.shape[-1]
++    # ideally t_pass is empty so rotary pos embedding is applied to all tensor t
++    t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
++
++    # first part is cosine component
++    # second part is sine component, need to change signs with _rotate_half method
++    t = (t * cos_) + (_rotate_half(t) * sin_)
++    return torch.cat((t, t_pass), dim=-1)
++
++def get_seq_chunk_ids_for_reordering_before_attn(cp_size, device):
++    """
++    Context parallelism assigns two discontiguous sequence chunks to each GPU for load balancing.
++    To make sure tokens are ordered correctly for compute, we need to reorder sequence chunks to
++    be contigupus before attention compute. This function is to compute sequence chunk ids for
++    reordering.
++    """
++    global _seq_chunk_ids_cache_for_reordering_before_attn
++    if (cp_size, device) not in _seq_chunk_ids_cache_for_reordering_before_attn:
++        chunk_ids = torch.empty(2 * cp_size, dtype=torch.int32, device=device)
++        for rank in range(cp_size):
++            chunk_ids[rank] = 2 * rank
++            chunk_ids[rank + cp_size] = 2 * cp_size - 2 * rank - 1
++        _seq_chunk_ids_cache_for_reordering_before_attn[(cp_size, device)] = chunk_ids
++    return _seq_chunk_ids_cache_for_reordering_before_attn[(cp_size, device)]
++
++class TorchAttentionOp:
++    def __init__(self):
++        self.cp_group = None
++        self.cp_size = 1
++        
++    def set_context_parallel_group(self, cp_group, cp_ranks, stream):
++        self.cp_group = cp_group
++        self.cp_size = len(cp_ranks)
++        self.stream = stream
++        
++    def __call__(self, q, k, v):
++
++
++        if self.cp_size > 1:
++            # 预分配最终需要的全局KV张量
++            global_k = torch.empty(
++                self.cp_size * k.size(0),
++                *k.shape[1:],
++                dtype=k.dtype, device=k.device,
++                memory_format=torch.contiguous_format, # 是否要加contiguous
++            )
++            global_v = torch.empty_like(global_k)
++            chunk_ids_for_kv_ag = get_seq_chunk_ids_for_reordering_before_attn(self.cp_size, k.device)
++
++            torch.cuda.synchronize()
++
++            
++            # 直接收集到目标张量
++            with torch.cuda.stream(self.stream):
++                dist.all_gather_into_tensor(global_k, k, group=self.cp_group)
++                torch.cuda.synchronize()
++                dist.all_gather_into_tensor(global_v, v, group=self.cp_group)
++            
++            
++            # 同步完成
++            # torch.cuda.current_stream().wait_stream(self.stream)
++
++            # 加显式同步
++            torch.cuda.synchronize()
++
++            # local_rank = dist.get_rank()
++            # if local_rank == 0:
++            #     breakpoint()
++
++            global_k = global_k.view(2 * self.cp_size, k.shape[0] // 2, *k.shape[1:])
++            global_v = global_v.view(2 * self.cp_size, v.shape[0] // 2, *v.shape[1:])
++
++            global_k = torch.index_select(global_k, dim=0, index=chunk_ids_for_kv_ag)
++            global_v = torch.index_select(global_v, dim=0, index=chunk_ids_for_kv_ag)
++
++            global_k = global_k.view(-1, *k.shape[1:])
++            global_v = global_v.view(-1, *v.shape[1:])
++
++            # local_rank = dist.get_rank()
++            # if local_rank == 1:
++            #     breakpoint()
++
++            k, v = global_k, global_v  # 此时k/v已指向全局张量
++        
++        # 原有计算逻辑
++        q = q.permute(1, 2, 0, 3)
++        k = k.permute(1, 2, 0, 3)
++        v = v.permute(1, 2, 0, 3)
++        
++        attn_out = torch.nn.functional.scaled_dot_product_attention(q, k, v)
++        return attn_out.permute(2, 0, 1, 3).flatten(2)
++
++def torch_attention_op(q_S_B_H_D: torch.Tensor, k_S_B_H_D: torch.Tensor, v_S_B_H_D: torch.Tensor) -> torch.Tensor:
++    """Computes multi-head attention using PyTorch's native implementation.
++
++    This function provides a PyTorch backend alternative to Transformer Engine's attention operation.
++    It rearranges the input tensors to match PyTorch's expected format, computes scaled dot-product
++    attention, and rearranges the output back to the original format.
++
++    The input tensor names use the following dimension conventions:
++
++    - B: batch size
++    - S: sequence length
++    - H: number of attention heads
++    - D: head dimension
++
++    Args:
++        q_S_B_H_D: Query tensor with shape (seq_len, batch, n_heads, head_dim)
++        k_S_B_H_D: Key tensor with shape (seq_len, batch, n_heads, head_dim)
++        v_S_B_H_D: Value tensor with shape (seq_len, batch, n_heads, head_dim)
++
++    Returns:
++        Attention output tensor with shape (batch, seq_len, n_heads * head_dim)
++    """
++
++    q_B_H_S_D = q_S_B_H_D.permute(1, 2, 0, 3)
++    k_B_H_S_D = k_S_B_H_D.permute(1, 2, 0, 3)
++    v_B_H_S_D = v_S_B_H_D.permute(1, 2, 0, 3)
++
++    result_B_S_HD = rearrange(
++        torch.nn.functional.scaled_dot_product_attention(q_B_H_S_D, k_B_H_S_D, v_B_H_S_D), "b h ... l -> b ... (h l)"
++    )
++    result_S_B_HD = result_B_S_HD.transpose(0, 1)
++
++    return result_S_B_HD
+ 
+ class Attention(nn.Module):
+     """
+@@ -328,7 +585,7 @@ class Attention(nn.Module):
+         out_bias: bool = False,
+         qkv_norm: str = "SSI",
+         qkv_norm_mode: str = "per_head",
+-        backend: str = "transformer_engine",
++        backend: str = "torch",
+         qkv_format: str = "sbhd",
+     ) -> None:
+         super().__init__()
+@@ -388,6 +645,8 @@ class Attention(nn.Module):
+                 qkv_format=qkv_format,
+                 attn_mask_type="arbitrary",
+             )
++        elif self.backend == "torch":
++            self.attn_op = TorchAttentionOp()
+         else:
+             raise ValueError(f"Backend {backend} not found")
+ 
+@@ -434,6 +693,9 @@ class Attention(nn.Module):
+             ), "Seqlen must be larger than 1 for TE Attention starting with 1.8 TE version."
+             out = self.attn_op(q, k, v, core_attention_bias_type="no_bias", core_attention_bias=None)  # [B, Mq, H, V]
+             return self.to_out(out)
++        elif self.backend == "torch":
++            out = self.attn_op(q, k, v)
++            return self.to_out(out)
+         else:
+             raise ValueError(f"Backend {self.backend} not found")
+ 
+diff --git a/cosmos_transfer1/diffusion/module/pretrained_vae.py b/cosmos_transfer1/diffusion/module/pretrained_vae.py
+index 084e473..6d00319 100644
+--- a/cosmos_transfer1/diffusion/module/pretrained_vae.py
++++ b/cosmos_transfer1/diffusion/module/pretrained_vae.py
+@@ -195,7 +195,7 @@ class JITVAE(BasePretrainedImageVAE):
+         """
+         Load the encoder from the remote store.
+         """
+-        self.encoder = torch.load(os.path.join(vae_dir, "encoder.jit"), weights_only=False)
++        self.encoder = torch.load(os.path.join(vae_dir, "encoder.jit"), map_location='npu', weights_only=False)
+ 
+         self.encoder.eval()
+         for param in self.encoder.parameters():
+@@ -206,7 +206,7 @@ class JITVAE(BasePretrainedImageVAE):
+         """
+         Load the decoder from the remote store.
+         """
+-        self.decoder = torch.load(os.path.join(vae_dir, "decoder.jit"), weights_only=False)
++        self.decoder = torch.load(os.path.join(vae_dir, "decoder.jit"), map_location='npu', weights_only=False)
+ 
+         self.decoder.eval()
+         for param in self.decoder.parameters():
+diff --git a/cosmos_transfer1/diffusion/training/models/model.py b/cosmos_transfer1/diffusion/training/models/model.py
+index ff06cd4..05e9ceb 100644
+--- a/cosmos_transfer1/diffusion/training/models/model.py
++++ b/cosmos_transfer1/diffusion/training/models/model.py
+@@ -16,9 +16,7 @@
+ import math
+ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
+ 
+-import amp_C
+ import torch
+-from apex.multi_tensor_apply import multi_tensor_applier
+ from einops import rearrange
+ from megatron.core import parallel_state
+ from torch import Tensor
+@@ -34,8 +32,37 @@ from cosmos_transfer1.diffusion.training.models.model_image import DiffusionMode
+ from cosmos_transfer1.diffusion.training.models.model_image import diffusion_fsdp_class_decorator
+ from cosmos_transfer1.utils import distributed, log, misc
+ 
+-l2_norm_impl = amp_C.multi_tensor_l2norm
+-multi_tensor_scale_impl = amp_C.multi_tensor_scale
++def multi_tensor_applier(op, noop_flag_buffer, tensor_lists, *args):
++    return op(noop_flag_buffer, tensor_lists, *args)
++
++def multi_tensor_l2norm(overflow_buf, tensor_lists, per_parameter):
++    total_norm = 0.0
++    norm_type = 2.0
++    ret_per_tensor = [] if per_parameter else None
++    for grads_for_norm in tensor_lists:
++        for grad in grads_for_norm:
++            grad_norm = torch.norm(grad, norm_type)
++            total_norm += grad_norm ** norm_type
++        if per_parameter:
++            ret_per_tensor.append(total_norm.clone())
++    if not tensor_lists:
++        grad_norm = torch.cuda.FloatTensor([0])
++        total_norm = grad_norm ** norm_type
++    return total_norm ** (1 / norm_type), ret_per_tensor
++
++l2_norm_impl = multi_tensor_l2norm
++
++def multi_tensor_scale(overflow_buf, tensor_lists, scale):
++    if len(tensor_lists) != 2:
++        raise AssertionError('The size of tensor list must be 2, but got {}'.format(len(tensor_lists)))
++    if len(tensor_lists[0]) != len(tensor_lists[1]):
++        raise AssertionError('The size of tensor list must be same, but got {} and       {}'.format(len(tensor_lists[0]),
++                                                                                                    len(tensor_lists[1])))
++    with torch.no_grad():
++        for i in range(len(tensor_lists[0])):
++            tensor_lists[1][i].copy_(tensor_lists[0][i] * scale)
++
++multi_tensor_scale_impl = multi_tensor_scale
+ 
+ # key to check if the video data is normalized or image data is converted to video data
+ # to avoid apply normalization or augment image dimension multiple times
+@@ -43,6 +70,7 @@ multi_tensor_scale_impl = amp_C.multi_tensor_scale
+ IS_PREPROCESSED_KEY = "is_preprocessed"
+ 
+ 
++
+ def robust_broadcast(tensor: torch.Tensor, src: int, pg, is_check_shape: bool = False) -> torch.Tensor:
+     """
+     Perform a robust broadcast operation that works regardless of tensor shapes on different ranks.
+diff --git a/cosmos_transfer1/diffusion/training/modules/attention.py b/cosmos_transfer1/diffusion/training/modules/attention.py
+index a4febfe..d8bd306 100644
+--- a/cosmos_transfer1/diffusion/training/modules/attention.py
++++ b/cosmos_transfer1/diffusion/training/modules/attention.py
+@@ -16,6 +16,8 @@
+ from contextlib import nullcontext
+ from typing import List, Optional, Union
+ 
++import numbers
++
+ try:
+     from megatron.core import parallel_state
+ 
+@@ -26,17 +28,183 @@ except ImportError:
+ import numpy as np
+ import torch
+ import torch.nn.functional as F
+-import transformer_engine as te
++# import transformer_engine as te
+ from einops import rearrange
+ from packaging import version
+ from torch import nn
+ from torch.nn.attention import SDPBackend
+ from torch.utils.checkpoint import checkpoint
+-from transformer_engine.pytorch.attention.dot_product_attention.dot_product_attention import DotProductAttention
+-from transformer_engine.pytorch.attention.rope import apply_rotary_pos_emb
++# from transformer_engine.pytorch.attention.dot_product_attention.dot_product_attention import DotProductAttention
++# from transformer_engine.pytorch.attention.rope import apply_rotary_pos_emb
+ 
+ from cosmos_transfer1.utils import log
+ 
++from megatron.core import ModelParallelConfig
++from megatron.core.tensor_parallel import ColumnParallelLinear, RowParallelLinear
++
++class RMSNorm(nn.Module):
++    r"""
++    Args:
++        dim (`int`): Number of dimensions to use for `weights`. Only effective when `elementwise_affine` is True.
++        eps (`float`): Small value to use when calculating the reciprocal of the square-root.
++        elementwise_affine (`bool`, defaults to `True`):
++            Boolean flag to denote if affine transformation should be applied.
++        bias (`bool`, defaults to False): If also training the `bias` param.
++    """
++
++    def __init__(self, dim, eps: float, elementwise_affine: bool = True, bias: bool = False):
++        super().__init__()
++
++        self.eps = eps
++        self.elementwise_affine = elementwise_affine
++
++        if isinstance(dim, numbers.Integral):
++            dim = (dim,)
++
++        self.dim = torch.Size(dim)
++
++        self.weight = None
++        self.bias = None
++
++        if elementwise_affine:
++            self.weight = nn.Parameter(torch.ones(dim))
++            if bias:
++                self.bias = nn.Parameter(torch.zeros(dim))
++    
++
++    def reset_parameters(self):
++        # 初始化 weight 为全 1
++        # RMSNorm 通常初始化为 1，因为它是缩放因子（类似 LayerNorm）
++        nn.init.zeros_(self.weight)
++
++    def forward(self, hidden_states):
++        if not torch.cuda.is_available():
++            import torch_npu
++
++            if self.weight is not None:
++                # convert into half-precision if necessary
++                if self.weight.dtype in [torch.float16, torch.bfloat16]:
++                    hidden_states = hidden_states.to(self.weight.dtype)
++            hidden_states = torch_npu.npu_rms_norm(hidden_states, self.weight, epsilon=self.eps)[0]
++            if self.bias is not None:
++                hidden_states = hidden_states + self.bias
++        else:
++            input_dtype = hidden_states.dtype
++            variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
++            hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
++
++            if self.weight is not None:
++                # convert into half-precision if necessary
++                if self.weight.dtype in [torch.float16, torch.bfloat16]:
++                    hidden_states = hidden_states.to(self.weight.dtype)
++                hidden_states = hidden_states * self.weight
++                if self.bias is not None:
++                    hidden_states = hidden_states + self.bias
++            else:
++                hidden_states = hidden_states.to(input_dtype)
++
++        return hidden_states
++
++
++def _rotate_half(x: torch.Tensor) -> torch.Tensor:
++    """
++    change sign so the last dimension becomes [-odd, +even]
++    """
++    x = x.view(x.shape[:-1] + torch.Size((2, x.shape[-1] // 2)))
++    x1, x2 = x.unbind(dim=-2)
++    return torch.cat((-x2, x1), dim=-1)
++
++from typing import Union
++def apply_rotary_pos_emb(
++    t: torch.Tensor,
++    freqs: torch.Tensor,
++    tensor_format: str = "sbhd",
++    fused: bool = False,
++    cu_seqlens: Union[torch.Tensor, None] = None,
++    cp_size: int = 1,
++    cp_rank: int = 0,
++) -> torch.Tensor:
++    """
++    Apply rotary positional embedding tensor to the input tensor.
++
++    Parameters
++    ----------
++    t: torch.Tensor
++        Input tensor of shape `[s, b, h, d]`, `[b, s, h, d]` or `[t, h, d]`, on which
++        rotary positional embedding will be applied.
++    freqs: torch.Tensor
++        Rotary positional embedding tensor of shape `[s2, 1, 1, d2]` and dtype 'float',
++        with `s2 >= s` and `d2 <= d`.
++    fused: bool, default = False
++        Whether to use a fused applying RoPE implementation.
++    tensor_format: {'sbhd', 'bshd', 'thd'}, default = 'sbhd'
++        is `bshd` if `t` is of shape `[bs, seq, ...]`, or `sbhd` if `t` is
++        of shape `[seq, bs, ...]`. 'thd' is only supported when `fused` is True.
++    cu_seqlens: torch.Tensor, default = None.
++        Cumulative sum of sequence lengths in a batch for `t`, with shape [b + 1] and
++        dtype torch.int32. Only valid when `tensor_format` is 'thd'.
++        Should be `cu_seqlens_padded` when cp_size > 1.
++    cp_size: int, default = 1.
++        Context parallel world size. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    cp_rank: int, default = 0.
++        Context parallel rank. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    """
++    # if fused:
++    #     assert (
++    #         tensor_format != "thd" or cu_seqlens is not None
++    #     ), "cu_seqlens must not be None when tensor_format is 'thd'."
++    #     return FusedRoPEFunc.apply(t, freqs, tensor_format, cu_seqlens, cp_size, cp_rank)
++
++    assert tensor_format in ("sbhd", "bshd"), (
++        "Only formats `sbhd` or `bshd` are supported for input tensor `t` "
++        f"when fused is False, got {tensor_format}."
++    )
++
++    max_seq_len = freqs.shape[0]
++    cur_seq_len = t.shape[1] if tensor_format == "bshd" else t.shape[0]
++
++    # Only apply the rotary embeddings up to the sequence length of the running
++    # input.
++    assert (
++        cur_seq_len <= max_seq_len
++    ), f"Rotary Embeddings only supported up to {max_seq_len} sequence length!"
++    freqs = freqs[:cur_seq_len]
++    if tensor_format == "bshd":
++        freqs = freqs.transpose(0, 1)  # [seq, 1, 1, dim] -> [1, seq, 1, dim]
++    # cos/sin first then dtype conversion for better precision
++    cos_ = torch.cos(freqs).to(t.dtype)
++    sin_ = torch.sin(freqs).to(t.dtype)
++
++    rot_dim = freqs.shape[-1]
++    # ideally t_pass is empty so rotary pos embedding is applied to all tensor t
++    t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
++
++    # first part is cosine component
++    # second part is sine component, need to change signs with _rotate_half method
++    t = (t * cos_) + (_rotate_half(t) * sin_)
++    return torch.cat((t, t_pass), dim=-1)
++
++# 创建符合要求的 ModelParallelConfig 配置
++def create_mp_config(tp_size, sequence_parallel=False, dtype=torch.float16):
++    config = ModelParallelConfig()
++    
++    # 设置基础配置
++    config.tensor_model_parallel_size = tp_size
++    config.sequence_parallel = sequence_parallel
++    config.params_dtype = dtype
++    
++    # 设置初始化相关参数
++    config.use_cpu_initialization = False  # 默认GPU初始化
++    config.perform_initialization = True
++    
++    # 设置梯度融合选项
++    config.gradient_accumulation_fusion = False
++    
++    # 专家并行相关（非MoE时设为1）
++    config.expert_model_parallel_size = 1
++    
++    return config
++
+ # ---------------------- Feed Forward Network -----------------------
+ 
+ 
+@@ -85,24 +253,38 @@ class FeedForward(nn.Module):
+         else:
+             assert is_gated is False, "is_gated needs to be False to support Tensor Parallelism"
+             assert dropout == 0.0, "dropout needs to be 0.0 to support Tensor Parallelism"
+-            self.layer1 = te.pytorch.Linear(
+-                d_model,
+-                d_ff,
+-                bias=bias,
++
++            mp_config = create_mp_config(
+                 tp_size=tp_size,
+-                tp_group=tp_group,
+-                parallel_mode="column",
+                 sequence_parallel=sequence_parallel,
++                dtype=torch.float16 # 需要确定dtype
+             )
+-            self.layer2 = te.pytorch.Linear(
+-                d_ff,
+-                d_model,
++
++            def init_method(tensor, mean=0.0, std=0.023):
++                return torch.nn.init.normal_(tensor, mean=mean, std=std)
++
++            self.layer1 = ColumnParallelLinear(
++                input_size=d_model,
++                output_size=d_ff,
++                config=mp_config,
++                init_method=init_method,
+                 bias=bias,
+-                tp_size=tp_size,
++                gather_output=False,  # 注意：在Attention中通常不gather输出
+                 tp_group=tp_group,
+-                parallel_mode="row",
+-                sequence_parallel=sequence_parallel,
+-            )
++                is_expert=False
++                )
++
++            self.layer2 = RowParallelLinear(
++                input_size=d_ff,
++                output_size=d_model,
++                config=mp_config,
++                init_method=init_method,
++                bias=bias,
++                tp_group=tp_group,
++                input_is_parallel=True,
++                skip_bias_add=False,
++                is_expert=False,
++                )
+ 
+         self.dropout = nn.Dropout(dropout)
+         self.activation = activation
+@@ -111,14 +293,14 @@ class FeedForward(nn.Module):
+             self.linear_gate = nn.Linear(d_model, d_ff, bias=False)
+ 
+     def forward(self, x: torch.Tensor):
+-        g = self.activation(self.layer1(x))
++        g = self.activation(self.layer1(x)[0])
+         if self.is_gated:
+             x = g * self.linear_gate(x)
+         else:
+             x = g
+ 
+         assert self.dropout.p == 0.0, "skipping dropout to save memory"
+-        return self.layer2(x)
++        return self.layer2(x)[0]
+ 
+ 
+ class GPT2FeedForward(FeedForward):
+@@ -135,11 +317,11 @@ class GPT2FeedForward(FeedForward):
+     def forward(self, x: torch.Tensor):
+         assert self.dropout.p == 0.0, "we skip dropout"
+ 
+-        x = self.layer1(x)
++        x, _ = self.layer1(x)
+ 
+         def activation_layer2_forward(x):
+             x = self.activation(x)
+-            x = self.layer2(x)
++            x, _ = self.layer2(x)
+             return x
+ 
+         x = checkpoint(activation_layer2_forward, x, use_reentrant=False)
+@@ -172,7 +354,7 @@ def get_normalization(name: str, channels: int):
+     if name == "I":
+         return nn.Identity()
+     elif name == "R":
+-        return te.pytorch.RMSNorm(channels, eps=1e-6)
++        return RMSNorm(channels, eps=1e-6)
+     else:
+         raise ValueError(f"Normalization {name} not found")
+ 
+@@ -221,33 +403,39 @@ class TorchAttentionOp(FusedAttentionOp):
+             )
+ 
+     def forward(
+-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: Optional[torch.Tensor] = None
++        self, q_S_B_H_D: torch.Tensor, k_S_B_H_D: torch.Tensor, v_S_B_H_D: torch.Tensor, mask: Optional[torch.Tensor] = None
+     ) -> torch.Tensor:
+-        """
+-        Computes the scaled dot-product attention over the input tensors using the specified backend.
+-        B is the batch size, M the sequence length, H the number of heads, and K the embeding size per head
++        """Computes multi-head attention using PyTorch's native implementation.
+ 
+-        check F.scaled_dot_product_attention
+-        Args:
+-            q (Tensor): The query tensor of shape [B, Mq, H, K] / [B, ..., H, K]
+-            k (Tensor): The key tensor of shape [B, Mk, H, V] / [B, ..., H, K]
+-            v (Tensor): The value tensor of shape [B, Mk, H, V] / [B, ..., H, V]
++        This function provides a PyTorch backend alternative to Transformer Engine's attention operation.
++        It rearranges the input tensors to match PyTorch's expected format, computes scaled dot-product
++        attention, and rearranges the output back to the original format.
+ 
+-            mask (Optional[Tensor]): An optional mask tensor. Follow scaled_dot_product_attention API, mask should be a boolean tensor with shape [B, H, Mq, Mk]
++        The input tensor names use the following dimension conventions:
++
++        - B: batch size
++        - S: sequence length
++        - H: number of attention heads
++        - D: head dimension
++
++        Args:
++            q_S_B_H_D: Query tensor with shape (seq_len, batch, n_heads, head_dim)
++            k_S_B_H_D: Key tensor with shape (seq_len, batch, n_heads, head_dim)
++            v_S_B_H_D: Value tensor with shape (seq_len, batch, n_heads, head_dim)
+ 
+         Returns:
+-            Tensor: [B, Mq, H, V] / [B, ..., H, V]
++            Attention output tensor with shape (batch, seq_len, n_heads * head_dim)
+         """
+-        in_q_shape = q.shape
+-        in_k_shape = k.shape
+-        q = rearrange(q, "b ... h k -> b h ... k").view(in_q_shape[0], in_q_shape[-2], -1, in_q_shape[-1])
+-        k = rearrange(k, "b ... h v -> b h ... v").view(in_k_shape[0], in_k_shape[-2], -1, in_k_shape[-1])
+-        v = rearrange(v, "b ... h v -> b h ... v").view(in_k_shape[0], in_k_shape[-2], -1, in_k_shape[-1])
+-        if mask is not None:
+-            assert mask.dtype == torch.bool, "Mask should be a boolean tensor"
+-        with self.sdpa_context(self.backend):
+-            out = F.scaled_dot_product_attention(q, k, v, attn_mask=mask)  # scale is dim_head ** -0.5 per default
+-        return rearrange(out, "b h ... l -> b ... h l").view(*in_q_shape[:-1], in_k_shape[-1])
++        q_B_H_S_D = q_S_B_H_D.permute(1, 2, 0, 3)
++        k_B_H_S_D = k_S_B_H_D.permute(1, 2, 0, 3)
++        v_B_H_S_D = v_S_B_H_D.permute(1, 2, 0, 3)
++
++        result_B_S_HD = rearrange(
++            torch.nn.functional.scaled_dot_product_attention(q_B_H_S_D, k_B_H_S_D, v_B_H_S_D, attn_mask=mask), "b h ... l -> b ... (h l)"
++        )
++        result_S_B_HD = result_B_S_HD.transpose(0, 1)
++
++        return result_S_B_HD
+ 
+ 
+ class Attention(nn.Module):
+@@ -292,7 +480,7 @@ class Attention(nn.Module):
+         out_bias: bool = False,
+         qkv_norm: str = "SSI",
+         norm_args: dict = {},
+-        backend: str = "transformer_engine",
++        backend: str = "torch",
+         qkv_format: str = "bshd",
+     ) -> None:
+         super().__init__()
+@@ -319,11 +507,6 @@ class Attention(nn.Module):
+         else:
+             self.tp_size = parallel_state.get_tensor_model_parallel_world_size()
+ 
+-        if self.backend == "torch":
+-            assert (
+-                self.tp_size == 1
+-            ), f"Attention backend {self.backend} cannot use TP size > 1. Attempted: {self.tp_size}"
+-
+         assert self.heads % self.tp_size == 0, "the number of heads should be divisible by TP size"
+ 
+         if self.tp_size == 1:
+@@ -349,52 +532,74 @@ class Attention(nn.Module):
+             if sequence_parallel:
+                 assert qkv_format == "sbhd", "sequence parallel only supports sbhd format"
+ 
++            mp_config = create_mp_config(
++                tp_size=self.tp_size,
++                sequence_parallel=sequence_parallel,
++                dtype=torch.float16 # 需要确定dtype
++            )
++
++            def init_method(tensor, mean=0.0, std=0.023):
++                return torch.nn.init.normal_(tensor, mean=mean, std=std)
++
+             self.to_q = nn.Sequential(
+-                te.pytorch.Linear(
+-                    query_dim,
+-                    inner_dim,
++                ColumnParallelLinear(
++                    input_size=query_dim,
++                    output_size=inner_dim,
++                    config=mp_config,
++                    init_method=init_method,
+                     bias=qkv_bias,
+-                    tp_size=self.tp_size,
++                    gather_output=False,  # 注意：在Attention中通常不gather输出
+                     tp_group=tp_group,
+-                    sequence_parallel=sequence_parallel,
+-                    parallel_mode="column",
++                    # skip_bias_add=False,  # 返回 (output + bias)
++                    # stride=1,
++                    is_expert=False
+                 ),
+                 get_normalization(qkv_norm[0], norm_dim, **norm_args),
+             )
++
+             self.to_k = nn.Sequential(
+-                te.pytorch.Linear(
+-                    context_dim,
+-                    inner_dim,
++                ColumnParallelLinear(
++                    input_size=context_dim,
++                    output_size=inner_dim,
++                    config=mp_config,
++                    init_method=init_method,
+                     bias=qkv_bias,
+-                    tp_size=self.tp_size,
++                    gather_output=False,  # 注意：在Attention中通常不gather输出
+                     tp_group=tp_group,
+-                    sequence_parallel=sequence_parallel,
+-                    parallel_mode="column",
++                    # skip_bias_add=False,  # 返回 (output + bias)
++                    # stride=1,
++                    is_expert=False
+                 ),
+                 get_normalization(qkv_norm[1], norm_dim, **norm_args),
+             )
++
+             self.to_v = nn.Sequential(
+-                te.pytorch.Linear(
+-                    context_dim,
+-                    inner_dim,
++                ColumnParallelLinear(
++                    input_size=context_dim,
++                    output_size=inner_dim,
++                    config=mp_config,
++                    init_method=init_method,
+                     bias=qkv_bias,
+-                    tp_size=self.tp_size,
++                    gather_output=False,  # 注意：在Attention中通常不gather输出
+                     tp_group=tp_group,
+-                    sequence_parallel=sequence_parallel,
+-                    parallel_mode="column",
++                    # skip_bias_add=False,  # 返回 (output + bias)
++                    # stride=1,
++                    is_expert=False
+                 ),
+                 get_normalization(qkv_norm[2], norm_dim, **norm_args),
+             )
+ 
+             self.to_out = nn.Sequential(
+-                te.pytorch.Linear(
+-                    inner_dim,
+-                    query_dim,
++                RowParallelLinear(
++                    input_size=inner_dim,
++                    output_size=query_dim,
++                    config=mp_config,
++                    init_method=init_method,
+                     bias=out_bias,
+-                    tp_size=self.tp_size,
+                     tp_group=tp_group,
+-                    parallel_mode="row",
+-                    sequence_parallel=sequence_parallel,
++                    input_is_parallel=True,
++                    skip_bias_add=False,
++                    is_expert=False,
+                 ),
+                 nn.Dropout(dropout),
+             )
+@@ -433,10 +638,15 @@ class Attention(nn.Module):
+         we keep the nn.Sequential but call the projection and the normalization layers separately.
+         """
+ 
+-        q = self.to_q[0](x)
++        if x is not None and not x.is_contiguous():
++            x = x.contiguous()
++
++        q, _ = self.to_q[0](x)
+         context = x if context is None else context
+-        k = self.to_k[0](context)
+-        v = self.to_v[0](context)
++        if not context.is_contiguous():
++            context = context.contiguous()
++        k, _ = self.to_k[0](context)
++        v, _ = self.to_v[0](context)
+         q, k, v = map(
+             lambda t: rearrange(t, "b ... (n c) -> b ... n c", n=self.heads // self.tp_size, c=self.dim_head),
+             (q, k, v),
+@@ -465,7 +675,7 @@ class Attention(nn.Module):
+             return self.to_out(out)
+         elif self.backend == "torch":
+             out = self.attn_op(q, k, v, mask=mask)  # [B, Mq, H, V]
+-            return self.to_out(rearrange(out, " b ... n c -> b ... (n c)"))
++            return self.to_out[1](self.to_out[0](out)[0]) # megatraon 接口
+         else:
+             raise ValueError(f"Backend {self.backend} not found")
+ 
+diff --git a/cosmos_transfer1/diffusion/training/modules/blocks.py b/cosmos_transfer1/diffusion/training/modules/blocks.py
+index e2325cc..a1e2ac7 100644
+--- a/cosmos_transfer1/diffusion/training/modules/blocks.py
++++ b/cosmos_transfer1/diffusion/training/modules/blocks.py
+@@ -21,7 +21,7 @@ from einops import rearrange, repeat
+ from einops.layers.torch import Rearrange
+ from megatron.core import parallel_state
+ from torch import nn
+-from transformer_engine.pytorch.attention.rope import apply_rotary_pos_emb
++# from transformer_engine.pytorch.attention.rope import apply_rotary_pos_emb
+ 
+ from cosmos_transfer1.diffusion.training.modules.attention import Attention, GPT2FeedForward
+ from cosmos_transfer1.diffusion.training.tensor_parallel import gather_along_first_dim
+@@ -520,6 +520,83 @@ def checkpoint_norm_state(norm_state, x, scale, shift):
+     normalized = norm_state(x)
+     return normalized * (1 + scale) + shift
+ 
++def _rotate_half(x: torch.Tensor) -> torch.Tensor:
++    """
++    change sign so the last dimension becomes [-odd, +even]
++    """
++    x = x.view(x.shape[:-1] + torch.Size((2, x.shape[-1] // 2)))
++    x1, x2 = x.unbind(dim=-2)
++    return torch.cat((-x2, x1), dim=-1)
++
++from typing import Union
++def apply_rotary_pos_emb(
++    t: torch.Tensor,
++    freqs: torch.Tensor,
++    tensor_format: str = "sbhd",
++    fused: bool = False,
++    cu_seqlens: Union[torch.Tensor, None] = None,
++    cp_size: int = 1,
++    cp_rank: int = 0,
++) -> torch.Tensor:
++    """
++    Apply rotary positional embedding tensor to the input tensor.
++
++    Parameters
++    ----------
++    t: torch.Tensor
++        Input tensor of shape `[s, b, h, d]`, `[b, s, h, d]` or `[t, h, d]`, on which
++        rotary positional embedding will be applied.
++    freqs: torch.Tensor
++        Rotary positional embedding tensor of shape `[s2, 1, 1, d2]` and dtype 'float',
++        with `s2 >= s` and `d2 <= d`.
++    fused: bool, default = False
++        Whether to use a fused applying RoPE implementation.
++    tensor_format: {'sbhd', 'bshd', 'thd'}, default = 'sbhd'
++        is `bshd` if `t` is of shape `[bs, seq, ...]`, or `sbhd` if `t` is
++        of shape `[seq, bs, ...]`. 'thd' is only supported when `fused` is True.
++    cu_seqlens: torch.Tensor, default = None.
++        Cumulative sum of sequence lengths in a batch for `t`, with shape [b + 1] and
++        dtype torch.int32. Only valid when `tensor_format` is 'thd'.
++        Should be `cu_seqlens_padded` when cp_size > 1.
++    cp_size: int, default = 1.
++        Context parallel world size. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    cp_rank: int, default = 0.
++        Context parallel rank. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    """
++    # if fused:
++    #     assert (
++    #         tensor_format != "thd" or cu_seqlens is not None
++    #     ), "cu_seqlens must not be None when tensor_format is 'thd'."
++    #     return FusedRoPEFunc.apply(t, freqs, tensor_format, cu_seqlens, cp_size, cp_rank)
++
++    assert tensor_format in ("sbhd", "bshd"), (
++        "Only formats `sbhd` or `bshd` are supported for input tensor `t` "
++        f"when fused is False, got {tensor_format}."
++    )
++
++    max_seq_len = freqs.shape[0]
++    cur_seq_len = t.shape[1] if tensor_format == "bshd" else t.shape[0]
++
++    # Only apply the rotary embeddings up to the sequence length of the running
++    # input.
++    assert (
++        cur_seq_len <= max_seq_len
++    ), f"Rotary Embeddings only supported up to {max_seq_len} sequence length!"
++    freqs = freqs[:cur_seq_len]
++    if tensor_format == "bshd":
++        freqs = freqs.transpose(0, 1)  # [seq, 1, 1, dim] -> [1, seq, 1, dim]
++    # cos/sin first then dtype conversion for better precision
++    cos_ = torch.cos(freqs).to(t.dtype)
++    sin_ = torch.sin(freqs).to(t.dtype)
++
++    rot_dim = freqs.shape[-1]
++    # ideally t_pass is empty so rotary pos embedding is applied to all tensor t
++    t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
++
++    # first part is cosine component
++    # second part is sine component, need to change signs with _rotate_half method
++    t = (t * cos_) + (_rotate_half(t) * sin_)
++    return torch.cat((t, t_pass), dim=-1)
+ 
+ class DITBuildingBlock(nn.Module):
+     """
+diff --git a/cosmos_transfer1/diffusion/training/modules/pretrained_vae.py b/cosmos_transfer1/diffusion/training/modules/pretrained_vae.py
+index 12da2bc..54bf673 100644
+--- a/cosmos_transfer1/diffusion/training/modules/pretrained_vae.py
++++ b/cosmos_transfer1/diffusion/training/modules/pretrained_vae.py
+@@ -154,7 +154,7 @@ class BasePretrainedVideoTokenizer(ABC):
+         self.max_dec_batch_size = max_dec_batch_size
+ 
+     def register_mean_std(self, mean_std_fp: str) -> None:
+-        latent_mean, latent_std = torch.load(mean_std_fp, map_location="cuda", weights_only=True)
++        latent_mean, latent_std = torch.load(mean_std_fp, map_location="npu", weights_only=True)
+         latent_mean = latent_mean.view(self.latent_ch, -1)[:, : self.latent_chunk_duration]
+         latent_std = latent_std.view(self.latent_ch, -1)[:, : self.latent_chunk_duration]
+ 
+@@ -315,7 +315,7 @@ class BasePretrainedImageVAE(BaseVAE):
+         self.register_mean_std(mean_std_fp)
+ 
+     def register_mean_std(self, mean_std_fp: str) -> None:
+-        latent_mean, latent_std = torch.load(mean_std_fp, map_location="cuda", weights_only=True)
++        latent_mean, latent_std = torch.load(mean_std_fp, map_location="npu", weights_only=True)
+         target_shape = [1, self.latent_ch, 1, 1] if self.is_image else [1, self.latent_ch, 1, 1, 1]
+         self.register_buffer(
+             "latent_mean",
+@@ -411,7 +411,7 @@ class JITVAE(BasePretrainedImageVAE):
+         Args:
+         - enc_fp (str): File path to the encoder's JIT file on the remote store.
+         """
+-        self.encoder = torch.jit.load(enc_fp, map_location="cuda")
++        self.encoder = torch.jit.load(enc_fp, map_location="npu")
+         self.encoder.eval()
+         for param in self.encoder.parameters():
+             param.requires_grad = False
+@@ -424,7 +424,7 @@ class JITVAE(BasePretrainedImageVAE):
+         Args:
+         - dec_fp (str): File path to the decoder's JIT file on the remote store.
+         """
+-        self.decoder = torch.jit.load(dec_fp, map_location="cuda")
++        self.decoder = torch.jit.load(dec_fp, map_location="npu")
+         self.decoder.eval()
+         for param in self.decoder.parameters():
+             param.requires_grad = False
+diff --git a/cosmos_transfer1/diffusion/training/train.py b/cosmos_transfer1/diffusion/training/train.py
+index 298b231..0da64d3 100644
+--- a/cosmos_transfer1/diffusion/training/train.py
++++ b/cosmos_transfer1/diffusion/training/train.py
+@@ -19,9 +19,23 @@ import os
+ import time
+ 
+ import torch
++import decord
++from cosmos_transfer1.utils.patch import generate_patcher_builder
++
++if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++    USE_NPU = True
++    os.environ['DEVICE_TYPE'] = "npu"
++    DEVICE_TYPE = "npu"
++    print("Enable NPU!")
++    import torch_npu
++    from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
++    torch.npu.set_compile_mode(jit_compile=False)
++
+ import torch.distributed as dist
+ from loguru import logger as logging
+ from megatron.core import parallel_state
++from megatron.core.tensor_parallel.random import get_cuda_rng_tracker
+ from omegaconf import OmegaConf
+ 
+ from cosmos_transfer1.diffusion.config.config import Config
+@@ -48,6 +62,15 @@ def instantiate_model(config: Config, trainer) -> None:
+     misc.set_random_seed(seed=config.trainer.seed, by_rank=True)
+     return model
+ 
++def initialize_megatron_rng(seed=42):
++    """初始化 Megatron RNG 状态"""
++    tracker = get_cuda_rng_tracker()
++
++    tracker.add("model-parallel-rng", seed)
++    
++    # 设置 PyTorch RNG 状态
++    torch.manual_seed(seed)
++    torch.cuda.manual_seed_all(seed)
+ 
+ def destroy_distributed():
+     log.info("Destroying distributed environment...")
+@@ -73,7 +96,7 @@ def launch(config: Config, args: argparse.Namespace) -> None:
+         current_time = int(time.time() * 1e6)
+         # Combine the current time with worker_id to ensure different seeds across workers
+         seed = current_time % (2**32)
+-        config.trainer.seed = seed
++        config.trainer.seed = 12500
+         log.critical(f"Changed Random Seed based on timestamp. {config.trainer.seed}")
+ 
+     # Freeze the config so developers don't change it during training.
+@@ -81,6 +104,9 @@ def launch(config: Config, args: argparse.Namespace) -> None:
+     trainer = config.trainer.type(config)
+     # # Setup the miscellaneous stuff for reproducibility.
+     # log_reproducible_setup(config, args)
++
++    initialize_megatron_rng(config.trainer.seed)
++
+     # Create the model
+     model = instantiate_model(config, trainer)
+     model.on_model_init_end()
+@@ -107,41 +133,43 @@ def launch(config: Config, args: argparse.Namespace) -> None:
+ 
+ 
+ if __name__ == "__main__":
+-    parser = argparse.ArgumentParser(description="Training")
+-    parser.add_argument(
+-        "--config",
+-        default="cosmos_transfer1/diffusion/posttrain/config/config.py",
+-        help="Path to the config file",
+-    )
+-    parser.add_argument(
+-        "opts",
+-        help="""
+-Modify config options at the end of the command. For Yacs configs, use
+-space-separated "PATH.KEY VALUE" pairs.
+-For python-based LazyConfig, use "path.key=value".
+-        """.strip(),
+-        default=None,
+-        nargs=argparse.REMAINDER,
+-    )
+-    parser.add_argument(
+-        "--dryrun",
+-        action="store_true",
+-        help="Do a dry run without training. Useful for debugging the config.",
+-    )
+-    parser.add_argument(
+-        "--mp0_only_dl",
+-        action="store_true",
+-        help="Use only model parallel rank 0 dataloader for faster dataloading! Make sure mock data has same keys as real data.",
+-    )
+-    args = parser.parse_args()
+-    config_module = get_config_module(args.config)
+-    config = importlib.import_module(config_module).make_config()
+-    config = override(config, args.opts)
+-    if args.dryrun:
+-        os.makedirs(config.job.path_local, exist_ok=True)
+-        LazyConfig.save_yaml(config, f"{config.job.path_local}/config.yaml")
+-        print(OmegaConf.to_yaml(OmegaConf.load(f"{config.job.path_local}/config.yaml")))
+-        print(f"{config.job.path_local}/config.yaml")
+-    else:
+-        # Launch the training job.
+-        launch(config, args)
++    cosmos_patcher_builder = generate_patcher_builder()
++    with cosmos_patcher_builder.build():
++        parser = argparse.ArgumentParser(description="Training")
++        parser.add_argument(
++            "--config",
++            default="cosmos_transfer1/diffusion/posttrain/config/config.py",
++            help="Path to the config file",
++        )
++        parser.add_argument(
++            "opts",
++            help="""
++    Modify config options at the end of the command. For Yacs configs, use
++    space-separated "PATH.KEY VALUE" pairs.
++    For python-based LazyConfig, use "path.key=value".
++            """.strip(),
++            default=None,
++            nargs=argparse.REMAINDER,
++        )
++        parser.add_argument(
++            "--dryrun",
++            action="store_true",
++            help="Do a dry run without training. Useful for debugging the config.",
++        )
++        parser.add_argument(
++            "--mp0_only_dl",
++            action="store_true",
++            help="Use only model parallel rank 0 dataloader for faster dataloading! Make sure mock data has same keys as real data.",
++        )
++        args = parser.parse_args()
++        config_module = get_config_module(args.config)
++        config = importlib.import_module(config_module).make_config()
++        config = override(config, args.opts)
++        if args.dryrun:
++            os.makedirs(config.job.path_local, exist_ok=True)
++            LazyConfig.save_yaml(config, f"{config.job.path_local}/config.yaml")
++            print(OmegaConf.to_yaml(OmegaConf.load(f"{config.job.path_local}/config.yaml")))
++            print(f"{config.job.path_local}/config.yaml")
++        else:
++            # Launch the training job.
++            launch(config, args)
+diff --git a/cosmos_transfer1/utils/base_world_generation_pipeline.py b/cosmos_transfer1/utils/base_world_generation_pipeline.py
+index c7a47ac..0ba4221 100644
+--- a/cosmos_transfer1/utils/base_world_generation_pipeline.py
++++ b/cosmos_transfer1/utils/base_world_generation_pipeline.py
+@@ -80,10 +80,10 @@ class BaseWorldGenerationPipeline(ABC):
+ 
+         if not self.offload_text_encoder_model:
+             self._load_text_encoder_model()
+-        if not self.offload_guardrail_models and not self.disable_guardrail:
+-            if self.has_text_input:
+-                self._load_text_guardrail()
+-            self._load_video_guardrail()
++        # if not self.offload_guardrail_models and not self.disable_guardrail:
++        #     if self.has_text_input:
++        #         self._load_text_guardrail()
++        #     self._load_video_guardrail()
+         if not self.offload_network:
+             self._load_network()
+         if not self.offload_tokenizer:
+diff --git a/cosmos_transfer1/utils/distributed.py b/cosmos_transfer1/utils/distributed.py
+index 522265a..560c17a 100644
+--- a/cosmos_transfer1/utils/distributed.py
++++ b/cosmos_transfer1/utils/distributed.py
+@@ -44,10 +44,7 @@ T = TypeVar("T")
+ def init() -> int | None:
+     """Initialize distributed training."""
+     # Set GPU affinity.
+-    pynvml.nvmlInit()
+     local_rank = int(os.getenv("LOCAL_RANK", 0))
+-    device = Device(local_rank)
+-    os.sched_setaffinity(0, device.get_cpu_affinity())
+     # Set up NCCL communication.
+     os.environ["TORCH_NCCL_BLOCKING_WAIT"] = "0"
+     os.environ["TORCH_NCCL_ASYNC_ERROR_HANDLING"] = "1"
+@@ -64,12 +61,6 @@ def init() -> int | None:
+             f"Initialized distributed training with local rank {local_rank} with timeout {timeout_seconds}",
+             rank0_only=False,
+         )
+-    # Increase the L2 fetch granularity for faster speed.
+-    _libcudart = ctypes.CDLL("libcudart.so")
+-    # Set device limit on the current device.
+-    p_value = ctypes.cast((ctypes.c_int * 1)(), ctypes.POINTER(ctypes.c_int))
+-    _libcudart.cudaDeviceSetLimit(ctypes.c_int(0x05), ctypes.c_int(128))
+-    _libcudart.cudaDeviceGetLimit(p_value, ctypes.c_int(0x05))
+     log.info(f"Training with {get_world_size()} GPUs.")
+ 
+ 
+diff --git a/requirements.txt b/requirements.txt
+index e873acf..1ce309e 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -15,12 +15,10 @@
+ 
+ # Please keep requirements sorted alphabetically
+ 
+-apex==0.9.10dev
+ attr==0.3.2
+ attrs==25.3.0
+ better_profanity==0.7.0
+ cloudpickle==3.1.1
+-decord==0.6.0
+ dill==0.4.0
+ einops==0.8.1
+ hydra-core==1.3.2
+@@ -29,10 +27,10 @@ iopath==0.1.10
+ loguru==0.7.3
+ matplotlib==3.10.3
+ mediapy==1.2.4
+-megatron_core==0.10.0
++megatron_core==0.13.1
+ natsort==8.4.0
+ nltk==3.9.1
+-numpy==2.2.6
++numpy==1.26.4
+ nvidia_ml_py==12.570.86
+ omegaconf==2.3.0
+ opencv_python==4.10.0.84
+@@ -51,4 +49,4 @@ rtmlib==0.0.13
+ sam2==1.1.0
+ termcolor==3.1.0
+ tqdm==4.67.1
+-transformers==4.49.0
++transformers==4.51.0
