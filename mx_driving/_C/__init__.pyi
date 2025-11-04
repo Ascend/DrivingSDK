@@ -456,6 +456,12 @@ def cylinder_query(
     xyz: torch.Tensor,
     rot: torch.Tensor,
 ) -> torch.Tensor: ...
+def npu_subm_sparse_conv3d_grad_v2(
+    feature: torch.Tensor, 
+    weight: torch.Tensor,
+    grad_out_features: torch.Tensor,
+    indices_offset: torch.Tensor
+) -> Tuple[torch.Tensor, torch.Tensor]: ...
 
 __all__ = [
     "knn",
@@ -514,4 +520,5 @@ __all__ = [
     "graph_softmax",
     "graph_softmax_grad",
     "cylinder_query",
+    "npu_subm_sparse_conv3d_grad_v2",
 ]

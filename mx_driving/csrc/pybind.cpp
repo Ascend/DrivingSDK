@@ -264,4 +264,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // cylinder_query
     m.def("cylinder_query", &cylinder_query);
+
+    // npu_subm_sparse_conv3d_grad_v2
+    m.def("npu_subm_sparse_conv3d_grad_v2", &npu_subm_sparse_conv3d_grad_v2);
 }

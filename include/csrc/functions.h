@@ -307,4 +307,11 @@ at::Tensor graph_softmax_grad(const at::Tensor& index,
 at::Tensor cylinder_query(double radius, double hmin, double hmax, int nsample, const at::Tensor& new_xyz,
     const at::Tensor& xyz, const at::Tensor& rot);
 
+std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_grad_v2(
+    const at::Tensor& features, 
+    const at::Tensor& weight,
+    const at::Tensor& grad_out_features,
+    const at::Tensor& indices_offset
+);
+
 #endif // CSRC_FUNCTIONS_H_

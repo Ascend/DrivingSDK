@@ -16,7 +16,125 @@ from torch_npu.testing.testcase import TestCase, run_tests
 from data_cache import golden_data_cache
 from test_subm_sparse_conv3d import get_golden_output as forward_func
 from mx_driving.spconv import SparseSequential, SparseConvTensor, SubMConv3d
+from cv_fused_double_benchmark_compare import CvFusedDoubleBenchmarkAccuracyCompare
+import inspect
+import os 
 
+
+CASES = dict(
+    test_3x3x3_fp32 = dict(
+        num_points = [61557],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 16,
+        out_channels = 32,
+        kernel_size = 3,
+        dtype = torch.float32,
+    ),
+    test_large_point1 = dict(
+        num_points = [200000],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 16,
+        out_channels = 32,
+        kernel_size = 3,
+        dtype = torch.float32,
+    ),
+    test_large_point2 = dict(
+        num_points = [200000],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 16,
+        out_channels = 32,
+        kernel_size = 3,
+        dtype = torch.float16,
+    ),
+    test_model_5x5x5_fp32 = dict(
+        num_points = [61557],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 16,
+        out_channels = 32,
+        kernel_size = 5,
+        dtype = torch.float32,
+    ),
+    test_model_5x5x5_fp16 = dict(
+        num_points = [61557],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 16,
+        out_channels = 32,
+        kernel_size = 5,
+        dtype = torch.float16,
+    ),
+    test_3x3x3_fp16 = dict(
+        num_points = [61557],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 16,
+        out_channels = 32,
+        kernel_size = 3,
+        dtype = torch.float16,
+    ),
+    test_model_large_channels1 = dict(
+        num_points = [61557],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 256,
+        out_channels = 512,
+        kernel_size = 5,
+        dtype = torch.float16,
+    ),
+    test_model_large_channels2 = dict(
+        num_points = [61557],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 256,
+        out_channels = 512,
+        kernel_size = 3,
+        dtype = torch.float16,
+    ),
+    test_model_large_channels3 = dict(
+        num_points = [61557],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 256,
+        out_channels = 512,
+        kernel_size = 3,
+        dtype = torch.float32,
+    ),
+    test_model_large_channels4 = dict(
+        num_points = [61557],
+        out_spatial_shape = [1440, 1440, 41],
+        in_channels = 256,
+        out_channels = 512,
+        kernel_size = 5,
+        dtype = torch.float32,
+    ),
+    test_3x3x3_big_case_large_channels1 = dict(
+        num_points = [51670],
+        out_spatial_shape = [128, 128, 128],
+        in_channels = 1024,
+        out_channels = 1024,
+        kernel_size = 3,
+        dtype = torch.float32,   
+    ),
+    test_3x3x3_big_case_large_channels1_fp16 = dict(
+        num_points = [51670],
+        out_spatial_shape = [128, 128, 128],
+        in_channels = 1024,
+        out_channels = 1024,
+        kernel_size = 3,
+        dtype = torch.float16,    
+    ),
+    test_3x3x3_big_case_large_channels2 = dict(
+        num_points = [504420],
+        out_spatial_shape = [320, 640, 640],
+        in_channels = 256,
+        out_channels = 256,
+        kernel_size = 3,
+        dtype = torch.float32,   
+    ),
+    test_3x3x3_big_case_large_channels2_fp16 = dict(
+        num_points = [504420],
+        out_spatial_shape = [320, 640, 640],
+        in_channels = 256,
+        out_channels = 256,
+        kernel_size = 3,
+        dtype = torch.float16,   
+    ),
+)
 
 @golden_data_cache(__file__)
 def generate_sparse_data(num_points, spatial_shape, in_channels, out_channels):
@@ -45,16 +163,19 @@ def generate_sparse_data(num_points, spatial_shape, in_channels, out_channels):
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 @golden_data_cache(__file__)
 def get_golden_output(features, indices, weight, bias, batch_size, in_channels,
-                      out_channels, kernel_size, out_spatial_shape, grad_out):
+                      out_channels, kernel_size, out_spatial_shape, grad_out, dtype):
     _, indices_offset, img2col_mat = forward_func(features, indices, weight, bias, batch_size, in_channels,
         out_channels, kernel_size, out_spatial_shape)
-    features_grad, weight_grad = subm_sparse_conv3d_grad_cpu(grad_out, img2col_mat, indices_offset, weight, kernel_size, in_channels)
+    features_grad, weight_grad = subm_sparse_conv3d_grad_cpu(grad_out, img2col_mat, indices_offset, weight, kernel_size, in_channels, dtype)
     return features_grad, weight_grad
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 @golden_data_cache(__file__)
-def subm_sparse_conv3d_grad_cpu(grad_out, img2col_mat, indices_offset, weight, kernel_size, in_channels):
+def subm_sparse_conv3d_grad_cpu(grad_out, img2col_mat, indices_offset, weight, kernel_size, in_channels, dtype):
+    grad_out, img2col_mat, indices_offset, weight = \
+        grad_out.cpu().to(dtype), img2col_mat.cpu().to(dtype), indices_offset.cpu(), weight.cpu().to(dtype)
+
     N, out_channels = grad_out.shape
     weight_grad = img2col_mat.reshape(N, -1).transpose(1, 0) @ grad_out
     img2col_mat_grad = grad_out @ weight.reshape(-1, out_channels).T
@@ -78,7 +199,7 @@ def subm_sparse_conv3d_grad_cpu(grad_out, img2col_mat, indices_offset, weight, k
 
 
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
-def get_output(num_points, batch_size, in_channels, out_channels,
+def single_benchmark_get_output(num_points, batch_size, in_channels, out_channels,
         kernel_size, spatial_shape, dtype):
     features, indices, grad_out = generate_sparse_data(num_points, spatial_shape, in_channels, out_channels)
     features, indices, grad_out = features.to(dtype).npu(), indices.npu(), grad_out.to(dtype).npu()
@@ -90,162 +211,66 @@ def get_output(num_points, batch_size, in_channels, out_channels,
     net.weight.requires_grad = True
     
     features_grad, weight_grad = get_golden_output(features, indices, net.weight.data, net.bias.data, batch_size, in_channels,
-                      out_channels, kernel_size, spatial_shape, grad_out)
+                      out_channels, kernel_size, spatial_shape, grad_out, dtype)
     res = net(x).features
     res.backward(grad_out)
-    return features.grad, net.weight.grad, features_grad, weight_grad
+    return features.grad.cpu(), net.weight.grad.cpu(), features_grad.cpu(), weight_grad.cpu()
 
 
-class TestSubmSparseConv3d(TestCase):
-    def test_3x3x3_fp32(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 16
-        out_channels = 32
-        kernel_size = 3
-        batch_size = len(num_points)
-        dtype = torch.float32
+def double_benchmark_get_output(num_points, batch_size, in_channels, out_channels,
+        kernel_size, spatial_shape, dtype, gpu_data):
+    features = gpu_data['features'].detach().clone()
+    indices = gpu_data['indices'].detach().clone()
+    grad_out = gpu_data['grad_out'].detach().clone()
+    gpu_net = gpu_data['net']
 
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
+    features, indices, grad_out = features.to(dtype).npu(), indices.npu(), grad_out.to(dtype).npu()
+    x = SparseConvTensor(features, indices, spatial_shape, batch_size)
+    net = SubMConv3d(in_channels, out_channels, kernel_size).npu()
 
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
+    net.weight.data = gpu_net.weight.data
+    net.bias.data = gpu_net.bias.data
+    features.requires_grad = True
+    net.weight.requires_grad = True
 
-    def test_large_point1(self):
-        num_points = [200000]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 16
-        out_channels = 32
-        kernel_size = 3
-        batch_size = len(num_points)
-        dtype = torch.float32
+    res = net(x).features
+    res.backward(grad_out)
+    return features.grad.cpu(), net.weight.grad.cpu()
 
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
 
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
-    
-    def test_large_point2(self):
-        num_points = [200000]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 16
-        out_channels = 32
-        kernel_size = 3
-        batch_size = len(num_points)
-        dtype = torch.float16
+class TestSubmSparseConv3dGrad(TestCase):
 
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
+    def test_model_case(self):
+        gpu_out_path = os.getenv("GPU_OUT_PATH", None)
+        double_benchmark_flag = (gpu_out_path is not None) and os.path.exists(gpu_out_path)
+        name = 'test_subm_sparse_conv3d_grad'
+        
+        for case_name, case_value in CASES.items():
+            num_points, out_spatial_shape, in_channels , out_channels , kernel_size, dtype = case_value.values()
+            batch_size = len(num_points)
 
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
+            if double_benchmark_flag:
+                filepath = os.path.join(gpu_out_path, name, f'{case_name}.pth')
+                gpu_data = torch.load(filepath, map_location = 'npu')
+                gpu_features_grad = gpu_data['features_grad'].detach().clone().cpu()
+                gpu_weight_grad = gpu_data['weight_grad'].detach().clone().cpu()
+                cpu_features_grad = gpu_data['cpu_features_grad'].detach().clone().cpu()
+                cpu_weight_grad = gpu_data['cpu_weight_grad'].detach().clone().cpu()
 
-    def test_3x3x3_fp16(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 16
-        out_channels = 32
-        kernel_size = 3
-        batch_size = len(num_points)
-        dtype = torch.float16
+                npu_features_grad, npu_weight_grad = double_benchmark_get_output(
+                    num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype, gpu_data)
+                compare = CvFusedDoubleBenchmarkAccuracyCompare([npu_features_grad, npu_weight_grad],
+                                                                [gpu_features_grad, gpu_weight_grad],
+                                                                [cpu_features_grad, cpu_weight_grad])
+                res = compare.run()
+                assert "False" not in res, f"Accuracy check failed for model case {case_name}"
 
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
+            else:
+                npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = \
+                    single_benchmark_get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
 
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
-
-    def test_model_5x5x5_fp32(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 16
-        out_channels = 32
-        kernel_size = 5
-        batch_size = len(num_points)
-        dtype = torch.float32
-
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
-
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
-
-    def test_model_5x5x5_fp16(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 16
-        out_channels = 32
-        kernel_size = 5
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
-
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
-
-    def test_model_large_channels1(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 256
-        out_channels = 512
-        kernel_size = 5
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
-
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
-
-    def test_model_large_channels2(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 256
-        out_channels = 512
-        kernel_size = 3
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
-
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
-
-    def test_model_large_channels3(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 256
-        out_channels = 512
-        kernel_size = 3
-        batch_size = len(num_points)
-        dtype = torch.float32
-
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
-
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
-    
-    def test_model_large_channels4(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 256
-        out_channels = 512
-        kernel_size = 5
-        batch_size = len(num_points)
-        dtype = torch.float32
-
-        npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = get_output(num_points, batch_size, in_channels,
-            out_channels, kernel_size, out_spatial_shape, dtype)
-
-        self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
+                self.assertRtolEqual(npu_features_grad, cpu_features_grad)
+                self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
 
 if __name__ == "__main__":
     np.random.seed(100)

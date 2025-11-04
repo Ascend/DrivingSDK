@@ -78,7 +78,7 @@ class TestModulatedDeformableConv2d(TestCase):
 
             if double_benchmark_flag:
 
-                gpu_input = torch.load(gpu_out_path + f"gpu_input_{N}_{cIn}.pt")
+                gpu_input = torch.load(os.path.join(gpu_out_path, "mdcn_gpu_out_2", f"gpu_input_{N}_{cIn}.pt"))
                 x, offset, mask, weight = gpu_input["x"], gpu_input["offset"], gpu_input["mask"], gpu_input["weight"]
 
                 # cpu golden
@@ -87,7 +87,7 @@ class TestModulatedDeformableConv2d(TestCase):
                 npu_x, npu_offset, npu_mask, npu_weight = x.npu(), offset.npu(), mask.npu(), weight.npu()
                 npu_out = modulated_deform_conv2d(npu_x, npu_offset, npu_mask, npu_weight, None, 1, 1, 1, groups).cpu()
 
-                gpu_out = torch.load(gpu_out_path + f"gpu_output_{N}_{cIn}.pt")
+                gpu_out = torch.load(os.path.join(gpu_out_path, "mdcn_gpu_out_2", f"gpu_output_{N}_{cIn}.pt"))
                 compare = CvFusedDoubleBenchmarkAccuracyCompare([npu_out], [gpu_out], [cpu_out])
                 ret = compare.run()
                 assert "False" not in ret, f"Accuracy check failed for model case {i + 1} with N={N}, cIn={cIn}"
