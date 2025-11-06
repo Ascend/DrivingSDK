@@ -67,12 +67,20 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
 | FrameworkPTAdapter | 7.1.0  |
 |       CANN        | 8.2.RC1  |
 
-1. 在模型根目录下安装依赖
+1. 安装Driving SDK加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
+
+- 推荐使用依赖安装一键配置脚本，可使用如下指令完成后续步骤2，3，4，5，6，7，8的安装：
+
+   ```shell
+   bash install_MapTRv2.sh
+   ```
+
+2. 在模型根目录下安装依赖
     ```
     pip install -r requirements.txt
     ```
 
-2. 安装mmcv
+3. 安装mmcv
 
   - 在模型根目录下，克隆mmcv仓，并进入mmcv目录安装
 
@@ -84,13 +92,13 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
     ```
 
-3. 安装mmdet和mmsegmentation
+4. 安装mmdet和mmsegmentation
     ```
     pip install mmdet==2.28.2
     pip install mmsegmentation==0.30.0
     ```
 
-4. 安装mmdet3d
+5. 安装mmdet3d
 
   - 在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录安装
 
@@ -101,8 +109,6 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
     git apply --reject --whitespace=fix mmdet3d_config.patch
     pip install -v -e .
     ```
-
-5. 安装Driving SDK加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 6. 安装MindSpeed加速库。
     ```

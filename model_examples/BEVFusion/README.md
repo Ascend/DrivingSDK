@@ -47,6 +47,12 @@
   ```
   cd DrivingSDK/model_examples/BEVFusion
   ```
+  - 推荐使用依赖安装一键配置脚本，可使用如下指令安装后续`mmcv`和`mmdetection3d`：
+
+  ```shell
+  bash install_BEVFusion.sh
+  ```
+
   1. 源码编译安装`mmcv`
 
   ```

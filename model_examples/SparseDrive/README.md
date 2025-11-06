@@ -80,6 +80,12 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
+- 建议使用依赖安装一键配置脚本，可使用如下指令完成后续基础依赖，`geos`, `mmcv`，模型代码patch的安装和更新：
+
+   ```shell
+   bash install_SparseDrive.sh
+   ```
+
 - 安装基础依赖
 
   在模型源码包根目录下执行命令，安装模型需要的依赖。

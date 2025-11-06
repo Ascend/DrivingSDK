@@ -43,6 +43,12 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 - 安装 [Driving SDK 加速库](https://gitcode.com/Ascend/DrivingSDK)
 
 - 克隆代码仓到当前目录
+
+- 推荐使用依赖安装一键配置脚本，可使用如下指令安装后续基础依赖、其他依赖、模型代码更新：
+
+   ```shell
+   bash install_BEVFormer.sh
+   ```
   
 - 安装基础依赖
 
