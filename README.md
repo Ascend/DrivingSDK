@@ -198,6 +198,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [DexVLA](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Dexvla) | Stage2: 16.72<br>Stage3: 15.85 | Stage2: 18.88<br>Stage3: 18.67 |Y|
 | [QCNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/QCNet) | 75.29 | 94.11 |Y|
 | [BEVNeXt](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVNeXt) | Stage1: 16.568<br>Stage2: 7.572 | Stage1: 36.643<br>Stage2: 11.651 |N|
+| [Cosmos-Predict2](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Cosmos-Predict2) | - | - |N|
 | [GR00T-N1.5](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/GR00T-N1.5)  | 337.35 | 276.38 |N|
 | [HiVT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HiVT) | 645 | 652 |N|
 | [HPTR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HPTR) | 25.12 | 36.07 |N|

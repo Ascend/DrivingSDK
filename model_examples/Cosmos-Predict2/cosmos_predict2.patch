@@ -1,0 +1,1208 @@
+diff --git a/cosmos_predict2/callbacks/device_monitor.py b/cosmos_predict2/callbacks/device_monitor.py
+index 2d250f0..78593d1 100644
+--- a/cosmos_predict2/callbacks/device_monitor.py
++++ b/cosmos_predict2/callbacks/device_monitor.py
+@@ -92,7 +92,7 @@ class DeviceMonitor(EveryN):
+             log.info(f"{self.name} callback: local_dir: {self.local_dir}")
+ 
+         local_rank = int(os.getenv("LOCAL_RANK", 0))
+-        self.handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
++
+ 
+     def every_n_impl(
+         self,
+@@ -109,29 +109,13 @@ class DeviceMonitor(EveryN):
+ 
+         peak_gpu_mem_gb = torch.cuda.max_memory_allocated() / (1024**3)
+         peak_gpu_mem_reserved_gb = torch.cuda.max_memory_reserved() / (1024**3)
+-        temp = torch.cuda.temperature()
+-        try:
+-            power = torch.cuda.power_draw()
+-        except Exception as e:
+-            log.warning(f"Failed to get power draw with error {e}")
+-            power = 0
+         util = torch.cuda.utilization()
+-        clock = torch.cuda.clock_rate()
+-
+-        memory_info = pynvml.nvmlDeviceGetMemoryInfo(self.handle)
+-        nvml_used_gpu_mem_gb = memory_info.used / (1024**3)
+-        nvml_free_gpu_mem_gb = memory_info.free / (1024**3)
+ 
+         prof_data = {
+             "cpu_mem_gb": cpu_mem_gb,
+             "peak_gpu_mem_gb": peak_gpu_mem_gb,
+             "peak_gpu_mem_reserved_gb": peak_gpu_mem_reserved_gb,
+-            "nvml_used_gpu_mem_gb": nvml_used_gpu_mem_gb,
+-            "nvml_free_gpu_mem_gb": nvml_free_gpu_mem_gb,
+-            "temp": temp,
+-            "power": power,
+             "util": util,
+-            "clock": clock,
+         }
+ 
+         data_list = [prof_data] * self.world_size
+@@ -140,10 +124,5 @@ class DeviceMonitor(EveryN):
+             torch.distributed.all_gather_object(data_list, prof_data)
+             torch.distributed.barrier()
+ 
+-        df, summary_df = log_prof_data(data_list, iteration)
+-        if self.rank == 0:
+-            log.info(f"{self.name} Stats:\n{summary_df.to_string()}")
+-            if self.log_memory_detail:
+-                memory_stats = torch.cuda.memory_stats()
+ 
+         torch.cuda.reset_peak_memory_stats()
+diff --git a/cosmos_predict2/configs/base/config.py b/cosmos_predict2/configs/base/config.py
+index 9d90949..82f7be6 100644
+--- a/cosmos_predict2/configs/base/config.py
++++ b/cosmos_predict2/configs/base/config.py
+@@ -40,7 +40,7 @@ class Config(config.Config):
+             "_self_",
+             {"dataloader_train": None},
+             {"dataloader_val": None},
+-            {"optimizer": "fusedadamw"},
++            {"optimizer": "adamw"},
+             {"scheduler": "constant"},
+             {"model": "predict2_multiview_fsdp_2b_720p_29frames_10fps"},
+             {"callbacks": ["basic"]},
+@@ -57,7 +57,7 @@ class Config(config.Config):
+ def make_config() -> Config:
+     c = Config(
+         model=None,
+-        optimizer=None,
++        optimizer="adamw",
+         scheduler=None,
+         dataloader_train=None,
+         dataloader_val=None,
+@@ -70,7 +70,7 @@ def make_config() -> Config:
+ 
+     c.trainer.type = Trainer
+     c.trainer.max_iter = 400_000
+-    c.trainer.logging_iter = 10
++    c.trainer.logging_iter = 1
+     c.trainer.validation_iter = 500
+     c.trainer.run_validation = False
+     c.trainer.callbacks = None
+diff --git a/cosmos_predict2/configs/base/defaults/optimizer.py b/cosmos_predict2/configs/base/defaults/optimizer.py
+index 6b64a68..7f3f71c 100644
+--- a/cosmos_predict2/configs/base/defaults/optimizer.py
++++ b/cosmos_predict2/configs/base/defaults/optimizer.py
+@@ -71,18 +71,17 @@ def get_base_optimizer_simple(
+     return opt_cls(param_group, **kwargs)
+ 
+ 
+-FusedAdamWConfig: LazyDict[torch.optim.Optimizer] = L(get_base_optimizer)(
++AdamWConfig: LazyDict[torch.optim.Optimizer] = L(get_base_optimizer)(
+     model=PLACEHOLDER,
+     lr=1e-4,
+     weight_decay=0.1,
+     betas=[0.9, 0.99],
+-    optim_type="fusedadam",
++    optim_type="adamw",
+     eps=1e-8,
+-    master_weights=True,
+     capturable=True,
+ )
+ 
+ 
+ def register_optimizer():
+     cs = ConfigStore.instance()
+-    cs.store(group="optimizer", package="optimizer", name="fusedadamw", node=FusedAdamWConfig)
++    cs.store(group="optimizer", package="optimizer", name="adamw", node=AdamWConfig)
+diff --git a/cosmos_predict2/configs/base/experiment/cosmos_nemo_assets.py b/cosmos_predict2/configs/base/experiment/cosmos_nemo_assets.py
+index e822fd8..fccb0d3 100644
+--- a/cosmos_predict2/configs/base/experiment/cosmos_nemo_assets.py
++++ b/cosmos_predict2/configs/base/experiment/cosmos_nemo_assets.py
+@@ -53,7 +53,7 @@ dataloader_train_cosmos_nemo_assets_images = L(DataLoader)(
+ predict2_text2image_training_2b_cosmos_nemo_assets = dict(
+     defaults=[
+         {"override /model": "predict2_text2image_fsdp_2b"},
+-        {"override /optimizer": "fusedadamw"},
++        {"override /optimizer": "adamw"},
+         {"override /scheduler": "lambdalinear"},
+         {"override /ckpt_type": "standard"},
+         {"override /dataloader_val": "mock_image"},
+@@ -81,7 +81,7 @@ predict2_text2image_training_2b_cosmos_nemo_assets = dict(
+         callbacks=dict(
+             iter_speed=dict(hit_thres=10),
+         ),
+-        max_iter=1000,
++        max_iter=500,
+     ),
+     checkpoint=dict(
+         save_iter=500,
+@@ -101,7 +101,7 @@ predict2_text2image_training_2b_cosmos_nemo_assets = dict(
+ predict2_text2image_training_14b_cosmos_nemo_assets = dict(
+     defaults=[
+         {"override /model": "predict2_text2image_fsdp_14b"},
+-        {"override /optimizer": "fusedadamw"},
++        {"override /optimizer": "adamw"},
+         {"override /scheduler": "lambdalinear"},
+         {"override /ckpt_type": "standard"},
+         {"override /dataloader_val": "mock_image"},
+@@ -129,7 +129,7 @@ predict2_text2image_training_14b_cosmos_nemo_assets = dict(
+         callbacks=dict(
+             iter_speed=dict(hit_thres=10),
+         ),
+-        max_iter=1000,
++        max_iter=500,
+     ),
+     checkpoint=dict(
+         save_iter=500,
+@@ -166,7 +166,7 @@ dataloader_train_cosmos_nemo_assets = L(DataLoader)(
+ predict2_video2world_training_2b_cosmos_nemo_assets = dict(
+     defaults=[
+         {"override /model": "predict2_video2world_fsdp_2b"},
+-        {"override /optimizer": "fusedadamw"},
++        {"override /optimizer": "adamw"},
+         {"override /scheduler": "lambdalinear"},
+         {"override /ckpt_type": "standard"},
+         {"override /dataloader_val": "mock"},
+@@ -195,7 +195,7 @@ predict2_video2world_training_2b_cosmos_nemo_assets = dict(
+         callbacks=dict(
+             iter_speed=dict(hit_thres=10),
+         ),
+-        max_iter=1000,
++        max_iter=500,
+     ),
+     checkpoint=dict(
+         save_iter=500,
+@@ -215,7 +215,7 @@ predict2_video2world_training_2b_cosmos_nemo_assets = dict(
+ predict2_video2world_training_14b_cosmos_nemo_assets = dict(
+     defaults=[
+         {"override /model": "predict2_video2world_fsdp_14b"},
+-        {"override /optimizer": "fusedadamw"},
++        {"override /optimizer": "adamw"},
+         {"override /scheduler": "lambdalinear"},
+         {"override /ckpt_type": "standard"},
+         {"override /dataloader_val": "mock"},
+@@ -237,6 +237,7 @@ predict2_video2world_training_14b_cosmos_nemo_assets = dict(
+     ),
+     model_parallel=dict(
+         context_parallel_size=8,
++        # tensor_model_parallel_size=2,
+     ),
+     dataloader_train=dataloader_train_cosmos_nemo_assets,
+     trainer=dict(
+@@ -244,7 +245,7 @@ predict2_video2world_training_14b_cosmos_nemo_assets = dict(
+         callbacks=dict(
+             iter_speed=dict(hit_thres=10),
+         ),
+-        max_iter=1000,
++        max_iter=500,
+     ),
+     checkpoint=dict(
+         save_iter=500,
+diff --git a/cosmos_predict2/models/text2image_dit.py b/cosmos_predict2/models/text2image_dit.py
+index 2297faa..b261835 100644
+--- a/cosmos_predict2/models/text2image_dit.py
++++ b/cosmos_predict2/models/text2image_dit.py
+@@ -20,9 +20,10 @@ from dataclasses import dataclass
+ from enum import Enum
+ from typing import Any
+ 
++import numbers
+ import numpy as np
+ import torch
+-import transformer_engine as te
++import torch_npu
+ from einops import rearrange, repeat
+ from einops.layers.torch import Rearrange
+ from torch import nn
+@@ -32,7 +33,6 @@ from torch.distributed.device_mesh import DeviceMesh
+ from torch.distributed.fsdp import fully_shard
+ from torch.utils.checkpoint import CheckpointPolicy, create_selective_checkpoint_contexts
+ from torchvision import transforms
+-from transformer_engine.pytorch.attention import DotProductAttention, apply_rotary_pos_emb
+ 
+ from cosmos_predict2.conditioner import DataType
+ from cosmos_predict2.module.a2a_cp import MinimalA2AAttnOp, NattenA2AAttnOp
+@@ -222,6 +222,142 @@ def torch_attention_op(q_B_S_H_D: torch.Tensor, k_B_S_H_D: torch.Tensor, v_B_S_H
+     return result_B_S_HD
+ 
+ 
++class RMSNorm(nn.Module):
++    r"""
++    Args:
++        dim (`int`): Number of dimensions to use for `weights`. Only effective when `elementwise_affine` is True.
++        eps (`float`): Small value to use when calculating the reciprocal of the square-root.
++        elementwise_affine (`bool`, defaults to `True`):
++            Boolean flag to denote if affine transformation should be applied.
++        bias (`bool`, defaults to False): If also training the `bias` param.
++    """
++
++    def __init__(self, dim, eps: float, elementwise_affine: bool = True, bias: bool = False):
++        super().__init__()
++
++        self.eps = eps
++        self.elementwise_affine = elementwise_affine
++
++        if isinstance(dim, numbers.Integral):
++            dim = (dim,)
++
++        self.dim = torch.Size(dim)
++
++        self.weight = None
++        self.bias = None
++
++        if elementwise_affine:
++            self.weight = nn.Parameter(torch.ones(dim))
++            if bias:
++                self.bias = nn.Parameter(torch.zeros(dim))
++
++    def reset_parameters(self):
++        # 初始化 weight 为全 1
++        nn.init.zeros_(self.weight)
++
++    def forward(self, hidden_states):
++        if not torch.cuda.is_available():
++            import torch_npu
++
++            if self.weight is not None:
++                # convert into half-precision if necessary
++                if self.weight.dtype in [torch.float16, torch.bfloat16]:
++                    hidden_states = hidden_states.to(self.weight.dtype)
++            hidden_states = torch_npu.npu_rms_norm(hidden_states, self.weight, epsilon=self.eps)[0]
++            if self.bias is not None:
++                hidden_states = hidden_states + self.bias
++        else:
++            input_dtype = hidden_states.dtype
++            variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
++            hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
++
++            if self.weight is not None:
++                # convert into half-precision if necessary
++                if self.weight.dtype in [torch.float16, torch.bfloat16]:
++                    hidden_states = hidden_states.to(self.weight.dtype)
++                hidden_states = hidden_states * self.weight
++                if self.bias is not None:
++                    hidden_states = hidden_states + self.bias
++            else:
++                hidden_states = hidden_states.to(input_dtype)
++
++        return hidden_states
++
++
++def _rotate_half(x: torch.Tensor) -> torch.Tensor:
++    """
++    change sign so the last dimension becomes [-odd, +even]
++    """
++    x = x.view(x.shape[:-1] + torch.Size((2, x.shape[-1] // 2)))
++    x1, x2 = x.unbind(dim=-2)
++    return torch.cat((-x2, x1), dim=-1)
++
++from typing import Union
++def apply_rotary_pos_emb(
++    t: torch.Tensor,
++    freqs: torch.Tensor,
++    tensor_format: str = "sbhd",
++    fused: bool = False,
++    cu_seqlens: Union[torch.Tensor, None] = None,
++    cp_size: int = 1,
++    cp_rank: int = 0,
++) -> torch.Tensor:
++    """
++    Apply rotary positional embedding tensor to the input tensor.
++
++    Parameters
++    ----------
++    t: torch.Tensor
++        Input tensor of shape `[s, b, h, d]`, `[b, s, h, d]` or `[t, h, d]`, on which
++        rotary positional embedding will be applied.
++    freqs: torch.Tensor
++        Rotary positional embedding tensor of shape `[s2, 1, 1, d2]` and dtype 'float',
++        with `s2 >= s` and `d2 <= d`.
++    fused: bool, default = False
++        Whether to use a fused applying RoPE implementation.
++    tensor_format: {'sbhd', 'bshd', 'thd'}, default = 'sbhd'
++        is `bshd` if `t` is of shape `[bs, seq, ...]`, or `sbhd` if `t` is
++        of shape `[seq, bs, ...]`. 'thd' is only supported when `fused` is True.
++    cu_seqlens: torch.Tensor, default = None.
++        Cumulative sum of sequence lengths in a batch for `t`, with shape [b + 1] and
++        dtype torch.int32. Only valid when `tensor_format` is 'thd'.
++        Should be `cu_seqlens_padded` when cp_size > 1.
++    cp_size: int, default = 1.
++        Context parallel world size. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    cp_rank: int, default = 0.
++        Context parallel rank. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    """
++
++    assert tensor_format in ("sbhd", "bshd"), (
++        "Only formats `sbhd` or `bshd` are supported for input tensor `t` "
++        f"when fused is False, got {tensor_format}."
++    )
++
++    max_seq_len = freqs.shape[0]
++    cur_seq_len = t.shape[1] if tensor_format == "bshd" else t.shape[0]
++
++    # Only apply the rotary embeddings up to the sequence length of the running
++    # input.
++    assert (
++        cur_seq_len <= max_seq_len
++    ), f"Rotary Embeddings only supported up to {max_seq_len} sequence length!"
++    freqs = freqs[:cur_seq_len]
++    if tensor_format == "bshd":
++        freqs = freqs.transpose(0, 1)  # [seq, 1, 1, dim] -> [1, seq, 1, dim]
++    # cos/sin first then dtype conversion for better precision
++    cos_ = torch.cos(freqs).to(t.dtype)
++    sin_ = torch.sin(freqs).to(t.dtype)
++
++    rot_dim = freqs.shape[-1]
++    # ideally t_pass is empty so rotary pos embedding is applied to all tensor t
++    t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
++
++    # first part is cosine component
++    # second part is sine component, need to change signs with _rotate_half method
++    t = (t * cos_) + (_rotate_half(t) * sin_)
++    return torch.cat((t, t_pass), dim=-1)
++
++
+ class Attention(nn.Module):
+     """
+     A flexible attention module supporting both self-attention and cross-attention mechanisms.
+@@ -262,7 +398,7 @@ class Attention(nn.Module):
+         head_dim: int = 64,
+         dropout: float = 0.0,
+         qkv_format: str = "bshd",
+-        backend: str = "transformer_engine",
++        backend: str = "torch", # 修改成torch的后端
+         natten_params: Mapping | None = None,
+     ) -> None:
+         super().__init__()
+@@ -287,10 +423,10 @@ class Attention(nn.Module):
+         self.context_dim = context_dim
+ 
+         self.q_proj = nn.Linear(query_dim, inner_dim, bias=False)
+-        self.q_norm = te.pytorch.RMSNorm(self.head_dim, eps=1e-6)
++        self.q_norm = RMSNorm(self.head_dim, eps=1e-6)
+ 
+         self.k_proj = nn.Linear(context_dim, inner_dim, bias=False)
+-        self.k_norm = te.pytorch.RMSNorm(self.head_dim, eps=1e-6)
++        self.k_norm = RMSNorm(self.head_dim, eps=1e-6)
+ 
+         self.v_proj = nn.Linear(context_dim, inner_dim, bias=False)
+         self.v_norm = nn.Identity()
+@@ -398,6 +534,8 @@ class Attention(nn.Module):
+     def set_context_parallel_group(
+         self, process_group: ProcessGroup, ranks: list[int], stream: torch.cuda.Stream
+     ) -> None:
++        if self.backend == "torch":
++            return
+         self.attn_op.set_context_parallel_group(process_group, ranks, stream)
+ 
+ 
+@@ -919,8 +1057,8 @@ class Block(nn.Module):
+         mlp_ratio: float = 4.0,
+         use_adaln_lora: bool = False,
+         adaln_lora_dim: int = 256,
+-        self_attention_backend: str = "transformer_engine",
+-        cross_attention_backend: str = "transformer_engine",
++        self_attention_backend: str = "torch",
++        cross_attention_backend: str = "torch",
+         natten_params: Mapping | None = None,
+     ):
+         super().__init__()
+@@ -1172,7 +1310,7 @@ class MiniTrainDIT(WeightTrainingStat):
+         num_blocks: int = 10,
+         num_heads: int = 16,
+         mlp_ratio: float = 4.0,
+-        atten_backend: str = "transformer_engine",
++        atten_backend: str = "torch",
+         # cross attention settings
+         crossattn_emb_channels: int = 1024,
+         use_crossattn_projection: bool = TEXT_ENCODER_CLASS is TextEncoderClass.COSMOS_REASON1,
+@@ -1290,7 +1428,7 @@ class MiniTrainDIT(WeightTrainingStat):
+         else:
+             self.crossattn_proj = None
+ 
+-        self.t_embedding_norm = te.pytorch.RMSNorm(model_channels, eps=1e-6)
++        self.t_embedding_norm = RMSNorm(model_channels, eps=1e-6)
+         self.init_weights()
+         self.enable_selective_checkpoint(sac_config)
+         self._is_context_parallel_enabled = False
+diff --git a/cosmos_predict2/models/text2image_model.py b/cosmos_predict2/models/text2image_model.py
+index 3133764..3d02550 100644
+--- a/cosmos_predict2/models/text2image_model.py
++++ b/cosmos_predict2/models/text2image_model.py
+@@ -44,7 +44,7 @@ from imaginaire.utils import log
+ @attrs.define(slots=False)
+ class Predict2ModelManagerConfig:
+     # Local path, use it in fast debug run
+-    dit_path: str = get_cosmos_predict2_text2image_checkpoint(model_size="2B")
++    dit_path: str = get_cosmos_predict2_text2image_checkpoint(model_size="14B")
+     # For inference
+     text_encoder_path: str = ""  # not used in training.
+ 
+@@ -66,7 +66,7 @@ class Predict2Text2ImageModelConfig:
+     # This is used for the original way to load models
+     model_manager_config: Predict2ModelManagerConfig = Predict2ModelManagerConfig()  # noqa: RUF009
+     # This is a new way to load models
+-    pipe_config: Text2ImagePipelineConfig = get_cosmos_predict2_text2image_pipeline(model_size="2B")  # noqa: RUF009
++    pipe_config: Text2ImagePipelineConfig = get_cosmos_predict2_text2image_pipeline(model_size="14B")  # noqa: RUF009
+     # debug flag
+     debug_without_randomness: bool = False
+     fsdp_shard_size: int = 0  # 0 means not using fsdp, -1 means set to world size
+@@ -175,6 +175,7 @@ class Predict2Text2ImageModel(ImaginaireModel):
+             scheduler (torch.optim.lr_scheduler.LRScheduler): The optimization scheduler.
+         """
+         optimizer = instantiate(optimizer_config, model=self.net)
++
+         scheduler = get_base_scheduler(optimizer, self, scheduler_config)
+         return optimizer, scheduler
+ 
+diff --git a/cosmos_predict2/models/video2world_model.py b/cosmos_predict2/models/video2world_model.py
+index 57b172d..ea60720 100644
+--- a/cosmos_predict2/models/video2world_model.py
++++ b/cosmos_predict2/models/video2world_model.py
+@@ -45,7 +45,7 @@ from imaginaire.utils import log
+ @attrs.define(slots=False)
+ class Predict2ModelManagerConfig:
+     # Local path, use it in fast debug run
+-    dit_path: str = get_cosmos_predict2_video2world_checkpoint(model_size="2B")
++    dit_path: str = get_cosmos_predict2_video2world_checkpoint(model_size="14B")
+     # For inference
+     text_encoder_path: str = ""  # not used in training.
+ 
+@@ -88,7 +88,7 @@ class Predict2Video2WorldModelConfig:
+     # This is used for the original way to load models
+     model_manager_config: Predict2ModelManagerConfig = Predict2ModelManagerConfig()  # noqa: RUF009
+     # This is a new way to load models
+-    pipe_config: Video2WorldPipelineConfig = get_cosmos_predict2_video2world_pipeline(model_size="2B")  # noqa: RUF009
++    pipe_config: Video2WorldPipelineConfig = get_cosmos_predict2_video2world_pipeline(model_size="14B")  # noqa: RUF009
+     # debug flag
+     debug_without_randomness: bool = False
+     fsdp_shard_size: int = 0  # 0 means not using fsdp, -1 means set to world size
+diff --git a/cosmos_predict2/pipelines/text2image.py b/cosmos_predict2/pipelines/text2image.py
+index 4a26ef4..488faca 100644
+--- a/cosmos_predict2/pipelines/text2image.py
++++ b/cosmos_predict2/pipelines/text2image.py
+@@ -15,6 +15,7 @@
+ 
+ from contextlib import contextmanager
+ from typing import Any
++import copy
+ 
+ import numpy as np
+ import torch
+@@ -164,13 +165,19 @@ class Text2ImagePipeline(BasePipeline):
+                     state_dict_dit_compatible[k[len(prefix_to_load) :]] = v
+                 else:
+                     state_dict_dit_compatible[k] = v
++            state_dict_dit_compatible_cp = copy.deepcopy(state_dict_dit_compatible)
+             pipe.dit.load_state_dict(state_dict_dit_compatible, strict=False, assign=True)
+             del state_dict, state_dict_dit_compatible
+             log.success(f"Successfully loaded DiT from {dit_path}")
+ 
+         # 6-2. Handle EMA
+         if config.ema.enabled:
+-            pipe.dit_ema = instantiate(dit_config).eval()
++            # pipe.dit_ema = instantiate(dit_config).eval()
++            with init_weights_on_device():
++                pipe.dit_ema = instantiate(dit_config).eval()
++            if dit_path:
++                pipe.dit_ema.load_state_dict(state_dict_dit_compatible_cp, strict=False, assign=True)
++                del state_dict_dit_compatible_cp
+             pipe.dit_ema.requires_grad_(False)
+ 
+             pipe.dit_ema_worker = FastEmaModelUpdater()  # default when not using FSDP
+diff --git a/cosmos_predict2/pipelines/video2world.py b/cosmos_predict2/pipelines/video2world.py
+index fef8cec..dd2978f 100644
+--- a/cosmos_predict2/pipelines/video2world.py
++++ b/cosmos_predict2/pipelines/video2world.py
+@@ -368,13 +368,20 @@ class Video2WorldPipeline(BasePipeline):
+                     state_dict_dit_compatible[k[len(prefix_to_load) :]] = v
+                 else:
+                     state_dict_dit_compatible[k] = v
++            import copy
++            state_dict_dit_compatible_cp = copy.deepcopy(state_dict_dit_compatible)
+             pipe.dit.load_state_dict(state_dict_dit_compatible, strict=False, assign=True)
+             del state_dict, state_dict_dit_compatible
+             log.success(f"Successfully loaded DiT from {dit_path}")
+ 
+         # 6-2. Handle EMA
+         if config.ema.enabled:
+-            pipe.dit_ema = instantiate(dit_config).eval()
++            # pipe.dit_ema = instantiate(dit_config).eval()
++            with init_weights_on_device():
++                pipe.dit_ema = instantiate(dit_config).eval()
++            if dit_path:
++                pipe.dit_ema.load_state_dict(state_dict_dit_compatible_cp, strict=False, assign=True)
++                del state_dict_dit_compatible_cp
+             pipe.dit_ema.requires_grad_(False)
+ 
+             pipe.dit_ema_worker = FastEmaModelUpdater()  # default when not using FSDP
+diff --git a/imaginaire/networks/qwen2_5_vl.py b/imaginaire/networks/qwen2_5_vl.py
+index 4716140..29918cd 100644
+--- a/imaginaire/networks/qwen2_5_vl.py
++++ b/imaginaire/networks/qwen2_5_vl.py
+@@ -28,7 +28,7 @@ from transformers.cache_utils import Cache, DynamicCache, SlidingWindowCache, St
+ from transformers.modeling_attn_mask_utils import AttentionMaskConverter
+ from transformers.modeling_outputs import BaseModelOutputWithPast, ModelOutput
+ from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
+-
++import torch_npu
+ try:
+     from torch.distributed.tensor import Shard
+ except ImportError:
+@@ -48,23 +48,9 @@ from transformers.utils import (
+     logging,
+ )
+ 
+-# upgrade to 2.7.4 also works
+-if is_flash_attn_2_available():
+-    from flash_attn import flash_attn_varlen_func
+-    from flash_attn.layers.rotary import apply_rotary_emb
+-
+-else:
+-    flash_attn_varlen_func = None
+-    apply_rotary_emb = None
+ 
++from transformers.modeling_flash_attention_utils import _flash_attention_forward
+ 
+-if is_flash_attn_2_available():
+-    from transformers.modeling_flash_attention_utils import _flash_attention_forward
+-else:
+-    print("flash_attn_2 not available")
+-    flash_attn_varlen_func = None
+-
+-assert is_flash_attn_2_available(), "flash_attn_2 not available. run pip install flash_attn"
+ 
+ logger = logging.get_logger(__name__)
+ 
+@@ -254,7 +240,7 @@ def apply_rotary_pos_emb_flashatt(tensor: torch.Tensor, freqs: torch.Tensor) ->
+     tensor_ = tensor.float()
+     cos = freqs.cos().float()
+     sin = freqs.sin().float()
+-    output = apply_rotary_emb(tensor_, cos, sin).type_as(tensor)
++    output = torch_npu.npu_rotary_mul(tensor_, cos, sin).type_as(tensor)
+     return output
+ 
+ 
+@@ -277,9 +263,21 @@ class Qwen2_5_VLVisionFlashAttention2(nn.Module):
+         k = apply_rotary_pos_emb_flashatt(k.unsqueeze(0), rotary_pos_emb).squeeze(0)
+ 
+         max_seqlen = (cu_seqlens[1:] - cu_seqlens[:-1]).max().item()
+-        attn_output = flash_attn_varlen_func(q, k, v, cu_seqlens, cu_seqlens, max_seqlen, max_seqlen).reshape(
+-            seq_length, -1
+-        )
++
++        # 替换成NPU
++        head_num = q.shape[1]
++        attn_output = torch_npu.npu_fusion_attention(
++             q, k, v, head_num,
++             pse=None,
++             atten_mask=None,
++             scale=1.0 / math.sqrt(q.shape[-1]),
++             keep_prob=1,
++             input_layout="TND",
++             actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
++             actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()))[0]
++
++        attn_output = attn_output.reshape(seq_length, -1)
++
+         attn_output = self.proj(attn_output)
+         return attn_output
+ 
+@@ -789,7 +787,7 @@ class Qwen2_5_VLFlashAttention2(Qwen2_5_VLAttention):
+         # TODO: Should be removed once Flash Attention for RoCm is bumped to 2.1.
+         # flash_attn<2.1 generates top-left aligned causal mask, while what is needed here is bottom-right alignement, that was made default for flash_attn>=2.1. This attribute is used to handle this difference. Reference: https://github.com/Dao-AILab/flash-attention/releases/tag/v2.1.0.
+         # Beware that with flash_attn<2.1, using q_seqlen != k_seqlen (except for the case q_seqlen == 1) produces a wrong mask (top-left).
+-        self._flash_attn_uses_top_left_mask = not is_flash_attn_greater_or_equal_2_10()
++        self._flash_attn_uses_top_left_mask = False
+ 
+     def forward(
+         self,
+diff --git a/imaginaire/trainer.py b/imaginaire/trainer.py
+index 5cc9fd0..6af0499 100644
+--- a/imaginaire/trainer.py
++++ b/imaginaire/trainer.py
+@@ -19,6 +19,7 @@ import os
+ import signal
+ 
+ import torch
++import torch_npu
+ import torch.distributed as dist
+ import torch.utils.data
+ 
+@@ -171,66 +172,58 @@ class ImaginaireTrainer:
+             self.validate(model, dataloader_val, iteration=iteration)
+             log.info("Initial validation done.")
+         _end_training = False
+-        with (
+-            maybe_enable_profiling(self.config, global_step=iteration) as torch_profiler,
+-            maybe_enable_memory_snapshot(self.config, global_step=iteration) as memory_profiler,
+-        ):
++        while True:
++            dataloader_train_iter = iter(dataloader_train)
+             while True:
+-                dataloader_train_iter = iter(dataloader_train)
+-                while True:
+-                    self.callbacks.on_before_dataloading(iteration)
+-                    try:
+-                        with self.training_timer("dataloader_train"):
+-                            data_batch = next(dataloader_train_iter)
+-                    except StopIteration:
+-                        break
+-                    finally:
+-                        self.callbacks.on_after_dataloading(iteration)
+-                    # If max_iter is reached, exit the training loop.
+-                    if iteration >= self.config.trainer.max_iter:
+-                        _end_training = True
+-                        break
+-                    # Move all tensors in the data batch to GPU device.
+-                    data_batch = misc.to(data_batch, device="cuda")
+-                    # The actual training step.
+-                    self.callbacks.on_training_step_start(model, data_batch, iteration=iteration)
+-                    self.callbacks.on_training_step_batch_start(model, data_batch, iteration=iteration)
+-                    if not model.training:
+-                        model_ddp.train()
+-                    assert model_ddp.training, "model_ddp is not in training mode."
+-                    assert model.training, "model is not in training mode."
+-                    output_batch, loss, grad_accum_iter = self.training_step(
+-                        model_ddp,
+-                        optimizer,
+-                        scheduler,
+-                        grad_scaler,
+-                        data_batch,
+-                        iteration=iteration,
+-                        grad_accum_iter=grad_accum_iter,
+-                    )
+-                    self.callbacks.on_training_step_batch_end(
+-                        model, data_batch, output_batch, loss, iteration=iteration
+-                    )
+-                    # If the gradients are still being accumulated, continue to load the next training batch.
+-                    if grad_accum_iter != 0:
+-                        continue
+-                    # Do the following when an actual optimizer (update) step has been made.
+-                    iteration += 1
+-                    # Save checkpoint.
+-                    if iteration % self.config.checkpoint.save_iter == 0:
+-                        self.checkpointer.save(model, optimizer, scheduler, grad_scaler, iteration=iteration)
+-                    self.callbacks.on_training_step_end(model, data_batch, output_batch, loss, iteration=iteration)
+-                    # Validation.
+-                    if self.config.trainer.run_validation and iteration % self.config.trainer.validation_iter == 0:
+-                        self.validate(model, dataloader_val, iteration=iteration)
+-                    # This iteration is successful; reset the timeout signal.
+-                    signal.alarm(self.config.trainer.timeout_period)
+-                    if torch_profiler:
+-                        torch_profiler.step()
+-                    if memory_profiler:
+-                        memory_profiler.step()
+-                if _end_training:
++                self.callbacks.on_before_dataloading(iteration)
++                try:
++                    with self.training_timer("dataloader_train"):
++                        data_batch = next(dataloader_train_iter)
++                except StopIteration:
++                    break
++                finally:
++                    self.callbacks.on_after_dataloading(iteration)
++                # If max_iter is reached, exit the training loop.
++                if iteration >= self.config.trainer.max_iter:
++                    _end_training = True
+                     break
++                # Move all tensors in the data batch to GPU device.
++                data_batch = misc.to(data_batch, device="cuda")
++                # The actual training step.
++                self.callbacks.on_training_step_start(model, data_batch, iteration=iteration)
++                self.callbacks.on_training_step_batch_start(model, data_batch, iteration=iteration)
++                if not model.training:
++                    model_ddp.train()
++                assert model_ddp.training, "model_ddp is not in training mode."
++                assert model.training, "model is not in training mode."
++                output_batch, loss, grad_accum_iter = self.training_step(
++                    model_ddp,
++                    optimizer,
++                    scheduler,
++                    grad_scaler,
++                    data_batch,
++                    iteration=iteration,
++                    grad_accum_iter=grad_accum_iter,
++                )
++                self.callbacks.on_training_step_batch_end(
++                    model, data_batch, output_batch, loss, iteration=iteration
++                )
++                # If the gradients are still being accumulated, continue to load the next training batch.
++                if grad_accum_iter != 0:
++                    continue
++                # Do the following when an actual optimizer (update) step has been made.
++                iteration += 1
++                # Save checkpoint.
++                if iteration % self.config.checkpoint.save_iter == 0:
++                    self.checkpointer.save(model, optimizer, scheduler, grad_scaler, iteration=iteration)
++                self.callbacks.on_training_step_end(model, data_batch, output_batch, loss, iteration=iteration)
++                # Validation.
++                if self.config.trainer.run_validation and iteration % self.config.trainer.validation_iter == 0:
++                    self.validate(model, dataloader_val, iteration=iteration)
++                # This iteration is successful; reset the timeout signal.
++                signal.alarm(self.config.trainer.timeout_period)
++            if _end_training:
++                break
+         log.success("Done with training.")
+         if iteration % self.config.checkpoint.save_iter != 0:
+             self.checkpointer.save(model, optimizer, scheduler, grad_scaler, iteration=iteration)
+diff --git a/imaginaire/utils/distributed.py b/imaginaire/utils/distributed.py
+index 771fc8e..5441ed3 100644
+--- a/imaginaire/utils/distributed.py
++++ b/imaginaire/utils/distributed.py
+@@ -53,13 +53,7 @@ def init() -> int | None:
+         return torch.cuda.current_device()
+ 
+     # Set GPU affinity.
+-    pynvml.nvmlInit()
+     local_rank = int(os.getenv("LOCAL_RANK", 0))
+-    try:
+-        device = Device(local_rank)
+-        os.sched_setaffinity(0, device.get_cpu_affinity())
+-    except pynvml.NVMLError as e:
+-        log.warning(f"Failed to set device affinity: {e}")
+     # Set up NCCL communication.
+     os.environ["TORCH_NCCL_BLOCKING_WAIT"] = "0"
+     os.environ["TORCH_NCCL_ASYNC_ERROR_HANDLING"] = "1"
+@@ -74,12 +68,6 @@ def init() -> int | None:
+             f"Initialized distributed training with local rank {local_rank} with timeout {timeout_seconds}",
+             rank0_only=False,
+         )
+-    # Increase the L2 fetch granularity for faster speed.
+-    _libcudart = ctypes.CDLL("libcudart.so")
+-    # Set device limit on the current device.
+-    p_value = ctypes.cast((ctypes.c_int * 1)(), ctypes.POINTER(ctypes.c_int))
+-    _libcudart.cudaDeviceSetLimit(ctypes.c_int(0x05), ctypes.c_int(128))
+-    _libcudart.cudaDeviceGetLimit(p_value, ctypes.c_int(0x05))
+     log.info(f"Training with {get_world_size()} GPUs.")
+ 
+ 
+diff --git a/imaginaire/utils/graph.py b/imaginaire/utils/graph.py
+index 7c17b5f..8aaf6b8 100644
+--- a/imaginaire/utils/graph.py
++++ b/imaginaire/utils/graph.py
+@@ -22,8 +22,6 @@ import torch
+ from torch._C import _graph_pool_handle
+ from torch.utils._pytree import tree_flatten as _tree_flatten
+ from torch.utils._pytree import tree_unflatten as _tree_unflatten
+-from transformer_engine.pytorch.distributed import get_all_rng_states, graph_safe_rng_available
+-from transformer_engine.pytorch.module.base import TransformerEngineBaseModule
+ 
+ from imaginaire.utils import log
+ 
+@@ -159,6 +157,7 @@ def _make_graphed_callables(
+     visited_te_modules = set()
+ 
+     def hook_fn(module, inputs, outputs):  # pylint: disable=unused-argument
++        pass
+         if isinstance(module, TransformerEngineBaseModule):
+             visited_te_modules.add(module)
+ 
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+index 0000000..4f52f56
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1,80 @@
++accelerate==1.10.1
++annotated-types==0.7.0
++antlr4-python3-runtime==4.9.3
++attrs==25.3.0
++av==15.1.0
++better-profanity==0.7.0
++braceexpand==0.1.7
++certifi==2025.8.3
++charset-normalizer==3.4.3
++click==8.2.1
++decorator==5.2.1
++diffusers==0.35.1
++einops==0.8.1
++filelock==3.19.1
++fsspec==2025.7.0
++fvcore==0.1.5.post20221221
++gitdb==4.0.12
++gitpython==3.1.45
++hf-xet==1.1.8
++huggingface-hub==0.34.4
++hydra-core==1.3.2
++idna==3.10
++imageio==2.37.0
++imageio-ffmpeg==0.6.0
++importlib-metadata==8.7.0
++iopath==0.1.10
++jinja2==3.1.6
++joblib==1.5.1
++loguru==0.7.3
++markupsafe==3.0.2
++megatron-core==0.13.1
++mpmath==1.3.0
++networkx==3.4.2
++nltk==3.9.1
++numpy==1.26.4
++nvidia-ml-py==12.575.51
++omegaconf==2.3.0
++opencv-python==4.10.0.84
++packaging==25.0
++pandas==2.3.2
++peft==0.17.1
++pillow==11.3.0
++platformdirs==4.4.0
++portalocker==3.2.0
++protobuf==6.32.0
++psutil==7.0.0
++pydantic==2.11.7
++pydantic-core==2.33.2
++pynvml==12.0.0
++python-dateutil==2.9.0.post0
++pytz==2025.2
++pyyaml==6.0.2
++qwen-vl-utils==0.0.11
++regex==2025.7.34
++requests==2.32.5
++retinaface-py==0.0.2
++safetensors==0.6.2
++scikit-image==0.25.2
++scipy==1.15.3
++sentencepiece==0.2.0
++sentry-sdk==2.35.1
++setuptools==80.9.0
++six==1.17.0
++smmap==5.0.2
++sympy==1.14.0
++tabulate==0.9.0
++termcolor==3.1.0
++tokenizers==0.21.4
++torch==2.7.1
++torchvision==0.22.1
++tqdm==4.67.1
++transformers==4.55.4
++typing-extensions==4.15.0
++typing-inspection==0.4.1
++tzdata==2025.2
++urllib3==2.5.0
++wandb==0.21.3
++webdataset==1.0.2
++yacs==0.1.8
++zipp==3.23.0
+diff --git a/scripts/cosmos_guardrail_redo.py b/scripts/cosmos_guardrail_redo.py
+new file mode 100644
+index 0000000..815d8f4
+--- /dev/null
++++ b/scripts/cosmos_guardrail_redo.py
+@@ -0,0 +1,80 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++import torch
++import numpy as np
++from typing import Union
++
++from cosmos_guardrail.cosmos_guardrail import (
++    GuardrailRunner, 
++    Blocklist, 
++    Aegis, 
++    VideoContentSafetyFilter, 
++    RetinaFaceFilter,
++    logger
++)
++
++
++class CosmosSafetyChecker(torch.nn.Module):
++    def __init__(
++        self,
++        use_safe_check: bool = False,
++        checkpoint_id: str = "",
++        aegis_model_id: str = "meta-llama/LlamaGuard-7b",
++        aegis_adapter_id: str = "nvidia/Aegis-AI-Content-Safety-LlamaGuard-Defensive-1.0",
++    ) -> None:
++        super().__init__()
++        # 默认设置为使用CPU进行安全检查，若想采用 NPU 则关闭此开关
++        self.use_cpu = True
++        self.use_safe_check = use_safe_check
++        
++        if not self.use_safe_check:
++            return
++
++        self.text_guardrail = GuardrailRunner(
++            safety_models=[
++                Blocklist(checkpoint_id),
++                Aegis(checkpoint_id, aegis_model_id, aegis_adapter_id),
++            ]
++        )
++        self.video_guardrail = GuardrailRunner(
++            safety_models=[VideoContentSafetyFilter(checkpoint_id)],
++            postprocessors=[RetinaFaceFilter(checkpoint_id)],
++        )
++
++    def check_text_safety(self, prompt: str) -> bool:
++        if not self.use_safe_check:
++            return True
++        
++        is_safe, message = self.text_guardrail.run_safety_check(prompt)
++        if not is_safe:
++            logger.critical(f"GUARDRAIL BLOCKED: {message}")
++        return is_safe
++
++    def check_video_safety(self, frames: np.ndarray) -> np.ndarray:
++        if not self.use_safe_check:
++            return frames
++        
++        is_safe, message = self.video_guardrail.run_safety_check(frames)
++        if not is_safe:
++            logger.critical(f"GUARDRAIL BLOCKED: {message}")
++            return None
++        frames = self.video_guardrail.postprocess(frames)
++        return frames
++
++    def to(self, device: Union[str, torch.device] = None, dtype: torch.dtype = None) -> None:
++        if not self.use_safe_check or self.use_cpu:
++            return
++        self.text_guardrail.safety_models[1].model.to(device=device, dtype=dtype)
++        self.video_guardrail.safety_models[0].model.to(device=device, dtype=dtype)
++        self.video_guardrail.postprocessors[0].to(device=device, dtype=dtype)
++        
++    @property
++    def device(self) -> torch.device:
++        if not self.use_safe_check or self.use_cpu:
++            return "npu"
++        return self.text_guardrail.safety_models[1].model.device
++
++    @property
++    def dtype(self) -> torch.dtype:
++        if not self.use_safe_check or self.use_cpu:
++            return torch.float32
++        return self.text_guardrail.safety_models[1].model.dtype
+\ No newline at end of file
+diff --git a/scripts/extract_images_from_videos.py b/scripts/extract_images_from_videos.py
+index 122bc91..0c2f111 100644
+--- a/scripts/extract_images_from_videos.py
++++ b/scripts/extract_images_from_videos.py
+@@ -13,6 +13,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++import torch, torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import argparse
+ import os
+ 
+diff --git a/scripts/get_t5_embeddings_from_cosmos_nemo_assets.py b/scripts/get_t5_embeddings_from_cosmos_nemo_assets.py
+index c76d646..e3a6f05 100644
+--- a/scripts/get_t5_embeddings_from_cosmos_nemo_assets.py
++++ b/scripts/get_t5_embeddings_from_cosmos_nemo_assets.py
+@@ -13,6 +13,8 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++import torch, torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import argparse
+ import os
+ import pickle
+diff --git a/scripts/hf_text2image.py b/scripts/hf_text2image.py
+index 91e3a5e..bbc1668 100755
+--- a/scripts/hf_text2image.py
++++ b/scripts/hf_text2image.py
+@@ -27,7 +27,9 @@
+ # exclude-newer = "2025-08-15T00:00:00Z"
+ # override-dependencies = ["peft>=0.15.0"]
+ # ///
+-
++import sys
++import os
++os.environ["MKL_NUM_THREADS"] = "64"
+ 
+ """Example of Cosmos-Predict2 Text2Image inference using Hugging Face diffusers."""
+ 
+@@ -38,9 +40,23 @@ import textwrap
+ import diffusers
+ import torch
+ 
++from scripts.patch import generate_patcher_builder
++
++generate_patcher_builder()
++
+ ROOT = pathlib.Path(__file__).parents[1]
+ SEPARATOR = "-" * 20
+ 
++if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++    USE_NPU = True
++    os.environ['DEVICE_TYPE'] = "npu"
++    DEVICE_TYPE = "npu"
++    print("Enable NPU!")
++    import torch_npu
++    from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
++    torch.npu.set_compile_mode(jit_compile=False)
++
+ 
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+@@ -70,6 +86,7 @@ def main():
+     )
+     parser.add_argument("--height", type=int, default=768, help="The height in pixels of the generated image.")
+     parser.add_argument("--width", type=int, default=1360, help="The width in pixels of the generated image.")
++    parser.add_argument("--use_safety_checker", type=bool, default=False, help="Whether use safety checker.")
+     args = parser.parse_args()
+ 
+     prompt = open(args.prompt).read()
+@@ -89,14 +106,33 @@ def main():
+         print(textwrap.indent(negative_prompt.rstrip(), "  "))
+         print(SEPARATOR)
+ 
+-    pipe = diffusers.Cosmos2TextToImagePipeline.from_pretrained(
+-        args.model,
+-        revision=args.revision,
+-        use_safetensors=True,
+-        torch_dtype=torch.bfloat16,
+-    )
+-    pipe.to("cuda")
++    
++    from scripts.cosmos_guardrail_redo import CosmosSafetyChecker
++
++    # 若开启安全检查，CPU加载安全检查模型避免显存爆炸
++    if args.use_safety_checker:
++        pipe = diffusers.Cosmos2TextToImagePipeline.from_pretrained(
++            args.model,
++            revision=args.revision,
++            use_safetensors=True,
++            torch_dtype=torch.bfloat16,
++            safety_checker=CosmosSafetyChecker(use_safe_check=True, 
++                                                checkpoint_id="./checkpoints/nvidia/Cosmos-1.0-Guardrail")
++        )
++        print("Start safe checking")
+ 
++    # 若不开启则正常加载其余模型
++    else:
++        pipe = diffusers.Cosmos2TextToImagePipeline.from_pretrained(
++                args.model,
++                revision=args.revision,
++                use_safetensors=True,
++                torch_dtype=torch.bfloat16,
++                safety_checker=CosmosSafetyChecker(use_safe_check=False)
++            )
++    
++    pipe.to("cuda")
++    
+     print("Generating image...")
+     output = pipe(
+         prompt=prompt,
+diff --git a/scripts/hf_video2world.py b/scripts/hf_video2world.py
+index c6a3610..c34d7f0 100755
+--- a/scripts/hf_video2world.py
++++ b/scripts/hf_video2world.py
+@@ -39,7 +39,22 @@ import torch
+ 
+ ROOT = pathlib.Path(__file__).parents[1]
+ SEPARATOR = "-" * 20
++import os
++os.environ["MKL_NUM_THREADS"] = "64"
+ 
++from scripts.patch import generate_patcher_builder
++
++generate_patcher_builder()
++
++if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++    USE_NPU = True
++    os.environ['DEVICE_TYPE'] = "npu"
++    DEVICE_TYPE = "npu"
++    print("Enable NPU!")
++    import torch_npu
++    from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
++    torch.npu.set_compile_mode(jit_compile=False)
+ 
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+@@ -73,6 +88,7 @@ def main():
+     parser.add_argument("--width", type=int, default=1280, help="The width in pixels of the generated image.")
+     parser.add_argument("--frames", type=int, default=93, help="The number of frames in the generated video.")
+     parser.add_argument("--fps", type=int, default=16, help="The frames per second of the generated video.")
++    parser.add_argument("--use_safety_checker", type=bool, default=False, help="Whether use safety checker.")
+     args = parser.parse_args()
+ 
+     prompt = open(args.prompt).read()
+@@ -101,14 +117,31 @@ def main():
+         print(textwrap.indent(negative_prompt.rstrip(), "  "))
+         print(SEPARATOR)
+ 
+-    pipe = diffusers.Cosmos2VideoToWorldPipeline.from_pretrained(
+-        args.model,
+-        revision=args.revision,
+-        use_safetensors=True,
+-        torch_dtype=torch.bfloat16,
+-    )
+-    pipe.to("cuda")
++    from scripts.cosmos_guardrail_redo import CosmosSafetyChecker
+ 
++    # 若开启安全检查，CPU加载安全检查模型避免显存爆炸
++    if args.use_safety_checker:
++        pipe = diffusers.Cosmos2VideoToWorldPipeline.from_pretrained(
++            args.model,
++            revision=args.revision,
++            use_safetensors=True,
++            torch_dtype=torch.bfloat16,
++            safety_checker=CosmosSafetyChecker(use_safe_check=True, 
++                                                checkpoint_id="./checkpoints/nvidia/Cosmos-1.0-Guardrail")
++        )
++        print("Start safe checking...")
++
++    else:
++        pipe = diffusers.Cosmos2VideoToWorldPipeline.from_pretrained(
++            args.model,
++            revision=args.revision,
++            use_safetensors=True,
++            torch_dtype=torch.bfloat16,
++            safety_checker=CosmosSafetyChecker(use_safe_check=False)
++        )
++
++    pipe.to("cuda")
++    
+     print("Generating video...")
+     output = pipe(
+         image=image,
+diff --git a/scripts/train.py b/scripts/train.py
+index 2b93d68..2b8d563 100644
+--- a/scripts/train.py
++++ b/scripts/train.py
+@@ -24,6 +24,17 @@ from imaginaire.lazy_config import instantiate
+ from imaginaire.lazy_config.lazy import LazyConfig
+ from imaginaire.utils import distributed
+ from imaginaire.utils.config_helper import get_config_module, override
++import torch
++
++if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++    USE_NPU = True
++    os.environ['DEVICE_TYPE'] = "npu"
++    DEVICE_TYPE = "npu"
++    print("Enable NPU!")
++    import torch_npu
++    from torch_npu.contrib import transfer_to_npu
++    torch.npu.config.allow_internal_format = False
++    torch.npu.set_compile_mode(jit_compile=False)
+ 
+ 
+ @logging.catch(reraise=True)
+@@ -50,8 +61,29 @@ def launch(config: Config, args: argparse.Namespace) -> None:
+         dataloader_val,
+     )
+ 
++def seed_all(seed=1234, is_gpu=True):
++    import random
++    import numpy as np
++    import torch
++    import os
++
++    random.seed(seed)
++    os.environ['PYTHONHASHSEED'] = str(seed)
++    np.random.seed(seed)
++    torch.manual_seed(seed)
++
++    if is_gpu:
++        torch.cuda.manual_seed_all(seed)
++        torch.cuda.manual_seed(seed)
++        # torch.backends.cudnn.deterministic = True
++        # torch.backends.cudnn.enable = False
++        # torch.backends.cudnn.benchmark = False
++    else:
++        torch_npu.npu.manual_seed_all(seed)
++        torch_npu.npu.manual_seed(seed)
+ 
+ if __name__ == "__main__":
++    seed_all(1024, is_gpu=False)
+     # Usage: torchrun --nproc_per_node=1 -m scripts.train --config=cosmos_predict2/configs/base/config.py -- experiments=predict2_video2world_training_2b_cosmos_nemo_assets
+ 
+     # Get the config file from the input arguments.
