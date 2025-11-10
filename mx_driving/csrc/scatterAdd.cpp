@@ -85,7 +85,7 @@ at::Tensor npu_scatter_add(at::Tensor& src, at::Tensor& indices, c10::optional<a
     indices = indices.transpose(true_dim, dim_input);
     at::Tensor out_trans = true_out.transpose(true_dim, dim_input).contiguous();
 
-    EXEC_NPU_CMD(aclnnScatterAddV2, src, indices, out_trans, dim_input, out_trans);
+    EXEC_NPU_CMD(aclnnScatterAddV3, src, indices, out_trans, dim_input, out_trans);
 
     out_trans = out_trans.transpose(true_dim, dim_input).contiguous();
     return out_trans;
