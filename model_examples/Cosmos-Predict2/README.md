@@ -226,11 +226,11 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
 
 下载数据集至 Cosmos-Predict2/cosmos-predict2/datasets，Huggingface链接：[Cosmos-NeMo-Assets](https://huggingface.co/datasets/nvidia/Cosmos-NeMo-Assets)
 
-    ```sh
-    mkdir -p datasets/cosmos_nemo_assets/
-    hf download nvidia/Cosmos-NeMo-Assets --repo-type dataset --local-dir datasets/cosmos_nemo_assets/ --include "*.mp4*"
-    mv datasets/cosmos_nemo_assets/nemo_diffusion_example_data datasets/cosmos_nemo_assets/videos
-    ```
+```sh
+mkdir -p datasets/cosmos_nemo_assets/
+hf download nvidia/Cosmos-NeMo-Assets --repo-type dataset --local-dir datasets/cosmos_nemo_assets/ --include "*.mp4*"
+mv datasets/cosmos_nemo_assets/nemo_diffusion_example_data datasets/cosmos_nemo_assets/videos
+```
 
 数据集预处理:
 
