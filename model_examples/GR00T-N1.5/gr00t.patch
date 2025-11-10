@@ -473,7 +473,7 @@ index ec765e6..d991f07 100644
      config = tyro.cli(ArgsConfig)
      main(config)
 diff --git a/scripts/gr00t_finetune.py b/scripts/gr00t_finetune.py
-index 4f24b74..a364f5e 100644
+index 4f24b74..e63923a 100644
 --- a/scripts/gr00t_finetune.py
 +++ b/scripts/gr00t_finetune.py
 @@ -12,7 +12,7 @@
@@ -576,6 +576,17 @@ index 4f24b74..a364f5e 100644
  
      if config.num_gpus == 1:
          # Single GPU mode - set CUDA_VISIBLE_DEVICES=0
+@@ -433,7 +449,9 @@ if __name__ == "__main__":
+             # Use subprocess.run instead of os.system
+             raw_args_list = sys.argv[1:]
+             cmd = [
+-                "torchrun",
++                "python",
++                "-m",
++                "torch.distributed.run",
+                 "--standalone",
+                 f"--nproc_per_node={config.num_gpus}",
+                 "--nnodes=1",  # default to 1 node for now
 diff --git a/scripts/gr00t_inference.py b/scripts/gr00t_inference.py
 new file mode 100644
 index 0000000..a48e60f
