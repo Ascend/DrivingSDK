@@ -15,6 +15,7 @@ from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving
 import mx_driving.detection
+from mx_driving.ops.roi_align_rotated import RoIAlignRotatedFunction
 
 
 torch.npu.config.allow_internal_format = False
@@ -297,15 +298,25 @@ class TestRoiAlignedRotated(TestCase):
         return torch.from_numpy(output), grad_feature_map
 
     def npu_to_exec(self, features, rois, grad_output, args_dict):
+        class _mockCtx:
+            def __init__(self, spatial_scale, sampling_ratio, ph, pw, aligned, clockwise):
+                self.pooled_height = ph
+                self.pooled_width = pw
+                self.spatial_scale = spatial_scale
+                self.sampling_ratio = sampling_ratio
+                self.aligned = aligned
+                self.clockwise = clockwise
+                self.saved_tensors = (features.npu(), rois.npu())
+                self.feature_size = features.npu().size()
+
         spatial_scale, sampling_ratio, ph, pw, aligned, clockwise = args_dict.values()
         output_1 = mx_driving.roi_align_rotated(features.npu(), rois.npu(), spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
-        output_1.backward(grad_output.npu())
-        grad_1 = copy.deepcopy(features.grad)
+        ctx1 = _mockCtx(spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
+        grad_1, *_ = RoIAlignRotatedFunction.backward(ctx1, grad_output.npu())
 
-        features.grad.zero_()
         output_2 = mx_driving.detection.roi_align_rotated(features.npu(), rois.npu(), spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
-        output_2.backward(grad_output.npu())
-        grad_2 = copy.deepcopy(features.grad)
+        ctx2 = _mockCtx(spatial_scale, sampling_ratio, ph, pw, aligned, clockwise)
+        grad_2, *_ = RoIAlignRotatedFunction.backward(ctx2, grad_output.npu())
 
         return output_1.cpu(), output_2.cpu(), grad_1.cpu(), grad_2.cpu()
 
@@ -402,6 +413,44 @@ class TestRoiAlignedRotated(TestCase):
             self.assertRtolEqual(grad_cpu, grad_1)
             self.assertRtolEqual(grad_cpu, grad_2)
 
+    @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `RoiAlignedRotatedV2` is only supported on 910B, skip this ut!")
+    def test_RoiAlignedRotated_forward_invalid_input(self):
+        shape_format = [[8, 3, 64, 64], [16, 6], 0.5, 2, 7, 7, True, True]
+        features = self.generate_features(shape_format[0])
+        rois = self.generate_rois(shape_format[1], shape_format[0], shape_format[2])
+        grad_output = self.generate_grad(shape_format[1], shape_format[0], shape_format[4], shape_format[5])
+        spatial_scale = shape_format[2]
+        sampling_ratio = shape_format[3]
+        ph, pw = 0, 0
+        aligned, clockwise = shape_format[6], shape_format[7]
+        args_dict = dict(spatial_scale=spatial_scale, 
+                            sampling_ratio=sampling_ratio,
+                            ph=ph,
+                            pw=pw, 
+                            aligned=aligned, 
+                            clockwise=clockwise)
+        features.requires_grad_()
+        rois.requires_grad_()
+
+        try:
+            _, _, _, _ = self.npu_to_exec(features, rois, grad_output, args_dict)
+            assert False, "Expected Exception for invalid input, but no exception was raised."
+        except Exception as e:
+            assert "can not be zero" in str(e), f"Expected 'can not be zero' in error message, but got: {e}"
+
+    @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `RoiAlignedRotatedV2` is only supported on 910B, skip this ut!")
+    def test_RoiAlignedRotated_backward_invalid_input(self):
+        class _mockCtx:
+            def __init__(self, pooled_height, pooled_width):
+                self.pooled_height = pooled_height
+                self.pooled_width = pooled_width
+
+        try:
+            ctx = _mockCtx(0, 0)
+            RoIAlignRotatedFunction.backward(ctx, None)
+            assert False, "Expected Exception for invalid input, but no exception was raised."
+        except Exception as e:
+            assert "can not be zero" in str(e), f"Expected 'can not be zero' in error message, but got: {e}"
 
 if __name__ == '__main__':
     run_tests()

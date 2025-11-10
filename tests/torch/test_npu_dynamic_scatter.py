@@ -7,7 +7,8 @@ from data_cache import golden_data_cache
 from torch_npu.testing.common_utils import create_common_tensor
 from torch_npu.testing.testcase import TestCase, run_tests
 
-import mx_driving.point
+import mx_driving.point, mx_driving._C
+from mx_driving.ops.npu_dynamic_scatter import DynamicScatterFunction
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -45,9 +46,21 @@ class TestDynamicScatter(TestCase):
         return (output_feats.cpu().numpy(), output_coors.cpu().numpy()), (output_feats2.cpu().numpy(), output_coors2.cpu().numpy())
 
     def grad_npu_op_exec(self, feats, coors, reduce_type):
+        class _mockCtx:
+            def __init__(self, feats, coors, reduce_type):
+                voxel_idx = mx_driving._C.point_to_voxel(coors, [], [], "XYZ")
+                num_voxels, _, prefix_sum_point_per_voxel, argsort_coor, _ = mx_driving._C.unique_voxel(voxel_idx)
+                _, compare_mask = mx_driving._C.npu_dynamic_scatter(
+                    feats, coors, prefix_sum_point_per_voxel, argsort_coor, num_voxels, reduce_type
+                )
+                self.feats_shape = feats.shape
+                self.reduce_type = reduce_type
+                self.saved_tensors = (prefix_sum_point_per_voxel, argsort_coor, compare_mask)
+
+        ctx = _mockCtx(feats, coors, reduce_type)
         feats.requires_grad_()
         output_feats, output_coors = mx_driving.dynamic_scatter(feats, coors, reduce_type)
-        output_feats.backward(torch.ones_like(output_feats))
+        output_feats, _, _ = DynamicScatterFunction.backward(ctx, torch.ones_like(output_feats), torch.ones_like(output_coors))
         return output_feats.detach().cpu().numpy(), output_coors.detach().cpu().numpy()
 
     def test_dynamic_scatter_max_fp32(self):
@@ -89,6 +102,26 @@ class TestDynamicScatter(TestCase):
         self.assertRtolEqual(cpu_output[0], npu_output2[0])
         self.assertRtolEqual(cpu_output[1], npu_output2[1])
 
+    def test_dynamic_scatter_empty_tensor(self):
+        try:
+            _ = self.npu_op_exec(torch.empty(0), torch.empty(0), 'max')
+            assert False, "Expected Exception for empty tensor, but no exception was raised."
+        except Exception as e:
+            assert "empty tensor" in str(e), f"Expected 'empty tensor' in error message, but got: {e}"
+
+    def test_dynamic_scatter_invalid_reduce(self):
+        shape_feats = (2000, 3)
+        shape_coors = (2000, 3)
+        feats = ((torch.rand(shape_feats, dtype=torch.float32) * 100) - 50).npu()
+        coors = torch.randint(-1, 20, shape_coors, dtype=torch.int32).npu()
+        reduce_type = 'invalid reduce'
+
+        try:
+            _ = self.npu_op_exec(feats, coors, reduce_type)
+            assert False, "Expected Exception for invalid reduce, but no exception was raised."
+        except Exception as e:
+            assert "reduce_type should be" in str(e), f"Expected 'reduce_type should be' in error message, but got: {e}"
+
     def test_dynamic_scatter_grad_sum_fp32(self):
         shape_feats = (2000, 3)
         shape_coors = (2000, 3)
@@ -118,6 +151,13 @@ class TestDynamicScatter(TestCase):
         npu_output = self.grad_npu_op_exec(feats, coors, reduce_type)
         self.assertIsNotNone(npu_output[0])
         self.assertIsNotNone(npu_output[1])
+
+    def test_dynamic_scatter_grad_empty_tensor(self):
+        try:
+            _, _, _ = DynamicScatterFunction.backward(None, torch.empty(0), torch.empty(0))
+            assert False, "Expected Exception for invalid reduce, but no exception was raised."
+        except Exception as e:
+            assert "empty tensor" in str(e), f"Expected 'empty tensor' in error message, but got: {e}"
 
 
 if __name__ == "__main__":
