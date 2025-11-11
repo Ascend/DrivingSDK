@@ -496,6 +496,30 @@ index 8a348e83..6667f55a 100644
 +        super()._load_from_state_dict(
 +            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
 +        )
+diff --git a/mmcv/parallel/data_container.py b/mmcv/parallel/data_container.py
+index 62f25731..c0f04b05 100644
+--- a/mmcv/parallel/data_container.py
++++ b/mmcv/parallel/data_container.py
+@@ -89,3 +89,18 @@ class DataContainer:
+     @assert_tensor_type
+     def dim(self) -> int:
+         return self.data.dim()
++
++    def pin_memory(self):
++        if isinstance(self._data, torch.Tensor):
++            self._data = self._data.pin_memory()
++
++        if isinstance(self._data, list):
++            p_data = []
++            for d in self._data:
++                if isinstance(d, torch.Tensor):
++                    d = d.pin_memory()
++                p_data.append(d)
++
++            self._data = p_data
++            
++        return self
+\ No newline at end of file
 diff --git a/mmcv/parallel/distributed.py b/mmcv/parallel/distributed.py
 index bf34cb59..9fcd757f 100644
 --- a/mmcv/parallel/distributed.py
@@ -697,7 +721,7 @@ index 93015475..0b3c549b 100644
                              # Add grad norm to the logger
                              runner.log_buffer.update(
 diff --git a/requirements/runtime.txt b/requirements/runtime.txt
-index 66e90d67..5d78dc05 100644
+index 66e90d67..f4dddcd1 100644
 --- a/requirements/runtime.txt
 +++ b/requirements/runtime.txt
 @@ -1,7 +1,10 @@
