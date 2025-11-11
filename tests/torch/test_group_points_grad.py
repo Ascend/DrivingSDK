@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock
 
 import numpy as np
 import torch
@@ -7,6 +8,7 @@ from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving._C
+from mx_driving.ops.group_points import AdsGroupPoints
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -59,10 +61,25 @@ class TestGroupPointsGrad(TestCase):
 
                             golden_grad_features = self.golden_group_points_grad(
                                 np_grad_out, np_indices, np_grad_features, B, npoints, nsample)
-                            npu_grad_features = mx_driving._C.group_points_backward(torch_grad_out, torch_indices, B, C, N,
-                                                                            npoints, nsample)
+
+                            ctx = Mock()
+                            ctx.for_backwards = (torch_indices, N) 
+                            npu_grad_features, _ = AdsGroupPoints.backward(ctx, torch_grad_out)
 
                             self.assertRtolEqual(golden_grad_features, npu_grad_features.cpu().numpy())
+
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `GroupPointsGrad` is only supported on 910B, skip this ut!")
+    def test_group_points_backward_empty_grad(self):
+        """反向传播异常分支测试：覆盖grad_out为空的情况"""
+        grad_out = torch.empty((0, 0, 0, 0), dtype=torch.float32).npu()
+        indices = torch.randint(0, 10, (2, 3, 4), dtype=torch.int32).npu()
+        N = 10
+        ctx = Mock()
+        ctx.for_backwards = (indices, N)
+        
+        with self.assertRaises(Exception) as cm:
+            AdsGroupPoints.backward(ctx, grad_out)
+        self.assertEqual(str(cm.exception), "Error! Input Tensor can not be a empty Tensor.\n")
 
 
 if __name__ == "__main__":

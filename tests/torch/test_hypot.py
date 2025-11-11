@@ -117,16 +117,26 @@ class TestHypot(TestCase):
     def test_hypot_grad_with_size_one(self, device="npu"):
         x, y = cpu_gen_inputs([-3, 3], [-4, 4], [35, 1], [35, 1])
         z_grad = torch.randn([35, 1])
-        x.requires_grad = True
-        y.requires_grad = True
-        x_npu = deepcopy(x)
-        y_npu = deepcopy(y)
+        
+        class MockCtx:
+            def __init__(self, saved_tensors):
+                self.saved_tensors = saved_tensors
+        x_npu = x.clone().npu().requires_grad_(True)
+        y_npu = y.clone().npu().requires_grad_(True)
+        out = mx_driving.hypot(x_npu, y_npu)
+        saved_tensors = (x_npu, y_npu, out)
+        ctx = MockCtx(saved_tensors)
 
-        torch.hypot(x, y).backward(z_grad)
-        mx_driving.hypot(x_npu.npu(), y_npu.npu()).backward(z_grad.npu())
-
-        self.assertRtolEqual(x.grad.numpy(), x_npu.grad.numpy())
-        self.assertRtolEqual(y.grad.numpy(), y_npu.grad.numpy())
+        from mx_driving.ops.hypot import Hypot
+        x_grad_npu, y_grad_npu = Hypot.backward(ctx, z_grad.npu())
+        
+        x_torch = x.clone().requires_grad_(True)
+        y_torch = y.clone().requires_grad_(True)
+        out_torch = torch.hypot(x_torch, y_torch)
+        out_torch.backward(z_grad)
+        
+        self.assertRtolEqual(x_grad_npu.cpu().detach().numpy(), x_torch.grad.numpy())
+        self.assertRtolEqual(y_grad_npu.cpu().detach().numpy(), y_torch.grad.numpy())
 
 
 if __name__ == "__main__":

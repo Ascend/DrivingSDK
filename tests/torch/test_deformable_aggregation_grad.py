@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import Mock
 
 import numpy as np
 import torch
@@ -8,6 +9,7 @@ from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving
 import mx_driving.fused
+from mx_driving.ops.npu_deformable_aggregation import AdsDeformableAggregation
 
 
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -227,6 +229,32 @@ class TestDeformableAggregation(TestCase):
                             num_pts = sample_location.shape[2]
                             num_groups = weights.shape[5]
 
+                            torch_grad_output = torch.ones(
+                                (B, anchor, C), dtype=torch.float32
+                            ).npu()
+
+                            out_npu  = AdsDeformableAggregation.forward(
+                                Mock(),
+                                torch_feature_maps,
+                                torch_spatial_shape,
+                                torch_scale_start_index,
+                                torch_sample_location,
+                                torch_weights
+                            )
+
+                            ctx = Mock()
+                            ctx.saved_tensors = (
+                                torch_feature_maps,
+                                torch_spatial_shape,
+                                torch_scale_start_index,
+                                torch_sample_location,
+                                torch_weights
+                            )
+
+                            torch_grad_mc_ms_feat, _, _, torch_grad_sampling_location, torch_grad_weights = AdsDeformableAggregation.backward(
+                                ctx, 
+                                torch_grad_output
+                            )
 
                             grad_mc_ms_feat, grad_sampling_location, grad_weights = self.golden_deformable_aggregation_grad(
                                 batch_size,
@@ -244,21 +272,6 @@ class TestDeformableAggregation(TestCase):
                                 weights
                             )
 
-
-                            out_npu = mx_driving.fused.npu_deformable_aggregation(
-                                torch_feature_maps,
-                                torch_spatial_shape,
-                                torch_scale_start_index,
-                                torch_sample_location,
-                                torch_weights,
-                            )
-
-                            out_npu.backward(torch.ones_like(out_npu))
-
-                            torch_grad_mc_ms_feat = torch_feature_maps.grad
-                            torch_grad_sampling_location = torch_sample_location.grad
-                            torch_grad_weights = torch_weights.grad
-
                             grad_mc_ms_feat = grad_mc_ms_feat.reshape(feature_maps_shape)
                             grad_sampling_location = grad_sampling_location.reshape(B, anchor, pts, 1, 2)
                             grad_weights = grad_weights.reshape(B, anchor, pts, 1, 1, numGroups)
@@ -275,19 +288,32 @@ class TestDeformableAggregation(TestCase):
                             )
                             self.assertRtolEqual(grad_weights, torch_grad_weights, prec=0.00048828125)
 
-                            out_npu_new = mx_driving.deformable_aggregation(
+                            torch_grad_output_new = torch.ones(
+                                (B, anchor, C), dtype=torch.float32
+                            ).npu()
+
+                            out_npu_new  = AdsDeformableAggregation.forward(
+                                Mock(),
                                 torch_feature_maps_new,
                                 torch_spatial_shape_new,
                                 torch_scale_start_index_new,
                                 torch_sample_location_new,
-                                torch_weights_new,
+                                torch_weights_new
                             )
 
-                            out_npu_new.backward(torch.ones_like(out_npu_new))
+                            ctx_new = Mock()
+                            ctx_new.saved_tensors = (
+                                torch_feature_maps_new,
+                                torch_spatial_shape_new,
+                                torch_scale_start_index_new,
+                                torch_sample_location_new,
+                                torch_weights_new
+                            )
 
-                            torch_grad_mc_ms_feat_new = torch_feature_maps_new.grad
-                            torch_grad_sampling_location_new = torch_sample_location_new.grad
-                            torch_grad_weights_new = torch_weights_new.grad
+                            torch_grad_mc_ms_feat_new, _, _, torch_grad_sampling_location_new, torch_grad_weights_new = AdsDeformableAggregation.backward(
+                                ctx_new, 
+                                torch_grad_output_new
+                            )
 
                             torch_grad_mc_ms_feat_new = torch_grad_mc_ms_feat_new.cpu().numpy()
                             torch_grad_sampling_location_new = torch_grad_sampling_location_new.cpu().numpy()
@@ -300,6 +326,55 @@ class TestDeformableAggregation(TestCase):
                                 prec=0.00048828125,
                             )
                             self.assertRtolEqual(grad_weights, torch_grad_weights_new, prec=0.00048828125)
+
+    @unittest.skipIf(
+        DEVICE_NAME != 'Ascend910B',
+        "OP `DeformableAggregationGrad` is only supported on 910B, skip this ut!",
+    )
+    def test_deformable_aggregation_backward_empty_input(self):
+        """反向异常分支测试：输入为空张量"""
+        torch_feature_maps = torch.empty((0,), dtype=torch.float32).npu()
+        torch_spatial_shape = torch.empty((0,), dtype=torch.int32).npu()
+        torch_scale_start_index = torch.tensor([[0]], dtype=torch.int32).npu()
+        torch_sample_location = torch.empty((0,), dtype=torch.float32).npu()
+        torch_weights = torch.randn(1, 1, 1, 1, 1, 1).npu()
+        torch_grad_output = torch.randn(1, 1, 1).npu()
+
+        ctx = Mock()
+        ctx.saved_tensors = (
+            torch_feature_maps,
+            torch_spatial_shape,
+            torch_scale_start_index,
+            torch_sample_location,
+            torch_weights
+        )
+
+        with self.assertRaises(Exception) as cm:
+            AdsDeformableAggregation.backward(ctx, torch_grad_output)
+        self.assertEqual(str(cm.exception), "Erorr! Input Tensor can not be a empty Tensor.\n")
+
+    @unittest.skipIf(
+        DEVICE_NAME != 'Ascend910B',
+        "OP `DeformableAggregationGrad` is only supported on 910B, skip this ut!",
+    )
+    def test_deformable_aggregation_forward_empty_input(self):
+        """正向异常分支测试：输入为空张量"""
+        torch_feature_maps = torch.empty((0,), dtype=torch.float32).npu()
+        torch_spatial_shape = torch.tensor([[[16, 22]]], dtype=torch.int32).npu()
+        torch_scale_start_index = torch.tensor([[0]], dtype=torch.int32).npu()
+        torch_sample_location = torch.randn(1, 10, 10, 1, 2).npu()
+        torch_weights = torch.empty((0,), dtype=torch.float32).npu()
+
+        with self.assertRaises(Exception) as cm:
+            AdsDeformableAggregation.forward(
+                Mock(), 
+                torch_feature_maps, 
+                torch_spatial_shape, 
+                torch_scale_start_index, 
+                torch_sample_location, 
+                torch_weights
+            )
+        self.assertEqual(str(cm.exception), "Erorr! Input Tensor can not be a empty Tensor.\n")
 
 
 if __name__ == "__main__":
