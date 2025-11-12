@@ -182,6 +182,8 @@ private:
             uint64_t cmpLenAlign256 = AlignUp(loadLen, MASK_ALIGN_SIZE / sizeof(DTYPE_INDICES));
             uint32_t shape[] = {1, static_cast<uint32_t>(loadLen)};
 
+            SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+            WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
             DataCopy(_srcLocal, _srcGm[loadOffset], copyLenAlign32);
             DataCopy(_indicesLocal, _indicesGm[loadOffset], copyLenAlign32);
             SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
@@ -412,6 +414,7 @@ private:
         _maxOutNumPerBatch = tiling_data->maxOutNumPerBatch;
         _coreNumPerHead = tiling_data->coreNumPerHead;
         _outNumPerCore = tiling_data->outNumPerCore;
+        _outNumPartOffset = _outNumPerCore;
 
         _loop = 1;
         _headIdOffset = _blockIdx / _coreNumPerHead;
@@ -472,7 +475,7 @@ private:
         if constexpr (largeHead) {
             outLoadOffset = outHeadOffset + k * _outNumPerBatch;
         } else {
-            outLoadOffset = outHeadOffset + _headPartId * _outNumPerCore + k * _outNumPerBatch;
+            outLoadOffset = outHeadOffset + _headPartId * _outNumPartOffset + k * _outNumPerBatch;
         }
 
         WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID1);
@@ -550,6 +553,7 @@ private:
     uint64_t _outNumPerBatch;
     uint64_t _outNumLeftover;
     uint64_t _maxOutNumPerBatch;
+    uint64_t _outNumPartOffset;
     uint64_t _indicesLoop;
     uint64_t _indicesNumPerBatch;
     uint64_t _indicesNumLeftover;
