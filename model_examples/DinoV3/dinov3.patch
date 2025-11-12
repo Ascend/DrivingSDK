@@ -1,0 +1,331 @@
+diff --git a/dinov3/checkpointer/checkpointer.py b/dinov3/checkpointer/checkpointer.py
+index 7a98411..aee6ff2 100644
+--- a/dinov3/checkpointer/checkpointer.py
++++ b/dinov3/checkpointer/checkpointer.py
+@@ -73,7 +73,7 @@ class CheckpointRetentionPolicy(Enum):
+ 
+ 
+ def save_checkpoint(
+-    ckpt_dir: str | Path,  # output_dir/ckpt/199
++    ckpt_dir: str | Path,
+     *,
+     iteration: int | str,
+     model: torch.nn.Module,
+@@ -82,12 +82,8 @@ def save_checkpoint(
+     process_group: dist.ProcessGroup = None,
+     **others: Stateful,
+ ):
+-    """Save a plain/DDP/FSDP/FSDP2 model, its optimizer, an integer iteration and other stateful objects."""
+     rank = torch.distributed.get_rank(group=process_group)
+ 
+-    # Rank 0 checks if the checkpoint directory exists, but all ranks need to know if if exists,
+-    # so they can raise an error when overwrite is False. If overwrite is True, rank 0 will delete it
+-    # and other ranks wait for the deletion to finish.
+     ckpt_dir = Path(ckpt_dir)
+     ckpt_dir_exists = [ckpt_dir.exists() if rank == 0 else None]
+     src_rank = 0
+@@ -107,31 +103,45 @@ def save_checkpoint(
+         else:
+             raise RuntimeError(f"Checkpoint already exists: {ckpt_dir}")
+ 
+-    # Rank 0 creates a temporary directory for the checkpoint and broadcasts the name to all ranks.
+     ckpt_dir.parent.mkdir(parents=True, exist_ok=True)
+     ckpt_dir_tmp = [tempfile.mkdtemp(dir=ckpt_dir.parent, prefix=ckpt_dir.name) if rank == 0 else None]
+     torch.distributed.broadcast_object_list(ckpt_dir_tmp, src=src_rank, group=process_group)
+     ckpt_dir_tmp = Path(ckpt_dir_tmp[0])
+ 
+-    to_save = {"iteration": iteration}
+-    to_save["model"] = dcpsd.get_model_state_dict(model)
++    # 关键修改：获取 state_dict 后，强制移动到 CPU
++    model_sd = dcpsd.get_model_state_dict(model)
++    model_sd_cpu = {k: v.cpu() if isinstance(v, torch.Tensor) else v for k, v in model_sd.items()}
++
++    to_save = {"iteration": iteration, "model": model_sd_cpu}
++
+     if optimizer is not None:
+-        to_save["optimizer"] = dcpsd.get_optimizer_state_dict(model, optimizer)
++        optim_sd = dcpsd.get_optimizer_state_dict(model, optimizer)
++        # Optimizer state dict 可能包含嵌套结构
++        def to_cpu(x):
++            if isinstance(x, torch.Tensor):
++                return x.cpu()
++            elif isinstance(x, dict):
++                return {k: to_cpu(v) for k, v in x.items()}
++            elif isinstance(x, list):
++                return [to_cpu(v) for v in x]
++            else:
++                return x
++        optim_sd_cpu = to_cpu(optim_sd)
++        to_save["optimizer"] = optim_sd_cpu
++
+     to_save.update(others)
++
+     dcp.save(
+         to_save,
+         storage_writer=dcpfs.FileSystemWriter(ckpt_dir_tmp),
+         process_group=process_group,
+     )
+ 
+-    # Rank 0 renames the temporary directory to the final checkpoint directory. All ranks wait for the rename.
+     if rank == 0:
+         ckpt_dir_tmp.rename(ckpt_dir)
+     torch.distributed.barrier()
+-
+     logger.info(f"Saved: {ckpt_dir}")
+ 
+-
+ def load_checkpoint(
+     ckpt_dir: str | Path,  # output_dir/ckpt/199
+     *,
+diff --git a/dinov3/configs/train/vitl_im1k_lin834.yaml b/dinov3/configs/train/vitl_im1k_lin834.yaml
+index 46428be..3c9df28 100644
+--- a/dinov3/configs/train/vitl_im1k_lin834.yaml
++++ b/dinov3/configs/train/vitl_im1k_lin834.yaml
+@@ -53,7 +53,7 @@ train:
+   learn_from_teacher_tokens: false
+   centering: sinkhorn_knopp
+   checkpointing: false
+-  compile: true
++  compile: false
+   cudagraphs: false
+   cell_augmentation: false
+   cell_augmentation_type: hpa
+@@ -140,4 +140,4 @@ evaluation:
+     low_freq: benchmark_low_frequency.yaml
+ checkpointing:
+   period: 3750
+-  max_to_keep: 3
+\ No newline at end of file
++  max_to_keep: 3
+diff --git a/dinov3/configs/train/vitl_im1k_lin834_performance.yaml b/dinov3/configs/train/vitl_im1k_lin834_performance.yaml
+new file mode 100644
+index 0000000..9de0c8b
+--- /dev/null
++++ b/dinov3/configs/train/vitl_im1k_lin834_performance.yaml
+@@ -0,0 +1,143 @@
++# tested on RSC: /checkpoint/dino/qas/rope/vitl16_im1k/
++# gives 82.2 im1k-knn, 83.3 im1k-linear
++# runs with a total batch size of 2048 (64/gpu, 4 nodes here)
++# runs at 0.57s/iter
++MODEL:
++  META_ARCHITECTURE: SSLMetaArch
++  DEVICE: cuda
++  WEIGHTS: ''
++  DTYPE: float32
++compute_precision:
++  param_dtype: bf16
++  reduce_dtype: fp32
++  sharding_strategy: SHARD_GRAD_OP
++dino:
++  loss_weight: 1.0
++  global_ignore_diagonal: true
++  head_n_prototypes: 65536
++  head_bottleneck_dim: 256
++  head_norm_last_layer: false
++  head_nlayers: 3
++  head_hidden_dim: 2048
++  koleo_loss_weight: 0.1
++  koleo_loss_distributed: false
++  koleo_topk: 1
++  koleo_distributed_replicas: 0
++  force_weight_norm: false
++ibot:
++  loss_weight: 1.0
++  mask_sample_probability: 0.5
++  mask_ratio_min_max:
++  - 0.1
++  - 0.5
++  mask_random_circular_shift: false
++  force_masking_even_with_zero_weight: false
++  separate_head: true
++  head_n_prototypes: 65536
++  head_bottleneck_dim: 256
++  head_norm_last_layer: false
++  head_nlayers: 3
++  head_hidden_dim: 2048
++train:
++  batch_size_per_gpu: 64
++  dataset_path: ImageNet:split=TRAIN
++  output_dir: /checkpoint/dino/qas/rope/vitl16_im1k
++  saveckp_freq: 20
++  seed: 0
++  num_workers: 10
++  OFFICIAL_EPOCH_LENGTH: 1250
++  monitor_gradient_norm: false
++  chunk_schedule: []
++  cache_dataset: true
++  use_teacher_head: true
++  learn_from_teacher_tokens: false
++  centering: sinkhorn_knopp
++  checkpointing: false
++  compile: false
++  cudagraphs: false
++  cell_augmentation: false
++  cell_augmentation_type: hpa
++student:
++  arch: vit_large
++  patch_size: 16
++  drop_path_rate: 0.3
++  layerscale: 1.0e-05
++  patch_drop: 0.0
++  pretrained_weights: ''
++  ffn_layer: mlp
++  ffn_ratio: 4.0
++  resume_from_teacher_chkpt: ''
++  qkv_bias: true
++  proj_bias: true
++  ffn_bias: true
++  norm_layer: layernorm
++  n_storage_tokens: 0
++  mask_k_bias: false
++  in_chans: 3
++  pos_embed_type: rope
++  pos_embed_rope_base: 100.0
++  pos_embed_rope_min_period: null
++  pos_embed_rope_max_period: null
++  pos_embed_rope_normalize_coords: separate  # min, max, separate
++  pos_embed_rope_shift_coords: null
++  pos_embed_rope_jitter_coords: null
++  pos_embed_rope_rescale_coords: null
++  pos_embed_rope_dtype: bf16
++  fp8_enabled: False  # Convert Linear layers to operate in fp8 precision
++  fp8_filter: "blocks"  # Regex that must appear in module path; empty means everything
++teacher:
++  momentum_teacher: 0.992
++  final_momentum_teacher: 1
++  warmup_teacher_temp: 0.04
++  teacher_temp: 0.07
++  warmup_teacher_temp_epochs: 30
++  in_chans: 3
++distillation:
++  enabled: false
++  full_cfg_path: ''
++  checkpoint_path: ''
++multidistillation:
++  enabled: false
++hrft:
++  enabled: false
++  checkpoint_path: ''
++optim:
++  epochs: 1
++  optimizer: adamw
++  weight_decay: 0.04
++  weight_decay_end: 0.4
++  lr: 0.001
++  warmup_epochs: 1
++  min_lr: 1.0e-06
++  clip_grad: 3.0
++  freeze_last_layer_epochs: 1
++  scaling_rule: sqrt_wrt_1024
++  patch_embed_lr_mult: 0.2
++  dino_head_wd_multiplier: 1.0
++  layerwise_decay: 0.9
++  multi_tensor_optim: true
++  dump_fsdp_weights_path: ''
++  adamw_beta1: 0.9
++  adamw_beta2: 0.999
++crops:
++  global_crops_scale:
++  - 0.32
++  - 1.0
++  local_crops_number: 8
++  local_crops_scale:
++  - 0.05
++  - 0.32
++  global_crops_size: 224
++  local_crops_size: 96
++  localcrops_subset_of_globalcrops: false
++  share_color_jitter: false
++  horizontal_flips: true
++evaluation:
++  eval_period_iterations: 12500
++  low_freq_every: 5
++  config_files:
++    high_freq: benchmark_high_frequency.yaml
++    low_freq: benchmark_low_frequency.yaml
++checkpointing:
++  period: 3750
++  max_to_keep: 3
+diff --git a/dinov3/logging/helpers.py b/dinov3/logging/helpers.py
+index b01e1f8..0d81c93 100644
+--- a/dinov3/logging/helpers.py
++++ b/dinov3/logging/helpers.py
+@@ -158,12 +158,15 @@ class SmoothedValue:
+         """
+         if not distributed.is_enabled():
+             return
+-        t = torch.tensor([self.count, self.total], dtype=torch.float64, device="cuda")
++        count_tensor = torch.tensor(self.count, dtype=torch.int64, device='cuda')
++        total_tensor = torch.tensor(self.total, dtype=torch.float32, device='cuda')
++
+         torch.distributed.barrier()
+-        torch.distributed.all_reduce(t)
+-        t = t.tolist()
+-        self.count = int(t[0])
+-        self.total = t[1]
++        torch.distributed.all_reduce(count_tensor)
++        torch.distributed.all_reduce(total_tensor)
++        self.count = count_tensor.item()
++        self.total = total_tensor.item()
++
+ 
+     @property
+     def median(self):
+diff --git a/dinov3/train/ssl_meta_arch.py b/dinov3/train/ssl_meta_arch.py
+index 172d80b..dd2953f 100644
+--- a/dinov3/train/ssl_meta_arch.py
++++ b/dinov3/train/ssl_meta_arch.py
+@@ -417,9 +417,8 @@ class SSLMetaArch(nn.Module):
+             masks_weight=masks_weight,
+             iteration=iteration,
+         )
+-
+         self.backprop_loss(loss_accumulator)
+-
++        
+         # Return total weighted loss and a dict of metrics to log
+         return loss_accumulator, metrics_dict | loss_dict
+ 
+@@ -708,18 +707,19 @@ class SSLMetaArch(nn.Module):
+     def update_ema(self, m):
+         if self.ema_params_lists is None:
+             student_param_list = []
+-            teacher_param_list = []
++            teacher_param_list_ = []
+             for k in self.student.keys():
+                 for ms, mt in zip(self.student[k].parameters(), self.model_ema[k].parameters()):
+                     student_param_list += [ms]
+-                    teacher_param_list += [mt]
+-            self.ema_params_lists = (student_param_list, teacher_param_list)
++                    teacher_param_list_ += [mt]
++            self.ema_params_lists = (student_param_list, teacher_param_list_)
+         else:
+-            student_param_list, teacher_param_list = self.ema_params_lists
++            student_param_list, teacher_param_list_ = self.ema_params_lists
+         with torch.no_grad():
+-            torch._foreach_mul_(teacher_param_list, m)
+-            torch._foreach_add_(teacher_param_list, student_param_list, alpha=1 - m)
+-
++            torch._foreach_mul_(teacher_param_list_, m)
++            teacher_param_list = torch._foreach_add(teacher_param_list_, student_param_list, alpha=1-m)
++            self.ema_param_lists = (student_param_list, teacher_param_list)
++    
+     def update_gram(self, m=0):
+         if not self.has_gram_teacher:
+             return
+diff --git a/dinov3/train/train.py b/dinov3/train/train.py
+index fe78876..fb9b887 100644
+--- a/dinov3/train/train.py
++++ b/dinov3/train/train.py
+@@ -15,6 +15,11 @@ from pathlib import Path
+ 
+ import torch
+ import torch.distributed
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++torch._dynamo.config.suppress_errors = True
++torch._dynamo.config.disable = True
++
+ from torch.distributed._tensor import DTensor
+ 
+ import dinov3.distributed as distributed

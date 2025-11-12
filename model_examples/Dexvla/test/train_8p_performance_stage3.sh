@@ -69,9 +69,6 @@ echo "BatchSize = ${BatchSize}" >>${test_path_dir}/output/${CaseName}.log
 echo "DeviceType = ${DeviceType}" >>${test_path_dir}/output/${CaseName}.log
 echo "CaseName = ${CaseName}" >>${test_path_dir}/output/${CaseName}.log
 echo "ActualFPS = ${ActualFPS}" >>${test_path_dir}/output/${CaseName}.log
-echo "TrainingTime = ${TrainingTime}" >>${test_path_dir}/output/${CaseName}.log
 echo "ActualLoss = ${ActualLoss}" >>${test_path_dir}/output/${CaseName}.log
-echo "NDS = ${NDS}" >>${test_path_dir}/output/${CaseName}.log
-echo "mAP = ${mAP}" >>${test_path_dir}/output/${CaseName}.log
 echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/${CaseName}.log
 
