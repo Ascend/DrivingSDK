@@ -8,3 +8,4 @@ cloudpickle
 psutil
 synr==0.5.0
 tornado
+pyyaml

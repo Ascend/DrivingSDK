@@ -81,11 +81,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 |       CANN        | 8.3.RC1  |
 |       Python        | 3.10  |
 
-1. 安装Driving SDK
-
-    请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
-
-2. 安装tbe
+1. 安装tbe
     
     ```
     # 安装tbe和hccl, 将 CANN 包目录记作 cann_root_dir
@@ -93,6 +89,11 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     pip install {cann_root_dir}/latest/lib64/te-*-py3-none-any.whl
     pip install {cann_root_dir}/latest/lib64/hccl-*-py3-none-any.whl
     ```
+
+2. 安装Driving SDK
+
+    请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+
 
 3. 源码安装decord
     ```
@@ -124,8 +125,6 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     
 4. 安装apex
     ```
-    # 安装相关依赖
-    pip install 
     # 下载适配源码
     git clone https://gitee.com/ascend/apex.git
     cd apex/
@@ -183,10 +182,16 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     # 安装VLLM-ASCEND，需导入CANN
     source /usr/local/Ascend/ascend-toolkit/set_env.sh
     cd vllm-ascend
+
     # 关闭编译
     export COMPILE_CUSTOM_KERNELS=0
+
+    # 安装依赖包
     pip install setuptools_scm pybind11 cmake msgpack numba quart
+
+    # 安装vllm-ascend，由于之前安装了torchvision，需要把requirements.txt中的torchvision<0.21.0注释掉
     python setup.py develop
+
     # vllm-ascend源码安装过程中遇到相关依赖包因网络问题安装不成功，可以先尝试pip install xxx安装对应失败的依赖包，再执行上一句命令
     cd ..
 
