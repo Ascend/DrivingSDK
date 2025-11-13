@@ -30,7 +30,8 @@ export HCCL_WHITELIST_DISABLE=1
 export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
 #配置不同设备之间socket建链过程的等待时间，取值范围[120, 7200]，默认120，单位s
 export HCCL_CONNECT_TIMEOUT=1200
-
+#模型不提前初始化，默认为1
+export ACL_OP_INIT_MODE=0
 
 path_lib=$(python3 -c """
 import sys
