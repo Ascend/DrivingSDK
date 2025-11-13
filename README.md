@@ -211,6 +211,8 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [VAD](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/VAD) | 2.847 | 7.476 |N|
 | [VGGT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/VGGT)  | 25.04 | 15.30 |N|
 | [YoloV8](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Yolov8)   | 214.64 | 479.73 |N|
+| [NWM](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/NWM)   | 363.39 | 383.06 |N|
+| [Cosmos-Drive-Dreams](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Cosmos-Drive-Dreams)   | - | - |N|
 
 ## 硬件配套
 | 产品系列               | 产品型号                         |

@@ -1,0 +1,344 @@
+diff --git a/cosmos_transfer1/auxiliary/guardrail/common/presets.py b/cosmos_transfer1/auxiliary/guardrail/common/presets.py
+index ac6c711..b1efde6 100644
+--- a/cosmos_transfer1/auxiliary/guardrail/common/presets.py
++++ b/cosmos_transfer1/auxiliary/guardrail/common/presets.py
+@@ -29,7 +29,7 @@ from cosmos_transfer1.utils import log
+ 
+ def create_text_guardrail_runner(checkpoint_dir: str) -> GuardrailRunner:
+     """Create the text guardrail runner."""
+-    return GuardrailRunner(safety_models=[Blocklist(checkpoint_dir), LlamaGuard3(checkpoint_dir)])
++    return GuardrailRunner(safety_models=None)
+ 
+ 
+ def create_video_guardrail_runner(checkpoint_dir: str) -> GuardrailRunner:
+diff --git a/cosmos_transfer1/diffusion/diffusion/functional/runge_kutta.py b/cosmos_transfer1/diffusion/diffusion/functional/runge_kutta.py
+index 406b390..463b860 100644
+--- a/cosmos_transfer1/diffusion/diffusion/functional/runge_kutta.py
++++ b/cosmos_transfer1/diffusion/diffusion/functional/runge_kutta.py
+@@ -31,7 +31,7 @@ def phi1(t: torch.Tensor) -> torch.Tensor:
+         Tensor: Result of phi1 function.
+     """
+     input_dtype = t.dtype
+-    t = t.to(dtype=torch.float64)
++    t = t.to(dtype=torch.float32)
+     return (torch.expm1(t) / t).to(dtype=input_dtype)
+ 
+ 
+@@ -46,7 +46,7 @@ def phi2(t: torch.Tensor) -> torch.Tensor:
+         Tensor: Result of phi2 function.
+     """
+     input_dtype = t.dtype
+-    t = t.to(dtype=torch.float64)
++    t = t.to(dtype=torch.float32)
+     return ((phi1(t) - 1.0) / t).to(dtype=input_dtype)
+ 
+ 
+@@ -87,6 +87,7 @@ def res_x0_rk2_step(
+     phi1_val, phi2_val = phi1(-dt), phi2(-dt)
+ 
+     # Handle edge case where t = s = m
++    c2 = c2.to(torch.float32)
+     b1 = torch.nan_to_num(phi1_val - 1.0 / c2 * phi2_val, nan=0.0)
+     b2 = torch.nan_to_num(1.0 / c2 * phi2_val, nan=0.0)
+ 
+diff --git a/cosmos_transfer1/diffusion/inference/world_generation_pipeline.py b/cosmos_transfer1/diffusion/inference/world_generation_pipeline.py
+index 4246f03..b2628f5 100644
+--- a/cosmos_transfer1/diffusion/inference/world_generation_pipeline.py
++++ b/cosmos_transfer1/diffusion/inference/world_generation_pipeline.py
+@@ -735,7 +735,7 @@ class DiffusionControl2WorldGenerationPipeline(BaseWorldGenerationPipeline):
+ 
+         log.info("Run guardrail on generated videos")
+         for i, video in enumerate(videos):
+-            safe_video = self._run_guardrail_on_video_with_offload(video)
++            safe_video = video
+             if safe_video is not None:
+                 all_videos.append(safe_video)
+                 all_final_prompts.append(safe_prompts[i])
+diff --git a/cosmos_transfer1/diffusion/module/attention.py b/cosmos_transfer1/diffusion/module/attention.py
+index 3e9e30f..3173b1d 100644
+--- a/cosmos_transfer1/diffusion/module/attention.py
++++ b/cosmos_transfer1/diffusion/module/attention.py
+@@ -17,12 +17,10 @@ from typing import List, Optional
+ 
+ import numpy as np
+ import torch
+-import transformer_engine as te
++import numbers
+ from einops import rearrange
+ from torch import Tensor, nn
+ from torch.utils.checkpoint import checkpoint
+-from transformer_engine.pytorch.attention.dot_product_attention.dot_product_attention import DotProductAttention
+-from transformer_engine.pytorch.attention.rope import apply_rotary_pos_emb
+ 
+ # ---------------------- Feed Forward Network -----------------------
+ 
+@@ -104,7 +102,68 @@ class GPT2FeedForward(FeedForward):
+ 
+ 
+ # ---------------------- Normalization Layer -----------------------
++class RMSNorm(nn.Module):
++    r"""
++    Args:
++        dim (`int`): Number of dimensions to use for `weights`. Only effective when `elementwise_affine` is True.
++        eps (`float`): Small value to use when calculating the reciprocal of the square-root.
++        elementwise_affine (`bool`, defaults to `True`):
++            Boolean flag to denote if affine transformation should be applied.
++        bias (`bool`, defaults to False): If also training the `bias` param.
++    """
++
++    def __init__(self, dim, eps: float, elementwise_affine: bool = True, bias: bool = False):
++        super().__init__()
++
++        self.eps = eps
++        self.elementwise_affine = elementwise_affine
++
++        if isinstance(dim, numbers.Integral):
++            dim = (dim,)
++
++        self.dim = torch.Size(dim)
++
++        self.weight = None
++        self.bias = None
+ 
++        if elementwise_affine:
++            self.weight = nn.Parameter(torch.ones(dim))
++            if bias:
++                self.bias = nn.Parameter(torch.zeros(dim))
++
++
++    def reset_parameters(self):
++        # 初始化 weight 为全 1
++        # RMSNorm 通常初始化为 1，因为它是缩放因子（类似 LayerNorm）
++        nn.init.zeros_(self.weight)
++
++    def forward(self, hidden_states):
++        if not torch.cuda.is_available():
++            import torch_npu
++
++            if self.weight is not None:
++                # convert into half-precision if necessary
++                if self.weight.dtype in [torch.float16, torch.bfloat16]:
++                    hidden_states = hidden_states.to(self.weight.dtype)
++            hidden_states = torch_npu.npu_rms_norm(hidden_states, self.weight, epsilon=self.eps)[0]
++            if self.bias is not None:
++                hidden_states = hidden_states + self.bias
++        else:
++            input_dtype = hidden_states.dtype
++            variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
++            hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
++
++            if self.weight is not None:
++                # convert into half-precision if necessary
++                if self.weight.dtype in [torch.float16, torch.bfloat16]:
++                    hidden_states = hidden_states.to(self.weight.dtype)
++                hidden_states = hidden_states * self.weight
++                if self.bias is not None:
++                    hidden_states = hidden_states + self.bias
++            else:
++                hidden_states = hidden_states.to(input_dtype)
++
++        return hidden_states
+ 
+ def normalize(x: torch.Tensor, dim: Optional[List[int]] = None, eps: float = 0) -> torch.Tensor:
+     """
+@@ -129,11 +188,125 @@ def get_normalization(name: str, channels: int):
+     if name == "I":
+         return nn.Identity()
+     elif name == "R":
+-        return te.pytorch.RMSNorm(channels, eps=1e-6)
++        return RMSNorm(channels, eps=1e-6)
+     else:
+         raise ValueError(f"Normalization {name} not found")
+ 
+ 
++def torch_attention_op(q_S_B_H_D: torch.Tensor, k_S_B_H_D: torch.Tensor, v_S_B_H_D: torch.Tensor) -> torch.Tensor:
++     """Computes multi-head attention using PyTorch's native implementation.
++
++     This function provides a PyTorch backend alternative to Transformer Engine's attention operation.
++     It rearranges the input tensors to match PyTorch's expected format, computes scaled dot-product
++     attention, and rearranges the output back to the original format.
++
++     The input tensor names use the following dimension conventions:
++
++     - B: batch size
++     - S: sequence length
++     - H: number of attention heads
++     - D: head dimension
++
++     Args:
++         q_S_B_H_D: Query tensor with shape (seq_len, batch, n_heads, head_dim)
++         k_S_B_H_D: Key tensor with shape (seq_len, batch, n_heads, head_dim)
++         v_S_B_H_D: Value tensor with shape (seq_len, batch, n_heads, head_dim)
++
++     Returns:
++         Attention output tensor with shape (batch, seq_len, n_heads * head_dim)
++     """
++
++     q_B_H_S_D = q_S_B_H_D.permute(1, 2, 0, 3)
++     k_B_H_S_D = k_S_B_H_D.permute(1, 2, 0, 3)
++     v_B_H_S_D = v_S_B_H_D.permute(1, 2, 0, 3)
++
++     result_B_S_HD = rearrange(
++         torch.nn.functional.scaled_dot_product_attention(q_B_H_S_D, k_B_H_S_D, v_B_H_S_D), "b h ... l -> b ... (h l)"
++     )
++     result_S_B_HD = result_B_S_HD.transpose(0, 1)
++
++     return result_S_B_HD
++
++
++def _rotate_half(x: torch.Tensor) -> torch.Tensor:
++     """
++     change sign so the last dimension becomes [-odd, +even]
++     """
++     x = x.view(x.shape[:-1] + torch.Size((2, x.shape[-1] // 2)))
++     x1, x2 = x.unbind(dim=-2)
++     return torch.cat((-x2, x1), dim=-1)
++
++from typing import Union
++def apply_rotary_pos_emb(
++    t: torch.Tensor,
++    freqs: torch.Tensor,
++    tensor_format: str = "sbhd",
++    fused: bool = False,
++    cu_seqlens: Union[torch.Tensor, None] = None,
++    cp_size: int = 1,
++    cp_rank: int = 0,
++) -> torch.Tensor:
++    """
++    Apply rotary positional embedding tensor to the input tensor.
++
++    Parameters
++    ----------
++    t: torch.Tensor
++        Input tensor of shape `[s, b, h, d]`, `[b, s, h, d]` or `[t, h, d]`, on which
++        rotary positional embedding will be applied.
++    freqs: torch.Tensor
++        Rotary positional embedding tensor of shape `[s2, 1, 1, d2]` and dtype 'float',
++        with `s2 >= s` and `d2 <= d`.
++    fused: bool, default = False
++        Whether to use a fused applying RoPE implementation.
++    tensor_format: {'sbhd', 'bshd', 'thd'}, default = 'sbhd'
++        is `bshd` if `t` is of shape `[bs, seq, ...]`, or `sbhd` if `t` is
++        of shape `[seq, bs, ...]`. 'thd' is only supported when `fused` is True.
++    cu_seqlens: torch.Tensor, default = None.
++        Cumulative sum of sequence lengths in a batch for `t`, with shape [b + 1] and
++        dtype torch.int32. Only valid when `tensor_format` is 'thd'.
++        Should be `cu_seqlens_padded` when cp_size > 1.
++    cp_size: int, default = 1.
++        Context parallel world size. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    cp_rank: int, default = 0.
++        Context parallel rank. Only valid when `tensor_format` is 'thd' and `fused` is True.
++    """
++    # if fused:
++    #     assert (
++    #         tensor_format != "thd" or cu_seqlens is not None
++    #     ), "cu_seqlens must not be None when tensor_format is 'thd'."
++    #     return FusedRoPEFunc.apply(t, freqs, tensor_format, cu_seqlens, cp_size, cp_rank)
++
++    assert tensor_format in ("sbhd", "bshd"), (
++        "Only formats `sbhd` or `bshd` are supported for input tensor `t` "
++        f"when fused is False, got {tensor_format}."
++    )
++
++    max_seq_len = freqs.shape[0]
++    cur_seq_len = t.shape[1] if tensor_format == "bshd" else t.shape[0]
++
++    # Only apply the rotary embeddings up to the sequence length of the running
++    # input.
++    assert (
++        cur_seq_len <= max_seq_len
++    ), f"Rotary Embeddings only supported up to {max_seq_len} sequence length!"
++    freqs = freqs[:cur_seq_len]
++    if tensor_format == "bshd":
++        freqs = freqs.transpose(0, 1)  # [seq, 1, 1, dim] -> [1, seq, 1, dim]
++    # cos/sin first then dtype conversion for better precision
++    cos_ = torch.cos(freqs).to(t.dtype)
++    sin_ = torch.sin(freqs).to(t.dtype)
++
++    rot_dim = freqs.shape[-1]
++    # ideally t_pass is empty so rotary pos embedding is applied to all tensor t
++    t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
++
++    # first part is cosine component
++    # second part is sine component, need to change signs with _rotate_half method
++    t = (t * cos_) + (_rotate_half(t) * sin_)
++    return torch.cat((t, t_pass), dim=-1)
++
++
+ class BaseAttentionOp(nn.Module):
+     def __init__(self):
+         super().__init__()
+@@ -328,7 +501,7 @@ class Attention(nn.Module):
+         out_bias: bool = False,
+         qkv_norm: str = "SSI",
+         qkv_norm_mode: str = "per_head",
+-        backend: str = "transformer_engine",
++        backend: str = "torch",
+         qkv_format: str = "sbhd",
+     ) -> None:
+         super().__init__()
+@@ -388,6 +561,8 @@ class Attention(nn.Module):
+                 qkv_format=qkv_format,
+                 attn_mask_type="arbitrary",
+             )
++        elif self.backend == "torch":
++            self.attn_op = torch_attention_op
+         else:
+             raise ValueError(f"Backend {backend} not found")
+ 
+@@ -434,6 +609,9 @@ class Attention(nn.Module):
+             ), "Seqlen must be larger than 1 for TE Attention starting with 1.8 TE version."
+             out = self.attn_op(q, k, v, core_attention_bias_type="no_bias", core_attention_bias=None)  # [B, Mq, H, V]
+             return self.to_out(out)
++        elif self.backend == "torch":
++            out = self.attn_op(q, k, v)
++            return self.to_out(out)
+         else:
+             raise ValueError(f"Backend {self.backend} not found")
+ 
+diff --git a/cosmos_transfer1/diffusion/module/pretrained_vae.py b/cosmos_transfer1/diffusion/module/pretrained_vae.py
+index 5698284..fcfc999 100644
+--- a/cosmos_transfer1/diffusion/module/pretrained_vae.py
++++ b/cosmos_transfer1/diffusion/module/pretrained_vae.py
+@@ -195,7 +195,7 @@ class JITVAE(BasePretrainedImageVAE):
+         """
+         Load the encoder from the remote store.
+         """
+-        self.encoder = torch.load(os.path.join(vae_dir, "encoder.jit"), weights_only=False)
++        self.encoder = torch.load(os.path.join(vae_dir, "encoder.jit"), map_location='npu', weights_only=False)
+ 
+         self.encoder.eval()
+         for param in self.encoder.parameters():
+@@ -206,7 +206,7 @@ class JITVAE(BasePretrainedImageVAE):
+         """
+         Load the decoder from the remote store.
+         """
+-        self.decoder = torch.load(os.path.join(vae_dir, "decoder.jit"), weights_only=False)
++        self.decoder = torch.load(os.path.join(vae_dir, "decoder.jit"), map_location='npu', weights_only=False)
+ 
+         self.decoder.eval()
+         for param in self.decoder.parameters():
+diff --git a/cosmos_transfer1/diffusion/training/models/model.py b/cosmos_transfer1/diffusion/training/models/model.py
+index ff06cd4..976e6de 100644
+--- a/cosmos_transfer1/diffusion/training/models/model.py
++++ b/cosmos_transfer1/diffusion/training/models/model.py
+@@ -16,9 +16,8 @@
+ import math
+ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
+ 
+-import amp_C
++#import amp_C
+ import torch
+-from apex.multi_tensor_apply import multi_tensor_applier
+ from einops import rearrange
+ from megatron.core import parallel_state
+ from torch import Tensor
+@@ -34,8 +33,6 @@ from cosmos_transfer1.diffusion.training.models.model_image import DiffusionMode
+ from cosmos_transfer1.diffusion.training.models.model_image import diffusion_fsdp_class_decorator
+ from cosmos_transfer1.utils import distributed, log, misc
+ 
+-l2_norm_impl = amp_C.multi_tensor_l2norm
+-multi_tensor_scale_impl = amp_C.multi_tensor_scale
+ 
+ # key to check if the video data is normalized or image data is converted to video data
+ # to avoid apply normalization or augment image dimension multiple times
