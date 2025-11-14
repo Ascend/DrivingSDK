@@ -48,7 +48,7 @@ cd ../
 
 ##安装tcmalloc(openeular或者ubuntu)
 echo "tcmalloc开始安装"
-if [ "$SYSTEM"=="openeular" ]; then
+if [ "$SYSTEM" == "openeular" ]; then
     mkdir gperftools
     cd gperftools
     wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
@@ -63,6 +63,9 @@ if [ "$SYSTEM"=="openeular" ]; then
     export PATH=/usr/local/lib/bin:$PATH
     export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
 else
+    apt-get update
+    apt install autoconf
+    apt install libtool
     git clone https://github.com/libunwind/libunwind.git
     cd libunwind
     autoreconf -i
