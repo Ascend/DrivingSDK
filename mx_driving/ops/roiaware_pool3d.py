@@ -43,7 +43,7 @@ class RoIAwarePool3dFunction(Function):
         
         if isinstance(out_size, int):
             out_x = out_y = out_z = out_size
-        elif len(out_size) == 3 or is_tuple_of(out_size, int):
+        elif len(out_size) == 3 and is_tuple_of(out_size, int):
             out_x, out_y, out_z = out_size
         else:
             raise Exception("outsize attr Error!\n")
@@ -75,7 +75,7 @@ class RoIAwarePool3dFunction(Function):
 
         # backward
         grad_in = mx_driving._C.roiaware_pool3d_grad(
-            pts_idx_of_voxels, argmax, grad_out.contiguous(), num_pts, pool_method=mode
+            pts_idx_of_voxels, argmax, grad_out.contiguous(), num_pts, mode
         )
 
         return None, None, grad_in, None, None, None

@@ -7,6 +7,7 @@ import torch
 import torch_npu
 from torch_npu.testing.common_utils import create_common_tensor
 from torch_npu.testing.testcase import TestCase, run_tests
+import os
 
 import mx_driving
 import mx_driving.detection
@@ -127,7 +128,9 @@ def box_overlap(box_a: List[float], box_b: List[float]):
 
     for j in range(cnt - 1):
         for i in range(cnt - j - 1):
-            if point_cmp(cross_points[i], cross_points[i + 1], poly_center):
+
+            flag1 = point_cmp(cross_points[i], cross_points[i + 1], poly_center)
+            if flag1:
                 temp = cross_points[i]
                 cross_points[i] = cross_points[i + 1]
                 cross_points[i + 1] = temp
@@ -137,7 +140,8 @@ def box_overlap(box_a: List[float], box_b: List[float]):
     for k in range(cnt - 1):
         v1 = cross_points[k] - cross_points[0]
         v2 = cross_points[k + 1] - cross_points[0]
-        area += cross(v1, v2, None)
+        val = cross(v1, v2, None)
+        area += val
     return fabs(area) / 2.0
 
 
@@ -213,39 +217,63 @@ def iou_bev(box_a: List[float], box_b: List[float]):
     sb = box_b[3] * box_b[4]
     s_overlap = box_overlap(box_a, box_b)
     max_val = max(sa + sb - s_overlap, EPS)
-    try:
-        result = s_overlap / max_val
-    except ZeroDivisionError as e:
-        print("value of area union can not be 0.")
-    return result
+    return s_overlap / max_val
 
+
+def nms3d_forward(boxes: List[List[float]], nms_overlap_thresh=0.0):
+    mask = np.ones(boxes.shape[0], dtype=int)
+    keep = -np.ones(boxes.shape[0])
+    out_num = 0
+    for i in range(0, boxes.shape[0]):
+        if mask[i] == 0:
+            continue
+        keep[out_num] = i
+        out_num += 1
+        for j in range(i + 1, boxes.shape[0]):
+            flag1 = iou_bev(boxes[i], boxes[j])
+
+            if flag1 > nms_overlap_thresh:
+                mask[j] = 0
+
+    return keep, out_num
+
+
+def nms3d_cpu(boxes: List[List[float]], scores: List[float], iou_threshold=0.0):
+    order = scores.argsort()[::-1][:scores.shape[0]]
+    boxes = boxes.take(order, 0)
+    keep, num_out = nms3d_forward(boxes, iou_threshold)
+    keep = order[keep[:num_out].astype(int)]
+    return np.array(keep)
+
+def get_npu_device():
+    npu_device = os.environ.get('SET_NPU_DEVICE')
+    if npu_device is None:
+        npu_device = "npu:0"
+    else:
+        npu_device = f"npu:{npu_device}"
+    return npu_device
+
+def create_no_repetition_tensor(item, maxValue, device=None):
+    if device is None:
+        device = get_npu_device()
+
+    dtype = item[0]
+    npu_format = item[1]
+    shape = item[2]
+    if maxValue < shape[0]:
+        maxValue = shape[0] 
+    input1 = np.random.choice(maxValue, size=shape, replace=False).astype(dtype)
+    cpu_input = torch.from_numpy(input1)
+    npu_input = torch.from_numpy(input1).to(device)
+    if npu_format != -1:
+        npu_input = torch_npu.npu_format_cast(npu_input, npu_format)
+    return cpu_input, npu_input
 
 class TestNms3d(TestCase):
     def cpu_to_exec(self, boxes, scores, threshold=0.0):
-        boxes = boxes.numpy()
-        scores_npu = scores.npu()
-        order_npu = scores_npu.sort(0, descending=True)[1]
-        order_cpu = order_npu.cpu()
-        order = order_cpu.numpy()
-        boxes = boxes.take(order, 0)
-        keep, num_out = self.cpu_nms_forward(boxes, threshold)
-        keep = keep.astype(np.int64)
-        keep = order[keep[:num_out]]
-        return torch.from_numpy(keep)
-
-    def cpu_nms_forward(self, boxes, nms_overlap_thresh=0.0):
-        mask = np.ones(boxes.shape[0], dtype=int)
-        keep = -np.ones(boxes.shape[0])
-        num_out = 0
-        for i in range(0, boxes.shape[0]):
-            if mask[i] == 0:
-                continue
-            keep[num_out] = i
-            num_out += 1
-            for j in range(i + 1, boxes.shape[0]):
-                if iou_bev(boxes[i], boxes[j]) > nms_overlap_thresh:
-                    mask[j] = 0
-        return keep, num_out
+        scores_np = scores.cpu().numpy()
+        boxes_np = boxes.cpu().numpy()
+        return torch.from_numpy(nms3d_cpu(boxes_np, scores_np, threshold))
 
     def npu_to_exec(self, boxes, scores, threshold=0.0):
         keep_1 = mx_driving.nms3d(boxes, scores, threshold)
@@ -253,7 +281,7 @@ class TestNms3d(TestCase):
         keep_3 = mx_driving.detection.npu_nms3d(boxes, scores, threshold)
         return keep_1.cpu(), keep_2.cpu(), keep_3.cpu()
 
-    @unittest.skipIf(DEVICE_NAME != True, "OP `Nms3d` is only supported on 910B, skip this ut!")
+    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d` is only supported on 910B, skip this ut!")
     def test_nms3d_float32(self):
         shape_format = [
             [[np.float32, -1, [5, 7]], [np.float32, -1, [5]], 0.1],
@@ -264,7 +292,7 @@ class TestNms3d(TestCase):
         ]
         for item in shape_format:
             boxes_cpu, boxes_npu = create_common_tensor(item[0], 0, 10)
-            scores_cpu, scores_npu = create_common_tensor(item[1], 0, 1)
+            scores_cpu, scores_npu = create_no_repetition_tensor(item[1], 2000)
             threshold = item[2]
             out_cpu = self.cpu_to_exec(boxes_cpu, scores_cpu, threshold)
             out_npu_1, out_npu_2, out_npu_3 = self.npu_to_exec(boxes_npu, scores_npu, threshold)
@@ -290,6 +318,15 @@ class TestNms3d(TestCase):
             self.assertRtolEqual(out_cpu, out_npu_1)
             self.assertRtolEqual(out_cpu, out_npu_2)
             self.assertRtolEqual(out_cpu, out_npu_3)
+    
+    def test_boxes_shape_invalid(self):
+        item = [[np.float16, -1, [5, 1]], [np.float16, -1, [5]], 0.1]
+        boxes_cpu, boxes_npu = create_common_tensor(item[0], 0, 10)
+        scores_cpu, scores_npu = create_common_tensor(item[1], 0, 1)
+        threshold = item[2]
+        with self.assertRaises(Exception) as ctx:
+            self.npu_to_exec(boxes_npu, scores_npu, threshold)
+        self.assertEqual(str(ctx.exception), "Input boxes shape should be (N, 7)")
 
 
 if __name__ == '__main__':

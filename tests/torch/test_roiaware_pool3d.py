@@ -208,6 +208,53 @@ class TestRoIAwarePool3dGrad(TestCase):
         self.one_case(20, out_size, 512, 256, 128, 'max', np.float16)
         self.one_case(20, out_size, 512, 256, 128, 'avg', np.float16)
 
+    def test_out_size_eq_zero(self):
+        rois, pts, pts_feature = self.gen_input_data(10, 0, 256, 128, np.float32)
+        rois_input = torch.tensor(rois).npu()
+        pts_input = torch.tensor(pts).npu()
+        pts_feature_input = torch.tensor(pts_feature).npu()
+        with self.assertRaises(Exception) as ctx:
+            mx_driving.roiaware_pool3d(rois_input, pts_input, pts_feature_input, 0, 128, 0)
+        self.assertEqual(str(ctx.exception), "Error! out_size can not be 0.\n")
+
+    def test_max_pts_per_voxel_eq_zero(self):
+        out_size = (4, 4, 4)
+        rois, pts, pts_feature = self.gen_input_data(10, out_size, 256, 128, np.float32)
+        rois_input = torch.tensor(rois).npu()
+        pts_input = torch.tensor(pts).npu()
+        pts_feature_input = torch.tensor(pts_feature).npu()
+        with self.assertRaises(Exception) as ctx:
+            mx_driving.roiaware_pool3d(rois_input, pts_input, pts_feature_input, out_size, 0, 0)
+        self.assertEqual(str(ctx.exception), "Error! max_pts_per_voxel can not be 0.\n")
+
+    def test_out_size_is_int(self):
+        rois, pts, pts_feature = self.gen_input_data(10, 4, 256, 128, np.float32)
+        rois_input = torch.tensor(rois).npu()
+        pts_input = torch.tensor(pts).npu()
+        pts_feature_input = torch.tensor(pts_feature).npu()
+        pooled_features_cpu = self.roiaware_pool3d_cpu(rois, pts, pts_feature, (4, 4, 4), 10, "max", np.float32)
+        pooled_features_npu = mx_driving.roiaware_pool3d(rois_input, pts_input, pts_feature_input, 4, 10, 0)
+        pooled_features_cpu_tensor = torch.tensor(pooled_features_cpu)
+        self.assertRtolEqual(pooled_features_cpu_tensor, pooled_features_npu.detach().cpu())
+
+    def test_outsize_attr_error(self):
+        out_size = (4, 4)
+        rois, pts, pts_feature = self.gen_input_data(10, out_size, 256, 128, np.float32)
+        rois_input = torch.tensor(rois).npu()
+        pts_input = torch.tensor(pts).npu()
+        pts_feature_input = torch.tensor(pts_feature).npu()
+        with self.assertRaises(Exception) as ctx:
+            mx_driving.roiaware_pool3d(rois_input, pts_input, pts_feature_input, out_size, 128, 0)
+        self.assertEqual(str(ctx.exception), "outsize attr Error!\n")
+
+        out_size = (4.0, 4.0, 4.0)
+        rois, pts, pts_feature = self.gen_input_data(10, out_size, 256, 128, np.float32)
+        rois_input = torch.tensor(rois).npu()
+        pts_input = torch.tensor(pts).npu()
+        pts_feature_input = torch.tensor(pts_feature).npu()
+        with self.assertRaises(Exception) as ctx:
+            mx_driving.roiaware_pool3d(rois_input, pts_input, pts_feature_input, out_size, 128, 0)
+        self.assertEqual(str(ctx.exception), "outsize attr Error!\n")
 
 if __name__ == "__main__":
     torch.npu.conv.allow_hf32 = False

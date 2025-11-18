@@ -47,7 +47,12 @@ class TestRoIAwarePool3dGrad(TestCase):
         return grad_in_cast
 
     def roiaware_pool3d_grad_npu(self, pts_idx_of_voxels, argmax, grad_out, npoints, pool_method):
-        grad_in = mx_driving._C.roiaware_pool3d_grad(pts_idx_of_voxels, argmax, grad_out, npoints, pool_method)
+        class MockCtx:
+            def __init__(self, pts_idx_of_voxels, argmax, mode, num_pts, num_channels):
+                self.roiaware_pool3d_for_backward = (pts_idx_of_voxels, argmax, mode, num_pts, num_channels)
+        ctx = MockCtx(pts_idx_of_voxels, argmax, pool_method, npoints, 1)
+        from mx_driving.ops.roiaware_pool3d import RoIAwarePool3dFunction
+        _, _, grad_in, _, _, _ = RoIAwarePool3dFunction.backward(ctx, grad_out)
         return grad_in
     
     def roiaware_maxpool3d_grad_cpu(self, argmax, grad_out, grad_in):
@@ -131,6 +136,15 @@ class TestRoIAwarePool3dGrad(TestCase):
         self.one_case(1, out_size, 256, 128, 128, 0, "float16")
         self.one_case(1, out_size, 256, 128, 128, 1, "float16")
 
+    def test_roiaware_gradout_empty(self):
+        pts_idx_of_voxels_shape = (1, 14, 14, 14, 128)
+        argmax, grad_out, pts_idx_of_voxels = self.gen_input_data(pts_idx_of_voxels_shape, 256, 128, "float32")
+        grad_out = torch.tensor([]).npu()
+        argmax = argmax.npu()
+        pts_idx_of_voxels = pts_idx_of_voxels.npu()
+        with self.assertRaises(Exception) as ctx:
+            self.roiaware_pool3d_grad_npu(pts_idx_of_voxels, argmax, grad_out, 128, 0)
+        self.assertEqual(str(ctx.exception), "Error! Input Tensor can not be a empty Tensor.\n")
 
 if __name__ == "__main__":
     torch.npu.conv.allow_hf32 = False

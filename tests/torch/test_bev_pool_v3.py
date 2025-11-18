@@ -51,11 +51,14 @@ def generate_bev_pool_data(B, D, H, W, C, N_RANKS):
     return feat, depth, grad_out, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape
 
 
-class TestBEVPoolV2(TestCase):
+class TestBEVPoolV3(TestCase):
     seed = 1024
     torch.manual_seed(seed)
 
-    def test_bev_pool_v2(self):
+    def test_bev_pool_v3(self):
+        class MockCtx:
+            def __init__(self, saved_tensors):
+                self.saved_tensors = saved_tensors
         shapes = [
             [1, 1, 1, 1, 8, 1],
             [3, 3, 3, 3, 16, 3],
@@ -86,11 +89,42 @@ class TestBEVPoolV2(TestCase):
             bev_feat_npu = bev_pool_v3(
                 depth_npu, feat_npu, ranks_depth_npu, ranks_feat_npu, ranks_bev_npu, bev_feat_shape
             )
-            bev_feat_npu.backward(grad_out_npu)
+            saved_tensors = (depth_npu, feat_npu, ranks_feat_npu, ranks_depth_npu, ranks_bev_npu)
+            ctx = MockCtx(saved_tensors)
+            from mx_driving.ops.bev_pool_v3 import BEVPoolV3
+            grad_depth_npu, grad_feat_npu, _, _, _, _ = BEVPoolV3.backward(ctx, grad_out_npu.permute(0, 2, 3, 4, 1).contiguous())
 
             self.assertRtolEqual(bev_feat_npu.detach().cpu().numpy(), bev_feat_cpu.detach().cpu().numpy())
-            self.assertRtolEqual(feat_npu.grad.cpu().numpy(), bev_feat_grad_cpu.cpu().numpy())
-            self.assertRtolEqual(depth_npu.grad.cpu().numpy(), bev_depth_grad_cpu.cpu().numpy())
+            self.assertRtolEqual(grad_feat_npu.cpu().numpy(), bev_feat_grad_cpu.cpu().numpy())
+            self.assertRtolEqual(grad_depth_npu.cpu().numpy(), bev_depth_grad_cpu.cpu().numpy())
+
+    def test_depth_none_valid_ranks_bev(self):
+        B, D, H, W, C, N_RANKS = 1, 1, 1, 1, 8, 1
+        feat, _, grad_out, _, ranks_feat, ranks_bev, bev_feat_shape = generate_bev_pool_data(
+                B, D, H, W, C, N_RANKS
+            )
+        depth = None
+        ranks_depth = None
+        ranks_bev_2d = torch.tensor([
+            [torch.randint(0, B, ()).item(),    # batch_idx: [0, B-1]
+            torch.randint(0, W, ()).item(),    # width_idx: [0, W-1]
+            torch.randint(0, H, ()).item(),    # height_idx: [0, H-1]
+            torch.randint(0, D, ()).item()]    # depth_idx: [0, D-1]
+            for _ in range(N_RANKS)
+        ], dtype=torch.int32).to("npu")
+
+        feat_npu = feat.clone().to("npu").requires_grad_(True)
+        grad_out_npu = grad_out.clone().to("npu")
+        ranks_feat_npu = ranks_feat.clone().to("npu")
+        ranks_bev_npu = ranks_bev.clone().to("npu")
+
+        with self.assertRaises(Exception) as ctx:
+            bev_feat_npu = bev_pool_v3(depth, feat_npu, ranks_depth, ranks_feat_npu, ranks_bev_npu, bev_feat_shape)
+        self.assertEqual(str(ctx.exception), "ranks_bev must be 2D when running without depth")
+
+        ranks_bev_2d_npu = ranks_bev_2d.clone().to("npu")
+        feat_2d_npu = torch.rand([8, 8, 8, 8, 8]).to("npu")
+        bev_pool_v3(depth, feat_2d_npu, ranks_depth, ranks_feat_npu, ranks_bev_2d_npu, bev_feat_shape)
 
 
 if __name__ == "__main__":
