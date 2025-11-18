@@ -154,7 +154,6 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
     pip install cosmos-guardrail==0.1.0 --no-deps
     pip install numpy==1.26.4
     # 在安装之后，需检查torch及torchvision版本，若版本被覆盖，需再次安装torch及torchvision==0.22.1
-    cd ..
     ```
 
 # 准备训练数据
@@ -169,7 +168,7 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
 
 ## 准备模型权重
 
-下载权重至 Cosmos-Predict2/checkpoints/nvidia/
+下载权重至 Cosmos-Predict2/cosmos-predict2/checkpoints
 
 1. 处理数据集所需模型（必要）
 

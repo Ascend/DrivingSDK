@@ -194,7 +194,7 @@ index e822fd8..fccb0d3 100644
      checkpoint=dict(
          save_iter=500,
 diff --git a/cosmos_predict2/models/text2image_dit.py b/cosmos_predict2/models/text2image_dit.py
-index 2297faa..b261835 100644
+index 2297faa..7ca0007 100644
 --- a/cosmos_predict2/models/text2image_dit.py
 +++ b/cosmos_predict2/models/text2image_dit.py
 @@ -20,9 +20,10 @@ from dataclasses import dataclass
@@ -382,7 +382,16 @@ index 2297faa..b261835 100644
  
          self.v_proj = nn.Linear(context_dim, inner_dim, bias=False)
          self.v_norm = nn.Identity()
-@@ -398,6 +534,8 @@ class Attention(nn.Module):
+@@ -376,6 +512,8 @@ class Attention(nn.Module):
+             additional_args["video_size"] = video_size
+ 
+         result = self.attn_op(q, k, v, **additional_args)  # [B, S, H, D]
++        # 强同步以避免 FSDP2 显存异常
++        torch.npu.synchronize()
+         return self.output_dropout(self.output_proj(result))
+ 
+     def forward(
+@@ -398,6 +536,8 @@ class Attention(nn.Module):
      def set_context_parallel_group(
          self, process_group: ProcessGroup, ranks: list[int], stream: torch.cuda.Stream
      ) -> None:
@@ -391,7 +400,7 @@ index 2297faa..b261835 100644
          self.attn_op.set_context_parallel_group(process_group, ranks, stream)
  
  
-@@ -919,8 +1057,8 @@ class Block(nn.Module):
+@@ -919,8 +1059,8 @@ class Block(nn.Module):
          mlp_ratio: float = 4.0,
          use_adaln_lora: bool = False,
          adaln_lora_dim: int = 256,
@@ -402,7 +411,7 @@ index 2297faa..b261835 100644
          natten_params: Mapping | None = None,
      ):
          super().__init__()
-@@ -1172,7 +1310,7 @@ class MiniTrainDIT(WeightTrainingStat):
+@@ -1172,7 +1312,7 @@ class MiniTrainDIT(WeightTrainingStat):
          num_blocks: int = 10,
          num_heads: int = 16,
          mlp_ratio: float = 4.0,
@@ -411,7 +420,7 @@ index 2297faa..b261835 100644
          # cross attention settings
          crossattn_emb_channels: int = 1024,
          use_crossattn_projection: bool = TEXT_ENCODER_CLASS is TextEncoderClass.COSMOS_REASON1,
-@@ -1290,7 +1428,7 @@ class MiniTrainDIT(WeightTrainingStat):
+@@ -1290,7 +1430,7 @@ class MiniTrainDIT(WeightTrainingStat):
          else:
              self.crossattn_proj = None
  
