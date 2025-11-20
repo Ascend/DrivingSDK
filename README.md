@@ -172,6 +172,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [DETR3D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DETR3D) | 14.35 | 14.28 |Y|
 | [Diffusion-Planner](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner) | 5672.96 | 5304.32 |Y|
 | [DiffusionDrive](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive) | 28.43 | 30.53 |Y|
+| [FBOCC](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FBOCC) |20.80 | 33.61 |Y|
 | [FCOS-resnet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FCOS) | 196 | 196 |Y|
 | [FCOS3D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FCOS3D) | 44.31 | 44.30 |Y|
 | [FlashOCC](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FlashOCC) | 104.85 | 67.98 |Y|

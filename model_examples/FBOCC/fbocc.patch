@@ -1,0 +1,680 @@
+diff --git a/deployment/eval_orin/__init__.py b/deployment/eval_orin/__init__.py
+index f5f28ae..45179f6 100644
+--- a/deployment/eval_orin/__init__.py
++++ b/deployment/eval_orin/__init__.py
+@@ -1,2 +1,2 @@
+-from preprocess_samples import *
+-from validate_trt_outputs import *
+\ No newline at end of file
++from .preprocess_samples import *
++from .validate_trt_outputs import *
+\ No newline at end of file
+diff --git a/mmdet3d/__init__.py b/mmdet3d/__init__.py
+index 643c39c..001b224 100644
+--- a/mmdet3d/__init__.py
++++ b/mmdet3d/__init__.py
+@@ -19,7 +19,7 @@ def digit_version(version_str):
+ 
+ 
+ mmcv_minimum_version = '1.5.2'
+-mmcv_maximum_version = '1.7.0'
++mmcv_maximum_version = '1.7.2'
+ mmcv_version = digit_version(mmcv.__version__)
+ 
+ 
+diff --git a/mmdet3d/apis/train.py b/mmdet3d/apis/train.py
+index 6c8edeb..9d3f25f 100644
+--- a/mmdet3d/apis/train.py
++++ b/mmdet3d/apis/train.py
+@@ -4,7 +4,7 @@ import warnings
+ 
+ import numpy as np
+ import torch
+-from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
++from mmcv.device.npu import NPUDataParallel, NPUDistributedDataParallel
+ from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
+                          Fp16OptimizerHook, OptimizerHook, build_optimizer,
+                          build_runner, get_dist_info)
+@@ -105,13 +105,13 @@ def train_segmentor(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+     # build runner
+@@ -226,13 +226,13 @@ def train_detector(model,
+         find_unused_parameters = cfg.get('find_unused_parameters', False)
+         # Sets the `find_unused_parameters` parameter in
+         # torch.nn.parallel.DistributedDataParallel
+-        model = MMDistributedDataParallel(
++        model = NPUDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+             broadcast_buffers=False,
+             find_unused_parameters=find_unused_parameters)
+     else:
+-        model = MMDataParallel(
++        model = NPUDataParallel(
+             model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+ 
+     # build runner
+diff --git a/mmdet3d/datasets/builder.py b/mmdet3d/datasets/builder.py
+index 0862b46..bcaaf73 100644
+--- a/mmdet3d/datasets/builder.py
++++ b/mmdet3d/datasets/builder.py
+@@ -166,7 +166,7 @@ def build_dataloader(dataset,
+         num_workers=num_workers,
+         batch_sampler=batch_sampler,
+         collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
+-        pin_memory=False,
++        pin_memory=True,
+         worker_init_fn=init_fn,
+         **kwargs)
+ 
+diff --git a/mmdet3d/datasets/occ_metrics.py b/mmdet3d/datasets/occ_metrics.py
+index d6fe203..1d23bb4 100644
+--- a/mmdet3d/datasets/occ_metrics.py
++++ b/mmdet3d/datasets/occ_metrics.py
+@@ -292,7 +292,7 @@ def parse_args():
+     parser = argparse.ArgumentParser(
+         description='eval occupancy')
+     parser.add_argument('pred_path', help='pred_path')
+-    parser.add_argument('--gt_path', default='/mount/data/occupancy_cvpr2023/gts', help='checkpoint file')
++    parser.add_argument('--gt_path', default='./data/nuscenes/gts', help='checkpoint file')
+     parser.add_argument('--min_d', default=-1, type=int, help='min range')
+     parser.add_argument('--max_d', default=100, type=int, help='max range')
+     parser.add_argument(
+diff --git a/mmdet3d/datasets/occupancy_eval.py b/mmdet3d/datasets/occupancy_eval.py
+index 7d39505..1e964a0 100644
+--- a/mmdet3d/datasets/occupancy_eval.py
++++ b/mmdet3d/datasets/occupancy_eval.py
+@@ -2,13 +2,13 @@ from .occ_metrics import Metric_mIoU, Metric_FScore
+ import argparse
+ import os
+ import sys
+-import nunmpy as np
++import numpy as np
+ 
+ def parse_args():
+     parser = argparse.ArgumentParser(
+         description='eval occupancy')
+     parser.add_argument('pred_path', help='pred_path')
+-    parser.add_argument('--gt', default='/mount/data/occupancy_cvpr2023/gts', help='checkpoint file')
++    parser.add_argument('--gt', default='./data/nuscenes/gts', help='checkpoint file')
+     parser.add_argument(
+         '--eval_fscore',
+         action='store_true',
+diff --git a/mmdet3d/datasets/pipelines/loading.py b/mmdet3d/datasets/pipelines/loading.py
+index c562208..8b0791f 100644
+--- a/mmdet3d/datasets/pipelines/loading.py
++++ b/mmdet3d/datasets/pipelines/loading.py
+@@ -1342,8 +1342,8 @@ class LoadAnnotationsBEVDepth(object):
+     def bev_transform(self, gt_boxes, rotate_angle, scale_ratio, flip_dx,
+                       flip_dy):
+         rotate_angle = torch.tensor(rotate_angle / 180 * np.pi)
+-        rot_sin = torch.sin(rotate_angle)
+-        rot_cos = torch.cos(rotate_angle)
++        rot_sin = torch.sin(rotate_angle).item()  # 提取Python标量
++        rot_cos = torch.cos(rotate_angle).item()  # 提取Python标量
+         rot_mat = torch.Tensor([[rot_cos, -rot_sin, 0], [rot_sin, rot_cos, 0],
+                                 [0, 0, 1]])
+         scale_mat = torch.Tensor([[scale_ratio, 0, 0], [0, scale_ratio, 0],
+@@ -1398,5 +1398,4 @@ class LoadAnnotationsBEVDepth(object):
+         results['rotate_bda'] = rotate_bda
+         results['scale_bda'] = scale_bda
+ 
+-        return results
+-
++        return results
+\ No newline at end of file
+diff --git a/mmdet3d/models/detectors/bevdet.py b/mmdet3d/models/detectors/bevdet.py
+index a71d3f1..4f3d01b 100644
+--- a/mmdet3d/models/detectors/bevdet.py
++++ b/mmdet3d/models/detectors/bevdet.py
+@@ -3,7 +3,6 @@ import torch
+ import torch.nn.functional as F
+ from mmcv.runner import force_fp32
+ 
+-from mmdet3d.ops.bev_pool_v2.bev_pool import TRTBEVPoolv2
+ from mmdet.models import DETECTORS
+ from .. import builder
+ from .centerpoint import CenterPoint
+diff --git a/mmdet3d/models/fbbev/custom_ops/__init__.py b/mmdet3d/models/fbbev/custom_ops/__init__.py
+index 01f8f71..e69de29 100644
+--- a/mmdet3d/models/fbbev/custom_ops/__init__.py
++++ b/mmdet3d/models/fbbev/custom_ops/__init__.py
+@@ -1,3 +0,0 @@
+-from .grid_sampler import grid_sampler
+-from .bev_pool_v2 import bev_pool_v2
+-from .multi_scale_deformable_attn import multi_scale_deformable_attn
+\ No newline at end of file
+diff --git a/mmdet3d/models/fbbev/detectors/__init__.py b/mmdet3d/models/fbbev/detectors/__init__.py
+index ef19b42..4b672ce 100644
+--- a/mmdet3d/models/fbbev/detectors/__init__.py
++++ b/mmdet3d/models/fbbev/detectors/__init__.py
+@@ -1,3 +1,2 @@
+ 
+-from .fbocc import FBOCC
+-from .fbocc_trt import FBOCCTRT
+\ No newline at end of file
++from .fbocc import FBOCC
+\ No newline at end of file
+diff --git a/mmdet3d/models/fbbev/detectors/fbocc.py b/mmdet3d/models/fbbev/detectors/fbocc.py
+index 227c783..fb8a0e7 100644
+--- a/mmdet3d/models/fbbev/detectors/fbocc.py
++++ b/mmdet3d/models/fbbev/detectors/fbocc.py
+@@ -9,15 +9,13 @@ import torch.nn.functional as F
+ import torch.nn as nn
+ from mmcv.runner import force_fp32
+ import os
+-from mmdet3d.ops.bev_pool_v2.bev_pool import TRTBEVPoolv2
+ from mmdet.models import DETECTORS
+ from mmdet3d.models import builder
+ from mmdet3d.models.detectors import CenterPoint
+ from mmdet3d.models.builder import build_head, build_neck
+ import numpy as np
+-import copy 
+-import spconv.pytorch as spconv
+-from tqdm import tqdm 
++import copy
++from tqdm import tqdm
+ from mmdet3d.models.fbbev.utils import run_time
+ import torch
+ from torchvision.utils import make_grid
+@@ -30,7 +28,7 @@ from mmdet.core import reduce_mean
+ import mmcv
+ from mmdet3d.datasets.utils import nuscenes_get_rt_matrix
+ from mmdet3d.core.bbox import box_np_ops # , corner_to_surfaces_3d, points_in_convex_polygon_3d_jit
+-
++from mx_driving import grid_sampler3d_v1
+ 
+ 
+ def generate_forward_transformation_matrix(bda, img_meta_dict=None):
+@@ -245,8 +243,8 @@ class FBOCC(CenterPoint):
+         ## Deal with the new sequences
+         # First, sanity check. For every non-start of sequence, history id and seq id should be same.
+ 
+-        assert (self.history_seq_ids != seq_ids)[~start_of_sequence].sum() == 0, \
+-                "{}, {}, {}".format(self.history_seq_ids, seq_ids, start_of_sequence)
++        assert ((self.history_seq_ids != seq_ids)*(~start_of_sequence)).sum() == 0, \
++                 "{}, {}, {}".format(self.history_seq_ids, seq_ids, start_of_sequence)
+ 
+         ## Replace all the new sequences' positions in history with the curr_bev information
+         self.history_sweep_time += 1 # new timestep, everything in history gets pushed back one.
+@@ -269,10 +267,10 @@ class FBOCC(CenterPoint):
+                                   curr_bev.shape, dtype=curr_bev.dtype, device=curr_bev.device)
+ 
+         tmp_bev = self.history_bev
+-        if voxel_feat: 
++        if voxel_feat:
+             n, mc, z, h, w = tmp_bev.shape
+             tmp_bev = tmp_bev.reshape(n, mc, z, h, w)
+-        sampled_history_bev = F.grid_sample(tmp_bev, grid.to(curr_bev.dtype).permute(0, 3, 1, 2, 4), align_corners=True, mode=self.interpolation_mode)
++        sampled_history_bev = grid_sampler3d_v1(tmp_bev.contiguous(), grid.permute(0, 3, 1, 2, 4).contiguous(), self.interpolation_mode,"zeros",True)
+ 
+         ## Update history
+         # Add in current frame to features & timestep
+diff --git a/mmdet3d/models/fbbev/modules/depth_net.py b/mmdet3d/models/fbbev/modules/depth_net.py
+index 28cf3af..23a0cdd 100644
+--- a/mmdet3d/models/fbbev/modules/depth_net.py
++++ b/mmdet3d/models/fbbev/modules/depth_net.py
+@@ -441,7 +441,7 @@ class CM_DepthNet(BaseModule):
+         fg_mask = torch.max(depth_labels, dim=1).values > 0.0
+         depth_labels = depth_labels[fg_mask]
+         depth_preds = depth_preds[fg_mask]
+-        with autocast(enabled=False):
++        with torch.npu.amp.autocast(enabled=False):
+             depth_loss = F.binary_cross_entropy(
+                 depth_preds,
+                 depth_labels,
+diff --git a/mmdet3d/models/fbbev/modules/occ_loss_utils/lovasz_softmax.py b/mmdet3d/models/fbbev/modules/occ_loss_utils/lovasz_softmax.py
+index 46136a6..be3bdd5 100644
+--- a/mmdet3d/models/fbbev/modules/occ_loss_utils/lovasz_softmax.py
++++ b/mmdet3d/models/fbbev/modules/occ_loss_utils/lovasz_softmax.py
+@@ -168,7 +168,7 @@ def lovasz_softmax(probas, labels, classes='present', per_image=False, ignore=No
+         loss = mean(lovasz_softmax_flat(*flatten_probas(prob.unsqueeze(0), lab.unsqueeze(0), ignore), classes=classes)
+                           for prob, lab in zip(probas, labels))
+     else:
+-        with autocast(False):
++        with torch.cuda.amp.autocast(False):
+             loss = lovasz_softmax_flat(*flatten_probas(probas, labels, ignore), classes=classes)
+     return loss
+ 
+diff --git a/mmdet3d/models/fbbev/modules/resnet3d.py b/mmdet3d/models/fbbev/modules/resnet3d.py
+index 211cc09..4601cb7 100644
+--- a/mmdet3d/models/fbbev/modules/resnet3d.py
++++ b/mmdet3d/models/fbbev/modules/resnet3d.py
+@@ -10,17 +10,20 @@ import torch.nn.functional as F
+ from torch.utils.checkpoint import checkpoint as cp
+ import pdb
+ from mmcv.runner import BaseModule
+-import spconv.pytorch as spconv
++from mx_driving import SubMConv3d, SparseConvTensor,SparseConv3d,SparseSequential
++
+ from mmcv.runner import BaseModule, force_fp32
+ def get_inplanes():
+     return [64, 128, 256, 512]
+ 
+ BIAS = True
++
++
+ def conv3x3x3(in_planes, out_planes, stride=1, use_spase_3dtensor=False):
+     if not use_spase_3dtensor:
+         Conv3d = nn.Conv3d
+     else:
+-        Conv3d = spconv.SparseConv3d if stride!=1 else spconv.SubMConv3d
++        Conv3d = SparseConv3d if stride!=1 else SubMConv3d
+ 
+     return Conv3d(in_planes,
+                      out_planes,
+@@ -34,7 +37,7 @@ def conv1x1x1(in_planes, out_planes, stride=1, use_spase_3dtensor=False):
+     if not use_spase_3dtensor:
+         Conv3d = nn.Conv3d
+     else:
+-        Conv3d = spconv.SparseConv3d if stride!=1 else spconv.SubMConv3d
++        Conv3d = SparseConv3d if stride!=1 else SubMConv3d
+ 
+     return Conv3d(in_planes,
+                      out_planes,
+@@ -42,7 +45,6 @@ def conv1x1x1(in_planes, out_planes, stride=1, use_spase_3dtensor=False):
+                      stride=stride,
+                      bias=BIAS)
+ 
+-from spconv.pytorch import functional as Fsp
+ class BasicBlock(BaseModule):
+     expansion = 1
+ 
+@@ -54,7 +56,7 @@ class BasicBlock(BaseModule):
+         self.downsample = downsample
+ 
+         if self.use_spase_3dtensor:
+-            Sequential = spconv.SparseSequential
++            Sequential = SparseSequential
+ 
+             conv1 = conv3x3x3(in_planes, planes, stride, use_spase_3dtensor=self.use_spase_3dtensor)
+             bn1 = build_norm_layer(norm_cfg, planes)[1]
+@@ -94,6 +96,7 @@ class BasicBlock(BaseModule):
+ 
+             if self.downsample is not None:
+                 residual = self.downsample(x)
++
+             out += residual
+             out = self.relu(out)
+             return out
+@@ -178,10 +181,10 @@ class CustomResNet3D(BaseModule):
+         block_inplanes = [int(x * widen_factor) for x in block_inplanes]
+         self.in_planes = block_inplanes[0]
+         self.out_indices = out_indices
+-        
++
+         # replace the first several downsampling layers with the channel-squeeze layers
+-        Conv3d = nn.Conv3d if not self.use_spase_3dtensor else spconv.SubMConv3d
+-        Sequential = nn.Sequential if not self.use_spase_3dtensor else spconv.SparseSequential
++        Conv3d = nn.Conv3d if not self.use_spase_3dtensor else SubMConv3d
++        Sequential = nn.Sequential if not self.use_spase_3dtensor else SparseSequential
+         if self.use_spase_3dtensor:
+             norm_cfg['type'] = 'BN1d'
+ 
+@@ -220,7 +223,7 @@ class CustomResNet3D(BaseModule):
+ 
+     def _make_layer(self, block, planes, blocks, shortcut_type, stride=1, norm_cfg=None):
+         downsample = None
+-        Sequential = nn.Sequential if not self.use_spase_3dtensor else spconv.SparseSequential
++        Sequential = nn.Sequential if not self.use_spase_3dtensor else SparseSequential
+         if stride != 1 or self.in_planes != planes * block.expansion:
+             if shortcut_type == 'A':
+                 downsample = partial(self._downsample_basic_block,
+diff --git a/mmdet3d/models/fbbev/view_transformation/__init__.py b/mmdet3d/models/fbbev/view_transformation/__init__.py
+index d5b7e9c..4a49002 100644
+--- a/mmdet3d/models/fbbev/view_transformation/__init__.py
++++ b/mmdet3d/models/fbbev/view_transformation/__init__.py
+@@ -1,2 +1,2 @@
+-from .forward_projection import *
+ from .backward_projection import *
++from .forward_projection import *
+diff --git a/mmdet3d/models/fbbev/view_transformation/backward_projection/__init__.py b/mmdet3d/models/fbbev/view_transformation/backward_projection/__init__.py
+index cd6ce38..13f611b 100644
+--- a/mmdet3d/models/fbbev/view_transformation/backward_projection/__init__.py
++++ b/mmdet3d/models/fbbev/view_transformation/backward_projection/__init__.py
+@@ -1,3 +1,3 @@
+-from .backward_projection import BackwardProjection, BackwardProjectionTRT
++from .backward_projection import BackwardProjection
+ from .bevformer_utils import *
+ 
+diff --git a/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/__init__.py b/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/__init__.py
+index 7294006..6500ece 100644
+--- a/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/__init__.py
++++ b/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/__init__.py
+@@ -1,5 +1,4 @@
+ from .bevformer import BEVFormer
+ from .bevformer_encoder import bevformer_encoder, BEVFormerEncoderLayer
+-from .spatial_cross_attention_depth import DA_MSDeformableAttention, DA_SpatialCrossAttention, DA_MSDeformableAttentionTRT, DA_SpatialCrossAttentionTRT
+-from .positional_encoding import CustormLearnedPositionalEncoding
+-from .multi_scale_deformable_attn_function import MultiScaleDeformableAttentionTRT
+\ No newline at end of file
++from .spatial_cross_attention_depth import DA_MSDeformableAttention, DA_SpatialCrossAttention
++from .positional_encoding import CustormLearnedPositionalEncoding
+\ No newline at end of file
+diff --git a/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/multi_scale_deformable_attn_function.py b/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/multi_scale_deformable_attn_function.py
+index 37685e8..9134567 100644
+--- a/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/multi_scale_deformable_attn_function.py
++++ b/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/multi_scale_deformable_attn_function.py
+@@ -19,7 +19,6 @@ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+ from mmcv.ops import MultiScaleDeformableAttention
+ 
+-from mmdet3d.models.fbbev.custom_ops.multi_scale_deformable_attn import multi_scale_deformable_attn
+ 
+ class MultiScaleDeformableAttnFunction_fp16(Function):
+ 
+diff --git a/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/spatial_cross_attention_depth.py b/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/spatial_cross_attention_depth.py
+index 4a113dc..70ccb35 100644
+--- a/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/spatial_cross_attention_depth.py
++++ b/mmdet3d/models/fbbev/view_transformation/backward_projection/bevformer_utils/spatial_cross_attention_depth.py
+@@ -24,8 +24,7 @@ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFuncti
+     MultiScaleDeformableAttnFunction_fp16
+ ext_module = ext_loader.load_ext(
+     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+-
+-from mmdet3d.models.fbbev.custom_ops.multi_scale_deformable_attn import multi_scale_deformable_attn
++import mx_driving
+ 
+ 
+ @ATTENTION.register_module()
+@@ -583,16 +582,14 @@ class DA_MSDeformableAttention(BaseModule):
+                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+             depth_reference_points = reference_points.reshape(bs, num_query * num_Z_anchors, 1, 1, 1, 2).contiguous()
+             depth_attention_weights = torch.ones_like(depth_reference_points[...,0]).contiguous()
+-            depth_weights = MultiScaleDeformableAttnFunction.apply(
++            depth_weights = mx_driving.multi_scale_deformable_attn(
+                 pred_img_depth.unsqueeze(2).contiguous(), spatial_shapes[0:1], level_start_index[0:1], depth_reference_points,
+-                depth_attention_weights, self.im2col_step).reshape(bs, num_query, num_Z_anchors, -1)
++                depth_attention_weights).reshape(bs, num_query, num_Z_anchors, -1)
+             depth_weights = (depth_weights * bev_query_depth).sum(-1)
+             depth_weights = depth_weights.unsqueeze(2).repeat(1,1, num_points, 1).reshape(bs, num_query, num_all_points)
+-
+             attention_weights = attention_weights * depth_weights[:, :, None, None, :]
+-            output = MultiScaleDeformableAttnFunction.apply(
+-                value, spatial_shapes, level_start_index, sampling_locations,
+-                attention_weights, self.im2col_step)
++            output = mx_driving.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++                                                            sampling_locations, attention_weights)
+         else:
+             output = multi_scale_deformable_attn_pytorch(
+                 value, spatial_shapes, sampling_locations, attention_weights)
+diff --git a/mmdet3d/models/fbbev/view_transformation/forward_projection/__init__.py b/mmdet3d/models/fbbev/view_transformation/forward_projection/__init__.py
+index 54fa9a6..84b19be 100644
+--- a/mmdet3d/models/fbbev/view_transformation/forward_projection/__init__.py
++++ b/mmdet3d/models/fbbev/view_transformation/forward_projection/__init__.py
+@@ -1 +1 @@
+-from .view_transformer import LSSViewTransformerFunction, LSSViewTransformerFunction3D, LSSViewTransformerFunction3DTRT
++from .view_transformer import LSSViewTransformerFunction, LSSViewTransformerFunction3D
+diff --git a/mmdet3d/models/fbbev/view_transformation/forward_projection/view_transformer.py b/mmdet3d/models/fbbev/view_transformation/forward_projection/view_transformer.py
+index 2ffadc4..9062b7f 100644
+--- a/mmdet3d/models/fbbev/view_transformation/forward_projection/view_transformer.py
++++ b/mmdet3d/models/fbbev/view_transformation/forward_projection/view_transformer.py
+@@ -7,8 +7,7 @@ from mmcv.runner import BaseModule, force_fp32
+ from torch.cuda.amp.autocast_mode import autocast
+ from torch.utils.checkpoint import checkpoint
+ 
+-from mmdet3d.ops.bev_pool_v2.bev_pool import bev_pool_v2
+-from mmdet3d.models.fbbev.custom_ops.bev_pool_v2 import bev_pool_v2 as bev_pool_v2_trt
++from mx_driving import bev_pool_v3
+ from mmdet.models.backbones.resnet import BasicBlock
+ from mmdet3d.models.builder import NECKS
+ import torch.utils.checkpoint as cp
+@@ -191,9 +190,8 @@ class LSSViewTransformerFunction(BaseModule):
+         bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                           int(self.grid_size[1]), int(self.grid_size[0]),
+                           feat.shape[-1])  # (B, Z, Y, X, C)
+-        bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+-                               bev_feat_shape, interval_starts,
+-                               interval_lengths)
++        bev_feat = bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev,
++                               bev_feat_shape)
+         # collapse Z
+         bev_feat = torch.cat(bev_feat.unbind(dim=2), 1)
+         return bev_feat
+@@ -275,10 +273,9 @@ class LSSViewTransformerFunction(BaseModule):
+             bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                               int(self.grid_size[1]), int(self.grid_size[0]),
+                               feat.shape[-1])  # (B, Z, Y, X, C)
+-            bev_feat = bev_pool_v2(depth, feat, self.ranks_depth,
++            bev_feat = bev_pool_v3(depth, feat, self.ranks_depth,
+                                    self.ranks_feat, self.ranks_bev,
+-                                   bev_feat_shape, self.interval_starts,
+-                                   self.interval_lengths)
++                                   bev_feat_shape)
+ 
+             bev_feat = bev_feat.squeeze(2)
+         else:
+@@ -537,9 +534,8 @@ class LSSViewTransformerFunction3D(BaseModule):
+         bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                           int(self.grid_size[1]), int(self.grid_size[0]),
+                           feat.shape[-1])  # (B, Z, Y, X, C)
+-        bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+-                               bev_feat_shape, interval_starts,
+-                               interval_lengths)
++        bev_feat = bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev,
++                               bev_feat_shape)
+         bev_feat = bev_feat.permute(0, 1, 3, 4, 2) # B, C, Z, X, Y- > B, C, X, Y, Z
+         # bev_feat = torch.cat(bev_feat.unbind(dim=2), 1)
+         return bev_feat
+@@ -621,10 +617,9 @@ class LSSViewTransformerFunction3D(BaseModule):
+             bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                               int(self.grid_size[1]), int(self.grid_size[0]),
+                               feat.shape[-1])  # (B, Z, Y, X, C)
+-            bev_feat = bev_pool_v2(depth, feat, self.ranks_depth,
++            bev_feat = bev_pool_v3(depth, feat, self.ranks_depth,
+                                    self.ranks_feat, self.ranks_bev,
+-                                   bev_feat_shape, self.interval_starts,
+-                                   self.interval_lengths)
++                                   bev_feat_shape)
+             assert False
+             bev_feat = bev_feat.squeeze(2)
+         else:
+diff --git a/mmdet3d/models/necks/view_transformer.py b/mmdet3d/models/necks/view_transformer.py
+index d890733..5019794 100644
+--- a/mmdet3d/models/necks/view_transformer.py
++++ b/mmdet3d/models/necks/view_transformer.py
+@@ -7,7 +7,7 @@ from mmcv.runner import BaseModule, force_fp32
+ from torch.cuda.amp.autocast_mode import autocast
+ from torch.utils.checkpoint import checkpoint
+ 
+-from mmdet3d.ops.bev_pool_v2.bev_pool import bev_pool_v2
++from mx_driving import bev_pool_v3
+ from mmdet.models.backbones.resnet import BasicBlock
+ from ..builder import NECKS
+ import torch.utils.checkpoint as cp
+@@ -181,9 +181,8 @@ class LSSViewTransformer(BaseModule):
+         bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                           int(self.grid_size[1]), int(self.grid_size[0]),
+                           feat.shape[-1])  # (B, Z, Y, X, C)
+-        bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+-                               bev_feat_shape, interval_starts,
+-                               interval_lengths)
++        bev_feat = bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev,
++                               bev_feat_shape)
+         # collapse Z
+         # from IPython import embed
+         # embed()
+@@ -274,11 +273,10 @@ class LSSViewTransformer(BaseModule):
+             bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                               int(self.grid_size[1]), int(self.grid_size[0]),
+                               feat.shape[-1])  # (B, Z, Y, X, C)
+-            
+-            bev_feat = bev_pool_v2(depth, feat, self.ranks_depth,
++
++            bev_feat = bev_pool_v3(depth, feat, self.ranks_depth,
+                                    self.ranks_feat, self.ranks_bev,
+-                                   bev_feat_shape, self.interval_starts,
+-                                   self.interval_lengths)
++                                   bev_feat_shape)
+ 
+             bev_feat = bev_feat.squeeze(2)
+         else:
+@@ -510,9 +508,8 @@ class LSSViewTransformer2(BaseModule):
+         bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
+                           int(self.grid_size[1]), int(self.grid_size[0]),
+                           feat.shape[-1])  # (B, Z, Y, X, C)
+-        bev_feat = bev_pool_v2(depth, feat, ranks_depth, ranks_feat, ranks_bev,
+-                               bev_feat_shape, interval_starts,
+-                               interval_lengths)
++        bev_feat = bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev,
++                               bev_feat_shape)
+         # collapse Z
+         bev_feat = torch.cat(bev_feat.unbind(dim=2), 1)
+         return bev_feat
+@@ -672,10 +669,9 @@ class LSSViewTransformer2(BaseModule):
+             interval_lengths[:-1] = interval_starts[1:] - interval_starts[:-1]
+             interval_lengths[-1] = new_ranks_bev.shape[0] - interval_starts[-1]
+ 
+-            bev_feat = bev_pool_v2(depth, feat, new_ranks_depth,
++            bev_feat = bev_pool_v3(depth, feat, new_ranks_depth,
+                                    new_ranks_feat, new_ranks_bev,
+-                                   bev_feat_shape, interval_starts.int().contiguous(),
+-                                   interval_lengths.int().contiguous())
++                                   bev_feat_shape)
+ 
+             bev_feat = bev_feat.squeeze(2)
+         else:
+diff --git a/mmdet3d/ops/ops_dcnv3/make.sh b/mmdet3d/ops/ops_dcnv3/make.sh
+old mode 100755
+new mode 100644
+diff --git a/occupancy_configs/_base_/init.py b/occupancy_configs/_base_/init.py
+index 26e9044..8b27cc4 100644
+--- a/occupancy_configs/_base_/init.py
++++ b/occupancy_configs/_base_/init.py
+@@ -162,8 +162,8 @@ model = dict(
+ dataset_type = 'NuScenesDataset'
+ data_root = 'data/nuscenes/'
+ file_client_args = dict(backend='disk')
+-occupancy_path = '/mount/data/occupancy_cvpr2023/gts'
+-dense_lidar_prefix = '/mount/data/nuscenes/'
++occupancy_path = './data/nuscenes/gts'
++dense_lidar_prefix = './data/nuscenes'
+ 
+ train_pipeline = [
+     dict(
+diff --git a/occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py b/occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py
+index 841e3ae..dc589d8 100644
+--- a/occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py
++++ b/occupancy_configs/fb_occ/fbocc-r50-cbgs_depth_16f_16x4_20e.py
+@@ -6,7 +6,7 @@
+ 
+ 
+ # we follow the online training settings  from solofusion
+-num_gpus = 16
++num_gpus = 8
+ samples_per_gpu = 4
+ num_iters_per_epoch = int(28130 // (num_gpus * samples_per_gpu) * 4.554)
+ num_epochs = 20
+@@ -71,7 +71,7 @@ bda_aug_conf = dict(
+     flip_dy_ratio=0.5)
+ 
+ use_checkpoint = True
+-sync_bn = True
++sync_bn = False
+ 
+ 
+ # Model
+@@ -253,7 +253,7 @@ model = dict(
+ dataset_type = 'NuScenesDataset'
+ data_root = 'data/nuscenes/'
+ file_client_args = dict(backend='disk')
+-occupancy_path = '/mount/data/occupancy_cvpr2023/gts'
++occupancy_path = 'data/nuscenes/gts'
+ 
+ 
+ train_pipeline = [
+@@ -357,8 +357,8 @@ for key in ['val', 'test']:
+ 
+ # Optimizer
+ lr = 2e-4
+-optimizer = dict(type='AdamW', lr=lr, weight_decay=1e-2)
+- 
++optimizer = dict(type='AdamW', lr=lr, weight_decay=1e-2,foreach=True)
++
+ optimizer_config = dict(grad_clip=dict(max_norm=5, norm_type=2))
+ lr_config = dict(
+     policy='step',
+diff --git a/tools/test.py b/tools/test.py
+index 9265471..614ac87 100644
+--- a/tools/test.py
++++ b/tools/test.py
+@@ -12,7 +12,7 @@ from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
+                          wrap_fp16_model)
+ 
+ import mmdet
+-from mmdet3d.apis import single_gpu_test, single_gpu_test_trt
++from mmdet3d.apis import single_gpu_test#, single_gpu_test_trt
+ from mmdet3d.datasets import build_dataloader, build_dataset
+ from mmdet3d.models import build_model
+ from mmdet.apis import multi_gpu_test, set_random_seed
+@@ -35,6 +35,13 @@ except ImportError:
+     from mmdet3d.utils import compat_cfg
+ from deployment.eval_orin.validate_trt_outputs import eval_trt_target
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++import mx_driving
++from tools.patch import generate_patcher_builder
++
++torch.npu.config.allow_internal_format = False
++
+ def parse_args():
+     parser = argparse.ArgumentParser(
+         description='MMDet test (and eval) a model')
+@@ -274,8 +281,8 @@ def main():
+             model = MMDataParallel(model, device_ids=cfg.gpu_ids)
+             outputs = single_gpu_test(model, data_loader, args.show, args.show_dir)
+     else:
+-        if args.trt_engine is not None:
+-            raise NotImplementedError("TensorRT inference with Distributed GPU setting is not supported.")
++        # if args.trt_engine is not None:
++        #     raise NotImplementedError("TensorRT inference with Distributed GPU setting is not supported.")
+         model = MMDistributedDataParallel(
+             model.cuda(),
+             device_ids=[torch.cuda.current_device()],
+@@ -314,4 +321,6 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    fbocc_patcher_builder = generate_patcher_builder()
++    with fbocc_patcher_builder.build():
++        main()
+diff --git a/tools/train.py b/tools/train.py
+index 07b7b04..17f7d43 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -30,6 +30,12 @@ try:
+ except ImportError:
+     from mmdet3d.utils import setup_multi_processes
+ 
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++import mx_driving
++from tools.patch import generate_patcher_builder
++
++torch.npu.config.allow_internal_format = False
+ 
+ def parse_args():
+     parser = argparse.ArgumentParser(description='Train a detector')
+@@ -359,4 +365,6 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    fbocc_patcher_builder = generate_patcher_builder()
++    with fbocc_patcher_builder.build():
++        main()
