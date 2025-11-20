@@ -16,6 +16,10 @@ DrivingSDK算子支持的CPU架构，Python，PyTorch和torch_npu版本对应关
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0|
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.7.1|v2.7.1|
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.8.0|v2.8.0|
+| branch_v7.3.0    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0|
+|           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0|
+|           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.7.1|v2.7.1|
+|           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.8.0|v2.8.0|
 | branch_v7.2.RC1   | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-7.2.0|
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0-7.2.0|
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.7.1|v2.7.1-7.2.0|
@@ -214,6 +218,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [YoloV8](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Yolov8)   | 214.64 | 479.73 |N|
 | [NWM](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/NWM)   | 363.39 | 383.06 |N|
 | [Cosmos-Drive-Dreams](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Cosmos-Drive-Dreams)   | - | - |N|
+| [Pi-0.5](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Pi-0.5)   | 2335(A3) | 1115(竞品H) |N|
 
 ## 硬件配套
 | 产品系列               | 产品型号                         |
