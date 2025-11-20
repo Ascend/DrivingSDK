@@ -16,6 +16,10 @@ DrivingSDK算子支持的CPU架构，Python，PyTorch和torch_npu版本对应关
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0|
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.7.1|v2.7.1|
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.8.0|v2.8.0|
+| branch_v7.3.0    | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0|
+|           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0|
+|           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.7.1|v2.7.1|
+|           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.8.0|v2.8.0|
 | branch_v7.2.RC1   | x86&aarch64|Python3.8.x,Python3.9.x,Python3.10.x,Python3.11.x|2.1.0|v2.1.0-7.2.0|
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.6.0|v2.6.0-7.2.0|
 |           |       |Python3.9.x,Python3.10.x,Python3.11.x|2.7.1|v2.7.1-7.2.0|
