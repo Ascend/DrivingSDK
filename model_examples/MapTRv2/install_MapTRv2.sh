@@ -36,6 +36,7 @@ cd ..
 echo "mindspeed开始安装"
 git clone https://gitcode.com/Ascend/MindSpeed.git
 pip install -e MindSpeed
+pip install transformers==4.36.0
 
 ##模型代码更新
 echo "模型代码开始更新"
@@ -64,8 +65,8 @@ if [ "$SYSTEM" == "openeular" ]; then
     export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
 else
     apt-get update
-    apt install autoconf
-    apt install libtool
+    apt -y install autoconf
+    apt -y install libtool
     git clone https://github.com/libunwind/libunwind.git
     cd libunwind
     autoreconf -i

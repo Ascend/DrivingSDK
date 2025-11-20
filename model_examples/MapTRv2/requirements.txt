@@ -13,3 +13,4 @@ numpy==1.23.1
 future
 tensorboard
 IPython
+transformers==4.36.0
