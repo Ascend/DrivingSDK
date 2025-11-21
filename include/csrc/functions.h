@@ -282,10 +282,6 @@ std::tuple<at::Tensor, at::Tensor> cartesian_to_frenet1(const at::Tensor& dist_v
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> calc_poly_start_end_sl(const at::Tensor& min_idx, const at::Tensor& poly_line, const at::Tensor& points, const at::Tensor& s_cum);
 
-at::Tensor npu_subm_sparse_conv3d_with_key(const at::Tensor& ouidx_offset, const at::Tensor& valid_indices,
-                                           const at::Tensor& weight, const at::Tensor& feature, int indices_number,
-                                           at::IntArrayRef kernel_size);
-
 at::Tensor min_area_polygons(const at::Tensor& pointsets);
 
 std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& feature,
@@ -313,5 +309,9 @@ std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_grad_v2(
     const at::Tensor& grad_out_features,
     const at::Tensor& indices_offset
 );
+
+std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v3(const at::Tensor& feature, const at::Tensor& weight, const at::Tensor& indices,
+    const at::Tensor& indices_offset, const at::Tensor& map1, const at::Tensor& map2, at::IntArrayRef kernel_size, int in_channels,
+    int out_channels, at::IntArrayRef out_spatial_shape, int batch_size, int with_key);
 
 #endif // CSRC_FUNCTIONS_H_

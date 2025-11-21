@@ -116,178 +116,24 @@ def get_output(num_points, batch_size, in_channels, out_channels,
 
 
 class TestSubmSparseConv3d(TestCase):
-    def test_model_case1(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 16
-        out_channels = 32
-        kernel_size = 3
-        batch_size = len(num_points)
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
+    def do_custom_test(self, num_points, out_spatial_shape, in_channels, out_channels, kernel_size, batch_size):
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, torch.float32)
         self.assertRtolEqual(golden, res)
 
-    def test_model_case2(self):
-        num_points = [38153]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 128
-        out_channels = 256
-        kernel_size = 3
-        batch_size = len(num_points)
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
-        self.assertRtolEqual(golden, res)
-
-    def test_5x5_kernel_case1(self):
-        num_points = [38153]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 128
-        out_channels = 256
-        kernel_size = 5
-        batch_size = len(num_points)
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
-        self.assertRtolEqual(golden, res)
-    
-    def test_5x5_kernel_case2(self):
-        num_points = [38153]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 128
-        out_channels = 256
-        kernel_size = 5
-        batch_size = len(num_points)
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
-        self.assertRtolEqual(golden, res)
-
-    def test_large_spatial_shape(self):
-        num_points = [23787]
-        out_spatial_shape = [3571, 4251, 1062]
-        in_channels = 4
-        out_channels = 32
-        kernel_size = 5
-        batch_size = len(num_points)
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
-        self.assertRtolEqual(golden, res)
-
-    def test_unaligned_channel(self):
-        num_points = [10000]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 55
-        out_channels = 77
-        kernel_size = 5
-        batch_size = len(num_points)
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
-        self.assertRtolEqual(golden, res)
-
-    def test_model_case1_fp16(self):
-        num_points = [61557]
-        out_spatial_shape = [1440, 1440, 41]
-        in_channels = 16
-        out_channels = 32
-        kernel_size = 3
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, torch.float16)
         self.assertRtolEqual(golden, res, 1e-3, 1e-3)
 
-    def test_model_case2_fp16(self):
-        num_points = [38153]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 128
-        out_channels = 256
-        kernel_size = 3
-        batch_size = len(num_points)
-        dtype = torch.float16
+    def test(self):
+        self.do_custom_test([61557], [1440, 1440, 41], 16, 32, 3, 1)    # bevfusion case
+        self.do_custom_test([38153], [1180, 180, 5], 128, 256, 3, 1)    # bevfusion case
+        self.do_custom_test([38153], [1180, 180, 5], 128, 256, 5, 1)    # K = 5
+        self.do_custom_test([23787], [3571, 4251, 1062], 4, 32, 5, 1)    # test large spatial shape
+        self.do_custom_test([10000], [1180, 180, 5], 55, 77, 5, 1)    # unaligned channel
+        self.do_custom_test([50000], [128, 128, 128], 1024, 1024, 3, 1)    # 1024 channel
+        self.do_custom_test([50000], [128, 128, 128], 1024, 1024, 5, 1)    # 1024 channel + kernel size = 5
+        self.do_custom_test([200000], [128, 128, 128], 128, 256, 7, 1)    # K = 7
+        self.do_custom_test([370000], [1440, 1440, 41], 16, 32, 3, 1)    # large points
 
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
-        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
-
-    def test_5x5_kernel_case1_fp16(self):
-        num_points = [38153]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 128
-        out_channels = 256
-        kernel_size = 5
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
-        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
-    
-    def test_5x5_kernel_case2_fp16(self):
-        num_points = [38153]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 128
-        out_channels = 256
-        kernel_size = 5
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
-        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
-
-    def test_large_spatial_shape_fp16(self):
-        num_points = [23787]
-        out_spatial_shape = [3571, 4251, 1062]
-        in_channels = 4
-        out_channels = 32
-        kernel_size = 5
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
-        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
-
-    def test_unaligned_channel_fp16(self):
-        num_points = [10000]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 55
-        out_channels = 77
-        kernel_size = 5
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
-        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
-
-    def test_1x1_small_spatial_shape(self):
-        num_points = [20000]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 32
-        out_channels = 64
-        kernel_size = 1
-        batch_size = len(num_points)
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape)
-        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
-
-    def test_1x1_small_spatial_shape_fp16(self):
-        num_points = [20000]
-        out_spatial_shape = [1180, 180, 5]
-        in_channels = 32
-        out_channels = 64
-        kernel_size = 1
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
-        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
-    
-    def test_1x1_large_spatial_shape_fp16(self):
-        num_points = [10000]
-        out_spatial_shape = [3280, 2480, 500]
-        in_channels = 128
-        out_channels = 256
-        kernel_size = 1
-        batch_size = len(num_points)
-        dtype = torch.float16
-
-        res, golden = get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
-        self.assertRtolEqual(golden, res, 1e-3, 1e-3)
 
 if __name__ == "__main__":
     np.random.seed(100)

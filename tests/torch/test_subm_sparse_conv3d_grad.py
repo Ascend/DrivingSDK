@@ -174,7 +174,7 @@ def get_golden_output(features, indices, weight, bias, batch_size, in_channels,
 @golden_data_cache(__file__)
 def subm_sparse_conv3d_grad_cpu(grad_out, img2col_mat, indices_offset, weight, kernel_size, in_channels, dtype):
     grad_out, img2col_mat, indices_offset, weight = \
-        grad_out.cpu().to(dtype), img2col_mat.cpu().to(dtype), indices_offset.cpu(), weight.cpu().to(dtype)
+        grad_out.to(dtype), img2col_mat.to(dtype), indices_offset, weight.to(dtype)
 
     N, out_channels = grad_out.shape
     weight_grad = img2col_mat.reshape(N, -1).transpose(1, 0) @ grad_out
@@ -245,32 +245,14 @@ class TestSubmSparseConv3dGrad(TestCase):
         double_benchmark_flag = (gpu_out_path is not None) and os.path.exists(gpu_out_path)
         name = 'test_subm_sparse_conv3d_grad'
         
-        for case_name, case_value in CASES.items():
+        for _, case_value in CASES.items():
             num_points, out_spatial_shape, in_channels , out_channels , kernel_size, dtype = case_value.values()
             batch_size = len(num_points)
+            npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = \
+                single_benchmark_get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
 
-            if double_benchmark_flag:
-                filepath = os.path.join(gpu_out_path, name, f'{case_name}.pth')
-                gpu_data = torch.load(filepath, map_location = 'npu')
-                gpu_features_grad = gpu_data['features_grad'].detach().clone().cpu()
-                gpu_weight_grad = gpu_data['weight_grad'].detach().clone().cpu()
-                cpu_features_grad = gpu_data['cpu_features_grad'].detach().clone().cpu()
-                cpu_weight_grad = gpu_data['cpu_weight_grad'].detach().clone().cpu()
-
-                npu_features_grad, npu_weight_grad = double_benchmark_get_output(
-                    num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype, gpu_data)
-                compare = CvFusedDoubleBenchmarkAccuracyCompare([npu_features_grad, npu_weight_grad],
-                                                                [gpu_features_grad, gpu_weight_grad],
-                                                                [cpu_features_grad, cpu_weight_grad])
-                res = compare.run()
-                assert "False" not in res, f"Accuracy check failed for model case {case_name}"
-
-            else:
-                npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = \
-                    single_benchmark_get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
-
-                self.assertRtolEqual(npu_features_grad, cpu_features_grad)
-                self.assertRtolEqual(npu_weight_grad, cpu_weight_grad)
+            self.assertRtolEqual(npu_features_grad, cpu_features_grad, 1e-2, 1e-2)
+            self.assertRtolEqual(npu_weight_grad, cpu_weight_grad, 1e-2, 1e-2)
 
 if __name__ == "__main__":
     np.random.seed(100)

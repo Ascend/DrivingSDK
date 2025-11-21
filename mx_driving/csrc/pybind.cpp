@@ -238,9 +238,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // npu_batch_matmul
     m.def("npu_batch_matmul", &npu_batch_matmul);
 
-    // npu_subm_sparse_conv3d_with_key
-    m.def("npu_subm_sparse_conv3d_with_key", &npu_subm_sparse_conv3d_with_key);
-
     // min_area_polygons
     m.def("min_area_polygons", &min_area_polygons);
 
@@ -267,4 +264,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // npu_subm_sparse_conv3d_grad_v2
     m.def("npu_subm_sparse_conv3d_grad_v2", &npu_subm_sparse_conv3d_grad_v2);
+    
+    // npu_subm_sparse_conv3d_v3
+    m.def("npu_subm_sparse_conv3d_v3", &npu_subm_sparse_conv3d_v3);
 }

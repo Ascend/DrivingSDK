@@ -230,30 +230,13 @@ class SparseConvolution(SparseModule):
                 self.bias,
             )
         else:
-            
             out_spatial_shape = input_.spatial_shape
             out_spatial_shape = [int(i) for i in out_spatial_shape]
             if not isinstance(out_spatial_shape, list):
                 out_spatial_shape = out_spatial_shape.tolist()
             indices_offset = input_.find_indice_pair(self.indice_key)
-            if indices_offset is None:
-                out_features, outidx, ouidx_offset = Fsp.indice_subm_conv(
-                    input_.features,
-                    input_.indices,
-                    self.weight,
-                    out_spatial_shape,
-                    self.out_channels,
-                    input_.batch_size,
-                    self.kernel_size,
-                    self.stride,
-                    self.padding,
-                    self.dilation,
-                    self.groups,
-                    self.bias,
-                )
-                input_.indice_dict[self.indice_key] = ouidx_offset
-            else:
-                out_features, outidx = Fsp.indice_subm_conv_with_key(
+            
+            out_features, outidx, outidx_offset = Fsp.indice_subm_conv(
                     input_.features,
                     input_.indices,
                     self.weight,
@@ -268,6 +251,9 @@ class SparseConvolution(SparseModule):
                     self.groups,
                     self.bias,
                 )
+            
+            if indices_offset is None:
+                input_.indice_dict[self.indice_key] = outidx_offset
 
         if self.bias is not None:
             out_features += self.bias
