@@ -55,7 +55,7 @@ DrivingSDK算子支持的CPU架构，Python，PyTorch和torch_npu版本对应关
 
 ####  前提条件
 1. 本项目依赖昇腾提供的torch_npu包和CANN包，需要先安装对应版本的torch_npu和CANN软件包，具体配套关系见Ascend Extension for PyTorch仓[README](https://gitcode.com/Ascend/pytorch)。
-请参考昇腾官方文档[PyTorch框架训练环境准备](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html)。
+请参考昇腾官方文档[PyTorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0001.html)。
 2. 使用`pip3 install -r requirements.txt` 安装Python依赖，`requirements.txt`文件位于项目根目录下。
 3. 如果您需要编译`ONNX`插件，请安装`protobuf-devel-3.14.0`, 在`centos` 系统上可以执行`yum install protobuf-devel-3-14.0`，否则请将`CMakePresets.json`中的`ENABLE_ONNX`选项改为`FALSE`，`CMakePresets.json`文件位于项目根目录下。
 4. 建议您在准备好环境后，使用`umask 0027`将umask调整为0027，以保证文件权限正确。
@@ -69,7 +69,7 @@ DrivingSDK算子支持的CPU架构，Python，PyTorch和torch_npu版本对应关
 
 1. 克隆原始仓。
     ```shell
-    git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
+    git clone https://gitcode.com/Ascend/DrivingSDK.git
     ```
 2. 编译Driving SDK。
     > 注意：请在仓库根目录下执行编译命令
@@ -88,7 +88,7 @@ DrivingSDK算子支持的CPU架构，Python，PyTorch和torch_npu版本对应关
 
 
 ## 卸载
-PyTorch 框架训练环境的卸载请参考昇腾官方文档[Pytorch框架训练环境卸载](https://hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00032.html)。
+PyTorch 框架训练环境的卸载请参考昇腾官方文档[Pytorch框架训练环境卸载](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0011.html)。
 
 Driving SDK的卸载只需执行以下命令：
 ```shell
@@ -98,7 +98,7 @@ pip3 uninstall mx_driving
 ## 快速上手
 ```python
 import torch, torch_npu
-from mx_driving.common import scatter_max
+from mx_driving import scatter_max
 updates = torch.tensor([[2, 0, 1, 3, 1, 0, 0, 4], [0, 2, 1, 3, 0, 3, 4, 2], [1, 2, 3, 4, 4, 3, 2, 1]], dtype=torch.float32).npu()
 indices = torch.tensor([0, 2, 0], dtype=torch.int32).npu()
 out = updates.new_zeros((3, 8))
@@ -168,8 +168,6 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [CenterNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterNet)  | 1257.444 | 542 |Y|
 | [CenterPoint(2D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 66.160 | 85.712 |Y|
 | [CenterPoint(3D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 39.41 | 48.48 |Y|
-| [Cosmos-Transfer1](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Cosmos-Transfer1)  | - | - |N|
-| [DinoV3](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DinoV3) | 393.8 | 616.8 |N|
 | [Deformable-DETR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR) | 63 | 65 |Y|
 | [DenseTNT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DenseTNT) | 166 | 237 |Y|
 | [DETR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DETR) | 122 | 126 |Y|
@@ -202,10 +200,11 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [TPVFormer](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/TPVFormer) | 6.69 | 10.32 |Y|
 | [UniAD](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/UniAD) | Stage1: 1.002<br>Stage2: 1.554 | Stage1: 1.359<br>Stage2: 2.000 |Y|
 | [DexVLA](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Dexvla) | Stage2: 16.72<br>Stage3: 15.85 | Stage2: 18.88<br>Stage3: 18.67 |Y|
+| [GR00T-N1.5](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/GR00T-N1.5)  | 337.35 | 276.38 |Y|
+| [Pi-0.5](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Pi-0.5)   | 2335(A3) | 1115(竞品H) |Y|
 | [QCNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/QCNet) | 75.29 | 94.11 |Y|
 | [BEVNeXt](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVNeXt) | Stage1: 16.568<br>Stage2: 7.572 | Stage1: 36.643<br>Stage2: 11.651 |N|
 | [Cosmos-Predict2](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Cosmos-Predict2) | - | - |N|
-| [GR00T-N1.5](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/GR00T-N1.5)  | 337.35 | 276.38 |N|
 | [HiVT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HiVT) | 645 | 652 |N|
 | [HPTR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HPTR) | 25.12 | 36.07 |N|
 | [LMDrive](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/LMDrive)  | 8.02 | 13.85 |N|
@@ -218,7 +217,8 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [YoloV8](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Yolov8)   | 214.64 | 479.73 |N|
 | [NWM](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/NWM)   | 363.39 | 383.06 |N|
 | [Cosmos-Drive-Dreams](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Cosmos-Drive-Dreams)   | - | - |N|
-| [Pi-0.5](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Pi-0.5)   | 2335(A3) | 1115(竞品H) |N|
+| [Cosmos-Transfer1](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Cosmos-Transfer1)  | - | - |N|
+| [DinoV3](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DinoV3) | 393.8 | 616.8 |N|
 
 ## 硬件配套
 | 产品系列               | 产品型号                         |
@@ -245,13 +245,14 @@ Driving SDK版本分支的维护阶段如下：
 
 | **Driving SDK版本**     | **维护策略** | **当前状态** | **发布时间**   | **后续状态**           | **EOL日期** |
 |---------------------|-----------|---------|------------|--------------------|-----------|
-| v7.2.RC1  |  常规版本  | 维护      | 2025/09/30 | 预计2026/03/30起无维护	   |
-| v7.1.RC1  |  常规版本  | 维护      | 2025/06/30 | 预计2025/12/30起无维护	   |
+| v7.3.0  |  常规版本  | 维护      | 2025/12/30 | 预计2026/06/30起无维护	   |        |
+| v7.2.RC1  |  常规版本  | 维护      | 2025/09/30 | 预计2026/03/30起无维护	   |         |
+| v7.1.RC1  |  常规版本  | 维护      | 2025/06/30 | 预计2025/12/30起无维护	   |         |
 | v7.0.RC1  |  常规版本  | 无维护      | 2025/03/30 | 2025/9/30起无维护	   |           |
-| v6.0.0   |  常规版本  | 无维护      | 2024/12/30 | 2025/6/30起无维护	   |           |          |
-| v6.0.0-RC3 |  常规版本  | 无维护      | 2024/09/30 | 2025/3/30起无维护	   |           |
-| v6.0.0-RC2             |  常规版本  | 无维护      | 2024/06/30 | 2024/12/30起无维护	   |           |
-| v6.0.0-RC1             |  常规版本  | 无维护  | 2024/03/30 | 2024/9/30起无维护           |           |
+| v6.0.0   |  常规版本  | 生命周期终止      | 2024/12/30 | 2025/6/30起无维护	   |    2025/09/30  |  
+| v6.0.0-RC3 |  常规版本  | 生命周期终止      | 2024/09/30 | 2025/3/30起无维护	   |   2025/06/30 |
+| v6.0.0-RC2 |  常规版本  | 生命周期终止      | 2024/06/30 | 2024/12/30起无维护	   |    2025/03/30 |
+| v6.0.0-RC1 |  常规版本  | 生命周期终止  | 2024/03/30 | 2024/9/30起无维护           |    2024/12/30 |
 
 
 ## 免责声明
