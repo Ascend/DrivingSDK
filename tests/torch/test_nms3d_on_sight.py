@@ -16,7 +16,6 @@ from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving
 from mx_driving import nms3d_on_sight
 
-
 torch.npu.config.allow_internal_format = False
 torch_npu.npu.set_compile_mode(jit_compile=False)
 DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
@@ -138,7 +137,7 @@ class TestNms3dOnSight(TestCase):
             [1000, 7],
             [1624, 7],
             [2324, 7],
-            [2500, 7]
+            [2500, 7],
         ]
         for item in shape_format:
             boxes_shape = item
@@ -148,6 +147,28 @@ class TestNms3dOnSight(TestCase):
             scores = generate_unique_random_scores(scores_count).npu()
             threshold = np.random.uniform(-100, 100)
             
-            out_npu = npu_to_exec(boxes, scores, threshold)
-            out_cpu = cpu_to_exec(boxes, scores, threshold)
-            self.assertRtolEqual(out_cpu, out_npu.cpu())
+            out_npu = self.npu_to_exec(boxes, scores, threshold)
+            out_cpu = self.cpu_to_exec(boxes, scores, threshold)
+            self.assertRtolEqual(out_cpu, out_npu.detach().cpu().numpy())
+
+    @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `BorderAlign` is not supported, skip this ut!")
+    def test_nms3d_on_sight_invalid_boxes_dim(self):
+        """验证当boxes的维度不是7时算子是否能正确抛出预期异常"""
+        shape_format = [
+            [100,8],
+        ]
+        for item in shape_format:
+            boxes_shape = item
+            scores_count = item[0]
+
+            boxes = generate_boxes(boxes_shape).npu()
+            scores = generate_unique_random_scores(scores_count).npu()
+            threshold = np.random.uniform(-100, 100)
+            
+            with self.assertRaises(Exception) as excinfo:
+                self.npu_to_exec(boxes, scores, threshold)
+
+            self.assertEqual(str(excinfo.exception), 'Input boxes shape should be (N, 7)')
+
+if __name__ == "__main__":
+    run_tests()
