@@ -26,7 +26,7 @@ Isaac GR00T-N1 是 NVIDIA 在2025年初发布的视觉 - 语言 - 动作（VLA�
 
 - 参考实现：https://github.com/NVIDIA/Isaac-GR00T/tree/main
 
-- 适配昇腾 AI 处理器的实现：https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/GR00T-N1.5
+- 适配昇腾 AI 处理器的实现：https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.3.0/model_examples/GR00T-N1.5
 
 # 准备训练环境
 

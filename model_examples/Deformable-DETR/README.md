@@ -14,7 +14,7 @@
 
 - 原始代码仓库：https://github.com/fundamentalvision/Deformable-DETR
 - commit id：11169a60c33333af00a4849f1808023eba96a931
-- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR
+- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.3.0/model_examples/Deformable-DETR
 
 ## 支持的任务列表
 

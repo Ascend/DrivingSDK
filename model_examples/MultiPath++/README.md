@@ -77,7 +77,7 @@ Multipath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
     ```
 
 
-- 安装 Driving SDK 加速库，安装 master 分支，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
+- 安装 Driving SDK 加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
 - 在应用过patch的模型根目录下，安装相关依赖：
 

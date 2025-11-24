@@ -20,7 +20,7 @@
 
 - 原始代码仓库：https://github.com/Tsinghua-MARS-Lab/DenseTNT
 - commit id：a07c237ea883b320aedf5e505185589ec4f88d76
-- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DenseTNT
+- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/branch_v7.3.0/model_examples/DenseTNT
 
 ## 支持的任务列表
 
