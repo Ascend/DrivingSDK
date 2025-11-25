@@ -32,7 +32,7 @@ accelerate launch --num_processes=${world_size} $(which lerobot-train) \
   --policy.type=act \
   --policy.push_to_hub=false \
   --policy.repo_id=${policy_dir} \
-  --steps=300000 --log_freq=${log_interval} --save_freq=2000000 --batch_size=${batch_size} \
+  --steps=30000 --log_freq=${log_interval} --save_freq=2000000 --batch_size=${batch_size} \
   --output_dir=outputs/train/$start_time > ${test_path_dir}/output/train_full_fp32.log 2>&1
 
 wait

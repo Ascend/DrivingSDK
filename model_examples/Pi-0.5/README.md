@@ -80,7 +80,14 @@
     conda activate pi05
     ```
 
-2. 安装 Pi-0.5
+2. 拉取 DrivingSDK 代码仓
+
+    ```shell
+    git clone https://gitcode.com/Ascend/DrivingSDK.git
+    cd DrivingSDK/model_examples/Pi-0.5
+    ```
+
+3. 安装 Pi-0.5
     ```shell
     git clone https://github.com/huggingface/lerobot.git
     cd lerobot
@@ -92,37 +99,38 @@
     cd ..
     ```
 
-3. 安装 transformers
+4. 安装 transformers
     ```shell
     git clone https://github.com/huggingface/transformers.git
     cd transformers
     git checkout fix/lerobot_openpi
+    git checkout dcddb970176382c0fcf4521b0c0e6fc15894dfe0
     pip install -e .
     cd ..
     ```
 
-4. 根据[Mindspeed仓](https://gitcode.com/Ascend/MindSpeed)安装Mindspeed组件，如：
+5. 根据[Mindspeed仓](https://gitcode.com/Ascend/MindSpeed)安装Mindspeed组件，如：
     ```shell
     git clone https://gitcode.com/Ascend/MindSpeed.git
     pip install -e MindSpeed
-    cd ../lerobot
+    cd lerobot
     ```
 
 
 ### 数据准备
 
-下载[koch_test数据集](https://huggingface.co/datasets/jianqiang03/koch_test/tree/main)，将数据集位置记作 dataset_path，转换数据集格式：
+下载[koch_test数据集](https://huggingface.co/datasets/jianqiang03/koch_test/tree/main)，将数据集的绝对路径记作 dataset_path，转换数据集格式：
 ```shell
 python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id={dataset_path}
 ```
 ### 权重准备
-下载[Pi-0.5预训练权重](https://huggingface.co/lerobot/pi05_base)，将权重路径记作 pi05_weights
+下载[Pi-0.5预训练权重](https://huggingface.co/lerobot/pi05_base)，将权重的绝对路径记作 pi05_weights
 
 ## 快速开始
 本任务主要提供**A3单机8卡**的训练脚本。
 
 ### 执行训练
-
+进入模型代码目录 `path/to/lerobot`
 - 单机性能
 
     ```shell
