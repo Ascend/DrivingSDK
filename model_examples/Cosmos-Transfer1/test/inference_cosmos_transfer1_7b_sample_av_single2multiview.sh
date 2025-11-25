@@ -15,7 +15,8 @@ export PROMPT="The video is captured from a camera mounted on a car. The camera 
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:=0}"
 export CHECKPOINT_DIR="${CHECKPOINT_DIR:=./checkpoints}"
 export NUM_GPUS=1
-PYTHONPATH=$(pwd) torchrun --nproc_per_node=${NUM_GPUS} cosmos_transfer1/diffusion/inference/transfer_multiview.py \
+
+PYTHONPATH=$(pwd)${PYTHONPATH:+:$PYTHONPATH} torchrun --nproc_per_node=${NUM_GPUS} cosmos_transfer1/diffusion/inference/transfer_multiview.py \
 --checkpoint_dir $CHECKPOINT_DIR \
 --video_save_name output_video_1_30_0 \
 --video_save_folder outputs/sample_av_multiview \

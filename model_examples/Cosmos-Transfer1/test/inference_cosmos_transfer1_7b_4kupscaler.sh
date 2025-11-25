@@ -17,7 +17,7 @@ export CLOSE_MATMUL_K_SHIFT=1
 
 export CHECKPOINT_DIR="${CHECKPOINT_DIR:=./checkpoints}"
 
-PYTHONPATH=$(pwd) torchrun --nproc_per_node=$NUM_GPU --nnodes=1 --node_rank=0 cosmos_transfer1/diffusion/inference/transfer.py \
+PYTHONPATH=$(pwd)${PYTHONPATH:+:$PYTHONPATH} torchrun --nproc_per_node=$NUM_GPU --nnodes=1 --node_rank=0 cosmos_transfer1/diffusion/inference/transfer.py \
     --checkpoint_dir $CHECKPOINT_DIR \
     --video_save_folder outputs/inference_upscaler \
     --controlnet_specs assets/inference_upscaler.json \
