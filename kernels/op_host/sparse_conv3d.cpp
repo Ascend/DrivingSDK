@@ -10,6 +10,9 @@ static ge::graphStatus TilingForSparseConv3d(gert::TilingContext* context)
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
+    if (context->GetPlatformInfo() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
 
     auto attrsPtr = context->GetAttrs();

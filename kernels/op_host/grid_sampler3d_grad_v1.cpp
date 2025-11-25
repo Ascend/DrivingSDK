@@ -180,6 +180,10 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
     const gert::StorageShape* xShape = tilingContext->GetInputShape(X_INPUT_INDEX);
     const gert::StorageShape* gridShape = tilingContext->GetInputShape(GRID_INPUT_INDEX);
 
+    if (gradShape == nullptr || xShape == nullptr || gridShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     if (xShape->GetStorageShape().GetDimNum() != CHECK_DIM_NUM) {
         return ge::GRAPH_FAILED;
     }
@@ -220,6 +224,9 @@ static ge::graphStatus GetInputInfo(gert::TilingContext* tilingContext, InputPar
 
 static ge::graphStatus Tiling4GridSampler3dGradV1(gert::TilingContext* tilingContext)
 {
+    if (tilingContext == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = tilingContext->GetPlatformInfo();
     if (platformInfo == nullptr) {
         return ge::GRAPH_FAILED;

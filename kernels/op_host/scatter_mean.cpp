@@ -531,6 +531,9 @@ static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext* context)
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
 
     uint64_t outTailNum = 1;
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetOutputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto srcShape = context->GetInputShape(0)->GetStorageShape();
     auto countShape = context->GetInputShape(1)->GetStorageShape();
     auto outShape = context->GetOutputShape(0)->GetStorageShape();
@@ -618,6 +621,9 @@ static ge::graphStatus ScatterMeanDivTilingFunc(gert::TilingContext* context)
         return ge::GRAPH_FAILED;
     }
 
+    if (context->GetInputShape(0) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto srcShape = context->GetInputShape(0)->GetStorageShape();
     uint64_t srcDim = srcShape.GetDimNum();
     uint64_t availIcountDim = GetAvailableDimNum(context);

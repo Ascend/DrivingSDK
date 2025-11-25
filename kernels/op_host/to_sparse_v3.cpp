@@ -12,6 +12,9 @@ constexpr uint32_t RESERVED_UB_SIZE = 8 * 1024;
 
 ge::graphStatus ToSparseV3Tiling::Init()
 {
+    if (tilingContext->GetPlatformInfo() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
     aivNum = ascendcPlatform.GetCoreNumAiv();
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, availableUbSize);
@@ -48,7 +51,7 @@ ge::graphStatus ToSparseV3Tiling::GetVectorTilingData()
     usedVectorCoreNum = Ceil(actualNum, vectorCoreTask);
     vectorLastCoreTask = Tail(actualNum, vectorCoreTask);
     uint32_t kernelSizeAlign = AlignUp(kernelSize, DTYPE_FP32_BLOCK);
-
+    
     moveLen = (availableUbSize - RESERVED_UB_SIZE) / 4 / (kernelSizeAlign + 9 + kernelSize * kernelIC);
     coreRepeatTimes = Ceil(vectorCoreTask, moveLen);
     lastCoreRepeatTimes = Ceil(vectorLastCoreTask, moveLen);
@@ -112,8 +115,8 @@ ge::graphStatus ToSparseV3Tiling::SetTilingData()
     size_t systemWorkspaceSize = static_cast<size_t>(ascendcPlatform.GetLibApiWorkSpaceSize());
     size_t *currentWorkspace = tilingContext->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
-            return ge::GRAPH_FAILED;
-        }
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = userWorkspaceSize + systemWorkspaceSize;
     return ge::GRAPH_SUCCESS;
 }

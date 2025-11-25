@@ -39,6 +39,9 @@ namespace optiling {
 static ge::graphStatus TilingFuncForGeometricKernelAttnGrad(gert::TilingContext* context)
 {
     GeometricKernelAttnGradTilingData tiling;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
     auto valueTensorPtr = context->GetInputTensor(POS_INPUT_VALUE);
     auto attnWeightsTensorPtr = context->GetInputTensor(POS_INPUT_ATTN_WEIGHTS);
