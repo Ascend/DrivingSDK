@@ -3,7 +3,7 @@
 # 设置环境变量
 export OMP_NUM_THREADS=1
 export TOKENIZERS_PARALLELISM=false
-export PYTHONPATH=src:externals/waymo-open-dataset/src:externals/TATS/tats/fvd
+export PYTHONPATH=src:externals/waymo-open-dataset/src:externals/TATS/tats/fvd${PYTHONPATH:+:$PYTHONPATH}
 
 
 #设置是否开启taskque,0-关闭/1-开启/2-流水优化
