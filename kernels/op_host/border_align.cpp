@@ -147,6 +147,9 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     int64_t heightTimesWidth = roisShape->GetDim(1);
     int64_t channels = inputShape->GetDim(3);
     auto attrsPtr = context->GetAttrs();
+    if (attrsPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     uint32_t pooledSize = *(attrsPtr->GetAttrPointer<uint32_t>(0));
     
     *outputShape = {batchSize, heightTimesWidth, pooledSize + 1, channels};

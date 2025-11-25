@@ -13,6 +13,9 @@ constexpr uint32_t RESERVED_UB_SIZE = 8 * 1024;
 
 ge::graphStatus ToSparseV3Tiling::Init()
 {
+    if (tilingContext->GetPlatformInfo() == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(tilingContext->GetPlatformInfo());
     aivNum = ascendcPlatform.GetCoreNumAiv();
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, availableUbSize);
@@ -50,6 +53,9 @@ ge::graphStatus ToSparseV3Tiling::GetVectorTilingData()
     vectorLastCoreTask = Tail(actualNum, vectorCoreTask);
 
     auto featureDataTypePtr = tilingContext->GetInputDesc(0);
+    if (featureDataTypePtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto featureDataType = featureDataTypePtr->GetDataType();
     int32_t byteSizePerElements = featureDataType == ge::DT_FLOAT16?  16 : 8;
 
@@ -86,6 +92,9 @@ ge::graphStatus ToSparseV3Tiling::GetCubeTilingData()
     }
 
     auto featureDataTypePtr = tilingContext->GetInputDesc(0);
+    if (featureDataTypePtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto featureDataType = featureDataTypePtr->GetDataType();
 
     cubeTiling.SetDim(aivNum);
@@ -128,6 +137,9 @@ ge::graphStatus ToSparseV3Tiling::SetTilingData()
         return ge::GRAPH_FAILED;
     }
     auto featureDataTypePtr = tilingContext->GetInputDesc(0);
+    if (featureDataTypePtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto featureDataType = featureDataTypePtr->GetDataType();
 
     tilingData.SaveToBuffer(tilingContext->GetRawTilingData()->GetData(), tilingContext->GetRawTilingData()->GetCapacity());

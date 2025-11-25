@@ -44,6 +44,7 @@ ge::graphStatus TilingForSubmSparseConv3dGradV2(gert::TilingContext* context)
 {
     SubmConv3dGradV2TillingData tilingData;
     CHECK_NULLPTR(context);
+    CHECK_NULLPTR(context->GetPlatformInfo());
     auto ascendPlatformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     // get vector core number
     auto aivNum = ascendPlatformInfo.GetCoreNumAiv();

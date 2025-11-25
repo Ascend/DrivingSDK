@@ -15,6 +15,9 @@ static uint32_t AlignUp(uint32_t x, uint32_t y)
 
 static ge::graphStatus TilingForToSparse(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto platformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr) {
         return ge::GRAPH_FAILED;

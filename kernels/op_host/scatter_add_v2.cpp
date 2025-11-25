@@ -338,6 +338,9 @@ ge::graphStatus ScatterAddTiling::SetKernelTiling(gert::TilingContext* context)
 
 ge::graphStatus ScatterAddTilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     ScatterAddTiling tilingObject;
 
     if (tilingObject.Init(context) == ge::GRAPH_FAILED) {

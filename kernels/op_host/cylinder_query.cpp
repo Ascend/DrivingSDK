@@ -35,6 +35,10 @@ namespace ge {
 static ge::graphStatus InferShapeForCylinderQuery(gert::InferShapeContext* context)
 {
     const gert::RuntimeAttrs *attr = context->GetAttrs();
+    if (attr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+
     gert::Shape *groupIdxShape = context->GetOutputShape(OUTPUT_QUERY_RES_IDX);
     if (groupIdxShape == nullptr) {
         return ge::GRAPH_FAILED;
@@ -78,6 +82,10 @@ static ge::graphStatus TilingForCylinderQuery(gert::TilingContext* context)
 
     // 输入属性
     const gert::RuntimeAttrs *attr = context->GetAttrs(); // 属性
+    if (attr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
+    
     uint32_t B = *(attr->GetAttrPointer<uint32_t>(BATCH_SIZE_INDEX));
     uint32_t N = *(attr->GetAttrPointer<uint32_t>(POINT_CLOUD_SIZE_INDEX));
     uint32_t M = *(attr->GetAttrPointer<uint32_t>(QUERY_POINT_SIZE_INDEX));

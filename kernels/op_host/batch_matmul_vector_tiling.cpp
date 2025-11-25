@@ -24,6 +24,9 @@ static int32_t GetCeilInt(int32_t value1, int32_t value2)
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     BatchMatmulVectorTilingData tiling;
     auto platformInfoptr = context->GetPlatformInfo();
     if (platformInfoptr == nullptr) {

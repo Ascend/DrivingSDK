@@ -51,6 +51,9 @@ int32_t GetCeilInt(int32_t value1, int32_t value2)
 namespace optiling {
 static ge::graphStatus VecPoolGradTilingFunc(gert::TilingContext *context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     VecPoolGradTilingData tiling;
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {

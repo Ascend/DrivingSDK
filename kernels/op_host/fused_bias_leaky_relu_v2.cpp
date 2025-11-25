@@ -28,6 +28,9 @@ constexpr int32_t SINGLE_BLOCK = BLOCK_SIZE / SIZE_OF_DATA;
 static ge::graphStatus TilingForFusedBiasLeakyReluV2(gert::TilingContext* context)
 {
     FusedBiasLeakyReluV2TilingData tiling;
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
 
     auto platformInfoPtr = context->GetPlatformInfo();
     if (platformInfoPtr == nullptr) {
