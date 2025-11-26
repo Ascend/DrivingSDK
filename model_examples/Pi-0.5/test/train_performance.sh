@@ -48,7 +48,7 @@ echo "------------------ Final result ------------------"
 #获取性能数据，不需要修改
 #单迭代训练时长，不需要修改
 epoch_start_time=`grep 'ot_train.py:' ${test_path_dir}/output/train_performance_fp32.log | grep 'loss' | grep 'step:20' | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9] | head -1`
-epoch_end_time=`grep 'ot_train.py:' ${test_path_dir}/output/train_performance_fp32.log | grep 'loss' | grep 'step:1k' | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9] | head -1`
+epoch_end_time=`grep 'ot_train.py:' ${test_path_dir}/output/train_performance_fp32.log | grep 'loss' | grep 'step:1K' | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9] | head -1`
 
 TrainingTime=$(($(date +%s -d $epoch_end_time) - $(date +%s -d $epoch_start_time)))
 
