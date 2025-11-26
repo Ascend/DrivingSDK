@@ -32,7 +32,7 @@ const uint32_t OUT_SPATIAL_SHAPE_IDX_1 = 1;
 const uint32_t OUT_SPATIAL_SHAPE_IDX_2 = 2;
 
 const int32_t BYTE_ALIGN_SIZE = 32;
-const float AVALIABLE_UB_RATIO = 0.85;
+const float AVALIABLE_UB_RATIO = 0.8;
 const float STAGE2_UB_RATIO = 0.2;
 const int32_t INT32_BYTE_SIZE = 4;
 const int32_t FLOAT_BYTE_SIZE = 4;
@@ -104,6 +104,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     
     uint32_t stage2SingleLoopTask = (ubSize * STAGE2_UB_RATIO) / 2 / INT32_BYTE_SIZE;
     stage2SingleLoopTask = stage2SingleLoopTask > coreTaskCount + 1 ? coreTaskCount + 1 : stage2SingleLoopTask;
+    stage2SingleLoopTask = CeilAlign(stage2SingleLoopTask, 64u);  // for CompareScalar
+
     uint32_t featureBufLen = (ubSize - 2 * stage2SingleLoopTask * INT32_BYTE_SIZE) /
         (inChannelAligned + outChannelAligned) / byteSizePerElements / 2;
     

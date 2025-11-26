@@ -7,11 +7,8 @@ import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving
 
-torch.npu.set_device(2)
-
 EPSILON = 1e-6
 INF = torch.inf
-
 
 class DiffIouRotatedSortVerticesGloden(Function):
 
@@ -169,7 +166,8 @@ class TestDiffIouRoatated(TestCase):
 
         return torch.from_numpy(np.array(boxes).reshape(B, N, 5).astype("float32"))
 
-    def test_with_config(self, B, N,
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    def run_single_task(self, B, N,
         center_uniform_left, center_uniform_right,
         width_uniform_left, width_uniform_right,
         height_uniform_left, height_uniform_right):
@@ -190,22 +188,22 @@ class TestDiffIouRoatated(TestCase):
         self.assertRtolEqual(res, res_cpu)
 
     def normal_test_case(self):
-        self.test_with_config(5, 37, -10, 10, 10, 10, 10, 10)
-        self.test_with_config(7, 55, -10, 10, 10, 100, 10, 100)
-        self.test_with_config(15, 101, -10, 10, 10, 100, 10, 100)
-        self.test_with_config(8, 256, -10, 10, 10, 100, 10, 100)
+        self.run_single_task(5, 37, -10, 10, 10, 10, 10, 10)
+        self.run_single_task(7, 55, -10, 10, 10, 100, 10, 100)
+        self.run_single_task(15, 101, -10, 10, 10, 100, 10, 100)
+        self.run_single_task(8, 256, -10, 10, 10, 100, 10, 100)
         
     def max_border_shape_test_case(self):
-        self.test_with_config(1024, 2048, -10, 10, 10, 100, 10, 100)
+        self.run_single_task(1024, 2048, -10, 10, 10, 100, 10, 100)
 
     def min_border_shape_test_case(self):
-        self.test_with_config(1, 1, -10, 10, 10, 100, 10, 100)
+        self.run_single_task(1, 1, -10, 10, 10, 100, 10, 100)
 
     def min_box_test_case(self):
-        self.test_with_config(32, 32, -10, 10, 1e-5, 1e-5, 1e-5, 1e-5)
+        self.run_single_task(32, 32, -10, 10, 1e-5, 1e-5, 1e-5, 1e-5)
 
     def max_box_test_case(self):
-        self.test_with_config(32, 32, -200, 200, 1000, 1000, 1000, 1000)
+        self.run_single_task(32, 32, -200, 200, 1000, 1000, 1000, 1000)
 
     def test_diff_rotated_iou_2d(self):
         self.normal_test_case()
@@ -220,5 +218,5 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    TestDiffIouRoatated().test_diff_rotated_iou_2d()
+    run_tests()
     

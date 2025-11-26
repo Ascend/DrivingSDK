@@ -8,6 +8,7 @@ using namespace AscendC;
 namespace {
 constexpr int64_t SPATIAL_SHAPE_THRESHOLD = 400000000;
 constexpr int32_t INT32_BYTE_SIZE = 4;
+constexpr int32_t INDICES_ELEMENTS_COUNT = 4;
 constexpr int32_t REPEAT_BYTE_SIZE = 256;
 constexpr uint8_t SRC_PARTTEN_0 = 3;
 constexpr uint8_t SRC_PARTTEN_1 = 4;
@@ -15,6 +16,7 @@ constexpr uint8_t SRC_PARTTEN_2 = 5;
 constexpr uint8_t SRC_PARTTEN_3 = 6;
 constexpr int32_t BYTE_SIZE_PER_BLOCK = 32;
 constexpr int32_t NUM_TWO = 2;
+constexpr int32_t INT64_BIT_SIZE = 64;
 constexpr MatmulConfig SUBM_SPARSE_CONV3D_CFG = GetIBShareNormConfig();
 };
 
@@ -129,6 +131,7 @@ public:
         outFeatureQueLocal1_ = featureQueLocal2_[inputBufferLen_ * inChannelsAligned_];
         outFeatureQueLocal2_ = outFeatureQueLocal1_[outputBufferLen_ * outChannelsAligned_];
         validIndicesLocal_ = outFeatureQueLocal2_[outputBufferLen_ * outChannelsAligned_].template ReinterpretCast<int32_t>();
+        maskLocal_ = validIndicesLocal_[NUM_TWO * stage2SingleLoopTaskAligned_];
     }
 
     __aicore__ inline void Init(TPipe *pipe, GM_ADDR feature, GM_ADDR weight, GM_ADDR indices, GM_ADDR indices_offset, GM_ADDR map1, GM_ADDR map2,
@@ -144,6 +147,10 @@ public:
 
     __aicore__ inline void ProcessCube(const int16_t &k, const uint32_t &taskCount)
     {
+        if (taskCount <= 0) {
+            return;
+        }
+        
         int16_t k1 = kernelSize_ - k - 1;
 
         mm0_.SetTensorA(mmFeatureGM1_);
@@ -241,7 +248,8 @@ public:
         }
         SetFlag<HardEvent::MTE2_V>(0);
         WaitFlag<HardEvent::MTE2_V>(0);
-        
+        WaitFlag<HardEvent::MTE3_V>(0);
+
         Gather(indicesOffsetLocal_, mapValLocal_, gatherOffsetLocal_, 0u, kernelSize_ * singleLoopTaskAligned_);
     }
 
@@ -258,28 +266,28 @@ public:
             for (int16_t k0Idx = 0; k0Idx < k0_; k0Idx++) {
                 DataCopyPad(mapValLocal_[i * mapValBufSize_ + k0Idx * k1_ * k2Aligned_], map1GM_[batchIdxLocal_.GetValue(i) + (k0Idx + spatial0BaseIdx) * spatialShape1_times_2_],
                     {static_cast<uint16_t>(k1_), static_cast<uint32_t>(k2_ * INT32_BYTE_SIZE), static_cast<uint16_t>((spatialShape2_ - k2_) * INT32_BYTE_SIZE), 0, 0},
-                    {true, 0, static_cast<uint8_t>(k2Aligned_ - k2_), -2});
+                    {true, 0, static_cast<uint8_t>(k2Aligned_ - k2_), -1});
             }
         }
 
         SetFlag<HardEvent::MTE2_V>(0);
         WaitFlag<HardEvent::MTE2_V>(0);
-        
+        WaitFlag<HardEvent::MTE3_V>(0);
+
         Gather(indicesOffsetLocal_, mapValLocal_, gatherOffsetLocal_, 0u, kernelSize_ * singleLoopTaskAligned_);
     }
 
     __aicore__ inline void ComputeIndicesOffset()
     {
+        SetFlag<HardEvent::MTE3_V>(0);
+
         // compute offset
         for (int32_t taskOffset = 0; taskOffset < coreTaskCount_; taskOffset += singleLoopTask_)
         {
             uint32_t taskCount = min(singleLoopTask_, coreTaskCount_ - taskOffset);
             uint32_t taskCountAligned = AlignUp(taskCount, BYTE_SIZE_PER_BLOCK / INT32_BYTE_SIZE);
-
-            SetFlag<HardEvent::V_MTE2>(0);
-            WaitFlag<HardEvent::V_MTE2>(0);
             
-            DataCopyPad(inputIndicesLocal_, indicesGM_[(taskStartOffset_ + taskOffset) * INT32_BYTE_SIZE],
+            DataCopyPad(inputIndicesLocal_, indicesGM_[(taskStartOffset_ + taskOffset) * INDICES_ELEMENTS_COUNT],
                 {1, static_cast<uint32_t>(4 * taskCount * INT32_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
 
             SetFlag<HardEvent::MTE2_V>(0);
@@ -306,7 +314,10 @@ public:
                 {static_cast<uint16_t>(kernelSize_), static_cast<uint32_t>(taskCount * INT32_BYTE_SIZE),
                 static_cast<uint32_t>((singleLoopTaskAligned_ - taskCountAligned) / (BYTE_SIZE_PER_BLOCK / INT32_BYTE_SIZE)),
                 static_cast<uint32_t>((totalTaskCount_ - taskCount) * INT32_BYTE_SIZE), 0});
+            
+            SetFlag<HardEvent::MTE3_V>(0);
         }
+        WaitFlag<HardEvent::MTE3_V>(0);
     }
 
     __aicore__ inline void CopyFeatures(int32_t copyOutOffset, int32_t copyOutTaskCount)
@@ -327,7 +338,6 @@ public:
         }
 
         SetFlag<HardEvent::MTE3_MTE2>(0);
-        WaitFlag<HardEvent::MTE3_MTE2>(0);
     }
 
     __aicore__ inline void ProcessSparseMatmul(int32_t k)
@@ -335,44 +345,51 @@ public:
         int32_t curLoopValidTask = 0;
         for (int32_t taskOffset = 0; taskOffset < coreTaskCount_; taskOffset += stage2SingleLoopTask_) {
             uint32_t taskCount = min(stage2SingleLoopTask_, coreTaskCount_ - taskOffset);
-            curLoopValidTask = 0;
-
             DataCopyPad(validIndicesLocal_[stage2SingleLoopTaskAligned_], indicesOffsetGM_[k * totalTaskCount_ + taskStartOffset_ + taskOffset],
                 {1, static_cast<uint32_t>(taskCount * INT32_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
-
-            for (int32_t i = 0; i < taskCount; i++) {
-                int32_t mapVal1 = validIndicesLocal_.GetValue(stage2SingleLoopTaskAligned_ + i);
-
-                if (mapVal1 < 0)
-                    continue;
-                
-                int32_t mapVal2 = taskStartOffset_ + taskOffset + i;
-
-                DataCopyPad(featureQueLocal1_[(curLoopValidTask % inputBufferLen_) * inChannelsAligned_], inputFeatureGM_[mapVal1 * inChannels_],
-                    {static_cast<uint16_t>(1), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
-                DataCopyPad(featureQueLocal2_[(curLoopValidTask % inputBufferLen_) * inChannelsAligned_], inputFeatureGM_[mapVal2 * inChannels_],
-                    {static_cast<uint16_t>(1), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
-                
-                validIndicesLocal_.SetValue(curLoopValidTask + stage2SingleLoopTaskAligned_, mapVal1);
-                validIndicesLocal_.SetValue(curLoopValidTask, mapVal2);
-
-                curLoopValidTask += 1;
-                if (curLoopValidTask % inputBufferLen_ == 0) {
-                    int32_t copyOutOffset = (curLoopValidTask - inputBufferLen_) * inChannels_;
-                    CopyFeatures(copyOutOffset, inputBufferLen_);
+            SetFlag<HardEvent::MTE2_V>(0);
+            WaitFlag<HardEvent::MTE2_V>(0);
+            CompareScalar(maskLocal_.ReinterpretCast<uint8_t>(), validIndicesLocal_[stage2SingleLoopTaskAligned_],
+                static_cast<int32_t>(-1), CMPMODE::EQ, stage2SingleLoopTaskAligned_);
+            curLoopValidTask = 0;
+            int32_t curStartTaskIdx = 0;
+            SetFlag<HardEvent::MTE3_MTE2>(0);
+            for (int32_t i = 0; i < taskCount; i+=INT64_BIT_SIZE) {
+                uint64_t validIdxMask = maskLocal_.ReinterpretCast<uint64_t>().GetValue(i / INT64_BIT_SIZE);
+                int32_t validIdx = ScalarGetSFFValue<0>(validIdxMask);
+                int32_t curTaskIdx = validIdx + curStartTaskIdx;
+                while(validIdx != -1 && (curTaskIdx < taskCount)) {
+                    int32_t mapVal1 = validIndicesLocal_.GetValue(stage2SingleLoopTaskAligned_ + curTaskIdx);
+                    int32_t mapVal2 = curTaskIdx + taskStartOffset_ + taskOffset;
+                    if (curLoopValidTask % inputBufferLen_ == 0) {
+                        WaitFlag<HardEvent::MTE3_MTE2>(0);
+                    }
+                    DataCopyPad(featureQueLocal1_[(curLoopValidTask % inputBufferLen_) * inChannelsAligned_], inputFeatureGM_[mapVal1 * inChannels_],
+                        {static_cast<uint16_t>(1), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
+                    DataCopyPad(featureQueLocal2_[(curLoopValidTask % inputBufferLen_) * inChannelsAligned_], inputFeatureGM_[mapVal2 * inChannels_],
+                        {static_cast<uint16_t>(1), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
+                    validIndicesLocal_.SetValue(curLoopValidTask + stage2SingleLoopTaskAligned_, mapVal1);
+                    validIndicesLocal_.SetValue(curLoopValidTask, mapVal2);
+                    curLoopValidTask += 1;
+                    if (curLoopValidTask % inputBufferLen_ == 0) {
+                        CopyFeatures((curLoopValidTask - inputBufferLen_) * inChannels_, inputBufferLen_);
+                    }
+                    validIdxMask += (static_cast<uint64_t>(1) << validIdx);
+                    validIdx = ScalarGetSFFValue<0>(validIdxMask);
+                    curTaskIdx = validIdx + curStartTaskIdx;
                 }
+                curStartTaskIdx += INT64_BIT_SIZE;
             }
-
             // tail
-            if (curLoopValidTask <= 0)
+            if (curLoopValidTask <= 0) {
+                WaitFlag<HardEvent::MTE3_MTE2>(0);
                 continue;
-
-            if (curLoopValidTask % inputBufferLen_ != 0) {
-                int32_t copyOutTaskCount = curLoopValidTask % inputBufferLen_;
-                int32_t copyOutOffset = (AlignUp(curLoopValidTask, inputBufferLen_) - inputBufferLen_) * inChannels_;
-                CopyFeatures(copyOutOffset, copyOutTaskCount);
             }
-
+            if (curLoopValidTask % inputBufferLen_ != 0) {
+                int32_t copyOutOffset = (AlignUp(curLoopValidTask, inputBufferLen_) - inputBufferLen_) * inChannels_;
+                CopyFeatures(copyOutOffset, curLoopValidTask % inputBufferLen_);
+            }
+            WaitFlag<HardEvent::MTE3_MTE2>(0);
             ProcessCube(k, curLoopValidTask);
             ScatterAdd(k, curLoopValidTask);
         }
@@ -384,8 +401,9 @@ public:
         if (!withKey_) {
             ComputeIndicesOffset();
         }
-        
-        PipeBarrier<PIPE_ALL>();
+
+        SetFlag<HardEvent::MTE3_MTE2>(0);
+        WaitFlag<HardEvent::MTE3_MTE2>(0);
 
         for (int32_t k = kernelSize_ / 2 + 1; k < kernelSize_; k++) {
             ProcessSparseMatmul(k);
@@ -406,7 +424,7 @@ private:
     TBuf<TPosition::VECCALC> ubBuf_;
 
     LocalTensor<int32_t> inputIndicesLocal_, indicesOffsetLocal_, validIndicesLocal_, batchIdxLocal_, spatial0Local_,
-        spatial1Local_, spatial2Local_, mapValLocal_, map1ValLocal_;
+        spatial1Local_, spatial2Local_, mapValLocal_, map1ValLocal_, maskLocal_;
     LocalTensor<T> featureQueLocal1_, featureQueLocal2_, outFeatureQueLocal1_, outFeatureQueLocal2_;
     LocalTensor<uint32_t> gatherOffsetLocal_;
     TPipe* pipe_;
