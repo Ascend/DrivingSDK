@@ -1,6 +1,5 @@
-torch==2.1.0
-torchvision==0.16.0
-torchaudio==2.1.0
+torch==2.7.1
+torchvision==0.22.1
 numpy==1.23.5
 urllib3==1.26.16
 pyquaternion==0.9.9

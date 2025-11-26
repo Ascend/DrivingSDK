@@ -64,7 +64,7 @@
 
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
-  |    PyTorch     |  2.1   |
+  |    PyTorch     |  2.1.0, 2.7.1   |
   |      mmcv      |  1.x   |
   |     mmdet      | 2.28.2 |
 
@@ -79,14 +79,18 @@
    ```shell
    bash install_Sparse4D.sh
    ```
-
+  一键安装默认使用 Pytorch 2.1.0 版本，如需更换 Pytorch 2.7.1 版本，请自行修改脚本中 requirements.txt 为 requirements_pytorch2.7.1.txt
+  
 - 安装基础依赖
 
-  在模型根目录下执行命令，安装模型需要的依赖
+  在模型根目录下执行命令，根据 Pytorch 版本安装模型需要的依赖
   
   ```shell
   cd DrivingSDK/model_examples/Sparse4D
+  # PyTorch 2.1.0
   pip install -r requirements.txt
+  # Pytorch 2.7.1
+  pip install -r requirements_pytorch2.7.1.txt
   ```
 
 - 源码安装mmcv
@@ -107,7 +111,7 @@
   cp mmdet.patch mmdetection
   cd mmdetection
   git apply mmdet.patch
-  pip install -e .
+  pip install -e . --no-build-isolation
   cd ..
   ```
 
@@ -260,6 +264,8 @@ bash test/train_multi_server.sh 8 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
 2025.8.5: 更新性能数据。
 
 2025.8.26: 关闭图模式，更新性能数据。
+
+2025.11.25: 新增 Pytorch 2.7.1 支持。
 
 ## FAQ
 ### 训练时报错`ImportError: cannot import name 'gcd' from 'fraction'` 
