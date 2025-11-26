@@ -81,21 +81,13 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 |       CANN        | 8.3.RC1  |
 |       Python        | 3.10  |
 
-1. 安装tbe
-    
-    ```
-    # 安装tbe和hccl, 将 CANN 包目录记作 cann_root_dir
-    pip uninstall te topi hccl -y
-    pip install {cann_root_dir}/latest/lib64/te-*-py3-none-any.whl
-    pip install {cann_root_dir}/latest/lib64/hccl-*-py3-none-any.whl
-    ```
 
-2. 安装Driving SDK
+1. 安装Driving SDK
 
     请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 
-3. 源码安装decord
+2. 源码安装decord
     ```
     # 源码编译ffmpeg
     wget https://ffmpeg.org/releases/ffmpeg-4.4.2.tar.bz2 --no-check-certificate
@@ -123,7 +115,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     cd ..
     ```
     
-4. 安装apex
+3. 安装apex
     ```
     # 下载适配源码
     git clone https://gitee.com/ascend/apex.git
@@ -135,7 +127,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     cd ..
     ```
 
-5. 克隆代码仓到当前目录并使用 patch 文件：
+4. 克隆代码仓到当前目录并使用 patch 文件：
     ```
     git clone https://github.com/nvidia-cosmos/cosmos-transfer1.git
     cd cosmos-transfer1
@@ -149,14 +141,14 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     将模型根目录记作 `model_root_path`
 
 
-6. 安装其他依赖项
+5. 安装其他依赖项
     ```
     pip install -r requirements.txt
     # 在安装之后，需检查torch及torchvision版本，若版本被覆盖，需再次安装torch及torchvision(0.22.1)
     cd ..
     ```
 
-7. vllm和vllm-asend安装
+6. vllm和vllm-asend安装
     ```
     # 下载vllm
     git clone https://github.com/vllm-project/vllm.git
@@ -189,7 +181,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     # 安装依赖包
     pip install setuptools_scm pybind11 cmake msgpack numba quart
 
-    # 安装vllm-ascend，由于之前安装了torchvision，需要把requirements.txt中的torchvision<0.21.0注释掉
+    # 安装vllm-ascend，由于之前安装了torchvision，torch_npu,需要把requirements.txt中的torchvision<0.21.0和torch_npu注释掉
     python setup.py develop
 
     # vllm-ascend源码安装过程中遇到相关依赖包因网络问题安装不成功，可以先尝试pip install xxx安装对应失败的依赖包，再执行上一句命令
