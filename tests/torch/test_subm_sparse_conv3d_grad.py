@@ -173,8 +173,9 @@ def get_golden_output(features, indices, weight, bias, batch_size, in_channels,
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 @golden_data_cache(__file__)
 def subm_sparse_conv3d_grad_cpu(grad_out, img2col_mat, indices_offset, weight, kernel_size, in_channels, dtype):
+    dtype = torch.float64 if dtype == torch.float32 else torch.float32
     grad_out, img2col_mat, indices_offset, weight = \
-        grad_out.to(dtype), img2col_mat.to(dtype), indices_offset, weight.to(dtype)
+        grad_out.to(dtype).cpu(), img2col_mat.to(dtype).cpu(), indices_offset.cpu(), weight.to(dtype).cpu()
 
     N, out_channels = grad_out.shape
     weight_grad = img2col_mat.reshape(N, -1).transpose(1, 0) @ grad_out
@@ -253,6 +254,48 @@ class TestSubmSparseConv3dGrad(TestCase):
 
             self.assertRtolEqual(npu_features_grad, cpu_features_grad, 1e-2, 1e-2)
             self.assertRtolEqual(npu_weight_grad, cpu_weight_grad, 1e-2, 1e-2)
+
+    def test_missing_branch(self):
+        from mx_driving.modules.sparse_modules import ToDense, RemoveGrid, _mean_update
+        from mx_driving.modules.sparse_conv import get_deconv_output_size
+        num_points = [100]
+        spatial_shape = [30,30,30]
+        in_channels = 32
+        out_channels = 32
+        kernel_size = 3
+        dtype = torch.float32  
+        batch_size = len(num_points)
+
+        features, indices, grad_out = generate_sparse_data(num_points, spatial_shape, in_channels, out_channels)
+        features, indices, grad_out = features.to(dtype).npu(), indices.npu(), grad_out.to(dtype).npu()
+        net = SubMConv3d(in_channels, out_channels, kernel_size).npu()
+        net.weight.data = net.weight.data.to(dtype)
+        net.bias.data = net.bias.data.to(dtype) * 0.01
+        features.requires_grad = True
+        net.weight.requires_grad = True
+
+        x = SparseConvTensor(features, indices, spatial_shape, batch_size)
+        SeqNet = SparseSequential(net)
+        x.dense(channels_first = False)
+        SeqNet.add(nn.Sequential())
+        SeqNet[0]
+        SeqNet = SeqNet.fused()
+        SeqRes = SeqNet(x).features
+        SeqRes.backward(grad_out)
+        cpu_features_grad, cpu_weight_grad = get_golden_output(features, indices, net.weight.data, net.bias.data, batch_size, in_channels,
+                      out_channels, kernel_size, spatial_shape, grad_out, dtype)
+        npu_features_grad, npu_weight_grad = features.grad.cpu(), net.weight.grad.cpu()
+
+        testnet = SubMConv3d(in_channels, out_channels, kernel_size, bias = False)
+        get_deconv_output_size(spatial_shape, [kernel_size]*3, [1,1,1], [0,0,0], 0, [0,0,0])
+        _mean_update([10,20], [4,8], 3)
+        testnet.mode = None
+        testnet.reset_parameters()
+        DenseRes = ToDense()(x)
+        GridRes = RemoveGrid()(x)
+
+        self.assertRtolEqual(npu_features_grad, cpu_features_grad.to(dtype), 1e-2, 1e-2)
+        self.assertRtolEqual(npu_weight_grad, cpu_weight_grad.to(dtype), 1e-2, 1e-2)
 
 if __name__ == "__main__":
     np.random.seed(100)
