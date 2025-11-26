@@ -121,11 +121,6 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
     ```
     # 安装其他依赖项
     python -m pip install -r requirements.txt
-
-    # 安装tbe和hccl, 将 CANN 包目录记作 cann_root_dir
-    pip uninstall te topi hccl -y
-    pip install {cann_root_dir}/latest/lib64/te-*-py3-none-any.whl
-    pip install {cann_root_dir}/latest/lib64/hccl-*-py3-none-any.whl
     ```
     
 
