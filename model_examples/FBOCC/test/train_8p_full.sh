@@ -58,15 +58,14 @@ CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'full'
 
 # 结果打印，不需要修改
 echo "------------------ Final result ------------------"
-# 输出性能FPS，需要模型审视修改
-avg_time=$(grep -a 'mmdet - INFO - Iter ' "${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log" | tail -n 10  | awk -F "time: " '{print $2}' | awk -F ", " '{print $1}' | awk '{a+=$1} END {if (NR != 0) printf("%.3f",a/NR)}')
+# 输出性能FPS和精度指标，需要模型审视修改
+avg_time=$(grep -a 'mmdet - INFO - Iter ' "${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log" | tail -n 10 | awk -F "time: " '{print $2}' | awk -F ", " '{print $1}' | awk '{a+=$1} END {if (NR != 0) printf("%.3f",a/NR)}')
 FPS=`awk 'BEGIN{printf "%.3f\n", '$BatchSize'*'${WORLD_SIZE}'/'$avg_time'}'`
 mIoU=$(grep -a 'mmdet - INFO - Iter(val)' "${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log" |  awk -F "Overall:" '{print $2}')
 
-#打印，不需要修改
 echo "Final Performance images/sec : $FPS"
-echo "E2E Training Duration sec : $e2e_time"
 echo "mIoU_overall : $mIoU"
+echo "E2E Training Duration sec : $e2e_time"
 
 # 训练总时长
 TrainingTime=`grep -a 'Time'  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "Time: " '{print $2}'|awk -F "," '{print $1}'| awk '{a+=$1} END {printf("%.3f",a)}'`
@@ -78,6 +77,6 @@ echo "BatchSize = ${BatchSize}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${Ca
 echo "DeviceType = ${DeviceType}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "CaseName = ${CaseName}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "FPS = ${FPS}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
+echo "mIoU_overall : ${mIoU}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "TrainingTime = ${TrainingTime}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
-echo "mIoU_overall : ${mIoU}" >>${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log

@@ -17,7 +17,7 @@ import torch.nn.functional as F
 from mx_driving import SubMConv3d, SparseConv3d, SparseSequential, bev_pool_v3
 from functools import partial
 from torch.utils.checkpoint import checkpoint as cp
-
+from mx_driving import npu_add_relu
 
 def matmul_shape_patch(mmdet3d: ModuleType, options: Dict):
 
@@ -210,8 +210,7 @@ def Conv3d_patch(resnet3d: ModuleType, options: Dict):
             if self.downsample is not None:
                 residual = self.downsample(x[:,:,::2,::2,::2])
 
-            out += residual
-            out = self.relu(out)
+            out = npu_add_relu(out,residual)
             return out
 
     @force_fp32()
@@ -232,9 +231,7 @@ def Conv3d_patch(resnet3d: ModuleType, options: Dict):
         if self.downsample is not None:
             residual = self.downsample(x[:,:,::2,::2,::2])
 
-        out += residual
-        out = self.relu(out)
-
+        out = npu_add_relu(out,residual)
         return out
 
     def _make_layer(self, block, planes, blocks, shortcut_type, stride=1, norm_cfg=None):

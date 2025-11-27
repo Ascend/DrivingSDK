@@ -38,7 +38,9 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
   | Torch_Version      |
   | :--------: | 
-  | PyTorch 2.1 | 
+  | PyTorch 2.1.0 |
+  | PyTorch 2.6.0 |
+  | PyTorch 2.7.1 | 
   
 - 安装 [Driving SDK 加速库](https://gitcode.com/Ascend/DrivingSDK)
 
@@ -49,14 +51,20 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
    ```shell
    bash install_BEVFormer.sh
    ```
-  
-- 安装基础依赖
-
-  在模型源码包根目录下执行命令，安装模型需要的依赖。
-  
-  ```shell
-  pip install -r requirements.txt
-  ```
+  这里需要根据pytorch版本修改脚本，使用对应的requirements文件,一键配置脚本默认使用torch2.1.0的requirements.txt
+- 根据pytorch版本在模型根目录下安装依赖
+   - torch2.1.0
+    ```
+    pip install -r requirements.txt
+    ```
+   - torch2.6.0
+    ```
+    pip install -r requirements_pytorch2.6.0.txt
+    ```
+   - torch2.7.1
+    ```
+    pip install -r requirements_pytorch2.7.1.txt
+    ```
 - 安装其他依赖
 
    1. 源码编译安装 mmcv 1.x
