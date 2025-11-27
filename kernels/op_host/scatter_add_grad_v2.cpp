@@ -62,6 +62,7 @@ private:
     uint32_t coreUsed = 1;
 
     uint64_t ubSize = 184 * 1024;
+    uint64_t indexMaxSize = 255 * 64;
     uint64_t gradInUbSize = 1;
     uint64_t indexUbSize = 1;
     uint64_t gradOutUbSize = 1;
@@ -94,7 +95,7 @@ void ScatterAddGradTiling::SetUbSize(uint64_t headIndicesSize)
     } else {
         indexUbSize = CeilAlign(headIndicesSize, indexEachBlock);
     }
-    uint64_t ubAvailableSize = ubSize - indexUbSize * indexDsize * INDICES_UB_NUM;
+    uint64_t ubAvailableSize = ubSize - 8192 - indexUbSize * indexDsize * INDICES_UB_NUM;
     gradOutUbSize = CeilAlign(ubAvailableSize / GRADOUT_UB_NUM / gradDsize, dataEachBlock);
     return;
 }
@@ -123,14 +124,17 @@ void ScatterAddGradTiling::SetModeNoTail(gert::TilingContext* context, int32_t g
     uint64_t headOutSize = dimRangeOut * paramsPro;
     uint64_t headIndicesSize = dimRange * paramsPro;
 
-    uint64_t ubBytesforHead = headOutSize * gradDsize * GRADOUT_UB_NUM + headIndicesSize * indexDsize * INDICES_UB_NUM;
+    uint64_t ubBytesforOut = headOutSize * gradDsize;
+    uint64_t ubBytesforInput = CeilAlign(headIndicesSize, indexEachBlock) * indexDsize;
+    uint64_t ubBytesforHead = ubBytesforOut * GRADOUT_UB_NUM + ubBytesforInput * INDICES_UB_NUM;
     if (ubBytesforHead < ubSize) {
         context->SetTilingKey(DATA_SMALL_MODE);
         tilingMode = 0;
         auto headMaxTask = ubSize / ubBytesforHead;
+        headMaxTask = min(headMaxTask, indexMaxSize * indexDsize / ubBytesforInput);
         SetHeadNumForTask(headMaxTask, coreNum);
         gradOutUbSize = headTaskBig * headOutSize;
-        indexUbSize = headTaskBig * headIndicesSize;
+        indexUbSize = headTaskBig * CeilAlign(headIndicesSize, indexEachBlock);
     } else {
         SetUbSize(headIndicesSize);
         if (gradOutUbSize > headOutSize)  {
@@ -141,6 +145,7 @@ void ScatterAddGradTiling::SetModeNoTail(gert::TilingContext* context, int32_t g
             gradOutUbSize = headTaskBig * headOutSize;
             indexUbSize = std::min((ubSize - gradOutUbSize * GRADOUT_UB_NUM * gradDsize) / INDICES_UB_NUM / indexDsize, headIndicesSize);
             indexUbSize = CeilAlign(indexUbSize, indexEachBlock);
+            indexUbSize = min(indexUbSize, indexMaxSize);
         } else {
             context->SetTilingKey(DATA_LARGE_MODE);
             tilingMode = DATA_LARGE_MODE;

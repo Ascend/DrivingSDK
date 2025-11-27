@@ -64,6 +64,7 @@ private:
     uint64_t ubTailNum;
     uint64_t tailLoop;
     uint64_t tailLast;
+    uint64_t tailAlign;
     uint64_t gradInUbSize;
     uint64_t gradOutUbSize;
     uint64_t indicesBaseOffset;
@@ -110,11 +111,16 @@ __aicore__ inline void ScatterAddGradLine<T>::InitLocalTiling(const ScatterAddGr
 
     tailLoop = this->tail / ubTailNum;
     tailLast = this->tail - tailLoop * ubTailNum;
+    tailAlign = AlignUp(this->tail, this->paramsEachBlock);
 
     countUb = 0;
     eventId = EVENT_ID0;
 
-    this->copyParamsOut.blockLen = static_cast<uint32_t>(tailLast * sizeof(float));
+    if (this->tilingMode == 0) {
+        this->copyParamsOut.blockLen = static_cast<uint32_t>(tailLast * sizeof(float));
+    } else {
+        this->copyParamsOut.blockLen = static_cast<uint32_t>(this->tail * sizeof(float));
+    }
 }
 
 template <typename T>
@@ -148,26 +154,28 @@ __aicore__ inline void ScatterAddGradLine<T>::ComputeSmallTail(int32_t taskId, u
     LocalTensor<int32_t> indicesLocal = inIndexUb.Get<int32_t>();
     LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
 
-    auto indicesOffset = indicesBaseOffset + taskEachLine * taskId;
-    auto gradInOffset = indicesOffset * this->tail;
+    uint64_t indicesOffset = indicesBaseOffset + taskEachLine * taskId;
+    uint64_t gradInOffset = indicesOffset * this->tail;
+    uint64_t indicesEnd = indicesOffset + taskLine;
+    uint64_t headNum = (indicesEnd - 1) / gradInEachHead - indicesOffset / gradInEachHead + 1;
+    this->copyParamsOut.blockCount = static_cast<uint32_t>(taskLine);
     pipe_barrier(PIPE_ALL);
     DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(taskLine, this->indicesEachBlock));
 
-    for (uint64_t idx = 0; idx < taskLine; idx++) {
-        DTYPE_INDEX dataInIndices = indicesLocal.GetValue(idx);
-        auto idxTure = indicesOffset + idx;
-        auto gradInLocalOffset = idx * AlignUp(this->tail, this->paramsEachBlock);
-
-        auto headId = idxTure / gradInEachHead;
-        auto outLineOffset = dataInIndices + headId * outEachHead;
-
-        DataCopy(gradOutLocal[gradInLocalOffset], gradOutGm[outLineOffset * this->tail], ubTailNum);
+    uint64_t startTask = 0;
+    for (uint64_t head = 0; head < headNum; head++) {
+        uint64_t headId = (startTask + indicesOffset) / gradInEachHead;
+        uint64_t baseOffset = headId * outEachHead * this->tail;
+        uint64_t innerOffset = min((headId + 1) * gradInEachHead, indicesEnd) - indicesOffset;
+        for (uint64_t idx = startTask; idx < innerOffset; idx++) {
+            DTYPE_INDEX dataInIndices = indicesLocal.GetValue(idx);
+            DataCopy(gradOutLocal[idx * tailAlign], gradOutGm[baseOffset + dataInIndices * this->tail], ubTailNum);
+        }
+        startTask = innerOffset;
     }
 
     set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID2);
     wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID2);
-    this->copyParamsOut = {static_cast<uint16_t>(taskLine),
-                           static_cast<uint32_t>(this->tail * sizeof(float)), 0, 0, 0};
     DataCopyPad(gradInGm[gradInOffset], gradOutLocal, this->copyParamsOut);
 }
 
