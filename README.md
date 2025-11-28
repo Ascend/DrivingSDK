@@ -4,6 +4,14 @@
 
 Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景的算子和模型加速库，提供了一系列高性能的算子和模型加速接口，支持PyTorch框架。
 
+## 加入我们
+
+为了交流开发经验、分享使用心得、及时获取项目更新，我们创建了DrivingSDK官方微信群。
+
+无论你是正在使用这个项目，还是有奇思妙想，都欢迎加入👋
+
+<p align="center"> <img src="./DrivingSDK_wechat_qrcode.jpg" width=150> </p>
+
 ## 版本说明
 
 ### 配套关系
