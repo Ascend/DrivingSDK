@@ -24,6 +24,7 @@ from data_cache import golden_data_cache
 # pylint: disable=huawei-too-many-arguments
 def radius_golden_python(x, y, ptr_x, ptr_y, r, max_num_neighbors):
     batch_size = ptr_x.shape[0] - 1
+    dim_list = [i for i in range(x.shape[1])]
     core_num = 40
     
     batch_size_per_core_head = batch_size // core_num + 1
@@ -50,7 +51,9 @@ def radius_golden_python(x, y, ptr_x, ptr_y, r, max_num_neighbors):
             points_x = x[ptr_x_left: ptr_x_right, :]
             points_y = y[ptr_y_left: ptr_y_right, :]
             for point_idx, point_y in enumerate(points_y):
-                distance = (point_y[0] - points_x[:, 0])**2 + (point_y[1] - points_x[:, 1])**2
+                distance = 0.0
+                for dim in dim_list:
+                    distance += (point_y[dim] - points_x[:, dim])**2
                 index_x = torch.arange(ptr_x_left, ptr_x_right)
                 index_x = index_x[distance < r * r][:max_num_neighbors]
                 index_y = torch.ones_like(index_x) * (ptr_y_left + point_idx)
@@ -65,8 +68,8 @@ def radius_golden_python(x, y, ptr_x, ptr_y, r, max_num_neighbors):
 
 
 @golden_data_cache(__file__)
-def gen_points(num_points, data_range):
-    points = 2 * data_range * (torch.rand([num_points, 2]) - 0.5)
+def gen_points(num_points, data_range, Ndim):
+    points = 2 * data_range * (torch.rand([num_points, Ndim]) - 0.5)
     return points
 
 
@@ -79,13 +82,13 @@ def gen_batch_ptr(batch_size, max_points_per_batch):
 
 
 @golden_data_cache(__file__)
-def gen_inputs(data_range, batch_size, max_points_per_batch):
+def gen_inputs(data_range, batch_size, max_points_per_batch, Ndim):
     ptr_x = gen_batch_ptr(batch_size, max_points_per_batch)
     ptr_y = gen_batch_ptr(batch_size, max_points_per_batch)
     num_points_x = ptr_x[-1]
     num_points_y = ptr_y[-1]
-    x = gen_points(num_points_x, data_range)
-    y = gen_points(num_points_y, data_range)
+    x = gen_points(num_points_x, data_range, Ndim)
+    y = gen_points(num_points_y, data_range, Ndim)
     return x, y, ptr_x, ptr_y
 
 
@@ -111,10 +114,10 @@ class TestRadius(TestCase):
         #iterate through many values of max_points_per_batch
         for x in range(2, 513, 30):
             para_lists.append([100, 50, x, 50, 300])
-        
+        Ndim = 2
         for para_list in para_lists:
             data_range, batch_size, max_points_per_batch, r, max_num_neighbors = para_list
-            x, y, ptr_x, ptr_y = gen_inputs(data_range, batch_size, max_points_per_batch)
+            x, y, ptr_x, ptr_y = gen_inputs(data_range, batch_size, max_points_per_batch, Ndim)
             out_cpu = radius_golden_python(x, y, ptr_x, ptr_y, r, max_num_neighbors).int()
             out_npu = mx_driving.radius(x.npu(), y.npu(), ptr_x.npu(), ptr_y.npu(), r, max_num_neighbors)
             self.assertRtolEqual(out_cpu, out_npu) 

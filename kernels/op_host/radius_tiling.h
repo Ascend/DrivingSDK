@@ -12,6 +12,7 @@
 namespace optiling {
 /****************TilingData definition*****************/
 BEGIN_TILING_DATA_DEF(RadiusTilingData)
+    TILING_DATA_FIELD_DEF(uint32_t, coordinateDim);
     TILING_DATA_FIELD_DEF(uint32_t, batchSize);
     TILING_DATA_FIELD_DEF(uint32_t, numPointsX);
     TILING_DATA_FIELD_DEF(uint32_t, numPointsY);

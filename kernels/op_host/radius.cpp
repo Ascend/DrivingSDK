@@ -14,11 +14,10 @@ namespace {
     constexpr uint32_t OUT_TEMP_INDEX = 0;
     constexpr uint32_t OUT_FINAL_INDEX = 1;
     constexpr uint32_t NUM_NEIGHBORS_INDEX = 2;
-    constexpr uint32_t COORDINATE_DIM = 2; // two-dimensional coordinates
+    constexpr uint32_t GROUP_NUM = 2;  //Inputs only contain group X and group Y
     constexpr uint32_t BLOCK_BYTES = 32; // Single Block requires 32B alignment.
-    constexpr uint32_t BUFFER_SIZE_32KB = 32768;
-    constexpr uint32_t BUFFER_SIZE_16KB = 16384;
     constexpr uint32_t BUFFER_SIZE_8KB = 8192;
+    constexpr uint32_t BUFFER_SIZE_64KB = 65536; 
     constexpr uint32_t ALIGN_NUM = 8;
 }
 
@@ -30,8 +29,8 @@ static ge::graphStatus TilingForRadius(gert::TilingContext *context)
     uint32_t batchPerCoreTail;
     uint32_t headCoreNum;
     CHECK_NULLPTR(context);
-    const gert::StorageShape *xShape = context->GetInputShape(0); // [2, num_points_x]
-    const gert::StorageShape *yShape = context->GetInputShape(1); // [2, num_points_y]
+    const gert::StorageShape *xShape = context->GetInputShape(0); // [coordinateDim, num_points_x]
+    const gert::StorageShape *yShape = context->GetInputShape(1); // [coordinateDim, num_points_y]
     const gert::StorageShape *ptrXShape = context->GetInputShape(2); // [batch_size + 1]
     const gert::StorageShape *ptrYShape = context->GetInputShape(3); // [batch_size + 1]
     const gert::RuntimeAttrs *attr = context->GetAttrs();
@@ -46,6 +45,7 @@ static ge::graphStatus TilingForRadius(gert::TilingContext *context)
 
     auto platformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
     uint32_t batchSize = ptrXShape->GetStorageShape().GetDim(0) - 1;
+    uint32_t coordinateDim = xShape->GetStorageShape().GetDim(0);
     uint32_t numPointsX = xShape->GetStorageShape().GetDim(1);
     uint32_t numPointsY = yShape->GetStorageShape().GetDim(1);
     float r = *(attr->GetAttrPointer<float>(0));
@@ -71,9 +71,9 @@ static ge::graphStatus TilingForRadius(gert::TilingContext *context)
     }
 
     uint32_t bufferSizePtr = ((batchPerCore + 1) * sizeof(uint32_t) + BLOCK_BYTES) / BLOCK_BYTES * BLOCK_BYTES;
-    uint32_t bufferSizePoints = BUFFER_SIZE_32KB;
+    uint32_t bufferSizePoints = BUFFER_SIZE_64KB; // support max 8D x/y
     uint32_t numLocalPtr = bufferSizePtr / sizeof(uint32_t);
-    uint32_t numLocalPoints = bufferSizePoints / 2 / sizeof(float);
+    uint32_t numLocalPoints = BUFFER_SIZE_8KB / sizeof(float); // max 1024 points
 
     auto systemWorkspaceSize = platformInfo.GetLibApiWorkSpaceSize();
     auto usrWorkspaceSize = (coreNum + 1) * BLOCK_BYTES;
@@ -82,6 +82,7 @@ static ge::graphStatus TilingForRadius(gert::TilingContext *context)
     currentWorkspace[0] = systemWorkspaceSize + usrWorkspaceSize;
     
     RadiusTilingData TilingData;
+    TilingData.set_coordinateDim(coordinateDim);
     TilingData.set_batchSize(batchSize);
     TilingData.set_numPointsX(numPointsX);
     TilingData.set_numPointsY(numPointsY);
@@ -108,8 +109,8 @@ static ge::graphStatus TilingForRadius(gert::TilingContext *context)
 namespace ge {
 static ge::graphStatus InfershapeForRadius(gert::InferShapeContext *context)
 {
-    const gert::Shape *xShape = context->GetInputShape(X_INDEX); // [2, num_points_x]
-    const gert::Shape *yShape = context->GetInputShape(Y_INDEX); // [2, num_points_x]
+    const gert::Shape *xShape = context->GetInputShape(X_INDEX); // [coordinateDim, num_points_x]
+    const gert::Shape *yShape = context->GetInputShape(Y_INDEX); // [coordinateDim, num_points_x]
     const gert::Shape *ptrXShape = context->GetInputShape(PTR_X_INDEX); // [batch_size + 1]
     
     gert::Shape *outTempShape = context->GetOutputShape(OUT_TEMP_INDEX); // [2, num_points_y * max_num_neighbors]
@@ -125,6 +126,7 @@ static ge::graphStatus InfershapeForRadius(gert::InferShapeContext *context)
     CHECK_NULLPTR(numNeighborsShape);
     CHECK_NULLPTR(attr);
 
+    uint32_t coordinateDim = xShape->GetDim(0);
     uint32_t numPointsX = xShape->GetDim(1);
     uint32_t numPointsY = yShape->GetDim(1);
     uint32_t outtmpdim0 = outTempShape->GetDim(0);
@@ -133,11 +135,11 @@ static ge::graphStatus InfershapeForRadius(gert::InferShapeContext *context)
     const int32_t maxNumNeighbors = *attr->GetAttrPointer<int32_t>(1);
 
     outTempShape->SetDimNum(outtmpdim0);
-    outTempShape->SetDim(0, COORDINATE_DIM);
+    outTempShape->SetDim(0, GROUP_NUM);
     outTempShape->SetDim(1, numPointsY * maxNumNeighbors);
 
     outFinalShape->SetDimNum(outfinaldim0);
-    outFinalShape->SetDim(0, COORDINATE_DIM);
+    outFinalShape->SetDim(0, GROUP_NUM);
     outFinalShape->SetDim(1, numPointsY * maxNumNeighbors);
     
     numNeighborsShape->SetDimNum(1);

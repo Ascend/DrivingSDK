@@ -9,7 +9,7 @@ using namespace matmul;
 
 namespace {
     constexpr uint32_t BUFFER_NUM = 1;
-    constexpr uint32_t COORDINATE_DIM = 2;
+    constexpr uint32_t GROUP_NUM = 2;  //Inputs only contain group X and group Y
     constexpr uint32_t BLOCK_BYTES = 32;
     constexpr uint32_t ALIGN_NUM_8 = 8;
     constexpr uint32_t ALIGN_NUM_64 = 64; // CompareScalar function requires 256B alignment.
@@ -21,6 +21,7 @@ public:
     __aicore__ inline KernelRadius() {}
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR y, GM_ADDR ptrX, GM_ADDR ptrY, GM_ADDR outTemp, GM_ADDR outFinal, GM_ADDR numNeighbors, GM_ADDR usrWorkspace, RadiusTilingData * tiling_data)
     {
+        coordinateDim = tiling_data->coordinateDim;
         batchSize = tiling_data->batchSize;
         numPointsX = tiling_data->numPointsX;
         numPointsY = tiling_data->numPointsY;
@@ -46,24 +47,24 @@ public:
             ptrAddrOffset = blockIdx * batchPerCore - (blockIdx - headCoreNum);
         }
 
-        xGm.SetGlobalBuffer((__gm__ float *)x, COORDINATE_DIM * numPointsX); // [2, num_points_x]
-        yGm.SetGlobalBuffer((__gm__ float *)y, COORDINATE_DIM * numPointsY); // [2, num_points_y]
+        xGm.SetGlobalBuffer((__gm__ float *)x, coordinateDim * numPointsX); // [coordinateDim, num_points_x]
+        yGm.SetGlobalBuffer((__gm__ float *)y, coordinateDim * numPointsY); // [coordinateDim, num_points_y]
         ptrXGm.SetGlobalBuffer((__gm__ int32_t *)ptrX, batchSize + 1); // [batch_size + 1]
         ptrYGm.SetGlobalBuffer((__gm__ int32_t *)ptrY, batchSize + 1); // [batch_size + 1]
-        outTempGm.SetGlobalBuffer((__gm__ int32_t *)outTemp, COORDINATE_DIM * numPointsY * maxNumNeighbors); // [2, num_points_y * max_num_neighbors]
-        outFinalGm.SetGlobalBuffer((__gm__ int32_t *)outFinal, COORDINATE_DIM * numPointsY * maxNumNeighbors); // [2, num_points_y * max_num_neighbors]
+        outTempGm.SetGlobalBuffer((__gm__ int32_t *)outTemp, GROUP_NUM * numPointsY * maxNumNeighbors); // [2, num_points_y * max_num_neighbors]
+        outFinalGm.SetGlobalBuffer((__gm__ int32_t *)outFinal, GROUP_NUM * numPointsY * maxNumNeighbors); // [2, num_points_y * max_num_neighbors]
         numNeighborsGm.SetGlobalBuffer((__gm__ int32_t *)numNeighbors, ALIGN_NUM_8); // [8]
         numNeighborsCoreGm.SetGlobalBuffer((__gm__ int32_t *)usrWorkspace, (usedCoreNum + 1) * ALIGN_NUM_8); // [usedCoreNum + 1, 8]
 
         pipe.InitBuffer(ptrXBuf, bufferSizePtr);
         pipe.InitBuffer(ptrYBuf, bufferSizePtr);
-        pipe.InitBuffer(xBuf, bufferSizePoints); // 32KB
-        pipe.InitBuffer(yBuf, bufferSizePoints); // 32KB
-        pipe.InitBuffer(distBuf, bufferSizePoints / COORDINATE_DIM); // 16KB
-        pipe.InitBuffer(tempBuf, bufferSizePoints / COORDINATE_DIM); // 16KB
-        pipe.InitBuffer(maskBuf, bufferSizePoints / COORDINATE_DIM  / sizeof(int32_t)); // 4KB
-        pipe.InitBuffer(indexXBuf, bufferSizePoints / COORDINATE_DIM); // 16KB
-        pipe.InitBuffer(indexYBuf, bufferSizePoints / COORDINATE_DIM); // 16KB
+        pipe.InitBuffer(xBuf, bufferSizePoints); // 64KB
+        pipe.InitBuffer(yBuf, bufferSizePoints); // 64KB
+        pipe.InitBuffer(distBuf, numLocalPoints * sizeof(float)); // 8KB
+        pipe.InitBuffer(tempBuf, numLocalPoints * sizeof(float)); // 8KB
+        pipe.InitBuffer(maskBuf, numLocalPoints * sizeof(float) / sizeof(int32_t)); // 2KB
+        pipe.InitBuffer(indexXBuf, numLocalPoints * sizeof(float)); // 8KB
+        pipe.InitBuffer(indexYBuf, numLocalPoints * sizeof(float)); // 8KB
         pipe.InitBuffer(numNeighborsBuf, ALIGN_NUM_8 * sizeof(int32_t)); // 8B
         pipe.InitBuffer(numNeighborsCoreBuf, (usedCoreNum + 1) * ALIGN_NUM_8 * sizeof(int32_t)); // (usedCoreNum + 1) * 8B, store the number of each core and the total number of neighbors
 
@@ -121,10 +122,10 @@ private:
         DataCopyParams copyParamsX {1, static_cast<uint16_t>(numBatchPointsX * sizeof(float)), 0, 0};
         DataCopyParams copyParamsY {1, static_cast<uint16_t>(numBatchPointsY * sizeof(float)), 0, 0};
         DataCopyPadParams padParams{true, 0, 0, 0};
-        DataCopyPad(pointsXLocal, xGm[ptrXLeft], copyParamsX, padParams);
-        DataCopyPad(pointsYLocal, yGm[ptrYLeft], copyParamsY, padParams);
-        DataCopyPad(pointsXLocal[numLocalPoints], xGm[numPointsX + ptrXLeft], copyParamsX, padParams);
-        DataCopyPad(pointsYLocal[numLocalPoints], yGm[numPointsY + ptrYLeft], copyParamsY, padParams);
+        for(int32_t dim=0; dim < coordinateDim; dim++){
+            DataCopyPad(pointsXLocal[numLocalPoints*dim], xGm[numPointsX*dim + ptrXLeft], copyParamsX, padParams);
+            DataCopyPad(pointsYLocal[numLocalPoints*dim], yGm[numPointsY*dim + ptrYLeft], copyParamsY, padParams);
+        }
         PipeBarrier<PIPE_ALL>();
     }
 
@@ -135,20 +136,25 @@ private:
         maskUint8 = maskBuf.Get<uint8_t>();
         indexXTensor = indexXBuf.Get<int32_t>();
         indexYTensor = indexYBuf.Get<int32_t>();
-
         int32_t pointIdxAbs = 0;
         uint64_t selectCnt = 0;
+        
         for (int32_t pointIdx = 0; pointIdx < numBatchPointsY; pointIdx++) {
-            y1 = -1 * pointsYLocal.GetValue(pointIdx);
-            y2 = -1 * pointsYLocal.GetValue(numLocalPoints + pointIdx);
-            Adds(distLocal, pointsXLocal, y1, numBatchPointsAlignedX);
-            Adds(tempLocal, pointsXLocal[numLocalPoints], y2, numBatchPointsAlignedX);
-            PipeBarrier<PIPE_V>();
-            Mul(distLocal, distLocal, distLocal, numBatchPointsAlignedX);
-            Mul(tempLocal, tempLocal, tempLocal, numBatchPointsAlignedX);
-            PipeBarrier<PIPE_V>();
-            Add(distLocal, distLocal, tempLocal, numBatchPointsAlignedX);
-            PipeBarrier<PIPE_V>();
+            for (int32_t dim = 0; dim < coordinateDim; dim++){
+                yi = -1 * pointsYLocal.GetValue(numLocalPoints * dim + pointIdx);
+                if (dim == 0){
+                    Adds(distLocal, pointsXLocal, yi, numBatchPointsAlignedX);
+                    PipeBarrier<PIPE_V>();
+                    Mul(distLocal, distLocal, distLocal, numBatchPointsAlignedX);
+                }else{
+                    Adds(tempLocal, pointsXLocal[numLocalPoints * dim], yi, numBatchPointsAlignedX);
+                    PipeBarrier<PIPE_V>();
+                    Mul(tempLocal, tempLocal, tempLocal, numBatchPointsAlignedX);
+                    PipeBarrier<PIPE_V>();
+                    Add(distLocal, distLocal, tempLocal, numBatchPointsAlignedX);
+                    PipeBarrier<PIPE_V>();
+                }
+            }
             CompareScalar(maskUint8, distLocal, r, CMPMODE::LT, numBatchPointsAlignedX);
             maskUint32 = maskUint8.ReinterpretCast<uint32_t>();
             pointIdxAbs = pointIdx + ptrYLeft;
@@ -248,12 +254,12 @@ private:
     GlobalTensor<int32_t> numNeighborsCoreGm;
     uint32_t blockIdx, headCoreNum, batchPerCore, batchPerCoreTail, batchThisCore;
     uint32_t ptrAddrOffset, bufferSizePtr, bufferSizePoints;
-    uint32_t batchSize, maxNumNeighbors, usedCoreNum, maxNumPointsPerIter;
+    uint32_t coordinateDim, batchSize, maxNumNeighbors, usedCoreNum, maxNumPointsPerIter;
     uint32_t numBatchPointsX, numBatchPointsY, numBatchPointsAlignedX, numBatchPointsAlignedY;
     uint32_t outputGmOffsetX,  outputGmOffsetY;
     int32_t ptrXLeft, ptrXRight, ptrYLeft, ptrYRight;
     int32_t numPointsX, numPointsY, numLocalPoints, numLocalPtr, numOutputPoints;
-    float r, y1, y2;
+    float r, yi;
 };
 
 extern "C" __global__ __aicore__ void radius(GM_ADDR x, GM_ADDR y, GM_ADDR ptrX, GM_ADDR ptrY, GM_ADDR outTemp, GM_ADDR outFinal, GM_ADDR numTotalNeighbors, GM_ADDR workspace, GM_ADDR tiling) {
