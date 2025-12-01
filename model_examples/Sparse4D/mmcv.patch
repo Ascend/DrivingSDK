@@ -12,3 +12,16 @@ index bf34cb59..f0dfecc9 100644
  
          if self.device_ids:
              inputs, kwargs = self.to_kwargs(  # type: ignore
+diff --git a/mmcv/runner/checkpoint.py b/mmcv/runner/checkpoint.py
+index 9dd2d311..576677c1 100644
+--- a/mmcv/runner/checkpoint.py
++++ b/mmcv/runner/checkpoint.py
+@@ -331,7 +331,7 @@ def load_from_local(
+     filename = osp.expanduser(filename)
+     if not osp.isfile(filename):
+         raise FileNotFoundError(f'{filename} can not be found.')
+-    checkpoint = torch.load(filename, map_location=map_location)
++    checkpoint = torch.load(filename, map_location=map_location, weights_only=False)
+     return checkpoint
+ 
+ 

@@ -1,10 +1,11 @@
-numpy==1.23
-torchvision==0.16.0
+torchvision==0.22.1
 mmsegmentation==0.30.0
-ipython==7.10.2
+ipython
 seaborn
 attrs
 psutil
 opencv-python==4.11.0.86
 opencv-python-headless==4.11.0.86
 fsspec==2025.2.0
+pickleshare
+backcall

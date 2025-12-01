@@ -54,7 +54,8 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
 
 | 三方库  | 支持版本 |
 | :-----: | :------: |
-| PyTorch |   2.1   |
+| PyTorch |   2.1.0   |
+| PyTorch |   2.7.1   |
 
 ### 安装昇腾环境
 
@@ -74,12 +75,16 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
    ```shell
    bash install_MapTRv2.sh
    ```
-
-2. 在模型根目录下安装依赖
+  这里需要根据pytorch版本修改脚本，使用对应的requirements文件,一键配置脚本默认使用torch2.1.0
+2. 根据pytorch版本在模型根目录下安装依赖
+  - torch2.1.0
     ```
     pip install -r requirements.txt
     ```
-
+  - torch2.7.1
+    ```
+    pip install -r requirements_pytorch2.7.1.txt
+    ```
 3. 安装mmcv
 
   - 在模型根目录下，克隆mmcv仓，并进入mmcv目录安装
@@ -107,9 +112,8 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
     cp mmdet3d_config.patch mmdetection3d/
     cd mmdetection3d
     git apply --reject --whitespace=fix mmdet3d_config.patch
-    pip install -v -e .
+    pip install -v -e . --no-build-isolation
     ```
-
 6. 安装MindSpeed加速库。
     ```
     git clone https://gitcode.com/Ascend/MindSpeed.git
@@ -256,6 +260,7 @@ wget https://download.pytorch.org/models/resnet18-f37072fd.pth
 
 2025.08.18: 优化模型性能
 
+2025.11.25: 支持torch2.7.1
 # FAQ
 
 无
