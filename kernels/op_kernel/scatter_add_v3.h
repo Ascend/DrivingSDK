@@ -158,6 +158,7 @@ private:
             _pipe->InitBuffer(_maskBuf, maskBufSize);
             _pipe->InitBuffer(_selectedSrcBuf, AlignUp(_indicesMaxLoadableNum * sizeof(DTYPE_SRC), MASK_ALIGN_SIZE));
             _pipe->InitBuffer(_reduceSumBuf, BLOCK_SIZE);
+            _pipe->InitBuffer(_sharedBuf, BLOCK_SIZE);
         }
     }
 
@@ -167,6 +168,7 @@ private:
         _indicesLocal = _indicesBuf.Get<DTYPE_INDICES>();
         _maskLocal = _maskBuf.Get<uint8_t>();
         _reduceSumLocal = _reduceSumBuf.Get<DTYPE_SRC>();
+        _sharedLocal = _sharedBuf.Get<DTYPE_SRC>();
         _selectedSrcLocal = _selectedSrcBuf.Get<DTYPE_SRC>();
 
         uint64_t indicesGlobalOffset = _baseOffset + i * _indicesMaxLoadableNum;
@@ -180,7 +182,6 @@ private:
             uint64_t loadLen = min(indicesGlobalOffset + loadableNum, (headID + 1) * _indicesNumPerHead) - loadOffset;
             uint64_t copyLenAlign32 = AlignUp(loadLen, BLOCK_SIZE / sizeof(DTYPE_SRC));
             uint64_t cmpLenAlign256 = AlignUp(loadLen, MASK_ALIGN_SIZE / sizeof(DTYPE_INDICES));
-            uint32_t shape[] = {1, static_cast<uint32_t>(loadLen)};
 
             SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
             WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
@@ -192,7 +193,7 @@ private:
             for (uint64_t idxVal = 0; idxVal < _dimSize; idxVal++) {
                 CompareScalar(_maskLocal, _indicesLocal, static_cast<DTYPE_INDICES>(idxVal), CMPMODE::EQ, cmpLenAlign256);
                 Select(_selectedSrcLocal, _maskLocal, _srcLocal, static_cast<DTYPE_SRC>(0), SELMODE::VSEL_TENSOR_SCALAR_MODE, loadLen);
-                ReduceSum<DTYPE_SRC, Pattern::Reduce::AR, true>(_reduceSumLocal, _selectedSrcLocal, shape, true);
+                ReduceSum<float>(_reduceSumLocal, _selectedSrcLocal, _sharedLocal, loadLen);
                 uint64_t outOffset = headID * _outNumPerHead + idxVal;
                 _outLocal.SetValue(outOffset, _outLocal.GetValue(outOffset) + _reduceSumLocal.GetValue(0));
             }
@@ -240,10 +241,12 @@ private:
     TBuf<TPosition::VECCALC> _maskBuf;
     TBuf<TPosition::VECCALC> _selectedSrcBuf;
     TBuf<TPosition::VECCALC> _reduceSumBuf;
+    TBuf<TPosition::VECCALC> _sharedBuf;
 
     LocalTensor<uint8_t> _maskLocal;
     LocalTensor<DTYPE_SRC> _selectedSrcLocal;
     LocalTensor<DTYPE_SRC> _reduceSumLocal;
+    LocalTensor<DTYPE_SRC> _sharedLocal;
 
     // acquired from tiling data
     uint64_t _indicesNumBigCore;
