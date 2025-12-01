@@ -1,9 +1,10 @@
 numpy==1.23
 torchvision==0.16.0
 mmsegmentation==0.30.0
-opencv-python-headless==4.11.0.86
 ipython==7.10.2
 seaborn
 attrs
 psutil
+opencv-python==4.11.0.86
+opencv-python-headless==4.11.0.86
 fsspec==2025.2.0
