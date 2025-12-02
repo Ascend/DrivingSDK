@@ -28,6 +28,8 @@ class MultiScaleDeformableAttnFunction(Function):
         attention_weights: torch.Tensor,
         **kwargs,
     ) -> torch.Tensor:
+        if (torch.numel(value) == 0 or torch.numel(value_spatial_shapes) == 0 or torch.numel(attention_weights) == 0):
+            raise Exception("Erorr! Input Tensor can not be a empty Tensor.\n")
         value_spatial_shapes = value_spatial_shapes.int()
         value_level_start_index = value_level_start_index.int()
         sampling_locations = sampling_locations.type_as(value)

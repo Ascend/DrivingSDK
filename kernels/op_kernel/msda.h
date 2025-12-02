@@ -54,6 +54,19 @@ protected:
         endOffset_ = startOffset_ + avgTasks + (blkIdx_ < remainTasks ? 1 : 0);
     }
 
+    __aicore__ inline uint32_t GetInnerLoops(uint32_t x)
+    {
+        uint32_t candicateList[4] = {8, 16, 32, 64};
+        uint32_t i;
+        // the innerLoops must meet two condition, innerLoops % 8 = 0 (localTensor align), 64 % innerLoops = 0 (mask getValue align)
+        for (i = 1; i < 4; i++) {
+            if (x / candicateList[i] == 0) {
+                break;
+            }
+        }
+        return candicateList[i - 1];
+    }
+
     __aicore__ inline void InitTiling(const MultiScaleDeformableAttnTilingData* tilingData)
     {
         batchSize_ = tilingData->batchSize;
@@ -74,27 +87,34 @@ protected:
             innerLoops_ = numHeads_ * oneHeadNum_;
             innerLoopsAligned_ = AlignUp(innerLoops_, 8);
             innerLoopsAligned_ = B32_DATA_NUM_PER_REPEAT / (B32_DATA_NUM_PER_REPEAT / innerLoopsAligned_);
-            innerLoopsOffset_ = DivCeil(innerLoopsAligned_, 8);
             alignedOneHeadNum_ = oneHeadNum_;
             alignedOneQueryNum_ = innerLoopsAligned_;
-            alignedCornerEmbedDims_ = numHeads_ * oneHeadNum_ * alignedEmbedDims_;
-            brcRpt_ = DivCeil(4 * numHeads_ * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
+            alignedCornerEmbedDims_ = innerLoops_ * alignedEmbedDims_;
+            innerTotal_ = numHeads_ * oneHeadNum_;
+            innerTotalGroup_ = 1;
+            innerEmbedDims_ = numHeads_ * alignedEmbedDims_;
+            brcRpt_ = DivCeil(4 * innerLoops_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
         } else {
-            outerLoops_ = numHeads_;
-            innerLoops_ = oneHeadNum_;
+            uint32_t maxInnerDims = 2048; // 2048 for innerLoops = 8 && embedDims = 256, in this condition cornerRpt take up 32kb
+            innerLoops_ = oneHeadNum_ * alignedEmbedDims_ <= maxInnerDims ? oneHeadNum_ : GetInnerLoops(maxInnerDims / alignedEmbedDims_);
             innerLoopsAligned_ = AlignUp(innerLoops_, 8);
             innerLoopsAligned_ = B32_DATA_NUM_PER_REPEAT / (B32_DATA_NUM_PER_REPEAT / innerLoopsAligned_);
-            innerLoopsOffset_ = DivCeil(innerLoopsAligned_, 8);
-            alignedOneHeadNum_ = innerLoopsAligned_;
-            alignedOneQueryNum_ = numHeads_ * innerLoopsAligned_;
-            alignedCornerEmbedDims_ = oneHeadNum_ * alignedEmbedDims_;
-            brcRpt_ = DivCeil(4 * oneHeadNum_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
+            outerLoops_ = numHeads_ * DivCeil(oneHeadNum_, innerLoopsAligned_);
+            alignedOneHeadNum_ = AlignUp(oneHeadNum_, innerLoopsAligned_);
+            alignedOneQueryNum_ = numHeads_ * alignedOneHeadNum_;
+            alignedCornerEmbedDims_ = innerLoops_ * alignedEmbedDims_;
+            innerTotal_ = oneHeadNum_;
+            innerTotalGroup_ = DivCeil(oneHeadNum_, innerLoopsAligned_);
+            innerEmbedDims_ = alignedEmbedDims_;
+            brcRpt_ = DivCeil(4 * innerLoops_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
         }
         alignedHeadEmbedDims_ = numHeads_ * alignedEmbedDims_;
         outDims_ = numHeads_ * embedDims_;
         embedBlk_ = DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
         outBlk_ = numHeads_ * embedBlk_;
-        embedMask_ = embedDims_ < 64 ? (1UL << embedDims_) - 1 : FULL_MASK;
+        embedLoops_ = DivCeil(embedDims_, B32_DATA_NUM_PER_REPEAT);
+        embedTail_ = embedDims_ % B32_DATA_NUM_PER_REPEAT;
+        embedMask_ = embedTail_ == 0 ? FULL_MASK : (1UL << embedTail_) - 1;
         cornerRpt_ = DivCeil(4 * alignedCornerEmbedDims_, B32_DATA_NUM_PER_REPEAT);
 
         InitTask();
@@ -260,6 +280,13 @@ protected:
         }
     }
 
+    __aicore__ inline void SetVectorMask4MSDA(uint32_t embedIdx)
+    {
+        if (embedIdx == (embedLoops_ - 1)) {
+            SetVectorMask<float>(0, embedMask_);
+        }
+    }
+
 protected:
     TPipe* pipe_;
     GlobalTensor<float> valueGm_, locationGm_, attentionWeightsGm_;
@@ -281,10 +308,10 @@ protected:
     uint64_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, realLevels_;
     uint32_t alignedOneTaskNum_, alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_, alignedHeadEmbedDims_;
     uint32_t oneHeadNum_, oneQueryNum_;
-    uint32_t outerLoops_, innerLoops_, innerLoopsAligned_, innerLoopsOffset_;
+    uint32_t outerLoops_, innerLoops_, innerTotal_, innerTotalGroup_, innerLoopsAligned_, innerEmbedDims_;
     uint16_t tailBrcBlk_, queryBlk_, embedBlk_, outBlk_;
     uint16_t brcRpt_, cornerRpt_, taskRpt_;
-    uint64_t embedMask_;
+    uint64_t embedLoops_, embedTail_, embedMask_;
     uint32_t validFlagMaskLen_ {256};
     TEventID copyEvt_ {2}, biEvt_ {3}; // biEvt_ is used for bilinear interpolation
     DataCopyParams cpOneValParams_, cpRowDoubleParams_ {2, 0, 0, 0}, cpSampleParams_, cpDoubleSampleParams_,
@@ -519,6 +546,13 @@ private:
         const LocalTensor<int32_t>& location, const LocalTensor<float>& value,
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& loc,
         uint64_t valid, uint32_t baseIdx, uint32_t innerLoops);
+    
+    __aicore__ inline void CumsumOutput(
+        const LocalTensor<float>& output, const LocalTensor<float>& cornerWeightBrc,
+        uint32_t outOffset, uint32_t innerLoops);
+    
+    __aicore__ inline void BroadEmbedBlk(
+        const LocalTensor<float>& cornerWeightBrc, uint32_t innerLoops);
 
     __aicore__ inline void ComputeBilinearInterpolation(const LocalTensor<uint64_t>& validFlag,
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location, const LocalTensor<int32_t>& loc,
@@ -609,22 +643,34 @@ private:
 
     __aicore__ inline void GradMul(const LocalTensor<float>& dst, const LocalTensor<float>& src, const LocalTensor<float>& gradOut, uint32_t outOffset)
     {
-        for (uint32_t i = 0; i < 4; ++i) {
-            uint32_t outerOffset = i * this->alignedCornerEmbedDims_;
-            uint32_t offset = outOffset;
-            if (fastMode) {
-                for (uint32_t j = 0; j < this->numHeads_; ++j) {
-                    uint32_t innerOffset = outerOffset + j * this->oneHeadNum_ * this->alignedEmbedDims_;
-                    Mul<float, false>(dst[innerOffset], src[innerOffset], gradOut[offset], MASK_PLACEHOLDER,
-                        this->oneHeadNum_,
-                        {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
-                    offset += this->alignedEmbedDims_;
+        if (fastMode) {
+            for (uint32_t embedIdx = 0; embedIdx < this->embedLoops_; ++embedIdx) {
+                uint32_t embedOffset = embedIdx * B32_DATA_NUM_PER_REPEAT;
+                this->SetVectorMask4MSDA(embedIdx);
+                for (uint32_t i = 0; i < 4; ++i) {
+                    uint32_t outerOffset = i * this->alignedCornerEmbedDims_ + embedOffset;
+                    uint32_t offset = outOffset + embedOffset;
+                    for (uint32_t j = 0; j < this->numHeads_; ++j) {
+                        uint32_t innerOffset = outerOffset + j * this->oneHeadNum_ * this->alignedEmbedDims_;
+                        Mul<float, false>(dst[innerOffset], src[innerOffset], gradOut[offset], MASK_PLACEHOLDER,
+                            this->oneHeadNum_, {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
+                        offset += this->alignedEmbedDims_;
+                    }
                 }
-            } else {
-                Mul<float, false>(dst[outerOffset], src[outerOffset], gradOut[outOffset], MASK_PLACEHOLDER,
-                    this->oneHeadNum_,
-                    {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
             }
+            ResetMask();
+        } else {
+            for (uint32_t embedIdx = 0; embedIdx < this->embedLoops_; ++embedIdx) {
+                uint32_t embedOffset = embedIdx * B32_DATA_NUM_PER_REPEAT;
+                this->SetVectorMask4MSDA(embedIdx);
+                for (uint32_t i = 0; i < 4; ++i) {
+                    uint32_t outerOffset = i * this->alignedCornerEmbedDims_ + embedOffset;
+                    uint32_t offset = outOffset + embedOffset;
+                    Mul<float, false>(dst[outerOffset], src[outerOffset], gradOut[offset], MASK_PLACEHOLDER,
+                        this->innerLoops_, {1, 1, 1, static_cast<uint8_t>(this->embedBlk_), static_cast<uint8_t>(this->embedBlk_), 0});
+                }
+            }
+            ResetMask();
         }
     }
 
@@ -645,6 +691,9 @@ private:
         const LocalTensor<float>& weight, const LocalTensor<float>& dst,
         const LocalTensor<float>& gradOut, const LocalTensor<float>& gradMulTmp,
         uint32_t baseIdx, uint32_t outOffset);
+    
+    __aicore__ inline void ReduseSumValue(
+        const LocalTensor<float>& weight, const LocalTensor<float>& cornerWeightBrc, uint32_t baseIdx);
 
     __aicore__ inline void ComputeBilinearInterpolation(const LocalTensor<uint64_t>& validFlag,
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location, const LocalTensor<int32_t>& loc,

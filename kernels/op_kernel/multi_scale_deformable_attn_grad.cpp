@@ -29,7 +29,7 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Up
     if constexpr (fastMode) {
         this->outerLoops_ = this->compTaskNum_;
     } else {
-        this->outerLoops_ = this->compTaskNum_ * this->numHeads_;
+        this->outerLoops_ = this->compTaskNum_ * this->numHeads_ * DivCeil(this->oneHeadNum_, this->innerLoopsAligned_);
     }
     this->cpOutParams_.blockCount = this->compTaskNum_ * this->numHeads_;
     if (fastMode) {
@@ -105,22 +105,47 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Pr
     const LocalTensor<float>& gradOut, const LocalTensor<float>& gradMulTmp,
     uint32_t baseIdx, uint32_t outOffset)
 {
-    ResetMask();
     for (uint32_t i = 0; i < 4; ++i) {
         Brcb(gradMulTmp[i * this->alignedCornerEmbedDims_], weight[baseIdx + i * this->alignedOneTaskNum_],
-            (fastMode ? this->alignedOneQueryNum_ : this->alignedOneHeadNum_) / B32_DATA_NUM_PER_BLOCK,
-            {this->embedBlk_, static_cast<uint16_t>(8 * this->embedBlk_)});
+            DivCeil(this->innerLoopsAligned_, 8), {this->embedBlk_, static_cast<uint16_t>(8 * this->embedBlk_)});
     }
-    for (uint32_t i = 1; i < this->embedBlk_; ++i) {
-        Adds<float, false>(gradMulTmp[i * B32_DATA_NUM_PER_BLOCK], gradMulTmp, 0.f, MASK_PLACEHOLDER,
-            this->brcRpt_,
-            {this->embedBlk_, this->embedBlk_, static_cast<uint8_t>(8 * this->embedBlk_),
-                static_cast<uint8_t>(8 * this->embedBlk_)});
+    if (this->embedBlk_ >= 32) {
+        for (uint32_t i = 1; i < this->embedBlk_; ++i) {
+            DataCopy<float>(gradMulTmp[i * B32_DATA_NUM_PER_BLOCK], gradMulTmp,
+                {static_cast<uint16_t>(4 * this->innerLoops_), 1, static_cast<uint16_t>(this->embedBlk_ - 1), static_cast<uint16_t>(this->embedBlk_ - 1)});
+        }
+    } else {
+        for (uint32_t i = 1; i < this->embedBlk_; ++i) {
+            Adds<float, false>(gradMulTmp[i * B32_DATA_NUM_PER_BLOCK], gradMulTmp, 0.f, MASK_PLACEHOLDER,
+                this->brcRpt_, {this->embedBlk_, this->embedBlk_, static_cast<uint8_t>(8 * this->embedBlk_), static_cast<uint8_t>(8 * this->embedBlk_)});
+        }
     }
-    SetVectorMask<float>(0, this->embedMask_);
     WaitFlag<HardEvent::MTE3_V>(0);
     GradMul(dst, gradMulTmp, gradOut, outOffset);
     SetFlag<HardEvent::V_MTE3>(0);
+}
+
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::ReduseSumValue(
+    const LocalTensor<float>& weight, const LocalTensor<float>& cornerWeightBrc, uint32_t baseIdx)
+{
+    uint8_t embedStride = static_cast<uint8_t>(this->embedBlk_);
+    for (uint32_t embedIdx = 1; embedIdx < this->embedLoops_; ++embedIdx) {
+        uint32_t embedOffset = embedIdx * B32_DATA_NUM_PER_REPEAT;
+        this->SetVectorMask4MSDA(embedIdx);
+        for (uint32_t i = 0; i < 4; ++i) {
+            Add<float, false>(cornerWeightBrc[i * this->alignedCornerEmbedDims_], cornerWeightBrc[i * this->alignedCornerEmbedDims_],
+                cornerWeightBrc[embedOffset + i * this->alignedCornerEmbedDims_], MASK_PLACEHOLDER, 
+                this->innerLoops_, {1, 1, 1, embedStride, embedStride, embedStride});
+        }
+    }
+    ResetMask();
+    this->SetVectorMask4MSDA(0);
+    for (uint32_t i = 0; i < 4; ++i) {
+        WholeReduceSum<float, false>(weight[baseIdx + i * this->alignedOneTaskNum_],
+            cornerWeightBrc[i * this->alignedCornerEmbedDims_], MASK_PLACEHOLDER, this->innerLoops_, 1, 1, this->embedBlk_);
+    }
+    ResetMask();
 }
 
 template<bool aligned, bool fastMode>
@@ -134,17 +159,17 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
     WaitFlag<HardEvent::V_MTE2>(this->biEvt_);
     this->ComputeWeight(locFloat, shapeFloat, production, weight, attentionWeight);
     WaitFlag<HardEvent::MTE2_V>(1);
-    SetVectorMask<float>(0, this->embedMask_);
     for (uint32_t head = 0; head < this->outerLoops_; ++head) {
-        uint64_t baseIdx = head * this->innerLoopsAligned_;
+        uint32_t baseIdx = head * this->innerLoopsAligned_;
         uint64_t headOffset = baseIdx / B32_DATA_NUM_PER_REPEAT;
         uint64_t byteOffset = baseIdx - headOffset * B32_DATA_NUM_PER_REPEAT;
         uint64_t valid = validFlag.GetValue(headOffset) >> byteOffset;
         uint64_t bottomValid = validFlag.GetValue(headOffset + 2 * this->validFlagMaskLen_ / 8) >> byteOffset;
         uint64_t topValid = validFlag.GetValue(headOffset + 3 * this->validFlagMaskLen_ / 8) >> byteOffset;
-        uint32_t outOffset = fastMode ? head * this->numHeads_ * this->alignedEmbedDims_ : head * this->alignedEmbedDims_;
+        uint32_t outOffset = head / this->innerTotalGroup_ * this->innerEmbedDims_;
+        uint32_t innerLoops = min(this->innerLoops_, this->innerTotal_ - (head % this->innerTotalGroup_) * this->innerLoops_);
 
-        uint32_t nextOffset = fastMode ? (head + 1) * this->numHeads_ * this->alignedEmbedDims_ : (head + 1) * this->alignedEmbedDims_;
+        uint32_t nextOffset = (head + 1) / this->innerTotalGroup_ * this->innerEmbedDims_;
         uint32_t nextIdx = (head + 1) * this->innerLoopsAligned_;
 
         if (head == 0) {
@@ -154,10 +179,10 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
         WaitFlag<HardEvent::V_MTE3>(0);
         WaitFlag<HardEvent::V_MTE2>(0);
         SetAtomicAdd<float>();
-        CopyFullPoint(location, value, gradValue, valid, baseIdx, this->innerLoops_);
-        CopyBorderPoint(location, value, gradValue, shapeInt, loc, bottomValid, baseIdx, this->innerLoops_);
+        CopyFullPoint(location, value, gradValue, valid, baseIdx, innerLoops);
+        CopyBorderPoint(location, value, gradValue, shapeInt, loc, bottomValid, baseIdx, innerLoops);
         CopyBorderPoint(location[this->alignedOneTaskNum_], value[2 * this->alignedCornerEmbedDims_],
-            gradValue[2 * this->alignedCornerEmbedDims_], shapeInt, loc, topValid, baseIdx, this->innerLoops_);
+            gradValue[2 * this->alignedCornerEmbedDims_], shapeInt, loc, topValid, baseIdx, innerLoops);
         SetAtomicNone();
         SetFlag<HardEvent::MTE2_V>(0);
         SetFlag<HardEvent::MTE3_V>(0);
@@ -172,21 +197,10 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
             SetFlag<HardEvent::V_MTE2>(1);
         }
 
-        ResetMask();
-        if (unlikely(this->cornerRpt_ > MAX_REPEAT_TIMES)) {
-            Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_ / 2, 1, 8);
-            Duplicate<float, false>(value[this->cornerRpt_ / 2 * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER,
-                this->cornerRpt_ / 2, 1, 8);
-        } else {
-            Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
-        }
-        SetVectorMask<float>(0, this->embedMask_);
+        Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
         SetFlag<HardEvent::V_MTE2>(0);
 
-        for (uint32_t i = 0; i < 4; ++i) {
-            WholeReduceSum<float, false>(weight[baseIdx + i * this->alignedOneTaskNum_],
-                cornerWeightBrc[i * this->alignedCornerEmbedDims_], MASK_PLACEHOLDER, this->innerLoops_, 1, 1, this->embedBlk_);
-        }
+        ReduseSumValue(weight, cornerWeightBrc, baseIdx);
     }
     ResetMask();
 }
@@ -208,7 +222,6 @@ __aicore__ inline void MultiScaleDeformableAttnGradKernel<aligned, fastMode>::Co
     Select<float, uint64_t, false>(gradAttentionWeight, validFlag[5 * this->validFlagMaskLen_ / 8], gradAttentionWeight,
         0.0f, SELMODE::VSEL_TENSOR_SCALAR_MODE, 64, this->taskRpt_, {1, 1, 1, 8, 8, 8});
     // fix end
-
     Sub<float, false>(gradLocation, weight[3 * this->alignedOneTaskNum_], weight[this->alignedOneTaskNum_],
         MASK_PLACEHOLDER, this->taskRpt_, {1, 1, 1, 8, 8, 8});
     Sub<float, false>(gradLocation[this->alignedOneTaskNum_], weight[3 * this->alignedOneTaskNum_],

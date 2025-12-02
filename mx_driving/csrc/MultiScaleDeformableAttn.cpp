@@ -43,7 +43,7 @@ at::Tensor multi_scale_deformable_attn(const at::Tensor& value, const at::Tensor
     TORCH_CHECK(attention_weights.scalar_type() == at::kHalf || attention_weights.scalar_type() == at::kFloat,
         "attention_weights: float16 or float32 tensor expected but got a tensor with dtype: ",
         attention_weights.scalar_type());
-    TORCH_CHECK(value.size(EMBED_IDX) <= 64, "The number of embedding dimensions should be less than or equal to 64");
+    TORCH_CHECK(value.size(EMBED_IDX) <= 256, "The number of embedding dimensions should be less than or equal to 256");
     TORCH_CHECK(sampling_locations.size(LEVEL_IDX) * sampling_locations.size(POINT_IDX) <= 64,
         "The product of the number of levels and the number of points should be less than or equal to 64");
 
@@ -86,7 +86,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_backw
     TORCH_CHECK(grad_output.scalar_type() == at::kHalf || grad_output.scalar_type() == at::kFloat,
         "grad_output: float16 or float32 tensor expected but got a tensor with dtype: ", grad_output.scalar_type());
 
-    TORCH_CHECK(value.size(EMBED_IDX) <= 64, "The number of embedding dimensions should be less than or equal to 64");
+    TORCH_CHECK(value.size(EMBED_IDX) <= 256, "The number of embedding dimensions should be less than or equal to 256");
     TORCH_CHECK(sampling_locations.size(LEVEL_IDX) * sampling_locations.size(POINT_IDX) <= 64,
         "The product of the number of levels and the number of points should be less than or equal to 64");
 
