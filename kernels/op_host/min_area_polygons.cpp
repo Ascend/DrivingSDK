@@ -18,6 +18,9 @@ static uint32_t AlignUp(uint32_t x, uint32_t y)
 
 static ge::graphStatus MinAreaPolygonsTilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     MinAreaPolygonsTilingData tiling;
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
@@ -28,12 +31,10 @@ static ge::graphStatus MinAreaPolygonsTilingFunc(gert::TilingContext* context)
     if (coreNum == 0) {
         return ge::GRAPH_FAILED;
     }
-
     auto pointsetsShape = context->GetInputShape(0)->GetStorageShape();
     if (context->GetInputShape(0) == nullptr) {
         return ge::GRAPH_FAILED;
     }
-
     auto dtype = context->GetInputDesc(0)->GetDataType();
     if (context->GetInputDesc(0) == nullptr) {
         return ge::GRAPH_FAILED;

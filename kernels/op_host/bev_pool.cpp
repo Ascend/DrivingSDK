@@ -57,6 +57,7 @@ static ge::graphStatus TilingForBEVPool(gert::TilingContext* context)
 {
     CHECK_NULLPTR(context);
     BEVPoolTilingData tiling;
+    CHECK_NULLPTR(context->GetPlatformInfo());
     auto platform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     auto coreNum = platform.GetCoreNum();
 
@@ -115,6 +116,9 @@ namespace ge {
 static graphStatus InferShapeForBEVPool(gert::InferShapeContext* context)
 {
     auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto getAttr = [attrs](size_t idx) -> int64_t {
         auto ptr = attrs->GetInt(idx);
         if (!ptr) {
@@ -131,6 +135,9 @@ static graphStatus InferShapeForBEVPool(gert::InferShapeContext* context)
         return ge::GRAPH_FAILED;
     }
     gert::Shape* outShape = context->GetOutputShape(0);
+    if (outShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     *outShape = {b, d, h, w, c};
     return GRAPH_SUCCESS;
 }

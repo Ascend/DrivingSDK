@@ -120,6 +120,9 @@ static ge::graphStatus InferShapeForRoiawarePool3d(gert::InferShapeContext* cont
     uint32_t box_num = box_shape->GetDim(BOX_SIZE_DIM);
     uint32_t channel_num = feature_shape->GetDim(CHANNEL_DIM);
     auto attrsPtr = context->GetAttrs();
+    if (attrsPtr == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     uint32_t maxPtsPerVoxel = *(attrsPtr->GetAttrPointer<uint32_t>(MAX_PTS_PER_VOXEL));
     uint32_t outx = *(attrsPtr->GetAttrPointer<uint32_t>(OUT_X));
     uint32_t outy = *(attrsPtr->GetAttrPointer<uint32_t>(OUT_Y));

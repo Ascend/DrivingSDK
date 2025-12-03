@@ -9,6 +9,9 @@ namespace optiling {
 const uint32_t BLOCK_DIM = 1;
 static ge::graphStatus GatherNms3dMaskTiling(gert::TilingContext *context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     GatherNms3dMaskTilingData tiling;
     auto const maskShape = context->GetInputShape(0);
     if (maskShape == nullptr) {

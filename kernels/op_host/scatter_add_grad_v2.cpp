@@ -323,6 +323,9 @@ ge::graphStatus ScatterAddGradTiling::SetKernelTiling(gert::TilingContext* conte
 
 static ge::graphStatus TilingFunc4ScatterAddGrad(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     ScatterAddGradTiling tilingObject;
     tilingObject.GetKernelTiling(context);
 

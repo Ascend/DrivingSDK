@@ -84,8 +84,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
-            return ge::GRAPH_FAILED;
-        }
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = 1;
     return ge::GRAPH_SUCCESS;
 }
@@ -101,6 +101,9 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     auto kernel_size = attrsPtr->GetAttrPointer<gert::ContinuousVector>(0);
     auto kernel_size_data = reinterpret_cast<const int64_t*>(kernel_size->GetData());
     const gert::Shape* indices_shape = context->GetInputShape(1);
+    if (indices_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* y_shape = context->GetOutputShape(0);
     if (y_shape == nullptr) {
         return ge::GRAPH_FAILED;

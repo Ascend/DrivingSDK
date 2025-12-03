@@ -119,6 +119,9 @@ static ge::graphStatus InferShapeForBorderAlignGrad(gert::InferShapeContext* con
     }
 
     auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto getAttr = [attrs](size_t idx) -> int32_t {
         auto ptr = attrs->GetInt(idx);
         if (!ptr) {
