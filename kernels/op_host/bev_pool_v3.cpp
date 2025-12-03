@@ -30,18 +30,20 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
 {
     CHECK_NULLPTR(context);
     BEVPoolV3TilingData tiling;
+    CHECK_NULLPTR(context->GetPlatformInfo());
     auto platform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     uint64_t ubSize;
     platform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
     auto coreNum = platform.GetCoreNum();
     auto featShape = context->GetInputShape(is_grad ? INPUT_FEAT_GRAD : INPUT_FEAT);
     auto ranksBevShape = context->GetInputShape(is_grad ? INPUT_RANKS_BEV_GRAD : INPUT_RANKS_BEV);
+    if (featShape == nullptr || ranksBevShape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto attrsPtr = context->GetAttrs();
     CHECK_NULLPTR(attrsPtr);
-
     auto withDepthPtr = attrsPtr->GetBool(0);
     CHECK_NULLPTR(withDepthPtr);
-
     bool withDepth = *withDepthPtr;
     context->SetTilingKey(withDepth);
 

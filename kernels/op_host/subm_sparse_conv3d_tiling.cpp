@@ -101,6 +101,9 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     auto kernel_size = attrsPtr->GetAttrPointer<gert::ContinuousVector>(0);
     auto kernel_size_data = reinterpret_cast<const int64_t*>(kernel_size->GetData());
     const gert::Shape* indices_shape = context->GetInputShape(1);
+    if (indices_shape == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     gert::Shape* y_shape = context->GetOutputShape(0);
     if (y_shape == nullptr) {
         return ge::GRAPH_FAILED;

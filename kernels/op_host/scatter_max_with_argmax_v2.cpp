@@ -15,6 +15,9 @@ namespace optiling {
 const uint64_t BLOCK_SIZE = 32;
 const uint64_t MAX_OUT_LINE =  18000;
 const uint64_t MAX_DEAL_NUM =  2048;
+const int32_t VAR_IDX = 0;
+const int32_t INDICES_IDX = 1;
+const int32_t UPDATES_IDX = 2;
 
 static uint64_t GetCeilInt(uint64_t value1, uint64_t value2)
 {
@@ -29,7 +32,10 @@ static ge::graphStatus GetTaskTilingData(gert::TilingContext* context, ScatterMa
     uint64_t usedCoreNum = 1;
     uint64_t tilingMode = 0;
     uint64_t outTailNum = 1;
-
+    
+    if (context->GetInputShape(VAR_IDX) == nullptr || context->GetInputShape(UPDATES_IDX) == nullptr || context->GetInputShape(INDICES_IDX) == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     auto varShape = context->GetInputShape(0)->GetStorageShape();
     auto updatesShape = context->GetInputShape(2)->GetStorageShape();
     auto indicesShape = context->GetInputShape(1)->GetStorageShape();

@@ -91,6 +91,9 @@ ge::graphStatus TaskScheduleForDiff(gert::TilingContext* context, optiling::Hard
     int32_t tailDiffTasks = totalDiffTasks % usedDiffBlkNum;
 
     auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     int32_t realVoxelNum = GetRealVoxelNum(attrs);
     auto numPtsPtr = attrs->GetInt(3);
     if (!numPtsPtr) {
@@ -122,18 +125,19 @@ ge::graphStatus TaskScheduleForCopy(gert::TilingContext* context, optiling::Hard
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
 
     auto attrs = context->GetAttrs();
+    if (attrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     int32_t realVoxelNum = GetRealVoxelNum(attrs);
     auto maxPointsPtr = attrs->GetInt(2);
     if (!maxPointsPtr) {
         return ge::GRAPH_FAILED;
     }
     int32_t maxPoints = *maxPointsPtr;
-
     int32_t usedCopyBlkNum = std::min(coreNum, realVoxelNum);
     if (usedCopyBlkNum == 0) {
         return ge::GRAPH_FAILED;
     }
-
     auto pointShape = context->GetInputShape(POINT_IDX);
     if (!pointShape) {
         return ge::GRAPH_FAILED;

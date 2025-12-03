@@ -92,6 +92,9 @@ ge::graphStatus ScatterAddTilingV3::SetKernelTilingData(gert::TilingContext* con
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    if (currentWorkspace == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     currentWorkspace[0] = 0;
 
     return ge::GRAPH_SUCCESS;
@@ -290,6 +293,9 @@ ge::graphStatus ScatterAddTilingV3::setWithTailTilingData(gert::TilingContext* c
 
 ge::graphStatus ScatterAddTilingFuncV3(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     ScatterAddTilingV3 tilingData;
     return tilingData.SetKernelTilingData(context);
 }
