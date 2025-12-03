@@ -279,6 +279,58 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     PYTHONPATH=$(pwd) python scripts/get_t5_embeddings.py --dataset_path datasets/hdvila
     ```
 
+- 根据原仓**cosmos-transfer1/examples/training_cosmos_transfer_7B_sample_AV**部分准备[Waymo Open Dataset](https://github.com/nv-tlabs/cosmos-av-sample-toolkits/blob/main/docs/processing_waymo_for_transfer1.md)的子集，多视角任务数据集目录及结构如下，其中，若为单视角的sample_av任务，命名为`waymo_transfer1`，并只有`pinhole_front`一个子文件夹
+
+  ```bash
+  ${model_root_path}/datasets/waymo_transfer/
+  ├── cache/
+  │   ├── prefix_pinhole_front.pkl
+  │   ├── prefix_pinhole_front_left.pkl
+  │   ├── prefix_pinhole_front_right.pkl
+  │   ├── prefix_pinhole_side_left.pkl
+  │   └── prefix_pinhole_side_right.pkl
+  │
+  ├── videos/
+  │   ├── pinhole_front/
+  │   │   └── {clip_id}_0.mp4
+  │   │   └── {clip_id}_1.mp4
+  │   │   └── ....mp4
+  │   │
+  │   ├── pinhole_left/
+  │   │   └── {clip_id}_0.mp4
+  │   │   └── {clip_id}_1.mp4
+  │   │   └── ....mp4
+  │   *
+  │
+  ├── hdmap/
+  │   ├── pinhole_front/
+  │   │   └── {clip_id}_0.mp4
+  │   │   └── {clip_id}_1.mp4
+  │   │   └── ....mp4
+  │   │
+  │   ├── pinhole_left/
+  │   │   └── {clip_id}_0.mp4
+  │   │   └── {clip_id}_1.mp4
+  │   │   └── ....mp4
+  │   *
+  │   
+  ├── lidar/
+  │   ├── pinhole_front/
+  │   │   └── {clip_id}_0.mp4
+  │   │   └── {clip_id}_1.mp4
+  │   │   └── ....mp4
+  │   │
+  │   ├── pinhole_left/
+  │   │   └── {clip_id}_0.mp4
+  │   │   └── {clip_id}_1.mp4
+  │   │   └── ....mp4
+  │   *
+  │
+  └── t5_xxl/
+      ├── pinhole_front
+      │   └── {clip_id}.pkl
+      *
+  ```
 
 ## 快速开始
 
