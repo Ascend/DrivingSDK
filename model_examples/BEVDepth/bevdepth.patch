@@ -91,10 +91,19 @@ index 43e73d8..d4c795e 100644
                          point_depth, resize, self.ida_aug_conf['final_dim'],
                          crop, flip, rotate_ida)
 diff --git a/bevdepth/exps/base_cli.py b/bevdepth/exps/base_cli.py
-index cc887f7..aaabccd 100644
+index cc887f7..b7ab6cc 100644
 --- a/bevdepth/exps/base_cli.py
 +++ b/bevdepth/exps/base_cli.py
-@@ -32,16 +32,16 @@ def run_cli(model_class=BEVDepthLightningModel,
+@@ -9,6 +9,8 @@ from bevdepth.utils.torch_dist import all_gather_object, synchronize
+ 
+ from .nuscenes.base_exp import BEVDepthLightningModel
+ 
++import torch
++torch.npu.config.allow_internal_format = False
+ 
+ def run_cli(model_class=BEVDepthLightningModel,
+             exp_name='base_exp',
+@@ -32,16 +34,16 @@ def run_cli(model_class=BEVDepthLightningModel,
                                 default=0,
                                 help='seed for initializing training.')
      parent_parser.add_argument('--ckpt_path', type=str)
@@ -542,7 +551,7 @@ index 2cf77d0..72883e6 100644
                      )
  
 diff --git a/requirements.txt b/requirements.txt
-index 26546cd..92222b1 100644
+index 26546cd..c2c649d 100644
 --- a/requirements.txt
 +++ b/requirements.txt
 @@ -1,12 +1,13 @@
