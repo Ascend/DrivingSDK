@@ -22,6 +22,11 @@ constexpr int32_t ONE_BLK_SIZE = 8;
 constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
 constexpr int32_t CHANNEL_IDX = 1;
 constexpr int32_t CHANNEL_IDX_WITH_DEPTH = 4;
+constexpr size_t ATTR_B_IDX = 1;
+constexpr size_t ATTR_D_IDX = 2;
+constexpr size_t ATTR_H_IDX = 3;
+constexpr size_t ATTR_W_IDX = 4;
+constexpr size_t ATTR_C_IDX = 5;
 } // namespace
 
 namespace optiling {
@@ -35,8 +40,8 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
     uint64_t ubSize;
     platform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
     auto coreNum = platform.GetCoreNum();
-    auto featShape = context->GetInputShape(is_grad ? INPUT_FEAT_GRAD : INPUT_FEAT);
-    auto ranksBevShape = context->GetInputShape(is_grad ? INPUT_RANKS_BEV_GRAD : INPUT_RANKS_BEV);
+    auto featShape = context->GetRequiredInputShape(is_grad ? INPUT_FEAT_GRAD : INPUT_FEAT);
+    auto ranksBevShape = context->GetRequiredInputShape(is_grad ? INPUT_RANKS_BEV_GRAD : INPUT_RANKS_BEV);
     if (featShape == nullptr || ranksBevShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -89,6 +94,40 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
 } // namespace optiling
 
 namespace ops {
+static ge::graphStatus InferShapeForBEVPoolV3(gert::InferShapeContext* context)
+{
+    CHECK_NULLPTR(context);
+    auto attrs = context->GetAttrs();
+    auto getAttr = [attrs](size_t idx) -> int64_t {
+        auto ptr = attrs->GetInt(idx);
+        if (!ptr) {
+            return ge::GRAPH_FAILED;
+        }
+        return static_cast<int64_t>(*ptr);
+    };
+    auto b = getAttr(ATTR_B_IDX);
+    auto d = getAttr(ATTR_D_IDX);
+    auto h = getAttr(ATTR_H_IDX);
+    auto w = getAttr(ATTR_W_IDX);
+    auto c = getAttr(ATTR_C_IDX);
+    if (b <= 0 || d <= 0 || h <= 0 || w <= 0 || c <= 0) {
+        return ge::GRAPH_FAILED;
+    }
+    gert::Shape* outShape = context->GetOutputShape(0);
+    *outShape = {b, d, h, w, c};
+    return ge::GRAPH_SUCCESS;
+}
+
+static ge::graphStatus InferDataTypeForBEVPoolV3(gert::InferDataTypeContext* context)
+{
+    CHECK_NULLPTR(context);
+    const auto outputDataType = context->GetRequiredInputDataType(1);
+    context->SetOutputDataType(0, outputDataType);
+    return ge::GRAPH_SUCCESS;
+}
+} // namespace ops
+
+namespace ops {
 class BEVPoolV3 : public OpDef {
 public:
     explicit BEVPoolV3(const char* name) : OpDef(name)
@@ -125,6 +164,11 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND});
 
         this->Attr("with_depth").Bool();
+        this->Attr("b").AttrType(REQUIRED).Int();
+        this->Attr("d").AttrType(REQUIRED).Int();
+        this->Attr("h").AttrType(REQUIRED).Int();
+        this->Attr("w").AttrType(REQUIRED).Int();
+        this->Attr("c").AttrType(REQUIRED).Int();
 
         this->Output("out")
             .ParamType(REQUIRED)
@@ -209,6 +253,8 @@ public:
         this->AICore().AddConfig("ascend910_93");
     }
 };
+IMPL_OP_INFERSHAPE(BEVPoolV3).InferShape(InferShapeForBEVPoolV3).InferDataType(InferDataTypeForBEVPoolV3);
+
 OP_ADD(BEVPoolV3);
 OP_ADD(BEVPoolV3Grad);
 } // namespace ops

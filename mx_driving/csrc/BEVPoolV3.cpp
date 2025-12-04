@@ -32,6 +32,6 @@ at::Tensor npu_bev_pool_v3(const c10::optional<at::Tensor>& depth, const at::Ten
     auto c = feat.size(with_depth ? C_IDX_WITH_DEPTH : C_IDX);
     TORCH_CHECK(c % 8 == 0, "The channel of feature must be multiple of 8.");
     auto out = at::zeros({b, d, h, w, c}, feat.options());
-    EXEC_NPU_CMD(aclnnBEVPoolV3, depth, feat, ranks_depth, ranks_feat, ranks_bev, with_depth, out);
+    EXEC_NPU_CMD(aclnnBEVPoolV3, depth, feat, ranks_depth, ranks_feat, ranks_bev, with_depth, b, d, h, w, c, out);
     return out;
 }
