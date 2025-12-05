@@ -169,7 +169,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 |  Model   | 8p-Atlas 800T A2性能(FPS)  | 8p-竞品性能(FPS)  | Released |
 |  :----:  |  :----  | :----  | :----  |
 | [BEVDepth](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDepth)  | 32.29 | 22.11 |Y|
-| [BEVDet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDet)  | 70.41 | 35.56 |Y|
+| [BEVDet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDet)  | 73.81 | 37.16 |Y|
 | [BEVDet4D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDet4D)  | 7.04 | 5.59 |Y|
 | [BevFormer](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVFormer)  | 3.66 | 3.32 |Y|
 | [BEVFusion](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVFusion) | 23.62 | 22.54 |Y|
@@ -180,7 +180,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [DenseTNT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DenseTNT) | 166 | 237 |Y|
 | [DETR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DETR) | 122 | 126 |Y|
 | [DETR3D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DETR3D) | 14.35 | 14.28 |Y|
-| [Diffusion-Planner](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner) | 5672.96 | 5304.32 |Y|
+| [Diffusion-Planner](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Diffusion-Planner) | 5808.13 | 5304.32 |Y|
 | [DiffusionDrive](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DiffusionDrive) | 28.43 | 30.53 |Y|
 | [FBOCC](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FBOCC) |20.80 | 33.61 |Y|
 | [FCOS-resnet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/FCOS) | 196 | 196 |Y|
