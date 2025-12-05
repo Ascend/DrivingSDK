@@ -28,6 +28,7 @@ public:
     using BType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, T>;
     using CType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, T>;
     matmul::Matmul<AType, BType, CType, CType, SUBM_SPARSE_CONV3D_CFG> mm0_;
+    matmul::Matmul<AType, BType, CType, CType, SUBM_SPARSE_CONV3D_CFG> mm1_;
     
    __aicore__ inline KernelSubmSparseConv3dV3() {}
    __aicore__ inline void InitTiling(SubmSparseConv3dV3TilingData *tilingData)
@@ -45,8 +46,8 @@ public:
         singleLoopTask_ = tilingData->singleLoopTask;
         totalTaskCount_ = tilingData->totalTaskCount;
         availableUBSize_ = tilingData->availableUBSize;
-        inputBufferLen_ = tilingData->featureBufLen;
-        outputBufferLen_ = tilingData->featureBufLen;
+        gatherBufLen_ = tilingData->gatherBufLen;
+        scatterBufLen_ = tilingData->scatterBufLen;
         stage2SingleLoopTask_ = tilingData->stage2SingleLoopTask;
         withKey_ = tilingData->withKey;
 
@@ -92,12 +93,12 @@ public:
         }
         
         outputFeatureGM_.SetGlobalBuffer((__gm__ T*) feature_out);
-        mmFeatureGM1_.SetGlobalBuffer(((__gm__ T*) workspace) + (blkIdx_ * stage2SingleLoopTask_ * inChannels_));
-        mmFeatureGM2_ = mmFeatureGM1_[(NUM_TWO * aicNum_ * stage2SingleLoopTask_ * inChannels_)];
+        mmFeatureGM1_.SetGlobalBuffer(((__gm__ T*) workspace) + taskStartOffset_ * inChannels_);
+        mmFeatureGM2_ = mmFeatureGM1_[totalTaskCount_ * inChannels_];
 
-        matmulResultGM1_.SetGlobalBuffer(((__gm__ T*) workspace) + NUM_TWO * (NUM_TWO * aicNum_ * stage2SingleLoopTask_ * inChannels_) +
-            (blkIdx_ * stage2SingleLoopTask_ * outChannels_));
-        matmulResultGM2_ = matmulResultGM1_[(NUM_TWO * aicNum_ * stage2SingleLoopTask_ * outChannels_)];
+        matmulResultGM1_.SetGlobalBuffer(((__gm__ T*) workspace) + 2 * totalTaskCount_ * inChannels_ +
+            (taskStartOffset_ * outChannels_));
+        matmulResultGM2_ = matmulResultGM1_[totalTaskCount_ * outChannels_];
     }
 
     __aicore__ inline void InitUB()
@@ -126,12 +127,15 @@ public:
         }
         
         // for stage2 copy feature and sparseMatmul
-        featureQueLocal1_ = ubBuf_.Get<T>();
-        featureQueLocal2_ = featureQueLocal1_[inputBufferLen_ * inChannelsAligned_];
-        outFeatureQueLocal1_ = featureQueLocal2_[inputBufferLen_ * inChannelsAligned_];
-        outFeatureQueLocal2_ = outFeatureQueLocal1_[outputBufferLen_ * outChannelsAligned_];
-        validIndicesLocal_ = outFeatureQueLocal2_[outputBufferLen_ * outChannelsAligned_].template ReinterpretCast<int32_t>();
-        maskLocal_ = validIndicesLocal_[NUM_TWO * stage2SingleLoopTaskAligned_];
+        gatherFeatureLocal1_ = ubBuf_.Get<T>();
+        gatherFeatureLocal2_ = gatherFeatureLocal1_[NUM_TWO * gatherBufLen_ * inChannelsAligned_];
+        validIndicesForGatherFeatureLocal_ = gatherFeatureLocal2_[NUM_TWO * gatherBufLen_ * inChannelsAligned_].template ReinterpretCast<int32_t>();
+        maskForGatherLocal_ = validIndicesForGatherFeatureLocal_[stage2SingleLoopTaskAligned_];
+
+        scatterFeatureLocal1_ = ubBuf_.Get<T>();
+        scatterFeatureLocal2_ = scatterFeatureLocal1_[NUM_TWO * scatterBufLen_ * outChannelsAligned_];
+        validIndicesForScatterFeatureLocal_ = scatterFeatureLocal2_[NUM_TWO * scatterBufLen_ * outChannelsAligned_].template ReinterpretCast<int32_t>();
+        maskForScatterLocal_ = validIndicesForScatterFeatureLocal_[stage2SingleLoopTaskAligned_];
     }
 
     __aicore__ inline void Init(TPipe *pipe, GM_ADDR feature, GM_ADDR weight, GM_ADDR indices, GM_ADDR indices_offset, GM_ADDR map1, GM_ADDR map2,
@@ -145,7 +149,7 @@ public:
         InitUB();
     }
 
-    __aicore__ inline void ProcessCube(const int16_t &k, const uint32_t &taskCount)
+    __aicore__ inline void ProcessCube(const int16_t &k, const uint32_t &taskCount, const uint32_t &offset)
     {
         if (taskCount <= 0) {
             return;
@@ -153,17 +157,20 @@ public:
         
         int16_t k1 = kernelSize_ - k - 1;
 
-        mm0_.SetTensorA(mmFeatureGM1_);
+        mm0_.SetTensorA(mmFeatureGM1_[offset * inChannels_]);
         mm0_.SetTensorB(weightGM_[k * inChannels_ * outChannels_]);
         mm0_.SetSingleShape(taskCount, outChannels_, inChannels_);
         
-        mm0_.template IterateAll<true>(matmulResultGM1_);
+        mm0_.template IterateAll<false>(matmulResultGM1_[offset * outChannels_], 0, false, true);
 
-        mm0_.SetTensorA(mmFeatureGM2_);
-        mm0_.SetTensorB(weightGM_[k1 * inChannels_ * outChannels_]);
-        mm0_.SetSingleShape(taskCount, outChannels_, inChannels_);
+        mm1_.SetTensorA(mmFeatureGM2_[offset * inChannels_]);
+        mm1_.SetTensorB(weightGM_[k1 * inChannels_ * outChannels_]);
+        mm1_.SetSingleShape(taskCount, outChannels_, inChannels_);
         
-        mm0_.template IterateAll<true>(matmulResultGM2_);
+        mm1_.template IterateAll<false>(matmulResultGM2_[offset * outChannels_], 0, false, true);
+
+        ++matmulCount0_;
+        ++matmulCount1_;
     }
 
     __aicore__ inline void MatmulCenterPoint()
@@ -176,44 +183,61 @@ public:
         mm0_.SetTensorB(weightGM_[kernelSize_ / NUM_TWO * inChannels_ * outChannels_]);
         mm0_.SetSingleShape(coreTaskCount_, outChannels_, inChannels_);
         
-        mm0_.template IterateAll<false>(outputFeatureGM_[taskStartOffset_ * outChannels_], 1);
+        mm0_.template IterateAll<false>(outputFeatureGM_[taskStartOffset_ * outChannels_], 1, false, true);
+        ++matmulCount0_;
     }
 
-    __aicore__ inline void ScatterAdd(const int16_t &k, const int32_t &taskCount) {
-        for (int32_t i = 0; i < taskCount; i += outputBufferLen_) {
-            int32_t copyInTaskCount = min(outputBufferLen_, taskCount - i);
-            
-            SetFlag<HardEvent::MTE3_MTE2>(0);
-            WaitFlag<HardEvent::MTE3_MTE2>(0);
-            
-            if (outChannels_ != outChannelsAligned_) {
-               // channels is not Aligned
-                DataCopyPad(outFeatureQueLocal1_, matmulResultGM1_[i * outChannels_],
-                {static_cast<uint16_t>(copyInTaskCount), static_cast<uint32_t>(outChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
-                DataCopyPad(outFeatureQueLocal2_, matmulResultGM2_[i * outChannels_],
-                {static_cast<uint16_t>(copyInTaskCount), static_cast<uint32_t>(outChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
-            } else {
-                DataCopyPad(outFeatureQueLocal1_, matmulResultGM1_[i * outChannels_],
-                    {static_cast<uint16_t>(2), static_cast<uint32_t>(copyInTaskCount * outChannels_ * byteSizePerElements_),
-                    static_cast<uint32_t>((2 * aicNum_ * stage2SingleLoopTask_ - copyInTaskCount) * outChannels_ * byteSizePerElements_),
-                    static_cast<uint32_t>((outputBufferLen_ * outChannels_ - copyInTaskCount * outChannels_) / (BYTE_SIZE_PER_BLOCK / byteSizePerElements_)), 0},
-                    {false, 0, 0, 0});
+    __aicore__ inline void ScatterAdd(const int32_t &k, const int32_t &validTaskCount) {   
+        if (validTaskCount <= 0)
+            return;
+        
+        int32_t singleLoopTaskStart = 0;
+        for (int32_t taskOffset = 0; taskOffset < coreTaskCount_; taskOffset += stage2SingleLoopTask_) {
+            uint32_t taskCount = min(stage2SingleLoopTask_, coreTaskCount_ - taskOffset);
+            DataCopyPad(validIndicesForScatterFeatureLocal_, indicesOffsetGM_[k * totalTaskCount_ + taskStartOffset_ + taskOffset],
+                {1, static_cast<uint32_t>(taskCount * INT32_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
+            SetFlag<HardEvent::MTE2_V>(0);
+            WaitFlag<HardEvent::MTE2_V>(0);
+            CompareScalar(maskForScatterLocal_.ReinterpretCast<uint8_t>(), validIndicesForScatterFeatureLocal_,
+                static_cast<int32_t>(-1), CMPMODE::EQ, stage2SingleLoopTaskAligned_);
+            curLoopValidTask_ = 0;
+            if (matmulCount0_-- > 0) {
+                mm1_.WaitIterateAll();
             }
-
-            SetFlag<HardEvent::MTE2_MTE3>(0);
-            WaitFlag<HardEvent::MTE2_MTE3>(0);
-
-            SetAtomicAdd<T>();
-            for (int j = 0; j < copyInTaskCount; j++) {
-                int32_t taskOffset1 = validIndicesLocal_.GetValue((i + j));
-                int32_t taskOffset2 = validIndicesLocal_.GetValue((i + j) + stage2SingleLoopTaskAligned_);
-
-                DataCopyPad(outputFeatureGM_[taskOffset1 * outChannels_], outFeatureQueLocal1_[j * outChannelsAligned_],
-                    {static_cast<uint16_t>(1), static_cast<uint32_t>(outChannels_ * byteSizePerElements_), 0, 0, 0});
-                DataCopyPad(outputFeatureGM_[taskOffset2 * outChannels_], outFeatureQueLocal2_[j * outChannelsAligned_],
-                    {static_cast<uint16_t>(1), static_cast<uint32_t>(outChannels_ * byteSizePerElements_), 0, 0, 0});
+            if (matmulCount1_-- > 0) {
+                mm0_.WaitIterateAll();
             }
-            SetAtomicNone();
+            for (int32_t i = 0; i < taskCount; i+=INT64_BIT_SIZE) {
+                uint64_t validIdxMask = maskForScatterLocal_.ReinterpretCast<uint64_t>().GetValue(i / INT64_BIT_SIZE);
+                int32_t validIdx = ScalarGetSFFValue<0>(validIdxMask);
+                int32_t curTaskIdx = validIdx + i;
+                while(validIdx != -1 && (curTaskIdx < taskCount)) {
+                    int32_t taskOffset2 = validIndicesForScatterFeatureLocal_.GetValue(curTaskIdx);
+                    if (curLoopValidTask_ % scatterBufLen_ == 0) {
+                        int32_t copyInTaskCount = validTaskCount - curLoopValidTask_ < scatterBufLen_? validTaskCount - curLoopValidTask_ : scatterBufLen_;
+                        WaitFlag<HardEvent::MTE3_MTE2>(ping2_);
+                        CopyInFeatures((singleLoopTaskStart + curLoopValidTask_) * outChannels_, copyInTaskCount);
+                    }
+                    SetAtomicAdd<T>();
+                    DataCopyPad(outputFeatureGM_[(curTaskIdx + taskStartOffset_ + taskOffset) * outChannels_], scatterFeatureLocal1_[(curLoopValidTask_ % scatterBufLen_ + ping2_ * scatterBufLen_) * outChannelsAligned_],
+                        {static_cast<uint16_t>(1), static_cast<uint32_t>(outChannels_ * byteSizePerElements_), 0, 0, 0});
+                    DataCopyPad(outputFeatureGM_[taskOffset2 * outChannels_], scatterFeatureLocal2_[(curLoopValidTask_ % scatterBufLen_ + ping2_ * scatterBufLen_) * outChannelsAligned_],
+                        {static_cast<uint16_t>(1), static_cast<uint32_t>(outChannels_ * byteSizePerElements_), 0, 0, 0});
+                    SetAtomicNone();
+                    curLoopValidTask_ += 1;
+                    if (curLoopValidTask_ % scatterBufLen_ == 0) {
+                        SetFlag<HardEvent::MTE3_MTE2>(ping2_);
+                        ping2_ = 1 - ping2_;
+                    }
+                    validIdxMask += (static_cast<uint64_t>(1) << validIdx);
+                    validIdx = ScalarGetSFFValue<0>(validIdxMask);
+                    curTaskIdx = validIdx + i;
+                }
+            }
+            if (curLoopValidTask_ % scatterBufLen_ != 0) {
+                SetFlag<HardEvent::MTE3_MTE2>(ping2_);
+            }
+            singleLoopTaskStart += curLoopValidTask_;
         }
     }
 
@@ -320,79 +344,121 @@ public:
         WaitFlag<HardEvent::MTE3_V>(0);
     }
 
-    __aicore__ inline void CopyFeatures(int32_t copyOutOffset, int32_t copyOutTaskCount)
+    __aicore__ inline void CopyOutFeatures(int32_t copyOutOffset, int32_t copyOutTaskCount)
     {
+        if (copyOutTaskCount <= 0)
+            return;
+            
         SetFlag<HardEvent::MTE2_MTE3>(0);
         WaitFlag<HardEvent::MTE2_MTE3>(0);
         
         if (inChannels_ != inChannelsAligned_) {
-            DataCopyPad(mmFeatureGM1_[copyOutOffset], featureQueLocal1_,
+            DataCopyPad(mmFeatureGM1_[copyOutOffset], gatherFeatureLocal1_[ping1_ * gatherBufLen_ * inChannelsAligned_],
                 {static_cast<uint16_t>(copyOutTaskCount), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0});
-            DataCopyPad(mmFeatureGM2_[copyOutOffset], featureQueLocal2_,
+            DataCopyPad(mmFeatureGM2_[copyOutOffset], gatherFeatureLocal2_[ping1_ * gatherBufLen_ * inChannelsAligned_],
                 {static_cast<uint16_t>(copyOutTaskCount), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0});
         } else {
-            DataCopyPad(mmFeatureGM1_[copyOutOffset], featureQueLocal1_,
+            DataCopyPad(mmFeatureGM1_[copyOutOffset], gatherFeatureLocal1_[ping1_ * gatherBufLen_ * inChannelsAligned_],
                 {static_cast<uint16_t>(2), static_cast<uint32_t>(copyOutTaskCount * inChannels_ * byteSizePerElements_),
-                static_cast<uint32_t>((inputBufferLen_ - copyOutTaskCount) * inChannels_ / (BYTE_SIZE_PER_BLOCK / byteSizePerElements_)),
-                static_cast<uint32_t>((2 * aicNum_ * stage2SingleLoopTask_ - copyOutTaskCount) * inChannels_ * byteSizePerElements_), 0});
+                static_cast<uint32_t>((2 * gatherBufLen_ - copyOutTaskCount) * inChannels_ / (BYTE_SIZE_PER_BLOCK / byteSizePerElements_)),
+                static_cast<uint32_t>((totalTaskCount_ - copyOutTaskCount) * inChannels_ * byteSizePerElements_), 0});
         }
-
-        SetFlag<HardEvent::MTE3_MTE2>(0);
     }
 
-    __aicore__ inline void ProcessSparseMatmul(int32_t k)
+    __aicore__ inline void CopyInFeatures(int32_t copyInOffset, int32_t copyInTaskCount)
     {
-        int32_t curLoopValidTask = 0;
+        if (copyInTaskCount <= 0)
+            return;
+        
+        if (outChannels_ != outChannelsAligned_) {
+            DataCopyPad(scatterFeatureLocal1_[ping2_ * scatterBufLen_ * outChannelsAligned_], matmulResultGM1_[copyInOffset],
+                {static_cast<uint16_t>(copyInTaskCount), static_cast<uint32_t>(outChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
+            DataCopyPad(scatterFeatureLocal2_[ping2_ * scatterBufLen_ * outChannelsAligned_], matmulResultGM2_[copyInOffset],
+                {static_cast<uint16_t>(copyInTaskCount), static_cast<uint32_t>(outChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
+        } else {
+            DataCopyPad(scatterFeatureLocal1_[ping2_ * scatterBufLen_ * outChannelsAligned_], matmulResultGM1_[copyInOffset],
+                {static_cast<uint16_t>(2), static_cast<uint32_t>(copyInTaskCount * outChannels_ * byteSizePerElements_),
+                static_cast<uint32_t>((totalTaskCount_ - copyInTaskCount) * outChannels_ * byteSizePerElements_),
+                static_cast<uint32_t>(((2 * scatterBufLen_ - copyInTaskCount) * outChannels_) / (BYTE_SIZE_PER_BLOCK / byteSizePerElements_)), 0},
+                {false, 0, 0, 0});
+        }
+
+        SetFlag<HardEvent::MTE2_MTE3>(0);
+        WaitFlag<HardEvent::MTE2_MTE3>(0);
+    }
+
+    __aicore__ inline void GatherFeature(const int32_t &taskOffset, const int32_t &taskCount, const int32_t &curPosValidTaskCount)
+    {
+        curLoopValidTask_ = 0;
+        for (int32_t i = 0; i < taskCount; i+=INT64_BIT_SIZE) {
+            uint64_t validIdxMask = maskForGatherLocal_.ReinterpretCast<uint64_t>().GetValue(i / INT64_BIT_SIZE);
+            int32_t validIdx = ScalarGetSFFValue<0>(validIdxMask);
+            int32_t curTaskIdx = validIdx + i;
+
+            while(validIdx != -1 && (curTaskIdx < taskCount)) {
+                int32_t mapVal1 = validIndicesForGatherFeatureLocal_.GetValue(curTaskIdx);
+                int32_t mapVal2 = curTaskIdx + taskStartOffset_ + taskOffset;
+
+                if (curLoopValidTask_ % gatherBufLen_ == 0) {
+                    WaitFlag<HardEvent::MTE3_MTE2>(ping1_);
+                }
+                DataCopyPad(gatherFeatureLocal1_[(ping1_ * gatherBufLen_ + curLoopValidTask_ % gatherBufLen_) * inChannelsAligned_], inputFeatureGM_[mapVal1 * inChannels_],
+                    {static_cast<uint16_t>(1), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
+                DataCopyPad(gatherFeatureLocal2_[(ping1_ * gatherBufLen_ + curLoopValidTask_ % gatherBufLen_) * inChannelsAligned_], inputFeatureGM_[mapVal2 * inChannels_],
+                    {static_cast<uint16_t>(1), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
+
+                curLoopValidTask_ += 1;
+                if (curLoopValidTask_ % gatherBufLen_ == 0) {
+                    int32_t copyOutOffset = (curPosValidTaskCount + curLoopValidTask_ - gatherBufLen_) * inChannels_;
+                    CopyOutFeatures(copyOutOffset, gatherBufLen_);
+                    SetFlag<HardEvent::MTE3_MTE2>(ping1_);
+                    ping1_ = 1 - ping1_;
+                }
+
+                validIdxMask += (static_cast<uint64_t>(1) << validIdx);
+                validIdx = ScalarGetSFFValue<0>(validIdxMask);
+                curTaskIdx = validIdx + i;
+            }
+        }
+
+        if (curLoopValidTask_ % gatherBufLen_ != 0) {
+            int32_t copyOutTaskCount = curLoopValidTask_ % gatherBufLen_;
+            int32_t copyOutOffset = (curPosValidTaskCount + AlignUp(curLoopValidTask_, gatherBufLen_) - gatherBufLen_) * inChannels_;
+            CopyOutFeatures(copyOutOffset, copyOutTaskCount);
+            SetFlag<HardEvent::MTE3_MTE2>(ping1_);
+        }
+    }
+
+    __aicore__ inline void ProcessSparseMatmul(const int32_t &k)
+    {
+        matmulCount0_ = false;
+        matmulCount1_ = false;
+        int32_t curPosValidTaskCount = 0;
         for (int32_t taskOffset = 0; taskOffset < coreTaskCount_; taskOffset += stage2SingleLoopTask_) {
             uint32_t taskCount = min(stage2SingleLoopTask_, coreTaskCount_ - taskOffset);
-            DataCopyPad(validIndicesLocal_[stage2SingleLoopTaskAligned_], indicesOffsetGM_[k * totalTaskCount_ + taskStartOffset_ + taskOffset],
+            DataCopyPad(validIndicesForGatherFeatureLocal_, indicesOffsetGM_[k * totalTaskCount_ + taskStartOffset_ + taskOffset],
                 {1, static_cast<uint32_t>(taskCount * INT32_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
             SetFlag<HardEvent::MTE2_V>(0);
             WaitFlag<HardEvent::MTE2_V>(0);
-            CompareScalar(maskLocal_.ReinterpretCast<uint8_t>(), validIndicesLocal_[stage2SingleLoopTaskAligned_],
+            CompareScalar(maskForGatherLocal_.ReinterpretCast<uint8_t>(), validIndicesForGatherFeatureLocal_,
                 static_cast<int32_t>(-1), CMPMODE::EQ, stage2SingleLoopTaskAligned_);
-            curLoopValidTask = 0;
-            int32_t curStartTaskIdx = 0;
-            SetFlag<HardEvent::MTE3_MTE2>(0);
-            for (int32_t i = 0; i < taskCount; i+=INT64_BIT_SIZE) {
-                uint64_t validIdxMask = maskLocal_.ReinterpretCast<uint64_t>().GetValue(i / INT64_BIT_SIZE);
-                int32_t validIdx = ScalarGetSFFValue<0>(validIdxMask);
-                int32_t curTaskIdx = validIdx + curStartTaskIdx;
-                while(validIdx != -1 && (curTaskIdx < taskCount)) {
-                    int32_t mapVal1 = validIndicesLocal_.GetValue(stage2SingleLoopTaskAligned_ + curTaskIdx);
-                    int32_t mapVal2 = curTaskIdx + taskStartOffset_ + taskOffset;
-                    if (curLoopValidTask % inputBufferLen_ == 0) {
-                        WaitFlag<HardEvent::MTE3_MTE2>(0);
-                    }
-                    DataCopyPad(featureQueLocal1_[(curLoopValidTask % inputBufferLen_) * inChannelsAligned_], inputFeatureGM_[mapVal1 * inChannels_],
-                        {static_cast<uint16_t>(1), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
-                    DataCopyPad(featureQueLocal2_[(curLoopValidTask % inputBufferLen_) * inChannelsAligned_], inputFeatureGM_[mapVal2 * inChannels_],
-                        {static_cast<uint16_t>(1), static_cast<uint32_t>(inChannels_ * byteSizePerElements_), 0, 0, 0}, {false, 0, 0, 0});
-                    validIndicesLocal_.SetValue(curLoopValidTask + stage2SingleLoopTaskAligned_, mapVal1);
-                    validIndicesLocal_.SetValue(curLoopValidTask, mapVal2);
-                    curLoopValidTask += 1;
-                    if (curLoopValidTask % inputBufferLen_ == 0) {
-                        CopyFeatures((curLoopValidTask - inputBufferLen_) * inChannels_, inputBufferLen_);
-                    }
-                    validIdxMask += (static_cast<uint64_t>(1) << validIdx);
-                    validIdx = ScalarGetSFFValue<0>(validIdxMask);
-                    curTaskIdx = validIdx + curStartTaskIdx;
-                }
-                curStartTaskIdx += INT64_BIT_SIZE;
-            }
-            // tail
-            if (curLoopValidTask <= 0) {
-                WaitFlag<HardEvent::MTE3_MTE2>(0);
-                continue;
-            }
-            if (curLoopValidTask % inputBufferLen_ != 0) {
-                int32_t copyOutOffset = (AlignUp(curLoopValidTask, inputBufferLen_) - inputBufferLen_) * inChannels_;
-                CopyFeatures(copyOutOffset, curLoopValidTask % inputBufferLen_);
-            }
-            WaitFlag<HardEvent::MTE3_MTE2>(0);
-            ProcessCube(k, curLoopValidTask);
-            ScatterAdd(k, curLoopValidTask);
+
+            GatherFeature(taskOffset, taskCount, curPosValidTaskCount);
+
+            ProcessCube(k, curLoopValidTask_, curPosValidTaskCount);
+            
+            curPosValidTaskCount += curLoopValidTask_;
         }
+
+        if (matmulCount0_ != matmulCount1_) {
+            mm0_.WaitIterateAll();
+            matmulCount0_ -= 1;
+        }
+
+        ScatterAdd(k, curPosValidTaskCount);
+        
+        matmulCount0_ = 0;
+        matmulCount1_ = 0;
     }
 
     __aicore__ inline void Process()
@@ -401,21 +467,26 @@ public:
         if (!withKey_) {
             ComputeIndicesOffset();
         }
-
         SetFlag<HardEvent::MTE3_MTE2>(0);
         WaitFlag<HardEvent::MTE3_MTE2>(0);
+
+        SetFlag<HardEvent::MTE3_MTE2>(0);
+        SetFlag<HardEvent::MTE3_MTE2>(1);
 
         for (int32_t k = kernelSize_ / 2 + 1; k < kernelSize_; k++) {
             ProcessSparseMatmul(k);
         }
+        WaitFlag<HardEvent::MTE3_MTE2>(0);
+        WaitFlag<HardEvent::MTE3_MTE2>(1);
     }
 
 private:
     bool useTwolevelMap_;
+    uint8_t ping1_ = 0, ping2_ = 0, ping3_ = 0;
     uint32_t blkIdx_, aicNum_;
     int32_t k0_, k1_, k2_, kernelSize_, batchSize_, inChannels_, outChannels_, spatialShape0_, spatialShape1_, byteSizePerElements_, totalTaskCount_, stage2SingleLoopTask_, withKey_,
         spatialShape2_, spatialShape0_times_1_, spatialShape1_times_2_, coreTaskCount_, stage2SingleLoopTaskAligned_, singleLoopTask_, inChannelsAligned_, outChannelsAligned_, kernelSizeAligned_,
-        taskStartOffset_, singleLoopTaskAligned_, k1Aligned_, k2Aligned_, mapValBufSize_, inputBufferLen_, outputBufferLen_, availableUBSize_;
+        taskStartOffset_, singleLoopTaskAligned_, k1Aligned_, k2Aligned_, mapValBufSize_, gatherBufLen_, scatterBufLen_, availableUBSize_, curLoopValidTask_, preLoopValidTask_, matmulCount0_ = 0, matmulCount1_ = 0;
     int64_t totalSpatialShape_;
 
     GlobalTensor<T> inputFeatureGM_, outputFeatureGM_, weightGM_, mmFeatureGM1_, mmFeatureGM2_, matmulResultGM1_, matmulResultGM2_;
@@ -423,9 +494,9 @@ private:
 
     TBuf<TPosition::VECCALC> ubBuf_;
 
-    LocalTensor<int32_t> inputIndicesLocal_, indicesOffsetLocal_, validIndicesLocal_, batchIdxLocal_, spatial0Local_,
-        spatial1Local_, spatial2Local_, mapValLocal_, map1ValLocal_, maskLocal_;
-    LocalTensor<T> featureQueLocal1_, featureQueLocal2_, outFeatureQueLocal1_, outFeatureQueLocal2_;
+    LocalTensor<int32_t> inputIndicesLocal_, indicesOffsetLocal_, batchIdxLocal_, spatial0Local_, validIndicesForGatherFeatureLocal_,
+        spatial1Local_, spatial2Local_, mapValLocal_, map1ValLocal_, maskForGatherLocal_, validIndicesForScatterFeatureLocal_, maskForScatterLocal_;
+    LocalTensor<T> gatherFeatureLocal1_, gatherFeatureLocal2_, scatterFeatureLocal1_, scatterFeatureLocal2_;
     LocalTensor<uint32_t> gatherOffsetLocal_;
     TPipe* pipe_;
 };
@@ -441,7 +512,7 @@ extern "C" __global__ __aicore__ void subm_sparse_conv3d_v3(GM_ADDR feature, GM_
 
     KernelSubmSparseConv3dV3<DTYPE_FEATURE> op;
     TPipe pipe;
-    REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), op.mm0_, &(tiling_data.mm0TilingData));
+    REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), op.mm0_, &(tiling_data.mm0TilingData), op.mm1_, &(tiling_data.mm1TilingData));
     op.Init(&pipe, feature, weight, indices, indices_offset, map1, map2, feature_out, out_indices_offset, &tiling_data, usrWorkspace);
     op.Process();
 }

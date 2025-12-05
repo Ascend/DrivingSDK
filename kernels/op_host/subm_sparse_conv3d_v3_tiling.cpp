@@ -33,12 +33,14 @@ const uint32_t OUT_SPATIAL_SHAPE_IDX_2 = 2;
 
 const int32_t BYTE_ALIGN_SIZE = 32;
 const float AVALIABLE_UB_RATIO = 0.8;
-const float STAGE2_UB_RATIO = 0.2;
+const float STAGE2_COPY_BUF_COUNT = 4;
 const int32_t INT32_BYTE_SIZE = 4;
 const int32_t FLOAT_BYTE_SIZE = 4;
 const int32_t HALF_BYTE_SIZE = 2;
 const int32_t INDICES_BUFFER_LENGTH = 8;
 
+const int32_t GATHER_BUF_LEN = 4;
+const int32_t SCATTER_BUF_LEN = 4;
 };
 
 
@@ -96,18 +98,20 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t outChannelAligned = CeilAlign(*outChannelsPtr, BYTE_ALIGN_SIZE / byteSizePerElements);
     int32_t kernelSizeAligned = CeilAlign(kernelSize, BYTE_ALIGN_SIZE / byteSizePerElements);
 
-    uint32_t totalTaskCount = featureShapeArr.GetDim(TOTAL_TASK_DIM_IDX);
-    uint32_t coreTaskCount = totalTaskCount / aivNum;
-    uint32_t bigCoreCount = totalTaskCount % aivNum;
+    uint64_t totalTaskCount = featureShapeArr.GetDim(TOTAL_TASK_DIM_IDX);
+    uint64_t coreTaskCount = totalTaskCount / aivNum;
+    uint64_t bigCoreCount = totalTaskCount % aivNum;
     
     uint32_t singleLoopTask = FloorAlign(ubSize / (kernelSizeAligned * 2 + INDICES_BUFFER_LENGTH + mapValBufSize) / INT32_BYTE_SIZE, static_cast<uint64_t>(BYTE_ALIGN_SIZE / INT32_BYTE_SIZE));
     
-    uint32_t stage2SingleLoopTask = (ubSize * STAGE2_UB_RATIO) / 2 / INT32_BYTE_SIZE;
-    stage2SingleLoopTask = stage2SingleLoopTask > coreTaskCount + 1 ? coreTaskCount + 1 : stage2SingleLoopTask;
+    uint32_t stage2SingleLoopTask = coreTaskCount / STAGE2_COPY_BUF_COUNT;
+    stage2SingleLoopTask = stage2SingleLoopTask == 0? 1 : stage2SingleLoopTask;
     stage2SingleLoopTask = CeilAlign(stage2SingleLoopTask, 64u);  // for CompareScalar
 
-    uint32_t featureBufLen = (ubSize - 2 * stage2SingleLoopTask * INT32_BYTE_SIZE) /
-        (inChannelAligned + outChannelAligned) / byteSizePerElements / 2;
+    uint32_t gatherBufLen = (ubSize - stage2SingleLoopTask * INT32_BYTE_SIZE) /
+        (inChannelAligned * byteSizePerElements * GATHER_BUF_LEN + 1);  // 加 1 避免除 0
+    uint32_t scatterBufLen = (ubSize - stage2SingleLoopTask * INT32_BYTE_SIZE) /
+        (outChannelAligned * byteSizePerElements * SCATTER_BUF_LEN + 1);  // 加 1 避免除 0
     
     auto dataType = byteSizePerElements == FLOAT_BYTE_SIZE? matmul_tiling::DataType::DT_FLOAT : matmul_tiling::DataType::DT_FLOAT16;
     matmul_tiling::MatmulApiTiling mm0Tiling(ascendplatformInfo);
@@ -121,7 +125,19 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     if (mm0Tiling.GetTiling(tiling.mm0TilingData) == -1) {
         return ge::GRAPH_FAILED;
     }
-    
+
+    matmul_tiling::MatmulApiTiling mm1Tiling(ascendplatformInfo);
+    mm1Tiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    mm1Tiling.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    mm1Tiling.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    mm1Tiling.SetOrgShape(coreTaskCount == 0 ? 1 : coreTaskCount, *outChannelsPtr, *inChannelsPtr);
+    mm1Tiling.SetShape(coreTaskCount == 0 ? 1 : coreTaskCount, *outChannelsPtr, *inChannelsPtr);
+    mm1Tiling.SetBias(false);
+    mm1Tiling.SetBufferSpace(-1, -1, -1);
+    if (mm0Tiling.GetTiling(tiling.mm1TilingData) == -1) {
+        return ge::GRAPH_FAILED;
+    }
+
     tiling.set_k0(k0);
     tiling.set_k1(k1);
     tiling.set_k2(k2);
@@ -136,14 +152,15 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_singleLoopTask(singleLoopTask);
     tiling.set_totalTaskCount(totalTaskCount);
     tiling.set_availableUBSize(ubSize);
-    tiling.set_featureBufLen(featureBufLen);
+    tiling.set_gatherBufLen(gatherBufLen);
+    tiling.set_scatterBufLen(scatterBufLen);
     tiling.set_stage2SingleLoopTask(stage2SingleLoopTask);
     tiling.set_withKey(withKey);
 
     ADD_TILING_DATA(context, tiling);
 
     size_t systemWorkspaceSize = ascendplatformInfo.GetLibApiWorkSpaceSize();
-    size_t usrWorkSpaceSize = 2 * aivNum * stage2SingleLoopTask * (*inChannelsPtr + *outChannelsPtr) * byteSizePerElements;
+    size_t usrWorkSpaceSize = (2 * totalTaskCount * (*inChannelsPtr + *outChannelsPtr)) * byteSizePerElements;
 
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     CHECK_NULLPTR(currentWorkspace);

@@ -23,9 +23,11 @@ TILING_DATA_FIELD_DEF(uint32_t, bigCoreCount)
 TILING_DATA_FIELD_DEF(uint32_t, singleLoopTask)
 TILING_DATA_FIELD_DEF(uint32_t, totalTaskCount)
 TILING_DATA_FIELD_DEF(uint32_t, availableUBSize)
-TILING_DATA_FIELD_DEF(uint32_t, featureBufLen)
+TILING_DATA_FIELD_DEF(uint32_t, gatherBufLen)
+TILING_DATA_FIELD_DEF(uint32_t, scatterBufLen)
 TILING_DATA_FIELD_DEF(uint32_t, stage2SingleLoopTask)
 TILING_DATA_FIELD_DEF_STRUCT(TCubeTiling, mm0TilingData)
+TILING_DATA_FIELD_DEF_STRUCT(TCubeTiling, mm1TilingData)
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(SubmSparseConv3dV3, SubmSparseConv3dV3TilingData)
