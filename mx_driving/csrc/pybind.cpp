@@ -267,4 +267,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     
     // npu_subm_sparse_conv3d_v3
     m.def("npu_subm_sparse_conv3d_v3", &npu_subm_sparse_conv3d_v3);
+
+    // npu_sparse_matmul
+    m.def("npu_sparse_matmul", &npu_sparse_matmul);
 }

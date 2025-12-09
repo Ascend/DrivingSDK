@@ -55,13 +55,11 @@ class SparseConvFunction(Function):
         unique_indices_offset = torch.cat((unique_indices_offset, indices_last), dim=0)
         
         # index_put and matmul
-        out_features, outidx = mx_driving._C.multi_to_sparse_v2(
-            features, weight, unique_indices_offset.int(), sorted_idx_to_former_indices.int(), outidx_pair.int()
-        )
-        outidx, outidx_ = torch.chunk(outidx, 2, dim=1)
+        out_features, _ = mx_driving._C.npu_sparse_matmul(
+            features, weight, unique_indices_offset.int(), sorted_idx_to_former_indices.int(), outidx_pair.int())
 
         ctx.save_for_backward(features, weight, sorted_idx_to_former_indices.int(), unique_indices_offset.int())
-        return out_features, outidx
+        return out_features, outidx_pair.int()[uni_argsort_indices]
 
     @staticmethod
     @once_differentiable

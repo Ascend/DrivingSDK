@@ -314,4 +314,8 @@ std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v3(const at::Tensor& f
     const at::Tensor& indices_offset, const at::Tensor& map1, const at::Tensor& map2, at::IntArrayRef kernel_size, int in_channels,
     int out_channels, at::IntArrayRef out_spatial_shape, int batch_size, int with_key);
 
+std::tuple<at::Tensor, at::Tensor> npu_sparse_matmul(const at::Tensor& features, const at::Tensor& weight,
+    const at::Tensor& unique_indices_offset, const at::Tensor& sorted_idx_to_former_indices,
+    const at::Tensor& outidx_pair);
+
 #endif // CSRC_FUNCTIONS_H_
