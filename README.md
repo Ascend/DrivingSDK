@@ -2,7 +2,11 @@
 
 ##  简介
 
-Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景的算子和模型加速库，提供了一系列高性能的算子和模型加速接口，支持PyTorch框架。
+Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景，机器人具身智能VLA及世界模型的算子和模型加速库，提供了一系列高性能的算子和模型加速接口，支持PyTorch框架。
+
+# 未来规划
+
+📅未来规划会动态刷新在[DrivingSDK RoadMap](https://gitcode.com/Ascend/DrivingSDK/issues/100)中，欢迎大家通过此链接进行互动并提出诉求
 
 ## 加入我们
 
@@ -11,6 +15,18 @@ Driving SDK是基于昇腾NPU平台开发的适用于自动驾驶场景的算子
 无论你是正在使用这个项目，还是有奇思妙想，都欢迎加入👋
 
 <p align="center"> <img src="./DrivingSDK_wechat_qrcode.jpg" width=150> </p>
+
+# 最新消息
+
+* [Dec. 09, 2025]: 🚀 DrivingSDK仓中Spconv3d算子支持channel大于等于128并优化显存
+* [Dec. 05, 2025]: 🚀 DrivingSDK仓中submSparseConv3d性能优化
+* [Nov. 20, 2025]: 🚀 DrivingSDK仓支持Pi0.5模型
+* [Nov. 20, 2025]: 🚀 DrivingSDK仓支持FBOcc模型
+* [Nov. 13, 2025]: 🚀 DrivingSDK仓支持Cosmos-drive-dreams模型
+* [Nov. 10, 2025]: 🚀 DrivingSDK仓中scatter_add算子性能优化
+* [Nov. 07, 2025]: 🚀 DrivingSDK仓支持cosmos-predict2模型
+* [Oct. 28, 2025]: 🚀 DrivingSDK仓支持VGGT模型
+* [Oct. 28, 2025]: 🚀 DrivingSDK仓支持GROOT-N1.5模型
 
 ## 版本说明
 
