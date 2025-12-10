@@ -66,8 +66,8 @@ class SparseConvFunction(Function):
     # pylint: disable=too-many-return-values
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
-            unique_indices_offset, sorted_idx_to_former_indices, features, weight, grad_out_features
+        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad_v2(
+            sorted_idx_to_former_indices, unique_indices_offset, features, weight, grad_out_features
         )
 
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None

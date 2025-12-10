@@ -194,6 +194,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // npu_sparse_conv3d_grad
     m.def("npu_sparse_conv3d_grad", &npu_sparse_conv3d_grad);
 
+    // npu_sparse_conv3d_grad_v2
+    m.def("npu_sparse_conv3d_grad_v2", &npu_sparse_conv3d_grad_v2);
+
     // npu_prepare_subm_conv3d
     m.def("npu_prepare_subm_conv3d", &npu_prepare_subm_conv3d);
 

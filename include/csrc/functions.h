@@ -183,6 +183,9 @@ std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad(const at::Tensor& indi
     const at::Tensor& former_sorted_indices, const at::Tensor& feature, const at::Tensor& weight,
     const at::Tensor& grad);
 
+std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad_v2(const at::Tensor& former_sorted_indices, 
+    const at::Tensor& indices_offset, const at::Tensor& feature, const at::Tensor& weight,const at::Tensor& grad);
+
 std::tuple<at::Tensor, at::Tensor> npu_prepare_subm_conv3d(
     const at::Tensor& flattenIndices, at::IntArrayRef outSpatialShape, int batch_size);
 
