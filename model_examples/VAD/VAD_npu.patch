@@ -1,14 +1,14 @@
-diff --git a/projects/configs/VAD/VAD_base_e2e_performance.py b/projects/configs/VAD/VAD_base_e2e_performance.py
+diff --git a/projects/configs/VAD/VAD_base_e2e_npu.py b/projects/configs/VAD/VAD_base_e2e_npu.py
 new file mode 100644
-index 0000000..14542e6
+index 0000000..8e59f3f
 --- /dev/null
-+++ b/projects/configs/VAD/VAD_base_e2e_performance.py
-@@ -0,0 +1,440 @@
++++ b/projects/configs/VAD/VAD_base_e2e_npu.py
+@@ -0,0 +1,456 @@
 +_base_ = [
 +    '../datasets/custom_nus-3d.py',
 +    '../_base_/default_runtime.py'
 +]
-+#
++
 +plugin = True
 +plugin_dir = 'projects/mmdet3d_plugin/'
 +
@@ -48,7 +48,7 @@ index 0000000..14542e6
 +bev_h_ = 200
 +bev_w_ = 200
 +queue_length = 4 # each sequence contains `queue_length` frames.
-+total_epochs = 1
++total_epochs = 8
 +
 +model = dict(
 +    type='VAD',
@@ -95,11 +95,13 @@ index 0000000..14542e6
 +                        type='MultiheadAttention',
 +                        embed_dims=_dim_,
 +                        num_heads=8,
-+                        dropout=0.1),
++                        dropout=0.1,
++                        batch_first=True),
 +                ],
 +                feedforward_channels=_ffn_dim_,
 +                ffn_dropout=0.1,
-+                operation_order=('cross_attn', 'norm', 'ffn', 'norm'))),
++                operation_order=('cross_attn', 'norm', 'ffn', 'norm'),
++                batch_first=True)),
 +        ego_map_decoder=dict(
 +            type='CustomTransformerDecoder',
 +            num_layers=1,
@@ -111,8 +113,10 @@ index 0000000..14542e6
 +                        type='MultiheadAttention',
 +                        embed_dims=_dim_,
 +                        num_heads=8,
-+                        dropout=0.1),
++                        dropout=0.1,
++                        batch_first=True),
 +                ],
++                batch_first=True,
 +                feedforward_channels=_ffn_dim_,
 +                ffn_dropout=0.1,
 +                operation_order=('cross_attn', 'norm', 'ffn', 'norm'))),
@@ -127,8 +131,10 @@ index 0000000..14542e6
 +                        type='MultiheadAttention',
 +                        embed_dims=_dim_,
 +                        num_heads=8,
-+                        dropout=0.1),
++                        dropout=0.1,
++                        batch_first=True),
 +                ],
++                batch_first=True,
 +                feedforward_channels=_ffn_dim_,
 +                ffn_dropout=0.1,
 +                operation_order=('cross_attn', 'norm', 'ffn', 'norm'))),
@@ -143,8 +149,10 @@ index 0000000..14542e6
 +                        type='MultiheadAttention',
 +                        embed_dims=_dim_,
 +                        num_heads=8,
-+                        dropout=0.1),
++                        dropout=0.1,
++                        batch_first=True),
 +                ],
++                batch_first=True,
 +                feedforward_channels=_ffn_dim_,
 +                ffn_dropout=0.1,
 +                operation_order=('cross_attn', 'norm', 'ffn', 'norm'))),
@@ -183,6 +191,8 @@ index 0000000..14542e6
 +                return_intermediate=False,
 +                transformerlayers=dict(
 +                    type='BEVFormerLayer',
++                    bev_h=bev_h_,
++                    bev_w=bev_w_,
 +                    attn_cfgs=[
 +                        dict(
 +                            type='TemporalSelfAttention',
@@ -214,12 +224,15 @@ index 0000000..14542e6
 +                            type='MultiheadAttention',
 +                            embed_dims=_dim_,
 +                            num_heads=8,
-+                            dropout=0.1),
++                            dropout=0.1,
++                            batch_first=True),
 +                        dict(
 +                            type='CustomMSDeformableAttention',
 +                            embed_dims=_dim_,
-+                            num_levels=1),
++                            num_levels=1,
++                            batch_first=True),
 +                    ],
++                    batch_first=True,
 +                    feedforward_channels=_ffn_dim_,
 +                    ffn_dropout=0.1,
 +                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
@@ -235,12 +248,15 @@ index 0000000..14542e6
 +                            type='MultiheadAttention',
 +                            embed_dims=_dim_,
 +                            num_heads=8,
-+                            dropout=0.1),
++                            dropout=0.1,
++                            batch_first=True),
 +                         dict(
 +                            type='CustomMSDeformableAttention',
 +                            embed_dims=_dim_,
-+                            num_levels=1),
++                            num_levels=1,
++                            batch_first=True),
 +                    ],
++                    batch_first=True,
 +                    feedforward_channels=_ffn_dim_,
 +                    ffn_dropout=0.1,
 +                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
@@ -411,7 +427,7 @@ index 0000000..14542e6
 +)
 +
 +optimizer = dict(
-+    type='AdamW',
++    type='NpuFusedAdamW',
 +    lr=2e-4,
 +    paramwise_cfg=dict(
 +        custom_keys={
@@ -433,7 +449,7 @@ index 0000000..14542e6
 +runner = dict(type='EpochBasedRunner', max_epochs=total_epochs)
 +
 +log_config = dict(
-+    interval=50,
++    interval=100,
 +    hooks=[
 +        dict(type='TextLoggerHook'),
 +        dict(type='TensorboardLoggerHook')
@@ -445,6 +461,213 @@ index 0000000..14542e6
 +
 +custom_hooks = [dict(type='CustomSetEpochInfoHook')]
 \ No newline at end of file
+diff --git a/projects/mmdet3d_plugin/VAD/VAD_head.py b/projects/mmdet3d_plugin/VAD/VAD_head.py
+index 9ac5b07..37006ea 100644
+--- a/projects/mmdet3d_plugin/VAD/VAD_head.py
++++ b/projects/mmdet3d_plugin/VAD/VAD_head.py
+@@ -553,14 +553,12 @@ class VADHead(DETRHead):
+         bev_embed, hs, init_reference, inter_references, \
+             map_hs, map_init_reference, map_inter_references = outputs
+ 
+-        hs = hs.permute(0, 2, 1, 3)
+         outputs_classes = []
+         outputs_coords = []
+         outputs_coords_bev = []
+         outputs_trajs = []
+         outputs_trajs_classes = []
+ 
+-        map_hs = map_hs.permute(0, 2, 1, 3)
+         map_outputs_classes = []
+         map_outputs_coords = []
+         map_outputs_pts_coords = []
+@@ -617,15 +615,14 @@ class VADHead(DETRHead):
+         if self.motion_decoder is not None:
+             batch_size, num_agent = outputs_coords_bev[-1].shape[:2]
+             # motion_query
+-            motion_query = hs[-1].permute(1, 0, 2)  # [A, B, D]
++            motion_query = hs[-1]   # [B,A, D]
+             mode_query = self.motion_mode_query.weight  # [fut_mode, D]
+             # [M, B, D], M=A*fut_mode
+-            motion_query = (motion_query[:, None, :, :] + mode_query[None, :, None, :]).flatten(0, 1)
++            motion_query = (motion_query[:, None, :, :] + mode_query[None, :, None, :]).permute(0,2,1,3).flatten(1, 2)
+             if self.use_pe:
+                 motion_coords = outputs_coords_bev[-1]  # [B, A, 2]
+                 motion_pos = self.pos_mlp_sa(motion_coords)  # [B, A, D]
+-                motion_pos = motion_pos.unsqueeze(2).repeat(1, 1, self.fut_mode, 1).flatten(1, 2)
+-                motion_pos = motion_pos.permute(1, 0, 2)  # [M, B, D]
++                motion_pos = motion_pos.unsqueeze(2).repeat(1, 1, self.fut_mode, 1).flatten(1, 2)# [ B, M,D]
+             else:
+                 motion_pos = None
+ 
+@@ -656,20 +653,17 @@ class VADHead(DETRHead):
+                 map_query, map_pos, key_padding_mask = self.select_and_pad_pred_map(
+                     motion_coords, map_query, map_score, map_pos,
+                     map_thresh=self.map_thresh, dis_thresh=self.dis_thresh,
+-                    pe_normalization=self.pe_normalization, use_fix_pad=True)
+-                map_query = map_query.permute(1, 0, 2)  # [P, B*M, D]
+-                ca_motion_query = motion_hs.permute(1, 0, 2).flatten(0, 1).unsqueeze(0)
++                    pe_normalization=self.pe_normalization, use_fix_pad=True)# [ B*M, P, D]
++                ca_motion_query = motion_hs.flatten(0, 1).unsqueeze(1)
+ 
+                 # position encoding
+                 if self.use_pe:
+-                    (num_query, batch) = ca_motion_query.shape[:2]
+-                    motion_pos = torch.zeros((num_query, batch, 2), device=motion_hs.device)
++                    (batch, num_query) = ca_motion_query.shape[:2]
++                    motion_pos = torch.zeros((batch,num_query, 2), device=motion_hs.device)
+                     motion_pos = self.pos_mlp(motion_pos)
+-                    map_pos = map_pos.permute(1, 0, 2)
+                     map_pos = self.pos_mlp(map_pos)
+                 else:
+                     motion_pos, map_pos = None, None
+-
+                 ca_motion_query = self.motion_map_decoder(
+                     query=ca_motion_query,
+                     key=map_query,
+@@ -678,13 +672,14 @@ class VADHead(DETRHead):
+                     key_pos=map_pos,
+                     key_padding_mask=key_padding_mask)
+             else:
+-                ca_motion_query = motion_hs.permute(1, 0, 2).flatten(0, 1).unsqueeze(0)
++                ca_motion_query = motion_hs.flatten(0, 1).unsqueeze(1)
++
+ 
+             batch_size = outputs_coords_bev[-1].shape[0]
+-            motion_hs = motion_hs.permute(1, 0, 2).unflatten(
++            motion_hs = motion_hs.unflatten(
+                 dim=1, sizes=(num_agent, self.fut_mode)
+             )
+-            ca_motion_query = ca_motion_query.squeeze(0).unflatten(
++            ca_motion_query = ca_motion_query.squeeze(1).unflatten(
+                 dim=0, sizes=(batch_size, num_agent, self.fut_mode)
+             )
+             motion_hs = torch.cat([motion_hs, ca_motion_query], dim=-1)  # [B, A, fut_mode, 2D]
+@@ -721,17 +716,17 @@ class VADHead(DETRHead):
+         agent_query = self.agent_fus_mlp(agent_query) # [B, A, fut_mode, 2*D] -> [B, A, D]
+         agent_pos = outputs_coords_bev[-1]
+         agent_query, agent_pos, agent_mask = self.select_and_pad_query(
+-            agent_query, agent_pos, agent_conf,
+-            score_thresh=self.query_thresh, use_fix_pad=self.query_use_fix_pad
++                agent_query, agent_pos, agent_conf,
++                score_thresh=self.query_thresh, use_fix_pad=self.query_use_fix_pad
+         )
+         agent_pos_emb = self.ego_agent_pos_mlp(agent_pos)
+         # ego <-> agent interaction
+         ego_agent_query = self.ego_agent_decoder(
+-            query=ego_query.permute(1, 0, 2),
+-            key=agent_query.permute(1, 0, 2),
+-            value=agent_query.permute(1, 0, 2),
+-            query_pos=ego_pos_emb.permute(1, 0, 2),
+-            key_pos=agent_pos_emb.permute(1, 0, 2),
++            query=ego_query,
++            key=agent_query,
++            value=agent_query,
++            query_pos=ego_pos_emb,
++            key_pos=agent_pos_emb,
+             key_padding_mask=agent_mask)
+ 
+         # ego <-> map interaction
+@@ -755,38 +750,38 @@ class VADHead(DETRHead):
+         map_pos_emb = self.ego_map_pos_mlp(map_pos)
+         ego_map_query = self.ego_map_decoder(
+             query=ego_agent_query,
+-            key=map_query.permute(1, 0, 2),
+-            value=map_query.permute(1, 0, 2),
+-            query_pos=ego_pos_emb.permute(1, 0, 2),
+-            key_pos=map_pos_emb.permute(1, 0, 2),
++            key=map_query,
++            value=map_query,
++            query_pos=ego_pos_emb,
++            key_pos=map_pos_emb,
+             key_padding_mask=map_mask)
+ 
+         if self.ego_his_encoder is not None and self.ego_lcf_feat_idx is not None:
+             ego_feats = torch.cat(
+                 [ego_his_feats,
+-                 ego_map_query.permute(1, 0, 2),
++                 ego_map_query,
+                  ego_lcf_feat.squeeze(1)[..., self.ego_lcf_feat_idx]],
+                 dim=-1
+             )  # [B, 1, 2D+2]
+         elif self.ego_his_encoder is not None and self.ego_lcf_feat_idx is None:
+             ego_feats = torch.cat(
+                 [ego_his_feats,
+-                 ego_map_query.permute(1, 0, 2)],
++                 ego_map_query],
+                 dim=-1
+             )  # [B, 1, 2D]
+-        elif self.ego_his_encoder is None and self.ego_lcf_feat_idx is not None:
++        elif self.ego_his_encoder is None and self.ego_lcf_feat_idx is not None:
+             ego_feats = torch.cat(
+-                [ego_agent_query.permute(1, 0, 2),
+-                 ego_map_query.permute(1, 0, 2),
++                [ego_agent_query,
++                 ego_map_query,
+                  ego_lcf_feat.squeeze(1)[..., self.ego_lcf_feat_idx]],
+                 dim=-1
+             )  # [B, 1, 2D+2]
+-        elif self.ego_his_encoder is None and self.ego_lcf_feat_idx is None:
++        elif self.ego_his_encoder is None and self.ego_lcf_feat_idx is None:
+             ego_feats = torch.cat(
+-                [ego_agent_query.permute(1, 0, 2),
+-                 ego_map_query.permute(1, 0, 2)],
++                [ego_agent_query,
++                 ego_map_query],
+                 dim=-1
+-            )  # [B, 1, 2D]
++            )  # [B, 1, 2D]
+ 
+         # Ego prediction
+         outputs_ego_trajs = self.ego_fut_decoder(ego_feats)
+diff --git a/projects/mmdet3d_plugin/VAD/VAD_transformer.py b/projects/mmdet3d_plugin/VAD/VAD_transformer.py
+index c8ffae5..a132db0 100644
+--- a/projects/mmdet3d_plugin/VAD/VAD_transformer.py
++++ b/projects/mmdet3d_plugin/VAD/VAD_transformer.py
+@@ -88,7 +88,6 @@ class MapDetectionTransformerDecoder(TransformerLayerSequence):
+                 reference_points=reference_points_input,
+                 key_padding_mask=key_padding_mask,
+                 **kwargs)
+-            output = output.permute(1, 0, 2)
+ 
+             if reg_branches is not None:
+                 tmp = reg_branches[lid](output)
+@@ -98,14 +97,11 @@ class MapDetectionTransformerDecoder(TransformerLayerSequence):
+                 new_reference_points = torch.zeros_like(reference_points)
+                 new_reference_points[..., :2] = tmp[
+                     ..., :2] + inverse_sigmoid(reference_points[..., :2])
+-                # new_reference_points[..., 2:3] = tmp[
+-                #     ..., 4:5] + inverse_sigmoid(reference_points[..., 2:3])
+ 
+                 new_reference_points = new_reference_points.sigmoid()
+ 
+                 reference_points = new_reference_points.detach()
+ 
+-            output = output.permute(1, 0, 2)
+             if self.return_intermediate:
+                 intermediate.append(output)
+                 intermediate_reference_points.append(reference_points)
+@@ -388,12 +384,6 @@ class VADPerceptionTransformer(BaseModule):
+         map_reference_points = map_reference_points.sigmoid()
+         map_init_reference_out = map_reference_points
+ 
+-        query = query.permute(1, 0, 2)
+-        query_pos = query_pos.permute(1, 0, 2)
+-        map_query = map_query.permute(1, 0, 2)
+-        map_query_pos = map_query_pos.permute(1, 0, 2)
+-        bev_embed = bev_embed.permute(1, 0, 2)
+-
+         if self.decoder is not None:
+             # [L, Q, B, D], [L, B, Q, D]
+             inter_states, inter_references = self.decoder(
+@@ -429,7 +419,7 @@ class VADPerceptionTransformer(BaseModule):
+         else:
+             map_inter_states = map_query.unsqueeze(0)
+             map_inter_references_out = map_reference_points.unsqueeze(0)
+-
++        bev_embed=bev_embed.permute(1,0,2)
+         return (
+             bev_embed, inter_states, init_reference_out, inter_references_out,
+             map_inter_states, map_init_reference_out, map_inter_references_out)
 diff --git a/projects/mmdet3d_plugin/VAD/apis/mmdet_train.py b/projects/mmdet3d_plugin/VAD/apis/mmdet_train.py
 index 449d49d..9c17862 100644
 --- a/projects/mmdet3d_plugin/VAD/apis/mmdet_train.py
@@ -486,7 +709,7 @@ index 449d49d..9c17862 100644
  
  
 diff --git a/projects/mmdet3d_plugin/VAD/modules/decoder.py b/projects/mmdet3d_plugin/VAD/modules/decoder.py
-index 7d982ba..a60392f 100644
+index 7d982ba..b67ad77 100644
 --- a/projects/mmdet3d_plugin/VAD/modules/decoder.py
 +++ b/projects/mmdet3d_plugin/VAD/modules/decoder.py
 @@ -24,6 +24,8 @@ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFuncti
@@ -494,71 +717,120 @@ index 7d982ba..a60392f 100644
      '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
  
 +from mx_driving.fused import multi_scale_deformable_attn
-+
++import mx_driving
  
  def inverse_sigmoid(x, eps=1e-5):
      """Inverse function of sigmoid.
-@@ -323,9 +325,9 @@ class CustomMSDeformableAttention(BaseModule):
-                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
-             else:
-                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+@@ -84,8 +86,8 @@ class DetectionTransformerDecoder(TransformerLayerSequence):
+         output = query
+         intermediate = []
+         intermediate_reference_points = []
+-        for lid, layer in enumerate(self.layers):
+ 
++        for lid, layer in enumerate(self.layers):
+             reference_points_input = reference_points[..., :2].unsqueeze(
+                 2)  # BS NUM_QUERY NUM_LEVEL 2
+             output = layer(
+@@ -94,7 +96,6 @@ class DetectionTransformerDecoder(TransformerLayerSequence):
+                 reference_points=reference_points_input,
+                 key_padding_mask=key_padding_mask,
+                 **kwargs)
+-            output = output.permute(1, 0, 2)
+ 
+             if reg_branches is not None:
+                 tmp = reg_branches[lid](output)
+@@ -111,7 +112,6 @@ class DetectionTransformerDecoder(TransformerLayerSequence):
+ 
+                 reference_points = new_reference_points.detach()
+ 
+-            output = output.permute(1, 0, 2)
+             if self.return_intermediate:
+                 intermediate.append(output)
+                 intermediate_reference_points.append(reference_points)
+@@ -317,15 +317,8 @@ class CustomMSDeformableAttention(BaseModule):
+                 f'Last dim of reference_points must be'
+                 f' 2 or 4, but get {reference_points.shape[-1]} instead.')
+         if torch.cuda.is_available() and value.is_cuda:
+-
+-            # using fp16 deformable attention is unstable because it performs many sum operations
+-            if value.dtype == torch.float16:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
+-            else:
+-                MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
 -            output = MultiScaleDeformableAttnFunction.apply(
-+            output = multi_scale_deformable_attn(
-                 value, spatial_shapes, level_start_index, sampling_locations,
+-                value, spatial_shapes, level_start_index, sampling_locations,
 -                attention_weights, self.im2col_step)
-+                attention_weights)
++            output = mx_driving.multi_scale_deformable_attn(value, spatial_shapes, level_start_index,
++                                                            sampling_locations, attention_weights)
          else:
              output = multi_scale_deformable_attn_pytorch(
                  value, spatial_shapes, sampling_locations, attention_weights)
-diff --git a/projects/mmdet3d_plugin/VAD/modules/spatial_cross_attention.py b/projects/mmdet3d_plugin/VAD/modules/spatial_cross_attention.py
-index 3362ea0..b693509 100644
---- a/projects/mmdet3d_plugin/VAD/modules/spatial_cross_attention.py
-+++ b/projects/mmdet3d_plugin/VAD/modules/spatial_cross_attention.py
-@@ -21,6 +21,7 @@ from projects.mmdet3d_plugin.models.utils.bricks import run_time
- ext_module = ext_loader.load_ext(
-     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+diff --git a/projects/mmdet3d_plugin/VAD/modules/encoder.py b/projects/mmdet3d_plugin/VAD/modules/encoder.py
+index 27b34c3..b10a9f5 100644
+--- a/projects/mmdet3d_plugin/VAD/modules/encoder.py
++++ b/projects/mmdet3d_plugin/VAD/modules/encoder.py
+@@ -112,8 +112,8 @@ class BEVFormerEncoder(TransformerLayerSequence):
+         lidar2img = lidar2img.view(
+             1, B, num_cam, 1, 4, 4).repeat(D, 1, 1, num_query, 1, 1)
  
-+from mx_driving.fused import multi_scale_deformable_attn
+-        reference_points_cam = torch.matmul(lidar2img.to(torch.float32),
+-                                            reference_points.to(torch.float32)).squeeze(-1)
++        reference_points_cam = torch.mul(lidar2img.to(torch.float32),
++                                         reference_points.to(torch.float32).transpose(-1, -2)).sum(-1, keepdim=True).squeeze(-1)
+         eps = 1e-5
  
- @ATTENTION.register_module()
- class SpatialCrossAttention(BaseModule):
-@@ -381,9 +382,9 @@ class MSDeformableAttention3D(BaseModule):
-                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
-             else:
-                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
--            output = MultiScaleDeformableAttnFunction.apply(
-+            output = multi_scale_deformable_attn(
-                 value, spatial_shapes, level_start_index, sampling_locations,
--                attention_weights, self.im2col_step)
-+                attention_weights)
-         else:
-             output = multi_scale_deformable_attn_pytorch(
-                 value, spatial_shapes, sampling_locations, attention_weights)
-diff --git a/projects/mmdet3d_plugin/VAD/modules/temporal_self_attention.py b/projects/mmdet3d_plugin/VAD/modules/temporal_self_attention.py
-index f5151ad..4ea1a13 100644
---- a/projects/mmdet3d_plugin/VAD/modules/temporal_self_attention.py
-+++ b/projects/mmdet3d_plugin/VAD/modules/temporal_self_attention.py
-@@ -15,6 +15,8 @@ from mmcv.utils import ext_loader
- ext_module = ext_loader.load_ext(
-     '_ext', ['ms_deform_attn_backward', 'ms_deform_attn_forward'])
+         bev_mask = (reference_points_cam[..., 2:3] > eps)
+@@ -252,6 +252,8 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
+     """
  
-+from mx_driving.fused import multi_scale_deformable_attn
-+
- 
- @ATTENTION.register_module()
- class TemporalSelfAttention(BaseModule):
-@@ -238,9 +240,9 @@ class TemporalSelfAttention(BaseModule):
-                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
-             else:
-                 MultiScaleDeformableAttnFunction = MultiScaleDeformableAttnFunction_fp32
--            output = MultiScaleDeformableAttnFunction.apply(
-+            output = multi_scale_deformable_attn(
-                 value, spatial_shapes, level_start_index, sampling_locations,
--                attention_weights, self.im2col_step)
-+                attention_weights)
-         else:
- 
-             output = multi_scale_deformable_attn_pytorch(
+     def __init__(self,
++                 bev_h,
++                 bev_w,
+                  attn_cfgs,
+                  feedforward_channels,
+                  ffn_dropout=0.0,
+@@ -270,6 +272,8 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
+             ffn_num_fcs=ffn_num_fcs,
+             **kwargs)
+         self.fp16_enabled = False
++        self.level_start_index = torch.tensor([0]).npu()
++        self.spatial_shapes = torch.tensor([[bev_h, bev_w]]).npu()
+         assert len(operation_order) == 6
+         assert set(operation_order) == set(
+             ['self_attn', 'norm', 'cross_attn', 'ffn'])
+@@ -357,9 +361,8 @@ class BEVFormerLayer(MyCustomBaseTransformerLayer):
+                     attn_mask=attn_masks[attn_index],
+                     key_padding_mask=query_key_padding_mask,
+                     reference_points=ref_2d,
+-                    spatial_shapes=torch.tensor(
+-                        [[bev_h, bev_w]], device=query.device),
+-                    level_start_index=torch.tensor([0], device=query.device),
++                    spatial_shapes=self.spatial_shapes,
++                    level_start_index=self.level_start_index,
+                     **kwargs)
+                 attn_index += 1
+                 identity = query
+diff --git a/projects/mmdet3d_plugin/VAD/modules/transformer.py b/projects/mmdet3d_plugin/VAD/modules/transformer.py
+index 55f0a15..d8f6173 100644
+--- a/projects/mmdet3d_plugin/VAD/modules/transformer.py
++++ b/projects/mmdet3d_plugin/VAD/modules/transformer.py
+@@ -9,7 +9,7 @@ from mmdet.models.utils.builder import TRANSFORMER
+ from torch.nn.init import normal_
+ from projects.mmdet3d_plugin.models.utils.visual import save_tensor
+ from mmcv.runner.base_module import BaseModule
+-from torchvision.transforms.functional import rotate
++from torchvision.transforms.functional import InterpolationMode, rotate
+ from .temporal_self_attention import TemporalSelfAttention
+ from .spatial_cross_attention import MSDeformableAttention3D
+ from .decoder import CustomMSDeformableAttention
+@@ -144,6 +144,7 @@ class PerceptionTransformer(BaseModule):
+                     tmp_prev_bev = prev_bev[:, i].reshape(
+                         bev_h, bev_w, -1).permute(2, 0, 1)
+                     tmp_prev_bev = rotate(tmp_prev_bev, rotation_angle,
++                                          interpolation=InterpolationMode.BILINEAR,
+                                           center=self.rotate_center)
+                     tmp_prev_bev = tmp_prev_bev.permute(1, 2, 0).reshape(
+                         bev_h * bev_w, 1, -1)
 diff --git a/projects/mmdet3d_plugin/core/bbox/structures/lidar_box3d.py b/projects/mmdet3d_plugin/core/bbox/structures/lidar_box3d.py
 index 22a595d..7695860 100644
 --- a/projects/mmdet3d_plugin/core/bbox/structures/lidar_box3d.py
@@ -582,7 +854,7 @@ index 22a595d..7695860 100644
              self.tensor.unsqueeze(0).to(points.device)).squeeze(0)
          return box_idx
 diff --git a/requirements.txt b/requirements.txt
-index 895499a..bdb4c7d 100644
+index 895499a..48a16dd 100644
 --- a/requirements.txt
 +++ b/requirements.txt
 @@ -1,204 +1,7 @@
@@ -799,18 +1071,28 @@ index 895499a..bdb4c7d 100644
 +nuscenes-devkit==1.1.11
 \ No newline at end of file
 diff --git a/tools/train.py b/tools/train.py
-index 437fd7a..7e8fe6f 100755
+index 437fd7a..1e0804a 100755
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -35,6 +35,11 @@ cv2.setNumThreads(1)
+@@ -35,6 +35,13 @@ cv2.setNumThreads(1)
  import sys
  sys.path.append('')
  
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
++import mx_driving
++from tools.patch import generate_patcher_builder
 +
 +torch.npu.config.allow_internal_format = False
 +
  
  def parse_args():
      parser = argparse.ArgumentParser(description='Train a detector')
+@@ -263,4 +270,6 @@ def main():
+ 
+ 
+ if __name__ == '__main__':
+-    main()
++    vad_patcher_builder = generate_patcher_builder()
++    with vad_patcher_builder.build():
++        main()

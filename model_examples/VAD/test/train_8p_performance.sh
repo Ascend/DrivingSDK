@@ -8,7 +8,7 @@ LOAD_FROM=""
 
 NNODES=${NNODES:-1}
 NODE_RANK=${NODE_RANK:-0}
-PORT=${PORT:-29500}
+PORT=$((29500 + RANDOM % 1000))
 MASTER_ADDR=${MASTER_ADDR:-"127.0.0.1"}
 
 ###############指定训练脚本执行路径###############
@@ -23,6 +23,8 @@ else
   test_path_dir=${cur_path}/test
 fi
 
+# 性能测试脚本标志位
+export VAD_PERFORMANCE_FLAG=1
 ASCEND_DEVICE_ID=0
 
 if [ -d ${cur_path}/test/output/${ASCEND_DEVICE_ID} ]; then
@@ -40,7 +42,7 @@ if [ x"${etp_flag}" != x"true" ]; then
   source ${test_path_dir}/env_npu.sh
 fi
 
-torchrun --nproc_per_node=8 ./tools/train.py ./projects/configs/VAD/VAD_base_e2e_performance.py --launcher pytorch --deterministic --work-dir $cur_path/test/output/work_dirs/VAD \
+torchrun --nproc_per_node=$WORLD_SIZE --master_addr=${MASTER_ADDR} --master_port=${PORT} ./tools/train.py ./projects/configs/VAD/VAD_base_e2e_npu.py --launcher pytorch --deterministic --work-dir $cur_path/test/output/work_dirs/VAD \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 
@@ -54,10 +56,11 @@ BatchSize=1
 DeviceType=$(uname -m)
 CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'perf'
 
+
 # 结果打印，不需要修改
 echo "------------------ Final result ------------------"
 # 输出性能FPS，需要模型审视修改
-avg_time=`grep -a 'mmdet - INFO - Epoch '  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "time: " '{print $2}' | awk -F ", " '{print $1}' | awk '{a+=$1} END {if (NR != 0) printf("%.3f",a/NR)}'`
+avg_time=$(grep -a 'mmdet - INFO - Epoch ' "${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log" | tail -n 7| awk -F "time: " '{print $2}' | awk -F ", " '{print $1}' | awk '{a+=$1} END {if (NR != 0) printf("%.3f",a/NR)}')
 FPS=`awk 'BEGIN{printf "%.3f\n", '$BatchSize'*'${WORLD_SIZE}'/'$avg_time'}'`
 
 #打印，不需要修改

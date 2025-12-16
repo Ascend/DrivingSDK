@@ -40,9 +40,10 @@ if [ x"${etp_flag}" != x"true" ]; then
   source ${test_path_dir}/env_npu.sh
 fi
 
-torchrun --nproc_per_node=8 ./tools/train.py ./projects/configs/VAD/VAD_base_e2e.py --launcher pytorch --deterministic --work-dir $cur_path/test/output/work_dirs/VAD \
+torchrun --nproc_per_node=$WORLD_SIZE --master_addr=${MASTER_ADDR} --master_port=${PORT} ./tools/train.py ./projects/configs/VAD/VAD_base_e2e_npu.py --launcher pytorch --deterministic --work-dir $cur_path/test/output/work_dirs/VAD \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
+
 
 # 训练结束时间，不需要修改
 end_time=$(date +%s)
@@ -52,6 +53,7 @@ e2e_time=$(( $end_time - $start_time ))
 BatchSize=1
 DeviceType=$(uname -m)
 CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'full'
+
 
 # 结果打印，不需要修改
 echo "------------------ Final result ------------------"
