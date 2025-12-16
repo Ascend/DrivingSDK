@@ -137,8 +137,7 @@
     ```
 
 6. 应用patch并源码编译安装 mmdet3d
-
-    在PanoOcc源码仓目录下克隆 mmdet3d 仓，应用patch替换其中部分代码，并进入 mmdet3d 目录安装（路径并非必须在PanoOcc目录下，仅以此举例）
+    在PanoOcc源码仓路径以外的路径下克隆 mmdet3d 仓，应用patch替换其中部分代码，并进入 mmdet3d 目录安装（路径勿在PanoOcc目录下，该目录下有个重名文件夹）
 
     ```
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
