@@ -67,13 +67,10 @@ echo "Iteration time : $Iteration_time"
 amota=$(grep -a "mmdet - INFO - Epoch(val)" ${test_path_dir}/output/full/stage1/train_full.log  |tail -1|awk -F "amota: " '{print $2}' |awk -F ", " '{print $1}'| awk -F ", " '{print $1}')
 # 输出训练精度lanes_iou,需要模型审视修改
 lanes_iou=$(grep -a "mmdet - INFO - Epoch(val)" ${test_path_dir}/output/full/stage1/train_full.log  |tail -1|awk -F "lanes_iou: " '{print $2}' |awk -F ", " '{print $1}'| awk -F ", " '{print $1}')
-# 输出训练精度amotp,需要模型审视修改
-amotp=$(grep -a "mmdet - INFO - Epoch(val)" ${test_path_dir}/output/full/stage2/train_full.log  |tail -1|awk -F "amotp: " '{print $2}' |awk -F ", " '{print $1}'| awk -F ", " '{print $1}')
 
 # 打印，不需要修改
 echo "amota : ${amota}"
 echo "lanes_iou : ${lanes_iou}"
-echo "amotp : ${amotp}"
 echo "E2E Training Duration sec : $e2e_time"
 
 
@@ -88,7 +85,6 @@ echo "DeviceType = ${DeviceType}" >>${test_path_dir}/output/full/stage1/${CaseNa
 echo "CaseName = ${CaseName}" >>${test_path_dir}/output/full/stage1/${CaseName}.log
 echo "AMOTA = ${amota}" >>${test_path_dir}/output/full/stage1/${CaseName}.log
 echo "IoU-lane = ${lanes_iou}" >>${test_path_dir}/output/full/stage1/${CaseName}.log
-echo "AMOTP = ${amotp}" >>${test_path_dir}/output/full/stage2/${CaseName}.log
 echo "Iteration time = ${Iteration_time}" >>${test_path_dir}/output/full/stage1/${CaseName}_perf_report.log
 echo "TrainingTime = ${TrainingTime}" >>${test_path_dir}/output/full/stage1/${CaseName}_perf_report.log
 echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/full/stage1/${CaseName}_perf_report.log
