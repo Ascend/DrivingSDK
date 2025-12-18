@@ -31,7 +31,7 @@ fi
 
 
 echo -e "\n=== Step 3: Front-view Video Generation ==="
-PYTHONPATH="cosmos-transfer1" python scripts/generate_video_single_view.py \
+PYTHONPATH="cosmos-transfer1"${PYTHONPATH:+:$PYTHONPATH} python scripts/generate_video_single_view.py \
     --caption_path outputs/captions \
     --input_path outputs \
     --video_save_folder outputs/single_view \
@@ -45,7 +45,7 @@ fi
 
 
 echo -e "\n=== Step 4: Multiview Video Generation ==="
-CUDA_HOME=$CONDA_PREFIX PYTHONPATH="cosmos-transfer1" python scripts/generate_video_multi_view.py \
+CUDA_HOME=$CONDA_PREFIX PYTHONPATH="cosmos-transfer1"${PYTHONPATH:+:$PYTHONPATH} python scripts/generate_video_multi_view.py \
     --caption_path outputs/captions \
     --input_path outputs \
     --input_view_path outputs/single_view \
