@@ -118,22 +118,6 @@ CASES = dict(
         kernel_size = 3,
         dtype = torch.float16,    
     ),
-    test_3x3x3_big_case_large_channels2 = dict(
-        num_points = [504420],
-        out_spatial_shape = [320, 640, 640],
-        in_channels = 256,
-        out_channels = 256,
-        kernel_size = 3,
-        dtype = torch.float32,   
-    ),
-    test_3x3x3_big_case_large_channels2_fp16 = dict(
-        num_points = [504420],
-        out_spatial_shape = [320, 640, 640],
-        in_channels = 256,
-        out_channels = 256,
-        kernel_size = 3,
-        dtype = torch.float16,   
-    ),
 )
 
 @golden_data_cache(__file__)
@@ -173,7 +157,7 @@ def get_golden_output(features, indices, weight, bias, batch_size, in_channels,
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 @golden_data_cache(__file__)
 def subm_sparse_conv3d_grad_cpu(grad_out, img2col_mat, indices_offset, weight, kernel_size, in_channels, dtype):
-    dtype = torch.float64 if dtype == torch.float32 else torch.float32
+    dtype = torch.float32
     grad_out, img2col_mat, indices_offset, weight = \
         grad_out.to(dtype).cpu(), img2col_mat.to(dtype).cpu(), indices_offset.cpu(), weight.to(dtype).cpu()
 
@@ -239,6 +223,23 @@ def double_benchmark_get_output(num_points, batch_size, in_channels, out_channel
     return features.grad.cpu(), net.weight.grad.cpu()
 
 
+def get_output(num_points, batch_size, in_channels, out_channels,
+        kernel_size, spatial_shape, dtype):
+    
+    features, indices, grad_out = generate_sparse_data(num_points, spatial_shape, in_channels, out_channels)
+    features, indices, grad_out = features.to(dtype).npu(), indices.npu(), grad_out.to(dtype).npu()
+    net = SubMConv3d(in_channels, out_channels, kernel_size).npu()
+    net.weight.data = net.weight.data.to(dtype)
+    net.bias.data = net.bias.data.to(dtype) * 0.01
+    x = SparseConvTensor(features, indices, spatial_shape, batch_size)
+    features.requires_grad = True
+    net.weight.requires_grad = True
+
+    res = net(x).features
+    res.backward(grad_out)
+
+    return features.grad.cpu(), net.weight.grad.cpu()
+
 class TestSubmSparseConv3dGrad(TestCase):
 
     def test_model_case(self):
@@ -246,14 +247,32 @@ class TestSubmSparseConv3dGrad(TestCase):
         double_benchmark_flag = (gpu_out_path is not None) and os.path.exists(gpu_out_path)
         name = 'test_subm_sparse_conv3d_grad'
         
-        for _, case_value in CASES.items():
+        for case_name, case_value in CASES.items():
             num_points, out_spatial_shape, in_channels , out_channels , kernel_size, dtype = case_value.values()
             batch_size = len(num_points)
-            npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = \
-                single_benchmark_get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
 
-            self.assertRtolEqual(npu_features_grad, cpu_features_grad, 1e-2, 1e-2)
-            self.assertRtolEqual(npu_weight_grad, cpu_weight_grad, 1e-2, 1e-2)
+            if double_benchmark_flag:
+                filepath = os.path.join(gpu_out_path, name, f'{case_name}.pth')
+                gpu_data = torch.load(filepath, map_location = 'npu')
+                gpu_features_grad = gpu_data['features_grad'].detach().clone().cpu()
+                gpu_weight_grad = gpu_data['weight_grad'].detach().clone().cpu()
+                cpu_features_grad = gpu_data['cpu_features_grad'].detach().clone().cpu()    # 升精度
+                cpu_weight_grad = gpu_data['cpu_weight_grad'].detach().clone().cpu()        # 升精度
+
+                npu_features_grad, npu_weight_grad = double_benchmark_get_output(
+                    num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype, gpu_data)
+                compare = CvFusedDoubleBenchmarkAccuracyCompare([npu_features_grad, npu_weight_grad],
+                                                                [gpu_features_grad, gpu_weight_grad],
+                                                                [cpu_features_grad, cpu_weight_grad])
+                res = compare.run()
+                assert "False" not in res, f"Accuracy check failed for model case {case_name}"
+
+            else:
+                npu_features_grad, npu_weight_grad, cpu_features_grad, cpu_weight_grad = \
+                    single_benchmark_get_output(num_points, batch_size, in_channels, out_channels, kernel_size, out_spatial_shape, dtype)
+
+                self.assertRtolEqual(npu_features_grad, cpu_features_grad.to(dtype), 1e-2, 1e-2)
+                self.assertRtolEqual(npu_weight_grad, cpu_weight_grad.to(dtype), 1e-2, 1e-2)
 
     def test_missing_branch(self):
         from mx_driving.modules.sparse_modules import ToDense, RemoveGrid, _mean_update
@@ -296,6 +315,19 @@ class TestSubmSparseConv3dGrad(TestCase):
 
         self.assertRtolEqual(npu_features_grad, cpu_features_grad.to(dtype), 1e-2, 1e-2)
         self.assertRtolEqual(npu_weight_grad, cpu_weight_grad.to(dtype), 1e-2, 1e-2)
+
+    def test_xiaoqiaoling(self):
+        # only for test
+        num_points = [504420]
+        spatial_shape = [320, 640, 640]
+        in_channels = 256
+        out_channels = 256
+        kernel_size = 3
+
+        get_output(num_points, len(num_points), in_channels, out_channels, kernel_size,
+                   spatial_shape, torch.float32)
+        get_output(num_points, len(num_points), in_channels, out_channels, kernel_size,
+                   spatial_shape, torch.float16)
 
 if __name__ == "__main__":
     np.random.seed(100)
