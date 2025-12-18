@@ -66,7 +66,7 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
 |      软件类型      | 支持版本 |
 | :----------------: | :------: |
 | FrameworkPTAdapter |  7.2.0   |
-|        CANN        | 8.3.RC1  |
+|        CANN        | 8.5.0  |
 |       Python       |   3.10   |
 
 1. 克隆代码仓到当前目录并使用 patch 文件：
@@ -93,16 +93,7 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
    pip install -r requirements.txt
    ```
 
-3. 安装tbe
-
-   ```
-   # 安装tbe和hccl, 将 CANN 包目录记作 cann_root_dir
-   pip uninstall te topi hccl -y
-   pip install {cann_root_dir}/latest/lib64/te-*-py3-none-any.whl
-   pip install {cann_root_dir}/latest/lib64/hccl-*-py3-none-any.whl
-   ```
-
-4. 源码安装decord
+3. 源码安装decord
 
    ```
    # 源码编译ffmpeg
@@ -131,7 +122,7 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
    cd ..
    ```
 
-5. 安装apex
+4. 安装apex
 
    ```
    # 下载适配源码
@@ -144,7 +135,7 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
    cd ..
    ```
 
-6. vllm和vllm-asend安装
+5. vllm和vllm-asend安装
 
    ```
    # 下载vllm
@@ -189,41 +180,41 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
 
 - 根据原仓**inference_cosmos_transfer1_7b**部分准备权重到${model_root_path}/checkpoints，目录结构如下
 
- ```bash
-${model_root_path}/checkpoints/
-├── depth-anything
-│   └── Depth-Anything-V2-Small-hf
-├── facebook
-│   └── sam2-hiera-large
-├── google-t5
-│   └── t5-11b
-├── IDEA-Research
-│   └── grounding-dino-tiny
-├── meta-llama
-│   └── Llama-Guard-3-8B
-└── nvidia
-    ├── Cosmos-Guardrail1
-    ├── Cosmos-Tokenize1-CV8x8x8-720p
-    ├── Cosmos-Transfer1-7B
-    ├── Cosmos-Transfer1-7B-Sample-AV
-    ├── Cosmos-Transfer1-7B-Sample-AV-Single2MultiView
-    └── Cosmos-UpsamplePrompt1-12B-Transfer
- ```
+   ```bash
+   ${model_root_path}/checkpoints/
+   ├── depth-anything
+   │   └── Depth-Anything-V2-Small-hf
+   ├── facebook
+   │   └── sam2-hiera-large
+   ├── google-t5
+   │   └── t5-11b
+   ├── IDEA-Research
+   │   └── grounding-dino-tiny
+   ├── meta-llama
+   │   └── Llama-Guard-3-8B
+   └── nvidia
+      ├── Cosmos-Guardrail1
+      ├── Cosmos-Tokenize1-CV8x8x8-720p
+      ├── Cosmos-Transfer1-7B
+      ├── Cosmos-Transfer1-7B-Sample-AV
+      ├── Cosmos-Transfer1-7B-Sample-AV-Single2MultiView
+      └── Cosmos-UpsamplePrompt1-12B-Transfer
+   ```
 
 
 
-     	1. 生成一个[Hugging Face](https://huggingface.co/settings/tokens)访问令牌，将访问令牌设置为'Read'权限。
+   1. 生成一个[Hugging Face](https://huggingface.co/settings/tokens)访问令牌，将访问令牌设置为'Read'权限。
 
-     	2. 使用该令牌登录Hugging Face
+   2. 使用该令牌登录Hugging Face
 
-    huggingface-cli login
+      huggingface-cli login
 
-     	3. 获取[Llama-Guard-3-8B](https://huggingface.co/meta-llama/Llama-Guard-3-8B)的访问权限
+   3. 获取[Llama-Guard-3-8B](https://huggingface.co/meta-llama/Llama-Guard-3-8B)的访问权限
 
-     	4. 从Hugging Face上下载Cosmos模型的权重
+   4. 从Hugging Face上下载Cosmos模型的权重
 
-    cd ${model_root_path}
-    PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
+      cd ${model_root_path}
+      PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
 
 
 
