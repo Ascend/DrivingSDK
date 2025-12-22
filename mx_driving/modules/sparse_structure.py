@@ -20,6 +20,24 @@ def scatter_nd(indices: torch.Tensor, updates: torch.Tensor, shape: torch.Tensor
     return ret
 
 
+class IndiceData(object):
+    def __init__(
+        self,
+        origin_spatial_shape,
+        origin_indices,
+        unique_indices_offset,
+        sorted_idx_to_former_indices,
+        outidx_pair,
+        is_subm: bool,
+    ):
+        self.origin_spatial_shape = origin_spatial_shape
+        self.origin_indices = origin_indices
+        self.unique_indices_offset = unique_indices_offset
+        self.sorted_idx_to_former_indices = sorted_idx_to_former_indices
+        self.outidx_pair = outidx_pair
+        self.is_subm = is_subm
+
+
 class SparseConvTensor:
     def __init__(
         self,

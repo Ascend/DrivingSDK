@@ -1,6 +1,7 @@
 __all__ = [
     "RoIPointPool3d",
     "SparseConv3d",
+    "SparseInverseConv3d",
     "SubMConv3d",
     "SparseConvTensor",
     "SparseModule",
@@ -74,7 +75,7 @@ import os
 import mx_driving._C
 
 from .modules.roi_point_pool_3d import RoIPointPool3d
-from .modules.sparse_conv import SparseConv3d, SubMConv3d
+from .modules.sparse_conv import SparseConv3d, SubMConv3d, SparseInverseConv3d
 from .modules.sparse_modules import SparseConvTensor, SparseModule, SparseSequential
 from .modules.voxelization import Voxelization
 from .ops.assign_score_withk import assign_score_withk

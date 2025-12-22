@@ -53,18 +53,25 @@ class SparseConvFunction(Function):
         num_voxels_, uni_voxels, unique_indices_offset, sorted_idx_to_former_indices, uni_argsort_indices = mx_driving._C.unique_voxel(ouidx_offset)
         indices_last = torch.tensor(ouidx_offset.shape).to(unique_indices_offset.device)
         unique_indices_offset = torch.cat((unique_indices_offset, indices_last), dim=0)
-        
+
         # index_put and matmul
         out_features, _ = mx_driving._C.npu_sparse_matmul(
             features, weight, unique_indices_offset.int(), sorted_idx_to_former_indices.int(), outidx_pair.int())
 
         ctx.save_for_backward(features, weight, sorted_idx_to_former_indices.int(), unique_indices_offset.int())
-        return out_features, outidx_pair.int()[uni_argsort_indices]
+        return out_features, outidx_pair.int()[uni_argsort_indices], unique_indices_offset, sorted_idx_to_former_indices, outidx_pair
 
     @staticmethod
     @once_differentiable
     # pylint: disable=too-many-return-values
-    def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None) -> tuple:
+    def backward(
+        ctx: Any,
+        grad_out_features: torch.Tensor,
+        grad_outidx=None,
+        grad_unique_indices_offset=None,
+        grad_sorted_idx_to_former_indices=None,
+        grad_outidx_pair=None,
+    ) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
         feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad_v2(
             sorted_idx_to_former_indices, unique_indices_offset, features, weight, grad_out_features
@@ -141,7 +148,7 @@ class SubMConvFunction(Function):
         indices_offset = indices_offset if with_key == 1 else out_indices_offset
         ctx.save_for_backward(features, weight, indices_offset)
         return out_features, indices, indices_offset
-    
+
     @staticmethod
     @once_differentiable
     # pylint: disable=too-many-return-values
@@ -154,5 +161,60 @@ class SubMConvFunction(Function):
         return feature_grad, None, weight_grad, None, None, None, None, None, None, None, None, None, None
 
 
+class SparseInverseConvFunction(Function):
+    @staticmethod
+    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    def forward(
+        ctx: Any,
+        features,
+        weight,
+        in_channels,
+        out_channels,
+        kernel_size,
+        indice_data,
+    ) -> torch.Tensor:
+
+        weight = weight.data
+        output_img2col = mx_driving._C.npu_sparse_inverse_conv3d(
+            features,
+            indice_data.origin_indices,
+            indice_data.unique_indices_offset.int(),
+            indice_data.sorted_idx_to_former_indices,
+            kernel_size,
+            in_channels,
+        )
+        out_features = output_img2col @ weight.reshape(-1, out_channels)
+        ctx.save_for_backward(
+            weight,
+            indice_data.unique_indices_offset.int(),
+            indice_data.sorted_idx_to_former_indices,
+            indice_data.outidx_pair,
+            output_img2col,
+        )
+        return out_features
+
+    @staticmethod
+    @once_differentiable
+    # pylint: disable=too-many-return-values
+    def backward(ctx: Any, grad_out_features: torch.Tensor) -> tuple:
+        weight, unique_indices_offset, sorted_idx_to_former_indices, outidx_pair, output_img2col = ctx.saved_tensors
+        weight_shape = weight.shape
+        weight.data = weight.data.permute(0, 1, 2, 4, 3).contiguous()
+
+        inverse_feature_grad, outidx = mx_driving._C.multi_to_sparse_v2(
+            grad_out_features, weight, unique_indices_offset, sorted_idx_to_former_indices, outidx_pair
+        )
+        inverse_weight_grad = (grad_out_features.transpose(0, 1).contiguous() @ output_img2col)
+
+        inverse_weight_grad = (
+            inverse_weight_grad.transpose(0, 1)
+            .contiguous()
+            .view(weight_shape[0], weight_shape[1], weight_shape[2], weight_shape[3], weight_shape[4])
+        )
+
+        return inverse_feature_grad, inverse_weight_grad, None, None, None, None
+
+
 indice_conv = SparseConvFunction.apply
 indice_subm_conv = SubMConvFunction.apply
+indice_inverse_conv = SparseInverseConvFunction.apply
