@@ -45,6 +45,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // scatter_max
     m.def("scatter_max_with_argmax_v2", &scatter_max_with_argmax_v2);
+    m.def("scatter_max_v3", &scatter_max_v3);
     m.def("npu_scatter_max_backward", &npu_scatter_max_backward);
 
     // npu_hypot

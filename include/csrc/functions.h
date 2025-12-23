@@ -28,6 +28,9 @@ at::Tensor npu_three_interpolate_backward(
 std::tuple<at::Tensor, at::Tensor> scatter_max_with_argmax_v2(
     const at::Tensor& updates, const at::Tensor& indices, c10::optional<at::Tensor> out);
 
+std::tuple<at::Tensor, at::Tensor> scatter_max_v3(
+    const at::Tensor& src, const at::Tensor& index, c10::optional<at::Tensor> out);
+ 
 at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments);
 
 at::Tensor npu_scatter(const at::Tensor& self, const at::Tensor& indices, const at::Tensor& updates, int64_t dim);

@@ -17,7 +17,7 @@ import mx_driving._C
 class ScatterMaxFunction(Function):
     @staticmethod
     def forward(ctx, updates, indices, out=None):
-        func = mx_driving._C.scatter_max_with_argmax_v2
+        func = mx_driving._C.scatter_max_v3
         out, argmax = func(updates, indices, out)
         ctx.save_for_backward(argmax, updates)
         return out, argmax

@@ -18,6 +18,9 @@ def scatter_max_with_argmax_v2(
 def npu_scatter_max_backward(
     x: torch.Tensor, segment_ids: torch.Tensor, num_segments: torch.Tensor
 ) -> torch.Tensor: ...
+def scatter_max_v3(
+    src: torch.Tensor, index: torch.Tensor, out: Optional[torch.Tensor] = None
+) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_scatter(self: torch.Tensor, indices: torch.Tensor, updates: torch.Tensor, dim: int) -> torch.Tensor: ...
 def npu_scatter_mean_grad(
     grad_out: torch.Tensor, index: torch.Tensor, count: torch.Tensor, dim: int
@@ -476,6 +479,7 @@ __all__ = [
     "npu_three_interpolate_backward",
     "npu_batch_matmul",
     "scatter_max_with_argmax_v2",
+    "scatter_max_v3",
     "npu_scatter_max_backward",
     "npu_scatter",
     "npu_scatter_mean_grad",
