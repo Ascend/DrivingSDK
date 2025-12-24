@@ -82,7 +82,6 @@ code_path=model_examples/QCNet
     ```
     conda create -n QCNet python=3.9.21
     conda activate QCNet
-    pip install -r requirements.txt --no-deps
     pip install torch==2.1.0 --no-deps
     pip install torch_npu==2.1.0 --no-deps
     ```
@@ -92,6 +91,7 @@ code_path=model_examples/QCNet
     git clone https://github.com/ZikangZhou/QCNet.git && cd QCNet
     git checkout 55cacb418cbbce3753119c1f157360e66993d0d0
     git apply ../patch/qcnet.patch
+    pip install -r requirements.txt --no-deps
     cd ..
     ```
 
