@@ -39,7 +39,7 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
 
 **表 1**  昇腾软件版本支持表
 
-|     软件类型      | 支持版本 |
+|     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
 | FrameworkPTAdapter | 7.0.0  |
 |       CANN        | 8.1.RC1  |
