@@ -30,7 +30,7 @@ code_path=model_examples/CenterPoint
 
   **表 1**  昇腾软件版本支持表
 
-  |        软件类型        |   支持版本   |
+  |        软件类型        |   首次支持版本   |
   |:------------------:|:--------:|
   | FrameworkPTAdapter | 6.0.0  |
   |       CANN         | 8.0.0  |

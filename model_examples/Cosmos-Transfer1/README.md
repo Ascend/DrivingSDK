@@ -2,23 +2,35 @@
 
 ## 目录
 
-- [Cosmos-Transfer1 for PyTorch](#Cosmos-Transfer1-for-pytorch)
+- [Cosmos-Transfer1 for PyTorch](#cosmos-transfer1-for-pytorch)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [Cosmos-Transfer1](#Cosmos-Transfer1)
+- [Cosmos-Transfer1](#cosmos-transfer1)
   - [准备训练环境](#准备训练环境)
+    - [安装环境](#安装环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [准备模型权重](#准备模型权重)
     - [准备数据集](#准备数据集)
   - [快速开始](#快速开始)
-    - [训练任务](#训练任务)
+    - [训练任务-cosmos\_transfer\_7b](#训练任务-cosmos_transfer_7b)
       - [开始训练](#开始训练)
       - [训练结果](#训练结果)
-    - [推理任务](#推理任务)
-      - [开始推理](#开始推理)
+    - [训练任务-cosmos\_transfer\_7b\_sample\_AV](#训练任务-cosmos_transfer_7b_sample_av)
+      - [开始训练](#开始训练-1)
+      - [训练结果](#训练结果-1)
+    - [训练任务-cosmos\_transfer1\_7b\_sample\_AV\_single2multiview](#训练任务-cosmos_transfer1_7b_sample_av_single2multiview)
+      - [开始训练](#开始训练-2)
+      - [训练结果](#训练结果-2)
+    - [推理任务-inference\_cosmos\_transfer1\_7b](#推理任务-inference_cosmos_transfer1_7b)
+      - [推理-单模态控制 (Edge)](#推理-单模态控制-edge)
+      - [推理-蒸馏模型单模态控制 (Edge)](#推理-蒸馏模型单模态控制-edge)
+      - [推理-多模态控制](#推理-多模态控制)
+    - [推理任务-inference\_cosmos\_transfer1\_7b\_sample\_av](#推理任务-inference_cosmos_transfer1_7b_sample_av)
+    - [推理任务-inference\_cosmos\_transfer1\_7b\_sample\_av\_single2multiview](#推理任务-inference_cosmos_transfer1_7b_sample_av_single2multiview)
+    - [推理任务-inference\_cosmos\_transfer1\_7b\_4kupscaler](#推理任务-inference_cosmos_transfer1_7b_4kupscaler)
 - [变更说明](#变更说明)
 - [FAQ](#faq)
 
@@ -75,7 +87,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 
 **表 2**  昇腾软件版本支持表
 
-|     软件类型      | 支持版本 |
+|     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
 | FrameworkPTAdapter | 7.2.0  |
 |       CANN        | 8.3.RC1  |

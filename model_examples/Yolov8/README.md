@@ -25,7 +25,7 @@ YOLOv8（You Only Look Once version 8）是YOLO系列算法中的第八个版本
 
   **表 1**  昇腾软件版本支持表
 
-|     软件类型      | 支持版本 |
+|     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
 | FrameworkPTAdapter | 6.0.0  |
 |       CANN        | 8.0.0 |

@@ -2,14 +2,15 @@
 
 ## 目录
 
-- [MagicDriveDiT for PyTorch](#MagicDriveDiT-for-pytorch)
+- [MagicDriveDiT for PyTorch](#magicdrivedit-for-pytorch)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [MagicDriveDiT](#MagicDriveDiT)
+- [MagicDriveDiT](#magicdrivedit)
   - [准备训练环境](#准备训练环境)
+    - [安装环境](#安装环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [准备数据集](#准备数据集)
     - [准备预训练权重](#准备预训练权重)
@@ -67,7 +68,7 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 
 **表 2**  昇腾软件版本支持表
 
-|     软件类型      | 支持版本 |
+|     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
 | FrameworkPTAdapter | 7.0.0  |
 |       CANN        | 8.1.RC1  |

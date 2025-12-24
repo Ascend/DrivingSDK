@@ -2,13 +2,13 @@
 
 ## 目录
 
-- [PointTransformerV3 for PyTorch](#PointTransformerV3-for-pytorch)
+- [PointTransformerV3 for PyTorch](#pointtransformerv3-for-pytorch)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [PointTransformerV3](#PointTransformerV3)
+- [PointTransformerV3](#pointtransformerv3)
   - [准备训练环境](#准备训练环境)
     - [安装昇腾环境](#安装昇腾环境)
     - [安装模型环境](#安装模型环境)
@@ -60,7 +60,7 @@ code_path=model_examples/PointTransformerV3
 
 **表 1** 昇腾软件版本支持表
 
-|     软件类型      | 支持版本 |
+|     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
 | FrameworkPTAdapter | 7.1.0 |
 |       CANN        | 8.1.0 |

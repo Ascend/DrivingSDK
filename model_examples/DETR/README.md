@@ -61,7 +61,7 @@ code_path=model_examples/DETR
 
 **表 1** 昇腾软件版本支持表
 
-|     软件类型      | 支持版本 |
+|     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
 | FrameworkPTAdapter | 7.0.0 |
 |       CANN        | 8.1.RC1 |

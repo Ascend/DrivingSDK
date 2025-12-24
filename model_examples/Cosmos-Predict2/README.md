@@ -32,14 +32,14 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
 
 ## 支持任务列表
 
-本仓已经支持以下模型任务类型
+本仓已经支持以下模型任务类型。如下列表中Released为Y的表示已经过测试验证，N的表示开发自验通过。
 
-|    模型     | 任务列表 | 是否支持 |
-| :---------: | :------: | :------: |
-| Cosmos-Predict2-2B-Text2Image |   训练&推理   |    ✔     |
-| Cosmos-Predict2-14B-Text2Image |   训练&推理   |    ✔     |
-| Cosmos-Predict2-2B-Video2World |   训练&推理   |    ✔     |
-| Cosmos-Predict2-14B-Video2World |   训练&推理   |    ✔     |
+|    模型     | 任务列表 | 是否支持 | Released |
+| :---------: | :------: | :------: | :------: |
+| Cosmos-Predict2-2B-Text2Image |   训练&推理   |    ✔     |    N     |
+| Cosmos-Predict2-14B-Text2Image |   训练&推理   |    ✔     |    N     |
+| Cosmos-Predict2-2B-Video2World |   训练&推理   |    ✔     |    N     |
+| Cosmos-Predict2-14B-Video2World |   训练&推理   |    ✔     |    N     |
 
 ## 代码实现
 
@@ -64,7 +64,7 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
 
 **表 1**  昇腾软件版本支持表
 
-|     软件类型      | 支持版本 |
+|     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
 | FrameworkPTAdapter | 7.2.0  |
 |       CANN        | 8.3.RC1  |
