@@ -1,8 +1,8 @@
 diff --git a/configs/_base_/default_runtime.py b/configs/_base_/default_runtime.py
-index 1ec8bf1..f17fb22 100644
+index 1ec8bf1..f8650b3 100644
 --- a/configs/_base_/default_runtime.py
 +++ b/configs/_base_/default_runtime.py
-@@ -5,8 +5,8 @@ test_only = False  # test process
+@@ -5,8 +5,9 @@ test_only = False  # test process
  
  seed = None  # train process will init a random seed and record
  save_path = "exp/default"
@@ -10,19 +10,29 @@ index 1ec8bf1..f17fb22 100644
 -batch_size = 16  # total batch size in all gpu
 +num_worker = 8  # total worker in all gpu
 +batch_size = 8  # total batch size in all gpu
++#gradient_accumulation_steps = 1
  batch_size_val = None  # auto adapt to bs 1 for each gpu
  batch_size_test = None  # auto adapt to bs 1 for each gpu
  epoch = 100  # total epoch, data loop = epoch // eval_epoch
-@@ -29,7 +29,6 @@ hooks = [
+@@ -15,6 +16,7 @@ clip_grad = None  # disable with None, enable with a float
+ 
+ sync_bn = False
+ enable_amp = False
++#amp_dtype = "float16"
+ empty_cache = False
+ empty_cache_per_epoch = False
+ find_unused_parameters = False
+@@ -29,7 +31,7 @@ hooks = [
      dict(type="InformationWriter"),
      dict(type="SemSegEvaluator"),
      dict(type="CheckpointSaver", save_freq=None),
 -    dict(type="PreciseEvaluator", test_last=False),
++    #dict(type="PreciseEvaluator", test_last=False),
  ]
  
  # Trainer
 diff --git a/configs/nuscenes/semseg-pt-v3m1-0-base.py b/configs/nuscenes/semseg-pt-v3m1-0-base.py
-index 4f64b9e..d862c10 100644
+index 4f64b9e..34d6982 100644
 --- a/configs/nuscenes/semseg-pt-v3m1-0-base.py
 +++ b/configs/nuscenes/semseg-pt-v3m1-0-base.py
 @@ -1,7 +1,7 @@
@@ -34,61 +44,20 @@ index 4f64b9e..d862c10 100644
  mix_prob = 0.8
  empty_cache = False
  enable_amp = True
-@@ -51,8 +51,8 @@ model = dict(
- )
- 
- # scheduler settings
--epoch = 50
--eval_epoch = 50
-+epoch = 1
-+eval_epoch = 1
- optimizer = dict(type="AdamW", lr=0.002, weight_decay=0.005)
- scheduler = dict(
-     type="OneCycleLR",
-diff --git a/pointcept/datasets/modelnet.py b/pointcept/datasets/modelnet.py
-index 213f3ed..97871e4 100644
---- a/pointcept/datasets/modelnet.py
-+++ b/pointcept/datasets/modelnet.py
-@@ -10,7 +10,6 @@ Please cite our work if the code is helpful to you.
- 
- import os
- import numpy as np
--import pointops
- import torch
- from torch.utils.data import Dataset
- from copy import deepcopy
-diff --git a/pointcept/engines/hooks/evaluator.py b/pointcept/engines/hooks/evaluator.py
-index 32504b2..9694c78 100644
---- a/pointcept/engines/hooks/evaluator.py
-+++ b/pointcept/engines/hooks/evaluator.py
-@@ -8,7 +8,6 @@ Please cite our work if the code is helpful to you.
- import numpy as np
- import torch
- import torch.distributed as dist
--import pointops
- from uuid import uuid4
- 
- import pointcept.utils.comm as comm
+@@ -33,7 +33,7 @@ model = dict(
+         shuffle_orders=True,
+         pre_norm=True,
+         enable_rpe=False,
+-        enable_flash=True,
++        enable_flash=False,
+         upcast_attention=False,
+         upcast_softmax=False,
+         cls_mode=False,
 diff --git a/pointcept/engines/launch.py b/pointcept/engines/launch.py
-index 99a8351..301a5a2 100644
+index 99a8351..7b4f1e1 100644
 --- a/pointcept/engines/launch.py
 +++ b/pointcept/engines/launch.py
-@@ -11,6 +11,8 @@ import os
- import logging
- from datetime import timedelta
- import torch
-+import torch_npu
-+from torch_npu.contrib import transfer_to_npu
- import torch.distributed as dist
- import torch.multiprocessing as mp
- 
-@@ -99,13 +101,10 @@ def _distributed_worker(
-     cfg,
-     timeout=DEFAULT_TIMEOUT,
- ):
--    assert (
--        torch.cuda.is_available()
--    ), "cuda is not available. Please check your installation."
+@@ -105,7 +105,7 @@ def _distributed_worker(
      global_rank = machine_rank * num_gpus_per_machine + local_rank
      try:
          dist.init_process_group(
@@ -98,47 +67,172 @@ index 99a8351..301a5a2 100644
              world_size=world_size,
              rank=global_rank,
 diff --git a/pointcept/engines/train.py b/pointcept/engines/train.py
-index a31e21f..3a14fbc 100644
+index a31e21f..47229a4 100644
 --- a/pointcept/engines/train.py
 +++ b/pointcept/engines/train.py
-@@ -30,6 +30,8 @@ from pointcept.utils.scheduler import build_scheduler
- from pointcept.utils.events import EventStorage, ExceptionWriter
- from pointcept.utils.registry import Registry
+@@ -113,6 +113,20 @@ class TrainerBase:
+             self.writer.close()
+ 
  
 +import torch_npu
-+from torch_npu.contrib import transfer_to_npu
++enable_profiling = False
++level = 0
++activities = (
++        [torch_npu.profiler.ProfilerActivity.NPU]
++        if level == 0
++        else [
++            torch_npu.profiler.ProfilerActivity.NPU,
++            torch_npu.profiler.ProfilerActivity.CPU,
++        ]
++    )
++profiler_level = torch_npu.profiler.ProfilerLevel.Level0 if level == 0 else torch_npu.profiler.ProfilerLevel.Level1
++
++
+ @TRAINERS.register_module("DefaultTrainer")
+ class Trainer(TrainerBase):
+     def __init__(self, cfg):
+@@ -145,33 +159,75 @@ class Trainer(TrainerBase):
+         self.register_hooks(self.cfg.hooks)
  
- TRAINERS = Registry("trainers")
+     def train(self):
+-        with EventStorage() as self.storage, ExceptionWriter():
+-            # => before train
+-            self.before_train()
+-            self.logger.info(">>>>>>>>>>>>>>>> Start Training >>>>>>>>>>>>>>>>")
+-            for self.epoch in range(self.start_epoch, self.max_epoch):
+-                # => before epoch
+-                # TODO: optimize to iteration based
+-                if comm.get_world_size() > 1:
+-                    self.train_loader.sampler.set_epoch(self.epoch)
+-                self.model.train()
+-                self.data_iterator = enumerate(self.train_loader)
+-                self.before_epoch()
+-                # => run_epoch
+-                for (
+-                    self.comm_info["iter"],
+-                    self.comm_info["input_dict"],
+-                ) in self.data_iterator:
+-                    # => before_step
+-                    self.before_step()
+-                    # => run_step
+-                    self.run_step()
+-                    # => after_step
+-                    self.after_step()
+-                # => after epoch
+-                self.after_epoch()
+-            # => after train
+-            self.after_train()
++        # import pdb
++        # pdb.set_trace()
++        if enable_profiling:
++            with torch_npu.profiler.profile(
++                activities=activities,
++                with_stack=level == 2,
++                record_shapes=level > 0,
++                profile_memory=level == 2,
++                schedule=torch_npu.profiler.schedule(wait=1, warmup=1, active=1, repeat=1, skip_first=1000),
++                experimental_config=torch_npu.profiler._ExperimentalConfig(profiler_level=profiler_level),
++                on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(f"profiling_level{level}"),
++            ) as prof:
++                with EventStorage() as self.storage, ExceptionWriter():
++                    # => before train
++                    self.before_train()
++                    self.logger.info(">>>>>>>>>>>>>>>> Start Training >>>>>>>>>>>>>>>>")
++                    for self.epoch in range(self.start_epoch, self.max_epoch):
++                        # => before epoch
++                        # TODO: optimize to iteration based
++                        if comm.get_world_size() > 1:
++                            self.train_loader.sampler.set_epoch(self.epoch)
++                        self.model.train()
++                        self.data_iterator = enumerate(self.train_loader)
++                        self.before_epoch()
++                        # => run_epoch
++                        for (
++                            self.comm_info["iter"],
++                            self.comm_info["input_dict"],
++                        ) in self.data_iterator:
++                            # => before_step
++                            self.before_step()
++                            # => run_step
++                            self.run_step()
++                            # => after_step
++                            self.after_step()
++                            
++                            prof.step()
++                        # => after epoch
++                        self.after_epoch()
++                    # => after train
++                    self.after_train()
++        else:
++            with EventStorage() as self.storage, ExceptionWriter():
++                # => before train
++                self.before_train()
++                self.logger.info(">>>>>>>>>>>>>>>> Start Training >>>>>>>>>>>>>>>>")
++                for self.epoch in range(self.start_epoch, self.max_epoch):
++                    # => before epoch
++                    # TODO: optimize to iteration based
++                    if comm.get_world_size() > 1:
++                        self.train_loader.sampler.set_epoch(self.epoch)
++                    self.model.train()
++                    self.data_iterator = enumerate(self.train_loader)
++                    self.before_epoch()
++                    # => run_epoch
++                    for (
++                        self.comm_info["iter"],
++                        self.comm_info["input_dict"],
++                    ) in self.data_iterator:
++                        # => before_step
++                        self.before_step()
++                        # => run_step
++                        self.run_step()
++                        # => after_step
++                        self.after_step()
++                    # => after epoch
++                    self.after_epoch()
++                # => after train
++                self.after_train()
  
+     def run_step(self):
+         input_dict = self.comm_info["input_dict"]
 diff --git a/pointcept/models/__init__.py b/pointcept/models/__init__.py
-index aea1d44..e36abcd 100644
+index aea1d44..3206b7b 100644
 --- a/pointcept/models/__init__.py
 +++ b/pointcept/models/__init__.py
-@@ -2,23 +2,13 @@ from .builder import build_model
+@@ -2,23 +2,23 @@ from .builder import build_model
  from .default import DefaultSegmentor, DefaultClassifier
  
  # Backbones
 -from .sparse_unet import *
 -from .point_transformer import *
 -from .point_transformer_v2 import *
-+
++#from .sparse_unet import *
++#from .point_transformer import *
++#from .point_transformer_v2 import *
  from .point_transformer_v3 import *
 -from .stratified_transformer import *
 -from .spvcnn import *
 -from .octformer import *
 -from .oacnns import *
++#from .stratified_transformer import *
++#from .spvcnn import *
++#from .octformer import *
++#from .oacnns import *
  
  # from .swin3d import *
  
  # Semantic Segmentation
 -from .context_aware_classifier import *
++#from .context_aware_classifier import *
  
  # Instance Segmentation
 -from .point_group import *
++#from .point_group import *
  
  # Pretraining
 -from .masked_scene_contrast import *
 -from .point_prompt_training import *
++#from .masked_scene_contrast import *
++#from .point_prompt_training import *
 diff --git a/pointcept/models/default.py b/pointcept/models/default.py
 index 8dd600b..85fa699 100644
 --- a/pointcept/models/default.py
@@ -150,20 +244,19 @@ index 8dd600b..85fa699 100644
  from pointcept.models.losses import build_criteria
  from pointcept.models.utils.structure import Point
 diff --git a/pointcept/models/modules.py b/pointcept/models/modules.py
-index 8a737ae..405e0fd 100644
+index 8a737ae..0422c89 100644
 --- a/pointcept/models/modules.py
 +++ b/pointcept/models/modules.py
-@@ -1,6 +1,8 @@
+@@ -1,6 +1,7 @@
  import sys
  import torch.nn as nn
 -import spconv.pytorch as spconv
-+import torch_npu
-+from mx_driving.spconv import SparseConvTensor
++import mx_driving.spconv as spconv
 +from mx_driving.modules.sparse_modules import is_spconv_module
  from collections import OrderedDict
  from pointcept.models.utils.structure import Point
  
-@@ -61,7 +63,7 @@ class PointSequential(PointModule):
+@@ -61,7 +62,7 @@ class PointSequential(PointModule):
              if isinstance(module, PointModule):
                  input = module(input)
              # Spconv module
@@ -172,131 +265,322 @@ index 8a737ae..405e0fd 100644
                  if isinstance(input, Point):
                      input.sparse_conv_feat = module(input.sparse_conv_feat)
                      input.feat = input.sparse_conv_feat.features
-@@ -75,7 +77,7 @@ class PointSequential(PointModule):
-                         input.sparse_conv_feat = input.sparse_conv_feat.replace_feature(
-                             input.feat
-                         )
--                elif isinstance(input, spconv.SparseConvTensor):
-+                elif isinstance(input, SparseConvTensor):
-                     if input.indices.shape[0] != 0:
-                         input = input.replace_feature(module(input.features))
-                 else:
-diff --git a/pointcept/models/point_transformer/point_transformer_seg.py b/pointcept/models/point_transformer/point_transformer_seg.py
-index 248caca..16d9aef 100644
---- a/pointcept/models/point_transformer/point_transformer_seg.py
-+++ b/pointcept/models/point_transformer/point_transformer_seg.py
-@@ -10,7 +10,6 @@ Please cite our work if the code is helpful to you.
- import torch
- import torch.nn as nn
- import einops
--import pointops
- 
- from pointcept.models.builder import MODELS
- from .utils import LayerNorm1d
 diff --git a/pointcept/models/point_transformer_v3/point_transformer_v3m1_base.py b/pointcept/models/point_transformer_v3/point_transformer_v3m1_base.py
-index f9f5671..30a74a9 100644
+index f9f5671..f8c30cd 100644
 --- a/pointcept/models/point_transformer_v3/point_transformer_v3m1_base.py
 +++ b/pointcept/models/point_transformer_v3/point_transformer_v3m1_base.py
-@@ -10,9 +10,7 @@ from addict import Dict
+@@ -9,9 +9,10 @@ from functools import partial
+ from addict import Dict
  import math
  import torch
++import torch_npu
  import torch.nn as nn
 -import spconv.pytorch as spconv
 -import torch_scatter
--from timm.models.layers import DropPath
-+from timm.layers import DropPath
- 
- try:
-     import flash_attn
-diff --git a/pointcept/models/sparse_unet/__init__.py b/pointcept/models/sparse_unet/__init__.py
-index aafc385..63a7872 100644
---- a/pointcept/models/sparse_unet/__init__.py
-+++ b/pointcept/models/sparse_unet/__init__.py
-@@ -1,4 +1,2 @@
- from .mink_unet import *
--from .spconv_unet_v1m1_base import *
--from .spconv_unet_v1m2_bn_momentum import *
- from .spconv_unet_v1m3_pdnorm import *
-diff --git a/pointcept/models/sparse_unet/spconv_unet_v1m1_base.py b/pointcept/models/sparse_unet/spconv_unet_v1m1_base.py
-index dfcacb0..b49861d 100644
---- a/pointcept/models/sparse_unet/spconv_unet_v1m1_base.py
-+++ b/pointcept/models/sparse_unet/spconv_unet_v1m1_base.py
-@@ -11,7 +11,6 @@ from collections import OrderedDict
- import torch
- import torch.nn as nn
- 
--import spconv.pytorch as spconv
- from torch_geometric.utils import scatter
- 
- from timm.models.layers import trunc_normal_
-diff --git a/pointcept/models/sparse_unet/spconv_unet_v1m3_pdnorm.py b/pointcept/models/sparse_unet/spconv_unet_v1m3_pdnorm.py
-index 968f8f2..d46d93c 100644
---- a/pointcept/models/sparse_unet/spconv_unet_v1m3_pdnorm.py
-+++ b/pointcept/models/sparse_unet/spconv_unet_v1m3_pdnorm.py
-@@ -13,7 +13,6 @@ from collections import OrderedDict
- import torch
- import torch.nn as nn
- 
--import spconv.pytorch as spconv
- from torch_geometric.utils import scatter
- 
- from timm.models.layers import trunc_normal_
-diff --git a/pointcept/models/stratified_transformer/__init__.py b/pointcept/models/stratified_transformer/__init__.py
-index 24712d2..8b13789 100644
---- a/pointcept/models/stratified_transformer/__init__.py
-+++ b/pointcept/models/stratified_transformer/__init__.py
-@@ -1,2 +1 @@
--from .stratified_transformer_v1m1_origin import StratifiedTransformer
--from .stratified_transformer_v1m2_refine import StratifiedTransformer
-+
-diff --git a/pointcept/models/utils/structure.py b/pointcept/models/utils/structure.py
-index 47fcd05..ca502b1 100644
---- a/pointcept/models/utils/structure.py
-+++ b/pointcept/models/utils/structure.py
-@@ -1,5 +1,6 @@
- import torch
--import spconv.pytorch as spconv
-+import torch_npu
++import mx_driving
 +import mx_driving.spconv as spconv
+ from timm.models.layers import DropPath
  
  try:
-     import ocnn
+@@ -60,7 +61,7 @@ class SerializedAttention(PointModule):
+         proj_drop=0.0,
+         order_index=0,
+         enable_rpe=False,
+-        enable_flash=True,
++        enable_flash=False,
+         upcast_attention=True,
+         upcast_softmax=True,
+     ):
+@@ -73,7 +74,7 @@ class SerializedAttention(PointModule):
+         self.upcast_attention = upcast_attention
+         self.upcast_softmax = upcast_softmax
+         self.enable_rpe = enable_rpe
+-        self.enable_flash = enable_flash
++        self.enable_flash = False
+         if enable_flash:
+             assert (
+                 enable_rpe is False
+@@ -192,18 +193,9 @@ class SerializedAttention(PointModule):
+             q, k, v = (
+                 qkv.reshape(-1, K, 3, H, C // H).permute(2, 0, 3, 1, 4).unbind(dim=0)
+             )
+-            # attn
+-            if self.upcast_attention:
+-                q = q.float()
+-                k = k.float()
+-            attn = (q * self.scale) @ k.transpose(-2, -1)  # (N', H, K, K)
+-            if self.enable_rpe:
+-                attn = attn + self.rpe(self.get_rel_pos(point, order))
+-            if self.upcast_softmax:
+-                attn = attn.float()
+-            attn = self.softmax(attn)
+-            attn = self.attn_drop(attn).to(qkv.dtype)
+-            feat = (attn @ v).transpose(1, 2).reshape(-1, C)
++            feats = torch_npu.npu_fusion_attention(q, k, v, self.num_heads, "BNSD", scale=self.scale)
++            feat = feats[0].transpose(1, 2).reshape(-1, C).contiguous() #contiguous???
++            feat = feat.to(qkv.dtype)
+         else:
+             feat = flash_attn.flash_attn_varlen_qkvpacked_func(
+                 qkv.half().reshape(-1, 3, H, C // H),
+@@ -266,7 +258,7 @@ class Block(PointModule):
+         order_index=0,
+         cpe_indice_key=None,
+         enable_rpe=False,
+-        enable_flash=True,
++        enable_flash=False,
+         upcast_attention=True,
+         upcast_softmax=True,
+     ):
+@@ -281,6 +273,7 @@ class Block(PointModule):
+                 kernel_size=3,
+                 bias=True,
+                 indice_key=cpe_indice_key,
++                #mode='spconv'
+             ),
+             nn.Linear(channels, channels),
+             norm_layer(channels),
+@@ -383,20 +376,25 @@ class SerializedPooling(PointModule):
+ 
+         code = point.serialized_code >> pooling_depth * 3
+         code_, cluster, counts = torch.unique(
+-            code[0],
++            code[0].cpu(),
+             sorted=True,
+             return_inverse=True,
+             return_counts=True,
+         )
++        
++        cluster = cluster.npu().to(torch.float)
++        counts = counts.npu()
++        
+         # indices of point sorted by cluster, for torch_scatter.segment_csr
+-        _, indices = torch.sort(cluster)
++        idx_list, indices = torch.sort(cluster)
++        cluster = cluster.to(torch.int64)
+         # index pointer for sorted point, for torch_scatter.segment_csr
+         idx_ptr = torch.cat([counts.new_zeros(1), torch.cumsum(counts, dim=0)])
+         # head_indices of each cluster, for reduce attr e.g. code, batch
+         head_indices = indices[idx_ptr[:-1]]
+         # generate down code, order, inverse
+         code = code[:, head_indices]
+-        order = torch.argsort(code)
++        order = torch.argsort(code.to(torch.float)).npu()
+         inverse = torch.zeros_like(order).scatter_(
+             dim=1,
+             index=order,
+@@ -411,14 +409,20 @@ class SerializedPooling(PointModule):
+             order = order[perm]
+             inverse = inverse[perm]
+ 
++        coord_ = mx_driving.scatter_mean(point.coord[indices], idx_list.to(torch.int32))
++        proj_point_feat = self.proj(point.feat)[indices]
++        if self.reduce == 'max':
++            feat_, _ = mx_driving.scatter_max(proj_point_feat, idx_list.to(torch.int32))
++        elif self.reduce == 'mean':
++            feat_ = mx_driving.scatter_mean(proj_point_feat, idx_list.to(torch.int32))
++        else:
++            raise RuntimeError("currently other reduce method is not supported")
++
++        
+         # collect information
+         point_dict = Dict(
+-            feat=torch_scatter.segment_csr(
+-                self.proj(point.feat)[indices], idx_ptr, reduce=self.reduce
+-            ),
+-            coord=torch_scatter.segment_csr(
+-                point.coord[indices], idx_ptr, reduce="mean"
+-            ),
++            feat=feat_,
++            coord=coord_,
+             grid_coord=point.grid_coord[head_indices] >> pooling_depth,
+             serialized_code=code,
+             serialized_order=order,
+@@ -503,6 +507,7 @@ class Embedding(PointModule):
+                 padding=1,
+                 bias=False,
+                 indice_key="stem",
++                #mode='spconv'
+             )
+         )
+         if norm_layer is not None:
+diff --git a/pointcept/models/utils/serialization/default.py b/pointcept/models/utils/serialization/default.py
+index 15898b5..e78e525 100644
+--- a/pointcept/models/utils/serialization/default.py
++++ b/pointcept/models/utils/serialization/default.py
+@@ -4,6 +4,99 @@ from .z_order import key2xyz as z_order_decode_
+ from .hilbert import encode as hilbert_encode_
+ from .hilbert import decode as hilbert_decode_
+ 
++from torch import Tensor
++import triton
++import triton.language as tl
++
++def triton_encode_hilbert(xyz: Tensor, num_bits: int, trans=False):
++    num_elem = len(xyz)
++    code = xyz.new_empty(num_elem, dtype=torch.int64)
++
++    BLK = max(32, min(512, triton.next_power_of_2(num_elem)))
++
++    grid = (triton.cdiv(num_elem, BLK),)
++
++    space_size = 1 << num_bits
++    encode_hilbert_kernel[grid](
++        xyz, code, num_bits, space_size, trans, *xyz.stride(), num_elem, BLK
++    )
++    return code
++
++
++@triton.jit
++def encode_hilbert_kernel(xyz_ptr, code_ptr, num_bits: tl.constexpr, space_size: tl.constexpr, 
++                          trans: tl.constexpr, str_xyz_n, str_xyz_c, num_elem, BLK: tl.constexpr):
++    pid = tl.program_id(0)
++    offs_n = pid * BLK + tl.arange(0, BLK)
++    mask = offs_n < num_elem
++    xyz_ptrs = xyz_ptr + offs_n * str_xyz_n
++    
++    if trans:
++        x = tl.load(xyz_ptrs + 0 * str_xyz_c, mask=mask).to(tl.int64)
++        y = tl.load(xyz_ptrs + 2 * str_xyz_c, mask=mask).to(tl.int64)
++        z = tl.load(xyz_ptrs + 1 * str_xyz_c, mask=mask).to(tl.int64)
++    else:
++        x = tl.load(xyz_ptrs + 1 * str_xyz_c, mask=mask).to(tl.int64)
++        y = tl.load(xyz_ptrs + 2 * str_xyz_c, mask=mask).to(tl.int64)
++        z = tl.load(xyz_ptrs + 0 * str_xyz_c, mask=mask).to(tl.int64)
++        
++    
++    x = tl.minimum(tl.maximum(x, 0), space_size - 1)
++    y = tl.minimum(tl.maximum(y, 0), space_size - 1)
++    z = tl.minimum(tl.maximum(z, 0), space_size - 1)
++
++    # calculate hilbert distance
++    for i in tl.static_range(num_bits, 0, -1): 
++        q = 1 << i
++        p = q - 1
++
++        # dim = 0
++        x ^= tl.where((x & q) != 0, p, 0)
++
++        # dim = 1
++        cond = (y & q) != 0
++        t = (x ^ y) & p
++        x ^= tl.where(cond, p, t)
++        y ^= tl.where(cond, 0, t)
++
++        # dim = 2
++        cond = (z & q) != 0
++        t = (x ^ z) & p
++        x ^= tl.where(cond, p, t)
++        z ^= tl.where(cond, 0, t)
++
++    y ^= x
++    z ^= y
++
++    t = 0
++    for i in tl.static_range(num_bits, 0, -1): 
++        q = 1 << i
++        t ^= tl.where((z & q) != 0, q - 1, 0)
++
++    x ^= t
++    y ^= t
++    z ^= t
++
++    # write results
++    ret = 0
++    for i in tl.static_range(0, num_bits): 
++        q = 1 << i
++        ret |= (x & q) << (2 * i + 2)
++        ret |= (y & q) << (2 * i + 1)
++        ret |= (z & q) << (2 * i + 0)
++
++    code_ptrs = code_ptr + offs_n
++    tl.store(code_ptrs, ret, mask=mask)
++    
++
++def print_diff(locs, a, b):
++    diff_mask = ~torch.isclose(a, b, atol=1e-8, rtol=1e-5)
++    indices = torch.where(diff_mask)[0]
++    print(indices)
++    for i in range(min(len(indices), 10)):
++        idx = indices[i].item()
++        print(f"{locs[idx]} -> old:{a[idx]} new:{b[idx]}")
++
+ 
+ @torch.inference_mode()
+ def encode(grid_coord, batch=None, depth=16, order="z"):
+@@ -13,9 +106,9 @@ def encode(grid_coord, batch=None, depth=16, order="z"):
+     elif order == "z-trans":
+         code = z_order_encode(grid_coord[:, [1, 0, 2]], depth=depth)
+     elif order == "hilbert":
+-        code = hilbert_encode(grid_coord, depth=depth)
++        code = triton_encode_hilbert(xyz=grid_coord, num_bits=depth, trans=False)
+     elif order == "hilbert-trans":
+-        code = hilbert_encode(grid_coord[:, [1, 0, 2]], depth=depth)
++        code = triton_encode_hilbert(xyz=grid_coord, num_bits=depth, trans=True)
+     else:
+         raise NotImplementedError
+     if batch is not None:
+diff --git a/pointcept/utils/optimizer.py b/pointcept/utils/optimizer.py
+index 355ec89..acaa654 100644
+--- a/pointcept/utils/optimizer.py
++++ b/pointcept/utils/optimizer.py
+@@ -6,6 +6,7 @@ Please cite our work if the code is helpful to you.
+ """
+ 
+ import torch
++import torch_npu
+ from pointcept.utils.logger import get_root_logger
+ from pointcept.utils.registry import Registry
+ 
+@@ -14,7 +15,7 @@ OPTIMIZERS = Registry("optimizers")
+ 
+ OPTIMIZERS.register_module(module=torch.optim.SGD, name="SGD")
+ OPTIMIZERS.register_module(module=torch.optim.Adam, name="Adam")
+-OPTIMIZERS.register_module(module=torch.optim.AdamW, name="AdamW")
++OPTIMIZERS.register_module(module=torch_npu.optim.NpuFusedAdamW, name="AdamW")
+ 
+ 
+ def build_optimizer(cfg, model, param_dicts=None):
 diff --git a/tools/train.py b/tools/train.py
-index e3ed749..6297b09 100644
+index e3ed749..d0900d4 100644
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -4,14 +4,19 @@ Main Training Script
- Author: Xiaoyang Wu (xiaoyang.wu.cs@gmail.com)
+@@ -5,6 +5,39 @@ Author: Xiaoyang Wu (xiaoyang.wu.cs@gmail.com)
  Please cite our work if the code is helpful to you.
  """
--
--from pointcept.engines.defaults import (
--    default_argument_parser,
--    default_config_parser,
--    default_setup,
--)
--from pointcept.engines.train import TRAINERS
--from pointcept.engines.launch import launch
+ 
++import os
 +import torch
 +import torch_npu
++from torch_npu.contrib import transfer_to_npu
 +import mx_driving
-+from patch import ptv3_patcher_builder
++from torch.npu.amp import custom_bwd, custom_fwd
 +
-+with ptv3_patcher_builder.build():
-+    from pointcept.engines.defaults import (
-+        default_argument_parser,
-+        default_config_parser,
-+        default_setup,
-+    )
-+    from pointcept.engines.train import TRAINERS
-+    from pointcept.engines.launch import launch
- 
- 
- def main_worker(cfg):
-@@ -35,4 +40,5 @@ def main():
- 
- 
- if __name__ == "__main__":
--    main()
-+    with ptv3_patcher_builder.build():
-+        main()
++import sys
++from types import ModuleType
++sys.modules['pointops'] = ModuleType('pointops')
++sys.modules['open3d'] = ModuleType('open3d')
++
++os.environ["OMP_NUM_THREADS"] = "1"
++
++torch_npu.npu.config.allow_internal_format = False
++
++
++def replace_feature(self, feature: torch.Tensor):
++    new_spt = mx_driving.modules.sparse_structure.SparseConvTensor(feature, self.indices, self.spatial_shape,
++                        self.batch_size, self.grid)
++    return new_spt
++
++setattr(mx_driving.modules.sparse_structure.SparseConvTensor, 'replace_feature', replace_feature)
++
++
++mx_driving.ops.sparse_functional.SubMConvFunction.forward = \
++    custom_fwd(fwd=mx_driving.ops.sparse_functional.SubMConvFunction.forward, cast_inputs=torch.float32)
++
++mx_driving.ops.scatter_max.ScatterMaxFunction.forward = \
++    custom_fwd(fwd=mx_driving.ops.scatter_max.ScatterMaxFunction.forward, cast_inputs=torch.float32)
++
++
++
+ from pointcept.engines.defaults import (
+     default_argument_parser,
+     default_config_parser,

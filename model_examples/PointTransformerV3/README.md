@@ -62,8 +62,8 @@ code_path=model_examples/PointTransformerV3
 
 |     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 7.1.0 |
-|       CANN        | 8.1.0 |
+| FrameworkPTAdapter | 7.3.0 |
+|       CANN        | 8.5.0 |
 
 ### 安装模型环境
 
@@ -71,7 +71,8 @@ code_path=model_examples/PointTransformerV3
 
 | 三方库  | 支持版本 |
 | :-----: | :------: |
-| PyTorch |   2.1.0   |
+| Python |   3.10   |
+| PyTorch |   2.6.0   |
 
 0. 激活 CANN 环境
 
@@ -80,15 +81,17 @@ code_path=model_examples/PointTransformerV3
 2. 设置 PointTransformerV3 并安装相关依赖
     ```
     git clone https://github.com/Pointcept/Pointcept.git
-    cp patch.py Pointcept/tools
     cp Ptv3.patch Pointcept
     cp train_8p.sh Pointcept
     cp requirements.txt Pointcept
     cd Pointcept
     git checkout e4de3c25f57d0625cdcb66589cf180e838a05b19
-    git apply Ptv3.patch
+    git apply --reject Ptv3.patch
     pip install -r requirements.txt
     ```
+3. 使用tcmalloc
+  
+    详情参考`DrivingSDK/docs/get_started/model_optimization.md`里的`高性能内存库替换`章节 
 
 ### 准备数据集
 
@@ -136,12 +139,12 @@ code_path=model_examples/PointTransformerV3
 |     芯片      | 卡数 | Global Batchsize| mIou | FPS | 单步迭代耗时(ms) |
 | :-----------: | :--: |  :----:| :----------------: | :--: |:--: |
 |     竞品A     |  8p   |  8  |       0.5517        | 35.56 | 225 |
-| Atlas 800T A2 |  8p   |   8 |      0.5538        | 11.92 | 671 |
+| Atlas 800T A2 |  8p   |   8 |      0.5628       | 20.61 | 388 |
 
 # 变更说明
 
 2025.05.14：首次发布
-
+2025.12.12: 更新依赖版本。新增hostbound相关的优化、hilbert sfc算子优化、替换NpuFusedAdam融合算子优化，修复sort类算子走aicpu、和部分算子输入数据类型与精度相关的影响性能的bug。
 # FAQ
 
 无

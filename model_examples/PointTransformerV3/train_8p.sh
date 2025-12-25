@@ -1,3 +1,6 @@
+num_npu=8
+
+
 # 配置环境变量
 msnpureport -g error -d 0
 msnpureport -g error -d 1
@@ -24,6 +27,12 @@ export TASK_QUEUE_ENABLE=2
 #设置是否开启均匀绑核,0-关闭/1-开启粗粒度绑核/2-开启细粒度绑核
 export CPU_AFFINITY_CONF=1
 
+#使能内存池扩展段功能，此设置将指示缓存分配器创建特定的内存块分配
+export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
+
+#用于优化非连续两个算子组合类场景，0-关闭/1-开启
+export COMBINED_ENABLE=1
+
 batch_node_size=8
 
 cur_path=`pwd`
@@ -37,7 +46,11 @@ mkdir -p ${output_path_dir}
 start_time=$(date +%s)
 
 #训练
-python tools/train.py --config-file configs/nuscenes/semseg-pt-v3m1-0-base.py --num-gpus 8 --options save_path=output > ${output_path_dir}/train.log 2>&1 &
+python tools/train.py \
+  --config-file configs/nuscenes/semseg-pt-v3m1-0-base.py \
+  --num-gpus ${num_npu} \
+#  --options save_path=output 2>&1 #| tee train.log
+  --options save_path=output > ${output_path_dir}/train.log 2>&1 &
 
 wait
 #日志
