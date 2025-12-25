@@ -14,6 +14,8 @@
     - [安装昇腾环境](#安装昇腾环境)
     - [准备模型权重](#准备模型权重)
     - [准备数据集](#准备数据集)
+      - [1. cosmos\_transfer\_7b模型数据集](#1-cosmos_transfer_7b模型数据集)
+      - [2. cosmos\_transfer\_7b\_sample\_AV和cosmos\_transfer1\_7b\_sample\_AV\_single2multiview模型数据集](#2-cosmos_transfer_7b_sample_av和cosmos_transfer1_7b_sample_av_single2multiview模型数据集)
   - [快速开始](#快速开始)
     - [训练任务-cosmos\_transfer\_7b](#训练任务-cosmos_transfer_7b)
       - [开始训练](#开始训练)
@@ -33,6 +35,7 @@
     - [推理任务-inference\_cosmos\_transfer1\_7b\_4kupscaler](#推理任务-inference_cosmos_transfer1_7b_4kupscaler)
 - [变更说明](#变更说明)
 - [FAQ](#faq)
+
 
 # 简介
 
@@ -248,7 +251,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
   
 
 ### 准备数据集
-
+#### 1. cosmos_transfer_7b模型数据集
 - 根据原仓**cosmos-transfer1/examples/training_cosmos_transfer_7b**部分准备[HD-VILA-100M](https://github.com/microsoft/XPretrain/tree/main/hd-vila-100m)的子集，目录及结构如下：
 
     ```bash
@@ -291,6 +294,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     PYTHONPATH=$(pwd) python scripts/get_t5_embeddings.py --dataset_path datasets/hdvila
     ```
 
+#### 2. cosmos_transfer_7b_sample_AV和cosmos_transfer1_7b_sample_AV_single2multiview模型数据集
 - 根据原仓**cosmos-transfer1/examples/training_cosmos_transfer_7B_sample_AV**部分准备[Waymo Open Dataset](https://github.com/nv-tlabs/cosmos-av-sample-toolkits/blob/main/docs/processing_waymo_for_transfer1.md)的子集，多视角任务数据集目录及结构如下，其中，若为单视角的sample_av任务，命名为`waymo_transfer1`，并只有`pinhole_front`一个子文件夹
 
   ```bash
@@ -387,9 +391,9 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     ```
     cd ${model_root_path}
     # 将 Base model checkpoint 拆分成8个 TP checkpoints
-    PYTHONPATH=. python scripts/convert_ckpt_fsdp_to_tp.py checkpoints/nvidia/Cosmos-Transfer1-7B-Sample-AV/t2w_base_model.pt
+    PYTHONPATH=. python scripts/convert_ckpt_fsdp_to_tp.py checkpoints/nvidia/Cosmos-Transfer1-7B-Sample-AV/base_model.pt
     # LidarControl checkpoint 拆分进行post-train
-    PYTHONPATH=. python scripts/convert_ckpt_fsdp_to_tp.py checkpoints/nvidia/Cosmos-Transfer1-7B-Sample-AV/t2w_lidar_control.pt
+    PYTHONPATH=. python scripts/convert_ckpt_fsdp_to_tp.py checkpoints/nvidia/Cosmos-Transfer1-7B-Sample-AV/lidar_control.pt
     ```
 
 2. 在模型根目录下，运行训练脚本。
@@ -426,7 +430,8 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 2. 在模型根目录下，运行训练脚本。
 
    - 单机8卡精度训练
-   
+  
+   由于多视角数据集包含三个已对齐至512维的文本模态，需禁用对应的数据增强操作。请注释掉文件 `cosmos_transfer1/diffusion/datasets/augmentor_provider.py` 中第 141 至 147 行的代码。
    ```
    # 单机8卡训练
    bash test/train_cosmos_transfer_7b_sample_AV_single2multiview.sh
