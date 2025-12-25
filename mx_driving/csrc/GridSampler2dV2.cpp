@@ -67,8 +67,9 @@ at::Tensor grid_sampler2d_v2(const at::Tensor& input, const at::Tensor& grid, in
 
     // NCHW -> NHWC
     at::Tensor input_trans = input.permute({0, 2, 3, 1}).contiguous();
+    at::Tensor grid_tensor = grid.contiguous();
     EXEC_NPU_CMD(
-        aclnnGridSampler2dV2, input_trans, grid, interpolation_mode, padding_mode, align_corners, output_trans);
+        aclnnGridSampler2dV2, input_trans, grid_tensor, interpolation_mode, padding_mode, align_corners, output_trans);
 
     // NHWC -> NCHW
     at::Tensor output = output_trans.permute({0, 3, 1, 2}).contiguous();
