@@ -63,7 +63,7 @@ e2e_time=$(( $end_time - $start_time ))
 avg_time=`grep -oP 'Batch \d+\.\d+ \(\K\d+\.\d+' ${log_file} | tail -n 100 | awk '{sum+=$1; count++} END {if(count>0) print sum/count}'`
 FPS=`awk 'BEGIN{printf "%.3f\n", '$batch_node_size'/'$avg_time'}'`
 
-mIou=`grep -oP 'Best validation mIoU updated to: \K\d+\.\d+' ${log_file} | head -n 1`
+mIou=`grep -oP 'Best validation mIoU updated to: \K\d+\.\d+' ${log_file} | tail -n 1`
 
 # 输出结果
 echo "[INFO] Final Result"
