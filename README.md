@@ -236,7 +236,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [Panoptic-PolarNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet) | 1.28 | 1.69 |N|
 | [PointTransformerV3](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/PointTransformerV3)  | 11.92 | 35.56 |N|
 | [Senna](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Senna)  | 1.376 | 1.824 |N|
-| [VAD](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/VAD) | 2.847 | 7.476 |N|
+| [VAD](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/VAD) | 4.121 | 7.048 |N|
 | [VGGT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/VGGT)  | 25.04 | 15.30 |N|
 | [YoloV8](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Yolov8)   | 214.64 | 479.73 |N|
 | [NWM](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/NWM)   | 363.39 | 383.06 |N|

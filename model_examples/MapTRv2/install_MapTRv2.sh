@@ -36,7 +36,7 @@ cd ..
 echo "mindspeed开始安装"
 git clone https://gitcode.com/Ascend/MindSpeed.git
 pip install -e MindSpeed
-pip install transformers==4.36.0
+pip install transformers==4.53.0
 
 ##模型代码更新
 echo "模型代码开始更新"
