@@ -118,7 +118,7 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
     ```
     git clone https://gitcode.com/Ascend/MindSpeed.git
     pip install -e MindSpeed
-    pip install transformers==4.36.0 ##降低transformers版本
+    pip install transformers==4.53.0
     ```
 
 7. 模型代码更新
