@@ -1,21 +1,6 @@
 src_path=$(pwd)
 
 cd $src_path
-##安装基础依赖
-echo "基础依赖开始安装"
-pip install -r requirements.txt
-
-##源码安装geos
-echo "geos开始安装"
-sparsedrive_env_path=`pip3 show mx_driving | grep "Location" | awk -F "Location: " '{print $2}' | awk -F "python" '{print $1}'`
-git clone https://github.com/libgeos/geos.git
-cd geos
-mkdir build
-cd build
-cmake ../
-make
-cp lib/libgeos* ${sparsedrive_env_path}
-cd ../..
 
 ##安装mmcv
 echo "mmcv开始安装"
@@ -32,5 +17,9 @@ cp -rf ./tools/ SparseDrive
 cp -rf SparseDrive.patch SparseDrive
 cd SparseDrive
 git checkout 52c4c05b6d446b710c8a12eb9fb19d698b33cb2b
-git apply SparseDrive.patch
+git apply --reject --whitespace=fix SparseDrive.patch
+
+##安装基础依赖
+echo "基础依赖开始安装"
+pip install -r requirements.txt
 cd ..

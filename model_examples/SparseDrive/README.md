@@ -86,29 +86,6 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
    bash install_SparseDrive.sh
    ```
 
-- 安装基础依赖
-
-  在模型源码包根目录下执行命令，安装模型需要的依赖。
-  
-  ```shell
-  pip install -r requirements.txt
-  ```
-
-- 源码安装geos
-
-  shapely模块依赖于geos安装包，需要本地编译并将so文件复制到环境中
-
-  ```shell
-  sparsedrive_env_path=`pip3 show mx_driving | grep "Location" | awk -F "Location: " '{print $2}' | awk -F "python" '{print $1}'`
-  git clone https://github.com/libgeos/geos.git
-  cd geos
-  mkdir build
-  cd build
-  cmake ../
-  make
-  cp lib/libgeos* ${sparsedrive_env_path}
-  ```
-
 - 源码安装mmcv
 
   ```shell
@@ -125,7 +102,15 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
   cp -rf SparseDrive.patch SparseDrive
   cd SparseDrive
   git checkout 52c4c05b6d446b710c8a12eb9fb19d698b33cb2b
-  git apply SparseDrive.patch
+  git apply --reject --whitespace=fix SparseDrive.patch
+  ```
+
+- 安装基础依赖
+
+  在模型源码包根目录下执行命令，安装模型需要的依赖。
+  
+  ```shell
+  pip install -r requirements.txt
   ```
 
 # 准备数据集
