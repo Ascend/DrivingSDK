@@ -256,7 +256,7 @@ class SparseConvolution(SparseModule):
                 input_.indice_dict[self.indice_key] = outidx_offset
         if self.bias is not None:
             out_features += self.bias
-        out_tensor = SparseConvTensor(out_features, outidx, out_spatial_shape, input_)
+        out_tensor = SparseConvTensor(out_features, outidx, out_spatial_shape, input_.batch_size)
         if input_ is not None and hasattr(input_, 'indice_dict'):
             out_tensor.indice_dict = input_.indice_dict.copy()
         return out_tensor
