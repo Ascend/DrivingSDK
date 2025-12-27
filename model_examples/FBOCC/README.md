@@ -105,9 +105,10 @@ FB-OCC基于FB-BEV，是英伟达和南京大学提出的前沿占用预测模�
     cd ..
     ```
 
-4. mmdet、torchvision等其他必要依赖安装
+4. 在模型源码目录下安装mmdet、torchvision等其他必要依赖
+
     ```
-    pip install mmdet==2.28.0 torchvision==0.16.0 mmsegmentation==0.30.0 llvmlite==0.41.0 numba==0.58.0 IPython
+    pip install -r requirements_npu.txt
     ```
 
 5. 安装mmdet3d
@@ -186,10 +187,12 @@ FB-BEV
 │   ├──resnet50-0676ba61.pth
 ├── data/
 │   ├── nuscenes/
-│   │   ├── gts/  # ln -s occupancy gts to this location
+│   │   ├── gts/
 │   │   ├── maps/
 │   │   ├── samples/
 │   │   ├── sweeps/
+│   │   ├── lidarseg/
+│   │   ├── panoptic/
 │   │   ├── v1.0-test/
 |   |   ├── v1.0-trainval/
 |   |   ├── bevdetv2-nuscenes_infos_val.pkl
@@ -219,6 +222,7 @@ FB-BEV
 mkdir ckpts
 cd ckpts
 wget https://github.com/zhiqi-li/storage/releases/download/v1.0/r50_256x705_depth_pretrain.pth
+wget https://download.pytorch.org/models/resnet50-0676ba61.pth
 ```
 
 # 快速开始

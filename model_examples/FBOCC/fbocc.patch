@@ -94,12 +94,14 @@ index d6fe203..1d23bb4 100644
      parser.add_argument('--max_d', default=100, type=int, help='max range')
      parser.add_argument(
 diff --git a/mmdet3d/datasets/occupancy_eval.py b/mmdet3d/datasets/occupancy_eval.py
-index 7d39505..1e964a0 100644
+index 7d39505..1485fba 100644
 --- a/mmdet3d/datasets/occupancy_eval.py
 +++ b/mmdet3d/datasets/occupancy_eval.py
-@@ -2,13 +2,13 @@ from .occ_metrics import Metric_mIoU, Metric_FScore
+@@ -1,14 +1,14 @@
+ from .occ_metrics import Metric_mIoU, Metric_FScore
  import argparse
- import os
+-import os
++import os
  import sys
 -import nunmpy as np
 +import numpy as np
@@ -182,9 +184,9 @@ index 227c783..fb8a0e7 100644
  from mmdet3d.models.detectors import CenterPoint
  from mmdet3d.models.builder import build_head, build_neck
  import numpy as np
--import copy 
+-import copy
 -import spconv.pytorch as spconv
--from tqdm import tqdm 
+-from tqdm import tqdm
 +import copy
 +from tqdm import tqdm
  from mmdet3d.models.fbbev.utils import run_time
@@ -214,7 +216,7 @@ index 227c783..fb8a0e7 100644
                                    curr_bev.shape, dtype=curr_bev.dtype, device=curr_bev.device)
  
          tmp_bev = self.history_bev
--        if voxel_feat: 
+-        if voxel_feat:
 +        if voxel_feat:
              n, mc, z, h, w = tmp_bev.shape
              tmp_bev = tmp_bev.reshape(n, mc, z, h, w)
@@ -314,7 +316,7 @@ index 211cc09..4601cb7 100644
          block_inplanes = [int(x * widen_factor) for x in block_inplanes]
          self.in_planes = block_inplanes[0]
          self.out_indices = out_indices
--        
+-
 +
          # replace the first several downsampling layers with the channel-squeeze layers
 -        Conv3d = nn.Conv3d if not self.use_spase_3dtensor else spconv.SubMConv3d
@@ -511,7 +513,7 @@ index d890733..5019794 100644
              bev_feat_shape = (depth.shape[0], int(self.grid_size[2]),
                                int(self.grid_size[1]), int(self.grid_size[0]),
                                feat.shape[-1])  # (B, Z, Y, X, C)
--            
+-
 -            bev_feat = bev_pool_v2(depth, feat, self.ranks_depth,
 +
 +            bev_feat = bev_pool_v3(depth, feat, self.ranks_depth,
@@ -547,9 +549,6 @@ index d890733..5019794 100644
  
              bev_feat = bev_feat.squeeze(2)
          else:
-diff --git a/mmdet3d/ops/ops_dcnv3/make.sh b/mmdet3d/ops/ops_dcnv3/make.sh
-old mode 100755
-new mode 100644
 diff --git a/occupancy_configs/_base_/init.py b/occupancy_configs/_base_/init.py
 index 26e9044..8b27cc4 100644
 --- a/occupancy_configs/_base_/init.py
@@ -607,6 +606,19 @@ index 841e3ae..dc589d8 100644
  optimizer_config = dict(grad_clip=dict(max_norm=5, norm_type=2))
  lr_config = dict(
      policy='step',
+diff --git a/requirements_npu.txt b/requirements_npu.txt
+new file mode 100644
+index 0000000..81c65ea
+--- /dev/null
++++ b/requirements_npu.txt
+@@ -0,0 +1,6 @@
++mmdet==2.28.0
++torchvision==0.16.0
++mmsegmentation==0.30.0
++llvmlite==0.41.0
++numba==0.58.0
++IPython==7.10.2
+\ No newline at end of file
 diff --git a/tools/test.py b/tools/test.py
 index 9265471..614ac87 100644
 --- a/tools/test.py
