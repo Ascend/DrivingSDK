@@ -90,7 +90,7 @@
   cp -f ../pi0.patch .
   cp -rf ../test/ .
   git apply pi0.patch
-  pip install -e .
+  pip install -e '.[pi0]'
   ```
 
 3. 根据[Mindspeed仓](https://gitcode.com/Ascend/MindSpeed)安装Mindspeed组件，如：
