@@ -178,7 +178,7 @@ index 0000000..07a5449
 +matplotlib==3.5.3
 +absl-py==1.4.0
 +google-auth==2.15.0
-+pillow==10.0.0
++pillow
 +hydra-core==1.1.1
 +pytorch-lightning==1.5.10
 +torch==2.1.0
