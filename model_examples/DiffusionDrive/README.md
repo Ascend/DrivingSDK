@@ -148,7 +148,6 @@ DiffusionDrive/
 │       ├── can_bus/              # 车辆总线信号数据
 │       ├── lidarseg/             # 激光雷达点云语义分割
 │       ├── maps/                 # 高精地图
-│       ├── nuscenes_gt_database/ # 真值数据
 │       ├── samples/              # 关键帧传感器数据
 │       ├── sweeps/               # 非关键帧连续数据
 │       ├── v1.0-test/            # 测试集元数据
@@ -173,7 +172,6 @@ export DATA_PATH=[path/to/nuscenes]
 ln -s $DATA_PATH/can_bus ./data/nuscenes/can_bus
 ln -s $DATA_PATH/lidarseg ./data/nuscenes/lidarseg
 ln -s $DATA_PATH/maps ./data/nuscenes/maps
-ln -s $DATA_PATH/nuscenes_gt_database ./data/nuscenes/nuscenes_gt_database
 ln -s $DATA_PATH/samples ./data/nuscenes/samples
 ln -s $DATA_PATH/sweeps ./data/nuscenes/sweeps
 ln -s $DATA_PATH/v1.0-test ./data/nuscenes/v1.0-test
