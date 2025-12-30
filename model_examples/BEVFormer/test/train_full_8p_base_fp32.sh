@@ -97,7 +97,7 @@ echo "------------------ Final result ------------------"
 
 #获取性能数据，不需要修改
 #单迭代训练时长，不需要修改
-TrainingTime=$(grep -o ", time: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | tail -n 10 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
+TrainingTime=$(grep -o ", time: [0-9.]*" ${test_path_dir}/output/train_full_8p_base_fp32.log | tail -n 50 | grep -o "[0-9.]*" | awk '{sum += $1} END {print sum/NR}')
 
 #吞吐量
 ActualFPS=$(awk BEGIN'{print ('$batch_size' * '$world_size') / '$TrainingTime'}')
