@@ -3,6 +3,7 @@
  *
  */
 
+#include "lib/matmul_intf.h"
 #include "kernel_utils.h"
 #include "msda.h"
 
@@ -117,11 +118,13 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Comput
     const LocalTensor<uint64_t>& validFlag, const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location,
     const LocalTensor<int32_t>& loc, const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production,
     const LocalTensor<float>& value, const LocalTensor<float>& locFloat, const LocalTensor<float>& weight,
-    const LocalTensor<float>& attentionWeight, const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output)
+    const LocalTensor<float>& attentionWeight, const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output, uint32_t round)
 {
     uint64_t bottomOffset = 2 * this->validFlagMaskLen_ / 8;
     uint64_t topOffset = 3 * this->validFlagMaskLen_ / 8;
     WaitFlag<HardEvent::V_MTE2>(this->biEvt_);
+    WaitFlag<HardEvent::V_MTE3>(this->biEvt_);
+    uint32_t divPoint = this->outerLoops_ / 5 * 4;
     for (uint32_t head = 0; head < this->outerLoops_; ++head) {
         uint32_t bufferFlag = head % 2;
         uint32_t baseIdx = head * this->innerLoopsAligned_;
@@ -135,7 +138,21 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Comput
         LocalTensor<float> valueSrc = value[bufferFlag * this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT];
 
         WaitFlag<HardEvent::V_MTE2>(bufferFlag);
-        CopyFullPoint(location, valueSrc, valid, baseIdx, innerLoops);
+
+        if(fastMode || !aligned || round>=this->coopRound || head < divPoint) {
+            CopyFullPoint(location, valueSrc, valid, baseIdx, innerLoops);
+        } else {
+            if(head == divPoint) {
+                AscendC::CrossCoreWaitFlag(2);
+            }
+            DataCopy(
+                valueSrc, 
+                this->assembleGm_[(this->blkIdx_* this->outerLoops_ + head) * this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT], 
+                this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT
+            );
+            // 必须加，否则报错
+            PipeBarrier<PIPE_MTE2>();
+        } 
         if (head == 0) {
             this->ComputeWeight(locFloat, shapeFloat, production, weight, attentionWeight);
         }
@@ -160,6 +177,11 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Comput
         if (unlikely(head == 0)) {
             WaitFlag<HardEvent::MTE3_V>(0);
             Duplicate<float>(output, 0.f, this->compTaskNum_ * this->numHeads_ * this->alignedEmbedDims_);
+            if(!fastMode && aligned && round<this->coopRound) {
+                DataCopy(this->validFlagSwapGm_[this->blkIdx_ * this->validFlagMaskLen_], validFlag, this->validFlagMaskLen_); // 256个uint64
+                DataCopy(this->locationSwapGm_[this->blkIdx_ * 4*this->alignedOneTaskNum_], location, 4 * this->alignedOneTaskNum_); // 4096个int32
+                AscendC::CrossCoreSetFlag<0x2, PIPE_MTE3>(1);
+            }
         }
         CumsumOutput(output, cornerWeightBrc, outOffset, innerLoops);
     }
@@ -186,24 +208,38 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Proces
     LocalTensor<float> locFloat = this->locFloatBuf_.template Get<float>();
     LocalTensor<float> production = this->productionBuf_.template Get<float>();
     LocalTensor<float> weight = this->weightBuf_.template Get<float>();
+    uint32_t round = 0;
 
     this->PrepareShape(shapes, shapeInt, shapeFloat, offset, offsetInt);
     Duplicate<float, false>(value, 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
     Duplicate<float, false>(value[this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT], 0.f, MASK_PLACEHOLDER, this->cornerRpt_, 1, 8);
+
+    if (!fastMode && aligned && this->blkIdx_ == 0) {
+        SetFlag<HardEvent::V_MTE3>(0);
+        WaitFlag<HardEvent::V_MTE3>(0);
+        DataCopy(this->zeroGm_, value, this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT);
+    }
+    PipeBarrier<PIPE_ALL>();
 
     SetFlag<HardEvent::V_MTE2>(this->copyEvt_);
     SetFlag<HardEvent::V_MTE2>(0);
     SetFlag<HardEvent::V_MTE2>(1);
     SetFlag<HardEvent::MTE3_V>(0);
 
-    for (uint32_t taskIdx = this->startOffset_; taskIdx < this->endOffset_; taskIdx+=this->compTaskNum_) {
-        if (unlikely(taskIdx + this->compTaskNum_ > this->endOffset_)) {
-            UpdateParams(this->endOffset_ - taskIdx);
+    for (uint32_t taskLoopId = 0; taskLoopId < this->taskLoops_; taskLoopId++) {
+        uint32_t taskIdx = this->compTaskNum_ * (taskLoopId * this->coreNum_ + this->blkIdx_);
+        if (unlikely(taskLoopId == (this->taskLoops_ - 1) && (this->batchSize_ * this->numQueries_ - this->tailStart_) > 0)) {
+            if (unlikely(this->blockTailTask_ == 0)) {
+                break;
+            }
+            taskIdx = this->blockTailStart_;
+            UpdateParams(this->blockTailTask_);
         }
         this->CopyInSample(locationFloat[2 * this->alignedOneTaskNum_], attentionWeight, taskIdx);
         this->ComputeLocation(taskIdx, locationFloat, attentionWeight, locationInt, shapeFloat, shapeInt, locFloat, locInt, offsetInt,
             validFlag.ReinterpretCast<uint8_t>());
-        ComputeBilinearInterpolation(validFlag, shapeInt, locationInt, locInt, shapeFloat, production, value, locFloat, weight, attentionWeight, cornerWeightBrc, output);
+        ComputeBilinearInterpolation(validFlag, shapeInt, locationInt, locInt, shapeFloat, production, value, locFloat, weight, attentionWeight, cornerWeightBrc, output, round);
+        round++;
         CopyOut(output, taskIdx);
     }
     WaitFlag<HardEvent::V_MTE2>(this->copyEvt_);
@@ -212,27 +248,139 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Proces
     WaitFlag<HardEvent::MTE3_V>(0);
 }
 
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnCubeKernel<aligned, fastMode>::UpdateParams(uint32_t tailCompNum)
+{
+    this->compTaskNum_ = tailCompNum;
+    if constexpr (fastMode) {
+        this->outerLoops_ = this->compTaskNum_;
+    } else {
+        this->outerLoops_ = this->compTaskNum_ * this->numHeads_;
+    }
+    if (fastMode) {
+        this->cpSampleParams_.blockCount = this->compTaskNum_;
+        this->cpDoubleSampleParams_.blockCount = this->compTaskNum_;
+    } else {
+        this->cpSampleParams_.blockCount = this->compTaskNum_ * this->numHeads_;
+        this->cpDoubleSampleParams_.blockCount = this->compTaskNum_ * this->numHeads_;
+    }
+}
+
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnCubeKernel<aligned, fastMode>::CopyFullPointToCube(
+    uint64_t valid, 
+    uint32_t baseIdx, uint32_t innerLoops, uint32_t vecCoreIdx, uint32_t bufferFlag, const LocalTensor<float>& value)
+{
+    for (int32_t i = ScalarGetSFFValue<1>(valid); i < innerLoops && i >= 0;
+        i = ScalarGetSFFValue<1>(valid)) {
+        valid = sbitset0(valid, i);
+        uint32_t idx = baseIdx + i;
+
+        int32_t gmY0Offset = this->locationGm_[vecCoreIdx * 4*this->alignedOneTaskNum_ + idx].GetValue(0);
+        int32_t gmY1Offset = this->locationGm_[vecCoreIdx * 4*this->alignedOneTaskNum_ + idx+this->alignedOneTaskNum_].GetValue(0);
+
+        this->CopyInValue(value[i * this->alignedEmbedDims_],  this->valueGm_[gmY0Offset], this->cpRowDoubleParams_);
+
+        this->CopyInValue(value[i * this->alignedEmbedDims_ + 2 * this->alignedCornerEmbedDims_], 
+            this->valueGm_[gmY1Offset], this->cpRowDoubleParams_);
+    }
+}
+
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnCubeKernel<aligned, fastMode>::CopyFullPointFromCube(
+    uint32_t head, uint32_t innerLoops, uint32_t assembleOffsetFromTbuf, uint32_t vecCoreIdx, const LocalTensor<float>& value)
+{
+    // Cube MTE3
+    DataCopy(
+        this->assembleGm_[(vecCoreIdx * this->outerLoops_ + head) * this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT], 
+        value, this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT);
+}
+
+template<bool aligned, bool fastMode>
+__aicore__ inline void MultiScaleDeformableAttnCubeKernel<aligned, fastMode>::Process()
+{
+    LocalTensor<float> value = this->assembleMBuf_.template Get<float>();
+    uint32_t round = 0;
+    uint32_t bufferFlag = 0;
+    SetFlag<HardEvent::MTE3_MTE2>(0);
+    SetFlag<HardEvent::MTE3_MTE2>(1);
+    for (uint32_t taskLoopId = 0; taskLoopId < this->taskLoops_; taskLoopId++) {
+        if(round >= this->coopRound) break;
+        uint32_t taskIdx = this->compTaskNum_ * (taskLoopId * this->coreNum_ + this->blkIdx_);
+        AscendC::CrossCoreWaitFlag(1);
+        PipeBarrier<PIPE_ALL>();
+
+        AscendC::DataCacheCleanAndInvalid<uint64_t, 
+            AscendC::CacheLine::ENTIRE_DATA_CACHE,
+            AscendC::DcciDst::CACHELINE_OUT>(this->validFlagGm_[0]);
+
+        uint32_t divPoint = this->outerLoops_ / 5 * 4; 
+
+        uint32_t vecCore[2]= {(uint32_t)this->blkIdx_ * 2, (uint32_t)this->blkIdx_ * 2 + 1};
+        for (uint32_t coreidx = 0; coreidx < 2; ++coreidx) {  
+            for (uint32_t head = divPoint; head < this->outerLoops_; ++head) {
+                uint64_t baseIdx = head * this->innerLoopsAligned_;
+                uint64_t headOffset = baseIdx / B32_DATA_NUM_PER_REPEAT;
+                uint64_t byteOffset = baseIdx - headOffset * B32_DATA_NUM_PER_REPEAT;
+                uint64_t valid = this->validFlagGm_[vecCore[coreidx] * this->validFlagMaskLen_ + headOffset].GetValue(0) >> byteOffset;
+                uint32_t assembleOffsetFromTbuf = bufferFlag * this->innerLoopsAligned_*this->embedDims_*4*B32_BYTE_SIZE;
+                uint32_t innerLoops = min(this->innerLoops_, this->innerTotal_ - (head % this->innerTotalGroup_) * this->innerLoops_);
+                LocalTensor<float> valueSrc = value[bufferFlag * this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT];
+                WaitFlag<HardEvent::MTE3_MTE2>(bufferFlag);
+                DataCopy(valueSrc, this->zeroGm_, this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT);
+                PipeBarrier<PIPE_MTE2>();
+                CopyFullPointToCube(valid, baseIdx, innerLoops, vecCore[coreidx], bufferFlag, valueSrc);
+                SetFlag<HardEvent::MTE2_MTE3>(bufferFlag);
+                WaitFlag<HardEvent::MTE2_MTE3>(bufferFlag);
+                CopyFullPointFromCube(head, this->innerLoops_, assembleOffsetFromTbuf, vecCore[coreidx], valueSrc);
+                SetFlag<HardEvent::MTE3_MTE2>(bufferFlag);
+                bufferFlag = 1 - bufferFlag;
+            }
+        }
+        PipeBarrier<PIPE_ALL>();
+        AscendC::CrossCoreSetFlag<0x2, PIPE_MTE3>(2);
+        round++;
+    }
+    WaitFlag<HardEvent::MTE3_MTE2>(0);
+    WaitFlag<HardEvent::MTE3_MTE2>(1);
+}
+
 extern "C" __global__ __aicore__ void multi_scale_deformable_attn(GM_ADDR value, GM_ADDR valueSpatialShapes,
     GM_ADDR valueLevelStartIndex, GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR output,
     GM_ADDR workspace, GM_ADDR tiling)
 {
-    TPipe pipe;
-    GET_TILING_DATA(tilingData, tiling);
-    if (TILING_KEY_IS(11)) {
-        MultiScaleDeformableAttnKernel<true, true> op(value, valueSpatialShapes, valueLevelStartIndex,
-            samplingLocations, attentionWeights, output, &tilingData, &pipe);
+
+    GM_ADDR user = GetUserWorkspace(workspace);
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIC_1_2);
+    if ASCEND_IS_AIV{
+        TPipe pipe;
+        GET_TILING_DATA(tilingData, tiling);
+        if (TILING_KEY_IS(11)) {
+            MultiScaleDeformableAttnKernel<true, true> op(value, valueSpatialShapes, valueLevelStartIndex,
+                samplingLocations, attentionWeights, output, user, &tilingData, &pipe);
+            op.Process();
+        } else if (TILING_KEY_IS(01)) {
+            MultiScaleDeformableAttnKernel<false, true> op(value, valueSpatialShapes, valueLevelStartIndex,
+                samplingLocations, attentionWeights, output, user, &tilingData, &pipe);
+            op.Process();
+        } else if (TILING_KEY_IS(10)) {
+            MultiScaleDeformableAttnKernel<true, false> op(value, valueSpatialShapes, valueLevelStartIndex,
+                samplingLocations, attentionWeights, output, user, &tilingData, &pipe);
+            op.Process();
+        } else if (TILING_KEY_IS(00)) {
+            MultiScaleDeformableAttnKernel<false, false> op(value, valueSpatialShapes, valueLevelStartIndex,
+                samplingLocations, attentionWeights, output, user, &tilingData, &pipe);
+            op.Process();
+        }
+    }
+
+    if ASCEND_IS_AIC{
+        TPipe pipe;
+        GET_TILING_DATA(tilingData, tiling);
+        if (TILING_KEY_IS(10)) {
+            MultiScaleDeformableAttnCubeKernel<true, false> op(value, valueSpatialShapes, valueLevelStartIndex,
+                samplingLocations, attentionWeights, output, user, &tilingData, &pipe);
         op.Process();
-    } else if (TILING_KEY_IS(10)) {
-        MultiScaleDeformableAttnKernel<true, false> op(value, valueSpatialShapes, valueLevelStartIndex,
-            samplingLocations, attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(01)) {
-        MultiScaleDeformableAttnKernel<false, true> op(value, valueSpatialShapes, valueLevelStartIndex,
-            samplingLocations, attentionWeights, output, &tilingData, &pipe);
-        op.Process();
-    } else if (TILING_KEY_IS(00)) {
-        MultiScaleDeformableAttnKernel<false, false> op(value, valueSpatialShapes, valueLevelStartIndex,
-            samplingLocations, attentionWeights, output, &tilingData, &pipe);
-        op.Process();
+        }
     }
 }

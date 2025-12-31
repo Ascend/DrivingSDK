@@ -314,27 +314,28 @@ extern "C" __global__ __aicore__ void multi_scale_deformable_attn_grad(GM_ADDR v
     GM_ADDR grad_value_gm, GM_ADDR grad_sampling_loc_gm, GM_ADDR grad_attn_weight_gm, GM_ADDR workspace,
     GM_ADDR tiling_data)
 {
+    GM_ADDR user = nullptr;
     TPipe pipe;
     GET_TILING_DATA(tiling_datas, tiling_data);
     if (TILING_KEY_IS(10)) {
         MultiScaleDeformableAttnGradKernel<true, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,
             sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
-            &tiling_datas, &pipe);
+            user, &tiling_datas, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(00)) {
         MultiScaleDeformableAttnGradKernel<false, false> op(value_gm, spatial_shapes_gm, level_start_index_gm,
             sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
-            &tiling_datas, &pipe);
+            user, &tiling_datas, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(11)) {
         MultiScaleDeformableAttnGradKernel<true, true> op(value_gm, spatial_shapes_gm, level_start_index_gm,
             sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
-            &tiling_datas, &pipe);
+            user, &tiling_datas, &pipe);
         op.Process();
     } else if (TILING_KEY_IS(01)) {
         MultiScaleDeformableAttnGradKernel<false, true> op(value_gm, spatial_shapes_gm, level_start_index_gm,
             sampling_loc_gm, attn_weight_gm, grad_output_gm, grad_value_gm, grad_sampling_loc_gm, grad_attn_weight_gm,
-            &tiling_datas, &pipe);
+            user, &tiling_datas, &pipe);
         op.Process();
     }
 }

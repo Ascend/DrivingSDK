@@ -24,6 +24,8 @@ const uint32_t NUM_QUERIES_DIM = 1;
 const uint32_t NUM_POINTS_DIM = 4;
 const uint32_t B32_DATA_NUM_PER_BLOCK = 8;
 const uint32_t B32_DATA_NUM_PER_REPEAT = 64;
+const uint32_t B32_BYTE_SIZE = 4;
+const uint64_t FULL_MASK = 0xffffffffffffffff;
 } // namespace
 
 namespace optiling {
@@ -43,27 +45,63 @@ static ge::graphStatus TilingFuncForMultiScaleDeformableAttn(gert::TilingContext
     auto attnWeightShape = attnWeightTensorPtr->GetStorageShape();
     auto platformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     uint32_t coreNum = platformInfo.GetCoreNumAiv();
-    context->SetBlockDim(coreNum);
-
+    uint32_t aicNum = platformInfo.GetCoreNumAic();
     uint64_t numLevels = spatialShape.GetDim(NUM_LEVEL_DIM);
     uint64_t numPoints = attnWeightShape.GetDim(NUM_POINTS_DIM);
     uint64_t numHeads = attnWeightShape.GetDim(NUM_HEADS_DIM);
     uint64_t embedDims = valueShape.GetDim(EMBED_DIMS_DIM);
+    uint64_t realLevels = attnWeightShape.GetDim(REAL_LEVEL_DIM);
+    uint64_t batchSize = valueShape.GetDim(BATCH_SIZE_DIM);
+    uint64_t numKeys = valueShape.GetDim(NUM_KEYS_DIM);
+    uint64_t numQueries = attnWeightShape.GetDim(NUM_QUERIES_DIM);
     uint64_t embedDimsAlign = (embedDims + B32_DATA_NUM_PER_BLOCK - 1) / B32_DATA_NUM_PER_BLOCK * B32_DATA_NUM_PER_BLOCK;
     bool aligned = embedDims % B32_DATA_NUM_PER_BLOCK == 0;
     bool fastMode = (numHeads * numLevels * numPoints <= B32_DATA_NUM_PER_REPEAT) && (numHeads * numLevels * numPoints * embedDimsAlign <= 2048);
 
     context->SetTilingKey((aligned ? 1 : 0) * 10 + (fastMode ? 1 : 0));
+    context->SetBlockDim(aicNum);
 
-    tiling.set_batchSize(valueShape.GetDim(BATCH_SIZE_DIM));
-    tiling.set_numKeys(valueShape.GetDim(NUM_KEYS_DIM));
+    constexpr size_t WORKSPACE_RSV_BYTE = 16 * 1024 * 1024;
+    constexpr size_t GM_ALIGN = 512;
+    constexpr size_t DB_NUM = 2;
+    constexpr size_t VALID_FLAG_NUM = 8;
+    constexpr size_t LOCATION_COORD_NUM = 4;
+    uint64_t validFlagMaskLen = 256;
+    uint32_t maxAlignedOneTaskNum = 8 * 256;
+    uint32_t maxCornerCount = 32 * 256;
+    size_t * workspaces = context->GetWorkspaceSizes(1);
+    size_t workspaceOffset = WORKSPACE_RSV_BYTE;
+    tiling.set_assembleWorkSpaceOffset(workspaceOffset);
+    // cube组装之后的value 
+    workspaceOffset = (workspaceOffset + coreNum * LOCATION_COORD_NUM * maxAlignedOneTaskNum * embedDimsAlign * B32_BYTE_SIZE + GM_ALIGN) / GM_ALIGN * GM_ALIGN;
+
+    tiling.set_locationWorkSpaceOffset(workspaceOffset);
+    // location 
+    workspaceOffset = (workspaceOffset + DB_NUM * LOCATION_COORD_NUM * maxAlignedOneTaskNum * sizeof(float) * coreNum + GM_ALIGN) / GM_ALIGN * GM_ALIGN;
+
+    tiling.set_validFlagWorkSpaceOffset(workspaceOffset);
+    //  validFlag
+    workspaceOffset = (workspaceOffset + DB_NUM * validFlagMaskLen * VALID_FLAG_NUM * coreNum + GM_ALIGN) / GM_ALIGN * GM_ALIGN;
+
+    tiling.set_zeroWorkSpaceOffset(workspaceOffset);
+    // 全0矩阵
+    workspaceOffset =
+        (workspaceOffset + maxCornerCount * B32_BYTE_SIZE + GM_ALIGN) / GM_ALIGN * GM_ALIGN; 
+
+    workspaceOffset += WORKSPACE_RSV_BYTE;
+    workspaces[0] = (workspaceOffset - 0);
+
+    tiling.set_batchSize(batchSize);
+    tiling.set_numKeys(numKeys);
     tiling.set_numHeads(numHeads);
     tiling.set_embedDims(embedDims);
     tiling.set_numLevels(numLevels);
-    tiling.set_numQueries(attnWeightShape.GetDim(NUM_QUERIES_DIM));
+    tiling.set_numQueries(numQueries);
     tiling.set_numPoints(numPoints);
     tiling.set_coreNum(coreNum);
-    tiling.set_realLevels(attnWeightShape.GetDim(REAL_LEVEL_DIM));
+    tiling.set_aicNum(aicNum);
+    tiling.set_realLevels(realLevels);
+
     MX_DRIVING_LOGI(
         "MultiScaleDeformableAttn's tiling: batchSize=%d, numKeys=%d, numHeads=%d, embedDims=%d, numLevels=%d,numQueries=%d, numPoints=%d, coreNum=%d, pointLoops=%d,realLevels=%d",
         tiling.get_batchSize(), tiling.get_numKeys(), tiling.get_numHeads(), tiling.get_embedDims(),

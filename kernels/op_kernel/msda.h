@@ -34,11 +34,11 @@ public:
     __aicore__ inline MSDABaseKernel() = delete;
 
     __aicore__ inline MSDABaseKernel(GM_ADDR value, GM_ADDR valueSpatialShapes, GM_ADDR valueLevelStartIndex,
-        GM_ADDR samplingLocations, GM_ADDR attentionWeights, const MultiScaleDeformableAttnTilingData* tilingData,
+        GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR user, const MultiScaleDeformableAttnTilingData* tilingData,
         TPipe* pipe)
         : pipe_(pipe), blkIdx_(GetBlockIdx())
     {
-        InitTiling(tilingData);
+        InitTiling(tilingData, user);
         InitGM(value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights);
         InitBuffer();
         ResetMask();
@@ -46,14 +46,6 @@ public:
     }
 
 protected:
-    __aicore__ inline void InitTask()
-    {
-        uint32_t avgTasks = (batchSize_ * numQueries_) / coreNum_;
-        uint32_t remainTasks = (batchSize_ * numQueries_) % coreNum_;
-        startOffset_ = avgTasks * blkIdx_ + (blkIdx_ < remainTasks ? blkIdx_ : remainTasks);
-        endOffset_ = startOffset_ + avgTasks + (blkIdx_ < remainTasks ? 1 : 0);
-    }
-
     __aicore__ inline uint32_t GetInnerLoops(uint32_t x)
     {
         uint32_t candicateList[4] = {8, 16, 32, 64};
@@ -67,7 +59,8 @@ protected:
         return candicateList[i - 1];
     }
 
-    __aicore__ inline void InitTiling(const MultiScaleDeformableAttnTilingData* tilingData)
+
+    __aicore__ inline void InitTiling(const MultiScaleDeformableAttnTilingData* tilingData, GM_ADDR user)
     {
         batchSize_ = tilingData->batchSize;
         numKeys_ = tilingData->numKeys;
@@ -78,6 +71,12 @@ protected:
         numPoints_ = tilingData->numPoints;
         coreNum_ = tilingData->coreNum;
         realLevels_ = tilingData->realLevels;
+        aicNum_ = tilingData->aicNum;
+        locationSwap = user + tilingData->locationWorkSpaceOffset;
+        validFlagSwap = user + tilingData->validFlagWorkSpaceOffset;
+        assemble = user + tilingData->assembleWorkSpaceOffset;
+        zero = user + tilingData->zeroWorkSpaceOffset;
+
 
         oneQueryNum_ = numHeads_ * realLevels_ * numPoints_;
         oneHeadNum_ = numLevels_ * numPoints_;
@@ -117,7 +116,6 @@ protected:
         embedMask_ = embedTail_ == 0 ? FULL_MASK : (1UL << embedTail_) - 1;
         cornerRpt_ = DivCeil(4 * alignedCornerEmbedDims_, B32_DATA_NUM_PER_REPEAT);
 
-        InitTask();
         uint32_t totalUbSize = 192 * 1024;
         uint32_t reservedUbSize = 16 * 1024;
         uint32_t usedUbSize = 8 * validFlagMaskLen_ + 3 * cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE;
@@ -125,10 +123,24 @@ protected:
         if (!forward) {
             queryUbSize = queryUbSize + 7 * alignedOneQueryNum_ * B32_BYTE_SIZE;
         }
+
+        uint32_t avgTasks = (batchSize_ * numQueries_) / coreNum_;
+        uint32_t remainTasks = (batchSize_ * numQueries_) % coreNum_;
+        startOffset_ = avgTasks * blkIdx_ + (blkIdx_ < remainTasks ? blkIdx_ : remainTasks);
+        endOffset_ = startOffset_ + avgTasks + (blkIdx_ < remainTasks ? 1 : 0);
         uint32_t modeUpperNum_ = 1024 / alignedOneQueryNum_;
         compTaskNum_ = (totalUbSize - reservedUbSize - usedUbSize) / queryUbSize;
-        compTaskNum_ = min(min(endOffset_ - startOffset_, compTaskNum_), modeUpperNum_);
+        compTaskNum_ = min(compTaskNum_, modeUpperNum_);
         compTaskNum_ = max(compTaskNum_, (uint32_t)1);
+        taskLoops_ = (batchSize_ * numQueries_) / (coreNum_ * compTaskNum_);
+        coopRound = taskLoops_;
+        tailStart_ = taskLoops_ * (coreNum_ * compTaskNum_);
+        uint32_t tailBlocks = batchSize_ * numQueries_ - tailStart_;
+        taskLoops_ += tailBlocks > 0 ? 1 : 0;
+        uint32_t tailAvgTasks = tailBlocks / coreNum_;
+        uint32_t tailRemainTasks = tailBlocks % coreNum_;
+        blockTailStart_ = tailStart_ + tailAvgTasks * blkIdx_ + (blkIdx_ < tailRemainTasks ? blkIdx_ : tailRemainTasks);
+        blockTailTask_ = tailAvgTasks + (blkIdx_ < tailRemainTasks ? 1 : 0);
         outerLoops_ = outerLoops_ * compTaskNum_;
         alignedOneTaskNum_ = AlignUp(compTaskNum_ * alignedOneQueryNum_, B32_DATA_NUM_PER_REPEAT);
         taskRpt_ = DivCeil(alignedOneTaskNum_, B32_DATA_NUM_PER_REPEAT);
@@ -182,6 +194,10 @@ protected:
 
         valueSpatialShapesGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(valueSpatialShapes));
         valueLevelStartIndexGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(valueLevelStartIndex));
+        assembleGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(this->assemble));
+        locationSwapGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(this->locationSwap));
+        validFlagSwapGm_.SetGlobalBuffer(reinterpret_cast<__gm__ uint64_t*>(this->validFlagSwap));
+        zeroGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(this->zero));
     }
 
     __aicore__ inline void InitBuffer()
@@ -291,6 +307,10 @@ protected:
     TPipe* pipe_;
     GlobalTensor<float> valueGm_, locationGm_, attentionWeightsGm_;
     GlobalTensor<int32_t> valueSpatialShapesGm_, valueLevelStartIndexGm_;
+    GlobalTensor<float> assembleGm_;
+    GlobalTensor<int32_t> locationSwapGm_;
+    GlobalTensor<uint64_t> validFlagSwapGm_;
+    GlobalTensor<float> zeroGm_;
 
     TBuf<TPosition::VECCALC> locationQue_, attentionWeightsQue_, shapeQue_, offsetQue_, valueQue_;
     TBuf<TPosition::VECCALC> outputQue_;
@@ -300,11 +320,20 @@ protected:
 
     TBuf<TPosition::VECCALC> gradLocationQue_, gradAttentionWeightsQue_;
 
+    GM_ADDR assemble;
+    GM_ADDR locationSwap;
+    GM_ADDR validFlagSwap;
+    GM_ADDR zero;
+
+    TBuf<TPosition::VECCALC> zeroQue_;
+
     int32_t blkIdx_;
 
     // const values
-    uint32_t coreNum_, compTaskNum_;
-    uint32_t startOffset_, endOffset_;
+    uint32_t coreNum_, aicNum_, compTaskNum_;
+    uint32_t startOffset_, endOffset_, tailStart_, blockTailStart_, blockTailTask_, taskLoops_;
+    uint32_t firstCoreStartOffset_, firstCoreEndOffset_, secondCoreStartOffset_, secondCoreEndOffset_;
+    uint32_t coopRound;
     uint64_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, realLevels_;
     uint32_t alignedOneTaskNum_, alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_, alignedHeadEmbedDims_;
     uint32_t oneHeadNum_, oneQueryNum_;
@@ -450,6 +479,9 @@ __aicore__ inline void MSDABaseKernel<aligned, forward, fastMode>::ComputeLocati
         validFlag[validFlagMaskLen_].ReinterpretCast<uint16_t>(), MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
 
     SetFlag<HardEvent::V_MTE2>(biEvt_);
+    if (forward) {
+        SetFlag<HardEvent::V_MTE3>(biEvt_);
+    }
 }
 
 template<bool aligned, bool forward, bool fastMode>
@@ -513,9 +545,9 @@ public:
 
     __aicore__ inline MultiScaleDeformableAttnKernel(GM_ADDR value, GM_ADDR valueSpatialShapes,
         GM_ADDR valueLevelStartIndex, GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR output,
-        const MultiScaleDeformableAttnTilingData* tilingData, TPipe* pipe)
+        GM_ADDR user, const MultiScaleDeformableAttnTilingData* tilingData, TPipe* pipe)
         : MSDABaseKernel<aligned, true, fastMode>(
-              value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, tilingData, pipe)
+              value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, user, tilingData, pipe)
     {
         outputGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(output));
     }
@@ -558,7 +590,7 @@ private:
         const LocalTensor<int32_t>& shapeInt, const LocalTensor<int32_t>& location, const LocalTensor<int32_t>& loc,
         const LocalTensor<float>& shapeFloat, const LocalTensor<float>& production, const LocalTensor<float>& value,
         const LocalTensor<float>& locFloat, const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
-        const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output);
+        const LocalTensor<float>& cornerWeightBrc, const LocalTensor<float>& output, uint32_t round);
 };
 
 template<bool aligned, bool fastMode>
@@ -568,10 +600,10 @@ public:
 
     __aicore__ inline MultiScaleDeformableAttnGradKernel(GM_ADDR value, GM_ADDR valueSpatialShapes,
         GM_ADDR valueLevelStartIndex, GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR gradOutput,
-        GM_ADDR gradValue, GM_ADDR gradSamplingLocations, GM_ADDR gradAttentionWeights,
+        GM_ADDR gradValue, GM_ADDR gradSamplingLocations, GM_ADDR gradAttentionWeights, GM_ADDR user,
         const MultiScaleDeformableAttnTilingData* tilingData, TPipe* pipe)
         : MSDABaseKernel<aligned, false, fastMode>(
-              value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, tilingData, pipe)
+              value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, user, tilingData, pipe)
     {
         gradOutGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradOutput));
         gradValueGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(gradValue));
@@ -705,5 +737,215 @@ private:
         const LocalTensor<float>& weight, const LocalTensor<float>& attentionWeight,
         const LocalTensor<float>& gradLocation, const LocalTensor<float>& gradAttentionWeight,
         const LocalTensor<uint32_t>& gatherOffset, const LocalTensor<uint64_t>& validFlag, uint32_t taskIdx);
+};
+
+
+template<bool aligned, bool forward, bool fastMode>
+class MSDABaseCubeKernel {
+public:
+    __aicore__ inline MSDABaseCubeKernel() = delete;
+
+    __aicore__ inline MSDABaseCubeKernel(GM_ADDR value, GM_ADDR valueSpatialShapes, GM_ADDR valueLevelStartIndex,
+        GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR user, const MultiScaleDeformableAttnTilingData* tilingData,
+        TPipe* pipe)
+        : pipe_(pipe), blkIdx_(GetBlockIdx())
+    {
+        InitTiling(tilingData, user);
+        InitGM(value);
+        InitBuffer();
+    }
+
+protected:
+    __aicore__ inline uint32_t GetInnerLoops(uint32_t x)
+    {
+        uint32_t candicateList[4] = {8, 16, 32, 64};
+        uint32_t i;
+        // the innerLoops must meet two condition, innerLoops % 8 = 0 (localTensor align), 64 % innerLoops = 0 (mask getValue align)
+        for (i = 1; i < 4; i++) {
+            if (x / candicateList[i] == 0) {
+                break;
+            }
+        }
+        return candicateList[i - 1];
+    }
+
+    __aicore__ inline void InitTiling(const MultiScaleDeformableAttnTilingData* tilingData, GM_ADDR user)
+    {
+        batchSize_ = tilingData->batchSize;
+        numKeys_ = tilingData->numKeys;
+        numHeads_ = tilingData->numHeads;
+        embedDims_ = tilingData->embedDims;
+        numLevels_ = tilingData->numLevels;
+        numQueries_ = tilingData->numQueries;
+        numPoints_ = tilingData->numPoints;
+        coreNum_ = tilingData->coreNum;
+        realLevels_ = tilingData->realLevels;
+        aicNum_ = tilingData->aicNum;
+        assemble = user + tilingData->assembleWorkSpaceOffset;
+        location = user + tilingData->locationWorkSpaceOffset;
+        validFlag = user + tilingData->validFlagWorkSpaceOffset;
+        zero = user + tilingData->zeroWorkSpaceOffset;
+        
+        oneQueryNum_ = numHeads_ * realLevels_ * numPoints_;
+        oneHeadNum_ = numLevels_ * numPoints_;
+        alignedEmbedDims_ = AlignUp(embedDims_, B32_DATA_NUM_PER_BLOCK);
+        if constexpr (fastMode) {
+            outerLoops_ = 1;
+            innerLoops_ = numHeads_ * oneHeadNum_;
+            innerLoopsAligned_ = AlignUp(innerLoops_, 8);
+            innerLoopsAligned_ = B32_DATA_NUM_PER_REPEAT / (B32_DATA_NUM_PER_REPEAT / innerLoopsAligned_);
+            alignedOneHeadNum_ = oneHeadNum_;
+            alignedOneQueryNum_ = innerLoopsAligned_;
+            alignedCornerEmbedDims_ = innerLoops_ * alignedEmbedDims_;
+            innerTotal_ = numHeads_ * oneHeadNum_;
+            innerTotalGroup_ = 1;
+            innerEmbedDims_ = numHeads_ * alignedEmbedDims_;
+            brcRpt_ = DivCeil(4 * innerLoops_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
+        } else {
+            uint32_t maxInnerDims = 2048; // 2048 for innerLoops = 8 && embedDims = 256, in this condition cornerRpt take up 32kb
+            innerLoops_ = oneHeadNum_ * alignedEmbedDims_ <= maxInnerDims ? oneHeadNum_ : GetInnerLoops(maxInnerDims / alignedEmbedDims_);
+            innerLoopsAligned_ = AlignUp(innerLoops_, 8);
+            innerLoopsAligned_ = B32_DATA_NUM_PER_REPEAT / (B32_DATA_NUM_PER_REPEAT / innerLoopsAligned_);
+            outerLoops_ = numHeads_ * DivCeil(oneHeadNum_, innerLoopsAligned_);
+            alignedOneHeadNum_ = AlignUp(oneHeadNum_, innerLoopsAligned_);
+            alignedOneQueryNum_ = numHeads_ * alignedOneHeadNum_;
+            alignedCornerEmbedDims_ = innerLoops_ * alignedEmbedDims_;
+            innerTotal_ = oneHeadNum_;
+            innerTotalGroup_ = DivCeil(oneHeadNum_, innerLoopsAligned_);
+            innerEmbedDims_ = alignedEmbedDims_;
+            brcRpt_ = DivCeil(4 * innerLoops_ * B32_DATA_NUM_PER_BLOCK, B32_DATA_NUM_PER_REPEAT);
+        }
+        alignedHeadEmbedDims_ = numHeads_ * alignedEmbedDims_;
+        outDims_ = numHeads_ * embedDims_;
+        embedBlk_ = DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
+        outBlk_ = numHeads_ * embedBlk_;
+        embedLoops_ = DivCeil(embedDims_, B32_DATA_NUM_PER_REPEAT);
+        embedTail_ = embedDims_ % B32_DATA_NUM_PER_REPEAT;
+        embedMask_ = embedTail_ == 0 ? FULL_MASK : (1UL << embedTail_) - 1;
+        cornerRpt_ = DivCeil(4 * alignedCornerEmbedDims_, B32_DATA_NUM_PER_REPEAT);
+
+        uint32_t totalUbSize = 192 * 1024;
+        uint32_t reservedUbSize = 16 * 1024;
+        uint32_t usedUbSize = 8 * validFlagMaskLen_ + 3 * cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE;
+        uint32_t queryUbSize = 26 * alignedOneQueryNum_ * B32_BYTE_SIZE + alignedHeadEmbedDims_ * B32_BYTE_SIZE;
+        if (!forward) {
+            queryUbSize = queryUbSize + 7 * alignedOneQueryNum_ * B32_BYTE_SIZE;
+        }
+
+        uint32_t avgTasks = (batchSize_ * numQueries_) / coreNum_;
+        uint32_t remainTasks = (batchSize_ * numQueries_) % coreNum_;
+        startOffset_ = avgTasks * blkIdx_ + (blkIdx_ < remainTasks ? blkIdx_ : remainTasks);
+        endOffset_ = startOffset_ + avgTasks + (blkIdx_ < remainTasks ? 1 : 0);
+        uint32_t modeUpperNum_ = 1024 / alignedOneQueryNum_;
+        compTaskNum_ = (totalUbSize - reservedUbSize - usedUbSize) / queryUbSize;
+        compTaskNum_ = min(compTaskNum_, modeUpperNum_);
+        compTaskNum_ = max(compTaskNum_, (uint32_t)1);
+        taskLoops_ = (batchSize_ * numQueries_) / (coreNum_ * compTaskNum_);
+        coopRound = taskLoops_;
+        tailStart_ = taskLoops_ * (coreNum_ * compTaskNum_);
+        uint32_t tailBlocks = batchSize_ * numQueries_ - tailStart_;
+        taskLoops_ += tailBlocks > 0 ? 1 : 0;
+        uint32_t tailAvgTasks = tailBlocks / coreNum_;
+        uint32_t tailRemainTasks = tailBlocks % coreNum_;
+        blockTailStart_ = tailStart_ + tailAvgTasks * blkIdx_ + (blkIdx_ < tailRemainTasks ? blkIdx_ : tailRemainTasks);
+        blockTailTask_ = tailAvgTasks + (blkIdx_ < tailRemainTasks ? 1 : 0);
+        outerLoops_ = outerLoops_ * compTaskNum_;
+        alignedOneTaskNum_ = AlignUp(compTaskNum_ * alignedOneQueryNum_, B32_DATA_NUM_PER_REPEAT);
+        taskRpt_ = DivCeil(alignedOneTaskNum_, B32_DATA_NUM_PER_REPEAT);
+    
+
+        cpRowDoubleParams_.dstStride =
+            alignedCornerEmbedDims_ / B32_DATA_NUM_PER_BLOCK - DivCeil(embedDims_, B32_DATA_NUM_PER_BLOCK);
+        if constexpr (aligned) {
+            cpRowDoubleParams_.blockLen = embedBlk_;
+            cpRowDoubleParams_.srcStride = outBlk_ - embedBlk_;
+        } else {
+            // NOT IMPL
+        }
+
+        if (fastMode) {
+            // NOT IMPL
+        } else {
+            cpSampleParams_.blockCount = compTaskNum_ * numHeads_;
+            cpSampleParams_.blockLen = oneHeadNum_ * B32_BYTE_SIZE;
+            cpSampleParams_.dstStride =
+                alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
+            cpDoubleSampleParams_.blockCount = compTaskNum_ * numHeads_;
+            cpDoubleSampleParams_.blockLen = 2 * oneHeadNum_ * B32_BYTE_SIZE;
+            cpDoubleSampleParams_.dstStride =
+                2 * alignedOneHeadNum_ / B32_DATA_NUM_PER_BLOCK - DivCeil(2 * oneHeadNum_, B32_DATA_NUM_PER_BLOCK);
+        }
+    }
+    __aicore__ inline void InitGM(GM_ADDR value)
+    {
+        valueGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(value));
+        assembleGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(this->assemble));
+        locationGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(this->location));
+        validFlagGm_.SetGlobalBuffer(reinterpret_cast<__gm__ uint64_t*>(this->validFlag));
+        zeroGm_.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(this->zero));
+    }
+    __aicore__ inline void InitBuffer()
+    {
+        pipe_->InitBuffer(assembleMBuf_, 2 * cornerRpt_ * B32_DATA_NUM_PER_REPEAT * B32_BYTE_SIZE); // cube value buf
+    }
+    __aicore__ inline void CopyInValue(
+        const LocalTensor<float>& dst, const GlobalTensor<float>& src, const DataCopyParams& cpParams)
+    {
+        if constexpr (aligned) {
+            DataCopy(dst, src, cpParams);
+        } else {
+            DataCopyPad(dst, src, cpParams, {});
+        }
+    }
+protected:
+    TPipe* pipe_;
+    GlobalTensor<float> valueGm_;
+    GlobalTensor<float> assembleGm_; 
+    GlobalTensor<float> zeroGm_;
+    GlobalTensor<int32_t> locationGm_;
+    GlobalTensor<uint64_t> validFlagGm_;
+    GM_ADDR assemble; 
+    GM_ADDR location;
+    GM_ADDR validFlag;
+    GM_ADDR zero;
+
+    TBuf<TPosition::A1> assembleMBuf_;
+    // TBuf<TPosition::A1> locationCubeQue_, validFlagCubeBuf_;
+
+    int32_t blkIdx_;
+    uint32_t coreNum_, aicNum_, compTaskNum_;
+    uint32_t startOffset_, endOffset_, tailStart_, blockTailStart_, blockTailTask_, taskLoops_;
+    uint32_t firstCoreStartOffset_, firstCoreEndOffset_, secondCoreStartOffset_, secondCoreEndOffset_;
+    uint32_t coopRound;
+    uint64_t batchSize_, numKeys_, embedDims_, numLevels_, numQueries_, numPoints_, realLevels_, numHeads_, outDims_;
+    uint32_t oneHeadNum_, oneQueryNum_;
+    uint32_t alignedOneTaskNum_, alignedOneHeadNum_, alignedOneQueryNum_, alignedEmbedDims_, alignedCornerEmbedDims_, alignedHeadEmbedDims_;
+    uint32_t outerLoops_, innerLoops_, innerLoopsAligned_, innerLoopsOffset_, innerTotal_, innerTotalGroup_, innerEmbedDims_;
+    uint16_t embedBlk_, outBlk_, brcRpt_, cornerRpt_, taskRpt_;
+    uint64_t embedLoops_, embedTail_, embedMask_;
+    uint32_t validFlagMaskLen_ {256};
+    DataCopyParams cpSampleParams_, cpDoubleSampleParams_, cpRowDoubleParams_ {2, 0, 0, 0};
+};
+
+template<bool aligned, bool fastMode>
+class MultiScaleDeformableAttnCubeKernel : MSDABaseCubeKernel<aligned, true, fastMode> {
+public:
+    __aicore__ inline MultiScaleDeformableAttnCubeKernel() = delete;
+
+    __aicore__ inline MultiScaleDeformableAttnCubeKernel(GM_ADDR value, GM_ADDR valueSpatialShapes,
+        GM_ADDR valueLevelStartIndex, GM_ADDR samplingLocations, GM_ADDR attentionWeights, GM_ADDR output,
+        GM_ADDR user, const MultiScaleDeformableAttnTilingData* tilingData, TPipe* pipe)
+        : MSDABaseCubeKernel<aligned, true, fastMode>(
+              value, valueSpatialShapes, valueLevelStartIndex, samplingLocations, attentionWeights, user, tilingData, pipe){}
+
+    __aicore__ inline void Process();
+private:
+
+    __aicore__ inline void UpdateParams(uint32_t tailCompNum);
+
+    __aicore__ inline void CopyFullPointToCube(uint64_t valid, uint32_t baseIdx, uint32_t innerLoops, uint32_t vecCoreIdx, uint32_t bufferFlag, const LocalTensor<float>& value);
+
+    __aicore__ inline void CopyFullPointFromCube(uint32_t head, uint32_t innerLoops, uint32_t assembleOffsetFromTbuf, uint32_t vecCoreIdx, const LocalTensor<float>& value);
+
 };
 #endif // MSDA_H
