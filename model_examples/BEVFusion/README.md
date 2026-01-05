@@ -166,7 +166,7 @@ cd ../
 单机8卡
 | NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size | NDS   | mAP   | FPS   |
 |------------------|-----------|-------------------------|------|-------|-------|-------|-------|-------|
-| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.44 | 66.45 | 23.62 |
+| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.98 | 67.36 | 26.46 |
 | 8p-竞品A           | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.78 | 67.36 | 22.54 |
 
 双机16卡
@@ -177,6 +177,8 @@ cd ../
 # 版本说明
 
 ## 变更
+2026.1.4：稀疏卷积类算子优化并加入一键Patch，更新模型性能，简化bevfusion.patch。
+
 2025.8.29：模型优化，更新单机性能。
 
 2025.8.1：模型性能优化，更新单机性能及精度。
@@ -188,3 +190,18 @@ cd ../
 2024.12.5：首次发布。
 
 ## FAQ
+1. `RuntimeError: The server socket has failed to listen on any local network address. The server socket has failed to bind to [::]:29500 (errno: 98 - Address already in use).`
+   
+   表示默认端口已被占用，自行修改`mmdetection3d`源码文件`tools/dist_train.sh`下的`PORT`默认值。
+
+2. `FileNotFoundError: pretrained/swint-nuimages-pretrained.pth can not be found.`
+   
+   数据文件缺失，请对照[数据准备](##数据准备)检查数据是否完整。
+
+3. `AssertionError: MMCV==2.2.0 is used but incompatible. Please install mmcv>=2.0.0rc4, <2.1.0.`
+   
+   MMCV版本冲突，修改`MMCV`源码文件`mmcv/version.py`中的`__version__ = '2.0.1'`
+
+4. `Environment variable [HCCL_IF_IP] is invalid. Reason: it should be "ip[%ifname]".`
+   
+   将环境变量设置脚本`test/env_npu.sh`中的`export HCCL_IF_IP=...`注释即可。

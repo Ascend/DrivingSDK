@@ -1,13 +1,4 @@
 #!/bin/bash
-msnpureport -g error -d 0
-msnpureport -g error -d 1
-msnpureport -g error -d 2
-msnpureport -g error -d 3
-msnpureport -g error -d 4
-msnpureport -g error -d 5
-msnpureport -g error -d 6
-msnpureport -g error -d 7
-
 # 使能内存池扩展段功能，由PyTorch管理虚拟地址和物理地址的映射关系，降低内存碎片化
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 # 增加ACLNN算子缓存数量上限

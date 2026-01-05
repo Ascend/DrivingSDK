@@ -188,7 +188,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [BEVDet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDet)  | 73.81 | 37.16 |Y|
 | [BEVDet4D](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVDet4D)  | 7.04 | 5.59 |Y|
 | [BevFormer](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVFormer)  | 3.66 | 3.32 |Y|
-| [BEVFusion](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVFusion) | 23.62 | 22.54 |Y|
+| [BEVFusion](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/BEVFusion) | 26.46 | 22.54 |Y|
 | [CenterNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterNet)  | 1257.444 | 542 |Y|
 | [CenterPoint(2D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 66.160 | 85.712 |Y|
 | [CenterPoint(3D)](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/CenterPoint)  | 39.41 | 48.48 |Y|
