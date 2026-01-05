@@ -107,12 +107,16 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t stage2SingleLoopTask = coreTaskCount / STAGE2_COPY_BUF_COUNT;
     stage2SingleLoopTask = stage2SingleLoopTask == 0? 1 : stage2SingleLoopTask;
     stage2SingleLoopTask = CeilAlign(stage2SingleLoopTask, 64u);  // for CompareScalar
+    
+    if (outChannelAligned == 0 || inChannelAligned == 0 || byteSizePerElements == 0) {
+        return ge::GRAPH_FAILED;
+    }
 
     uint32_t gatherBufLen = (ubSize - stage2SingleLoopTask * INT32_BYTE_SIZE) /
-        (inChannelAligned * byteSizePerElements * GATHER_BUF_LEN + 1);  // 加 1 避免除 0
+        (inChannelAligned * byteSizePerElements * GATHER_BUF_LEN);
     uint32_t scatterBufLen = (ubSize - stage2SingleLoopTask * INT32_BYTE_SIZE) /
-        (outChannelAligned * byteSizePerElements * SCATTER_BUF_LEN + 1);  // 加 1 避免除 0
-    
+        (outChannelAligned * byteSizePerElements * SCATTER_BUF_LEN);
+
     auto dataType = byteSizePerElements == FLOAT_BYTE_SIZE? matmul_tiling::DataType::DT_FLOAT : matmul_tiling::DataType::DT_FLOAT16;
     matmul_tiling::MatmulApiTiling mm0Tiling(ascendplatformInfo);
     mm0Tiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
