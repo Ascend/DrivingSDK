@@ -5,10 +5,20 @@ from types import ModuleType
 from typing import Dict, List, Tuple, Union
 
 
+def check_modules_exist(*names):
+    for name in names:
+        if importlib.util.find_spec(name) is None:
+            return False
+    return True
+
+
 def nuscenes_dataset(mmdet3d: ModuleType, options: Dict):
-    importlib.import_module(f"{mmdet3d.__name__}.datasets")
-    
-    if hasattr(mmdet3d.datasets.nuscenes_dataset, "output_to_nusc_box"):
+    name = f"{mmdet3d.__name__}.datasets"
+    modules_exist = check_modules_exist(
+        name, "numpy", "pyquaternion", "nuscenes.utils.data_classes")
+    datasets = importlib.import_module(name) if modules_exist else None
+    if modules_exist and hasattr(
+            datasets.nuscenes_dataset, "output_to_nusc_box"):
         import numpy as np
         import pyquaternion
         from nuscenes.utils.data_classes import Box as NuScenesBox
@@ -36,14 +46,20 @@ def nuscenes_dataset(mmdet3d: ModuleType, options: Dict):
                 box_list.append(box)
             return box_list
 
-        mmdet3d.datasets.nuscenes_dataset.output_to_nusc_box = output_to_nusc_box
+        datasets.nuscenes_dataset.output_to_nusc_box = output_to_nusc_box
     else:
+        if not modules_exist:
+            raise AttributeError("skip since requirements not met")
         raise AttributeError("mmdet3d.datasets.nuscenes_dataset.output_to_nusc_box not found")
 
 
 def nuscenes_metric(mmdet3d: ModuleType, options: Dict):
-    importlib.import_module(f"{mmdet3d.__name__}.evaluation")
-    if hasattr(mmdet3d.evaluation.metrics, "output_to_nusc_box"):
+    name = f"{mmdet3d.__name__}.evaluation"
+    modules_exist = check_modules_exist(
+        name, f"{mmdet3d.__name__}.structures", "numpy", "pyquaternion",
+        "nuscenes.utils.data_classes")
+    evaluation = importlib.import_module(name) if modules_exist else None
+    if modules_exist and hasattr(evaluation.metrics, "output_to_nusc_box"):
         import numpy as np
         import pyquaternion
         from nuscenes.utils.data_classes import Box as NuScenesBox
@@ -97,10 +113,14 @@ def nuscenes_metric(mmdet3d: ModuleType, options: Dict):
                     )
                     box_list.append(box)
             else:
-                raise NotImplementedError(f"Do not support convert {type(bbox3d)} bboxes " "to standard NuScenesBoxes.")
-
+                raise NotImplementedError(
+                    f"Do not support convert {type(bbox3d)} bboxes "
+                    "to standard NuScenesBoxes.")
             return box_list, attrs
-        
-        mmdet3d.evaluation.metrics.output_to_nusc_box = output_to_nusc_box
+
+        evaluation.metrics.output_to_nusc_box = output_to_nusc_box
     else:
-        raise AttributeError("mmdet3d.evaluation.metrics.output_to_nusc_box not found")
+        if not modules_exist:
+            raise AttributeError("skip since mmdet3 version lower than v1.1.0")
+        raise AttributeError("mmdet3d.evaluation.metrics.output_to_nusc_box "
+                             "not found")
