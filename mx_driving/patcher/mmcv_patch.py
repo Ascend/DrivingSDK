@@ -72,4 +72,40 @@ def mdc(mmcv: ModuleType, options: Dict):
         mmcv.ops.modulated_deform_conv.modulated_deform_conv2d = modulated_deform_conv2d
     else:
         raise AttributeError("In mmcv.ops.modulated_deform_conv, ModulatedDeformConv2dFunction or modulated_deform_conv not found")
-    
+
+
+def spconv3d(mmcv: ModuleType, options: Dict):
+    mxd = importlib.import_module("mx_driving")
+    if ({"ops"}).issubset(mmcv.__dir__()):
+        ops = importlib.import_module(f"{mmcv.__name__}.ops")
+        ops.SparseConvTensor = mxd.SparseConvTensor
+        ops.sparse_structure.SparseConvTensor = mxd.SparseConvTensor
+        ops.SparseSequential = mxd.SparseSequential
+        ops.sparse_modules.SparseSequential = mxd.SparseSequential
+        ops.SparseModule = mxd.SparseModule
+        ops.sparse_modules.SparseModule = mxd.SparseModule
+        ops.SparseConvolution = mxd.SparseConvolution
+        ops.sparse_conv.SparseConvolution = mxd.SparseConvolution
+        ops.SubMConv3d = mxd.SubMConv3d
+        ops.sparse_conv.SubMConv3d = mxd.SubMConv3d
+        ops.SparseConv3d = mxd.SparseConv3d
+        ops.sparse_conv.SparseConv3d = mxd.SparseConv3d
+        ops.SparseInverseConv3d = mxd.SparseInverseConv3d
+        ops.sparse_conv.SparseInverseConv3d = mxd.SparseInverseConv3d
+
+    # support mmcv version 1.7.2
+    if ({"cnn"}).issubset(mmcv.__dir__()):
+        cnn = importlib.import_module(f"{mmcv.__name__}.cnn")
+        if hasattr(cnn, "CONV_LAYERS"):
+            cnn.CONV_LAYERS.module_dict['SubMConv3d'] = mxd.SubMConv3d
+            cnn.CONV_LAYERS.module_dict['SparseConv3d'] = mxd.SparseConv3d
+            cnn.CONV_LAYERS.module_dict['SparseInverseConv3d'] = \
+                mxd.SparseInverseConv3d
+    # support mmcv version 2.0.0 or above
+    if importlib.util.find_spec("mmengine.registry") is not None:
+        registry = importlib.import_module("mmengine.registry")
+        if hasattr(registry, "MODELS"):
+            registry.MODELS.module_dict['SubMConv3d'] = mxd.SubMConv3d
+            registry.MODELS.module_dict['SparseConv3d'] = mxd.SparseConv3d
+            registry.MODELS.module_dict['SparseInverseConv3d'] = \
+                mxd.SparseInverseConv3d

@@ -1,6 +1,6 @@
 import warnings
 
-from .modules.sparse_conv import SparseConv3d, SubMConv3d, SparseInverseConv3d
+from .modules.sparse_conv import SparseConv3d, SubMConv3d, SparseInverseConv3d, SparseConvolution
 from .modules.sparse_modules import SparseConvTensor, SparseModule, SparseSequential
 
 warnings.warn(
