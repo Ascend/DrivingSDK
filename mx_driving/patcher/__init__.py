@@ -72,6 +72,6 @@ default_patcher_builder = (
     .add_module_patch("mmcv", Patch(msda), Patch(dc), Patch(mdc), Patch(stream), Patch(ddp))
     .add_module_patch("torch", Patch(index), Patch(batch_matmul))
     .add_module_patch("numpy", Patch(numpy_type))
-    .add_module_patch("mmdet", Patch(pseudo_sampler), Patch(resnet_add_relu), Patch(resnet_maxpool))
+    .add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
     .add_module_patch("mmdet3d", Patch(nuscenes_dataset), Patch(nuscenes_metric))
 )
