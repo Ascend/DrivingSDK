@@ -4,6 +4,7 @@ import platform
 import stat
 import subprocess
 import sys
+import runpy
 from pathlib import Path
 from typing import Union
 
@@ -16,6 +17,8 @@ from setuptools.command.develop import develop
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 VERSION = "1.0.0"
+
+detect_use_arch35 = os.environ.get('USE_ARCH35', 'false').lower() == 'true'
 
 
 def which(thefile):
@@ -70,6 +73,7 @@ class CPPLibBuild(build_clib):
         if not os.path.exists(mx_driving_dir):
             os.makedirs(mx_driving_dir)
 
+        use_arch35 = "ON" if detect_use_arch35 else "OFF"
         cmake_args = [
             "--preset=default",
             f"-DCMAKE_BUILD_TYPE={'Debug' if self.debug else 'Release'}",
@@ -77,6 +81,7 @@ class CPPLibBuild(build_clib):
             self.build_temp,
             f"-DMX_DRIVING_PATH={mx_driving_dir}",
             f"-DKERNEL_NAME={self.kernel_name if self.kernel_name else '*'}",
+            f"-DUSE_ARCH35={use_arch35}",
         ]
         build_args = ["--build", self.build_temp, f"-j{multiprocessing.cpu_count()}"]
 
@@ -111,6 +116,7 @@ class ExtBuild(build_ext):
             if val:
                 ext_cxx_flags.append(f"-D_PYBIND11_{name}={val}")
 
+        use_arch35 = "ON" if detect_use_arch35 else "OFF"
         cmake_args = [
             "--preset=default",
             f"-DCMAKE_BUILD_TYPE={'Debug' if self.debug else 'Release'}",
@@ -119,6 +125,7 @@ class ExtBuild(build_ext):
             f"-DMX_DRIVING_PATH={mx_driving_dir}",
             f"-DEXT_CXX_FLAGS={' '.join(ext_cxx_flags)}",
             f"-DPython3_EXECUTABLE={sys.executable}",
+            f"-DUSE_ARCH35={use_arch35}",
         ]
         if LooseVersion(torch.__version__) < LooseVersion("2.1.0"):
             cmake_args.append("-DCOMPILE_WITH_XLA:BOOL=ON")

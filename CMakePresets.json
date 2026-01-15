@@ -25,6 +25,10 @@
                     "type": "STRING",
                     "value": "ascend910b;ascend910;ascend310p;ascend910_93"
                 },
+                "ASCEND_COMPUTE_UNIT_ARCH35": {
+                    "type": "STRING",
+                    "value": "ascend910_95"
+                },
                 "ENABLE_TEST": {
                     "type": "BOOL",
                     "value": "True"
@@ -32,6 +36,10 @@
                 "vendor_name": {
                     "type": "STRING",
                     "value": "customize"
+                },
+                "vendor_name_arch35": {
+                    "type": "STRING",
+                    "value": "customize_arch35"
                 },
                 "ASCEND_CANN_PACKAGE_PATH": {
                     "type": "PATH",

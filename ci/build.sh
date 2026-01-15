@@ -6,6 +6,7 @@ SUPPORTED_PY_VERSION=(3.7 3.8 3.9 3.10 3.11)
 PY_VERSION='3.7'
 SINGLE_OP=''
 BUILD_TYPE='Release'
+USE_ARCH35='false'
 
 function check_python_version() {
     matched_py_version='false'
@@ -20,7 +21,7 @@ function check_python_version() {
     fi
 }
 function usage() {
-    echo "Usage: $0 --python=3.7 [--single_op=xxx] [--debug]" 1>&2
+    echo "Usage: $0 --python=3.7 [--single_op=xxx] [--debug] [--950]" 1>&2
 }
 function parse_script_args() {
     while [ "$#" -gt 0 ]; do
@@ -37,10 +38,14 @@ function parse_script_args() {
                 BUILD_TYPE='Debug'
                 shift 1
                 ;;
+            --950)
+                USE_ARCH35='true'
+                shift 1
+                ;;
             *)
-            usage
-            return 1
-            ;;
+                usage
+                return 1
+                ;;
         esac
     done
     return 0
@@ -64,6 +69,7 @@ function main()
 
     chmod -R 777 ${SCRIPTS_DIR}
     export BUILD_PYTHON_VERSION=${PY_VERSION}
+    export USE_ARCH35
     rm -rf ${BUILD_PACKAGES_DIR}
 
     python"${PY_VERSION}" setup.py bdist_wheel
