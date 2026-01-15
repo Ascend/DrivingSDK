@@ -263,4 +263,8 @@ wget https://download.pytorch.org/models/resnet18-f37072fd.pth
 2025.11.25: 支持torch2.7.1
 # FAQ
 
-无
+1. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
+```
+find /usr -name libtcmalloc.so*
+```
+找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

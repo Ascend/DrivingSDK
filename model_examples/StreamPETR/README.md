@@ -373,3 +373,10 @@ A2：如果不需要追求编译优化后的更高模型性能，那么可以不
 
 Q3：模型训练时，yapf组件报错`EOFError: Ran out of input`。<br>
 A3：该报错的原因是，yapf组件会创建`~/.cache/YAPF`缓存，在多进程环境中，部分进程创建该缓存后，还未向缓存文件写入内容时，其他进程识别到缓存文件存在，并试图读取文件中的内容，从而报出`EOFError: Ran out of input`错误。遇见此报错时，将环境中的yapf更新为最新版本，重新拉起模型训练即可解决。更详细的报错原因及解决方案可参考yapf社区issue[[Bug] [Crash][Reproducible] EOFError: Ran out of input when import yapf with multiprocess](https://github.com/google/yapf/issues/1204)。
+
+Q4：tcmalloc的动态库文件找不到报错？<br>
+A4：tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
+```
+find /usr -name libtcmalloc.so*
+```
+找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

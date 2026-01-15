@@ -227,3 +227,10 @@ caches
 export HF_HOME="/{path_to_caches}/caches/"
 export HUGGINGFACE_HUB_CACHE="/{path_to_caches}/caches/"
 ```
+
+Q：tcmalloc的动态库文件找不到报错？
+A：tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
+```
+find /usr -name libtcmalloc.so*
+```
+找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

@@ -263,3 +263,9 @@ wget https://download.pytorch.org/models/resnet50-0676ba61.pth
 
 ## FAQ
 1.为提升分布式训练性能，当前版本默认配置中同步批归一化（SyncBN）设置为关闭状态（'sync_bn = False'）。在8卡训练环境下，该配置精度误差较小，但大规模训练场景下的精度影响尚待进一步验证，可能会导致精度劣化。
+
+2.tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
+```
+find /usr -name libtcmalloc.so*
+```
+找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。
