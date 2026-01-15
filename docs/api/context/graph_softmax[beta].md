@@ -28,13 +28,11 @@ torch.manual_seed(1)
 def gen_inputs(Num_Edge, Num_Feature):
     src = torch.rand((Num_Edge , Num_Feature))*1000-500 # src range is [-500, 500)
     index = torch.randint(0, 1500000, (Num_Edge,)) # [0, 1500000)
-    grad_out = (torch.rand((Num_Edge, Num_Feature)) * 1e-3).float()
-    return src, index, grad_out
+    return src, index
 
 Num_Feature = 8 # Feature number is 8 in QCNet Model
 Num_Edge = 10
 
-src, index, grad_out = gen_inputs(Num_Edge, Num_Feature)
+src, index = gen_inputs(Num_Edge, Num_Feature)
 out_npu = mx_driving.graph_softmax(src.npu(), index.npu())
-out_npu.backward(grad_out)
 ```
