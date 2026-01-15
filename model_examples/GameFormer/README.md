@@ -248,3 +248,11 @@
 2. libc.so.6: version 'GLIBC_xxx' not found问题。
 
 这是由于操作系统的GLIBC版本过低，waymo-open-dataset库需要GLIBC的版本在2.31以上。可以通过**ldd --version**命令查看GLIBC版本，若小于2.31需升级系统的GLIBC库。
+
+3. tcmalloc的动态库文件找不到问题。
+
+tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
+```
+find /usr -name libtcmalloc.so*
+```
+找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

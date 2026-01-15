@@ -21,6 +21,7 @@
   - [FAQ](#faq)
     - [训练时报错`ImportError: cannot import name 'gcd' from 'fraction'`](#训练时报错importerror-cannot-import-name-gcd-from-fraction)
     - [训练时报错`torch`没有`uint64_t`属性](#训练时报错torch没有uint64_t属性)
+    - [tcmalloc的动态库文件找不到报错](#tcmalloc的动态库文件找不到报错)
 
 
 # 简介
@@ -276,3 +277,10 @@ bash test/train_multi_server.sh 8 2 1 ‘xx.xx.xx.xx’ '3389' #副节点
 
 ### 训练时报错`torch`没有`uint64_t`属性
 报错原因是`safetensors`版本与`PyTorch`版本不匹配，`PyTorch`版本为2.1.0，需匹配0.6.0以下的`safetensors`，使用`pip install safetensors==0.5.1`改变依赖版本即可。
+
+### tcmalloc的动态库文件找不到报错
+报错原因是tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
+```
+find /usr -name libtcmalloc.so*
+```
+找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。
