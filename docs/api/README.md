@@ -66,7 +66,7 @@
         <td align=center>N</td>
     </tr>
     <tr>
-        <td rowspan=11>采样</td>
+        <td rowspan=12>采样</td>
         <td align=center><a href=./context/roipoint_pool3d.md>roipoint_pool3d</a></td>
         <td align=center>Y</td>
     </tr>
@@ -104,6 +104,10 @@
     </tr>
     <tr>
         <td align=center><a href=./context/grid_sampler2d_v2.md>grid_sampler2d_v2</a></td>
+        <td align=center>N</td>
+    </tr>
+    <tr>
+        <td align=center><a href=./context/grid_sampler3d_v1.md>grid_sampler3d_v1</a></td>
         <td align=center>N</td>
     </tr>
     <tr>
