@@ -130,6 +130,8 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
     |   |   ├── nuscenes_infos_temporal_val.pkl
    ```
 2. 数据预处理
+
+   执行下面的命令进行数据预处理（若出现`ModuleNotFoundError: No module named 'tools.data_converter'`问题，参考FAQ进行处理）。
    ```
    python tools/create_data.py nuscenes --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data
    ```
@@ -200,4 +202,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 2025.8.7：增加batch_size=2性能，更新性能数据。
 
+2026.1.19: 更新对预处理数据集中出现的问题的处理办法。
+
 ## FAQ
+1、若执行数据预处理脚本过程中出现`ModuleNotFoundError: No module named 'tools.data_converter'`问题，参考bevformer 原仓的 issue（ https://github.com/fundamentalvision/BEVFormer/issues/223 或者 https://github.com/fundamentalvision/BEVFormer/pull/241 ）进行处理。
