@@ -103,12 +103,11 @@ sed -i "s/total_batch_size = ${global_batch_size}/total_batch_size = 48/" "$conf
 sed -i "s/num_gpus = ${gpu_num}/num_gpus = 8/" "$config"
 
 log_file=`find ${work_dir} -regex ".*\.log" | sort -r | head -n 1`
-batch_size=12
 
 #结果打印
 echo "------------------ Final result ------------------"
 #输出性能FPS
-time_per_iter=$(grep -E 'mmdet - INFO - (Iter|Epoch)' "${log_file}" | awk -F " time: " '!/Iter \[1\// {print $NF}' | awk -F "," '{print $1}' | awk '{ if ($0 < 2) { sum += $0; n++ } } END { if (n > 0) printf "%.2f\n", sum/n }')
+time_per_iter=$(grep -E 'mmdet - INFO - (Iter|Epoch)' "${log_file}" | awk -F " time: " '!/Iter \[1\// {print $NF}' | awk -F "," '{print $1}' | awk '{ sum += $0; n++ } END { if (n > 0) printf "%.2f\n", sum/n }')
 FPS=`awk 'BEGIN{printf "%.2f\n", '${batch_size}' * '${gpu_num}' / '${time_per_iter}'}'`
 #打印
 echo "Step time per iteration sec : $time_per_iter"

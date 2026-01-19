@@ -151,7 +151,7 @@
   export OPENBLAS_NUM_THREADS=2
   export GOTO_NUM_THREADS=2
   export OMP_NUM_THREADS=2
-  python3 tools/anchor_generator.py --ann_file ${pkl_path}/nuscenes_infos_train.pkl
+  python3 tools/anchor_generator.py --ann_file ${pkl_path}/nuscenes_infos_train.pkl --output_file_name nuscenes_kmeans900.npy
   ```
 
 ## 获取预训练权重
