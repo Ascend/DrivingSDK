@@ -25,6 +25,10 @@ def index(torch: ModuleType, options: Dict):
 
 
 def check_shape_bmm(a, b):
+    # skip a @ b which b in type numpy.ndarray
+    if not hasattr(b, 'dim'):
+        return False
+
     if not (a.dim() == b.dim() and 4 <= a.dim() <= 7):
         return False
 
