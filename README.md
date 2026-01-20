@@ -100,6 +100,10 @@ DrivingSDK算子支持的CPU架构，Python，PyTorch和torch_npu版本对应关
     ```shell
     bash ci/build.sh --python=3.8
     ```
+    > 如果希望编译A5相关算子，编译命令修改为
+    ```
+    bash ci/build.sh --python=3.8 --a5
+    ```
     参数`--python`指定编译过程中使用的Python版本，支持 3.8 及以上版本，缺省值为 3.8。请参考[编译指导](docs/get_started/compile.md)获取更多编译细节。
 
     生成的whl包在`DrivingSDK/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{Python_version}-linux_{arch}.whl`。

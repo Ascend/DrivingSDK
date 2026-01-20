@@ -21,7 +21,7 @@ function check_python_version() {
     fi
 }
 function usage() {
-    echo "Usage: $0 --python=3.7 [--single_op=xxx] [--debug] [--950]" 1>&2
+    echo "Usage: $0 --python=3.7 [--single_op=xxx] [--debug] [--a5]" 1>&2
 }
 function parse_script_args() {
     while [ "$#" -gt 0 ]; do
@@ -38,7 +38,7 @@ function parse_script_args() {
                 BUILD_TYPE='Debug'
                 shift 1
                 ;;
-            --950)
+            --a5|--A5)
                 USE_ARCH35='true'
                 shift 1
                 ;;

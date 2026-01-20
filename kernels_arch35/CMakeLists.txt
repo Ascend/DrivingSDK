@@ -141,7 +141,7 @@ elseif(BUILD_STAGE EQUAL 1)
           packages/vendors/${vendor_name_arch35}/op_impl/ai_core/tbe/kernel
           COMPUTE_UNIT
           ${compute_unit})
-        # 下面加了依赖，表示这里会构建完成之后才往下走，如果两个文件名一致，就走不进这个二进制构建过程，导致后续的cp报错
+        # 添加依赖，表示当前target需要等到ascendc_impl_gen_arch35和cust_optiling_arch35完成后才会进行
         add_dependencies(ascendc_bin_${compute_unit} ascendc_impl_gen_arch35
                          cust_optiling_arch35)
       endif()
