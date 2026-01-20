@@ -52,17 +52,19 @@ __all__ = [
     "nuscenes_dataset",
     "nuscenes_metric",
     "optimizer_wrapper",
-    "optimizer_hooks"
+    "optimizer_hooks",
+    "scatter"
 ]
 
 # Some patches in mmengine_patch are applied on mmcv module but organized in mmengine_patch
-from mx_driving.patcher.mmengine_patch import stream, ddp, optimizer_hooks, optimizer_wrapper 
+from mx_driving.patcher.mmengine_patch import stream, ddp, optimizer_hooks, optimizer_wrapper
 
 from mx_driving.patcher.mmcv_patch import dc, mdc, msda, patch_mmcv_version, spconv3d
 from mx_driving.patcher.mmdet_patch import pseudo_sampler, resnet_add_relu, resnet_maxpool, resnet_fp16
 from mx_driving.patcher.mmdet3d_patch import nuscenes_dataset, nuscenes_metric
 from mx_driving.patcher.numpy_patch import numpy_type
 from mx_driving.patcher.torch_patch import index, batch_matmul
+from mx_driving.patcher.torch_scatter_patch import scatter
 
 from mx_driving.patcher.patcher import Patch, Patcher, PatcherBuilder
 
