@@ -472,6 +472,22 @@ def npu_subm_sparse_conv3d_grad_v2(
     grad_out_features: torch.Tensor,
     indices_offset: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
+def sigmoid_focal_loss(
+    input: torch.Tensor,
+    target: torch.Tensor,
+    weight: torch.Tensor,
+    output: torch.Tensor,
+    gamma: float,
+    alpha: float,
+) -> None: ...
+def sigmoid_focal_loss_backward(
+    input: torch.Tensor,
+    target: torch.Tensor,
+    weight: torch.Tensor,
+    output: torch.Tensor,
+    gamma: float,
+    alpha: float,
+) -> None: ...
 
 __all__ = [
     "knn",
@@ -532,4 +548,6 @@ __all__ = [
     "graph_softmax_grad",
     "cylinder_query",
     "npu_subm_sparse_conv3d_grad_v2",
+    "sigmoid_focal_loss",
+    "sigmoid_focal_loss_backward",
 ]

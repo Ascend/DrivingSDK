@@ -277,4 +277,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // npu_sparse_matmul
     m.def("npu_sparse_matmul", &npu_sparse_matmul);
+    
+    // sigmoid_focal_loss
+    m.def("sigmoid_focal_loss", &sigmoid_focal_loss);
+    m.def("sigmoid_focal_loss_backward", &sigmoid_focal_loss_backward);
 }

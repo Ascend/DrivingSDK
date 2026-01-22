@@ -69,6 +69,7 @@ __all__ = [
     "npu_unique",
     "graph_softmax",
     "cylinder_query",
+    "sigmoid_focal_loss",
 ]
 
 import os
@@ -142,6 +143,7 @@ from .ops.min_area_polygons import min_area_polygons
 from .ops.npu_unique import npu_unique
 from .ops.graph_softmax import graph_softmax
 from .ops.cylinder_query import cylinder_query
+from .ops.sigmoid_focal_loss import sigmoid_focal_loss
 
 
 def _set_env():

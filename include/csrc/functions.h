@@ -328,4 +328,10 @@ std::tuple<at::Tensor, at::Tensor> npu_sparse_matmul(const at::Tensor& features,
     const at::Tensor& unique_indices_offset, const at::Tensor& sorted_idx_to_former_indices,
     const at::Tensor& outidx_pair);
 
+void sigmoid_focal_loss(const at::Tensor& input, const at::Tensor& target, const at::Tensor& weight,
+                                    const at::Tensor& output, double gamma, double alpha);
+
+void sigmoid_focal_loss_backward(const at::Tensor& input, const at::Tensor& target, const at::Tensor& weight,
+                                    const at::Tensor& grad_input, double gamma, double alpha);
+
 #endif // CSRC_FUNCTIONS_H_
