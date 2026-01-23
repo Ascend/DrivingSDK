@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ################基础配置参数，需要模型审视修改##################
 # 网络名称，同目录名称
-Network="MagicDriveDiT"
+Network="MagicDrive-V2"
 
 # -------------------------------------------------- #
 # 训练卡数，开启sp需要至少4张卡
@@ -31,7 +31,7 @@ else
 fi
 
 # 创建输出目录
-output_dir="${test_path_dir}/output_stage2/${ASCEND_DEVICE_ID}"
+output_dir="${test_path_dir}/output_stage3/${ASCEND_DEVICE_ID}"
 mkdir -p "$output_dir"
 
 # 非平台场景时source环境变量
@@ -49,7 +49,7 @@ torchrun --nproc-per-node=$GPUS_PER_NODE \
          --nnode=1 \
          --node_rank=0 \
          scripts/train_magicdrive.py \
-         configs/magicdrive/npu_64g/stage2_1-33x224x400-12Hz_stdit3_CogVAE_boxTDS_wCT_xCE_wSST_bs4_lr8e-5_from224-80k_sp4.py \
+         scripts/train_magicdrive.py configs/magicdrive/train/stage3_higher-b-v3.1-12Hz_stdit3_CogVAE_boxTDS_wCT_xCE_wSST_bs4_lr1e-5_sp4simu8.py \
          --cfg-options \
              num_workers=$NUM_WORKERS \
              prefetch_factor=$prefetch_factor \

@@ -236,7 +236,7 @@ Driving SDK仓提供了包括感知、规划、端到端、VLA等自动驾驶模
 | [HiVT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HiVT) | 645 | 652 |N|
 | [HPTR](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/HPTR) | 25.12 | 36.07 |N|
 | [LMDrive](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/LMDrive)  | 8.02 | 13.85 |N|
-| [MagicDriveDiT](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/MagicDriveDiT) | Stage1: 0.83 | Stage1: 1.50 |N|
+| [MagicDrive-V2](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/MagicDrive-V2) | Stage1: 0.83 | Stage1: 1.50 |N|
 | [Panoptic-PolarNet](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Panoptic-PolarNet) | 1.28 | 1.69 |N|
 | [PointTransformerV3](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/PointTransformerV3)  | 11.92 | 35.56 |N|
 | [Senna](https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Senna)  | 1.376 | 1.824 |N|

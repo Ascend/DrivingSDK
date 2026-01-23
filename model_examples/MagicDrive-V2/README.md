@@ -1,14 +1,14 @@
-# MagicDriveDiT for PyTorch
+# MagicDrive-V2 for PyTorch
 
 ## 目录
 
-- [MagicDriveDiT for PyTorch](#magicdrivedit-for-pytorch)
+- [MagicDrive-V2 for PyTorch](#magicdrive-v2-for-pytorch)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [MagicDriveDiT](#magicdrivedit)
+- [MagicDrive-V2](#magicdrive-v2)
   - [准备训练环境](#准备训练环境)
     - [安装环境](#安装环境)
     - [安装昇腾环境](#安装昇腾环境)
@@ -25,7 +25,7 @@
 
 ## 模型介绍
 
-MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，基于DiT架构，通过流匹配技术和时空条件编码实现分辨率达848×1600、帧数达241帧的多视角街景视频生成，支持3D边界框、BEV地图及文本等多模态控制，解决了传统方法在可扩展性与几何控制上的瓶颈。
+MagicDrive-V2是一种面向自动驾驶的高分辨率长视频生成模型，基于DiT架构，通过流匹配技术和时空条件编码实现分辨率达848×1600、帧数达241帧的多视角街景视频生成，支持3D边界框、BEV地图及文本等多模态控制，解决了传统方法在可扩展性与几何控制上的瓶颈。
 
 ## 支持任务列表
 
@@ -33,24 +33,24 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 
 |    模型     | 任务列表 | 是否支持 |
 | :---------: | :------: | :------: |
-| MagicDriveDiT |   训练   |    ✔     |
+| MagicDrive-V2 |   训练   |    ✔     |
 
 ## 代码实现
 
 - 参考实现：
   
   ```
-  url=https://github.com/flymin/MagicDriveDiT
+  url=https://github.com/flymin/MagicDrive-V2
   commit_id=78b65f9db34c52164926815ab6ee51902960ef8a 
   ```
 
 - 适配昇腾 AI 处理器的实现：
     ```
     url=https://gitcode.com/Ascend/DrivingSDK.git
-    code_path=model_examples/MagicDriveDiT
+    code_path=model_examples/MagicDrive-V2
     ```
 
-# MagicDriveDiT
+# MagicDrive-V2
 
 ## 准备训练环境
 
@@ -85,8 +85,8 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
 3. 克隆代码仓到当前目录：
 
     ```
-    git clone https://github.com/flymin/MagicDriveDiT.git 
-    cd MagicDriveDiT
+    git clone https://github.com/flymin/MagicDrive-V2.git 
+    cd MagicDrive-V2
     git checkout 78b65f9db34c52164926815ab6ee51902960ef8a
     ```
 
@@ -94,8 +94,8 @@ MagicDriveDiT是一种面向自动驾驶的高分辨率长视频生成模型，�
     
 4. 使用 patch 文件：
     ```
-    cp -f ../MagicDriveDiT.patch .
-    git apply --reject --whitespace=fix MagicDriveDiT.patch
+    cp -f ../MagicDrive-V2.patch .
+    git apply --reject --whitespace=fix MagicDrive-V2.patch
     cp -rf ../test .
     ```
 
