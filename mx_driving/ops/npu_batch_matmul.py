@@ -7,8 +7,6 @@ import torch.nn.functional as F
 import torch_npu
 from torch.autograd import Function
 
-import mx_driving._C
-
 
 class BacthMatmulFunction(Function):
     @staticmethod
@@ -17,7 +15,7 @@ class BacthMatmulFunction(Function):
         broadcast_shape = [max(a, b) for a, b in zip(projection_mat.shape, pts_extend.shape)]
         projection_mat = projection_mat.expand(broadcast_shape).contiguous()
         pts_extend = pts_extend.expand(broadcast_shape).contiguous()
-        result = mx_driving._C.npu_batch_matmul(projection_mat, pts_extend)
+        result = torch.mul(projection_mat, pts_extend)
         result = result.sum(dim=-1, keepdim=True)
         ctx.save_for_backward(projection_mat, pts_extend)
         return result
@@ -27,8 +25,8 @@ class BacthMatmulFunction(Function):
         (projection_mat, pts_extend) = ctx.saved_tensors
         broadcast_shape = projection_mat.shape
         grad = grad.expand(broadcast_shape).contiguous()
-        dx = mx_driving._C.npu_batch_matmul(grad, pts_extend)
-        dw = mx_driving._C.npu_batch_matmul(projection_mat, grad)
+        dx = torch.mul(grad, pts_extend)
+        dw = torch.mul(projection_mat, grad)
         dw = dw.sum(dim=-2, keepdim=True).transpose(-1, -2).contiguous()
         return dx, dw
 
