@@ -20,11 +20,10 @@ mx_driving.sigmoid_focal_loss(Tensor logit, Tensor target, float gamma=2, float 
 ```python
 import torch, torch_npu
 from mx_driving import sigmoid_focal_loss
-logit = torch.rand(1800, 10, dtype=torch.float32) * 10 - 5
-target = torch.randint(low=0, high=10, size=(1800,), dtype=torch.int64)
-weight = torch.rand(1800, dtype=torch.float32) * 10 - 5
-logit_npu, target_npu, weight_npu = logit.npu(), target.npu(), weight.npu()
-logit_npu.requires_grad = True
-output = mx_driving.sigmoid_focal_loss(logit_npu, target_npu, 2.0, 0.25, weight_npu, 'mean')
+logit = torch.rand(1800, 10, dtype=torch.float32, device='npu') * 10 - 5
+target = torch.randint(low=0, high=10, size=(1800,), dtype=torch.int64, device='npu')
+weight = torch.rand(1800, dtype=torch.float32, device='npu') * 10 - 5
+logit.requires_grad = True
+output = sigmoid_focal_loss(logit, target, 2.0, 0.25, weight, 'mean')
 output.backward()
 ```

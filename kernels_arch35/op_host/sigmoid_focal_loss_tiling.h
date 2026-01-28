@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ */
 #ifndef SIGMOID_FOCAL_LOSS_TILING_H
 #define SIGMOID_FOCAL_LOSS_TILING_H
 #include "register/tilingdata_base.h"

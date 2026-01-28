@@ -1,9 +1,6 @@
-
-
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  */
-
 #include "kernel_operator.h"
 #include "kernel_tiling/kernel_tiling.h"
 
