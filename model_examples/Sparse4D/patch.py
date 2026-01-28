@@ -5,6 +5,8 @@ import os
 import sys
 from types import ModuleType
 from typing import Dict
+import collections
+import collections.abc
 import torch
 import torch_npu
 import mmcv
@@ -1117,6 +1119,10 @@ def generate_patcher_builder():
 
 # change the backend and optimizer used in Sparse4D
 def _init():
+    # fix py310 import error
+    if sys.version_info >= (3, 10):
+        if not hasattr(collections, 'Iterable'):
+            collections.Iterable = collections.abc.Iterable
     mmcv.runner.init_dist = get_hccl_init_dist('mmcv.runner')
     mmcv.runner.build_optimizer = get_fused_optimizer('mmcv.runner')
 
