@@ -26,6 +26,12 @@ constexpr int32_t FREE_NUM = 1024;
 constexpr int32_t ONE_BLK_FLOAT_NUM = 8;
 constexpr int64_t ALIGN_TILING_KEY = 1;
 constexpr int64_t NOT_ALIGN_TILING_KEY = 0;
+constexpr int32_t BUFFER_NUM = 2;
+constexpr int32_t B32_DATA_NUM_PER_BLOCK = 8;
+constexpr int32_t B32_BYTE_SIZE = 4;
+constexpr int32_t FEAT_BUF_NUM = 2;
+constexpr int32_t UNI_IDX_BUF_NUM = 3;
+
 
 int32_t AlignDown(int32_t a, int32_t b)
 {
@@ -143,9 +149,17 @@ ge::graphStatus TaskScheduleForCopy(gert::TilingContext* context, optiling::Hard
         return ge::GRAPH_FAILED;
     }
     int32_t featNum = pointShape->GetStorageShape().GetDim(1);
-    int32_t avgVoxs = (ubSize - RESERVE_UB - 2 * AlignUp(featNum, ONE_BLK_SIZE) * sizeof(float) - 3 * ONE_BLK_SIZE -
-                          FREE_NUM * sizeof(int32_t)) /
-                      B32_BYTES;
+     
+    int32_t maxPointsAlign = AlignUp(maxPoints, B32_DATA_NUM_PER_BLOCK);
+    int32_t featNumAlign = AlignUp(featNum, B32_DATA_NUM_PER_BLOCK);
+    int32_t usedUB = RESERVE_UB + FEAT_BUF_NUM * AlignUp(featNum, ONE_BLK_SIZE) * sizeof(float) + UNI_IDX_BUF_NUM * ONE_BLK_SIZE + 
+        FREE_NUM * sizeof(int32_t) + maxPoints * featNumAlign * B32_BYTE_SIZE + maxPointsAlign * B32_BYTE_SIZE;
+    
+    if (usedUB >= static_cast<int32_t>(ubSize)) {
+        return ge::GRAPH_FAILED;
+    }
+
+    int32_t avgVoxs = static_cast<int32_t>((ubSize - static_cast<uint64_t>(usedUB)) / (B32_BYTES * BUFFER_NUM));
     avgVoxs = std::min(avgVoxs, (realVoxelNum + usedCopyBlkNum - 1) / usedCopyBlkNum);
     avgVoxs = AlignUp(avgVoxs, ONE_BLK_FLOAT_NUM);
     if (avgVoxs == 0) {

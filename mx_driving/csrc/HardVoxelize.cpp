@@ -24,13 +24,14 @@ constexpr size_t ARGSORT_INDICES_IDX = 3;
 constexpr size_t UNI_ARGSORT_INDICES_IDX = 4;
 constexpr size_t POINT_NUM_DIM = 0;
 constexpr size_t FEAT_NUM_DIM = 1;
-
+constexpr int64_t MAX_POINTS_NUM = 1000;
 
 std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> hard_voxelize(const at::Tensor& points,
     const std::vector<float> voxel_sizes, const std::vector<float> coor_ranges, int64_t max_points, int64_t max_voxels)
 {
     TORCH_CHECK_NPU(points);
     TORCH_CHECK(points.dim() == 2, "points.dim() must be 2, but got: ", points.dim());
+    TORCH_CHECK(max_points <= MAX_POINTS_NUM, "max points should be set to no more than ", MAX_POINTS_NUM, ", but got: ", max_points);
     size_t point_num = static_cast<size_t>(points.size(POINT_NUM_DIM));
     size_t feat_num = static_cast<size_t>(points.size(FEAT_NUM_DIM));
     auto voxels = point_to_voxel(points, voxel_sizes, coor_ranges, "XYZ");
@@ -41,7 +42,7 @@ std::tuple<int32_t, at::Tensor, at::Tensor, at::Tensor> hard_voxelize(const at::
     at::Tensor argsort_indices = std::get<ARGSORT_INDICES_IDX>(uni_res);
     at::Tensor uni_argsort_indices = std::get<UNI_ARGSORT_INDICES_IDX>(uni_res);
 
-    auto sorted = at::sort(uni_argsort_indices.view(at::kFloat));
+    auto sorted = at::sort(uni_argsort_indices.to(at::kFloat));
     at::Tensor uni_argsort_argsort_indices = std::get<1>(sorted).to(at::kInt);
 
     int64_t real_num_voxels = std::min(static_cast<int64_t>(num_voxels), max_voxels);

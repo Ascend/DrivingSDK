@@ -17,7 +17,7 @@ mx_driving.point.Voxelization(Tensor points, List[float] voxel_size, List[float]
 - `points(Tensor)`：点云数据，数据类型为`float32`。shape为`[N, F]`。其中N为点的数量，F分别代表每个点的特征维度，其中`N > 0, F >= 3`。
 - `voxel_size(List[float])`：体素大小，数据类型为`float32`。shape为`[3]`。其中3分别代表`x, y, z`。
 - `coors_range(List[float])`：体素范围，数据类型为`float32`。shape为`[6]`。其中6分别代表`x_min, y_min, z_min, x_max, y_max, z_max`。
-- `max_points(int)`：每个体素的最大点数。默认值为`-1`。
+- `max_points(int)`：每个体素的最大点数。默认值为`-1`。`max_points<=1000`。
 - `max_voxels(int)`：最大体素数。默认值为`-1`。
 - `deterministic(bool)`：是否确定性。默认值为`True`。
 
