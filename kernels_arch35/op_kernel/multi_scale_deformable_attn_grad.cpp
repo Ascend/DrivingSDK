@@ -242,7 +242,7 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MSDASimtComputeGradLargeTe
     U oneHeadNum_, U outDims_)
 {
     U innerLoops_ = embedDims_ / Simt::GetWarpSize();
-    for (U idx = Simt::GetThreadIdx(); idx < count * embedDims_; idx += Simt::GetThreadNum()) {
+    for (U idx = Simt::GetThreadIdx(); idx < count * Simt::GetWarpSize(); idx += Simt::GetThreadNum()) {
         U pointIdx = idx / Simt::GetWarpSize();
         U channelIdx = idx % Simt::GetWarpSize();
 
