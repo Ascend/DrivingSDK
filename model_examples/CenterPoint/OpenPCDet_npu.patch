@@ -187,7 +187,7 @@ index 47c3900..7e7b835 100644
          sampler = None
      dataloader = DataLoader(
 -        dataset, batch_size=batch_size, pin_memory=True, num_workers=workers,
-+        dataset, batch_size=batch_size, pin_memory=True, num_workers=workers, persistent_workers=True,
++        dataset, batch_size=batch_size, pin_memory=True, num_workers=12, persistent_workers=True,
          shuffle=(sampler is None) and training, collate_fn=dataset.collate_batch,
          drop_last=False, sampler=sampler, timeout=0, worker_init_fn=partial(common_utils.worker_init_fn, seed=seed)
      )
