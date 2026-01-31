@@ -4,24 +4,27 @@ from typing import Dict
 
 
 # rewrite torch.Tensor.__getitem__ to support boolean indexing
-def index(torch: ModuleType, options: Dict):
-    fn = torch.Tensor.__getitem__
+def index(torch_mod: ModuleType, options: Dict):
+    original_torch_function = torch_mod.Tensor.__torch_function__
 
-    def new_fn(self, indices):
-        # check if indices is a boolean tensor
-        if not isinstance(indices, torch.Tensor) or indices.dtype != torch.bool or indices.dim() != 1:
-            return fn(self, indices)
-        if self.dim() == 1:
-            return torch.masked_select(self, indices)
-        if self.dim() == 2 and self.shape[0] == indices.shape[0]:
-            indices = indices.unsqueeze(1).expand(self.shape)
-            return torch.masked_select(self, indices).view(-1, self.shape[1])
-        return fn(self, indices)  # fallback to the original function
+    def new_torch_function(cls, func, types, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
 
-    if hasattr(torch.Tensor, "__getitem__"):
-        torch.Tensor.__getitem__ = new_fn
-    else:
-        raise AttributeError('torch.Tensor.__getitem__ not found')
+        if func is torch_mod.Tensor.__getitem__:
+            self, indices = args[0], args[1]
+
+            if torch_mod.is_tensor(indices) and indices.dtype == torch_mod.bool and indices.dim() == 1:
+                self_dim = self.dim()
+                if self_dim == 1:
+                    return torch_mod.masked_select(self, indices)
+                if self_dim == 2 and self.shape[0] == indices.shape[0]:
+                    expanded_indices = indices.unsqueeze(1).expand_as(self)
+                    return torch_mod.masked_select(self, expanded_indices).view(-1, self.shape[1])
+
+        return original_torch_function(func, types, args, kwargs)
+
+    torch_mod.Tensor.__torch_function__ = classmethod(new_torch_function)
 
 
 def check_shape_bmm(a, b):
