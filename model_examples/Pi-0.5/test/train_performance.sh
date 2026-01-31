@@ -1,6 +1,6 @@
 # 网络名称,同目录名称,需要模型审视修改
 Network="Pi05"
-batch_size=64
+batch_size=8
 world_size=16
 log_interval=20
 
@@ -29,11 +29,12 @@ start_time=$(date +%s)
 
 accelerate launch --num_processes=${world_size} $(which lerobot-train) \
   --dataset.repo_id=${dataset_dir} \
-  --policy.type=act \
+  --policy.type=pi05 \
+  --policy.dtype=bfloat16 \
   --policy.push_to_hub=false \
   --policy.repo_id=${policy_dir} \
   --steps=1000 --log_freq=${log_interval} --save_freq=200000 --batch_size=${batch_size} \
-  --output_dir=outputs/train/$start_time > ${test_path_dir}/output/train_performance_fp32.log 2>&1
+  --output_dir=outputs/train/$start_time > ${test_path_dir}/output/train_performance_bf16.log 2>&1
 
 wait
 #训练结束时间，不需要修改
@@ -47,8 +48,8 @@ echo "------------------ Final result ------------------"
 
 #获取性能数据，不需要修改
 #单迭代训练时长，不需要修改
-epoch_start_time=`grep 'ot_train.py:' ${test_path_dir}/output/train_performance_fp32.log | grep 'loss' | grep 'step:20' | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9] | head -1`
-epoch_end_time=`grep 'ot_train.py:' ${test_path_dir}/output/train_performance_fp32.log | grep 'loss' | grep 'step:1K' | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9] | head -1`
+epoch_start_time=`grep 'ot_train.py:' ${test_path_dir}/output/train_performance_bf16.log | grep 'loss' | grep 'step:20' | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9] | head -1`
+epoch_end_time=`grep 'ot_train.py:' ${test_path_dir}/output/train_performance_bf16.log | grep 'loss' | grep 'step:1K' | grep -o [0-9][0-9]:[0-9][0-9]:[0-9][0-9] | head -1`
 
 TrainingTime=$(($(date +%s -d $epoch_end_time) - $(date +%s -d $epoch_start_time)))
 

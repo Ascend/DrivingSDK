@@ -116,8 +116,10 @@
 5. 根据[Mindspeed仓](https://gitcode.com/Ascend/MindSpeed)安装Mindspeed组件，如：
     ```shell
     git clone https://gitcode.com/Ascend/MindSpeed.git
-    pip install -e MindSpeed
-    cd lerobot
+    cd MindSpeed
+    git checkout c357f9d2fd6f35365c9dc86f4792b8779420b667
+    pip install -e .
+    cd ../lerobot
     ```
 
 
@@ -126,6 +128,9 @@
 下载[koch_test数据集](https://huggingface.co/datasets/jianqiang03/koch_test/tree/main)，将数据集的绝对路径记作 dataset_path，转换数据集格式：
 ```shell
 python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id={dataset_path}
+```
+```shell
+python src/lerobot/datasets/v30/augment_dataset_quantile_stats.py --repo-id={dataset_path}
 ```
 ### 权重准备
 下载[Pi-0.5预训练权重](https://huggingface.co/lerobot/pi05_base)，将权重的绝对路径记作 pi05_weights
@@ -158,8 +163,8 @@ python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id={dataset_pat
 
     |  NAME       | Precision     |     iterations    |    global batchsize      |    training loss      |     FPS      |
     |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
-    |  竞品 H   |      FP32    |        30k     |     512    |        0.031   |    1115    |
-    |  Atlas 800T A3   |     FP32    |        30k     |      1024    |        0.034   |      2335    |
+    |  竞品 H   |      bf16    |        30k     |     64    |        0.005   |    70.8    |
+    |  Atlas 800T A3   |     bf16    |        30k     |      128    |        0.004   |      155.1    |
     ---
     字段说明
     |字段|说明|
@@ -174,6 +179,8 @@ python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id={dataset_pat
 ## 变更说明
 
 2025.11.18：首次发布。
+
+2026.1.31：更新代码和性能。
 
 ## FAQ
 Q: 在无网络或者有防火墙的网络下，模型无法自动下载paligemma的权重怎么办？

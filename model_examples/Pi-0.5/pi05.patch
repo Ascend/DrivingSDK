@@ -11,34 +11,8 @@ index 2f3a65db..8c20f399 100644
      batch_size: int = 8
      steps: int = 100_000
      eval_freq: int = 20_000
-diff --git a/src/lerobot/datasets/utils.py b/src/lerobot/datasets/utils.py
-index 37d8432b..3c1f4f0f 100644
---- a/src/lerobot/datasets/utils.py
-+++ b/src/lerobot/datasets/utils.py
-@@ -23,6 +23,7 @@ from pathlib import Path
- from pprint import pformat
- from typing import Any, Generic, TypeVar
- 
-+import itertools
- import datasets
- import numpy as np
- import packaging.version
-@@ -892,12 +893,7 @@ def cycle(iterable: Any) -> Iterator[Any]:
-     Yields:
-         Items from the iterable, restarting from the beginning when exhausted.
-     """
--    iterator = iter(iterable)
--    while True:
--        try:
--            yield next(iterator)
--        except StopIteration:
--            iterator = iter(iterable)
-+    return itertools.cycle(iterable)
- 
- 
- def create_branch(repo_id: str, *, branch: str, repo_type: str | None = None) -> None:
 diff --git a/src/lerobot/optim/optimizers.py b/src/lerobot/optim/optimizers.py
-index f2bd0df4..e6d1ee19 100644
+index f2bd0df4..418bf4ca 100644
 --- a/src/lerobot/optim/optimizers.py
 +++ b/src/lerobot/optim/optimizers.py
 @@ -21,6 +21,7 @@ from typing import Any
@@ -58,6 +32,32 @@ index f2bd0df4..e6d1ee19 100644
  
  
  @OptimizerConfig.register_subclass("sgd")
+@@ -172,12 +173,25 @@ def save_optimizer_state(
+         _save_single_optimizer_state(optimizer, save_dir)
+ 
+ 
++def convert_tensor_to_python(obj):
++    if isinstance(obj, torch.Tensor):
++        return obj.item() if obj.numel() == 1 else obj.tolist()
++    elif isinstance(obj, (list, tuple)):
++        return [convert_tensor_to_python(x) for x in obj]
++    elif isinstance(obj, dict):
++        return {k: convert_tensor_to_python(v) for k, v in obj.items()}
++    elif isinstance(obj, (int, float, str, bool, type(None))):
++        return obj
++    else:
++        return str(obj)
++
+ def _save_single_optimizer_state(optimizer: torch.optim.Optimizer, save_dir: Path) -> None:
+     """Save a single optimizer's state to disk."""
+     state = optimizer.state_dict()
+     param_groups = state.pop("param_groups")
+     flat_state = flatten_dict(state)
+     save_file(flat_state, save_dir / OPTIMIZER_STATE)
++    param_groups = convert_tensor_to_python(param_groups)
+     write_json(param_groups, save_dir / OPTIMIZER_PARAM_GROUPS)
+ 
+ 
 diff --git a/src/lerobot/policies/act/modeling_act.py b/src/lerobot/policies/act/modeling_act.py
 index b7cbcd06..6591cd9a 100644
 --- a/src/lerobot/policies/act/modeling_act.py
@@ -90,7 +90,7 @@ index b7cbcd06..6591cd9a 100644
          x = skip + self.dropout2(x)
          if self.pre_norm:
 diff --git a/src/lerobot/scripts/lerobot_train.py b/src/lerobot/scripts/lerobot_train.py
-index 84eb81ad..02a4e721 100644
+index 84eb81ad..b746354c 100644
 --- a/src/lerobot/scripts/lerobot_train.py
 +++ b/src/lerobot/scripts/lerobot_train.py
 @@ -20,6 +20,8 @@ from pprint import pformat
@@ -102,15 +102,6 @@ index 84eb81ad..02a4e721 100644
  from accelerate import Accelerator
  from termcolor import colored
  from torch.optim import Optimizer
-@@ -149,7 +151,7 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
-     if accelerator is None:
-         from accelerate.utils import DistributedDataParallelKwargs
- 
--        ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
-+        ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=False, gradient_as_bucket_view=True)
-         accelerator = Accelerator(step_scheduler_with_optimizer=False, kwargs_handlers=[ddp_kwargs])
- 
-     init_logging(accelerator=accelerator)
 @@ -280,12 +282,13 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
      dataloader = torch.utils.data.DataLoader(
          dataset,
