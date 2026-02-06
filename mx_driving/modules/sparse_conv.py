@@ -208,7 +208,7 @@ class SparseConvolution(SparseModule):
             out_features, outidx, unique_indices_offset, sorted_idx_to_former_indices, outidx_pair = Fsp.indice_conv(
                 input_.features,
                 input_.indices,
-                self.weight,
+                self.weight.to(input_.features.dtype),
                 out_spatial_shape,
                 self.out_channels,
                 input_.batch_size,
@@ -239,7 +239,7 @@ class SparseConvolution(SparseModule):
             out_features, outidx, outidx_offset = Fsp.indice_subm_conv(
                     input_.features,
                     input_.indices,
-                    self.weight,
+                    self.weight.to(input_.features.dtype),
                     indices_offset,
                     out_spatial_shape,
                     self.out_channels,

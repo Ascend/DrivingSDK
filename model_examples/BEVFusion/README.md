@@ -15,7 +15,7 @@
 
 | Modality  | Voxel type (voxel size) | 训练方式 |
 |-----------|-------------------------|------|
-| lidar-cam | lidar-cam               | FP32 |
+| lidar-cam | lidar-cam               | FP32、FP16 |
 
 # 训练环境准备
 ## 昇腾环境安装
@@ -36,7 +36,7 @@
 
   | Torch_Version |
   |:-------------:|
-  |  PyTorch 2.1  |
+  |  PyTorch 2.1、PyTorch 2.7  |
 
 - 下载并编译安装`DrivingSDK`加速库，参考https://gitcode.com/Ascend/DrivingSDK
 
@@ -60,6 +60,7 @@
   cd mmcv
   pip install -r requirements/runtime.txt
   pip install ninja
+  pip install "setuptools<=78.1.1"
   MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
   cd ../
@@ -72,8 +73,8 @@
   cp -f bevfusion.patch mmdetection3d/
   cd mmdetection3d
   git apply bevfusion.patch --reject
-  pip install mmengine==0.10.7 mmdet==3.1.0 numpy==1.23.5 yapf==0.40.1
-  pip install -e .
+  pip install mmengine==0.10.7 mmdet==3.1.0 numpy==1.23.5 yapf
+  pip install -e . --no-build-isolation
   cd ../
   ```
 
@@ -142,11 +143,18 @@ cd ../
 
   ```shell
   # 精度测试拉起脚本，默认训练6个epochs
+  # FP32
   bash test/train_full_8p_base_fp32.sh --batch-size=4 --num-npu=8 # batch-size 和 num-npu 可不指定直接使用默认值，下同
+  # FP16
+  bash test/train_full_8p_base_fp16.sh --batch-size=4 --num-npu=8
+
   # 性能测试拉起脚本，默认训练1个epochs
+  # FP32
   bash test/train_performance_8p_base_fp32.sh --batch-size=4 --num-npu=8 
+  # FP16
+  bash test/train_performance_8p_base_fp16.sh --batch-size=4 --num-npu=8
   ```
-- 双机16卡性能
+- 双机16卡性能（FP32）
   
   运行脚本支持命令行参数（支持默认值+关键字参数+位置参数）
   - `--batch-size`：每卡batch size大小，默认值4；
@@ -168,6 +176,8 @@ cd ../
 |------------------|-----------|-------------------------|------|-------|-------|-------|-------|-------|
 | 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.98 | 67.36 | 26.46 |
 | 8p-竞品A           | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.78 | 67.36 | 22.54 |
+| 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP16 | 6     | 32 | 70.11 | 68.01 | 32.78 |
+| 8p-竞品A           | lidar-cam | 0.075                   | FP16 | 6     | 32 | 68.50 | 64.89 | 26.59 |
 
 双机16卡
 | NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size |FPS   | 线性度 |
@@ -177,6 +187,8 @@ cd ../
 # 版本说明
 
 ## 变更
+2026.1.31：支持混精训练，更新模型性能。
+
 2026.1.4：稀疏卷积类算子优化并加入一键Patch，更新模型性能，简化bevfusion.patch。
 
 2025.8.29：模型优化，更新单机性能。
@@ -205,3 +217,9 @@ cd ../
 4. `Environment variable [HCCL_IF_IP] is invalid. Reason: it should be "ip[%ifname]".`
    
    将环境变量设置脚本`test/env_npu.sh`中的`export HCCL_IF_IP=...`注释即可。
+
+5. 当前训练脚本采用`lidar-only`预训练权重，若需要基于`lidar-cam`预训练权重进行训练，仅需将脚本中的`bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth`更改为对应权重文件即可。
+
+6. `RuntimeError: ACL stream synchronize failed, error code:507018`
+​
+大概率是有残余进程或者其他程序在模型预处理数据集时占用，全局清理一下进程并重跑即可。

@@ -23,6 +23,8 @@ export HCCL_IF_IP=$(hostname -I |awk '{print $1}')
 export HCCL_CONNECT_TIMEOUT=1200
 #模型不提前初始化，默认为1
 export ACL_OP_INIT_MODE=0
+#避免torch2.7权重加载报错，设置weights_only=False
+export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1
 
 path_lib=$(python3 -c """
 import sys
