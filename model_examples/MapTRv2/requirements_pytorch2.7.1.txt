@@ -3,7 +3,7 @@ torch==2.7.1
 torch_npu==2.7.1
 opencv-python==4.11.0.86
 opencv-python-headless==4.11.0.86
-yapf==0.40.2
+yapf==0.43.0
 addict==2.4.0
 numba==0.58.1
 lyft_dataset_sdk==0.0.8
