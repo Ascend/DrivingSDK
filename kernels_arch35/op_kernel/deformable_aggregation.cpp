@@ -19,7 +19,6 @@ namespace {
     constexpr uint32_t BUFFER_NUM = 4;
 
     constexpr int32_t SHAPE_DIM = 2;
-    constexpr int32_t TWO = 2;
     constexpr int32_t HH_OFFSET = 0;
     constexpr int32_t HL_OFFSET = 1;
     constexpr int32_t LH_OFFSET = 2;
@@ -117,42 +116,6 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void prepareDataSIMT(
             usedFeatOffset_[4 * (i * numScales_ + scaleIdx) + 2] = lhPtr;
             usedFeatOffset_[4 * (i * numScales_ + scaleIdx) + 3] = llPtr;
         }
-    }
-}
-
-
-template<typename T>
-__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void copyInFeatSIMT(
-    __gm__ T* weightsGm_,
-    __gm__ T* mcMsFeatGm_,
-    __ubuf__ T* weightMulLocal_, 
-    __ubuf__ T* vLocal_,
-    __ubuf__ int32_t* usedFeatOffset_,
-    uint32_t numScales_,    // 4
-    uint32_t numGroups_,    // 8
-    uint32_t numChannels_,  // 32
-    uint32_t weightBufSize_,// 4 * 8
-    uint32_t cAligned_)     // 256
-{
-    for (uint32_t i = AscendC::Simt::GetThreadIdx(); i < cAligned_ * numScales_; i += AscendC::Simt::GetThreadNum()) {
-        uint32_t weightIdx = i / numChannels_;
-        uint32_t ptrIdx = 4 * (i / cAligned_);
-        uint32_t cIdx = i % cAligned_;
-        
-        int32_t hhPtr = usedFeatOffset_[ptrIdx];
-        int32_t hlPtr = usedFeatOffset_[ptrIdx + 1];
-        int32_t lhPtr = usedFeatOffset_[ptrIdx + 2];
-        int32_t llPtr = usedFeatOffset_[ptrIdx + 3];
-
-        T hhFeat = hhPtr != -1 ? mcMsFeatGm_[hhPtr + cIdx] : 0.0f;
-        T hlFeat = hlPtr != -1 ? mcMsFeatGm_[hhPtr + cIdx] : 0.0f;
-        T lhFeat = lhPtr != -1 ? mcMsFeatGm_[hhPtr + cIdx] : 0.0f;
-        T llFeat = llPtr != -1 ? mcMsFeatGm_[hhPtr + cIdx] : 0.0f;
-
-
-        T weight = weightsGm_[weightIdx];
-
-        weightMulLocal_[i] = weight;
     }
 }
 
@@ -314,6 +277,7 @@ public:
         uint32_t actualCompNum = actualTaskNum * numPoints_ * numCams_;
         
         // simt的优势是处理scalar，离散访存
+        PipeBarrier<PIPE_ALL>();
         AscendC::Simt::VF_CALL<prepareDataSIMT<T>>(
             AscendC::Simt::Dim3{1024}, 
             (__gm__ T*) samplingLocationGm_[baseOffset * 2].GetPhyAddr(),
