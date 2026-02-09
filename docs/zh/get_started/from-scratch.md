@@ -1,4 +1,4 @@
-## 从头实现一个自定义算子API
+# 从头实现一个自定义算子API
 本文将指导你如何从头开始实现一个自定义算子API。我们将实现一个简单的算子，`bev_pool_v3`，与`bev_pool_v2`相似，但是我们不再使用排序算法，并且channel大小整除8。该算子的输入输出如下：
 | 名称 | 类型 | Shape | 描述 |
 | --- | --- | --- | --- |
@@ -10,7 +10,7 @@
 |`bev_feat_shape`|`List[int]`|`5`| 输入，BEV特征图形状, B, D, H, W, C |
 |`out`|`Tensor`|`[B, C, D, H, W]`| 输出，BEV特征图 |
 
-### 1. 厘清算子的计算逻辑
+## 1. 厘清算子的计算逻辑
 `bev_pool_v3`算子的计算逻辑如下： 每次从深度图中取出一个深度值，然后在特征图中找到对应的特征，相乘，然后将结果累加到BEV特征图中对应的位置。这个过程重复`N_RANKS`次。
 我们先用torch实现这个算子，然后再用AscendC实现，这样能更好地理解算子的计算逻辑，并且有助于调试。
 ```python
@@ -37,7 +37,7 @@ def bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape)
         out[b] += d * f
 ```
 事实上，我们已经实现了一个简单的`bev_pool_v3`算子，接下来我们把它一步步转换成Driving SDK上的AscendC代码。
-### 2. 增加算子Python API
+## 2. 增加算子Python API
 在`mx_driving/point/ops`目录下创建一个新的文件`bev_pool_v3.py`，并添加如下代码：
 ```python
 class BEVPoolV3(torch.autograd.Function):
@@ -60,7 +60,7 @@ def bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape)
     return x
 ```
 > 注意：我们将转置逻辑放在了`bev_pool_v3`函数中，而非`forward`中，这样我们在backward时，我们就不用手动将梯度再次转置了，降低了思考的复杂度。
-### 3. 增加算子C++ ABI
+## 3. 增加算子C++ ABI
 我们首先在`_C.__init__.pyi`中增加`npu_bev_pool_v3`的声明：
 ```python
 def npu_bev_pool_v3(
@@ -85,7 +85,7 @@ at::Tensor npu_bev_pool_v3(const at::Tensor& depth, const at::Tensor& feat, cons
 ```cpp
 m.def("npu_bev_pool_v3", &npu_bev_pool_v3);
 ```
-### 4. 实现算子C++ ABI
+## 4. 实现算子C++ ABI
 我们再次增加一个新的文件`BEVPoolV3.cpp`，并实现一个返回全0的`npu_bev_pool_v3`函数：
 ```cpp
 #include "csrc/OpApiCommon.h"
@@ -99,7 +99,7 @@ at::Tensor npu_bev_pool_v3(const at::Tensor& depth, const at::Tensor& feat, cons
 }
 ```
 然后，执行`python setup.py develp`, 你就可以在Python中使用`bev_pool_v3`算子了。当然，这个算子还没有实现任何功能，接下来我们将逐步完善它。
-### 5. 增加AscendC测的算子接口
+## 5. 增加AscendC测的算子接口
 当我们执行一个NPU算子时，任务经由python到我们的C++ ABI，然后再到NPU的C++ ABI(CANN 运行时)，运行时找到算子的二进制文件，将它加载到硬件上执行，并配置好输入输出。因此我们还需要增加一个运行时能够找到二进制，配置下发计算任务的算子定义接口。
 我们在`mx_driving/point/kernels/op_host`下增加一个新的文件`bev_pool_v3.cpp`中增加如下代码：
 ```cpp
@@ -152,7 +152,7 @@ OP_ADD(BEVPoolV3);
 }  // namespace ops
 ```
 这里定义了输入和输出的数据类型，格式，形状等信息，以及支持的硬件平台。这样，我们就定义了一个`BEVPoolV3`算子，接下来我们将实现它的计算逻辑。
-### 6. 划分计算任务
+## 6. 划分计算任务
 还记得我们一开始实现的Python算子吗？计算的核心位于一段for循环中。我们需要将这段for循环划分成多个计算任务，将这些任务放到一个计算流中，然后NPU上的多个核心并行执行这些任务。划分任务有两种思维模式：A. 自顶而下，B. 自底而上。
 A. 自顶而下：我们首先将整个计算过程划分成多个任务（每个核心只处理1个任务）并行执行，然后再将每个任务划分成多个子任务在核心中顺序执行。之所以将任务划分成多个小任务，是因为当数据量足够大时，单核心的缓存无法容纳所有数据。
 ```
@@ -190,7 +190,7 @@ REGISTER_TILING_DATA_CLASS(BEVPoolV3, BEVPoolV3TilingData) // 将tiling数据结
 }  // namespace optiling
 ```
 其中`usedCoreNum`是参与计算的核心数量，`totalTaskNum`是有多少个任务块，`avgTaskNum`是每个核心的平均任务块数（多少个ta），`tailTaskNum`是尾核的任务块数，`avgRankNum`是每个任务块的平均rank数（ta的大小），`tailRankNum`是尾任务块的rank数（tb的大小），`channel`是特征通道数。
-### 7. tiling函数实现
+## 7. tiling函数实现
 事实上，tiling函数有三个功能：1. 将tensor的shape信息或输入的属性值或核函数运行时所需的必要信息传入执行设备上，2.决定启动执行设备上的核心数量，3.分配核函数执行时所需要的临时内存。
 我们在`mx_driving/point/ops/op_host/bev_pool_v3.cpp`中增加如下代码：
 ```cpp
@@ -200,7 +200,7 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context){
 }
 ```
 这个函数接收运行时上下文，然后根据输入的shape信息，计算平台配置，决定核心数量，任务块数，每个任务块的rank数等信息，并将这些信息填充到tiling数据结构中。
-#### 7.1 计算核心数量
+### 7.1 计算核心数量
 我们首先计算核心数量，这里我们假设每个核心每次最大计算量为`RANK_NUM_PER_TASK`，那么每个任务的平均计算量为`min(RANK_NUM_PER_TASK, ranks)`，总共的任务数为`tasks = ceil(ranks / RANK_NUM_PER_TASK)`，实际需要启动的核心数量为`min(tasks, MAX_CORE_NUM)`。
 ```cpp
 auto platform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
@@ -216,7 +216,7 @@ if (usedCoreNum == 0) {
 }
 context->SetBlockDim(usedCoreNum); // 设置启动核心数量
 ```
-#### 7.2 计算任务块数
+### 7.2 计算任务块数
 根据上面的讨论，我们可以计算出每个核心的平均任务块数`avgTaskNum`，尾核的任务块数`tailTaskNum`。
 ```cpp
 auto avgTaskNum = totalTaskNum / usedCoreNum;
@@ -237,7 +237,7 @@ tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilin
 context->GetRawTilingData()->SetDataSize(tiling.GetDataSize()); // 设置buffer大小
 ```
 > 提示：你可以使用`MX_DRIVING_LOGI`宏打印日志，这样在运行时你可以看到这些信息。
-#### 7.3 分配临时内存
+### 7.3 分配临时内存
 尽管我们的算子简单到无需分配临时内存，考虑到后续的扩展性，我们还是分配一些ascendc系统库调用可能需要的临时内存。
 ```cpp
 uint32_t sysWorkspaceSize = platform.GetLibApiWorkSpaceSize();
@@ -247,7 +247,7 @@ if (currentWorkspace == nullptr) {
 }
 currentWorkspace[0] = sysWorkspaceSize;
 ```
-### 8. 算子实现
+## 8. 算子实现
 当给出了一个计算任务后，我们需要再次清晰它的计算逻辑，一个好的方式是画出计算图。我们可以将`bev_pool_v3`算子的主要计算过程画出来：
 ```mermaid
 flowchart LR
@@ -265,7 +265,7 @@ flowchart LR
 2. depth, feat: 输入，每个核心搬入depth, feat，生存周期在for循环内，搬运开始->计算结束。
 3. out: 输出，每个核心计算得到的out，生存周期在for循环内，计算开始->搬运结束。
 在AscendC中，使`TQue`来进行指令流水线的同步和内存的分配。我们把生命周期一致的内存分配到同一个`TQue`中，这样可以减少内存的分配和释放次数，和事件资源的消耗。不过在开始与分配内存之前，我们需要先拿到tiling信息。
-#### 8.1 获取tiling信息
+### 8.1 获取tiling信息
 在`mx_driving/point/kernels/op_kernel`增加`bev_pool_v3.cpp`文件，添加函数入口：
 ```cpp
 extern "C" __global__ __aicore__ void bev_pool_v3(GM_ADDR depth, GM_ADDR feat, GM_ADDR ranksDepth, GM_ADDR ranksFeat,
@@ -275,7 +275,7 @@ extern "C" __global__ __aicore__ void bev_pool_v3(GM_ADDR depth, GM_ADDR feat, G
 }
 ```
 在编译时，编译器在第7步中定义的tiling结构体生成一个`GET_TILING_DATA`宏，用于获取tiling信息。这里的bevPoolTiling就是我们在第7步中定义的tiling结构体。
-#### 8.2 kernel类
+### 8.2 kernel类
 为了方便代码维护，我们把计算逻辑封装在一个kernel类中，这个类能够接收tiling信息，然后执行计算任务，读取输入，计算输出，写入输出。
 ```cpp
 class BEVPoolV3Kernel {
@@ -313,7 +313,7 @@ private:
 ```
 这个类包括了`Tpipe* pipe_`，用于管理一个计算流会用到的资源，`blkIdx_`标识当前计算核的索引，`depthGm_, featGm_, outGm_`等GlobalTensor类，用于管理输入输出的内存，`ranksQue_, inQue_, outQue_`用于管理输入输出的队列，`taskStartIdx_, taskEndIdx_, totalTaskNum_, avgRankNum_, tailRankNum_`等变量用于管理计算任务的划分。
 
-#### 8.3 初始化任务和偏移量
+### 8.3 初始化任务和偏移量
 我们首先初始化任务，它决定了内存分配的大小，计算的开始和结束位置。
 ```cpp
 __aicore__ inline void InitTask(const BEVPoolV3TilingData& tiling)
@@ -346,7 +346,7 @@ __aicore__ inline void InitOffset()
 ```
 这里的`B32_DATA_NUM_PER_BLOCK`是一个常量，表示每个block的数据量，我们需要将数据量对齐到这个常量的倍数，因为NPU计算时采用的是SIMD指令，所以我们需要将数据对齐到SIMD指令的倍数，这样可以提高计算效率。
 
-#### 8.4 初始化输入输出和缓存区
+### 8.4 初始化输入输出和缓存区
 这里涉及到两个概念：1. `GlobalTensor`，用于管理输入输出的内存，2. `LocalTensor`，用于管理计算过程中的临时内存。
 ```cpp
 __aicore__ inline void InitGM(
@@ -368,7 +368,7 @@ __aicore__ inline void InitBuffer()
 ```
 `LocalTensor`在计算时由`TQue`分配，我们需要在`InitBuffer`中初始化`TQue`的内存大小，这里我们分配了3个`rankSize_`大小的int32_t内存，2个`(B32_DATA_NUM_PER_BLOCK + channel_)`大小的int32_t内存，2个`channel_`大小的float内存。这里也都是对齐到SIMD指令的倍数。
 
-#### 8.5 计算逻辑实现
+### 8.5 计算逻辑实现
 从计算图上，我们可以看到我们需要实现两大块，for循环前，和for循环内的计算逻辑。for循环前，我们需要搬运ranksDepth, ranksFeat, ranksBev,有了它们，我们才能知道for循环内输入输出的真实偏移量。当然，我们可以将这个环节放入到for循环内，每次只搬运一个点，然后计算，但是这样一会导致内存的频繁读写，二会导致指令流水线的阻塞，三没有利用到SIMD指令的并行计算能力。
 我们用`ProcessSingle`函数实现单个任务的计算，它需要接收任务的id,`taskIdx`和计算量`actualRankNum`来进行计算。
 ```cpp
@@ -403,7 +403,7 @@ for (int32_t i = 0; i < actualRankNum; ++i) {
 ```cpp
 ranksQue_.FreeTensor(ranks);
 ```
-#### 8.6 计算逻辑实现-三段式
+### 8.6 计算逻辑实现-三段式
 这里的三段式值的是三级流水线的计算模式，即计算的三个阶段：1. 搬运数据（PIPE_MTE2），2. 计算（PIPE_V），3. 写回数据（PIPE_MTE3）。这种模式可以提高计算的效率，因为每个阶段（对于没有数据依赖的）都是独立的，可以并行执行。我们将这三个阶段封装到三个函数中，并使用队列进行通信和同步：
 ```cpp
 __aicore__ inline void BEVPoolV3Kernel::CopyIn(int32_t rd, int32_t rf)
@@ -432,7 +432,7 @@ __aicore__ inline void BEVPoolV3Kernel::CopyOut(int32_t rb)
     outQue_.FreeTensor(out);
 }
 ```
-#### 8.7 计算逻辑实现-整体流程
+### 8.7 计算逻辑实现-整体流程
 因为我们使用了自底而上的思维模式，我们在单核多任务时，只需多考虑尾核的尾任务块即可，其他的任务块都是一样的。我们将整个计算过程封装到`Process`函数中：
 ```cpp
 __aicore__ inline void BEVPoolV3Kernel::Process()
@@ -448,7 +448,7 @@ __aicore__ inline void BEVPoolV3Kernel::Process()
 ```
 这里使用了`unlikely`，因为这个分支只会命中一次，这样可以提高分支预测的准确性，提高计算效率。
 
-### 9. 从torch到核函数，胶水代码
+## 9. 从torch到核函数，胶水代码
 当前，我们已经实现了核函数，接下来我们需要将核函数和Python算子连接起来，这里我们需要编写一个胶水代码，将Python算子的输入输出转换成核函数的输入输出，并且调用核函数，好在这部分代码我们只需要在`mx_driving/point/ops/csrc/BEVPoolV3.cpp`中调用宏函数即可：
 ```cpp
 EXEC_NPU_CMD(aclnnBEVPoolV3, depth, feat, ranks_depth, ranks_feat, ranks_bev, out);
@@ -456,5 +456,5 @@ EXEC_NPU_CMD(aclnnBEVPoolV3, depth, feat, ranks_depth, ranks_feat, ranks_bev, ou
 这里的`aclnnBEVPoolV3`是由于`op_host/bev_pool_v3.cpp`中定义的算子`class BEVPoolV3 : public OpDef`生成的以`aclnn`为前缀的名字。`depth, feat, ranks_depth, ranks_feat, ranks_bev, out`需要严格按照`BEVPoolV3`算子的输入输出顺序传入。如果存在属性，则需要按照输入，属性，输出的顺序传入。
 到这里，你已经实现了一个简单的NPU算子，接下来你可以在Python中调用它了。
 
-### 10. 总结
+## 10. 总结
 在这个教程中，我们学习了如何将一个简单的Python算子转换成NPU算子，我们学习了如何划分计算任务，如何实现核函数，如何编写胶水代码。这个敍述是一个简单的例子，实际上，NPU算子的实现可能会更加复杂，但是思维模式是一样的。希望这个教程对你有所帮助。
