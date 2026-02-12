@@ -220,6 +220,7 @@ __aicore__ inline void MultiScaleDeformableAttnKernel<aligned, fastMode>::Proces
         DataCopy(this->zeroGm_, value, this->cornerRpt_ * B32_DATA_NUM_PER_REPEAT);
     }
     PipeBarrier<PIPE_ALL>();
+    SyncAll();
 
     SetFlag<HardEvent::V_MTE2>(this->copyEvt_);
     SetFlag<HardEvent::V_MTE2>(0);
