@@ -55,7 +55,7 @@
                 },
                 "ENABLE_ONNX": {
                     "type": "BOOL",
-                    "value": "True"
+                    "value": "False"
                 }
             }
         }
