@@ -67,7 +67,7 @@ tcmalloc（即Thread-Caching Malloc）是一个通用的内存分配器，通过
 #### 【算子替换示例】
 
 当采集完profiling后，查看算子耗时统计，分析耗时占比大的算子，进行替换，以BEVFormer模型为例，multi_scale_deformable_attn算子正反向在模型中占比很高，需要替换成mxDriving中的亲和算子：
-<img src="../figures/op_statistic.png" alt="算子耗时占比" width="800" align="center">
+<img src="./figures/op_statistic.png" alt="算子耗时占比" width="800" align="center">
 
 
 替换过程如下，算子详细参数参考[算子清单](../api/README.md)，算子使用位置为projects/mmdet3d_plugin/bevformer/modules/decoder.py：

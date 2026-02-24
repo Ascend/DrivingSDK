@@ -92,8 +92,8 @@ if __name__ == '__main__':
 当识别到模型原本的代码里有在昇腾NPU环境下运行时不兼容、不亲和、非最优的实现，可参考：
 
 * `DrivingSDK/model_examples`目录下丰富的模型迁移优化案例
-* `DrivingSDK/docs/get_started/model_optimization.md`模型优化指导文档
-* `DrivingSDK/docs/api/README.md`里的算子清单
+* `DrivingSDK/docs/zh/migration_tuning/model_optimization.md`模型优化指导文档
+* `DrivingSDK/docs/zh/api/README.md`里的算子清单
 * 昇腾社区上相关文档
 
 ### Patch封装

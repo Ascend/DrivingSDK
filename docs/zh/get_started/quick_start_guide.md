@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
 ### 3. 进一步优化模型性能
 
-若NPU上训练性能跟基线差距较大，可参考[模型迁移优化指导](../get_started/model_optimization.md)和[负载均衡优化](../features/dataload_balance.md)进一步优化hostbound、快慢卡等性能瓶颈。
+若NPU上训练性能跟基线差距较大，可参考[模型迁移优化指导](../migration_tuning/model_optimization.md)和[负载均衡优化](../features/dataload_balance.md)进一步优化hostbound、快慢卡等性能瓶颈。
 
 ### 4. 导出离线模型
 Driving SDK 支持单算子onnx导出，并提供了示例，用户若有诉求需自行参考[训推一体示例](../features/onnx_example.md)开发。
