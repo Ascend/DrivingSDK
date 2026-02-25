@@ -218,7 +218,7 @@ DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端�
         <td align=left>Y</td>
     </tr>
     <tr>
-        <td rowspan=7>规控</td>
+        <td rowspan=8>规控</td>
         <td align=left><a href=../../../model_examples/QCNet/README.md>QCNet</a></td>
         <td align=left>75.29</td>
         <td align=left>94.11</td>
@@ -258,6 +258,12 @@ DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端�
         <td align=left><a href=../../../model_examples/HiVT/README.md>HiVT</a></td>
         <td align=left>645</td>
         <td align=left>652</td>
+        <td align=left>N</td>
+    </tr>
+    <tr>
+        <td align=left><a href=../../../model_examples/DriverAgent/README.md>DriverAgent</a></td>
+        <td align=left>180</td>
+        <td align=left>149</td>
         <td align=left>N</td>
     </tr>
     <tr>
