@@ -1,6 +1,4 @@
 torchvision==0.22.1
-torch==2.7.1
-torch_npu==2.7.1
 opencv-python==4.11.0.86
 opencv-python-headless==4.11.0.86
 yapf==0.43.0
