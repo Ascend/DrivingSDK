@@ -1,5 +1,4 @@
 torchvision==0.16.0
-torch==2.1.0
 opencv-python==4.11.0.86
 opencv-python-headless==4.11.0.86
 yapf
