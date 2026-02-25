@@ -294,5 +294,35 @@ public:
     }
 };
 
+class VoxelToPoint : public OpDef {
+public:
+    explicit VoxelToPoint(const char* name) : OpDef(name)
+    {
+        this->Input("voxels")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_INT32})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
+
+        this->Output("points")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_INT32})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND})
+            .AutoContiguous();
+
+        this->Attr("voxel_sizes").AttrType(REQUIRED).ListFloat();
+        this->Attr("coor_ranges").AttrType(REQUIRED).ListFloat();
+        this->Attr("layout").AttrType(REQUIRED).String("XYZ");
+
+        this->SetInferShape(ge::InferShapeForPointToVoxel<false>)
+            .SetInferDataType(ge::InferDataTypeForPointToVoxel<false>);
+        this->AICore().SetTiling(optiling::TilingForPointToVoxel<false>);
+        this->AICore().AddConfig("ascend910_95");
+    }
+};
+
 OP_ADD(PointToVoxel);
+OP_ADD(VoxelToPoint);
 } // namespace ops

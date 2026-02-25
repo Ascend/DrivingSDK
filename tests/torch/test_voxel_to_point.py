@@ -36,7 +36,6 @@ class TestVoxelToPoint(TestCase):
         voxels_npu = torch.from_numpy(voxels.view(np.int32)).npu()
         return mx_driving._C.voxel_to_point(voxels_npu, [], [], "XYZ").cpu().numpy()
 
-    @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `PointToVoxel` is only supported on 910B, skip this ut!")
     def test_point_to_voxel(self):
         for point_num in self.point_nums:
             voxels = self.gen(point_num)
