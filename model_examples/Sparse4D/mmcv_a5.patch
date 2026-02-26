@@ -1,0 +1,49 @@
+diff --git a/mmcv/parallel/data_parallel.py b/mmcv/parallel/data_parallel.py
+index eea088fa..69a5a889 100644
+--- a/mmcv/parallel/data_parallel.py
++++ b/mmcv/parallel/data_parallel.py
+@@ -67,7 +67,7 @@ class MMDataParallel(DataParallel):
+              ' instead.')
+ 
+         for t in chain(self.module.parameters(), self.module.buffers()):
+-            if t.device != self.src_device_obj:
++            if t.device != t.device:
+                 raise RuntimeError(
+                     'module must have its parameters and buffers '
+                     f'on device {self.src_device_obj} (device_ids[0]) but '
+@@ -89,7 +89,7 @@ class MMDataParallel(DataParallel):
+              ' instead.')
+ 
+         for t in chain(self.module.parameters(), self.module.buffers()):
+-            if t.device != self.src_device_obj:
++            if t.device != t.device:
+                 raise RuntimeError(
+                     'module must have its parameters and buffers '
+                     f'on device {self.src_device_obj} (device_ids[0]) but '
+diff --git a/mmcv/parallel/distributed.py b/mmcv/parallel/distributed.py
+index bf34cb59..f0dfecc9 100644
+--- a/mmcv/parallel/distributed.py
++++ b/mmcv/parallel/distributed.py
+@@ -156,8 +156,7 @@ class MMDistributedDataParallel(DistributedDataParallel):
+         Returns:
+             Any: Forward result of :attr:`module`.
+         """
+-        module_to_run = self._replicated_tensor_module if \
+-            self._use_replicated_tensor_module else self.module
++        module_to_run = self.module
+ 
+         if self.device_ids:
+             inputs, kwargs = self.to_kwargs(  # type: ignore
+diff --git a/mmcv/runner/checkpoint.py b/mmcv/runner/checkpoint.py
+index 9dd2d311..576677c1 100644
+--- a/mmcv/runner/checkpoint.py
++++ b/mmcv/runner/checkpoint.py
+@@ -331,7 +331,7 @@ def load_from_local(
+     filename = osp.expanduser(filename)
+     if not osp.isfile(filename):
+         raise FileNotFoundError(f'{filename} can not be found.')
+-    checkpoint = torch.load(filename, map_location=map_location)
++    checkpoint = torch.load(filename, map_location=map_location, weights_only=False)
+     return checkpoint
+ 
+ 
