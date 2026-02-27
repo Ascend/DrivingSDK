@@ -74,6 +74,8 @@ Driving SDK代码中包含公网地址声明如下表所示：
 | 开源引入 | https://www.argoverse.org/av2.html | model_examples/QCNet/patch/qcnet.patch | https://www.argoverse.org/av2.html | 模型数据集介绍 |
 | 开源引入 | https://github.com/Dao-AILab/flash-attention/releases/tag/v2.1.0 | model_examples/Cosmos-Predict2/cosmos_predict2.patch | https://github.com/Dao-AILab/flash-attention/releases/tag/v2.1.0 | 模型依赖包下载 |
 | 开源引入 | https://github.com/yifanlu0227/viser | model_examples/Cosmos-Drive-Dreams/Cosmos-Drive-Dreams.patch | https://github.com/yifanlu0227/viser | 模型依赖包下载 |
+| 开源引入 | https://github.com/vllm-project/vllm-ascend/pull/1482 | model_examples/Cosmos-Reason1/cosmos-rl.patch | https://github.com/vllm-project/vllm-ascend/pull/1482 | 模型依赖包下载 |
+| 开源引入 | https://github.com/huggingface/transformers/pull/38366 | model_examples/Cosmos-Reason1/cosmos-rl.patch | https://github.com/huggingface/transformers/pull/38366 | 模型依赖包下载 |
 
 
 ## 公开接口声明

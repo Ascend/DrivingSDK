@@ -354,7 +354,7 @@ DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端�
         <td align=left>Y</td>
     </tr>
     <tr>
-        <td rowspan=7>World Model</td>
+        <td rowspan=8>World Model</td>
         <td align=left><a href=../../../model_examples/OpenDWM/README.md>OpenDWM</a></td>
         <td align=left>1.82</td>
         <td align=left>1.82</td>
@@ -380,6 +380,12 @@ DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端�
     </tr>
     <tr>
         <td align=left><a href=../../../model_examples/Cosmos-Drive-Dreams/README.md>Cosmos-Drive-Dreams</a></td>
+        <td align=left>-</td>
+        <td align=left>-</td>
+        <td align=left>N</td>
+    </tr>
+    <tr>
+        <td align=left><a href=../../../model_examples/Cosmos-Reason1/README.md>Cosmos-Reason1</a></td>
         <td align=left>-</td>
         <td align=left>-</td>
         <td align=left>N</td>

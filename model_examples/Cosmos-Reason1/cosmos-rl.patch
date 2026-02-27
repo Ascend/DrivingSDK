@@ -1,0 +1,1515 @@
+diff --git a/cosmos_rl/launcher/launch_all.py b/cosmos_rl/launcher/launch_all.py
+index 79118dc..ea7cf5e 100644
+--- a/cosmos_rl/launcher/launch_all.py
++++ b/cosmos_rl/launcher/launch_all.py
+@@ -15,6 +15,9 @@
+ 
+ #!/usr/bin/env python3
+ 
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import socket
+ import subprocess
+ import sys
+@@ -118,6 +121,12 @@ def get_available_gpus() -> List[str]:
+     Returns:
+         List of GPU IDs as strings
+     """
++    from transformers.utils import is_torch_npu_available
++
++    if is_torch_npu_available():
++        npu_ids = [i for i in range(torch_npu.npu.device_count())]
++        return npu_ids
++
+     try:
+         cmd = ["nvidia-smi", "--query-gpu=index", "--format=csv,noheader"]
+         cvd = os.getenv("CUDA_VISIBLE_DEVICES", None)
+diff --git a/cosmos_rl/launcher/launch_replica.sh b/cosmos_rl/launcher/launch_replica.sh
+index 4cdb716..60c2796 100755
+--- a/cosmos_rl/launcher/launch_replica.sh
++++ b/cosmos_rl/launcher/launch_replica.sh
+@@ -106,12 +106,19 @@ set_env "TORCH_CPP_LOG_LEVEL" "ERROR"
+ LAUNCH_BINARY="torchrun"
+ 
+ if [ "$TYPE" == "rollout" ]; then
++  export HCCL_IF_BASE_PORT="${PORT_ROLLOUT:-65104}"
++  export ASCEND_RT_VISIBLE_DEVICES="${DEVICES_ROLLOUT:-4,5,6,7}"
++
+   DEFAULT_MODULE="cosmos_rl.rollout.rollout_entrance"
+   export COSMOS_ROLE="Rollout"
+   if [ "$BACKEND" == "trtllm" ]; then
+     LAUNCH_BINARY="mpirun"
+   fi
++
+ elif [ "$TYPE" == "policy" ]; then
++  export HCCL_IF_BASE_PORT="${PORT_POLICY:-64104}"
++  export ASCEND_RT_VISIBLE_DEVICES="${DEVICES_POLICY:-0,1,2,3,4,5,6,7}"
++
+   DEFAULT_MODULE="cosmos_rl.policy.train"
+   export COSMOS_ROLE="Policy"
+ else
+diff --git a/cosmos_rl/policy/kernel/modeling_utils.py b/cosmos_rl/policy/kernel/modeling_utils.py
+index c0a442f..4a5e6c0 100644
+--- a/cosmos_rl/policy/kernel/modeling_utils.py
++++ b/cosmos_rl/policy/kernel/modeling_utils.py
+@@ -14,11 +14,19 @@
+ # limitations under the License.
+ 
+ from functools import partial
+-from flash_attn import (
+-    flash_attn_func as ori_flash_attn_func,
+-    flash_attn_varlen_func as ori_flash_attn_varlen_func,
+-)
+-from flash_attn.layers.rotary import apply_rotary_emb as ori_apply_rotary_emb
++from transformers.utils import is_torch_npu_available
++
++if is_torch_npu_available():
++    from torch_npu import npu_rotary_mul as ori_apply_rotary_emb  # noqa
++    from transformers.integrations.npu_flash_attention import npu_flash_attn_func as ori_flash_attn_func
++    from transformers.integrations.npu_flash_attention import npu_flash_attn_varlen_func as ori_flash_attn_varlen_func
++
++else:
++    from flash_attn import (
++        flash_attn_func as ori_flash_attn_func,
++        flash_attn_varlen_func as ori_flash_attn_varlen_func,
++    )
++    from flash_attn.layers.rotary import apply_rotary_emb as ori_apply_rotary_emb
+ 
+ 
+ def _flash_attn_func(*args, **kwargs):
+diff --git a/cosmos_rl/policy/kernel/norm.py b/cosmos_rl/policy/kernel/norm.py
+index 2f42ecf..bc3a39d 100644
+--- a/cosmos_rl/policy/kernel/norm.py
++++ b/cosmos_rl/policy/kernel/norm.py
+@@ -16,6 +16,7 @@
+ import torch
+ import torch.nn as nn
+ from typing import Optional
++import torch_npu
+ 
+ 
+ class RMSNorm(nn.Module):
+@@ -34,11 +35,9 @@ class RMSNorm(nn.Module):
+         self.casting_mode = casting_mode
+ 
+     def forward(self, hidden_states):
+-        input_dtype = hidden_states.dtype
+-        hidden_states = hidden_states.to(torch.float32)
+-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
+-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+-        return self.weight * hidden_states.to(input_dtype)
++        # 替换融合算子
++        out = torch_npu.npu_rms_norm(hidden_states, self.weight, epsilon=self.variance_epsilon)[0]
++        return out
+ 
+     def extra_repr(self):
+         return f"{tuple(self.weight.shape)}, eps={self.variance_epsilon}"
+diff --git a/cosmos_rl/policy/kernel/rope.py b/cosmos_rl/policy/kernel/rope.py
+index c3c6b51..5e9c3cd 100644
+--- a/cosmos_rl/policy/kernel/rope.py
++++ b/cosmos_rl/policy/kernel/rope.py
+@@ -16,6 +16,7 @@
+ import torch
+ import torch.nn as nn
+ from cosmos_rl.utils.logging import logger
++import torch_npu
+ 
+ try:
+     from liger_kernel.transformers.rope import liger_rotary_pos_emb
+@@ -52,8 +53,8 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=2):
+     """
+     cos = cos.unsqueeze(unsqueeze_dim)
+     sin = sin.unsqueeze(unsqueeze_dim)
+-    q_embed = (q * cos) + (rotate_half(q) * sin)
+-    k_embed = (k * cos) + (rotate_half(k) * sin)
++    q_embed = torch_npu.npu_rotary_mul(q, cos, sin)
++    k_embed = torch_npu.npu_rotary_mul(k, cos, sin)
+     return q_embed, k_embed
+ 
+ 
+diff --git a/cosmos_rl/policy/model/gpt/__init__.py b/cosmos_rl/policy/model/gpt/__init__.py
+index 1df56bb..ac807b8 100644
+--- a/cosmos_rl/policy/model/gpt/__init__.py
++++ b/cosmos_rl/policy/model/gpt/__init__.py
+@@ -190,6 +190,7 @@ class Attention(nn.Module):
+             bias="o_proj" in model_args.biases,
+         )
+         self.rope_func = rope.RotaryPositionEmbedding()
++        self.dtype = model_args.hf_config.text_config.dtype
+ 
+     def forward(
+         self,
+@@ -231,13 +232,9 @@ class Attention(nn.Module):
+ 
+         input_dtype = xq.dtype
+         if input_dtype == torch.float32:
+-            if torch.is_autocast_enabled():
+-                target_dtype = torch.get_autocast_gpu_dtype()
+-            else:
+-                raise ValueError("Flash attention only supports float32 input")
+-            xq = xq.to(target_dtype)
+-            xk = xk.to(target_dtype)
+-            xv = xv.to(target_dtype)
++            xq = xq.to(self.dtype)
++            xk = xk.to(self.dtype)
++            xv = xv.to(self.dtype)
+ 
+         if cu_seqlens is not None:
+             assert (
+diff --git a/cosmos_rl/policy/model/qwen2_5_vl/__init__.py b/cosmos_rl/policy/model/qwen2_5_vl/__init__.py
+index 1ba364d..24a589e 100644
+--- a/cosmos_rl/policy/model/qwen2_5_vl/__init__.py
++++ b/cosmos_rl/policy/model/qwen2_5_vl/__init__.py
+@@ -17,6 +17,7 @@ import os
+ from dataclasses import dataclass, field
+ from typing import List, Optional, Tuple, Callable
+ import torch
++import torch_npu
+ import torch.nn as nn
+ from transformers.activations import ACT2FN
+ from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
+@@ -193,8 +194,8 @@ def apply_multimodal_rotary_pos_emb(q, k, cos, sin, mrope_section, unsqueeze_dim
+         [m[i % 3] for i, m in enumerate(sin.split(mrope_section, dim=-1))], dim=-1
+     ).unsqueeze(unsqueeze_dim)
+ 
+-    q_embed = (q * cos) + (rotate_half(q) * sin)
+-    k_embed = (k * cos) + (rotate_half(k) * sin)
++    q_embed = torch_npu.npu_rotary_mul(q, cos, sin)
++    k_embed = torch_npu.npu_rotary_mul(k, cos, sin)
+     return q_embed, k_embed
+ 
+ 
+@@ -251,6 +252,7 @@ class Qwen2_5_VLAttention(nn.Module):
+             model_args.dim,
+             bias="o_proj" in model_args.biases,
+         )
++        self.dtype = model_args.hf_config.text_config.dtype
+ 
+     def forward(
+         self,
+@@ -288,13 +290,9 @@ class Qwen2_5_VLAttention(nn.Module):
+ 
+         input_dtype = xq.dtype
+         if input_dtype == torch.float32:
+-            if torch.is_autocast_enabled():
+-                target_dtype = torch.get_autocast_gpu_dtype()
+-            else:
+-                raise ValueError("Flash attention only supports float32 input")
+-            xq = xq.to(target_dtype)
+-            xk = xk.to(target_dtype)
+-            xv = xv.to(target_dtype)
++            xq = xq.to(self.dtype)
++            xk = xk.to(self.dtype)
++            xv = xv.to(self.dtype)
+ 
+         if cu_seqlens is not None:
+             xq = xq.view(seqlen, -1, self.head_dim)
+diff --git a/cosmos_rl/policy/model/vision_encoder/qwen2_5_vl.py b/cosmos_rl/policy/model/vision_encoder/qwen2_5_vl.py
+index 51c5f93..dd872ce 100644
+--- a/cosmos_rl/policy/model/vision_encoder/qwen2_5_vl.py
++++ b/cosmos_rl/policy/model/vision_encoder/qwen2_5_vl.py
+@@ -181,8 +181,8 @@ else:
+         """
+         Apply rotary position embedding to the query and key tensors.
+         """
+-        cos = cos.chunk(2, dim=-1)[0].contiguous()
+-        sin = sin.chunk(2, dim=-1)[0].contiguous()
++        cos = cos.unsqueeze(0).unsqueeze(2).contiguous()
++        sin = sin.unsqueeze(0).unsqueeze(2).contiguous()
+         q_embed = modeling_utils.apply_rotary_emb(
+             q.float(), cos.float(), sin.float()
+         ).type_as(q)
+diff --git a/cosmos_rl/policy/train.py b/cosmos_rl/policy/train.py
+index 9916954..999ea41 100644
+--- a/cosmos_rl/policy/train.py
++++ b/cosmos_rl/policy/train.py
+@@ -13,6 +13,9 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from cosmos_rl.utils.logging import logger
+ from cosmos_rl.utils.parallelism import ParallelDims
+ from cosmos_rl.utils.distributed import (
+@@ -44,7 +47,7 @@ def main(*args, **kwargs):
+         parallesim_config=cosmos_config.policy.parallelism
+     )
+     init_distributed()
+-    parallel_dims.build_mesh(device_type="cuda")
++    parallel_dims.build_mesh(device_type="npu")
+ 
+     policy_type = cosmos_config.train.train_policy.type
+ 
+@@ -79,6 +82,25 @@ def main(*args, **kwargs):
+         destroy_distributed()
+         logger.info("Process group destroyed.")
+ 
++def seed_all(seed=1234, is_gpu=True):
++    import random
++    import numpy as np
++    import torch, torch_npu
++    import os
++
++    random.seed(seed)
++    os.environ['PYTHONHASHSEED'] = str(seed)
++    np.random.seed(seed)
++    torch.manual_seed(seed)
++    if is_gpu:
++        torch.cuda.manual_seed_all(seed)
++        torch.cuda.manual_seed(seed)
++        torch.backends.cudnn.enable = False
++        torch.backends.cudnn.benchmark = False
++    else:
++        torch_npu.npu.manual_seed_all(seed)
++        torch_npu.npu.manual_seed(seed)
+ 
+ if __name__ == "__main__":
+-    main()
++    seed_all(seed=1234, is_gpu=False)
++    main()
+\ No newline at end of file
+diff --git a/cosmos_rl/policy/trainer/__init__.py b/cosmos_rl/policy/trainer/__init__.py
+index 77836cf..6511121 100644
+--- a/cosmos_rl/policy/trainer/__init__.py
++++ b/cosmos_rl/policy/trainer/__init__.py
+@@ -66,8 +66,8 @@ class Trainer(CommMixin):
+         self.global_rank = int(os.environ.get("RANK", 0))
+         self.role = Role.POLICY
+         self.world_size = int(os.environ.get("WORLD_SIZE", 1))
+-        self.device = torch.device(f"cuda:{self.local_rank}")
+-        torch.cuda.set_device(self.device)
++        self.device = torch.device(f"npu:{self.local_rank}")
++        torch.npu.set_device(self.device)
+         self.check_config()
+         self.tokenizer = util.retry(AutoTokenizer.from_pretrained)(
+             config.policy.model_name_or_path,
+diff --git a/cosmos_rl/policy/trainer/grpo_trainer.py b/cosmos_rl/policy/trainer/grpo_trainer.py
+index 5665474..4ae34b1 100644
+--- a/cosmos_rl/policy/trainer/grpo_trainer.py
++++ b/cosmos_rl/policy/trainer/grpo_trainer.py
+@@ -1753,6 +1753,7 @@ class GRPOTrainer(Trainer):
+                     )
+                     for k, v in mfu.items():
+                         report_data[f"train/{k}"] = v
++        torch.npu.empty_cache()
+         # checkpointing
+         if self.is_master_replica and (
+             (
+diff --git a/cosmos_rl/policy/trainer/optm/__init__.py b/cosmos_rl/policy/trainer/optm/__init__.py
+index 2d3aab6..5aabc2a 100644
+--- a/cosmos_rl/policy/trainer/optm/__init__.py
++++ b/cosmos_rl/policy/trainer/optm/__init__.py
+@@ -31,6 +31,7 @@ from torch.distributed.checkpoint.state_dict import (
+ )
+ from torch.optim.lr_scheduler import LambdaLR, LRScheduler
+ from cosmos_rl.utils.logging import logger
++from cosmos_rl.utils.adamw import AdamW
+ import inspect
+ import math
+ 
+@@ -239,7 +240,7 @@ def build_optimizers(
+ 
+     optimizer_classes = {
+         "Adam": torch.optim.Adam,
+-        "AdamW": torch.optim.AdamW,
++        "AdamW": AdamW,
+         "Adam8bit": Adam8bit,
+         "AdamW8bit": AdamW8bit,
+     }
+diff --git a/cosmos_rl/rollout/__init__.py b/cosmos_rl/rollout/__init__.py
+index e13744d..27eb3cd 100644
+--- a/cosmos_rl/rollout/__init__.py
++++ b/cosmos_rl/rollout/__init__.py
+@@ -66,7 +66,7 @@ class RolloutWorkerBase(CommMixin):
+         self.local_rank = int(os.environ.get("LOCAL_RANK", 0))  # rank in the node
+         self.global_rank = int(os.environ.get("RANK", 0))  # rank in replica
+         self.world_size = int(os.environ.get("WORLD_SIZE", 1))
+-        self.device = torch.device(f"cuda:{self.local_rank}")
++        self.device = torch.device(f"npu:{self.local_rank}")
+         torch.cuda.set_device(self.device)
+ 
+         self.tokenizer = util.retry(AutoTokenizer.from_pretrained)(
+@@ -97,7 +97,7 @@ class TRTLLMRolloutWorkerBase(CommMixin):
+         self.local_rank = int(os.environ.get("LOCAL_RANK", 0))  # rank in the node
+         self.global_rank = int(os.environ.get("RANK", 0))  # rank in replica
+         self.world_size = int(os.environ.get("WORLD_SIZE", 1))
+-        self.device = torch.device(f"cuda:{self.local_rank}")
++        self.device = torch.device(f"npu:{self.local_rank}")
+         torch.cuda.set_device(self.device)
+ 
+         self.tokenizer = util.retry(AutoTokenizer.from_pretrained)(
+diff --git a/cosmos_rl/rollout/rollout_entrance.py b/cosmos_rl/rollout/rollout_entrance.py
+index e877ee9..2ca4efc 100644
+--- a/cosmos_rl/rollout/rollout_entrance.py
++++ b/cosmos_rl/rollout/rollout_entrance.py
+@@ -14,6 +14,9 @@
+ # limitations under the License.
+ 
+ import sys
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ from cosmos_rl.utils.logging import logger
+ from cosmos_rl.utils.parallelism import ParallelDims
+ from cosmos_rl.policy.config import Config as RolloutConfig
+diff --git a/cosmos_rl/utils/adamw.py b/cosmos_rl/utils/adamw.py
+new file mode 100644
+index 0000000..ae1f6b6
+--- /dev/null
++++ b/cosmos_rl/utils/adamw.py
+@@ -0,0 +1,137 @@
++from typing import List, Optional, Tuple, Union
++import torch
++import torch_npu
++from torch import Tensor
++from torch.optim.optimizer import Optimizer
++from torch.optim.adamw import AdamW as TorchAdamW
++
++
++def adamw(params: List[Tensor],
++          grads: List[Tensor],
++          exp_avgs: List[Tensor],
++          exp_avg_sqs: List[Tensor],
++          max_exp_avg_sqs: List[Tensor],
++          step_tensor: Tensor,
++          *,
++          amsgrad: bool,
++          beta1: float,
++          beta2: float,
++          lr: float,
++          weight_decay: float,
++          eps: float,
++          maximize: bool):
++    r"""Functional API that performs AdamW algorithm computation.
++    See :class:`~torch.optim.AdamW` for details.
++    """
++    for i, param in enumerate(params):
++        grad = grads[i]
++        exp_avg = exp_avgs[i]
++        exp_avg_sq = exp_avg_sqs[i]
++        max_exp_avg_sq = max_exp_avg_sqs[i] if amsgrad else None
++
++        torch._fused_adamw_(
++            [param],
++            [grad],
++            [exp_avg],
++            [exp_avg_sq],
++            [max_exp_avg_sq] if amsgrad else [],
++            [step_tensor],
++            amsgrad=amsgrad,
++            lr=lr,
++            beta1=beta1,
++            beta2=beta2,
++            weight_decay=weight_decay,
++            eps=eps,
++            maximize=maximize
++        )
++
++
++class AdamW(Optimizer):
++    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
++                 weight_decay=1e-2, amsgrad=False, *, maximize: bool = False):
++        if not 0.0 <= lr:
++            raise ValueError("Invalid learning rate: {}".format(lr))
++        if not 0.0 <= eps:
++            raise ValueError("Invalid epsilon value: {}".format(eps))
++        if not 0.0 <= betas[0] < 1.0:
++            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
++        if not 0.0 <= betas[1] < 1.0:
++            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
++        if not 0.0 <= weight_decay:
++            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
++        defaults = dict(lr=lr, betas=betas, eps=eps,
++                        weight_decay=weight_decay, amsgrad=amsgrad, maximize=maximize)
++        super(AdamW, self).__init__(params, defaults)
++
++    def __setstate__(self, state):
++        super(AdamW, self).__setstate__(state)
++        for group in self.param_groups:
++            group.setdefault('amsgrad', False)
++            group.setdefault('maximize', False)
++
++    @torch.no_grad()
++    def step(self, closure=None):
++        loss = None
++        if closure is not None:
++            with torch.enable_grad():
++                loss = closure()
++
++        for group in self.param_groups:
++            params_with_grad = []
++            grads = []
++            exp_avgs = []
++            exp_avg_sqs = []
++            state_sums = []
++            max_exp_avg_sqs = []
++            state_steps = []
++            amsgrad = group['amsgrad']
++            beta1, beta2 = group['betas']
++
++            if 'step' in group:
++                group['step'] += 1
++                if group['step'].is_cpu:
++                    group['step'] = group['step'].cuda()
++            else:
++                group['step'] = torch.tensor(1, dtype=torch.int64, device=torch.cuda.current_device())
++
++            for p in group['params']:
++                if p.grad is None:
++                    continue
++                params_with_grad.append(p)
++                if p.grad.is_sparse:
++                    raise RuntimeError('AdamW does not support sparse gradients')
++                grads.append(p.grad)
++
++                state = self.state[p]
++
++                # State initialization
++                if len(state) == 0:
++                    # Exponential moving average of gradient values
++                    state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
++                    # Exponential moving average of squared gradient values
++                    state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
++                    if amsgrad:
++                        # Maintains max of all exp. moving avg. of sq. grad. values
++                        state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
++
++                exp_avgs.append(state['exp_avg'])
++                exp_avg_sqs.append(state['exp_avg_sq'])
++
++                if amsgrad:
++                    max_exp_avg_sqs.append(state['max_exp_avg_sq'])
++
++            adamw(params_with_grad,
++                  grads,
++                  exp_avgs,
++                  exp_avg_sqs,
++                  max_exp_avg_sqs,
++                  group['step'],
++                  amsgrad=amsgrad,
++                  beta1=beta1,
++                  beta2=beta2,
++                  lr=group['lr'],
++                  weight_decay=group['weight_decay'],
++                  eps=group['eps'],
++                  maximize=group['maximize'])
++
++        return loss
+\ No newline at end of file
+diff --git a/cosmos_rl/utils/distributed.py b/cosmos_rl/utils/distributed.py
+index 26afe23..df67cb7 100644
+--- a/cosmos_rl/utils/distributed.py
++++ b/cosmos_rl/utils/distributed.py
+@@ -71,7 +71,7 @@ def init_distributed(cpu_enabled: bool = True):
+         return
+     else:
+         torch.distributed.init_process_group(
+-            backend="cuda:nccl,cpu:gloo",
++            backend="npu:hccl,cpu:gloo",
+             timeout=timedelta(seconds=600),
+         )
+ 
+diff --git a/cosmos_rl/utils/profiler.py b/cosmos_rl/utils/profiler.py
+index 7a9c4a4..449766b 100644
+--- a/cosmos_rl/utils/profiler.py
++++ b/cosmos_rl/utils/profiler.py
+@@ -27,7 +27,13 @@ from cosmos_rl.utils.parallelism import ParallelDims
+ from cosmos_rl.utils.network_util import make_request_with_retry
+ from cosmos_rl.utils.checkpoint import upload_folder_to_s3
+ from cosmos_rl.utils import constant
+-
++import torch_npu
++from torch_npu.profiler import (
++    ProfilerActivity,
++    _ExperimentalConfig,
++    ProfilerLevel,
++    tensorboard_trace_handler
++)
+ 
+ class CosmosProfiler:
+     def __init__(
+@@ -53,6 +59,7 @@ class CosmosProfiler:
+         self.output_dir = os.path.join(
+             output_dir, "profile_trace", f"{self.replica_name}_{self.global_rank}"
+         )
++        self.npu_trace_dir = os.path.join(self.output_dir, "npu-profiling")
+         self.thread_pool = None
+ 
+         # static profiler config
+@@ -66,7 +73,9 @@ class CosmosProfiler:
+         self.record_shape = config.profiler.sub_profiler_config.record_shape
+         self.profile_memory = config.profiler.sub_profiler_config.profile_memory
+         self.with_stack = config.profiler.sub_profiler_config.with_stack
+-        self.with_modules = config.profiler.sub_profiler_config.with_modules
++        # NPU Profiler配置
++        self.profiler_level = ProfilerLevel.Level0
++        self.skip_first = 0
+ 
+     def check(self):
+         return self.profiler is not None and self.enable_profile
+@@ -96,21 +105,23 @@ class CosmosProfiler:
+             if not self.initialized:
+                 self.initialized = True
+                 logger.info(f"[Profiler] init profiler for rank {self.global_rank}")
+-                self.profiler = torch.profiler.profile(
++                self.profiler = torch_npu.profiler.profile(
+                     activities=[
+-                        torch.profiler.ProfilerActivity.CPU,
+-                        torch.profiler.ProfilerActivity.CUDA,
++                        ProfilerActivity.CPU,
++                        ProfilerActivity.NPU,
+                     ],
+                     schedule=torch.profiler.schedule(
+                         wait=self.wait_steps,
+                         warmup=self.warmup_steps,
+                         active=self.active_steps,
+                         repeat=1,
++                        skip_first=self.skip_first,
+                     ),
++                    experimental_config=_ExperimentalConfig(profiler_level=self.profiler_level),
+                     record_shapes=self.record_shape,
+                     with_stack=self.with_stack,
+-                    with_modules=self.with_modules,
+                     profile_memory=self.profile_memory,
++                    on_trace_ready=tensorboard_trace_handler(self.npu_trace_dir)
+                 )
+                 self.thread_pool = futures.ThreadPoolExecutor(max_workers=4)
+ 
+@@ -143,21 +154,23 @@ class CosmosProfiler:
+                 self.profile_memory = profile_memory
+                 self.with_stack = with_stack
+                 self.with_modules = with_modules
+-                self.profiler = torch.profiler.profile(
++                self.profiler = torch_npu.profiler.profile(
+                     activities=[
+-                        torch.profiler.ProfilerActivity.CPU,
+-                        torch.profiler.ProfilerActivity.CUDA,
++                        ProfilerActivity.CPU,
++                        ProfilerActivity.NPU,
+                     ],
+                     schedule=torch.profiler.schedule(
+                         wait=self.wait_steps,
+                         warmup=self.warmup_steps,
+                         active=self.active_steps,
+                         repeat=1,
++                        skip_first=self.skip_first,
+                     ),
++                    experimental_config=_ExperimentalConfig(profiler_level=self.profiler_level),
+                     record_shapes=self.record_shape,
+                     with_stack=self.with_stack,
+-                    with_modules=self.with_modules,
+                     profile_memory=self.profile_memory,
++                    on_trace_ready=tensorboard_trace_handler(self.npu_trace_dir)
+                 )
+                 self.thread_pool = futures.ThreadPoolExecutor(max_workers=4)
+ 
+@@ -216,16 +229,12 @@ class CosmosProfiler:
+ 
+     def save(self):
+         if self.check():
++            os.makedirs(self.npu_trace_dir, exist_ok=True)
+             os.makedirs(self.output_dir, exist_ok=True)
+             trace_file_name = "trace.json.gz"
+             trace_file_path = os.path.join(
+                 self.output_dir, f"{self.profiled_times}_{trace_file_name}"
+             )
+-            logger.info(
+-                f"[Profiler] save trace for rank: {self.global_rank} to file: {trace_file_path} after {self.profiler.step_num} steps."
+-            )
+-            # save the trace asynchronously
+-            self.profiler.export_chrome_trace(trace_file_path)
+ 
+             # report to the controller
+             # only report the dir
+@@ -253,6 +262,7 @@ class CosmosProfiler:
+                 "replica_name": self.replica_name,
+                 "trace_path": abs_path,
+                 "global_rank": self.global_rank,
++                "trace_type": "NPU",
+             },
+         )
+ 
+@@ -262,4 +272,4 @@ class CosmosProfiler:
+             self.alternative_urls,
+             max_retries=constant.COSMOS_HTTP_RETRY_CONFIG.max_retries,
+         )
+-        self.thread_pool.submit(report_func)
++        self.thread_pool.submit(report_func)
+\ No newline at end of file
+diff --git a/cosmos_rl/utils/pyhccl_wrapper.py b/cosmos_rl/utils/pyhccl_wrapper.py
+new file mode 100644
+index 0000000..c1df0fb
+--- /dev/null
++++ b/cosmos_rl/utils/pyhccl_wrapper.py
+@@ -0,0 +1,489 @@
++import ctypes
++from dataclasses import dataclass
++from typing import Any
++
++import torch
++from torch.distributed import ReduceOp
++
++from cosmos_rl.utils.logging import logger
++
++hcclResult_t = ctypes.c_int
++hcclComm_t = ctypes.c_void_p
++
++
++class hcclUniqueId(ctypes.Structure):
++    _fields_ = [("internal", ctypes.c_byte * 4108)]
++
++
++aclrtStream_t = ctypes.c_void_p
++buffer_type = ctypes.c_void_p
++
++hcclDataType_t = ctypes.c_int
++
++
++class hcclConfig_t(ctypes.Structure):
++    _fields_ = [
++        ("reserved", ctypes.c_byte * 24),  # HCCL_COMM_CONFIG_INFO_BYTES = 24
++        ("hcclBufferSize", ctypes.c_uint32),
++        ("hcclDeterministic", ctypes.c_uint32),
++        ("hcclCommName", ctypes.c_char * 128),  # COMM_NAME_MAX_LENGTH = 128
++        ("hcclUdi", ctypes.c_char * 128),  # UDI_MAX_LENGTH = 128
++        ("hcclOpExpansionMode", ctypes.c_uint32),
++        ("hcclRdmaTrafficClass", ctypes.c_uint32),
++        ("hcclRdmaServiceLevel", ctypes.c_uint32),
++        ("hcclWorldRankID", ctypes.c_uint32),
++        ("hcclJobID", ctypes.c_uint64),
++    ]
++
++# --- NCCL config struct (complete v22700) ---
++class ncclConfig_t(ctypes.Structure):
++    _fields_ = [
++        ("size", ctypes.c_size_t),  # sizeof(ncclConfig_t)
++        ("magic", ctypes.c_uint),  # constant magic
++        ("version", ctypes.c_uint),  # NCCL version code, e.g. 22703
++        ("blocking", ctypes.c_int),  # whether operations are blocking (0 / 1)
++        ("cgaClusterSize", ctypes.c_int),
++        ("minCTAs", ctypes.c_int),
++        ("maxCTAs", ctypes.c_int),
++        ("netName", ctypes.c_char_p),
++        ("splitShare", ctypes.c_int),
++        ("trafficClass", ctypes.c_int),
++        ("commName", ctypes.c_char_p),
++        ("collnetEnable", ctypes.c_int),
++        ("CTAPolicy", ctypes.c_int),
++        ("shrinkShare", ctypes.c_int),
++        ("nvlsCTAs", ctypes.c_int),
++    ]
++
++class hcclDataTypeEnum:
++    HCCL_DATA_TYPE_INT8 = 0
++    HCCL_DATA_TYPE_INT16 = 1
++    HCCL_DATA_TYPE_INT32 = 2
++    HCCL_DATA_TYPE_FP16 = 3
++    HCCL_DATA_TYPE_FP32 = 4
++    HCCL_DATA_TYPE_INT64 = 5
++    HCCL_DATA_TYPE_UINT64 = 6
++    HCCL_DATA_TYPE_UINT8 = 7
++    HCCL_DATA_TYPE_UINT16 = 8
++    HCCL_DATA_TYPE_UINT32 = 9
++    HCCL_DATA_TYPE_FP64 = 10
++    HCCL_DATA_TYPE_BFP16 = 11
++    HCCL_DATA_TYPE_INT128 = 12
++    HCCL_DATA_TYPE_HIF8 = 14
++    HCCL_DATA_TYPE_FP8E4M3 = 15
++    HCCL_DATA_TYPE_FP8E5M2 = 16
++    HCCL_DATA_TYPE_FP8E8M0 = 17
++
++    @classmethod
++    def from_torch(cls, dtype: torch.dtype) -> int:
++        if dtype == torch.int8:
++            return cls.HCCL_DATA_TYPE_INT8
++        if dtype == torch.uint8:
++            return cls.HCCL_DATA_TYPE_UINT8
++        if dtype == torch.int32:
++            return cls.HCCL_DATA_TYPE_INT32
++        if dtype == torch.int64:
++            return cls.HCCL_DATA_TYPE_INT64
++        if dtype == torch.float16:
++            return cls.HCCL_DATA_TYPE_FP16
++        if dtype == torch.float32:
++            return cls.HCCL_DATA_TYPE_FP32
++        if dtype == torch.float64:
++            return cls.HCCL_DATA_TYPE_FP64
++        if dtype == torch.bfloat16:
++            return cls.HCCL_DATA_TYPE_BFP16
++        if dtype == torch.float8_e4m3fn:
++            return cls.HCCL_DATA_TYPE_FP8E4M3
++        if dtype == torch.float8_e5m2:
++            return cls.HCCL_DATA_TYPE_FP8E5M2
++        raise ValueError(f"Unsupported dtype: {dtype}")
++
++
++hcclRedOp_t = ctypes.c_int
++
++
++class hcclRedOpTypeEnum:
++    HCCL_REDUCE_SUM = 0
++    HCCL_REDUCE_PROD = 1
++    HCCL_REDUCE_MAX = 2
++    HCCL_REDUCE_MIN = 3
++
++    @classmethod
++    def from_torch(cls, op: ReduceOp) -> int:
++        if op == ReduceOp.SUM:
++            return cls.HCCL_REDUCE_SUM
++        if op == ReduceOp.PRODUCT:
++            return cls.HCCL_REDUCE_PROD
++        if op == ReduceOp.MAX:
++            return cls.HCCL_REDUCE_MAX
++        if op == ReduceOp.MIN:
++            return cls.HCCL_REDUCE_MIN
++        raise ValueError(f"Unsupported op: {op}")
++
++
++@dataclass
++class Function:
++    name: str
++    restype: Any
++    argtypes: list[Any]
++
++
++class HCCLLibrary:
++    # names of optional functions (absence tolerated)
++    optional_functions = {"HcclCommInitRootInfoConfig"}
++    exported_functions = [
++        # const char* HcclGetErrorString(HcclResult code);
++        Function("HcclGetErrorString", ctypes.c_char_p, [hcclResult_t]),
++
++        # HcclResult HcclGetRootInfo(HcclRootInfo *rootInfo);
++        Function("HcclGetRootInfo", hcclResult_t, [ctypes.POINTER(hcclUniqueId)]),
++        Function(
++            "HcclCommInitRootInfo",
++            hcclResult_t,
++            [ctypes.c_int, ctypes.POINTER(hcclUniqueId), ctypes.c_int, ctypes.POINTER(hcclComm_t)],
++        ),
++        Function(
++            "HcclCommInitRootInfoConfig",
++            hcclResult_t,
++            [ctypes.c_uint32, ctypes.POINTER(hcclUniqueId), ctypes.c_uint32,
++            ctypes.POINTER(ncclConfig_t), ctypes.POINTER(hcclComm_t)],
++        ),
++        Function(
++            "HcclAllReduce",
++            hcclResult_t,
++            [
++                buffer_type,
++                buffer_type,
++                ctypes.c_size_t,
++                hcclDataType_t,
++                hcclRedOp_t,
++                hcclComm_t,
++                aclrtStream_t,
++            ],
++        ),
++        Function(
++            "HcclAllGather",
++            hcclResult_t,
++            [
++                buffer_type,
++                buffer_type,
++                ctypes.c_size_t,
++                hcclDataType_t,
++                hcclComm_t,
++                aclrtStream_t,
++            ],
++        ),
++        Function(
++            "HcclReduceScatter",
++            hcclResult_t,
++            [
++                buffer_type,
++                buffer_type,
++                ctypes.c_size_t,
++                hcclDataType_t,
++                hcclRedOp_t,
++                hcclComm_t,
++                aclrtStream_t,
++            ],
++        ),
++        Function(
++            "HcclSend",
++            hcclResult_t,
++            [
++                buffer_type,
++                ctypes.c_size_t,
++                hcclDataType_t,
++                ctypes.c_int,
++                hcclComm_t,
++                aclrtStream_t,
++            ],
++        ),
++        Function(
++            "HcclRecv",
++            hcclResult_t,
++            [
++                buffer_type,
++                ctypes.c_size_t,
++                hcclDataType_t,
++                ctypes.c_int,
++                hcclComm_t,
++                aclrtStream_t,
++            ],
++        ),
++        Function(
++            "HcclBroadcast",
++            hcclResult_t,
++            [
++                buffer_type,
++                buffer_type,
++                ctypes.c_size_t,
++                hcclDataType_t,
++                ctypes.c_int,
++                hcclComm_t,
++                aclrtStream_t,
++            ],
++        ),
++        Function("HcclCommDestroy", hcclResult_t, [hcclComm_t]),
++        Function(
++            "HcclGetCommAsyncError",
++            hcclResult_t,
++            [hcclComm_t, ctypes.POINTER(hcclResult_t)],
++        ),
++        Function("HcclBarrier", hcclResult_t, [hcclComm_t, aclrtStream_t]),
++    ]
++
++    # class attribute to store the mapping from the path to the library
++    # to avoid loading the same library multiple times
++    path_to_library_cache: dict[str, Any] = {}
++    path_to_funcs_mapping: dict[str, dict[str, Any]] = {}
++
++    def __init__(self, so_file: str):
++        try:
++            if so_file not in HCCLLibrary.path_to_library_cache:
++                lib = ctypes.CDLL(so_file)
++                HCCLLibrary.path_to_library_cache[so_file] = lib
++            self.lib = HCCLLibrary.path_to_library_cache[so_file]
++        except Exception:
++            logger.error(f"Failed to load so file: {so_file} from NCCL library. ")
++            raise
++
++        if so_file not in HCCLLibrary.path_to_funcs_mapping:
++            _funcs: dict[str, Any] = {}
++            for func in HCCLLibrary.exported_functions:
++                try:
++                    f = getattr(self.lib, func.name)
++                except AttributeError:
++                    raise
++                f.restype = func.restype
++                f.argtypes = func.argtypes
++                _funcs[func.name] = f
++            HCCLLibrary.path_to_funcs_mapping[so_file] = _funcs
++
++        self._funcs = HCCLLibrary.path_to_funcs_mapping[so_file]
++
++    def hcclGetErrorString(self, result: hcclResult_t) -> str:
++        return self._funcs["HcclGetErrorString"](result).decode("utf-8")
++
++    def HCCL_CHECK(self, result: hcclResult_t) -> None:
++        """Raise RuntimeError if *result* is an error code."""
++        if not hcclResultEnum.is_ok(int(result)):
++            error_str = self.hcclGetErrorString(result)
++            raise RuntimeError(f"HCCL error: {error_str}")
++
++    def hcclGetUniqueId(self) -> hcclUniqueId:
++        unique_id = hcclUniqueId()
++        self.HCCL_CHECK(self._funcs["HcclGetRootInfo"](ctypes.byref(unique_id)))
++        return unique_id
++
++    def hcclCommInitRank(
++        self, world_size: int, unique_id: hcclUniqueId, rank: int
++    ) -> hcclComm_t:
++        comm = hcclComm_t()
++        print(rank,world_size,unique_id,comm)
++        self.HCCL_CHECK(
++            self._funcs["HcclCommInitRootInfo"](
++                world_size, ctypes.byref(unique_id), rank, ctypes.byref(comm)
++            )
++        )
++        return comm
++
++    def hcclCommInitRankConfig(
++        self,
++        world_size: int,
++        unique_id: hcclUniqueId,
++        rank: int,
++        blocking: int = 0,
++    ) -> hcclComm_t:
++        """Python wrapper for ncclCommInitRankConfig with *blocking* flag preset.
++
++        Currently only exposes the *blocking* field (0 = non-blocking NCCL launch).
++        Additional ncclConfig_t fields are kept at their default zeros for
++        simplicity.
++        """
++        comm = hcclComm_t()
++        config = ncclConfig_t()
++        # Fill mandatory header fields according to NCCL_CONFIG_INITIALIZER
++        NCCL_CONFIG_MAGIC = 0xCAFEBEEF
++        # Try to retrieve NCCL version code (e.g., 22703) from library
++        try:
++            ver_str = self.ncclGetVersion()  # e.g. "2.27.3"
++            major, minor, patch = (int(v) for v in ver_str.split("."))
++            version_code = (major * 10000) + (minor * 100) + patch
++        except Exception:
++            # Fallback to hard-coded current header version
++            version_code = 22703
++
++        INT_MIN = -2147483648  # NCCL_CONFIG_UNDEF_INT
++
++        config.size = ctypes.sizeof(ncclConfig_t)
++        config.magic = NCCL_CONFIG_MAGIC
++        config.version = version_code
++
++        # Initialize all integer fields to UNDEF, pointer fields to NULL
++        config.blocking = blocking if blocking in (0, 1) else INT_MIN
++        config.cgaClusterSize = INT_MIN
++        config.minCTAs = INT_MIN
++        config.maxCTAs = INT_MIN
++        config.netName = None
++        config.splitShare = INT_MIN
++        config.trafficClass = INT_MIN
++        config.commName = None
++        config.collnetEnable = INT_MIN
++        config.CTAPolicy = INT_MIN
++        config.shrinkShare = INT_MIN
++        config.nvlsCTAs = INT_MIN
++        return self.hcclCommInitRank(world_size, unique_id, rank)
++
++    def hcclAllReduce(
++        self,
++        sendbuff: buffer_type,
++        recvbuff: buffer_type,
++        count: int,
++        datatype: int,
++        op: int,
++        comm: hcclComm_t,
++        stream: aclrtStream_t,
++    ) -> None:
++        # `datatype` actually should be `ncclDataType_t`
++        # and `op` should be `ncclRedOp_t`
++        # both are aliases of `ctypes.c_int`
++        # when we pass int to a function, it will be converted to `ctypes.c_int`
++        # by ctypes automatically
++        self.HCCL_CHECK(
++            self._funcs["HcclAllReduce"](
++                sendbuff, recvbuff, count, datatype, op, comm, stream
++            )
++        )
++
++    def hcclReduceScatter(
++        self,
++        sendbuff: buffer_type,
++        recvbuff: buffer_type,
++        count: int,
++        datatype: int,
++        op: int,
++        comm: hcclComm_t,
++        stream: aclrtStream_t,
++    ) -> None:
++        # `datatype` actually should be `ncclDataType_t`
++        # and `op` should be `ncclRedOp_t`
++        # both are aliases of `ctypes.c_int`
++        # when we pass int to a function, it will be converted to `ctypes.c_int`
++        # by ctypes automatically
++        self.HCCL_CHECK(
++            self._funcs["HcclReduceScatter"](
++                sendbuff, recvbuff, count, datatype, op, comm, stream
++            )
++        )
++
++    def hcclAllGather(
++        self,
++        sendbuff: buffer_type,
++        recvbuff: buffer_type,
++        count: int,
++        datatype: int,
++        comm: hcclComm_t,
++        stream: aclrtStream_t,
++    ) -> None:
++        # `datatype` actually should be `ncclDataType_t`
++        # which is an aliases of `ctypes.c_int`
++        # when we pass int to a function, it will be converted to `ctypes.c_int`
++        # by ctypes automatically
++        self.HCCL_CHECK(
++            self._funcs["HcclAllGather"](
++                sendbuff, recvbuff, count, datatype, comm, stream
++            )
++        )
++
++    def hcclSend(
++        self,
++        sendbuff: buffer_type,
++        count: int,
++        datatype: int,
++        dest: int,
++        comm: hcclComm_t,
++        stream: aclrtStream_t,
++    ) -> None:
++        self.HCCL_CHECK(
++            self._funcs["HcclSend"](sendbuff, count, datatype, dest, comm, stream)
++        )
++
++    def hcclRecv(
++        self,
++        recvbuff: buffer_type,
++        count: int,
++        datatype: int,
++        src: int,
++        comm: hcclComm_t,
++        stream: aclrtStream_t,
++    ) -> None:
++        self.HCCL_CHECK(
++            self._funcs["HcclRecv"](recvbuff, count, datatype, src, comm, stream)
++        )
++
++    def ncclGroupStart(self) -> None:
++        return
++
++    def ncclGroupEnd(self) -> None:
++        return
++
++    def hcclBroadcast(
++        self,
++        sendbuff: buffer_type,
++        recvbuff: buffer_type,
++        count: int,
++        datatype: int,
++        root: int,
++        comm: hcclComm_t,
++        stream: aclrtStream_t,
++    ) -> None:
++        self.HCCL_CHECK(
++            self._funcs["HcclBroadcast"](
++                sendbuff, recvbuff, count, datatype, root, comm, stream
++            )
++        )
++
++    def hcclCommDestroy(self, comm: hcclComm_t) -> None:
++        self.HCCL_CHECK(self._funcs["HcclCommDestroy"](comm))
++
++    # ------------------ new helpers for HA ------------------
++
++    def hcclCommGetAsyncError(self, comm: hcclComm_t) -> int:
++        err = hcclResult_t()
++        self._funcs["HcclGetCommAsyncError"](comm, ctypes.byref(err))
++        return int(err.value)
++
++
++
++class hcclResultEnum:
++    """Enumeration of NCCL result codes copied from nccl.h."""
++
++    ncclSuccess = 0
++    ncclUnhandledCudaError = 1
++    ncclSystemError = 2
++    ncclInternalError = 3
++    ncclInvalidArgument = 4
++    ncclInvalidUsage = 5
++    ncclRemoteError = 6
++    ncclInProgress = 7
++
++    @staticmethod
++    def is_ok(result: int) -> bool:
++        """Return True if *result* represents a non-error condition."""
++        return result in (
++            hcclResultEnum.ncclSuccess,
++            hcclResultEnum.ncclInProgress,
++        )
++
++
++__all__ = [
++    "HCCLLibrary",
++    "hcclDataTypeEnum",
++    "hcclRedOpTypeEnum",
++    "hcclResultEnum",
++    "hcclUniqueId",
++    "hcclComm_t",
++    "aclrtStream_t",
++    "buffer_type",
++    "ncclConfig_t",
++]
+diff --git a/cosmos_rl/utils/pynccl.py b/cosmos_rl/utils/pynccl.py
+index ce94679..8977004 100644
+--- a/cosmos_rl/utils/pynccl.py
++++ b/cosmos_rl/utils/pynccl.py
+@@ -35,53 +35,41 @@ import queue
+ from dataclasses import dataclass, field
+ 
+ import torch
+-from torch.cuda import Stream
++from torch_npu.npu import Stream
+ from torch.distributed import ReduceOp
+ 
+-from cosmos_rl.utils.pynccl_wrapper import (
+-    NCCLLibrary,
++# 整体更换为HCCL
++from cosmos_rl.utils.pyhccl_wrapper import (
++    HCCLLibrary,
+     buffer_type,
+-    cudaStream_t,
+-    ncclComm_t,
+-    ncclDataTypeEnum,
+-    ncclRedOpTypeEnum,
+-    ncclResultEnum,
+-    ncclUniqueId,
++    aclrtStream_t,
++    hcclComm_t,
++    hcclDataTypeEnum,
++    hcclRedOpTypeEnum,
++    hcclResultEnum,
++    hcclUniqueId,
+ )
+ 
+ from cosmos_rl.utils.logging import logger
+ 
+ 
+-# ---------------------------------------------------------------------------
+-# NCCL ctypes binding instance (shared)
+-# ---------------------------------------------------------------------------
+-def _find_nccl_so_file() -> str:
+-    """Find the libnccl.so* shared object file from the nvidia-nccl-cu* package."""
+-
+-    # we assume `nvidia-nccl-cu*` python package is installed next to the torch
+-    # package (under site-packages directory)
+-    torch_dir = os.path.dirname(torch.__file__)
+-    nvidia_nccl_dir = os.path.join(os.path.dirname(torch_dir), "nvidia", "nccl")
+-    if not os.path.isdir(nvidia_nccl_dir):
+-        raise RuntimeError(
+-            f"Could not find `nvidia-nccl-cu*` package directory: {nvidia_nccl_dir}"
+-            "Please install the `nvidia-nccl-cu*` package."
+-        )
+-    # find the so files in nvidia-nccl directory
+-    so_files = glob.glob(os.path.join(nvidia_nccl_dir, "lib", "libnccl.so*"))
+-    # filter out the symbolic links
+-    so_files = [f for f in so_files if not os.path.islink(f)]
+-    if len(so_files) != 1:
+-        raise RuntimeError(
+-            f"Expected exactly one libnccl.so* file in {nvidia_nccl_dir}/lib, "
+-            f"but found {len(so_files)}: {so_files}. Please check your installation."
+-        )
+-
+-    so_file = so_files[0]
+-    return so_file
++def _find_hccl_so_file() -> str:
++    """Find the libhccl.so shared object file from the ascend-toolkit package."""
++    cann_dir = os.environ.get('ASCEND_TOOLKIT_HOME')
++    if cann_dir:
++        ascend_hccl_so_file = os.path.join(cann_dir, "aarch64-linux/lib64/libhccl.so")
+ 
++        if os.path.exists(ascend_hccl_so_file) and os.path.isfile(ascend_hccl_so_file):
++            logger.info("Found HCCL so file from %s", ascend_hccl_so_file)
++        else:
++            # 未找到so文件
++            raise FileNotFoundError(f"HCCL so file not found at: {ascend_hccl_so_file}")
++    else:
++        # 未找到CANN路径
++        raise ValueError("HCCL only supports Ascend NPU backends.")
++    return ascend_hccl_so_file
+ 
+-_nccl = NCCLLibrary(so_file=_find_nccl_so_file())
++_nccl = HCCLLibrary(so_file=_find_hccl_so_file())
+ 
+ # ---------------------------------------------------------------------------
+ # Communicator registry (thread-safe singleton)
+@@ -92,7 +80,7 @@ _nccl = NCCLLibrary(so_file=_find_nccl_so_file())
+ class _CommMeta:
+     """Metadata for a communicator."""
+ 
+-    comm: ncclComm_t
++    comm: hcclComm_t
+     rank: int
+     world_size: int
+ 
+@@ -107,7 +95,7 @@ class _CommunicatorRegistry:
+         self._next_idx: int = 0
+         self._lock = threading.Lock()
+ 
+-    def register(self, comm: ncclComm_t, rank: int, world_size: int) -> int:
++    def register(self, comm: hcclComm_t, rank: int, world_size: int) -> int:
+         """Insert a new communicator and return its autogenerated handle."""
+         with self._lock:
+             idx = self._next_idx
+@@ -178,7 +166,7 @@ def _current_ctx() -> _WatchdogContext | None:  # noqa: D401
+ 
+ @dataclass(slots=True)
+ class _Task:
+-    functor: Callable[[], ncclComm_t]
++    functor: Callable[[], hcclComm_t]
+     timeout_ms: int
+     comm_idx: Optional[int]
+     done: threading.Event = field(default_factory=threading.Event)
+@@ -205,7 +193,7 @@ _worker_init_lock = threading.Lock()
+ def run_task(task: _Task):
+     logger.debug(f"[Worker] Got task {task} | queue_size={_task_q.qsize()}")
+ 
+-    comm: ncclComm_t | None = None
++    comm: hcclComm_t | None = None
+     try:
+         logger.debug(f"[Worker] Executing functor for task {task}")
+         comm = task.functor()
+@@ -214,10 +202,10 @@ def run_task(task: _Task):
+         deadline = time.monotonic() + task.timeout_ms / 1000.0
+         # Poll async error status until success or timeout.
+         while time.monotonic() < deadline:
+-            err = _nccl.ncclCommGetAsyncError(comm)
+-            if err == ncclResultEnum.ncclSuccess:
++            err = _nccl.hcclCommGetAsyncError(comm)
++            if err == hcclResultEnum.ncclSuccess:
+                 break
+-            if err != ncclResultEnum.ncclInProgress:
++            if err != hcclResultEnum.ncclInProgress:
+                 # Immediate error – abort communicator and mark task failed.
+                 logger.error(
+                     f"NCCL: async error detected (err={err}), task {task} failed"
+@@ -273,7 +261,7 @@ def _start_worker(device_idx: int):
+ 
+ 
+ def _submit_nccl(
+-    functor: Callable[[], ncclComm_t],
++    functor: Callable[[], hcclComm_t],
+     timeout_ms: Optional[int],
+     comm_idx: Optional[int] = None,
+     run_inline: bool = True,
+@@ -312,19 +300,19 @@ def _submit_nccl(
+ 
+ def _dtype_enum(dtype: torch.dtype) -> int:
+     """Map torch.dtype to NCCL enum (raises on unsupported)."""
+-    return ncclDataTypeEnum.from_torch(dtype)
++    return hcclDataTypeEnum.from_torch(dtype)
+ 
+ 
+ def _redop_enum(op: ReduceOp) -> int:
+     """Map torch.distributed.ReduceOp to NCCL enum."""
+-    return ncclRedOpTypeEnum.from_torch(op)
++    return hcclRedOpTypeEnum.from_torch(op)
+ 
+ 
+-def _stream_ptr(stream: Optional[Stream] = None) -> cudaStream_t:
+-    """Return cudaStream_t pointer for given stream (defaults to current)."""
++def _stream_ptr(stream: Optional[Stream] = None) -> aclrtStream_t:
++    """Return aclrtStream_t pointer for given stream (defaults to current)."""
+     if stream is None:
+         stream = torch.cuda.current_stream()
+-    return cudaStream_t(stream.cuda_stream)
++    return aclrtStream_t(stream.npu_stream)
+ 
+ 
+ def _buf(ptr_tensor: Optional[torch.Tensor]) -> buffer_type:
+@@ -446,7 +434,7 @@ def nccl_timeout_watchdog(
+ 
+ def create_nccl_uid() -> List[int]:
+     """Generate a NCCL unique ID and return it as a list of 128 bytes."""
+-    uid = _nccl.ncclGetUniqueId()
++    uid = _nccl.hcclGetUniqueId()
+     return list(uid.internal)
+ 
+ 
+@@ -457,15 +445,15 @@ def create_nccl_comm(
+     # Start the NCCL background worker exactly once using the caller's CUDA device.
+     _start_worker(torch.cuda.current_device())
+ 
+-    uid = ncclUniqueId()
++    uid = hcclUniqueId()
+     for i, byte in enumerate(uid_chars):
+         uid.internal[i] = byte & 0xFF
+ 
+     # Holder to fetch communicator created in worker thread
+-    holder: Dict[str, ncclComm_t] = {}
++    holder: Dict[str, hcclComm_t] = {}
+ 
+-    def _init_functor() -> ncclComm_t:
+-        comm_local = _nccl.ncclCommInitRankConfig(world_size, uid, rank)
++    def _init_functor() -> hcclComm_t:
++        comm_local = _nccl.hcclCommInitRank(world_size, uid, rank)
+         holder["comm"] = comm_local
+         return comm_local
+ 
+@@ -500,10 +488,7 @@ def nccl_abort(comm_idx: int):
+     """Abort (destroy) communicator comm_idx."""
+     meta = _COMM_REGISTRY.pop(comm_idx)
+     if meta is not None and meta.comm is not None:
+-        try:
+-            _nccl.ncclCommAbort(meta.comm)
+-        except Exception:
+-            _nccl.ncclCommDestroy(meta.comm)
++        _nccl.hcclCommDestroy(meta.comm)
+         logger.warning(f"[NCCL] Aborted communicator idx={comm_idx}")
+ 
+ 
+@@ -544,7 +529,7 @@ def nccl_broadcast(
+     stream_ptr = _stream_ptr(stream)
+ 
+     def _broadcast_call():
+-        _nccl.ncclBroadcast(
++        _nccl.hcclBroadcast(
+             sendbuf,
+             recvbuf,
+             tensor.numel(),
+@@ -592,7 +577,7 @@ def nccl_send(
+     stream_ptr = _stream_ptr(stream)
+ 
+     def _send_call():
+-        _nccl.ncclSend(
++        _nccl.hcclSend(
+             _buf(tensor),
+             tensor.numel(),
+             _dtype_enum(tensor.dtype),
+@@ -619,7 +604,7 @@ def nccl_recv(
+     stream_ptr = _stream_ptr(stream)
+ 
+     def _recv_call():
+-        _nccl.ncclRecv(
++        _nccl.hcclRecv(
+             _buf(tensor),
+             tensor.numel(),
+             _dtype_enum(tensor.dtype),
+@@ -647,7 +632,7 @@ def nccl_allreduce(
+     stream_ptr = _stream_ptr(stream)
+ 
+     def _allreduce_call():
+-        _nccl.ncclAllReduce(
++        _nccl.hcclAllReduce(
+             _buf(sendbuff),
+             _buf(recvbuff),
+             sendbuff.numel(),
+@@ -676,7 +661,7 @@ def nccl_alltoall(
+     stream_ptr = _stream_ptr(stream)
+ 
+     def _alltoall_call():
+-        _nccl.ncclAllGather(
++        _nccl.hcclAllGather(
+             _buf(sendbuff),
+             _buf(recvbuff),
+             sendbuff.numel(),
+@@ -697,13 +682,13 @@ def get_nccl_timeout_ms() -> int:
+     return _get_timeout_ms()
+ 
+ 
+-def _safe_abort(comm_idx: Optional[int], comm: ncclComm_t):
++def _safe_abort(comm_idx: Optional[int], comm: hcclComm_t):
+     """Abort NCCL communicator gracefully, regardless of its registry state.
+ 
+     If *comm_idx* is given, we first try to abort via :func:`nccl_abort` so the
+     communicator is removed from the registry. When *comm_idx* is *None* (e.g.
+     during communicator creation), we fall back to aborting the raw
+-    ``ncclComm_t``.  Any error during the abort is intentionally suppressed
++    ``hcclComm_t``.  Any error during the abort is intentionally suppressed
+     because we are already in an error-handling path.
+     """
+     try:
+diff --git a/cosmos_rl/utils/util.py b/cosmos_rl/utils/util.py
+index 9e027af..f8c4767 100644
+--- a/cosmos_rl/utils/util.py
++++ b/cosmos_rl/utils/util.py
+@@ -39,7 +39,6 @@ from msgpack import ExtType
+ from tqdm import tqdm
+ from typing import List, Tuple, Dict, Any, Optional
+ import torch
+-import pynvml
+ from contextlib import contextmanager
+ from torch.functional import F
+ from huggingface_hub import (
+@@ -407,7 +406,7 @@ def prepare_cosmos_data(dataset, *args, **kwargs):
+         "COSMOS_CACHE", os.path.join(os.path.expanduser("~"), ".cache/cosmos/")
+     )
+     dataset_name = basename_from_modelpath(dataset.name)
+-    use_modelscope = if_use_modelscope(dataset.name)
++    use_modelscope = True
+     dataset_dir = os.path.join(
+         cache_dir,
+         "datasets",
+@@ -542,6 +541,14 @@ GPU_FLOPS_MAPPING = {
+         "FP32": 39 * (1e12),
+         "FP16": 195 * (1e12),
+     },
++
++}
++
++
++ASCEND910_FLOPS = {
++    "float32": 83 * (1e12),    # FP32算力
++    "float16": 313 * (1e12),    # FP16算力
++    "bfloat16": 313 * (1e12)    # BF16算力
+ }
+ 
+ 
+@@ -557,18 +564,9 @@ def get_device_flops(dtype: torch.dtype, num_gpus: int) -> int:
+         int: The FLOPs of the current device.
+     """
+     gpu_flops = 0
+-    if torch.cuda.is_available():
+-        pynvml.nvmlInit()
+-        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+-        gpu_type = pynvml.nvmlDeviceGetName(handle).decode("utf-8")
+-        if dtype == "float32":
+-            gpu_flops = GPU_FLOPS_MAPPING[gpu_type]["FP32"]
+-        elif dtype == "float16" or dtype == "bfloat16":
+-            gpu_flops = GPU_FLOPS_MAPPING[gpu_type]["FP16"]
+-        else:
+-            raise ValueError(f"Unsupported dtype: {dtype}")
+-    else:
+-        logger.warning("CUDA is not available. Cannot get GPU FLOPs.")
++    dtype_str = str(dtype).split('.')[-1]
++    gpu_flops = ASCEND910_FLOPS[dtype_str]
++
+     return gpu_flops * num_gpus
+ 
+ 
+@@ -764,7 +762,7 @@ bind 0.0.0.0
+ port {port}
+ 
+ # Disable TLS by setting the tls-port to 0
+-tls-port 0
++# tls-port 0
+ 
+ # Disable authentication by commenting out the requirepass directive
+ # requirepass yourpassword
+diff --git a/requirements.txt b/requirements.txt
+index 02070ed..ef1f93e 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,21 +1,16 @@
+ fastapi
+ uvicorn
+-transformers>=4.51.1,!=4.52.*,!=4.53.* # 4.53.* error: https://github.com/vllm-project/vllm-ascend/pull/1482, 4.52.* warning: https://github.com/huggingface/transformers/pull/38366
+-datasets
++transformers==4.56.0
+ pydantic
+ math_verify
+ pybind11[global]
+-vllm>=0.8.5
+-torch>=2.6.0
+-torchvision>=0.21.0
+-torchao>=0.10.0
+-tensordict==0.7.2
++torchao
++tensordict
+ toml
+ StrEnum
+ redis
+ msgpack
+-qwen_vl_utils
+-flash-attn>=2.7.4.post1
++qwen_vl_utils==0.0.11
+ pynvml
+ boto3
+ modelscope
+@@ -24,5 +19,9 @@ click
+ rich
+ pyyaml
+ blobfile
+-nvidia-nccl-cu12>=2.26.2
+-liger_kernel
++absl-py
++ml-dtypes
++tornado
++triton-ascend==3.2.0
++accelerate==1.12.0
++datasets==4.5.0
+\ No newline at end of file
