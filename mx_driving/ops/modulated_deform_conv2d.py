@@ -18,10 +18,12 @@ from torch.nn.modules.utils import _pair
 from torch.npu.amp import custom_bwd, custom_fwd
 import mx_driving._C
 
+DEVICE_NAME = torch_npu.npu.get_device_name(0)
+CAST_INPUT = None if ("910_95" in DEVICE_NAME) or ("950" in DEVICE_NAME) else torch.float32
 
 class ModulatedDeformConv2dFunction(Function):
     @staticmethod
-    @custom_fwd(cast_inputs=torch.float32)
+    @custom_fwd(cast_inputs=CAST_INPUT)
     # pylint: disable=huawei-too-many-arguments
     def forward(
         ctx,
