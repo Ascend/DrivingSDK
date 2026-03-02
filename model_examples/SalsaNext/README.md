@@ -39,14 +39,14 @@ SalsaNext采用编码器-解码器架构，其中编码器单元包含一组ResN
 
 - 参考实现：
 
-```
+```shell
 url=https://github.com/TiagoCortinhal/SalsaNext
 commit_id=7548c124b48f0259cdc40e98dfc3aeeadca6070c
 ```
 
 - 适配昇腾 AI 处理器的实现：
 
-```
+```shell
 url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/SalsaNext
 ```
@@ -73,9 +73,10 @@ code_path=model_examples/SalsaNext
 | PyTorch |  2.1.0   |
 
 ### 准备源代码
+
 - 克隆代码仓并应用补丁。
 
-```
+```shell
 git clone https://github.com/TiagoCortinhal/SalsaNext.git
 cp -f {DrivingSDK_root_dir}/model_examples/SalsaNext/salsanext.patch SalsaNext
 cp -rf {DrivingSDK_root_dir}/model_examples/SalsaNext/test SalsaNext
@@ -91,7 +92,7 @@ git apply --whitespace=fix salsanext.patch
 
 - 文件夹结构
 
-```
+```shell
   dataset
     └──sequences
         ├──00
@@ -114,18 +115,20 @@ git apply --whitespace=fix salsanext.patch
             ├── poses.txt
             └── times.txt
 ```
+
 ### 安装模型环境
 
 0. 准备conda
 
    创建conda环境，环境内需要python>=3.9
-   ```
+
+   ```shell
    conda create -n salsanext python=3.9
    ```
 
 1. 安装基础依赖
 
-   ```
+   ```shell
    conda activate salsanext
    ```
 
@@ -133,13 +136,13 @@ git apply --whitespace=fix salsanext.patch
    请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
    进入模型源码根目录
-   ```
+
+   ```shell
    cd {DrivingSDK_root_dir}/model_examples/SalsaNext/
    ```
 
    使用pip指令安装模型所需的其他代码库:
    pip install -r requirements.txt
-
 
 ## 快速开始
 
@@ -151,21 +154,22 @@ git apply --whitespace=fix salsanext.patch
 
   进入模型根目录，
 
-  ```
+  ```shell
   cd /${Model_root_dir}/
   ```
+
   salsanext.yml为默认配置文件。
 
 - 单机8卡性能
 
-  ```
+  ```shell
   # epoch = 20
   bash test/train_8p_performance.sh -d /数据集路径/ -a ./salsanext.yml -l ./
   ```
 
 - 单机8卡精度
 
-  ```
+  ```shell
   # epoch = 150
   bash test/train_8p.sh -d /数据集路径/ -a ./salsanext.yml -l ./
   ```
@@ -196,4 +200,5 @@ git apply --whitespace=fix salsanext.patch
 2025.07.04：性能优化
 
 ## FAQ
+
 暂无。

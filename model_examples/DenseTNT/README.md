@@ -1,4 +1,4 @@
-#  DenseTNT for PyTorch
+# DenseTNT for PyTorch
 
 ## 目录
 
@@ -20,9 +20,9 @@
 
 - DenseTNT是一种基于密集目标的轨迹预测方法，可以直接从地图上采样多个目标点的概率分布，而不需要手动设置目标点。
 
-- 原始代码仓库：https://github.com/Tsinghua-MARS-Lab/DenseTNT
+- 原始代码仓库：<https://github.com/Tsinghua-MARS-Lab/DenseTNT>
 - commit id：a07c237ea883b320aedf5e505185589ec4f88d76
-- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DenseTNT
+- 昇腾适配代码仓库：<https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/DenseTNT>
 
 ## 支持的任务列表
 
@@ -34,7 +34,7 @@
 
 - 当前模型支持的 PyTorch 版本：`PyTorch 2.1`
 
-- 搭建 PyTorch 环境参考：https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html
+- 搭建 PyTorch 环境参考：<https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html>
 
 **表1** 昇腾软件版本支持列表
 
@@ -46,21 +46,25 @@
 1、激活 CANN 包环境
 
 2、创建 conda 环境并激活：
-```
+
+```shell
 conda create -n densetnt python=3.9
 conda activate densetnt
 ```
 
 3、克隆模型原始代码仓到当前目录并切换到目标 commit ID
-```
+
+```shell
 git clone https://github.com/Tsinghua-MARS-Lab/DenseTNT -b argoverse2
 cd DenseTNT
 git checkout a07c237ea883b320aedf5e505185589ec4f88d76
 ```
+
 将模型根目录记作`path-to-DenseTNT`
 
 4、使用 patch 文件
-```
+
+```shell
 cp -f DenseTNT_npu.patch ${path-to-DenseTNT}
 cp -rf test ${path-to-DenseTNT}
 cd ${path-to-DenseTNT}
@@ -68,14 +72,17 @@ git apply DenseTNT_npu.patch
 ```
 
 5、安装依赖包
-```
+
+```shell
 pip install -r requirements.txt
 pip install av2==0.2.1
 ```
 
 6、安装gperftools，使能高性能库
+
 - OpenEuler系统
-```
+
+```shell
 wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
 tar -zxvf gperftools-2.16.tar.gz && cd gperftools-2.16
 ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
@@ -87,14 +94,18 @@ export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
 export PATH=/usr/local/lib/bin:$PATH
 export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
 ```
+
 - Ubuntu系统
-```
+
+```shell
 apt update
 apt install libgoogle-perftools4 libgoogle-perftools-dev libtcmalloc-minimal4 
 find /usr -name libtcmalloc.so*
 ```
+
 将find指令输出路径记作 libtcmalloc_root_dir
-```
+
+```shell
 export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
 ```
 
@@ -111,7 +122,7 @@ av2-motion-forecasting-dataset-path/
 
 ## 快速开始
 
-### 模型训练：
+### 模型训练
 
 主要提供单机 8 卡训练脚本：
 
@@ -130,7 +141,7 @@ bash test/train_8p_performance.sh --data_path='data/train' --output_path='argove
 --epochs       # 训练迭代次数，可选项，默认 16
 ```
 
-### 训练结果：
+### 训练结果
 
 | 芯片          | 卡数 | epoch | global batch size | FDE | it/s  | FPS |
 | ------------- | ---- | ----- | -----------------| --- | ---- |---|

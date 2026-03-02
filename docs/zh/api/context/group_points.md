@@ -1,28 +1,44 @@
-## group_points
-### 接口原型
+# group_points
+
+## 接口原型
+
 ```python
 mx_driving.group_points(Tensor features, Tensor indices) -> Tensor
 ```
+
 兼容：
+
 ```python
 mx_driving.point.group_points(Tensor features, Tensor indices) -> Tensor
 mx_driving.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
 ```
-### 功能描述
+
+## 功能描述
+
 点云数据按照索引重新分组。
-### 参数说明
+
+## 参数说明
+
 - `features(Tensor)`：需要被插值的特征，数据类型为`float32`，维度为（B, C, N）。
 - `indices(Tensor)`：获取目标特征计算的索引，数据类型为`int32`，维度为（B, npoints, nsample）。
-### 返回值
+
+## 返回值
+
 - `output(Tensor)`：分组后的点云数据，数据类型为`float32`。shape为`[B, C, npoints, nsample]`。
-### 约束说明
+
+## 约束说明
+
 - `features`和`indices`第一维度相同，且均不支持标量和空`tensor`。
 - `indices`元素的值需小于`features`的第三维度，即值在[0, N)。
 - C <= 1024。
 - 反向具有相同约束。
-### 支持的型号
+
+## 支持的型号
+
 - Atlas A2 训练系列产品
-### 调用示例
+
+## 调用示例
+
 ```python
 import torch
 import torch_npu

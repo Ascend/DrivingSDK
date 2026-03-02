@@ -1,4 +1,5 @@
 # 一键Patcher
+
 一键Patcher特性通过Python自身的猴子补丁（Monkey Patch）机制，提供了非侵入式的代码替换框架和通用补丁（Patch），可将原本基于GPU平台的代码实现，简洁快速地迁移到适配昇腾的NPU亲和优化实现上。Python的Monkey Patch本质上是一种在程序运行时（Runtime）动态替换修改模块、类、函数或方法等属性的技术，它无需修改原始源代码即可改变程序的行为。该特性主要包含以下内容：
 
 ## 主要功能
@@ -58,7 +59,7 @@
 
 ```Python
 if __name__ == '__main__':
-	main()
+ main()
 ```
 
 ### 应用Context
@@ -67,8 +68,8 @@ if __name__ == '__main__':
 from mx_driving.patcher import default_patcher_builder
 #......
 if __name__ == '__main__':
-	with default_patcher_builder.build() as patcher:
-		main()
+ with default_patcher_builder.build() as patcher:
+  main()
 ```
 
 然后照常运行模型即可。
@@ -109,14 +110,14 @@ if __name__ == '__main__':
 
 ```Python
 def my_patch(root_module: ModuleType, options: Dict):
-	if hasattr(root_module.xxx.yyy.zzz, "gpu_affine_func"):
-		def npu_affine_func(......):
-			......
-		
-		# Monkey Patching i.e. dynamic attribute replacement
-		root_module.xxx.yyy.zzz.gpu_affine_func = npu_affine_func
-	else:
-		raise AttributeError("root_module.xxx.yyy.zzz.gpu_affine_func not found")
+ if hasattr(root_module.xxx.yyy.zzz, "gpu_affine_func"):
+  def npu_affine_func(......):
+   ......
+  
+  # Monkey Patching i.e. dynamic attribute replacement
+  root_module.xxx.yyy.zzz.gpu_affine_func = npu_affine_func
+ else:
+  raise AttributeError("root_module.xxx.yyy.zzz.gpu_affine_func not found")
 ```
 
 * 补丁函数`my_patch`定义好后，即可通过`Patch(my_patch)`封装成供Patcher统一管理和应用的补丁单元
@@ -130,7 +131,7 @@ def my_patch(root_module: ModuleType, options: Dict):
 from mx_driving.patcher import Patch, Patcher, PatcherBuilder
 
 def my_patch(root_module: ModuleType, options: Dict):
-	...... # 参考上文
+ ...... # 参考上文
 
 my_patcher_builder = PatcherBuilder()
 my_patcher_builder.add_module_patch('root_module', Patch(my_patch, {'option1': xxx, 'option2': xxx, ...}))
@@ -144,8 +145,8 @@ my_patcher_builder.add_module_patch('root_module', Patch(my_patch, {'option1': x
 from path_to_my_patch_py import my_patcher_builder
 #.....
 if __name__ == '__main__':
-	with my_patcher_builder.build() as patcher:
-		main()
+ with my_patcher_builder.build() as patcher:
+  main()
 ```
 
 ### 与Default Patcher混用
@@ -158,11 +159,11 @@ patch.py:
 from mx_driving.patcher import Patch, Patcher, PatcherBuilder, default_patcher_builder
 
 def my_patch(root_module: ModuleType, options: Dict):
-   	...... # 参考上文
+    ...... # 参考上文
 
 my_patcher_builder = (
-	default_patch_builder
-	.add_module_patch('root_module', Patch(my_patch, {'option1': xxx, 'option2': xxx, ...}))
+ default_patch_builder
+ .add_module_patch('root_module', Patch(my_patch, {'option1': xxx, 'option2': xxx, ...}))
 )
 ```
 
@@ -182,7 +183,7 @@ from mx_driving.patcher.torch_patch import index, batch_matmul
 from mx_driving.patcher.patcher import Patch, Patcher, PatcherBuilder
 
 def my_patch(root_module: ModuleType, options: Dict):
-      	...... # 参考上文
+       ...... # 参考上文
 
 my_patcher_builder = (
     PatcherBuilder()
@@ -211,7 +212,8 @@ my_patcher_builder.with_profiling(profiling_path, profiling_level)
 ```
 
 如果需要精确设置采集profiling的具体训练step，可配置以下可选参数：
-```
+
+```python
 # 例如以下配置，先跳过100步，等待1步，预热5步，采集10步，重复这16步2次
 my_patcher_builder.with_profiling(profiling_path, profiling_level,
                                   skip_first=100, 
@@ -220,7 +222,9 @@ my_patcher_builder.with_profiling(profiling_path, profiling_level,
                                   active=10,
                                   repeat=2)
 ```
+
 默认step控制参数为：
+
 * skip_first = 20
 * wait = 1
 * warmup = 1
@@ -228,7 +232,8 @@ my_patcher_builder.with_profiling(profiling_path, profiling_level,
 * repeat = 1
 
 如果仅需指定跳过开始的N步后完成一个默认的profiling采集cycle，用法可简化为：
-```
+
+```python
 my_patcher_builder.with_profiling(profiling_path, profiling_level, skip_first=N)
 ```
 
@@ -276,7 +281,7 @@ my_patcher_builder.with_brake(brake_step)
 
 ```Python
 def my_patch(root_module: ModuleType, options: Dict):
-	...... # 参考上文
+ ...... # 参考上文
 
 my_options = {}
 my_options['key1'] = val1
@@ -285,9 +290,9 @@ my_options['key2'] = val2
 
 #封装补丁
 my_wrapped_patch = Patch(func=my_patch, 
-					     options=my_options, 
-					     priority=0, 
-					     patch_failure_warning=True)
+          options=my_options, 
+          priority=0, 
+          patch_failure_warning=True)
 ```
 
 ### `Patcher`类
@@ -307,9 +312,9 @@ my_wrapped_patch = Patch(func=my_patch,
 
 ```Python
 def my_patch1(.....):
-	.......
+ .......
 def my_patch2(.....):
-	.......
+ .......
 my_wrapped_patch1 = Patch(my_patch1)
 module_name1 = "mmcv"
 my_wrapped_patch2 = Patch(my_patch2)
@@ -322,8 +327,8 @@ my_patches[module_name2] = my_wrapped_patch2
 black_list = {"my_patch2"}
 patcher = Patcher(my_patches, black_list)
 with patcher:
-	# train model here
-	main()
+ # train model here
+ main()
 ```
 
 ### `PatcherBuilder`类

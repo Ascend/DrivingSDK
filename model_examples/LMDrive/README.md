@@ -30,6 +30,7 @@
 LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练上的模型。LMDrive通过将文字指令与图像、雷达信息处理后合并传入大语言模型，最终由大语言模型输出控制信号。
 
 ## 支持任务列表
+
 本仓已经支持以下模型任务类型
 
 |    模型     | 任务列表 | 是否支持 |
@@ -40,13 +41,14 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 
 - 参考实现：
 
-    ```
+    ```shell
     url=https://github.com/opendilab/LMDrive
     commit_id=43fc2e9a914623fd6eec954a94aeca2d3966e3db
     ```
+
 - 适配昇腾 AI 处理器的实现：
 
-    ```
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/LMDrive
     ```
@@ -78,7 +80,7 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 
 - 克隆代码仓并应用补丁。
 
-```
+```shell
 conda create -n lmdrive python=3.8
 conda activate lmdrive
 git clone https://github.com/opendilab/LMDrive.git
@@ -95,7 +97,7 @@ git apply --whitespace=fix npu.patch
 
   - 先安装Decord依赖的ffmpeg包。根据ffmpeg仓的指引，下载ffmpeg压缩包。
 
-    ```bash
+    ```shell
     tar -zxvf ffmpeg-4.2.1.tar.gz
     cd ffmpeg-4.2.1
     ./configure --enable-shared --disable-swresample --disable-x86asm --prefix=/path/to/ffmpeg(安装路径)
@@ -111,7 +113,7 @@ git apply --whitespace=fix npu.patch
 
   - 安装Decord
 
-    ```bash
+    ```shell
     git clone --recursive https://github.com/dmlc/decord
     cd decord
     mkdir build && cd build
@@ -123,9 +125,10 @@ git apply --whitespace=fix npu.patch
     source ~/.bashrc
     python3 setup.py install --user
     ```
+
 - 在模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 
-    ```
+    ```shell
     cd vision_encoder
     pip3 install -r requirements.txt
     python setup.py develop # if you have installed timm before, please uninstall it
@@ -136,13 +139,11 @@ git apply --whitespace=fix npu.patch
 
 - 安装Driving SDK加速库，安装master分支，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
-
-
 ### 准备数据集
 
 - 根据原仓**Dataset**章节准备数据集，数据集目录及结构如下：
 
-```
+```shell
 LMDrive
 ├── LAVIS
 │   └──dataset
@@ -156,6 +157,7 @@ LMDrive
 │           ├── lidar
 │           └── ...
 ```
+
 - 完整数据集大小约2T，若设备内存不足，可仅下载一部分数据集作为测试。训练结果部分使用的数据集在LMDrive/LAVIS/dataset/dataset_used.txt中列出。
 
 > **说明：**
@@ -167,7 +169,8 @@ LMDrive
 
 - 在未联网或设有防火墙的环境中进行训练时，需要将bert-base-uncased模型的checkpoint下载至环境后更改以下文件：
 LMDrive/LAVIS/lavis/models/blip2_models/blip2.py：
-```
+
+```shell
  ln32：
    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", truncation_side=truncation_side)
  ->
@@ -183,8 +186,10 @@ LMDrive/LAVIS/lavis/models/blip2_models/blip2.py：
  ->
    Qformer = BertLMHeadModel.from_pretrained(bert_tokenizer_path, config=encoder_config, local_files_only=True)
 ```
+
 LMDrive/LAVIS/lavis/models/drive/blip2.py：
-```
+
+```shell
  ln32：
    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", truncation_side=truncation_side)
  ->
@@ -215,19 +220,18 @@ LMDrive/LAVIS/lavis/models/drive/blip2.py：
 
      - 单机8卡精度训练
 
-     ```
+     ```shell
      bash test/train_8p.sh
      ```
 
      - 单机8卡性能训练
 
-
-     ```
+     ```shell
      bash test/train_8p_performance.sh
      ```
 
-
 #### 训练结果
+
 | 芯片          | 卡数 | global batch size | Precision | epoch |  train loss   |  train waypoints loss  | FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :-------------------: |
 | 竞品A           |  8p  |         16         |   fp32    |  20   | 0.776 | 0.757 |         13.85       |

@@ -38,14 +38,14 @@ DETR3D（3D Detection Transformer） 是一种基于 Transformer 的端到端 3D
 
 - 参考实现：
 
-```
+```shell
 url=https://github.com/WangYueFt/detr3d
 commit_id=34a47673011fe13593a3e594a376668acca8bddb
 ```
 
 - 适配昇腾 AI 处理器的实现：
 
-```
+```shell
 url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/DETR3D
 ```
@@ -81,15 +81,15 @@ code_path=model_examples/DETR3D
 
   安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
   
-
 3. 安装基础依赖
-  ```
+
+  ```shell
   pip install mmsegmentation==0.29.1
   ```
 
 4. 安装mmcv
 
-  ```
+  ```shell
   git clone -b 1.x https://github.com/open-mmlab/mmcv.git
   cd mmcv
   cp -f ../mmcv.patch ./
@@ -101,7 +101,7 @@ code_path=model_examples/DETR3D
 
 5. 安装mmdet
 
-  ```
+  ```shell
   git clone -b v2.28.0 https://github.com/open-mmlab/mmdetection.git
   cd mmdetection
   cp -f ../mmdet.patch ./
@@ -112,7 +112,7 @@ code_path=model_examples/DETR3D
 
 6. 准备模型源码并安装mmdet3d
 
-  ```
+  ```shell
   git clone https://github.com/WangYueFt/detr3d
   cp -f detr3d.patch detr3d
   cd detr3d
@@ -138,7 +138,7 @@ code_path=model_examples/DETR3D
 
 - 数据集排布结构
 
-```
+```shell
   data
     | -- nuscenes
       | -- lidarseg
@@ -156,7 +156,7 @@ code_path=model_examples/DETR3D
 
 根据原仓**Evaluation using pretrained models**章节通过此处[fcos3d.pth](https://drive.usercontent.google.com/download?id=1HmGGXC9iuV1JFyFpdeoFnUphZjRD5Hjy&export=download&authuser=0&confirm=t&uuid=1a91f7ed-cb0d-48d9-9e30-11d50c2f2424&at=APvzH3r5RTYl9g6EvykiMSPsMj22:1735023728715)、[dd3d_det_final.pth](https://drive.usercontent.google.com/download?id=1gQkhWERCzAosBwG5bh2BKkt1k0TJZt-A&export=download&authuser=0&confirm=t&uuid=f2d3c3d6-9e1a-48cb-8d7a-f1ef5dd4bf08&at=APvzH3pSL2NqI7CbyBlKIY6i5hWT:1735023739751)、[pillar.pth](https://drive.usercontent.google.com/download?id=1nd6-PPgdb2b2Bi3W8XPsXPIo2aXn5SO8&export=download&authuser=0&confirm=t&uuid=542f4f48-92ed-405e-adca-a8c4fcc542e1&at=APvzH3qrPodgNXe-y2RRvClOXRlh%3A1734002829311)、[voxel.pth](https://drive.usercontent.google.com/download?id=1zwUue39W0cAP6lrPxC1Dbq_gqWoSiJUX&export=download&authuser=0&confirm=t&uuid=9cdd8f42-f154-4315-a0be-7ce102ca974f&at=APvzH3qSwV43OBz02Xmn-nuq5Aew%3A1735021281415)自行下载并按如下目录组织：
 
-```
+```shell
   ckpts
     | -- dd3d_det_final.pth
     | -- fcos3d.pth
@@ -170,7 +170,7 @@ code_path=model_examples/DETR3D
 
 - 生成模型训练数据
 
-```
+```shell
 cd /path/to/detr3d/mmdetection3d
 python3 tools/create_data.py nuscenes --root-path=../data/nuscenes --out-dir=../data/nuscenes --extra-tag nuscenes
 ```
@@ -185,19 +185,19 @@ python3 tools/create_data.py nuscenes --root-path=../data/nuscenes --out-dir=../
 
 在模型根目录下，运行训练脚本。
 
-```  
+```shell
 cd model_examples/DETR3D/detr3d
 ```
 
 - 单机8卡性能
 
-  ```
+  ```shell
   bash test/train_8p_performance.sh # 默认跑1个epoch
   ```
 
 - 单机8卡精度
 
-  ```
+  ```shell
   bash test/train_8p_full.sh
   ```
 

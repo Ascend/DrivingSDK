@@ -6,7 +6,7 @@
 
 - 参考实现：
 
-  ```
+  ```shell
   url=https://github.com/open-mmlab/mmdetection3d/tree/main/projects/BEVFusion
   commit_id=0f9dfa97a35ef87e16b700742d3c358d0ad15452
   ```
@@ -18,7 +18,9 @@
 | lidar-cam | lidar-cam               | FP32、FP16 |
 
 # 训练环境准备
+
 ## 昇腾环境安装
+
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
   
   **表 1**  昇腾软件版本支持表
@@ -28,8 +30,8 @@
   | FrameworkPTAdapter | 7.1.0  |
   |       CANN         | 8.2.rc1  |
 
-
 ## 模型环境安装
+
 - 当前模型支持的`PyTorch`版本如下表所示。
 
   **表 2**  版本支持表
@@ -38,15 +40,16 @@
   |:-------------:|
   |  PyTorch 2.1、PyTorch 2.7  |
 
-- 下载并编译安装`DrivingSDK`加速库，参考https://gitcode.com/Ascend/DrivingSDK
+- 下载并编译安装`DrivingSDK`加速库，参考<https://gitcode.com/Ascend/DrivingSDK>
 
 - 安装依赖。
 
   进入`BEVFusion`模型代码目录：
 
-  ```
+  ```shell
   cd DrivingSDK/model_examples/BEVFusion
   ```
+
   - 推荐使用依赖安装一键配置脚本，可使用如下指令安装后续`mmcv`和`mmdetection3d`：
 
   ```shell
@@ -55,7 +58,7 @@
 
   1. 源码编译安装`mmcv`
 
-  ```
+  ```shell
   git clone -b main https://github.com/open-mmlab/mmcv.git
   cd mmcv
   pip install -r requirements/runtime.txt
@@ -68,7 +71,7 @@
 
   2. 源码安装`mmdetection3d v1.2.0`版本
 
-  ```
+  ```shell
   git clone -b v1.2.0 https://github.com/open-mmlab/mmdetection3d.git
   cp -f bevfusion.patch mmdetection3d/
   cd mmdetection3d
@@ -79,11 +82,14 @@
   ```
 
 ## 数据准备
-```
+
+```shell
 cd mmdetection3d/
 ```
+
 1. 在`mmdetection3d`的`data`文件夹下新建`nuscenes`文件夹，`data`文件结构如下：
-    ```
+
+    ```shell
     data
     ├── lyft
     ├── nuscenes
@@ -91,8 +97,10 @@ cd mmdetection3d/
     ├── scannet
     └── sunrgbd
     ```
+
     请自行下载 [nuScenes 数据集](https://www.nuscenes.org/nuscenes#download) 或构建软连接到`nuscenes`文件夹下，模型运行的必要数据结构如下：
-    ```
+
+    ```shell
     nuscenes/
     ├── maps
     ├── samples
@@ -100,13 +108,16 @@ cd mmdetection3d/
     ├── v1.0-test
     ├── v1.0-trainval
     ```
+
 2. 在`mmdetection3d`目录下进行数据预处理，处理方法参考原始`github`仓库：
 
-   ```
+   ```shell
    python tools/create_data.py nuscenes --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes
    ```
+
     预处理后`nuscenes`文件结构如下：
-    ```
+
+    ```shell
     nuscenes/
     ├── maps
     ├── nuscenes_gt_database
@@ -119,9 +130,10 @@ cd mmdetection3d/
     ├── v1.0-trainval
 
     ```
+
 3. 下载预训练权重：在`mmdetection3d`目录下创建`pretrained`文件夹，参考 [BEVFusion Model](https://github.com/open-mmlab/mmdetection3d/tree/main/projects/BEVFusion)，下载预训练权重 [Swin pre-trained model](https://download.openmmlab.com/mmdetection3d/v1.1.0_models/bevfusion/swint-nuimages-pretrained.pth) 和 [lidar-only pre-trained detector](https://download.openmmlab.com/mmdetection3d/v1.1.0_models/bevfusion/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth)。将预训练权重放在`pretrained`文件夹中，目录样例如下：
 
-    ```
+    ```shell
     pretrained/
     ├── swint-nuimages-pretrained.pth
     ├── bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth
@@ -131,7 +143,7 @@ cd mmdetection3d/
 
 数据预处理及预训练权重准备好后，回到`BEVFusion`模型目录：
 
-```
+```shell
 cd ../
 ```
 
@@ -154,6 +166,7 @@ cd ../
   # FP16
   bash test/train_performance_8p_base_fp16.sh --batch-size=4 --num-npu=8
   ```
+
 - 双机16卡性能（FP32）
   
   运行脚本支持命令行参数（支持默认值+关键字参数+位置参数）
@@ -163,6 +176,7 @@ cd ../
   - `--node-rank`：当前节点编号（0 ~ nnodes-1），默认为主节点0；
   - `--port`：通信端口号，默认值29500；
   - `--master-addr`：主节点IP地址；
+
   ```shell
   # 主节点拉起脚本，默认训练1个epochs
   bash test/nnodes_train_performance_16p_base_fp32.sh --batch-size=4 --num-npu=8 --nnodes=2 --node-rank=0 --port=port --master-addr=master_addr # master-addr 必须指定，其余可省略以使用默认值
@@ -171,7 +185,9 @@ cd ../
   ```
 
 # 训练结果
+
 单机8卡
+
 | NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size | NDS   | mAP   | FPS   |
 |------------------|-----------|-------------------------|------|-------|-------|-------|-------|-------|
 | 8p-Atlas 800T A2 | lidar-cam | 0.075                   | FP32 | 6     | 32 | 69.98 | 67.36 | 26.46 |
@@ -180,6 +196,7 @@ cd ../
 | 8p-竞品A           | lidar-cam | 0.075                   | FP16 | 6     | 32 | 68.50 | 64.89 | 26.59 |
 
 双机16卡
+
 | NAME             | Modality  | Voxel type (voxel size) | 训练方式 | Epoch | global batch size |FPS   | 线性度 |
 |------------------|-----------|-------------------------|------|-------|-------|-------|-------|
 | 8p-Atlas 800T A2 | lidar-cam | 0.075 | FP32 | 1     | 64 | 45.86 | 97.07%  |
@@ -187,6 +204,7 @@ cd ../
 # 版本说明
 
 ## 变更
+
 2026.1.31：支持混精训练，更新模型性能。
 
 2026.1.4：稀疏卷积类算子优化并加入一键Patch，更新模型性能，简化bevfusion.patch。
@@ -202,6 +220,7 @@ cd ../
 2024.12.5：首次发布。
 
 ## FAQ
+
 1. `RuntimeError: The server socket has failed to listen on any local network address. The server socket has failed to bind to [::]:29500 (errno: 98 - Address already in use).`
    
    表示默认端口已被占用，自行修改`mmdetection3d`源码文件`tools/dist_train.sh`下的`PORT`默认值。

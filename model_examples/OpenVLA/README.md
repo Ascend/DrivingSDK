@@ -1,6 +1,7 @@
 # OpenVLA
 
 # 目录
+
 - [OpenVLA](#openvla)
 - [目录](#目录)
 - [简介](#简介)
@@ -20,7 +21,6 @@
   - [变更](#变更)
   - [FAQ](#faq)
 
-
 # 简介
 
 ## 模型介绍
@@ -28,22 +28,25 @@
 OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 Open X-Embodiment 数据集的 97 万条机器人演示进行训练。它采用 DinoV2 和 SigLIP 双分支视觉编码器与 Llama 2 语言模型骨干，能将图像观察和语言指令映射为机器人控制动作，在多物体多任务场景中泛化性强，语言理解能力优异。本仓适配全参微调流程。
 
 ## 代码实现
+
 - 参考实现：
 
-  ```
+  ```shell
   url=https://github.com/openvla/openvla
   commit_id=c8f03f48af692657d3060c19588038c7220e9af9
   ```
   
 - 适配昇腾 AI 处理器的实现：
 
-  ```
+  ```shell
   url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/OpenVLA
   ```
 
 # 准备训练环境
+
 ## 安装昇腾环境
+
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
   
   **表 1**  昇腾软件版本支持表
@@ -69,9 +72,11 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 - 克隆代码仓到当前目录
+
   ```shell
   git clone https://gitcode.com/Ascend/DrivingSDK.git -b master
   ```
+
 - 安装基础依赖
 
   在模型根目录下执行命令，安装模型需要的依赖
@@ -83,7 +88,9 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
   export VLA_HOME=`pwd`
   pip install -r requirements.txt
   ```
+
 - 源码安装tensorflow-addons
+
   ```shell
   git clone https://github.com/tensorflow/addons.git
   cd addons
@@ -91,7 +98,9 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
   pip install -e .
   cd ..
   ```
+
 - 模型代码使用Patch
+
   ```shell
   git clone https://github.com/openvla/openvla.git
   cp OpenVLA.patch openvla
@@ -107,7 +116,9 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
 # 准备数据集
 
 ## 获取训练数据集
+
 用户自行获取 *Bridge* 数据集
+
   ```shell
   cd $VLA_HOME
   mkdir datasets && cd datasets
@@ -116,16 +127,21 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
   ```
 
 ## 获取预训练权重
+
 下载预训练权重
+
   ```shell
   cd $VLA_HOME
   mkdir models && cd models
   git clone git@hf.co:openvla/openvla-7b-prismatic
   ```
+
 如遇到网络问题，请到 [openvla-7b-prismatic](https://huggingface.co/openvla/openvla-7b-prismatic/tree/main) 手动下载文件到 `$VLA_HOME/model/openvla-7b-prismatic`
 
 ## 使用高性能内存库
+
 安装tcmalloc（适用OS: __openEuler__）
+
 ```shell
 mkdir gperftools
 cd gperftools
@@ -141,7 +157,9 @@ export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
 export PATH=/usr/local/lib/bin:$PATH
 export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
 ```
+
 注意：需要安装OS对应tcmalloc版本（以下以 __Ubuntu__ 为例）
+
 ```shell
 # 安装autoconf和libtool
 apt-get update
@@ -167,19 +185,24 @@ export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
 # 快速开始
 
 ## 微调模型
+
 进入模型根目录 `$VLA_HOME/openvla`
 
 按照 [Hugging Face user access token](https://huggingface.co/docs/hub/en/security-tokens) 创建 `hf_token` 记作 `hf_...`
+
   ```shell
   # 用自己的 hf_token 替换  "hf_..." 
   echo hf_... >>> .hf_token
   ```
 
 - 单机8卡精度
+
 ```shell
 bash test/train_full_8p.sh $VLA_HOME/models $VLA_HOME/datasets
 ```
+
 - 单机8卡性能
+
 ```shell
 bash test/train_performance_8p.sh $VLA_HOME/models $VLA_HOME/datasets
 ```
@@ -188,20 +211,19 @@ bash test/train_performance_8p.sh $VLA_HOME/models $VLA_HOME/datasets
 
 **表 3** fully-finetune 结果展示表
 
-
 |      芯片       | 卡数 | global batchsize  | max steps  |loss | FPS|
 |:-------------:|:----:|:----:|:----------:|:----------:|:----:|
 |      竞品A      | 8p | 256 |1000|0.1873  |  73.12  |
 | Atlas 800T A2   | 8p | 256 |1000|0.1876  |   56.14 |
 
-
-
-
 # 版本说明
+
 ## 变更
+
 2025.8.21: 首次发布。
 
 ## FAQ
+
 Q: 在无法访问 Hugging Face hub 的情况下运行模型报错？
 
 A: 用户可以使用 Hugging Face 镜像源在有网络的情况下自主下载，文件结构如下：
@@ -222,7 +244,9 @@ caches
 │   └── snapshots
 └── version.txt
 ```
+
 并设置环境变量：
+
 ```shell
 export HF_HOME="/{path_to_caches}/caches/"
 export HUGGINGFACE_HUB_CACHE="/{path_to_caches}/caches/"
@@ -230,7 +254,9 @@ export HUGGINGFACE_HUB_CACHE="/{path_to_caches}/caches/"
 
 Q：tcmalloc的动态库文件找不到报错？
 A：tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
-```
+
+```shell
 find /usr -name libtcmalloc.so*
 ```
+
 找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

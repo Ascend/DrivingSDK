@@ -40,14 +40,14 @@
 
 - 参考实现：
 
-```
+```shell
 url=https://github.com/wenjie710/PivotNet
 commit_id=3f334e499bae6c9e2f3ed06cf77ac6cbd22d0ba8
 ```
 
 - 适配昇腾 AI 处理器的实现：
 
-```
+```shell
 url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/PivotNet
 ```
@@ -83,7 +83,7 @@ code_path=model_examples/PivotNet
 
    在模型根目录下，克隆mmcv仓，并进入mmcv目录安装。
 
-   ```
+   ```shell
    git clone -b 1.x https://github.com/open-mmlab/mmcv
    cd mmcv
    MMCV_WITH_OPS=1 python setup.py install
@@ -91,7 +91,7 @@ code_path=model_examples/PivotNet
 
 3. 安装 detectron2
 
-   ```
+   ```shell
    python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
    ```
 
@@ -104,7 +104,8 @@ code_path=model_examples/PivotNet
   - OpenEuler系统
 
   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
-  ```
+
+  ```shell
   mkdir gperftools
   cd gperftools
   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
@@ -125,7 +126,8 @@ code_path=model_examples/PivotNet
   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
   安装libunwind依赖：
-  ```
+
+  ```shell
   git clone https://github.com/libunwind/libunwind.git
   cd libunwind
   autoreconf -i
@@ -135,7 +137,8 @@ code_path=model_examples/PivotNet
   ```
 
   安装tcmalloc动态库：
-  ```
+
+  ```shell
   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
   tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
   ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
@@ -152,8 +155,9 @@ code_path=model_examples/PivotNet
 
   - 安装毕昇编译器
 
-  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器，官网下载毕昇编译器4.1.0版本：https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler。
-  ```
+  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器，官网下载毕昇编译器4.1.0版本：<https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler。>
+
+  ```shell
   tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
   export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
   export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
@@ -161,7 +165,8 @@ code_path=model_examples/PivotNet
   ```
 
   - 安装依赖，将安装mpdecimal依赖包的目录记为mpdecimal_install_path。
-  ```
+
+  ```shell
   wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
   tar -xvf mpdecimal-2.5.1.tar.gz
   cd mpdecimal-2.5.1
@@ -173,7 +178,8 @@ code_path=model_examples/PivotNet
   - 获取Python源码并编译优化
 
   执行以下指令获取Python版本及安装目录，将Python安装路径记为python_path。
-  ```
+
+  ```shell
   python -V
   which python
   ```
@@ -181,7 +187,8 @@ code_path=model_examples/PivotNet
   在[Python源码下载地址](https://www.python.org/downloads/source/)下载对应版本的Python源码并解压。
 
   以Python 3.8.17为例：
-  ```
+
+  ```shell
   tar -xvf Python-3.8.17.tgz
   cd Python-3.8.17
   export CC=clang
@@ -192,7 +199,8 @@ code_path=model_examples/PivotNet
   ```
 
 7. 设置PivotNet
-  ```
+
+  ```shell
   git clone https://github.com/wenjie710/PivotNet.git
   cp -f pivotnet.patch PivotNet
   cd PivotNet
@@ -207,7 +215,7 @@ code_path=model_examples/PivotNet
 
 - 文件夹结构
 
-```
+```shell
   assets
     | -- weights (resnet, swin-t, efficient-b0, ...)
     | --
@@ -226,7 +234,7 @@ code_path=model_examples/PivotNet
 
 - 下载模型依赖的权重
 
-```
+```shell
 cd /path/to/pivotnet
 cd assets/weights
 wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/efficientnet-b0-355c32eb.pth .
@@ -236,7 +244,7 @@ wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_t
 
 - 生成模型训练数据
 
-```
+```shell
 cd /path/to/pivotnet
 pip install nuscenes-devkit
 python3 tools/anno_converter/nuscenes/convert.py -d ./data/nuscenes
@@ -252,19 +260,19 @@ python3 tools/anno_converter/nuscenes/convert.py -d ./data/nuscenes
 
 在模型根目录下，运行训练脚本。
 
-```
+```shell
 cd model_examples/PivotNet
 ```
 
 - 单机8卡性能
 
-  ```
+  ```shell
   bash test/train_8p_performance.sh
   ```
 
 - 单机8卡精度
 
-  ```
+  ```shell
   bash test/train_full_8p.sh
   ```
 
@@ -279,6 +287,7 @@ cd model_examples/PivotNet
 
 参考指南：
 [性能优化](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0058.html)
+
 1. 参考[编译优化](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0061.html)完成Python\pytorch\torch_npu编译优化
 2. 参考[OS性能优化](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0067.html)完成高性能内存库替换
 
@@ -306,7 +315,9 @@ cd model_examples/PivotNet
 # FAQ
 
 1. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
-```
+
+```shell
 find /usr -name libtcmalloc.so*
 ```
+
 找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

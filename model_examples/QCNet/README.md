@@ -38,14 +38,14 @@ QCNet是一种用于轨迹预测的神经网络架构，旨在提高自动驾驶
 
 - 参考实现：
 
-```
+```shell
 url=https://github.com/ZikangZhou/QCNet
 commit_id=55cacb418cbbce3753119c1f157360e66993d0d0
 ```
 
 - 适配昇腾 AI 处理器的实现：
 
-```
+```shell
 url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/QCNet
 ```
@@ -77,12 +77,13 @@ code_path=model_examples/QCNet
 
    将 CANN 包目录记作 cann_root_dir，执行以下命令以激活环境
 
-   ```
+   ```shell
    source {cann_root_dir}/set_env.sh
    ```
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
-    ```
+
+    ```shell
     conda create -n QCNet python=3.9.21
     conda activate QCNet
     pip install torch==2.1.0 --no-deps
@@ -90,7 +91,8 @@ code_path=model_examples/QCNet
     ```
 
 2. 拉取QCNet模型源代码
-    ```
+
+    ```shell
     git clone https://github.com/ZikangZhou/QCNet.git && cd QCNet
     git checkout 55cacb418cbbce3753119c1f157360e66993d0d0
     git apply ../patch/qcnet.patch
@@ -99,7 +101,8 @@ code_path=model_examples/QCNet
     ```
 
 3. 安装pytorch_lightening
-    ```
+
+    ```shell
     git clone --branch 2.3.3 https://github.com/Lightning-AI/pytorch-lightning.git
     cd pytorch-lightning/
     git checkout cf348673eda662cc2e9aa71a72a19b8774f85718
@@ -110,7 +113,7 @@ code_path=model_examples/QCNet
 
 4. 安装 torch_geometric, torch_scatter
 
-    ```
+    ```shell
     git clone https://github.com/pyg-team/pytorch_geometric.git -b version_2_3_1
     cd pytorch_geometric
     git checkout 6b9db372d221c3e0dca773994084461a83e5af08
@@ -126,6 +129,7 @@ code_path=model_examples/QCNet
 
 5. 安装 tcmalloc 高效内存资源分配库
     安装tcmalloc（适用OS: __openEuler__）
+
     ```shell
     mkdir gperftools && cd gperftools
     wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
@@ -137,7 +141,9 @@ code_path=model_examples/QCNet
     export LD_PRELOAD=/usr/local/lib/libtcmalloc.so.4
     cd ..
     ```
+
     注意：需要安装OS对应tcmalloc版本（以下以 __Ubuntu__ 为例）
+
     ```shell
     # 安装autoconf和libtool
     apt-get update
@@ -164,8 +170,8 @@ code_path=model_examples/QCNet
 
    安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK)。
 
-
 ### 模型数据准备
+
 方式一：自动下载数据
 
 直接运行训练脚本，可以自动下载数据集到脚本中--root指向的默认路径'/path/to/datasets'下，并自动进行数据预处理，该路径可以自行修改。
@@ -176,7 +182,7 @@ code_path=model_examples/QCNet
 
 - 文件夹结构
 
-```
+```shell
   datasets
     ├── train.tar
     ├── val.tar
@@ -186,7 +192,6 @@ code_path=model_examples/QCNet
 - 数据预处理
 
     当数据集的压缩包已经放置于datasets路径下后，自行修改训练脚本中--root指向的路径'/path/to/datasets'为实际datasets的存放路径，pytorch-lightning框架会在第一次执行训练脚本时，自动开始数据预处理过程，处理总时长大约3小时。
-
 
 ## 快速开始
 
@@ -198,20 +203,20 @@ code_path=model_examples/QCNet
 
 在模型根目录下，运行训练脚本。
 
-```  
+```shell
 cd model_examples/QCNet
 ```
 
 - 单机8卡性能
 
-  ```
+  ```shell
   # epoch = 1
   bash script/train_performance.sh
   ```
 
 - 单机8卡精度
 
-  ```
+  ```shell
   # epoch = 64
   bash script/train.sh
   ```

@@ -34,14 +34,14 @@
 
 - 参考实现：
 
-```
+```shell
 url=https://github.com/OpenDriveLab/LaneSegNet
 commit 699e5862ba2c173490b7e1f47b06184be8b7306e
 ```
 
 - 适配昇腾 AI 处理器的实现：
 
-```
+```shell
 url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=DrivingSDK/model_examples/LaneSegNet
 ```
@@ -49,12 +49,14 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 - 安装依赖。
 
 1. 安装基础依赖
-  ```
+
+  ```shell
   pip install mmsegmentation==0.29.1
   ```
 
 2. 源码安装 mmcv
-  ```
+
+  ```shell
   git clone -b 1.x https://github.com/open-mmlab/mmcv.git
   cd mmcv
   cp ../mmcv_config.patch ./
@@ -64,7 +66,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   ```
 
 3. 源码安装 mmdet 2.26.0
-  ```
+
+  ```shell
   git clone -b v2.26.0 https://github.com/open-mmlab/mmdetection.git
   cp mmdet_config.patch mmdetection
   cd mmdetection
@@ -73,7 +76,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   ```
 
 4. 安装 mmdet3d
-  ```
+
+  ```shell
   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
   cd mmdetection3d
   cp ../mmdet3d_config.patch ./
@@ -90,7 +94,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   - OpenEuler系统
 
   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
-  ```
+
+  ```shell
   mkdir gperftools
   cd gperftools
   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
@@ -111,7 +116,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
   安装libunwind依赖：
-  ```
+
+  ```shell
   git clone https://github.com/libunwind/libunwind.git
   cd libunwind
   autoreconf -i
@@ -121,7 +127,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   ```
 
   安装tcmalloc动态库：
-  ```
+
+  ```shell
   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
   tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
   ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
@@ -138,8 +145,9 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 
   - 安装毕昇编译器
 
-  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器， 在官网下载毕昇编译器4.1.0版本：https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler 。
-  ```
+  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器， 在官网下载毕昇编译器4.1.0版本：<https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler> 。
+
+  ```shell
   tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
   export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
   export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
@@ -147,7 +155,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   ```
 
   - 安装依赖，将安装mpdecimal依赖包的目录记为mpdecimal_install_path。
-  ```
+
+  ```shell
   wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
   tar -xvf mpdecimal-2.5.1.tar.gz
   cd mpdecimal-2.5.1
@@ -159,7 +168,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   - 获取Python源码并编译优化
 
   执行以下指令获取Python版本及安装目录，将Python安装路径记为python_path。
-  ```
+
+  ```shell
   python -V
   which python
   ```
@@ -167,7 +177,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   在[Python源码下载地址](https://www.python.org/downloads/source/)下载对应版本的Python源码并解压。
 
   以Python 3.9.18为例：
-  ```
+
+  ```shell
   tar -xvf Python-3.9.18.tgz
   cd Python-3.9.18
   export CC=clang
@@ -182,7 +193,8 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   根据[PyTorch编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0064.html)和[torch_npu编译优化指导文档](https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0065.html)，基于Python3.9和PyTorch2.1，采用LTO+PGO方式编译优化PyTorch和torch_npu。
 
 8. 设置LaneSegNet
-  ```
+
+  ```shell
   git clone https://github.com/OpenDriveLab/LaneSegNet.git
   cp -f lane_seg_net_config.patch LaneSegNet
   cd LaneSegNet
@@ -202,7 +214,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
 >
 > :bell: `Map Element Bucket` 已于2023年10月更新。请务必下载最新数据。
 
-```bash
+```shell
 cd LaneSegNet
 mkdir data
 
@@ -211,7 +223,8 @@ python ./tools/data_process.py
 ```
 
 经过数据处理步骤后，`data`目录结构如下：
-```
+
+```shell
 data/OpenLane-V2
 ├── train
 |   └── ...
@@ -230,13 +243,13 @@ data/OpenLane-V2
 
 - 单机8卡性能
 
-  ```
+  ```shell
   bash test/train_8p_performance.sh
   ```
 
 - 单机8卡精度
 
-  ```
+  ```shell
   bash test/train_8p_full.sh
   ```
 
@@ -247,7 +260,6 @@ data/OpenLane-V2
 |  8p-竞品A   | R50       |       FP32    |        24     |      8    |        32.27   |      23.75    |
 |  8p-Atlas 800T A2   | R50      |       FP32    |        24     |      8    |        32.44   |      （PyTorch和torch_npu编译优化前）15.9    |
 |  8p-Atlas 800T A2   | R50      |       FP32    |        24     |      8    |        32.44   |      （PyTorch和torch_npu编译优化后）18.0    |
-
 
 ## 变更
 
@@ -270,8 +282,11 @@ data/OpenLane-V2
 2024.12.5：首次发布。
 
 # FAQ
+
 1. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
-```
+
+```shell
 find /usr -name libtcmalloc.so*
 ```
+
 找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

@@ -1,35 +1,51 @@
-## roiaware_pool3d
-### 接口原型
+# roiaware_pool3d
+
+## 接口原型
+
 ```python
 mx_driving.roiaware_pool3d(Tensor rois, Tensor pts, Tensor pts_feature,
                     Union[int, tuple] out_size, int max_pts_per_voxel, int mode) -> Tensor
 ```
+
 兼容：
+
 ```python
 mx_driving.detection.roiaware_pool3d(Tensor rois, Tensor pts, Tensor pts_feature,
                     Union[int, tuple] out_size, int max_pts_per_voxel, int mode) -> Tensor
 ```
-### 功能描述
+
+## 功能描述
+
 将输入的点云特征在ROI框内进行池化
-### 参数说明
+
+## 参数说明
+
 - `rois (Tensor)`：输入的RoI框坐标与尺寸，数据类型为`float32/float16`，shape为`[Roi_num, 7]`。
 - `pts (Tensor)`：输入的点云坐标，数据类型为`float32/float16`，shape为`[Pts_num, 3]`。
 - `pts_feature (Tensor)`：输入的点的特征向量，数据类型为`float32/float16`，shape为`[Pts_num, Channels]`。
 - `out_size (Union)`：输出的RoI框内voxel的尺寸，数据类型为`int`或者`tuple`，shape为`[out_x, out_y, out_z]`。
 - `max_pts_per_voxel (int)`：每个voxel内最大的点的个数，数据类型为`int`。
 - `mode (int)`：池化的方式，0为maxpool, 1为avgpool，数据类型为`int`。
-### 返回值
+
+## 返回值
+
 - `pooled_features (Tensor)`：池化得到的RoI框特征，数据类型为`float32/float16`，shape为`[Roi_num, out_x, out_y, out_z, Channels]`。
-### 约束说明
+
+## 约束说明
+
 - Roi_num <= 100
 - Pts_num <= 1000
 - Channels <= 1024
 - 2 <= max_pts_per_voxel <=256，max_pts_per_voxel <= Pts_num
 - out_x, out_y, out_z <=16
 - 反向具有相同约束。
-### 支持的型号
+
+## 支持的型号
+
 - Atlas A2 训练系列产品
-### 调用示例
+
+## 调用示例
+
 ```python
 import torch
 import math

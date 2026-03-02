@@ -8,14 +8,13 @@
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [Diffusion-Planner](#diffusion-planner-1)
-  - [准备训练环境](#准备训练环境)
-    - [安装昇腾环境](#安装昇腾环境)
-    - [安装模型环境](#安装模型环境)
-    - [准备数据集](#准备数据集)
-  - [快速开始](#快速开始)
-    - [开始训练](#开始训练)
-    - [训练结果](#训练结果)
+- [准备训练环境](#准备训练环境)
+  - [安装昇腾环境](#安装昇腾环境)
+  - [安装模型环境](#安装模型环境)
+  - [准备数据集](#准备数据集)
+- [快速开始](#快速开始)
+  - [开始训练](#开始训练)
+  - [训练结果](#训练结果)
 - [变更说明](#变更说明)
 - [FAQ](#faq)
 
@@ -36,22 +35,22 @@
 ## 代码实现
 
 - 参考实现：
-    ```
+
+    ```shell
     url=https://github.com/ZhengYinan-AIR/Diffusion-Planner
     commit 5659e494250523a603902e1c3dca0651d2e4c6fa
     ```
 
 - 适配昇腾 AI 处理器的实现：
-    ```
+
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/Diffusion-Planner
     ```
 
-# Diffusion-Planner
+# 准备训练环境
 
-## 准备训练环境
-
-### 安装昇腾环境
+## 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境，本仓已支持表1中软件版本。
 
@@ -62,8 +61,7 @@
 | FrameworkPTAdapter | 7.1.0 |
 |       CANN        | 8.2.RC1  |
 
-
-### 安装模型环境
+## 安装模型环境
 
 **表 2**  三方库版本支持表
 
@@ -71,27 +69,31 @@
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-
 0. 激活 CANN 环境
 
 1. 创建conda环境
-  ```
+
+  ```shell
   conda create -n diffusion_planner python=3.9
   conda activate diffusion_planner
   ```
 
 2. 安装 nuplan-devkit
-  ```
+
+  ```shell
   git clone https://github.com/motional/nuplan-devkit.git && cd nuplan-devkit
   pip install -e .
   ```
+
   如需对数据集进行预处理，可选：
-  ```
+
+  ```shell
   pip install -r requirements.txt
   ```
 
 3. 安装 diffusion_planner
-  ```
+
+  ```shell
   cd ..
   git clone https://github.com/ZhengYinan-AIR/Diffusion-Planner.git && cd Diffusion-Planner
   cp -f ../diffusionPlanner.patch .
@@ -106,11 +108,11 @@
 
   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
-
-### 准备数据集
+## 准备数据集
 
 1. 下载[NuPlan数据集](https://www.nuscenes.org/nuplan#download)，并将数据集结构排布成如下格式：
-    ```
+
+    ```shell
     ~/nuplan
     └── dataset
         ├── maps
@@ -141,30 +143,35 @@
                     └── 2021.10.11.08.31.07_veh-50_01750_01948.db
 
     ```
+
 2. 数据预处理
   在 data_process.sh 脚本中替换数据路径后运行
-  ```
+
+  ```shell
   chmod +x data_process.sh
   ./data_process.sh
   ```
 
-## 快速开始
+# 快速开始
+
 本任务主要提供**单机8卡**的训练脚本。在训练前，需要在torch_run.sh文件中修改对应路径信息。
-### 开始训练
+
+## 开始训练
 
 - 单机8卡性能
 
-  ```
+  ```shell
   bash test/train_8p_performance.sh
   ```
 
 - 单机8卡精度
 
-  ```
+  ```shell
   bash test/train_8p.sh
   ```
 
-### 训练结果
+## 训练结果
+
 - 单机8卡
 
 |  NAME       | Precision     |     Epoch    |    global_batch_size      |    loss      |     FPS      |
@@ -185,7 +192,8 @@ Q: 安装nuplan devkit的依赖包时无法成功安装Fiona，报错：No such 
 
 A: 需要手动安装gmp, mpfr, OpenBLAS, sqlite3, curl, PROJ, GDAL等一些C++依赖库，此处提供采用源码编译安装的方法。
 安装gmp
-```
+
+```shell
 https://ftp.swin.edu.au/gnu/gmp/ 在这里找到 gmp-6.1.0.tar.bz2
 tar -jxvf gmp-6.1.0.tar.bz2
 cd gmp-6.1.0
@@ -193,8 +201,10 @@ cd gmp-6.1.0
 make
 make install
 ```
+
 安装mpfr的命令
-```
+
+```shell
 wget https://ftp.swin.edu.au/gnu/mpfr/mpfr-4.1.1.tar.gz
 tar -zxvf mpfr-4.1.1.tar.gz
 cd mpfr-4.1.1
@@ -205,16 +215,20 @@ cd mpfr-4.1.1
 make
 make install
 ```
+
 安装OpenBLAS
-```
+
+```shell
 wget https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.24.zip
 unzip v0.3.24.zip
 cd OpenBLAS-0.3.24
 make -j8
 make PREFIX=/usr/local install
 ```
+
 安装sqlite3
-```
+
+```shell
 wget https://github.com/sqlite/sqlite/archive/refs/tags/version-3.36.0.tar.gz
 tar -xzvf version-3.36.0.tar.gz
 cd sqlite-version-3.36.0
@@ -222,12 +236,16 @@ CFLAGS="-DSQLITE_ENABLE_COLUMN_METADATA=1" ./configure
 make
 make install
 ```
+
 安装curl
-```
+
+```shell
 yum install libcurl-devel
 ```
+
 安装PROJ
-```
+
+```shell
 wget https://github.com/OSGeo/PROJ/archive/refs/tags/7.2.0.tar.gz
 tar -xzvf 7.2.0.tar.gz
 cd PROJ-7.2.0
@@ -238,8 +256,10 @@ cmake ..
 cmake --build .
 cmake --build . --target install
 ```
+
 GDAL编译安装 (编译需要约1小时)
-```
+
+```shell
 git clone https://github.com/OSGeo/gdal.git
 cd gdal
 mkdir build
@@ -248,4 +268,5 @@ cmake ..
 cmake --build .
 cmake --build . --target install
 ```
+
 依赖库安装成功后，Fiona可以正常安装。

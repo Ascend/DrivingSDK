@@ -39,14 +39,14 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 - 参考实现：
 
-    ```
+    ```shell
     url=https://github.com/woxihuanjiangguo/BEVNeXt
     commit_id=9b0e4ad33ed3e82dc9cee9f0f66ffd1899095026
     ```
 
 - 适配昇腾 AI 处理器的实现：
 
-    ```
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/BEVNeXt
     ```
@@ -66,7 +66,6 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
   | FrameworkPTAdapter | 6.0.0  |
   |       CANN         | 8.0.0  |
 
-
 ### 安装模型环境
 
 **表 2** 版本支持表
@@ -79,7 +78,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 2. 源码安装 mmcv
 
-    ```
+    ```shell
     git clone -b 1.x https://github.com/open-mmlab/mmcv.git
     cd mmcv/
     cp -f ../mmcv.patch ./
@@ -92,7 +91,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 3. 源码安装 mmdetection3d
 
-    ```
+    ```shell
     git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git --depth=1
     cd mmdetection3d/
     git fetch --unshallow
@@ -105,13 +104,13 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 4. 安装其他依赖
 
-    ```
+    ```shell
     pip install -r requirements.txt
     ```
 
 5. 准备模型源码
 
-    ```
+    ```shell
     git clone https://github.com/woxihuanjiangguo/BEVNeXt.git
     cd BEVNeXt/
     git checkout 9b0e4ad33ed3e82dc9cee9f0f66ffd1899095026
@@ -122,7 +121,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 6. 安装 Driving SDK 加速库
 
-    参考官方文档：https://gitcode.com/Ascend/DrivingSDK
+    参考官方文档：<https://gitcode.com/Ascend/DrivingSDK>
 
 ### 准备数据集
 
@@ -132,13 +131,13 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 2. 执行数据预处理命令
 
-    ```
+    ```shell
     python tools/create_data_bevdet.py
     ```
 
     预处理完的数据目录结构如下：
 
-    ```
+    ```shell
     BEVNeXt
     ├── data/
     │   ├── nuscenes/
@@ -159,7 +158,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 2. 无网络情况下，可以通过该链接自行下载 [resnet50-0676ba61.pth](https://download.pytorch.org/models/resnet50-0676ba61.pth)，并拷贝至对应目录下。默认存储目录为 PyTorch 缓存目录：
 
-    ```
+    ```shell
     ~/.cache/torch/hub/checkpoints/resnet50-0676ba61.pth
     ```
 
@@ -173,7 +172,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 - 在模型源码目录下运行训练脚本。其中，stage1 进行模型预热，stage2 加载 stage1 的权重进行训练。
 
-    ```
+    ```shell
     # 单机 8 卡训练
     cd model_examples/BEVNeXt/BEVNeXt
     bash test/train_8p_stage1.sh  # 默认 2 epochs

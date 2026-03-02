@@ -68,11 +68,12 @@ def export_onnx(name):
 if __name__ =='__main__':
     export_onnx("./msda.onnx")
 ```
+
 执行后会在当前文件夹下生成msda.onnx文件
 
 ## domain转换
 
-若onnx转换om过程中出现FAQ中 The model has 2  domain_version fields 问题，则需要安装转换仓库进行domain转换，其中转换仓库为：https://gitee.com/Ronnie_zheng/MagicONNX
+若onnx转换om过程中出现FAQ中 The model has 2  domain_version fields 问题，则需要安装转换仓库进行domain转换，其中转换仓库为：<https://gitee.com/Ronnie_zheng/MagicONNX>
 转换脚本为：
 
 ```shell
@@ -82,6 +83,7 @@ graph = OnnxGraph('msda.onnx')
 graph.keep_default_domain()
 graph.save('msda.onnx')
 ```
+
 执行后会将onnx模型中的多个domian进行统一
 
 ## onnx转换om
@@ -130,7 +132,7 @@ input5.tofile("./inputs/input5.bin")
 
 ## om执行
 
-克隆仓库https://gitee.com/ascend/tools/tree/master/msame，并按照readme进行安装
+克隆仓库<https://gitee.com/ascend/tools/tree/master/msame，并按照readme进行安装>
 
 随后通过msame工具，将生成好的模型输入文件输入到om模型中执行
 
@@ -181,7 +183,7 @@ print(output)
 
 ### Can not find Node xxx custom infer_datatype func
 
-原因：目前仓库内仅部分算子包含inferShape与inferDtype过程，添加如https://gitcode.com/Ascend/DrivingSDK/blob/master/kernels/op_host/multi_scale_deformable_attn.cpp文件中类似105行代码：
+原因：目前仓库内仅部分算子包含inferShape与inferDtype过程，添加如<https://gitcode.com/Ascend/DrivingSDK/blob/master/kernels/op_host/multi_scale_deformable_attn.cpp文件中类似105行代码：>
 IMPL_OP_INFERSHAPE(MultiScaleDeformableAttn).InferShape(InferShapeForMultiScaleDeformableAttn).InferDataType(InferDataTypeForMultiScaleDeformableAttn); 即可解决该问题
 
 ### Optype xxx of ops kernel is unsupported

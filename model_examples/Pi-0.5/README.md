@@ -1,6 +1,7 @@
 # Pi-0.5
 
 ## 目录
+
 - [Pi-0.5](#pi-05)
   - [目录](#目录)
   - [概述](#概述)
@@ -20,6 +21,7 @@
   - [FAQ](#faq)
 
 ## 概述
+
 本仓提供 pi0.5 模型的昇腾适配。
 
 ### 模型介绍
@@ -39,13 +41,15 @@
 ### 代码实现
 
 - 参考实现：
-    ```
+
+    ```shell
     url=https://github.com/huggingface/lerobot.git
     commit_id=b954337ac7c8db5ea592c0d59dfb435845d9d380
     ```
 
 - 适配昇腾 AI 处理器的实现：
-    ```
+
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/Pi-0.5
     ```
@@ -65,7 +69,6 @@
 | FrameworkPTAdapter | 7.2.0 |
 |       CANN        | 8.3.RC1  |
 
-
 #### 安装模型环境
 
 **表 2**  三方库版本支持表
@@ -75,10 +78,10 @@
 | Python | 3.10 |
 | PyTorch |   2.7.1  |
 
-
 0. 激活 CANN 环境
 
 1. 创建conda环境
+
     ```shell
     conda create -n pi05 python=3.10
     conda activate pi05
@@ -92,6 +95,7 @@
     ```
 
 3. 安装 Pi-0.5
+
     ```shell
     git clone https://github.com/huggingface/lerobot.git
     cd lerobot
@@ -104,6 +108,7 @@
     ```
 
 4. 安装 transformers
+
     ```shell
     git clone https://github.com/huggingface/transformers.git
     cd transformers
@@ -114,6 +119,7 @@
     ```
 
 5. 根据[Mindspeed仓](https://gitcode.com/Ascend/MindSpeed)安装Mindspeed组件，如：
+
     ```shell
     git clone https://gitcode.com/Ascend/MindSpeed.git
     cd MindSpeed
@@ -122,24 +128,30 @@
     cd ../lerobot
     ```
 
-
 ### 数据准备
 
 下载[koch_test数据集](https://huggingface.co/datasets/jianqiang03/koch_test/tree/main)，将数据集的绝对路径记作 dataset_path，转换数据集格式：
+
 ```shell
 python -m lerobot.datasets.v30.convert_dataset_v21_to_v30 --repo-id={dataset_path}
 ```
+
 ```shell
 python src/lerobot/datasets/v30/augment_dataset_quantile_stats.py --repo-id={dataset_path}
 ```
+
 ### 权重准备
+
 下载[Pi-0.5预训练权重](https://huggingface.co/lerobot/pi05_base)，将权重的绝对路径记作 pi05_weights
 
 ## 快速开始
+
 本任务主要提供**A3单机8卡**的训练脚本。
 
 ### 执行训练
+
 进入模型代码目录 `path/to/lerobot`
+
 - 单机性能
 
     ```shell
@@ -151,22 +163,27 @@ python src/lerobot/datasets/v30/augment_dataset_quantile_stats.py --repo-id={dat
     ```shell
     bash test/train_full.sh {dataset_path} {pi05_weights}
     ```
+
     ---
     参数说明
+
     | 参数| 可选/必选 | 说明 |
     |------|---------|------|
     |dataset_path | 必选| 数据路径|
     |pi05_weights | 必选| 权重路径|
 
 ### 训练结果
+
 - A3单机8卡
 
     |  NAME       | Precision     |     iterations    |    global batchsize      |    training loss      |     FPS      |
     |:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
     |  竞品 H   |      bf16    |        30k     |     64    |        0.005   |    70.8    |
     |  Atlas 800T A3   |     bf16    |        30k     |      128    |        0.004   |      155.1    |
+
     ---
     字段说明
+
     |字段|说明|
     |-----|-----|
     |NAME|芯片类别|
@@ -183,6 +200,7 @@ python src/lerobot/datasets/v30/augment_dataset_quantile_stats.py --repo-id={dat
 2026.1.31：更新代码和性能。
 
 ## FAQ
+
 Q: 在无网络或者有防火墙的网络下，模型无法自动下载paligemma的权重怎么办？
 
 A: 可自行下载[paligemma权重](https://huggingface.co/google/paligemma-3b-pt-224)，将权重路径记作 paligemma_weights。再执行以下命令，使用脚本将本地权重路径替换进模型代码：

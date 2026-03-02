@@ -1,15 +1,23 @@
-## npu_rotated_iou[beta]
-### 接口原型
+# npu_rotated_iou[beta]
+
+## 接口原型
+
 ```python
 mx_driving.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=False, int mode=0, bool is_cross=True, float v_threshold=0.0, float e_threshold=0.0) -> Tensor
 ```
+
 兼容：
+
 ```python
 mx_driving.detection.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=False, int mode=0, bool is_cross=True, float v_threshold=0.0, float e_threshold=0.0) -> Tensor
 ```
-### 功能描述
+
+## 功能描述
+
 计算旋转框的IoU。
-### 参数说明
+
+## 参数说明
+
 - `self(Tensor)`：边界框张量，数据类型为`float32, float16`，形状为`[B, N, 5]`。
 - `query_boxes(Tensor)`：查询框张量，数据类型为`float32, float16`，形状为`[B, M, 5]`。
 - `trans(bool)`：是否进行坐标变换。默认值为`False`。值为`True`时，表示`xyxyt`, 值为`False`时，表示`xywht`，其中`t`为角度制。
@@ -17,13 +25,21 @@ mx_driving.detection.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans
 - `mode(int)`：计算IoU的模式。默认值为`0`。值为`0`时，表示计算`IoU`，值为`1`时，表示计算`IoF`。
 - `v_threshold(float)`：顶点判断的容忍阈值。
 - `e_threshold(float)`：边相交判断的容忍阈值。
-### 返回值
+
+## 返回值
+
 - `output(Tensor)`：IoU张量，数据类型为`float32, float16`，`is_cross`为`True`时形状为`[B, N, M]`，反之则为`[B, N]`。
-### 约束说明
+
+## 约束说明
+
 - `mode`的取值范围为`{0, 1}`。
-### 支持的型号
+
+## 支持的型号
+
 - Atlas A2 训练系列产品
-### 调用示例
+
+## 调用示例
+
 ```python
 import torch, torch_npu
 import numpy as np

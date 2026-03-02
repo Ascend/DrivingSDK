@@ -26,21 +26,22 @@
 
 自动驾驶是一项高度复杂的技术，需要多个学科领域的知识和技能，包括传感器技术、机器学习、路径规划等方面。自动驾驶还需要适应不同的道路规则和交通文化，与其他车辆和行人进行良好的交互，以实现高度可靠和安全的自动驾驶系统。面对这种复杂的场景，大部分自动驾驶相关的工作都聚焦在具体的某个模块，关于框架性的研讨则相对匮乏。自动驾驶通用算法框架——Unified Autonomous Driving（UniAD）首次将检测、跟踪、建图、轨迹预测，占据栅格预测以及规划整合到一个基于Transformer的端到端网络框架下， 完美契合了”多任务”和“高性能”的特点，是自动驾驶中的重大技术突破。
 
-
 ## 代码实现
 
 - 参考实现：
 
-  ```
+  ```shell
   url=https://github.com/OpenDriveLab/UniAD
   commit_id=7b5bf15e0e49522b6553ddc48e67833e8f5f0f52
   ```
+
 - 适配昇腾 AI 处理器的实现：
 
-    ```
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/UniAD
     ```
+
 # UniAD
 
 ## 准备训练环境
@@ -64,14 +65,13 @@
 | FrameworkPTAdapter | 7.0.0    |
 | CANN              | 8.1.RC1    |
 
-
 - 激活 CANN 环境
 
 - 安装Driving SDK加速库，安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
-
 - 安装mmcv
-  ```
+
+  ```shell
   git clone -b 1.x https://github.com/open-mmlab/mmcv.git
   cd mmcv
   cp -f ../mmcv.patch ./
@@ -81,7 +81,8 @@
   ```
 
 - 源码安装mmdet3d
-   ```
+
+   ```shell
   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
   cp -f ../mmdet3d.patch mmdetection3d
   cd mmdetection3d
@@ -91,7 +92,8 @@
    ```
 
 - 准备模型源码
-  ```
+
+  ```shell
   git clone https://github.com/OpenDriveLab/UniAD.git
   cp -f UniAD.patch UniAD
   cp -r test UniAD
@@ -106,7 +108,8 @@
   - OpenEuler系统
 
   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
-  ```
+
+  ```shell
   mkdir gperftools
   cd gperftools
   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
@@ -121,12 +124,14 @@
   export PATH=/usr/local/lib/bin:$PATH
   export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
   ```
+
   - Ubuntu系统
 
   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
   安装libunwind依赖：
-  ```
+
+  ```shell
   git clone https://github.com/libunwind/libunwind.git
   cd libunwind
   autoreconf -i
@@ -136,7 +141,8 @@
   ```
 
   安装tcmalloc动态库：
-  ```
+
+  ```shell
   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
   tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
   ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
@@ -149,7 +155,7 @@
 
 - 根据原仓**Prepare Dataset**章节准备数据集，数据集目录及结构如下：
 
-```
+```shell
 UniAD
 ├── data/
 │   ├── nuscenes/
@@ -173,7 +179,7 @@ UniAD
 
 - 根据原仓Installation章节下载预训练权重bevformer_r101_dcn_24ep.pth和uniad_base_track_map.pth，并放在模型根目录ckpts下：
 
-```
+```shell
 UniAD
 ├── ckpts/
 │   ├── bevformer_r101_dcn_24ep.pth
@@ -181,7 +187,8 @@ UniAD
 ```
 
 - （可选）可通过修改config文件中的load_from值来更改预训练权重
-```
+
+```shell
 # projects/configs/stage1_track_map.py
 load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 ```
@@ -200,21 +207,21 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 
    - 单机8卡性能训练
 
-   ```
+   ```shell
    bash test/train_stage1_performance_8p.sh # stage1
    bash test/train_stage2_performance_8p.sh # stage2
    ```
 
    - 单机8卡精度训练
 
-   ```
+   ```shell
    bash test/train_stage1_full_8p.sh # stage1
    bash test/train_stage2_full_8p.sh # stage2
    ```
 
    该模型支持双机多卡训练。
    
-   ```
+   ```shell
    # 'XX.XX.XX.XX'为主节点的IP地址；端口号可以换成未被占用的可用端口
 
    # stage1
@@ -229,6 +236,7 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 #### 训练结果
 
 单机八卡
+
 | 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS |amota &uarr;|   L2 &darr;  |
 |--------| ------------- | ---- |-------------------| --------- |---------------|--------|------|---------|
 | stage1 | 竞品A           | 8p   | 8                 | fp32      | 5883        |   1.359 | 0.380 | -      |
@@ -236,8 +244,8 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 | stage2 | 竞品A           | 8p   | 8                 | fp32      | 3990        |  2.000  | -     | 0.9127 |
 | stage2 | Atlas 800T A2 | 8p   | 8                 | fp32      | 5145         |   1.554  | -     | 0.9014 |
 
-
 多机多卡线性度
+
 | 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS | 线性度 |  
 |--------| ------------- | ---- |-------------------| --------- |---------------|--------|------|
 | stage1 | Atlas 800T A2*2 | 16p   | 16               | fp32      | 8333        |  1.920  | 96.30%     | 
@@ -255,11 +263,12 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 
 2025.09.01: 优化模型stage 1性能，更新性能数据。
 
-
 # FAQ
 
 1. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
-```
+
+```shell
 find /usr -name libtcmalloc.so*
 ```
+
 找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

@@ -1,6 +1,7 @@
 # DiffusionDrive
 
 ## 目录 
+
 - [DiffusionDrive](#diffusiondrive)
   - [目录](#目录)
 - [简介](#简介)
@@ -23,7 +24,6 @@
   - [变更](#变更)
   - [FAQ](#faq)
 
-
 # 简介
 
 ## 模型介绍
@@ -40,18 +40,17 @@
 
 * 参考的官方实现：
 
-  ```
+  ```shell
   url=https://github.com/hustvl/DiffusionDrive/tree/nusc
   commit_id=ae54fd87b32b3762f20e63ffd0af91d343cade85
   ```
 
 * 适配昇腾AI处理器的实现
 
-  ```
+  ```shell
   url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/DiffusionDrive
   ```
-
 
 # 准备训练环境
 
@@ -91,7 +90,7 @@
 
 - 源码安装geos
 
-  ```bash
+  ```shell
   git clone https://github.com/libgeos/geos.git
   cd geos
   mkdir build
@@ -105,7 +104,7 @@
 
 - 克隆模型官方仓
 
-  ```bash
+  ```shell
   # 仅以克隆至当前目录举例，实际路径选择无影响
   git clone https://github.com/hustvl/DiffusionDrive
   cd DiffusionDrive
@@ -114,13 +113,13 @@
 
 - 拷贝迁移昇腾的补丁至已克隆本地的官方仓内
 
-  ```
+  ```shell
   cp -r ../migrate_to_ascend ./
   ```
 
 - 安装模型依赖与迁移依赖：一并打包进了`migrate_to_ascend`目录下的`requirements.txt`
 
-  ```bash
+  ```shell
   cd migrate_to_ascend
   pip install -r requirements.txt
   cd ..
@@ -128,7 +127,7 @@
 
 - 源码安装mmcv
 
-  ```
+  ```shell
     git clone -b 1.x https://github.com/open-mmlab/mmcv.git
     cd mmcv
     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
@@ -154,20 +153,19 @@ DiffusionDrive/
 │       └── v1.0-trainval/        # 训练验证集元数据
 ```
 
-
-```bash
+```shell
 mkdir -p ./data/nuscenes
 ```
 
 创建软链接：
 
-```bash
+```shell
 ln -s [path/to/nuscenes] ./data/nuscenes
 ```
 
 例：
 
-```
+```shell
 export DATA_PATH=[path/to/nuscenes]
 ln -s $DATA_PATH/can_bus ./data/nuscenes/can_bus
 ln -s $DATA_PATH/lidarseg ./data/nuscenes/lidarseg
@@ -182,13 +180,13 @@ ln -s $DATA_PATH/v1.0-trainval ./data/nuscenes/v1.0-trainval
 
 运行数据预处理脚本生成DiffusionDrive模型训练需要的pkl文件与初始锚框（预处理耗时约5h左右）
 
-```bash
+```shell
 python ./migrate_to_ascend/preprocess.py
 ```
 
 ## 下载权重
 
-```bash
+```shell
 mkdir ckpts
 cd ./ckpts/
 wget https://download.pytorch.org/models/resnet50-19c8e357.pth
@@ -196,32 +194,29 @@ wget https://github.com/swc-17/SparseDrive/releases/download/v1.0/sparsedrive_st
 cd ..
 ```
 
-
-
 # 快速开始
 
 ## 训练模型
 
-```bash
+```shell
 # 8卡长跑全量epoch，训练结束后打印模型精度
 bash migrate_to_ascend/train_8p.sh
 ```
 
 ## 验证性能
 
-```bash
+```shell
 # 仅跑1000个step后打印8卡训练性能（AvgStepTime、FPS）
 bash migrate_to_ascend/train_8p.sh --performance
 ```
 
 ## 训练脚本支持的命令行参数
+
 `train_8p.sh`
+
 * `--performance`：添加该参数，训练脚本仅验机器性能；未添加时，正常长跑训练完整epochs数
 * `--num_npu`: 可调整训练使用的npu卡数
 * `--batch_size`: 可调整每张卡的batch size
-
-
-
 
 ## 训练结果
 
@@ -231,8 +226,6 @@ bash migrate_to_ascend/train_8p.sh --performance
 | ------------- | ---- | ----------------- | ----- | --------------- | ------ |
 | 竞品A         | 8p   | 48                | 30.53 | 1.572           | 0.5897 |
 | Atlas 800T A2 | 8p   | 48                | 28.43 | 1.688           | 0.5971 |
-
-
 
 # 版本说明
 
@@ -245,4 +238,3 @@ bash migrate_to_ascend/train_8p.sh --performance
 ## FAQ
 
 暂无。
-

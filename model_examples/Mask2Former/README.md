@@ -10,14 +10,14 @@
 
 - 参考实现：
 
-  ```
+  ```shell
   url=https://github.com/open-mmlab/mmsegmentation.git
   commit_id=c685fe6767c4cadf6b051983ca6208f1b9d1ccb8
   ```
 
 - 适配昇腾 AI 处理器的实现：
 
-  ```
+  ```shell
   url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/Mask2Former
   ```
@@ -51,13 +51,13 @@
 
   首先进入模型目录：
 
-  ```
+  ```shell
   cd model_examples/Mask2Former
   ```
 
   1. 下载包含 `Mask2Former` 模型的原始仓库代码，并执行如下命令：
 
-      ```
+      ```shell
       git clone -b v1.2.2 https://github.com/open-mmlab/mmsegmentation.git
       cp -f mmsegmentation.patch mmsegmentation/
       cd mmsegmentation
@@ -68,7 +68,7 @@
 
   2. 源码编译安装 `mmcv main` 分支：
 
-      ```
+      ```shell
        git clone https://github.com/open-mmlab/mmcv
        cd mmcv/
        git checkout 90d83c94cfb967ef162c449faf559616f31f28c2
@@ -80,7 +80,7 @@
 
   3. 源码编译安装 `mmdetection v3.3.0` 版本：
 
-      ```
+      ```shell
       git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
       cp -f mmdetection.patch mmdetection
       cd mmdetection
@@ -91,15 +91,13 @@
 
   4. 请参考 [Driving SDK 使用说明](https://gitcode.com/Ascend/DrivingSDK) 编译并安装 `Driving SDK` 包。
 
-
-
 # 准备数据集
 
 ## 训练数据集
 
 用户自行参考原始仓库说明获取 `cityscapes` 数据集，新建 `data` 目录，将数据解压或者软链接到 `mmsegmentation` 工程的 data 目录下，数据集样例结构如下：
 
-```
+```shell
 data
 ├── cityscapes
 │   ├── leftImg8bit
@@ -109,29 +107,28 @@ data
 │   │   ├── train
 └── └── └── val
 ```
+
 如果放置目录不同，则需要根据需求调整 `mmsegmentation` 工程下 `configs/_base_/datasets/cityscapes.py` 配置文件中的 `data_root` 变量，其默认值如下：
 
-```
+```shell
 data_root = 'data/cityscapes/'
 ```
 
 在 `mmsegmentation` 目录下进行数据预处理：
 
-```
+```shell
 # 安装相关依赖
 pip install cityscapesscripts
 # --nproc表示8个进程进行转换，也可以省略
 python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
 ```
 
-
-
 ## 获取预训练权重
 
 1. 联网情况下，预训练权重会自动下载。
 2. 无网络情况下，用户可以访问 [mmsegmentation官网](https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/swin/swin_base_patch4_window12_384_22k_20220317-e5c09f74.pth) 自行下载预训练模型，并将其拷贝至对应目录。目录样例如下：
 
-    ```
+    ```shell
     ${HOME}/.cache/torch/hub/checkpoints/swin_base_patch4_window12_384_22k_20220317-e5c09f74.pth
     ```
 
@@ -141,7 +138,7 @@ python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
 
 1. 回到最开始的模型目录：
 
-    ```
+    ```shell
     cd model_examples/Mask2Former
     ```
 
@@ -149,7 +146,7 @@ python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
 
     启动 8 卡训练。
 
-    ```
+    ```shell
     bash ./test/train_full_8p.sh  # 8卡精度
 
     bash ./test/train_performance_8p.sh  # 8卡性能
@@ -157,7 +154,7 @@ python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
 
     模型训练脚本参数说明如下。
 
-    ```
+    ```shell
     公共参数：
     --resume                                 //--resume=1 开启断点续训，默认不开启，train_performance_8p.sh脚本不支持该参数
     --batch_size                             //单卡batch_size，默认为2
@@ -165,7 +162,6 @@ python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
     ```
 
     训练完成后，日志文件保存在 `test/output` 路径下，并输出模型训练精度和性能信息。
-
 
 ## 训练结果
 

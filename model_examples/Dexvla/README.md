@@ -8,16 +8,15 @@
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
   - [代码实现](#代码实现)
-- [DexVLA](#dexvla-1)
-  - [准备训练环境](#准备训练环境)
-    - [安装昇腾环境](#安装昇腾环境)
-    - [安装模型环境](#安装模型环境)
-    - [准备数据集与预训练权重](#准备数据集与预训练权重)
-  - [快速开始](#快速开始)
-    - [开始训练](#开始训练)
-    - [训练结果](#训练结果)
-      - [Stage2](#stage2)
-      - [Stage3](#stage3)
+- [准备训练环境](#准备训练环境)
+  - [安装昇腾环境](#安装昇腾环境)
+  - [安装模型环境](#安装模型环境)
+  - [准备数据集与预训练权重](#准备数据集与预训练权重)
+- [快速开始](#快速开始)
+  - [开始训练](#开始训练)
+  - [训练结果](#训练结果)
+    - [Stage2](#stage2)
+    - [Stage3](#stage3)
 - [变更说明](#变更说明)
 - [FAQ](#faq)
 
@@ -38,22 +37,22 @@
 ## 代码实现
 
 - 参考实现：
-    ```
+
+    ```shell
     url=https://github.com/juruobenruo/DexVLA
     commit fc21a822f4c774e242eb6f1ab4a235788de7aba9
     ```
 
 - 适配昇腾 AI 处理器的实现：
-    ```
+
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/Dexvla
     ```
 
-# DexVLA 
+# 准备训练环境
 
-## 准备训练环境
-
-### 安装昇腾环境
+## 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境，本仓已支持表1中软件版本。
 
@@ -64,8 +63,7 @@
 | FrameworkPTAdapter | 7.1.0 |
 |       CANN        | 8.2.RC1  |
 
-
-### 安装模型环境
+## 安装模型环境
 
 **表 2**  三方库版本支持表
 
@@ -73,16 +71,16 @@
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-
-
 1. 创建conda环境
-  ```
+
+  ```shell
   conda create -n dexvla python=3.10
   conda activate dexvla
   ```
   
 2. 安装依赖
-  ```
+
+  ```shell
   git clone https://github.com/juruobenruo/DexVLA.git
   cd DexVLA
   git checkout fc21a822f4c774e242eb6f1ab4a235788de7aba9
@@ -96,7 +94,8 @@
   ```
   
 3. 安装bitsandbytes
- ```
+
+ ```shell
   # 源码安装bitsandbytes
   git clone -b multi-backend-refactor https://github.com/bitsandbytes-foundation/bitsandbytes.git && cd bitsandbytes/
 
@@ -108,7 +107,8 @@
  ```
 
 4. 根据[DeepSpeed仓](https://github.com/deepspeedai/DeepSpeed)源码安装DeepSpeed，如：
-  ```
+
+  ```shell
   git clone https://github.com/deepspeedai/DeepSpeed.git
   cd DeepSpeed
   git checkout c2bb53f20fa32d6cbf472c08a42959a287dd9049
@@ -119,8 +119,7 @@
 
 请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
-
-### 准备数据集与预训练权重
+## 准备数据集与预训练权重
 
 1. 下载[Dexvla example dataset](https://huggingface.co/datasets/lesjie/dexvla_example_data)，将数据集位置记作 dataset_path.
 进入DexVLA/aloha_scripts/constant.py文件，将第四行 `dataset_dir` 替换为 `$dataset_path`.
@@ -128,45 +127,46 @@
 2. 下载[Qwen2-VL-2B 预训练权重](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)，将权重路径记作 qwen_weights.
 权重下载完毕后，将qwen2下的 config.json 替换为 DexVLA/docs/config.json 。
  
-  ```
+  ```shell
   cp -f DexVLA/docs/config.json {qwen_weights}/config.json
   ```
 
 3. 下载[dexvla stage1 预训练权重](https://huggingface.co/lesjie/scale_dp_h/tree/main)，将权重路径记做 stage1_weights
 
-## 快速开始
+# 快速开始
+
 本任务主要提供**单机8卡**的训练脚本。在DrivingSDK/model_examples/Dexvla/DexVLA目录下执行以下脚本进行训练。
 
-### 开始训练
+## 开始训练
 
 - 单机8卡stage2性能
 
-  ```
+  ```shell
   bash test/train_8p_performance_stage2.sh {qwen_weights} {stage1_weights} {stage2_output} #stage2_output为stage2训练后权重的保存路径
   ```
   
 - 单机8卡stage3性能
 
-  ```
+  ```shell
   bash test/train_8p_performance_stage3.sh {stage1_weights} {stage2_output} {stage3_output} #stage3_output为stage3训练后权重的保存路径
   ```
 
 - 单机8卡stage2精度
 
-  ```
+  ```shell
   bash test/train_8p_full_stage2.sh {qwen_weights} {stage1_weights} {stage2_output} #stage2_output为stage2训练后权重的保存路径
   ```
   
 - 单机8卡stage3精度
 
-  ```
+  ```shell
   bash test/train_8p_full_stage3.sh {stage1_weights} {stage2_output} {stage3_output} #stage3_output为stage3训练后权重的保存路径
   ```
 
+## 训练结果
 
+### Stage2
 
-### 训练结果
-#### Stage2
 - 单机8卡
 
 |  NAME       | Precision     |     steps    |    global_batch_size      |    training loss      |     FPS      |
@@ -174,7 +174,8 @@
 |  8p-竞品A   |      Mixed    |        10k     |     96    |        0.03206  |    18.88     |
 |  8p-Atlas 800T A2   |     Mixed    |        10k     |      96    |        0.03021   |      16.72    |
 
-#### Stage3
+### Stage3
+
 - 单机8卡
 
 |  NAME       | Precision     |     steps    |    global_batch_size      |    mean training loss      |     FPS      |
@@ -187,18 +188,20 @@
 2025.09.02：首次发布。
 
 # FAQ
+
 Q:安装依赖包时，h5py安装失败，怎么办？
 A:安装h5py依赖，如：
- ```
+
+ ```shell
  yum install hdf5-devel
  pip install hdf5
  ```
 
 Q:拉起模型训练时，遇到：ModuleNotFoundError: No module named 'models'，怎么办？
 A:可能安装好的policy_heads包的路径不在python的模块搜索范围内。可以尝试在train_vla.py中将policy_heads的安装路径添加至sys.path，如：
-```
+
+```shell
 import sys
 #将policy_heads的安装路径记做POLICY_HEADS_PATH
 sys.path.append($POLICY_HEADS_PATH)
 ```
-

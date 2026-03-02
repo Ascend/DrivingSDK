@@ -28,6 +28,7 @@
 传统的 3D 场景理解方法大多数都集中在 3D 目标检测上，难以描述任意形状和无限类别的真实世界物体。而 SurroundOcc 方法可以更全面地感知 3D 场景。首先对每个图像提取多尺度特征，并采用空间 2D-3D 注意力将其提升到 3D 体积空间；然后，采用 3D 卷积逐步上采样体积特征，并在多个级别上施加监督。
 
 ## 支持任务列表
+
 本仓已经支持以下模型任务类型
 
 |    模型     | 任务列表 | 是否支持 |
@@ -38,13 +39,14 @@
 
 - 参考实现：
 
-  ```
+  ```shell
   url=https://github.com/weiyithu/SurroundOcc
   commit_id=05263c6a8fe464a7f9d28358ff7196ba58dc0de6
   ```
+
 - 适配昇腾 AI 处理器的实现：
 
-  ```
+  ```shell
   url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/SurroundOcc
   ```
@@ -74,7 +76,7 @@
 
 - 克隆代码仓到当前目录并使用patch文件
 
-    ```
+    ```shell
     git clone https://github.com/weiyithu/SurroundOcc.git
     cd SurroundOcc
     git checkout 05263c6a8fe464a7f9d28358ff7196ba58dc0de6
@@ -83,12 +85,11 @@
     cp -rf ../test .
     ```
 
-
 - 安装mmdet3d
 
   - 在应用过patch的模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录编译
 
-    ```
+    ```shell
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
     cp -r ../mmdetection3d.patch mmdetection3d
     cd mmdetection3d
@@ -101,7 +102,7 @@
 
   - 在应用过patch的模型根目录下，克隆mmcv仓，并进入mmcv目录安装编译
 
-    ```
+    ```shell
     git clone -b 1.x https://github.com/open-mmlab/mmcv
     cp -r ../mmcv.patch mmcv
     cd mmcv
@@ -114,7 +115,7 @@
 
   - 在应用过patch的模型根目录下，克隆mmdet仓，并进入mmdetection目录安装编译
 
-    ```
+    ```shell
     git clone -b v2.28.0 https://github.com/open-mmlab/mmdetection.git
     cp ../mmdetection.patch mmdetection
     cd mmdetection
@@ -127,17 +128,15 @@
 
 - 在应用过patch的模型根目录下执行以下命令，安装模型对应PyTorch版本需要的依赖。
 
-  ```
+  ```shell
   pip install -r requirements.txt
   ```
-
-
 
 ### 准备数据集
 
 - 根据原仓**Prepare Dataset**章节准备数据集，数据集目录及结构如下：
 
-```
+```shell
 SurroundOcc
 ├── data/
 │   ├── nuscenes/
@@ -167,24 +166,22 @@ SurroundOcc
 
      - 单机8卡精度训练
 
-     ```
+     ```shell
      bash test/train_8p.sh
      ```
 
      - 单机8卡性能训练
 
-
-     ```
+     ```shell
      bash test/train_8p_performance.sh
      ```
 
-
 #### 训练结果
+
 | 芯片          | 卡数 | global batch size | Precision | epoch |  IoU   |  mIoU  | 性能-单步迭代耗时(ms) |  FPS  |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: | :----: | :-------------------: | :----: |
 | 竞品A           |  8p  |         8         |   fp32    |  12   | 0.3163 | 0.1999 |         1028          |  7.78 |
 | Atlas 800T A2 |  8p  |         8         |   fp32    |  12   | 0.3114 | 0.1995 |         1054          | 7.59 |
-
 
 # 变更说明
 

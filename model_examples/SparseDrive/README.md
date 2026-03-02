@@ -1,6 +1,7 @@
 # SparseDrive
 
 # 目录
+
 - [SparseDrive](#sparsedrive)
 - [目录](#目录)
 - [简介](#简介)
@@ -20,7 +21,6 @@
   - [变更](#变更)
   - [FAQ](#faq)
 
-
 # 简介
 
 ## 模型介绍
@@ -36,16 +36,17 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 | SparseDrive |   训练   |    ✔     |
 
 ## 代码实现
+
 - 参考实现：
 
-  ```
+  ```shell
   url=https://github.com/swc-17/SparseDrive
   commit_id=52c4c05b6d446b710c8a12eb9fb19d698b33cb2b
   ```
   
 - 适配昇腾 AI 处理器的实现：
 
-  ```
+  ```shell
   url=https://gitcode.com/Ascend/DrivingSDK.git
   code_path=model_examples/SparseDrive
   ```
@@ -95,6 +96,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
   ```
 
 - 模型代码Patch
+
   ```shell
   git clone https://github.com/swc-17/SparseDrive.git
   cp -rf ./test/ SparseDrive
@@ -116,7 +118,9 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 # 准备数据集
 
 ## 预训练数据集
+
 用户自行获取*nuscenes*数据集，在源码目录创建软连接`data/nuscenes`指向解压后的nuscenes数据目录
+
   ```shell
   sparsedrive_path="path/to/sparsedrive"
   cd ${sparsedrive_path}
@@ -125,12 +129,15 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
   ```
 
 运行数据预处理脚本生成SparseDrive模型训练需要的pkl文件与初始锚框
+
   ```shell
   sh test/preprocess.sh
   ```
 
 ## 获取预训练权重
+
 下载backbone预训练权重
+
   ```shell
   mkdir ckpt
   wget https://download.pytorch.org/models/resnet50-19c8e357.pth -O ckpt/resnet50-19c8e357.pth
@@ -148,13 +155,16 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
     - `--num_npu` : NPU卡数，默认值为8
 
 - 单机多卡精度训练脚本
+
 ```shell
   #stage1默认训练100个epoch,stage2训练10个epoch
   bash test/train_8p_full.sh
   (option) bash test/train_8p_full.sh 64 48 8
   (option) bash test/train_8p_full.sh --batch_node_size_stage1=64 --batch_node_size_stage2=48 --num_npu=8
 ```
+
 - 单机多卡性能测试脚本
+
 ```shell
   #stage1\stage2默认训练1000个step
   bash test/train_8p_performance.sh
@@ -176,17 +186,16 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 |   stage2   |      竞品A      | 8p | 48 | fp16 | 35.2 | 1.363 | - | 0.6280 |
 |   stage2   | Atlas 800T A2   | 8p | 48 | fp16 | 37.9 | 1.265 | - | 0.6069 |
 
-
-
 # 版本说明
+
 ## 变更
+
 2025.04.27：首次发布。
 
 2025.07.07：瓶颈算子优化，刷新性能数据
 
 2025.08.25：训练脚本优化
+
 ## FAQ
+
 暂无。
-
-
-

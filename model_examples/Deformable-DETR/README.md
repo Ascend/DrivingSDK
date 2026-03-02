@@ -12,9 +12,9 @@
 
 ![deformable_detr](./figs/convergence.png)
 
-- 原始代码仓库：https://github.com/fundamentalvision/Deformable-DETR
+- 原始代码仓库：<https://github.com/fundamentalvision/Deformable-DETR>
 - commit id：11169a60c33333af00a4849f1808023eba96a931
-- 昇腾适配代码仓库：https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR
+- 昇腾适配代码仓库：<https://gitcode.com/Ascend/DrivingSDK/tree/master/model_examples/Deformable-DETR>
 
 ## 支持的任务列表
 
@@ -36,18 +36,20 @@
 1、激活 CANN 包环境
 
 2、创建 conda 环境并激活：
-```
+
+```shell
 conda create -n deformable_detr python=3.9
 conda activate deformable_detr
 ```
 
 3、安装`Pytorch2.1`、`torch_npu2.1.0`和`mx_driving`。
 
-- 搭建 PyTorch 环境参考：https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html
-- 搭建 mx_driving 环境参考：https://gitcode.com/Ascend/DrivingSDK
+- 搭建 PyTorch 环境参考：<https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html>
+- 搭建 mx_driving 环境参考：<https://gitcode.com/Ascend/DrivingSDK>
 
 4、使用 patch 文件
-```
+
+```shell
 pip install -r requirements.txt
 git clone https://github.com/fundamentalvision/Deformable-DETR.git
 cp -f Deformable-DETR_npu.patch Deformable-DETR
@@ -69,15 +71,15 @@ coco_path/
 
 ## 快速开始
 
-### 模型训练：
+### 模型训练
 
 主要提供单机 8 卡训练脚本：
 
 - 在模型根目录下运行训练脚本
 
 ```shell
-bash test/train_8p_full.sh --data_path='.data/coco'		# 替换成你的coco数据集路径，进行 8 卡训练
-bash test/train_8p_performance.sh --data_path='.data/coco'		# 替换成你的coco数据集路径，进行 8 卡性能测试
+bash test/train_8p_full.sh --data_path='.data/coco'  # 替换成你的coco数据集路径，进行 8 卡训练
+bash test/train_8p_performance.sh --data_path='.data/coco'  # 替换成你的coco数据集路径，进行 8 卡性能测试
 ```
 
 训练脚本参数说明：
@@ -87,9 +89,9 @@ bash test/train_8p_performance.sh --data_path='.data/coco'		# 替换成你的coc
 --epochs       # 重复训练次数，可选项，默认 50
 ```
 
-### 训练结果：
+### 训练结果
 
-| 芯片          | 卡数 | epoch | global batch size| mAP(IoU=0.50:0.95) | 性能-单步迭代耗时(s)	 | FPS  |
+| 芯片          | 卡数 | epoch | global batch size| mAP(IoU=0.50:0.95) | 性能-单步迭代耗时(s)  | FPS  |
 | ------------- | ---- | ----- | ----- | ------------------ | ---- | ---- |
 | 竞品A         | 8p   | 50    | 64 | 0.437              | 1.01 | 65   |
 | Atlas 800T A2 | 8p   | 50    | 64 | 0.436              | 1.01 | 63   |

@@ -36,13 +36,15 @@
 ## 代码实现
 
 - 参考实现：
-    ```
+
+    ```shell
     url=https://github.com/MCZhi/GameFormer
     commit_id=fcb0d4a0f5cbbcecf69f9b9796366d6f5f2ce128
     ```
 
 - 适配昇腾 AI 处理器的实现：
-    ```
+
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/GameFormer
     ```
@@ -62,7 +64,6 @@
 | FrameworkPTAdapter | 7.0.0 |
 |       CANN        | 8.1.RC1 |
 
-
 ### 安装模型环境
 
 **表 2**  三方库版本支持表
@@ -71,11 +72,11 @@
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-
 0. 激活 CANN 环境
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件，并安装其它依赖项。
-    ```
+
+    ```shell
     cd DrivingSDK/model_examples/GameFormer
     conda create -n GameFormer python=3.9
     conda activate GameFormer
@@ -87,17 +88,21 @@
 2. 安装waymo-open-dataset库：
 
     对于x86架构Linux系统：
-    ```
+
+    ```shell
     pip install waymo-open-dataset-tf-2-11-0==1.5.0
     ```
+
     对于arm64架构Linux系统，waymo官方并没有提供预先编译好whl包。为了方便用户使用，我们提供arm64系统编译的whl包，可以直接在华为云OBS上进行下载。
-    ```
+
+    ```shell
     wget https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/packages/waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     pip install waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     ```
 
 3. 拉取GameFormer模型代码仓库：
-    ```
+
+    ```shell
     git clone https://github.com/MCZhi/GameFormer.git
     cd GameFormer
     git checkout fcb0d4a0f5cbbcecf69f9b9796366d6f5f2ce128
@@ -109,7 +114,8 @@
     - OpenEuler系统
 
     在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
-    ```
+
+    ```shell
     mkdir gperftools
     cd gperftools
     wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
@@ -130,7 +136,8 @@
     在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
     安装libunwind依赖：
-    ```
+
+    ```shell
     git clone https://github.com/libunwind/libunwind.git
     cd libunwind
     autoreconf -i
@@ -140,7 +147,8 @@
     ```
 
     安装tcmalloc动态库：
-    ```
+
+    ```shell
     wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
     tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
     ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
@@ -152,7 +160,8 @@
 ### 准备数据集
 
 1. 在[Waymo Open Motion Dataset (WOMD)数据集](https://waymo.com/open/download/)网站，下载v1.1版本的scenario/train以及scenario/validation中的数据，并将数据集目录结构排布成如下格式：
-    ```
+
+    ```shell
     ~/waymo
     └── motion
         ├── training
@@ -171,8 +180,10 @@
             └── validation.tfrecord-00149-of-00150
 
     ```
+
 2. 数据预处理
-    ```
+
+    ```shell
     cd GameFormer/interaction_prediction
 
     python data_process.py \
@@ -187,14 +198,18 @@
         --use_multiprocessing \
         --processes=8
     ```
+
     可以通过--processes调节同时进行数据预处理的线程数量，提升预处理效率。
 
 ## 快速开始
+
 本任务主要提供**单机8卡**的训练脚本。
+
 ### 开始训练
 
 - 在模型根目录下，运行训练脚本（请在脚本内自行修改训练集和测试集的路径，输出的日志位于GameFormer/interaction_prediction/train_log路径下）。
-    ```
+
+    ```shell
     # 8卡性能 (1 epoch)
     bash script/train_interaction_performance.sh 8
     # 8卡精度 (30 epoch)
@@ -202,11 +217,11 @@
     ```
 
 ### 训练结果
+
 | 芯片           | 卡数 | global batch size | Precision | epoch | ADE | FDE | 性能-单步迭代耗时(ms) |  FPS |
 | ------------- | :--: | :------------: | :-------: | :---: | :----: | :----: | :-------------------: | :----: | 
 | 竞品A         |  8p  |  4096  |   fp32    |  30   | 1.47 | 2.82 |         640          |  6400 |
 | Atlas 800T A2 |  8p  |   4096 |   fp32    |  30   | 1.47 | 2.81 |        546          |  7501 |
-
 
 # 变更说明
 
@@ -217,13 +232,14 @@
 2025.04.24：增加global batch size数据
 
 2025.06.17: 性能优化，更新性能
+
 # FAQ
 
 1. Openexr包编译安装失败？
 
 在某些操作系统里，可能由于缺少依赖库的原因，pip install openexr执行失败，解决方案是升级gcc、g++、cmake版本，并且安装OpenEXR和OpenEXR-devel库。EulerOS/CentOS系统，执行以下命令：
 
-    ```
+    ```shell
     sudo yum makecache
     sudo yum install gcc gcc-c++ cmake
     sudo yum install openexr
@@ -232,14 +248,14 @@
 
     对于Ubuntu系统，执行以下命令：
 
-    ```
+    ```shell
     sudo apt-get update
     sudo apt install build-essential
     sudo apt install cmake
     sudo apt install openexr libopenexr-dev
     ```
     此外，如果在编译过程中遇到git网络问题，可以尝试以下命令：
-    ```
+    ```shell
     git config --global http.sslVerify false
     git config --global https.sslVerify false
     export GIT_SSL_NO_VERIFY=1
@@ -252,7 +268,9 @@
 3. tcmalloc的动态库文件找不到问题。
 
 tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
-```
+
+```shell
 find /usr -name libtcmalloc.so*
 ```
+
 找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

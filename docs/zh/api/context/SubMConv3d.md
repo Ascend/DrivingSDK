@@ -1,15 +1,23 @@
-## SubMConv3d
-### 接口原型
+# SubMConv3d
+
+## 接口原型
+
 ```python
 mx_driving.SubMConv3d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, indice_key=None, mode='mmcv') -> SparseConvTensor
 ```
+
 兼容
+
 ```python
 mx_driving.spconv.SubMConv3d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, indice_key=None, mode='mmcv') -> SparseConvTensor
 ```
-### 功能描述
+
+## 功能描述
+
 稀疏卷积，只有当卷积核中心参与计算时，才会影响输出
-### 参数说明
+
+## 参数说明
+
 - `in_channels(int)`：输入数据的通道数
 - `out_channels(int)`：输出通道数
 - `kernel_size(List(int)/Tuple(int)/int)`：卷积神经网络中卷积核的大小
@@ -19,16 +27,24 @@ mx_driving.spconv.SubMConv3d(in_channels, out_channels, kernel_size, stride=1, p
 - `bias(bool)`：偏置项
 - `indice_key(str)`：该输入用于复用之前计算的索引信息
 - `mode(str)`：区分了`mmcv`和`spconv`两种不同框架下的稀疏卷积
-### 返回值
+
+## 返回值
+
 - `SparseConvTensor(Tensor)`：存储了输出的特征值`out_feature`，对应索引位置`out_indices`和对应的spatital_shape。
-### 支持的型号
+
+## 支持的型号
+
 - Atlas A2 训练系列产品
-### 约束说明
+
+## 约束说明
+
 - `kernel_size`当前支持数据类型为三维List/Tuple或Int，当前值仅支持1、3
 - `stride`当前支持数据类型为三维List/Tuple或Int,当前仅支持值为1
 - `dilation`，`groups`当前仅支持值为1
 - 对于反向也是同样的约束。
-### 调用示例
+
+## 调用示例
+
 ```python
 import torch,torch_npu
 import numpy as np

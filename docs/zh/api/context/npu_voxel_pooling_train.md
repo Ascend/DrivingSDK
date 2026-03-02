@@ -1,33 +1,49 @@
-## npu_voxel_pooling_train
-### 接口原型
+# npu_voxel_pooling_train
+
+## 接口原型
+
 ```python
 mx_driving.npu_voxel_pooling_train(Tensor geom_xyz, Tensor input_features, List[int] voxel_num) -> Tensor
 ```
+
 兼容：
-```
+
+```python
 mx_driving.point.npu_voxel_pooling_train(Tensor geom_xyz, Tensor input_features, List[int] voxel_num) -> Tensor
 ```
-### 功能描述
+
+## 功能描述
+
 点云数据体素化。
-### 参数说明
+
+## 参数说明
+
 - `geom_xyz(Tensor)`：体素坐标，数据类型为`int32`，维度为（B, N, 3）, 3表示x, y, z。
 - `input_features(Tensor)`：点云数据，数据类型为`float32|float16`，维度为（B, N, C）。
 - `voxel_num(List[int])`：体素格子长宽高，数据类型为`int32`，维度为（3），3表示体素格子的长宽高。
-### 返回值
+
+## 返回值
+
 - `output(Tensor)`：输出结果，数据类型为`float32|float16`。shape为`[B, num_voxel_y, num_voxel_x, C]`。
-### 约束说明
+
+## 约束说明
+
 - B <= 128
 - N <= 100000
 - C <= 256
 - num_voxel_x <= 1000
 - num_voxel_y <= 1000
 - num_voxel_z <= 10
-- B * num_voxel_y * num_voxel_x * C <= 100000000
-- B * N * C <= 100000000
+- B *num_voxel_y* num_voxel_x * C <= 100000000
+- B *N* C <= 100000000
 - 反向具有相同约束。
-### 支持的型号
+
+## 支持的型号
+
 - Atlas A2 训练系列产品
-### 调用示例
+
+## 调用示例
+
 ```python
 import torch
 import torch_npu

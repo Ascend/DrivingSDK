@@ -1,20 +1,30 @@
-## npu_batch_matmul
-### 接口原型
+# npu_batch_matmul
+
+## 接口原型
+
 ```python
 mx_driving.npu_batch_matmul(Tensor projection_mat, Tensor pts_extend) -> Tensor
 ```
 
-### 功能描述
+## 功能描述
 
-### 参数说明
+## 参数说明
+
 - `projection_mat(Tensor)`：投影矩阵，数据类型为`float32`。Shape为4-6维，最后两维需要是`4, 4`或`3, 3`，且和pts_extend互相可广播。
 - `pts_extend(Tensor)`：所有点的特征，数据类型为`float32`。Shape为4-6维，最后两维需要是`4, 1`或`3, 1`，且和projection_mat互相可广播。
-### 返回值
+
+## 返回值
+
 - `output(Tensor)`：矩阵乘结果，数据类型为`float32`。
-### 支持的型号
+
+## 支持的型号
+
 - Atlas A2 训练系列产品
-### 调用示例
+
+## 调用示例
+
 输入是6维
+
 ```python
 import numpy as np
 import torch, torch_npu
@@ -29,7 +39,9 @@ result = mx_driving.npu_batch_matmul(projection_mat_fused, pts_extend2_fused)
 grad = torch.ones_like(result)
 result.backward(grad)
 ```
+
 输入是4维
+
 ```python
 import numpy as np
 import torch, torch_npu

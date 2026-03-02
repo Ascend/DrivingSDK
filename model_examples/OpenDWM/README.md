@@ -44,13 +44,14 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
 - 参考实现：
   
-  ```
+  ```shell
   url=https://github.com/SenseTime-FVG/OpenDWM
   commit_id=b0ecc3d4020612376ea5a87500f98bc76893428f 
   ```
 
 - 适配昇腾 AI 处理器的实现：
-    ```
+
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/OpenDWM
     ```
@@ -88,14 +89,15 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 3. 安装MindSpeed
     
     源码安装：
-    ```
+
+    ```shell
     git clone https://gitcode.com/Ascend/MindSpeed.git
     pip install -e MindSpeed
     ```
 
 4. 克隆代码仓到当前目录：
 
-    ```
+    ```shell
     git clone https://github.com/SenseTime-FVG/OpenDWM 
     cd OpenDWM
     git checkout b0ecc3d4020612376ea5a87500f98bc76893428f
@@ -104,7 +106,8 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
     将模型根目录记作 `model-root-path`
 
 5. 使用 patch 文件：
-    ```
+
+    ```shell
     cp -f ../OpenDWM.patch .
     git apply --reject --whitespace=fix OpenDWM.patch
     cp -rf ../test .
@@ -113,26 +116,25 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
 6. 安装模型相关的依赖项。
     安装对应版本的 torchvision：
-    ```
+
+    ```shell
     python -m pip install torchvision==0.21.0
     ```
     
     请确保 torch 与 torchvision 版本兼容。可通过 `python -c "import torch; print(torch.__version__)"` 查看当前 PyTorch 版本。
 
-    ```
+    ```shell
     # 安装其他依赖项
     python -m pip install -r requirements.txt
     ```
     
-
-
 ### 准备数据集
 
 - 根据原仓**Train**章节准备数据集
 
   1. 下载[nuScenes数据集](https://www.nuscenes.org/download)到${model-root-path}/data/nuscenes，目录结构如下
 
-      ```bash
+      ```shell
       ${model-root-path}/data/nuscenes
       ├── interp_12Hz_trainval
       ├── v1.0-trainval01_blobs.tgz
@@ -150,7 +152,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
   2. 在model-root-path下执行如下命令处理数据集
 
-      ```python
+      ```shell
       python src/dwm/tools/tar2zip.py -i data/nuscenes/v1.0-trainval_meta.tgz -o data/nuscenes/v1.0-trainval_meta.zip
       python src/dwm/tools/tar2zip.py -i data/nuscenes/v1.0-trainval01_blobs.tgz -o data/nuscenes/v1.0-trainval01_blobs.zip
       python src/dwm/tools/tar2zip.py -i data/nuscenes/v1.0-trainval02_blobs.tgz -o data/nuscenes/v1.0-trainval02_blobs.zip
@@ -162,7 +164,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 
 - 数据集目录及结构最终按照如下格式：
 
-```bash
+```shell
 ${model-root-path}/data/nuscenes
 ├── interp_12Hz_trainval.zip
 ├── nuScenes-map-expansion-v1.3.zip
@@ -187,7 +189,7 @@ ${model-root-path}/data/nuscenes
 
 - 根据原仓**Models**章节准备SD3.5的[模型权重](https://huggingface.co/stabilityai/stable-diffusion-3.5-medium)，目录及结构如下：
 
-```bash
+```shell
 ${model-root-path}/base_model/
 └── stable-diffusion-3.5-medium
 ```
@@ -195,7 +197,8 @@ ${model-root-path}/base_model/
 ### 准备预训练权重
 
 - 推理需要[预训练权重](https://huggingface.co/wzhgba/opendwm-models/resolve/main/ctsd_35_tirda_nwao_20k.pth?download=true)，目录如下：
-```bash
+
+```shell
 ${model-root-path}/pretrained/
 └── ctsd_35_tirda_nwao_20k.pth
 ```
@@ -212,13 +215,14 @@ ${model-root-path}/pretrained/
 
    - 单机8卡精度训练
    
-   ```
+   ```shell
    # 单机8卡训练
    bash test/train.sh
    ```
 
    - 单机8卡的性能训练
-   ```
+
+   ```shell
    # 单机8卡训练
    bash test/train_performance.sh
    ```
@@ -231,18 +235,21 @@ ${model-root-path}/pretrained/
 | Atlas 800T A2 |  8p  | 2 |       [2, 4]         |   混精    | 0.1367 | 1.13| 1.82 |
 
 ### 推理任务
+
 本任务目前主要提供单机单卡的推理
 
 #### 开始推理
+
 1. 在模型根目录下，运行推理指令。
 
    - 单卡推理
 
-   ```
+   ```shell
    PYTHONPATH=src python examples/ctsd_generation_example.py -c examples/ctsd_35_6views_image_generation.json -o output/ctsd_35_6views_image_generation
    ```
 
 #### 推理结果
+
 | 芯片          | 卡数 | 性能-单步迭代耗时(s) |
 | ------------- | :--: |:-------------------: |
 | 竞品A           |  1p  |11.2805|
@@ -252,11 +259,11 @@ ${model-root-path}/pretrained/
 
 2025.08.06：首次发布
 
-
 # FAQ
 
 1. 镜像中可能由于不支持awk的扩展正则表达式导致出现`syntax error at or near`，需要在镜像中安装gawk解决
-```
+
+```shell
 # Debian/Ubuntu
 apt-get update && apt-get install -y gawk
 

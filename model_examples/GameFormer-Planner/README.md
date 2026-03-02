@@ -36,13 +36,15 @@
 ## 代码实现
 
 - 参考实现：
-    ```
+
+    ```shell
     url=https://github.com/MCZhi/GameFormer-Planner
     commit_id=c6f3a69b947edd0c3079e458275fc490520e8bde
     ```
 
 - 适配昇腾 AI 处理器的实现：
-    ```
+
+    ```shell
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/GameFormer-Planner
     ```
@@ -62,7 +64,6 @@
 | FrameworkPTAdapter | 6.0.0 |
 |       CANN        | 8.0.0  |
 
-
 ### 安装模型环境
 
 **表 2**  三方库版本支持表
@@ -71,18 +72,19 @@
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-
 0. 激活 CANN 环境
     
 1. 安装torch2.1、torch_npu2.1 以及其他依赖项
-    ```
+
+    ```shell
     pip install torch==2.1.0
     pip install torch_npu==2.1.0
     pip install -r requirements.txt
     ```
 
 2. 安装nuplan-devkit库（如果需要进行数据集预处理，可选）：
-    ```
+
+    ```shell
     git clone https://github.com/motional/nuplan-devkit.git && cd nuplan-devkit
     pip install -r requirements.txt
     pip install -e .
@@ -90,7 +92,8 @@
     ```
 
 3. 拉取GameFormer-Planner模型仓库代码并使用Patch进行代码修改
-    ```
+
+    ```shell
     git clone https://github.com/MCZhi/GameFormer-Planner.git && cd GameFormer-Planner
     git checkout c6f3a69b947edd0c3079e458275fc490520e8bde
     cp ../GameFormer-Planner_NPU.patch .
@@ -103,7 +106,8 @@
     - OpenEuler系统
 
     在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
-    ```
+
+    ```shell
     mkdir gperftools
     cd gperftools
     wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
@@ -118,12 +122,14 @@
     export PATH=/usr/local/lib/bin:$PATH
     export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
     ```
+
     - Ubuntu系统
 
     在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
     安装libunwind依赖：
-    ```
+
+    ```shell
     git clone https://github.com/libunwind/libunwind.git
     cd libunwind
     autoreconf -i
@@ -133,7 +139,8 @@
     ```
 
     安装tcmalloc动态库：
-    ```
+
+    ```shell
     wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
     tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
     ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
@@ -149,7 +156,8 @@
 ### 准备数据集
 
 1. 下载[NuPlan数据集](https://www.nuscenes.org/nuplan#download)，并将数据集结构排布成如下格式：
-    ```
+
+    ```shell
     ~/nuplan
     └── dataset
         ├── maps
@@ -180,15 +188,19 @@
                     └── 2021.10.11.08.31.07_veh-50_01750_01948.db
 
     ```
+
 2. 数据预处理
-    ```
+
+    ```shell
     python GameFormer-Planner/data_process.py
     --data_path nuplan/dataset/nuplan-v1.1/splits/mini
     --map_path nuplan/dataset/maps
     --save_path nuplan/nuplan_processed
     ```
+
     --scenarios_per_type和--total_scenarios可以用于控制生成数据点的数量，请根据原仓库的指引，生成150万个数据点，并用其中的十分之一作为Validation Set，剩余的部分作为Training Set。预处理完成之后数据排布如下所示：
-    ```
+
+    ```shell
     nuplan
     └── nuplan_processed
         ├── train
@@ -203,18 +215,23 @@
     ```
 
 ## 快速开始
+
 本任务主要提供**单机8卡**的训练脚本以及**双机16卡**的多机多卡训练脚本。
+
 ### 开始训练
 
 - 单机多卡：在模型根目录下，运行训练脚本。
-    ```
+
+    ```shell
     bash script/train_gameformer_8x512_performance.sh 8 1 # 8卡性能(1 epoch)
     bash script/train_gameformer_8x512.sh 8 30 # 8卡精度(30 epoch)
     bash script/train_gameformer_8x256_performance.sh 8 1 # 8卡性能(1 epoch)
     bash script/train_gameformer_8x256.sh 8 30 # 8卡精度(30 epoch)
     ```
+
 - 多机多卡：在模型根目录下，运行训练脚本。
-    ```
+
+    ```shell
     # 'XX.XX.XX.XX'为主节点的IP地址；端口号可以换成未被占用的可用端口
     # 多机多卡训练精度
     bash script/train_gameformer_multi_server_8x512.sh 8 30 0 'XX.XX.XX.XX' '3389'  # 主节点
@@ -225,6 +242,7 @@
     ```
 
 ### 训练结果
+
 - 单机8卡
                              
 |    芯片    | 卡数 | global batch size | Precision | epoch | plannerADE | plannerFDE | plannerAHE | plannerFHE | predictorADE | predictorFDE | 性能-单步迭代耗时(ms) | 性能-FPS |
@@ -258,7 +276,8 @@
 # FAQ
 
 1. 镜像中可能由于不支持awk的扩展正则表达式导致出现`syntax error at or near`，需要在镜像中安装gawk解决
-```
+
+```shell
 # Debian/Ubuntu
 apt-get update && apt-get install -y gawk
 
@@ -267,7 +286,9 @@ yum install -y gawk
 ```
 
 2. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
-```
+
+```shell
 find /usr -name libtcmalloc.so*
 ```
+
 找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

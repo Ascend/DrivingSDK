@@ -2,16 +2,16 @@
 
 ## 目录
 
--   [简介](#简介)
+- [简介](#简介)
     - [模型介绍](#模型介绍)
     - [支持任务列表](#支持任务列表)
     - [代码实现](#代码实现)
--   [FlashOCC](#FlashOCC)
+- [FlashOCC](#flashocc)
     - [准备训练环境](#准备训练环境)
     - [快速开始](#快速开始)
        - [训练任务](#训练任务) 
--   [变更说明](#变更说明)
--   [FAQ](#FAQ)
+- [变更说明](#变更说明)
+- [FAQ](#faq)
 
 # 简介
 
@@ -31,7 +31,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 - 参考实现：
 
-    ```
+    ```shell
     url=https://github.com/Yzichen/FlashOCC
     commit_id=4084861d8d605bb01df55fcbc8072036055aa625
     ```
@@ -65,7 +65,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
     在当前目录下，克隆并准备 FlashOCC 源码
 
-    ```
+    ```shell
     git clone https://github.com/Yzichen/FlashOCC.git
     cp flashocc.patch FlashOCC
     cp -r test/ FlashOCC/
@@ -80,7 +80,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
     克隆 mmcv 仓，并进入 mmcv 目录编译安装
 
-    ```
+    ```shell
     git clone -b 1.x https://github.com/open-mmlab/mmcv
     cp mmcv.patch mmcv
     cd mmcv
@@ -94,7 +94,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
     克隆 mmdet 仓，并进入 mmdet 目录编译安装
 
-    ```
+    ```shell
     git clone -b v2.25.0 https://github.com/open-mmlab/mmdetection.git
     cp mmdet.patch mmdetection
     cd mmdetection
@@ -107,7 +107,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
     克隆 mmdet3d 仓，并进入 mmdet3d 目录编译安装
 
-    ```
+    ```shell
     cd FlashOCC
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
     cp ../mmdet3d.patch mmdetection3d
@@ -125,7 +125,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 1. 根据原仓[Environment Setup](https://github.com/Yzichen/FlashOCC/blob/master/doc/install.md) 在模型源码根目录下准备数据集，参考数据集结构如下：
 
-    ```
+    ```shell
     └── Path_to_FlashOcc/
     └── data
         └── nuscenes
@@ -142,14 +142,15 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 2. 在模型源码根目录下进行数据预处理
 
-   ```
+   ```shell
    python tools/create_data_bevdet.py
    ```
 
 ### 准备预训练权重
 
 在模型源码根目录下创建 ckpts 文件夹，将预训练权重 [bevdet-r50-cbgs.pth](https://drive.usercontent.google.com/download?id=1oWkQLmzAXi_AoJZ259EbRmksbOyBbYuX&export=download&authuser=0) 放入其中
-   ```
+
+   ```shell
    ckpts/
    ├── bevdet-r50-cbgs.pth
    ```
@@ -169,28 +170,28 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
     - '--batch-size': 每卡batch-size大小，默认为24；
     - 单机8卡性能训练
 
-     ```
+     ```shell
      bash test/train_8p_flashocc_r50_perf.sh
      (option) bash test/train_8p_flashocc_r50_perf.sh --num-npu 8 --batch-size 24 # 8卡性能
      ```
 
      - 单机8卡精度训练
 
-     ```
+     ```shell
      bash test/train_8p_flashocc_r50_full.sh
      (option) bash test/train_8p_flashocc_r50_full.sh --num-npu 8 --batch-size 24 # 8卡精度
      ```
 
      - 单机8卡backbone FP16性能训练
 
-     ```
+     ```shell
      bash test/train_8p_flashocc_r50_fp16_backbone_perf.sh
      (option) bash test/train_8p_flashocc_r50_fp16_backbone_perf.sh --num-npu 8 --batch-size 24
      ```
 
      - 单机8卡backbone FP16精度训练
 
-     ```
+     ```shell
      bash test/train_8p_flashocc_r50_fp16_backbone_full.sh
      (option) bash test/train_8p_flashocc_r50_fp16_backbone_full.sh --num-npu 8 --batch-size 24
      ```
@@ -203,6 +204,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 | Atlas 800T A2 |  8p  |         192         |   fp32    |  24   | 30.27 |          1.83          |   104.85   |
 
 #### backbone FP16训练结果
+
 | 芯片          | 卡数 | global batch size | Precision | epoch | mIoU | 性能-单步迭代耗时(s) | FPS |
 | ------------- | :--: | :---------------: | :-------: | :---: | :----: |  :-------------------: |  :-----------------:   |
 | Atlas 800T A2 |  8p  |         192         |   backbone fp16    |  24   | 30.15 |           1.34          |   143.17   |
@@ -222,7 +224,9 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 # FAQ
 
 ## 训练时报错`ImportError: cannot import name 'gcd' from 'fraction'` 
+
 报错原因为networkx版本低，使用`pip install networkx==3.1`升级依赖版本即可。
 
 ## 训练时报错`libGL.so.1`文件不存在
+
 使用opencv-python时，需配套安装相同版本的opencv-python-headless，使用opencv-contrib-python时，需配套安装相同版本的opencv-contrib-python-headless依赖。

@@ -37,14 +37,14 @@ Navigation World Model（NWM）是一种基于条件扩散 Transformer（CDiT）
 
 - 参考实现：
 
-```
+```shell
 url=https://github.com/facebookresearch/nwm
 commit_id=3f6cd8e70d6f2d1e2b9684acff510710135f0f41
 ```
 
 - 适配昇腾 AI 处理器的实现：
 
-```
+```shell
 url=https://gitcode.com/Ascend/DrivingSDK.git
 code_path=model_examples/NWM
 ```
@@ -73,7 +73,7 @@ code_path=model_examples/NWM
 
 - 克隆代码仓到当前目录并使用patch文件
 
-```
+```shell
 git clone https://github.com/facebookresearch/nwm
 cd nwm
 git checkout 3f6cd8e70d6f2d1e2b9684acff510710135f0f41
@@ -86,7 +86,7 @@ cp -r ../test
 
 - 在应用过patch的模型根目录下，安装需要的依赖
 
-```
+```shell
 conda install ffmpeg
 pip install einops evo transformers diffusers tqdm timm notebook dreamsim torcheval lpips ipywidgets
 pip install torchvision==0.21.0
@@ -98,7 +98,7 @@ pip install torchvision==0.21.0
 
 - 根据源仓readme中下载数据集，本仓中为实现快速验证，仅使用'RECON'场景进行训练，如果使用其他场景，需要修改代码中对应部分。使用源仓中提供的脚本对数据集进行处理，处理后的数据集结构排列如下：
 
-```
+```shell
 ├── <dataset_name>
 │   ├── <name_of_traj1>
 │   │   ├── 0.jpg
@@ -131,15 +131,13 @@ pip install torchvision==0.21.0
 
 - 单机八卡性能
 
-
-```
+```shell
 bash test/train_8p_nwm_perf.sh --max-epochs 1
 ```
 
 - 单机八卡长跑
 
-
-```
+```shell
 bash test/train_8p_nwm_full.sh --max-epochs 7
 ```
 
@@ -151,7 +149,9 @@ bash test/train_8p_nwm_full.sh --max-epochs 7
 | Atlas 800T A2 |  8p  |       96        | 0.1502 | 363.39 |
 
 # 变更说明
+
 2025.11.06:首次发布
+
 # FAQ
 
 无
