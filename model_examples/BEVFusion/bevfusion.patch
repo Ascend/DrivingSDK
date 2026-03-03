@@ -154,7 +154,7 @@ index 68bf2bce..c09d86ea 100644
      from mmcv.ops import SparseConvTensor
  
 +import os
-+SUBM_FP16_ENABLED = os.environ.get('SUBM_FP16_ENABLED', '0') 
++SUBM_FP16_ENABLED = os.environ.get('SUBM_FP16_ENABLED', 0) 
  
  @MODELS.register_module()
  class BEVFusionSparseEncoder(SparseEncoder):
