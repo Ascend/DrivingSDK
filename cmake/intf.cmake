@@ -8,7 +8,7 @@ target_compile_options(
     $<$<CONFIG:Release>:-O2>
     $<$<CONFIG:Debug>:-O0
     -g>
-    $<$<COMPILE_LANGUAGE:CXX>:-std=c++11>
+    $<$<COMPILE_LANGUAGE:CXX>:-std=c++17>
     $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:Debug>>:-ftrapv
     -fstack-check>
     $<$<COMPILE_LANGUAGE:C>:-pthread

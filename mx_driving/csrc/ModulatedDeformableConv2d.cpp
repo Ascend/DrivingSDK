@@ -40,7 +40,7 @@ std::tuple<at::Tensor, at::Tensor> modulated_deformable_conv2d(const at::Tensor&
     TORCH_CHECK(kernel_size[0] > 0 && kernel_size[1] > 0, "kernel_size must be greater than 0");
     TORCH_CHECK(dilation[0] > 0 && dilation[1] > 0, "dilation must be greater than 0");
 
-    const at::Tensor& bias = c10::value_or_else(bias_opt, [] { return at::Tensor(); });
+    const at::Tensor& bias = bias_opt.value_or(at::Tensor());
 
     uint32_t n = static_cast<uint32_t>(input.size(0));
     uint32_t c_in = static_cast<uint32_t>(input.size(3));

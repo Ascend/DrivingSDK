@@ -10,10 +10,10 @@ from typing import Union
 
 import torch
 from setuptools import Extension, find_packages, setup
-from setuptools._distutils.version import LooseVersion
 from setuptools.command.build_clib import build_clib
 from setuptools.command.build_ext import build_ext
 from setuptools.command.develop import develop
+from packaging.version import Version
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 VERSION = "1.0.0"
@@ -39,7 +39,7 @@ def get_cmake_command():
     def _get_version(cmd):
         for line in subprocess.check_output([cmd, "--version"]).decode("utf-8").split("\n"):
             if "version" in line:
-                return LooseVersion(line.strip().split(" ")[2])
+                return Version(line.strip().split(" ")[2])
         raise RuntimeError("no version found")
 
     "Returns cmake command."
@@ -48,10 +48,10 @@ def get_cmake_command():
         return cmake_command
     cmake3 = which("cmake3")
     cmake = which("cmake")
-    if cmake3 is not None and _get_version(cmake3) >= LooseVersion("3.19.0"):
+    if cmake3 is not None and _get_version(cmake3) >= Version("3.19.0"):
         cmake_command = "cmake3"
         return cmake_command
-    elif cmake is not None and _get_version(cmake) >= LooseVersion("3.19.0"):
+    elif cmake is not None and _get_version(cmake) >= Version("3.19.0"):
         return cmake_command
     else:
         raise RuntimeError("no cmake or cmake3 with version >= 3.19.0 found")
@@ -127,7 +127,7 @@ class ExtBuild(build_ext):
             f"-DPython3_EXECUTABLE={sys.executable}",
             f"-DUSE_ARCH35={use_arch35}",
         ]
-        if LooseVersion(torch.__version__) < LooseVersion("2.1.0"):
+        if Version(torch.__version__) < Version("2.1.0"):
             cmake_args.append("-DCOMPILE_WITH_XLA:BOOL=ON")
 
         if torch.compiled_with_cxx11_abi():

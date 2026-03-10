@@ -40,7 +40,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> modulated
     TORCH_CHECK(kernel_size[0] > 0 && kernel_size[1] > 0, "kernel_size must be greater than 0");
     TORCH_CHECK(dilation[0] > 0 && dilation[1] > 0, "dilation must be greater than 0");
 
-    const at::Tensor& bias = c10::value_or_else(bias_opt, [] { return at::Tensor(); });
+    const at::Tensor& bias = bias_opt.value_or(at::Tensor());
     at::Tensor grad_bias = at::Tensor();
 
     auto input_sizes = input.sizes();   // n, h_in, w_in, c_in

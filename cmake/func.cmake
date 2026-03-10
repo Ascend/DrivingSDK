@@ -62,7 +62,7 @@ function(opbuild)
   # filter single op
   execute_process(
     COMMAND
-      ${CMAKE_COMPILE} -g -fPIC -shared -std=c++11 ${OPBUILD_OPS_SRC}
+      ${CMAKE_COMPILE} -g -fPIC -shared -std=c++17 ${OPBUILD_OPS_SRC}
       -D_GLIBCXX_USE_CXX11_ABI=0 -I ${CANN_INCLUDE_PATH} -L ${CANN_LIB_PATH}
       -lexe_graph -lregister -ltiling_api -o
       ${OPBUILD_OUT_DIR}/libascend_all_ops.so

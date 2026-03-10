@@ -4,7 +4,7 @@ file(GLOB ASCEND_KERNEL_SRC ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel/*.cpp
                             ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel/*.h)
 if(BUILD_STAGE EQUAL 0)
   add_library(ascend_all_ops_arch35 SHARED ${ASCEND_HOST_SRC})
-  target_compile_options(ascend_all_ops_arch35 PRIVATE -g -fPIC -std=c++11
+  target_compile_options(ascend_all_ops_arch35 PRIVATE -g -fPIC -std=c++17
                                                 -D_GLIBCXX_USE_CXX11_ABI=0)
   target_include_directories(ascend_all_ops_arch35 PRIVATE ${CANN_INCLUDE_PATH})
   target_link_libraries(ascend_all_ops_arch35 PRIVATE intf_pub exe_graph register
