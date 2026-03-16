@@ -108,15 +108,6 @@ Driving SDK版本分支的维护阶段如下：
 | v6.0.0-RC2 |  常规版本  | 生命周期终止      | 2024/06/30 | 2024/12/30起无维护    |    2025/03/30 |
 | v6.0.0-RC1 |  常规版本  | 生命周期终止  | 2024/03/30 | 2024/9/30起无维护           |    2024/12/30 |
 
-## 贡献指导
-
-贡献前，请先签署[开放项目贡献者许可协议（CLA）](https://clasign.osinfra.cn/sign/gitee_ascend-1611222220829317930)。
-通常，DrivingSDK一年会有4个正式release版本。
-如果您遇到bug，请[提交issue](https://gitcode.com/Ascend/DrivingSDK/issues)。
-如果您计划贡献bug-fixes，请提交Pull Requests，参见[具体要求](./docs/zh/contributing/contributing.md)。
-如果您计划贡献新特性、功能，请先创建issue与我们讨论。写明模型或算子名称，需求背景/目的，如何设计，对现有仓的影响。未经讨论提交PR可能会导致请求被拒绝，因为项目演进方向可能与您的想法存在偏差。
-更详细的贡献流程，请参考[贡献指导](./docs/zh/contributing/contributing.md)。
-
 ## 联系我们
 
 未来规划会动态刷新在 [DrivingSDK RoadMap](https://gitcode.com/Ascend/DrivingSDK/issues/132) 中，欢迎大家通过此链接进行互动并提出诉求。
@@ -145,8 +136,17 @@ Driving SDK版本分支的维护阶段如下：
 
 ## License
 
-Driving SDK产品的使用许可证，具体请参见[LICENSE](./LICENSE)。<br>
-Driving SDK工具docs目录下的文档适用CC-BY 4.0许可证，具体请参见[LICENSE](./docs/LICENSE)。
+- Driving SDK产品的使用许可证，具体请参见[LICENSE](./LICENSE)。<br>
+- Driving SDK工具docs目录下的文档适用CC-BY 4.0许可证，具体请参见[LICENSE](./docs/LICENSE)。
+
+## 贡献声明
+
+贡献前，请先签署[开放项目贡献者许可协议（CLA）](https://clasign.osinfra.cn/sign/gitee_ascend-1611222220829317930)。
+通常，DrivingSDK一年会有4个正式release版本。
+如果您遇到bug，请[提交issue](https://gitcode.com/Ascend/DrivingSDK/issues)。
+如果您计划贡献bug-fixes，请提交Pull Requests，参见[具体要求](./docs/zh/contributing/contributing.md)。
+如果您计划贡献新特性、功能，请先创建issue与我们讨论。写明模型或算子名称，需求背景/目的，如何设计，对现有仓的影响。未经讨论提交PR可能会导致请求被拒绝，因为项目演进方向可能与您的想法存在偏差。
+更详细的贡献流程，请参考[贡献指导](./docs/zh/contributing/contributing.md)。
 
 ## 致谢
 
