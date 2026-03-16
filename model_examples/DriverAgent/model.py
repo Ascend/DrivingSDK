@@ -182,6 +182,7 @@ class pipNet(nn.Module):
         self.fuse_enc_size = args.fuse_enc_size
         self.fuse_conv1_size = 2 * self.fuse_enc_size
         self.fuse_conv2_size = 4 * self.fuse_enc_size
+        self.graph_alpha = nn.Parameter(torch.tensor(-0.847))
         
         self.num_layers = args.num_layers
         self.feed_forward_dim = args.feed_forward_dim
@@ -288,14 +289,16 @@ class pipNet(nn.Module):
             lat_enc, lon_enc, idx, space_h=None, dv=None, v_pre=None):
 
         ''' Forward target vehicle's dynamic'''
-        with autocast():  # Conv + Attention 可以混合精度
+        # 强制 FP32：temporalConv + LayerNorm + Attention（避免NPU FP16反向传播bug）
+        with autocast(enabled=False):
             dyn_enc = self.leaky_relu(self.temporalConv(targsHist.permute(1, 2, 0)))
-            # targsHist.permute shape: (target_batch_size, local_x and y, hist_len)
-            # dyn_enc shape: (target_batch_size, temporal_embedding_size, hist_len)
             dyn_enc = dyn_enc.permute(0, 2, 1)
+            
             for attn in self.attn_layers_t:
                 dyn_enc = attn(dyn_enc, dim=1)
 
+        # 转回 FP16 给后续层
+        dyn_enc = dyn_enc.half()
         with autocast(enabled=False):  # LSTM 必须 FP32
             _, (dyn_enc, _) = self.nbh_lstm(dyn_enc.permute(1, 0, 2).float())
         # 取所有历史轨迹数据中最后一个时间步长的隐藏状态，其他两个输出不取 dyn_enc shape: (num_layers, target_batch_size, encoder_size)
@@ -305,7 +308,6 @@ class pipNet(nn.Module):
         # dyn_enc new shape: (target_batch_size, encoder_size)
 
         ''' Forward neighbour vehicles'''
-        # 4. Conv 适合BF16，启用混合精度
         with autocast():
             nbrs_enc = self.leaky_relu(self.temporalConv(nbsHist.permute(1, 2, 0)))
             # shape is (nbs_batch_size, local x and y, hist_len)
@@ -336,15 +338,17 @@ class pipNet(nn.Module):
         nbrs_node_feat = nbrs_node_feat.half()
         
         # 稠密图卷积计算（A_norm × 节点特征，充分利用Cube引擎）
-        with autocast():
+        with autocast(enabled=False):
             A_norm_batch = self.A_norm.expand(BS, -1, -1)
-            nbrs_node_feat_fused = torch.bmm(A_norm_batch, nbrs_node_feat)
-        
-        # 节点特征 → 转回网格形状 + 残差连接（关键：保留原特征，避免信息丢失）
-        nbrs_grid_fused = nbrs_node_feat_fused.permute(0, 2, 1).reshape(BS, C_enc, H, W)
-        # 残差连接：图卷积特征 + 原网格特征（α为权重，初期让原特征占主导，模型逐步适应）
-        alpha = 0.3  # 可调整，建议0.2~0.5
-        nbrs_grid_fused = (1 - alpha) * nbrs_grid + alpha * nbrs_grid_fused  # 残差融合
+            nbrs_node_feat_fused = torch.bmm(
+                A_norm_batch.float(),
+                nbrs_node_feat.float()
+            )
+            # 节点特征 → 转回网格形状 + 残差连接（关键：保留原特征，避免信息丢失）
+            nbrs_grid_fused = nbrs_node_feat_fused.permute(0, 2, 1).reshape(BS, C_enc, H, W)
+            # 残差连接：图卷积特征 + 原网格特征（α为权重，初期让原特征占主导，模型逐步适应）
+            alpha = torch.sigmoid(self.graph_alpha)
+            nbrs_grid_fused = nbrs_grid + alpha * (nbrs_grid_fused - nbrs_grid) # 残差融合
         # ----------------------------------------------------------------------------------------
         
         # 卷积池化层适合BF16，启用混合精度
@@ -357,7 +361,6 @@ class pipNet(nn.Module):
 
         if self.use_planning:
             ''' Forward planned vehicle'''
-            # Conv 适合BF16，启用混合精度
             with autocast():
                 plan_enc = self.leaky_relu(self.temporalConv(planFut.permute(1, 2, 0)))
             

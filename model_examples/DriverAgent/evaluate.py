@@ -43,9 +43,8 @@ parser.add_argument('--feed_forward_dim', type=int,  help='Dimension of feed for
 parser.add_argument('--dropout', type=float,  help='Dropout probability', default = 0.1)
 
 ## Evaluation setting------------------------------------------
-
-parser.add_argument('--name',     type=str, help='model name', default="npu_train")
-parser.add_argument('--test_set', type=str, help='Path to test datasets', default='../datasets/NGSIM/Test_stop_and_go.mat')
+parser.add_argument('--name', type=str, help='log name (default: "1")', default="npu_train")
+parser.add_argument('--test_set', type=str, help='Path to test datasets', default='../zoutingbo/Test_stop_and_go.mat')
 parser.add_argument("--num_workers", type=int, default=8, help="number of workers used for dataloader")
 parser.add_argument('--metric',   type=str, help='RMSE & NLL is calculated by (agent/sample) based evaluation', default="agent")
 parser.add_argument("--plan_info_ds", type=int, default=1, help="N, further downsampling planning information to N*0.2s")

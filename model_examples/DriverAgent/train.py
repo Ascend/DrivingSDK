@@ -1,5 +1,8 @@
 import os
 import time
+import math
+import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch_npu
@@ -13,7 +16,6 @@ from model import pipNet
 from data import highwayTrajDataset
 from utils_pt import initLogging, maskedNLL, maskedMSE, maskedNLLTest
 
-from torch.utils.data.dataloader import default_collate
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 # 设置NPU设备
@@ -58,14 +60,35 @@ parser.add_argument('--val_set', type=str, help='Path to validation datasets', d
 parser.add_argument("--num_workers", type=int, default=8, help="number of workers used for dataloader")
 parser.add_argument('--pretrain_epochs', type=int, help='epochs of pre-training using MSE', default = 10)
 parser.add_argument('--train_epochs',    type=int, help='epochs of training using NLL', default = 20)
+parser.add_argument('--eval_batch_num', type=int, default=20, help='Validation batches per epoch (0 means full validation set)')
+parser.add_argument('--seed', type=int, default=3407, help='Global random seed for reproducibility')
 
 # Continue training setting------------------------------------------
 parser.add_argument('--start_epoch', type=int, default=None, help='Start epoch for resuming training (optional)')
 parser.add_argument('--continue_path', type=str, default="", help="Path to pretrained model checkpoint (optional)")
 
 
+
+def set_global_seed(seed: int):
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.npu.manual_seed(seed)
+    torch.npu.manual_seed_all(seed)
+    torch.use_deterministic_algorithms(True, warn_only=True)
+
+
+def seed_worker(worker_id: int):
+    worker_seed = torch.initial_seed() % (2 ** 32)
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
 def train_model():
     args = parser.parse_args()
+    set_global_seed(args.seed)
+
     ## Logging
     log_path = "./trained_models/{}/".format(args.name)
     os.makedirs(log_path, exist_ok=True)
@@ -76,6 +99,7 @@ def train_model():
     logging.info("------------- {} -------------".format(args.name))
     logging.info("Batch size : {}".format(args.batch_size))
     logging.info("Learning rate : {}".format(args.learning_rate))
+    logging.info("Seed : {}".format(args.seed))
     logging.info("Use Planning Coupled: {}".format(args.use_planning))
     logging.info("Use Target Fusion: {}".format(args.use_fusion))
 
@@ -97,7 +121,12 @@ def train_model():
             logging.info("Checkpoint path provided but no --start_epoch. Training from scratch.")
         logging.info("Starting training from epoch 0.")
 
-    scaler = GradScaler(init_scale=64.0, growth_factor=2.0, backoff_factor=0.5, growth_interval=1000)
+    scaler = GradScaler(
+        init_scale=2.0,        # 从更小的scale开始，避免初始梯度溢出
+        growth_factor=1.5,     # 增长更保守
+        backoff_factor=0.25,   # 发现inf时回退更多
+        growth_interval=2000   # 增长间隔更长，更稳定
+    )
 
 
     optimizer = torch.optim.Adam(PiP.parameters(), lr=args.learning_rate)
@@ -109,9 +138,9 @@ def train_model():
     pretrainEpochs = args.pretrain_epochs
     trainEpochs    = args.train_epochs
     batch_size     = args.batch_size
-    eval_batch_num = 20
+    eval_batch_num = args.eval_batch_num
 
-    ## Initialize data loaders
+    ## Initialize data loaders with reproducibility
     logging.info("Train dataset: {}".format(args.train_set))
     trSet = highwayTrajDataset(path=args.train_set,
                          targ_enc_size=args.social_context_size+args.dynamics_encoding_size,
@@ -127,81 +156,10 @@ def train_model():
     logging.info("DataSet Prepared : {} train data, {} validation data\n".format(len(trSet), len(valSet)))
     logging.info("Network structure: {}\n".format(PiP))
 
-    ## Training process
-    for epoch_num in range(start_epoch, pretrainEpochs + trainEpochs):
-        epoch_start_time = time.time()
-        epoch_start_time_100 = time.time()
-        if epoch_num == 0:
-            logging.info('Pretrain with MSE loss')
-        elif epoch_num == pretrainEpochs:
-            logging.info('Train with NLL loss')
-        ## Variables to track training performance:
-        avg_time_tr, avg_loss_tr, avg_loss_val = 0, 0, 0
-        ## Training status, reclaim after each epoch
-        PiP.train()
-        PiP.train_output_flag = True
-        data_stream = torch.npu.Stream()
-        for i, data in enumerate(trDataloader):
-            t0 = time.time()
-            st_time = time.time()
-            nbsHist, nbsMask, planFut, planMask, targsHist, targsEncMask, targsFut, targsFutMask, lat_enc, lon_enc, _, space_h, dv, v_pre = data
-            if args.use_cuda:
-                # 在专用流上异步传输
-                with torch.npu.stream(data_stream):
-                    # 批量异步传输，一次完成
-                    nbsHist = nbsHist.contiguous().npu(non_blocking=True)
-                    nbsMask = nbsMask.contiguous().npu(non_blocking=True)
-                    planFut = planFut.contiguous().npu(non_blocking=True)
-                    planMask = planMask.contiguous().npu(non_blocking=True)
-                    targsHist = targsHist.contiguous().npu(non_blocking=True)
-                    targsEncMask = targsEncMask.contiguous().npu(non_blocking=True)
-                    lat_enc = lat_enc.contiguous().npu(non_blocking=True)
-                    lon_enc = lon_enc.contiguous().npu(non_blocking=True)
-                    targsFut = targsFut.contiguous().npu(non_blocking=True)
-                    targsFutMask = targsFutMask.contiguous().npu(non_blocking=True)
-                    space_h = space_h.contiguous().npu(non_blocking=True)
-                    dv = dv.contiguous().npu(non_blocking=True)
-                    v_pre = v_pre.contiguous().npu(non_blocking=True)
-                
-                # 等待数据传输完成（在计算开始前）
-                torch.npu.current_stream().wait_stream(data_stream)
-            t1 = time.time()
-            # Forward pass
-            with autocast():
-                fut_pred, lat_pred, lon_pred = PiP(nbsHist, nbsMask, planFut, planMask, targsHist, targsEncMask, lat_enc, lon_enc, _, 
-                                                   space_h, dv, v_pre)
-            t2 = time.time()
-            if epoch_num < pretrainEpochs:
-                # Pre-train with MSE loss to speed up training
-                l = maskedMSE(fut_pred, targsFut, targsFutMask)
-            else:
-                # Train with NLL loss
-                l = maskedNLL(fut_pred, targsFut, targsFutMask) + crossEnt(lat_pred, lat_enc) + crossEnt(lon_pred, lon_enc)
-
-            # Back-prop and update weights
-            optimizer.zero_grad(set_to_none=True)
-            scaler.scale(l).backward()
-            torch.nn.utils.clip_grad_norm_(PiP.parameters(), 10)
-            scaler.step(optimizer)
-            scaler.update()
-            t3 = time.time()
-            # Track average train loss and average train time:
-            batch_time = time.time()-st_time
-            avg_loss_tr += l.item()
-            avg_time_tr += batch_time
-
-            # For every 100 batches: record loss, validate model, and plot.
-            if i % 100 == 99:
-                torch.npu.synchronize()
-                logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
-                      f"Epoch {epoch_num+1} | Batch {i+1} | "
-                      f"100-batch time: {time.time()-epoch_start_time_100:.2f}s | " 
-                      f"Loss: {avg_loss_tr/100:.4f}")
-                epoch_start_time_100 = time.time()
-                avg_time_tr, avg_loss_tr = 0, 0
-
-        ## Save the model after each epoch______________________________________________________________________________
-        avg_loss_val = 0
+    def run_validation(epoch_num: int, max_batches: int = 0):
+        """运行验证，返回平均loss和实际验证的batch数"""
+        total_val_loss = 0.0
+        val_batches_count = 0
         with torch.no_grad():
             PiP.eval()
             PiP.train_output_flag = False
@@ -225,16 +183,106 @@ def train_model():
                     PiP.train_output_flag = True
                     fut_pred, _, _ = PiP(nbsHist, nbsMask, planFut, planMask, targsHist, targsEncMask,
                                          lat_enc, lon_enc, idx)
-                    l = maskedMSE(fut_pred, targsFut, targsFutMask)
+                    # Pre-train with MSE loss to speed up training
+                    batch_loss = maskedMSE(fut_pred, targsFut, targsFutMask)
                 else:
                     fut_pred, lat_pred, lon_pred = PiP(nbsHist, nbsMask, planFut, planMask, targsHist,
                                         targsEncMask, lat_enc, lon_enc, idx, space_h, dv, v_pre)
-                    l = maskedNLLTest(fut_pred, lat_pred, lon_pred, targsFut, targsFutMask, avg_along_time=True)
-                avg_loss_val += l.item()
-                if val_i == eval_batch_num - 1:
+                    # Train with NLL loss
+                    batch_loss = maskedNLLTest(fut_pred, lat_pred, lon_pred, targsFut, targsFutMask, avg_along_time=True)
+                total_val_loss += batch_loss.item()
+                val_batches_count += 1
+                if max_batches > 0 and val_i + 1 >= max_batches:
                     break
-        # 日志 & tensorboard
-        avg_loss_val /= min(eval_batch_num, len(valDataloader))
+        PiP.train_output_flag = True
+        PiP.train()
+        avg_val = total_val_loss / max(val_batches_count, 1)
+        return avg_val, val_batches_count
+
+    data_stream = torch.npu.Stream()
+
+    # Training process
+    for epoch_num in range(start_epoch, pretrainEpochs + trainEpochs):
+        epoch_start_time = time.time()
+        batch_checkpoint_time = epoch_start_time
+
+        if epoch_num == 0:
+            logging.info('Pretrain with MSE loss')
+        elif epoch_num == pretrainEpochs:
+            logging.info('Train with NLL loss')
+
+        avg_time_tr, avg_loss_tr = 0, 0
+        PiP.train()
+        PiP.train_output_flag = True
+
+        total_batches = len(trDataloader)
+        for i, data in enumerate(trDataloader):
+            st_time = time.time()
+
+            # 解包数据
+            (nbsHist, nbsMask, planFut, planMask, targsHist, targsEncMask,
+             targsFut, targsFutMask, lat_enc, lon_enc, _, space_h, dv, v_pre) = data
+
+            # 异步传输到NPU
+            if args.use_cuda:
+                with torch.npu.stream(data_stream):
+                    nbsHist = nbsHist.contiguous().npu(non_blocking=True)
+                    nbsMask = nbsMask.contiguous().npu(non_blocking=True)
+                    planFut = planFut.contiguous().npu(non_blocking=True)
+                    planMask = planMask.contiguous().npu(non_blocking=True)
+                    targsHist = targsHist.contiguous().npu(non_blocking=True)
+                    targsEncMask = targsEncMask.contiguous().npu(non_blocking=True)
+                    lat_enc = lat_enc.contiguous().npu(non_blocking=True)
+                    lon_enc = lon_enc.contiguous().npu(non_blocking=True)
+                    targsFut = targsFut.contiguous().npu(non_blocking=True)
+                    targsFutMask = targsFutMask.contiguous().npu(non_blocking=True)
+                    space_h = space_h.contiguous().npu(non_blocking=True)
+                    dv = dv.contiguous().npu(non_blocking=True)
+                    v_pre = v_pre.contiguous().npu(non_blocking=True)
+                
+                # 等待当前batch传输完成
+                torch.npu.current_stream().wait_stream(data_stream)
+
+            # 前向传播（混合精度）
+            with autocast():
+                fut_pred, lat_pred, lon_pred = PiP(nbsHist, nbsMask, planFut, planMask,
+                                                   targsHist, targsEncMask, lat_enc, lon_enc,
+                                                   _, space_h, dv, v_pre)
+
+            # 计算loss
+            if epoch_num < pretrainEpochs:
+                l = maskedMSE(fut_pred, targsFut, targsFutMask)
+            else:
+                l = maskedNLL(fut_pred, targsFut, targsFutMask) + crossEnt(lat_pred, lat_enc) + crossEnt(lon_pred, lon_enc)
+
+            optimizer.zero_grad(set_to_none=True)
+            scaler.scale(l).backward()
+            torch.nn.utils.clip_grad_norm_(PiP.parameters(), max_norm=10.0)
+            scaler.step(optimizer)
+            scaler.update()
+
+            batch_time = time.time() - st_time
+            avg_loss_tr += l.item()
+            avg_time_tr += batch_time
+
+            # 每100个batch记录日志
+            if i % 100 == 99:
+                torch.npu.synchronize()
+                logging.info(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
+                             f"Epoch {epoch_num+1} | Batch {i+1} | "
+                             f"100-batch time: {time.time() - batch_checkpoint_time:.2f}s | "
+                             f"Loss: {avg_loss_tr/100:.4f}")
+                batch_checkpoint_time = time.time()
+
+                if args.tensorboard:
+                    global_step = epoch_num * len(trDataloader) + i + 1
+                    logger.add_scalar("Train/RMSE" if epoch_num < pretrainEpochs else "Train/NLL",
+                                      avg_loss_tr / 100, global_step)
+
+                avg_time_tr, avg_loss_tr = 0, 0   # 重置平均统计
+
+        # 每个epoch结束后的验证、保存模型等
+        avg_loss_val, val_batches_count = run_validation(epoch_num, eval_batch_num)
         logging.info(f"Epoch {epoch_num+1} validation loss: {avg_loss_val:.4f}")
         if args.tensorboard:
             logger_val.add_scalar("RMSE" if epoch_num < pretrainEpochs else "NLL",
@@ -245,12 +293,16 @@ def train_model():
         else:
             torch.save(PiP.state_dict(), log_path + "{}-pre{}-nll{}.tar".format(args.name, pretrainEpochs, epoCount - pretrainEpochs))
         # 更新学习率（使用验证损失）
-        scheduler.step(avg_loss_val)
+        if torch.isfinite(torch.tensor(avg_loss_val)):
+            scheduler.step(avg_loss_val)
+        else:
+            logging.warning(f"Epoch {epoch_num+1}: Validation loss is NaN, not updating scheduler")
         if args.tensorboard:
             lr_now = optimizer.param_groups[0]['lr']
             logger.add_scalar("LearningRate", lr_now, epoch_num)
         torch.npu.synchronize()
-        logging.info(f"Epoch {epoch_num+1} 耗时: {time.time() - epoch_start_time:.2f} 秒")
+        epoch_total_time = time.time() - epoch_start_time
+        logging.info(f"Epoch {epoch_num+1} 耗时: {epoch_total_time:.2f} 秒")
 
     # All epochs finish________________________________________________________________________________________________
     torch.save(PiP.state_dict(), log_path+"{}.tar".format(args.name))
