@@ -439,7 +439,7 @@ index 0000000..bbc3c6e
 +) -> Tuple[Tensor, Tensor, Tensor]:
 +    return F.linear(q, w_q, b_q), F.linear(k, w_k, b_k), F.linear(v, w_v, b_v)
 diff --git a/GameFormer/predictor.py b/GameFormer/predictor.py
-index 62bf5e6..e49b152 100644
+index 62bf5e6..8bedce2 100644
 --- a/GameFormer/predictor.py
 +++ b/GameFormer/predictor.py
 @@ -1,5 +1,12 @@
@@ -470,11 +470,11 @@ index 62bf5e6..e49b152 100644
          ego = inputs['ego_agent_past']
          neighbors = inputs['neighbor_agents_past']
 -        actors = torch.cat([ego[:, None, :, :5], neighbors[..., :5]], dim=1)
-+        
++
 +        # 批量处理所有邻居Agent
 +        batch_size, num_neighbors = neighbors.shape[0], neighbors.shape[1]
 +        neighbors_reshaped = neighbors.view(-1, *neighbors.shape[2:])  # (batch*num_neighbors, time_steps, 11)
-+        
++
 +        encoded_neighbors = self.agent_encoder(neighbors_reshaped)
 +        encoded_neighbors = encoded_neighbors.view(batch_size, num_neighbors, -1)  # (batch, num_neighbors, dim)
  
@@ -685,13 +685,14 @@ index 4dc59d2..bfe6ae4 100644
          # using cross-attention to decode the future trajectories
          query = last_content + multi_futures
 diff --git a/GameFormer/train_utils.py b/GameFormer/train_utils.py
-index 67d5b85..c22c081 100644
+index 67d5b85..70f5b5d 100644
 --- a/GameFormer/train_utils.py
 +++ b/GameFormer/train_utils.py
-@@ -1,7 +1,10 @@
+@@ -1,18 +1,44 @@
 -import torch
 +# Copyright(c) 2023 Zhiyu Huang
 +
++import os
  import logging
 -import glob
  import random
@@ -701,7 +702,45 @@ index 67d5b85..c22c081 100644
  import numpy as np
  from torch.utils.data import Dataset
  from torch.nn import functional as F
-@@ -63,10 +66,10 @@ def imitation_loss(gmm, scores, ground_truth):
+ 
+ 
+ def initLogging(log_file: str, level: str = "INFO"):
+-    logging.basicConfig(filename=log_file, filemode='w',
+-                        level=getattr(logging, level, None),
+-                        format='[%(levelname)s %(asctime)s] %(message)s',
+-                        datefmt='%m-%d %H:%M:%S')
+-    logging.getLogger().addHandler(logging.StreamHandler())
++    # 标准化日志级别
++    level = level.upper()
++    if not hasattr(logging, level):
++        raise ValueError(f"Invalid log level: {level}")
++    
++    # 确保目录存在
++    log_dir = os.path.dirname(os.path.abspath(log_file))
++    os.makedirs(log_dir, exist_ok=True)
++
++    # 清除已有 handlers（避免多次调用失效）
++    for handler in logging.root.handlers[:]:
++        logging.root.removeHandler(handler)
++
++    # 配置日志
++    logging.basicConfig(
++        filename=log_file,
++        filemode='w',
++        level=getattr(logging, level),
++        format='[%(levelname)s %(asctime)s] %(message)s',
++        datefmt='%m-%d %H:%M:%S'
++    )
++    # 控制台输出
++    console = logging.StreamHandler()
++    console.setLevel(getattr(logging, level))
++    formatter = logging.Formatter('[%(levelname)s %(asctime)s] %(message)s', '%m-%d %H:%M:%S')
++    console.setFormatter(formatter)
++    logging.getLogger().addHandler(console)
+ 
+ 
+ def set_seed(CUR_SEED):
+@@ -63,10 +89,10 @@ def imitation_loss(gmm, scores, ground_truth):
      std_x = torch.exp(log_std_x)
      std_y = torch.exp(log_std_y)
  
@@ -714,7 +753,7 @@ index 67d5b85..c22c081 100644
      score_loss = score_loss * torch.ne(ground_truth[:, :, 0, 0], 0)
      score_loss = torch.mean(score_loss)
      
-@@ -104,7 +107,6 @@ def motion_metrics(plan_trajectory, prediction_trajectories, ego_future, neighbo
+@@ -104,7 +130,6 @@ def motion_metrics(plan_trajectory, prediction_trajectories, ego_future, neighbo
      plan_distance = torch.norm(plan_trajectory[:, :, :2] - ego_future[:, :, :2], dim=-1)
      prediction_distance = torch.norm(prediction_trajectories[:, :, :, :2] - neighbors_future[:, :, :, :2], dim=-1)
      heading_error = torch.abs(torch.fmod(plan_trajectory[:, :, 2] - ego_future[:, :, 2] + np.pi, 2 * np.pi) - np.pi)
@@ -723,10 +762,10 @@ index 67d5b85..c22c081 100644
      plannerADE = torch.mean(plan_distance)
      plannerFDE = torch.mean(plan_distance[:, -1])
 diff --git a/Planner/bezier_path.py b/Planner/bezier_path.py
-index 4863a01..762040e 100644
+index 4863a01..109594a 100644
 --- a/Planner/bezier_path.py
 +++ b/Planner/bezier_path.py
-@@ -82,8 +80,9 @@ def bezier_derivatives_control_points(control_points, n_derivatives):
+@@ -82,8 +82,9 @@ def bezier_derivatives_control_points(control_points, n_derivatives):
      """
      w = {0: control_points}
      for i in range(n_derivatives):
@@ -1371,7 +1410,7 @@ index 9e41299..1c709a2 100644
      scenarios = builder.get_scenarios(scenario_filter, worker)
      del worker, scenario_filter, scenario_mapping
 diff --git a/train_predictor.py b/train_predictor.py
-index 3dbd57d..a202691 100644
+index 3dbd57d..4dd21c2 100644
 --- a/train_predictor.py
 +++ b/train_predictor.py
 @@ -1,53 +1,86 @@
@@ -1565,7 +1604,7 @@ index 3dbd57d..a202691 100644
 +def model_training(args_, local_rank_):
 +    torch.npu.config.allow_internal_format = False
 +    torch.npu.set_compile_mode(jit_compile=False)
-+    
++
      # Logging
 -    log_path = f"./training_log/{args.name}/"
 +    log_path = f"./training_log/{args_.name}/"
