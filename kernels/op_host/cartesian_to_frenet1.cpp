@@ -194,6 +194,7 @@ public:
         this->SetInferShape(ge::InferShapeForCartesianToFrenet1).SetInferDataType(ge::InferDataTypeForCartesianToFrenet1);
         this->AICore().SetTiling(optiling::TilingForCartesianToFrenet1);
         this->AICore().AddConfig("ascend910b");
+        this->AICore().AddConfig("ascend910_93");
     }
 };
 
