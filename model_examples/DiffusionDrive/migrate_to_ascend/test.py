@@ -1,6 +1,20 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 # Copyright (c) OpenMMLab. All rights reserved.
 
+# pylint: disable=huawei-wrong-import-position, wrong-import-order
+
+# =============================================================================
+# PATCHER SETUP - MUST BE FIRST (before any imports that need patching)
+# =============================================================================
+from mx_driving.patcher import default_patcher
+from migrate_to_ascend.patch import configure_patcher
+
+configure_patcher(default_patcher)
+default_patcher.apply()
+
+# =============================================================================
+# ORIGINAL CODE BELOW - UNCHANGED
+# =============================================================================
 import os
 from os import path as osp
 import warnings
@@ -30,7 +44,7 @@ from projects.mmdet3d_plugin.apis.test import custom_multi_gpu_test
 
 import torch_npu
 from torch_npu.contrib import transfer_to_npu
-from migrate_to_ascend.patch import generate_patcher_builder
+
 import mx_driving
 
 
@@ -221,7 +235,7 @@ def main():
     if cfg.get('work_dir', None) is None:
         # use config filename as default work_dir if cfg.work_dir is None
         cfg.work_dir = osp.join('./work_dirs',
-                                osp.splitext(osp.basename(args.config))[0]) 
+                                osp.splitext(osp.basename(args.config))[0])
     mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))
     cfg.data.test.work_dir = cfg.work_dir
     print('work_dir: ', cfg.work_dir)
@@ -309,7 +323,7 @@ def main():
         elif args.format_only:
             dataset.format_results(outputs, **kwargs)
         elif args.eval:
-            eval_kwargs = cfg.get("evaluation", {}).copy()
+            eval_kwargs = cfg.get("evaluation", ).copy()
             # hard-code way to remove EvalHook args
             for key in [
                 "interval",
@@ -331,6 +345,4 @@ if __name__ == "__main__":
     torch.multiprocessing.set_start_method(
         "fork", force=True
     )  # use fork workers_per_gpu can be > 1
-    patcher_builder = generate_patcher_builder()
-    with patcher_builder.build():
-        main()
+    main()

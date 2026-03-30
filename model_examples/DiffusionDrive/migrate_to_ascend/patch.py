@@ -1,41 +1,134 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 # Copyright (c) OpenMMLab. All rights reserved.
-import importlib
-import os
-import sys
-import types
-from types import ModuleType
-from typing import Dict
-import importlib
+"""
+DiffusionDrive NPU Migration Patches
 
-import mmcv
-import mmcv.runner
+Usage:
+    from mx_driving.patcher import default_patcher
+    from migrate_to_ascend.patch import configure_patcher
+
+    configure_patcher(default_patcher, performance=False)
+    default_patcher.apply()
+"""
+from __future__ import annotations
+
+from typing import List
+
 import torch
 import torch_npu
 
 import mx_driving
-from mx_driving import deformable_aggregation
-from mx_driving.patcher import PatcherBuilder, Patch
-from mx_driving.patcher import index, batch_matmul, numpy_type, ddp, stream
-from mx_driving.patcher import resnet_add_relu, resnet_maxpool
+from mx_driving.patcher import (
+    Patcher,
+    Patch,
+    AtomicPatch,
+    TorchScatter,
+    ResNetFP16,
+    ResNetMaxPool,
+)
+from mx_driving.patcher.patch import with_imports
 
 
-def flash_attn(attention: ModuleType, options: Dict):
-    _in_projection_packed = attention._in_projection_packed
-    auto_fp16 = attention.auto_fp16
-    rearrange = attention.rearrange
+# =============================================================================
+# DeformableAggregation NPU Implementation
+# =============================================================================
 
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments
-    @auto_fp16(apply_to=('q', 'k', 'v'), out_fp32=True)
-    def FlashAttention_forward(self, q, k, v, causal=False, key_padding_mask=None):
+class _DeformableAggregationFunction:
+    """Wrapper that delegates to mx_driving's NPU implementation."""
+    @staticmethod
+    def apply(*args, **kwargs):
+        return mx_driving.deformable_aggregation(*args, **kwargs)
+
+
+# =============================================================================
+# Public API - Configure Patcher
+# =============================================================================
+
+def configure_patcher(patcher: Patcher, performance: bool = False) -> Patcher:
+    """
+    Configure the patcher with DiffusionDrive-specific patches.
+
+    Args:
+        patcher: The Patcher instance to configure (typically default_patcher)
+        performance: If True, enable performance mode (brake at 1000 steps)
+
+    Returns:
+        The configured patcher (for chaining)
+    """
+    # 1. Skip unavailable CUDA modules
+    patcher.skip_import("flash_attn")
+    patcher.skip_import("torch_scatter")
+
+    # 2. Replace CUDA module with NPU implementation
+    patcher.replace_import(
+        "projects.mmdet3d_plugin.ops.deformable_aggregation",
+        DeformableAggregationFunction=_DeformableAggregationFunction,
+    )
+
+    # 3. Inject missing imports
+    patcher.inject_import("projects.mmdet3d_plugin.models.sparsedrive_v1", "V1SparseDrive", "projects.mmdet3d_plugin.models")
+    patcher.inject_import("projects.mmdet3d_plugin.models.sparsedrive_head_v1", "V1SparseDriveHead", "projects.mmdet3d_plugin.models")
+    patcher.inject_import("projects.mmdet3d_plugin.models.motion.motion_blocks_v11", "V11MotionPlanningRefinementModule", "projects.mmdet3d_plugin.models")
+    patcher.inject_import("projects.mmdet3d_plugin.models.motion.motion_planning_head_v13", "V13MotionPlanningHead", "projects.mmdet3d_plugin.models")
+
+    # 4. Add predefined patches
+    patcher.add(TorchScatter)
+    # default_patcher already enables ResNetMaxPool, which conflicts with ResNetFP16.
+    # Switch explicitly so apply() won't fail on conflict checking.
+    patcher.disable(ResNetMaxPool).add(ResNetFP16)
+
+    # 5. Add project-specific patches
+    patcher.add(FlashAttention)
+    patcher.add(DeformableFeatureAggregation)
+    patcher.add(SparseBox3DLoss)
+    patcher.add(SparseBox3DTarget)
+    patcher.add(SparsePoint3DTarget)
+    patcher.add(MotionTarget)
+    patcher.add(PlanningTarget)
+    patcher.add(InstanceQueue)
+    patcher.add(HcclBackend)
+
+    # 6. Configure performance mode if requested
+    if performance:
+        patcher.brake_at(1000)
+
+    return patcher
+
+
+# =============================================================================
+# Patch Classes
+# =============================================================================
+
+class FlashAttention(Patch):
+    """Flash Attention NPU patch using npu_fusion_attention."""
+    name = "diffusiondrive_flash_attention"
+
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.attention.FlashAttention.forward",
+                cls._flash_attention_forward,
+            ),
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.attention.FlashMHA.forward",
+                cls._flash_mha_forward,
+            ),
+        ]
+
+    @staticmethod
+    @with_imports(
+        ("projects.mmdet3d_plugin.models.attention", "auto_fp16"),
+        "@auto_fp16(apply_to=('q', 'k', 'v'), out_fp32=True)",
+    )
+    def _flash_attention_forward(self, q, k, v, causal=False, key_padding_mask=None):
         """Implements the multihead softmax attention.
         Arguments
         ---------
-            q: The tensor containing the query. (B, T, H, D) 
-            kv: The tensor containing the key, and value. (B, S, 2, H, D) 
+            q: The tensor containing the query. (B, T, H, D)
+            kv: The tensor containing the key, and value. (B, S, 2, H, D)
             key_padding_mask: a bool tensor of shape (B, S)
         """
-
         if key_padding_mask is None:
             if self.softmax_scale:
                 scale = self.softmax_scale
@@ -57,28 +150,36 @@ def flash_attn(attention: ModuleType, options: Dict):
             pass
         return output, None
 
-    def FlashMHA_forward(self, q, k, v, key_padding_mask=None):
+    @staticmethod
+    @with_imports(("projects.mmdet3d_plugin.models.attention", "_in_projection_packed", "rearrange"))
+    def _flash_mha_forward(self, q, k, v, key_padding_mask=None):
         """x: (batch, seqlen, hidden_dim) (where hidden_dim = num heads * head dim)
         key_padding_mask: bool tensor of shape (batch, seqlen)
         """
-        q, k, v = _in_projection_packed(q, k, v, self.in_proj_weight, self.in_proj_bias)
-        q = rearrange(q, 'b s (h d) -> b s h d', h=self.num_heads)
-        k = rearrange(k, 'b s (h d) -> b s h d', h=self.num_heads)
-        v = rearrange(v, 'b s (h d) -> b s h d', h=self.num_heads)
+        q, k, v = _in_projection_packed(q, k, v, self.in_proj_weight, self.in_proj_bias)  # noqa: F821
+        q = rearrange(q, 'b s (h d) -> b s h d', h=self.num_heads)  # noqa: F821
+        k = rearrange(k, 'b s (h d) -> b s h d', h=self.num_heads)  # noqa: F821
+        v = rearrange(v, 'b s (h d) -> b s h d', h=self.num_heads)  # noqa: F821
 
         context, attn_weights = self.inner_attn(q, k, v, key_padding_mask=key_padding_mask, causal=self.causal)
-        return self.out_proj(rearrange(context, 'b s h d -> b s (h d)')), attn_weights
-
-    if hasattr(attention, "FlashAttention"):
-        attention.FlashAttention.forward = FlashAttention_forward
-
-    if hasattr(attention, "FlashMHA"):
-        attention.FlashMHA.forward = FlashMHA_forward
+        return self.out_proj(rearrange(context, 'b s h d -> b s (h d)')), attn_weights  # noqa: F821
 
 
-def cpu2npu(models: ModuleType, options: Dict):
+class DeformableFeatureAggregation(Patch):
+    """Fix device placement in DeformableFeatureAggregation._get_weights."""
+    name = "diffusiondrive_deformable_feature_aggregation"
 
-    def DFA_get_weights(self, instance_feature, anchor_embed, metas=None):
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.blocks.DeformableFeatureAggregation._get_weights",
+                cls._get_weights,
+            ),
+        ]
+
+    @staticmethod
+    def _get_weights(self, instance_feature, anchor_embed, metas=None):
         bs, num_anchor = instance_feature.shape[:2]
         feature = instance_feature + anchor_embed
         if self.camera_encoder is not None:
@@ -110,17 +211,25 @@ def cpu2npu(models: ModuleType, options: Dict):
             )
         return weights
 
-    if hasattr(models, "DeformableFeatureAggregation"):
-        models.DeformableFeatureAggregation._get_weights = DFA_get_weights
 
+class SparseBox3DLoss(Patch):
+    """SparseBox3DLoss NPU compatibility patch."""
+    name = "diffusiondrive_sparse_box3d_loss"
 
-def detection_losses(losses: ModuleType, options: Dict):
-    SIN_YAW, COS_YAW = losses.SIN_YAW, losses.COS_YAW
-    CNS, YNS = losses.CNS, losses.YNS
-    X, Y, Z = losses.X, losses.Y, losses.Z
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.detection3d.losses.SparseBox3DLoss.forward",
+                cls._forward,
+            ),
+        ]
 
     # pylint: disable=too-many-arguments,huawei-too-many-arguments
-    def losses_forward(
+    @staticmethod
+    @with_imports(("projects.mmdet3d_plugin.models.detection3d.losses",
+                   "SIN_YAW", "COS_YAW", "CNS", "YNS", "X", "Y", "Z"))
+    def _forward(
         self,
         box,
         box_target,
@@ -137,8 +246,8 @@ def detection_losses(losses: ModuleType, options: Dict):
         if self.cls_allow_reverse is not None and cls_target is not None:
             if_reverse = (
                 torch.nn.functional.cosine_similarity(
-                    box_target[..., [SIN_YAW, COS_YAW]],
-                    box[..., [SIN_YAW, COS_YAW]],
+                    box_target[..., [SIN_YAW, COS_YAW]],  # noqa: F821
+                    box[..., [SIN_YAW, COS_YAW]],  # noqa: F821
                     dim=-1,
                 )
                 < 0
@@ -149,10 +258,10 @@ def detection_losses(losses: ModuleType, options: Dict):
                 )
                 & if_reverse
             )
-            box_target[..., [SIN_YAW, COS_YAW]] = torch.where(
+            box_target[..., [SIN_YAW, COS_YAW]] = torch.where(  # noqa: F821
                 if_reverse[..., None],
-                -box_target[..., [SIN_YAW, COS_YAW]],
-                box_target[..., [SIN_YAW, COS_YAW]],
+                -box_target[..., [SIN_YAW, COS_YAW]],  # noqa: F821
+                box_target[..., [SIN_YAW, COS_YAW]],  # noqa: F821
             )
 
         output = {}
@@ -162,10 +271,10 @@ def detection_losses(losses: ModuleType, options: Dict):
         output[f"{prefix}loss_box{suffix}"] = box_loss
 
         if quality is not None:
-            cns = quality[..., CNS]
-            yns = quality[..., YNS].sigmoid()
+            cns = quality[..., CNS]  # noqa: F821
+            yns = quality[..., YNS].sigmoid()  # noqa: F821
             cns_target = torch.norm(
-                box_target[..., [X, Y, Z]] - box[..., [X, Y, Z]], p=2, dim=-1
+                box_target[..., [X, Y, Z]] - box[..., [X, Y, Z]], p=2, dim=-1  # noqa: F821
             )
             cns_target = torch.exp(-cns_target)
             cns_loss = self.loss_cns(cns, cns_target.detach(), avg_factor=avg_factor)
@@ -173,8 +282,8 @@ def detection_losses(losses: ModuleType, options: Dict):
 
             yns_target = (
                 torch.nn.functional.cosine_similarity(
-                    box_target[..., [SIN_YAW, COS_YAW]],
-                    box[..., [SIN_YAW, COS_YAW]],
+                    box_target[..., [SIN_YAW, COS_YAW]],  # noqa: F821
+                    box[..., [SIN_YAW, COS_YAW]],  # noqa: F821
                     dim=-1,
                 )
                 > 0
@@ -184,25 +293,41 @@ def detection_losses(losses: ModuleType, options: Dict):
             output[f"{prefix}loss_yns{suffix}"] = yns_loss
         return output
 
-    if hasattr(losses, "SparseBox3DLoss"):
-        losses.SparseBox3DLoss.forward = losses_forward
 
+class SparseBox3DTarget(Patch):
+    """SparseBox3DTarget NPU compatibility patch."""
+    name = "diffusiondrive_sparse_box3d_target"
 
-def detection_target(target: ModuleType, options: Dict):
-    X, Y, Z = target.X, target.Y, target.Z
-    W, L, H = target.W, target.L, target.H
-    YAW = target.YAW
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.detection3d.target.SparseBox3DTarget.encode_reg_target",
+                cls._encode_reg_target,
+            ),
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.detection3d.target.SparseBox3DTarget._cls_cost",
+                cls._cls_cost,
+            ),
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.detection3d.target.SparseBox3DTarget._box_cost",
+                cls._box_cost,
+            ),
+        ]
 
-    def encode_reg_target(self, box_target, device=None):
+    @staticmethod
+    @with_imports(("projects.mmdet3d_plugin.models.detection3d.target",
+                   "X", "Y", "Z", "W", "L", "H", "YAW"))
+    def _encode_reg_target(self, box_target, device=None):
         sizes = [box.shape[0] for box in box_target]
         boxes = torch.cat(box_target, dim=0)
         output = torch.cat(
             [
-                boxes[..., [X, Y, Z]],
-                boxes[..., [W, L, H]].log(),
-                torch.sin(boxes[..., YAW]).unsqueeze(-1),
-                torch.cos(boxes[..., YAW]).unsqueeze(-1),
-                boxes[..., YAW + 1:],
+                boxes[..., [X, Y, Z]],  # noqa: F821
+                boxes[..., [W, L, H]].log(),  # noqa: F821
+                torch.sin(boxes[..., YAW]).unsqueeze(-1),  # noqa: F821
+                torch.cos(boxes[..., YAW]).unsqueeze(-1),  # noqa: F821
+                boxes[..., YAW + 1:],  # noqa: F821
             ],
             dim=-1,
         )
@@ -211,6 +336,7 @@ def detection_target(target: ModuleType, options: Dict):
         outputs = torch.split(output, sizes, dim=0)
         return outputs
 
+    @staticmethod
     def _cls_cost(self, cls_pred, cls_target):
         bs = cls_pred.shape[0]
         cls_pred = cls_pred.sigmoid()
@@ -235,6 +361,7 @@ def detection_target(target: ModuleType, options: Dict):
                 costs.append(None)
         return costs
 
+    @staticmethod
     def _box_cost(self, box_pred, box_target, instance_reg_weights):
         bs = box_pred.shape[0]
         cost = []
@@ -254,21 +381,28 @@ def detection_target(target: ModuleType, options: Dict):
                 cost.append(None)
         return cost
 
-    if hasattr(target, "SparseBox3DTarget"):
-        target.SparseBox3DTarget._cls_cost = _cls_cost
 
-    if hasattr(target, "SparseBox3DTarget"):
-        target.SparseBox3DTarget._box_cost = _box_cost
+class SparsePoint3DTarget(Patch):
+    """SparsePoint3DTarget NPU compatibility patch."""
+    name = "diffusiondrive_sparse_point3d_target"
 
-    if hasattr(target, "SparseBox3DTarget"):
-        target.SparseBox3DTarget.encode_reg_target = encode_reg_target
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.map.target.SparsePoint3DTarget.__init__",
+                cls._init,
+            ),
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.map.target.SparsePoint3DTarget.normalize_line",
+                cls._normalize_line,
+            ),
+        ]
 
-
-def map_target(target: ModuleType, options: Dict):
-    SparsePoint3DTarget = target.SparsePoint3DTarget
-    build_assigner = target.build_assigner
-
-    def __init__(
+    @staticmethod
+    @with_imports(("projects.mmdet3d_plugin.models.map.target",
+                   "SparsePoint3DTarget", "build_assigner"))
+    def _init(
         self,
         assigner=None,
         num_dn_groups=0,
@@ -280,10 +414,10 @@ def map_target(target: ModuleType, options: Dict):
         num_sample=20,
         roi_size=(30, 60),
     ):
-        super(SparsePoint3DTarget, self).__init__(
+        super(SparsePoint3DTarget, self).__init__(  # noqa: F821
             num_dn_groups, num_temp_dn_groups
         )
-        self.assigner = build_assigner(assigner)
+        self.assigner = build_assigner(assigner)  # noqa: F821
         self.dn_noise_scale = dn_noise_scale
         self.max_dn_gt = max_dn_gt
         self.add_neg_dn = add_neg_dn
@@ -294,7 +428,8 @@ def map_target(target: ModuleType, options: Dict):
         self.origin = -torch.tensor([self.roi_size[0] / 2, self.roi_size[1] / 2]).npu()
         self.norm = torch.tensor([self.roi_size[0], self.roi_size[1]]).npu() + 1e-5
 
-    def normalize_line(self, line):
+    @staticmethod
+    def _normalize_line(self, line):
         if line.shape[0] == 0:
             return line
 
@@ -306,18 +441,24 @@ def map_target(target: ModuleType, options: Dict):
 
         return line
 
-    if hasattr(target, "SparsePoint3DTarget"):
-        target.SparsePoint3DTarget.__init__ = __init__
 
-    if hasattr(target, "SparsePoint3DTarget"):
-        target.SparsePoint3DTarget.normalize_line = normalize_line
+class MotionTarget(Patch):
+    """MotionTarget NPU compatibility patch."""
+    name = "diffusiondrive_motion_target"
 
-
-def motion_planning_target(target: ModuleType, options: Dict):
-    get_cls_target = target.get_cls_target
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.motion.target.MotionTarget.sample",
+                cls._sample,
+            ),
+        ]
 
     # pylint: disable=too-many-return-values
-    def motion_sample(
+    @staticmethod
+    @with_imports(("projects.mmdet3d_plugin.models.motion.target", "get_cls_target"))
+    def _sample(
         self,
         reg_pred,
         gt_reg_target,
@@ -336,14 +477,30 @@ def motion_planning_target(target: ModuleType, options: Dict):
             reg_weight[i, pred_idx] = gt_reg_mask[i][target_idx]
             num_pos += len(pred_idx)
 
-        cls_target = get_cls_target(reg_pred, reg_target, reg_weight)
+        cls_target = get_cls_target(reg_pred, reg_target, reg_weight)  # noqa: F821
         cls_weight = reg_weight.any(dim=-1)
         best_reg = torch.gather(reg_pred, 2, cls_target[..., None, None, None].repeat(1, 1, 1, ts, d)).squeeze(2)
 
         return cls_target, cls_weight, best_reg, reg_target, reg_weight, num_pos
 
+
+class PlanningTarget(Patch):
+    """PlanningTarget NPU compatibility patch."""
+    name = "diffusiondrive_planning_target"
+
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.motion.target.PlanningTarget.sample",
+                cls._sample,
+            ),
+        ]
+
     # pylint: disable=too-many-arguments,huawei-too-many-arguments,too-many-return-values
-    def planning_sample(
+    @staticmethod
+    @with_imports(("projects.mmdet3d_plugin.models.motion.target", "get_cls_target"))
+    def _sample(
         self,
         cls_pred,
         reg_pred,
@@ -362,49 +519,28 @@ def motion_planning_target(target: ModuleType, options: Dict):
         reg_pred = reg_pred.reshape(bs, 3, 1, self.ego_fut_mode, self.ego_fut_ts, 2)
         cls_pred = cls_pred[bs_indices, cmd]
         reg_pred = reg_pred[bs_indices, cmd]
-        cls_target = get_cls_target(reg_pred, gt_reg_target, gt_reg_mask)
+        cls_target = get_cls_target(reg_pred, gt_reg_target, gt_reg_mask)  # noqa: F821
         cls_weight = gt_reg_mask.any(dim=-1)
         best_reg = torch.gather(reg_pred, 2, cls_target[..., None, None, None].repeat(1, 1, 1, self.ego_fut_ts, 2)).squeeze(2)
 
         return cls_pred, cls_target, cls_weight, best_reg, gt_reg_target, gt_reg_mask
 
-    if hasattr(target, "MotionTarget"):
-        target.MotionTarget.sample = motion_sample
 
-    if hasattr(target, "PlanningTarget"):
-        target.PlanningTarget.sample = planning_sample
+class InstanceQueue(Patch):
+    """InstanceQueue.prepare_motion NPU compatibility patch."""
+    name = "diffusiondrive_instance_queue"
 
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.models.motion.instance_queue.InstanceQueue.prepare_motion",
+                cls._prepare_motion,
+            ),
+        ]
 
-def get_hccl_init_dist(runner: ModuleType):
-    module = importlib.import_module(runner)
-
-    if hasattr(module, "dist_utils"):
-        mp = module.dist_utils.mp
-        _init_dist_pytorch = module.dist_utils._init_dist_pytorch
-        _init_dist_mpi = module.dist_utils._init_dist_mpi
-        _init_dist_slurm = module.dist_utils._init_dist_slurm
-
-        def hccl_init_dist(launcher: str, backend: str = 'nccl', **kwargs) -> None:
-            backend = 'hccl'
-            if mp.get_start_method(allow_none=True) is None:
-                mp.set_start_method('spawn')
-            if launcher == 'pytorch':
-                _init_dist_pytorch(backend, **kwargs)
-            elif launcher == 'mpi':
-                _init_dist_mpi(backend, **kwargs)
-            elif launcher == 'slurm':
-                _init_dist_slurm(backend, **kwargs)
-            else:
-                raise ValueError(f'Invalid launcher type: {launcher}')
-
-        return hccl_init_dist
-
-    return None
-
-
-def instance_queue(queue: ModuleType, options: Dict):
-
-    def prepare_motion(
+    @staticmethod
+    def _prepare_motion(
         self,
         det_output,
         mask,
@@ -445,135 +581,42 @@ def instance_queue(queue: ModuleType, options: Dict):
             self.anchor_queue.pop(0)
         self.period = torch.clip(self.period, 0, self.queue_length)
 
-    if hasattr(queue, "InstanceQueue"):
-        queue.InstanceQueue.prepare_motion = prepare_motion
 
+class HcclBackend(Patch):
+    """Replace NCCL with HCCL for distributed training."""
+    name = "diffusiondrive_hccl_backend"
 
-def generate_patcher_builder(performance=False):
-    patcher_builder = (
-        PatcherBuilder()
-        .add_module_patch("torch", Patch(index), Patch(batch_matmul))
-        .add_module_patch("numpy", Patch(numpy_type))
-        .add_module_patch("mmcv", Patch(stream), Patch(ddp))
-        .add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
+    @classmethod
+    def patches(cls, options=None) -> List[AtomicPatch]:
+        return [
+            AtomicPatch(
+                "mmcv.runner.init_dist",
+                cls._init_dist,
+                precheck=cls._precheck,
+            ),
+        ]
 
-        .add_module_patch("projects.mmdet3d_plugin.models.attention", Patch(flash_attn))
-        .add_module_patch("projects.mmdet3d_plugin.models.detection3d.losses", Patch(detection_losses))
-        .add_module_patch("projects.mmdet3d_plugin.models.blocks", Patch(cpu2npu))
-        .add_module_patch("projects.mmdet3d_plugin.models.detection3d.target", Patch(detection_target))
-        .add_module_patch("projects.mmdet3d_plugin.models.map.target", Patch(map_target))
+    @staticmethod
+    def _precheck():
+        try:
+            import importlib
+            module = importlib.import_module("mmcv.runner")
+            return hasattr(module, "dist_utils")
+        except ImportError:
+            return False
 
-        .add_module_patch("projects.mmdet3d_plugin.models.motion.target", Patch(motion_planning_target))
-        .add_module_patch("projects.mmdet3d_plugin.models.motion.instance_queue", Patch(instance_queue))
-
-    )
-    if performance:
-        patcher_builder.brake_at(1000)
-    return patcher_builder
-
-
-# pylint: disable=huawei-redefined-outer-name, lambda-assign
-def patch_mock_gpu_flash_attn():
-    '''
-    In  /projects/mmdet3d_plugin/models/attention.py
-    the following lines
-    -try:
-    -    from flash_attn.flash_attn_interface import flash_attn_unpadded_kvpacked_func
-    -    print('Use flash_attn_unpadded_kvpacked_func')
-    -except:
-    -    from flash_attn.flash_attn_interface import  flash_attn_varlen_kvpacked_func as flash_attn_unpadded_kvpacked_func
-    -    print('Use flash_attn_varlen_kvpacked_func')
-    -from flash_attn.bert_padding import unpad_input, pad_input, index_first_axis
-    will attempt to import flash_attn which is an external dependency implemented for GPU
-
-    The migration to ascend will patch a NPU version of flash_attn at 
-    -.add_module_patch("projects.mmdet3d_plugin.models.attention", Patch(flash_attn))
-    The patch will replace FlashAttention.forward, where flash_attn_unpadded_kvpacked_func, unpad_input ... are used, as a whole 
-
-    Still, the imports inside /projects/mmdet3d_plugin/models/attention.py will raise import error when GPU flash_attn is 
-    not installed, to avoid import error, here the function uses sys.module to register flash_attn module name before the 
-    actual import takes place in order to pretend the flash_attn being imported already, avoiding import errors 
-    '''
-    
-    flash_attn = types.ModuleType('flash_attn')
-
-    flash_attn_interface = types.ModuleType('flash_attn.flash_attn_interface')
-    flash_attn_interface.flash_attn_unpadded_kvpacked_func = lambda *args, **kwargs: None
-    flash_attn_interface.flash_attn_varlen_kvpacked_func = lambda *args, **kwargs: None
-
-    bert_padding = types.ModuleType('flash_attn.bert_padding')
-    bert_padding.unpad_input = lambda *args, **kwargs: (None, None)  
-    bert_padding.pad_input = lambda *args, **kwargs: None
-    bert_padding.index_first_axis = lambda *args, **kwargs: None
-
-    flash_attn.flash_attn_interface = flash_attn_interface
-    flash_attn.bert_padding = bert_padding
-
-    sys.modules['flash_attn'] = flash_attn
-    sys.modules['flash_attn.flash_attn_interface'] = flash_attn_interface
-    sys.modules['flash_attn.bert_padding'] = bert_padding
-
-
-# Official model repo has missing includes, apply the fix here
-def fix_missing_include():
-
-    mmdet3d_models_module = importlib.import_module("projects.mmdet3d_plugin.models")
-
-    sparsedrive_v1_module = importlib.import_module("projects.mmdet3d_plugin.models.sparsedrive_v1")
-    V1SparseDrive = getattr(sparsedrive_v1_module, "V1SparseDrive")
-
-    sparsedrive_head_v1_module = importlib.import_module("projects.mmdet3d_plugin.models.sparsedrive_head_v1")
-    V1SparseDriveHead = getattr(sparsedrive_head_v1_module, "V1SparseDriveHead")
-
-    motion_blocks_v11_module = importlib.import_module("projects.mmdet3d_plugin.models.motion.motion_blocks_v11")
-    V11MotionPlanningRefinementModule = getattr(motion_blocks_v11_module, "V11MotionPlanningRefinementModule")
-
-    motion_planning_head_v13_module = importlib.import_module("projects.mmdet3d_plugin.models.motion.motion_planning_head_v13")
-    V13MotionPlanningHead = getattr(motion_planning_head_v13_module, "V13MotionPlanningHead")
-
-    missing = 'V1SparseDrive'
-    if missing not in mmdet3d_models_module.__all__:
-        mmdet3d_models_module.__all__.append(missing)
-    setattr(mmdet3d_models_module, missing, V1SparseDrive)
-
-    missing = 'V1SparseDriveHead'
-    if missing not in mmdet3d_models_module.__all__:
-        mmdet3d_models_module.__all__.append(missing)
-    setattr(mmdet3d_models_module, missing, V1SparseDriveHead)
-        
-    missing = 'V13MotionPlanningHead'
-    if missing not in mmdet3d_models_module.__all__:
-        mmdet3d_models_module.__all__.append(missing)
-    setattr(mmdet3d_models_module, missing, V13MotionPlanningHead)
-        
-    missing = 'V11MotionPlanningRefinementModule'
-    if missing not in mmdet3d_models_module.__all__:
-        mmdet3d_models_module.__all__.append(missing)
-    setattr(mmdet3d_models_module, missing, V11MotionPlanningRefinementModule)
-
-
-# Mock deform_aggreg in projects.mmdet3d_plugin.ops.deformable_aggregation, replace by mx_driving's deform_aggreg within the mock class
-def patch_deform_aggreg():
-    
-    
-    class MockDeformableAggregationFunction:
-        @staticmethod
-        def apply(*args, **kwargs):
-            return mx_driving.deformable_aggregation(*args, **kwargs)
-    
-    
-    mock_module = types.ModuleType("projects.mmdet3d_plugin.ops.deformable_aggregation")
-    sys.modules["projects.mmdet3d_plugin.ops.deformable_aggregation"] = mock_module
-    mock_module.DeformableAggregationFunction = MockDeformableAggregationFunction
-
-
-def _init():
-    # order matters
-    patch_mock_gpu_flash_attn() 
-    patch_deform_aggreg()
-    fix_missing_include()
-
-    mmcv.runner.init_dist = get_hccl_init_dist('mmcv.runner')
-
-
-_init()
+    @staticmethod
+    @with_imports(("mmcv.runner.dist_utils",
+                   "mp", "_init_dist_pytorch", "_init_dist_mpi", "_init_dist_slurm"))
+    def _init_dist(launcher: str, backend: str = 'nccl', **kwargs) -> None:
+        backend = 'hccl'
+        if mp.get_start_method(allow_none=True) is None:  # noqa: F821
+            mp.set_start_method('spawn')  # noqa: F821
+        if launcher == 'pytorch':
+            _init_dist_pytorch(backend, **kwargs)  # noqa: F821
+        elif launcher == 'mpi':
+            _init_dist_mpi(backend, **kwargs)  # noqa: F821
+        elif launcher == 'slurm':
+            _init_dist_slurm(backend, **kwargs)  # noqa: F821
+        else:
+            raise ValueError(f'Invalid launcher type: {launcher}')

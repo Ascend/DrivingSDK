@@ -3,46 +3,124 @@
 # Copyright (c) Robertwyq. All rights reserved.
 # Copyright (c) Alibaba; Inc. and its affiliates. All rights reserved.
 # Copyright (c) NVIDIA Corporation Affiliates. All rights reserved.
+"""
+PanoOcc NPU Migration Patches
 
+Usage:
+    from mx_driving.patcher import default_patcher
+    from migrate_to_ascend.patch_main import configure_patcher
 
-# pylint: disable=huawei-wrong-import-position, wrong-import-order
+    configure_patcher(default_patcher, performance=False)
+    default_patcher.apply()
+"""
+from __future__ import annotations
+
 import importlib
-import collections
-import sys
 import os
-import math
-
-import types
-import warnings
 import random
-from types import ModuleType
 from typing import Dict
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch_npu
-import mmcv
-import mmcv.runner
 
-from .patch_panoseg_occ_head import panoseg_occ_head_patch
-
-from mx_driving.patcher import PatcherBuilder, Patch
-from mx_driving.patcher import ddp
-from mx_driving.patcher import stream
-from mx_driving.patcher import index, batch_matmul
-from mx_driving.patcher import numpy_type
-from mx_driving.patcher import mdc, msda, dc
-from mx_driving.patcher import optimizer_hooks
-from mx_driving.patcher import resnet_add_relu, resnet_maxpool
 from mx_driving import multi_scale_deformable_attn
+from mx_driving.patcher import Patcher, Patch, AtomicPatch, OptimizerHooks
+from mx_driving.patcher.patch import with_imports
+
+from .patch_panoseg_occ_head import PanoSegOccHeadPatch
 
 
-# pylint: disable=huawei-redefined-outer-name, inconsistent-return-statements
-def panoseg_transformer_occ_patch(panoseg_transformer_occ_module: ModuleType, options: Dict):
-    # Patch: jit compile optimization
-    def align_prev_bev(self, prev_bev, bev_h, bev_w, bev_z, **kwargs):
+# =============================================================================
+# Skip modules (unavailable CUDA deps)
+# =============================================================================
+SKIP_MODULES = [
+    "mmdet3d.ops.scatter_v2",
+    "torch_scatter",
+    "projects.mmdet3d_plugin.models.backbones.sam_modeling.image_encoder",
+    "projects.mmdet3d_plugin.models.backbones.sam_modeling.image_encoder.ImageEncoderViT",
+    "projects.mmdet3d_plugin.models.backbones.internv2_impl16",
+    "projects.mmdet3d_plugin.models.backbones.internv2_impl16.InternV2Impl16",
+    "spconv",
+    "spconv.pytorch",
+    "spconv.pytorch.SparseConvTensor",
+    "spconv.pytorch.SparseSequential",
+    "ipdb",
+    "ipdb.set_trace",
+]
+
+indexes_global = None
+max_len_global = None
+bev_mask_id_global = -1
+count_global = None
+
+
+# =============================================================================
+# Patcher Configuration
+# =============================================================================
+
+
+def _configure_npu_runtime():
+    try:
+        torch.npu.set_compile_mode(jit_compile=False)
+        torch.npu.config.allow_internal_format = False
+    except (AttributeError, RuntimeError):
+        return
+
+
+def configure_patcher(patcher: Patcher, performance: bool = False) -> Patcher:
+    """
+    Configure Patcher for PanoOcc.
+
+    Args:
+        patcher: Patcher instance (typically default_patcher)
+        performance: Whether to enable performance mode (brake at 1000 steps)
+
+    Returns:
+        Configured patcher
+    """
+    _configure_npu_runtime()
+
+    # 1. Skip unavailable CUDA modules
+    patcher.skip_import(*SKIP_MODULES)
+
+    # 2. Patcher runtime options
+    patcher.disallow_internal_format()
+
+    # 3. Add required patches
+    patcher.add(
+        OptimizerHooks,
+        PanoSegOccHeadPatch,
+        PanoSegOccTransformerOccPatch,
+        SpatialCrossAttentionPatch,
+        Mmdet3dDatasetBuilderPatch,
+        Mmdet3dDatasetComposePatch,
+        DecoderPatch,
+        OccTemporalAttentionPatch,
+        TemporalSelfAttentionPatch,
+        HcclBackend,
+        NpuFusedAdam,
+    )
+
+    # 4. Performance mode
+    if performance:
+        patcher.brake_at(1000)
+
+    return patcher
+
+
+# =============================================================================
+# Patch Classes
+# =============================================================================
+
+class PanoSegOccTransformerOccPatch(Patch):
+    name = "panoocc_panoseg_transformer_occ"
+
+    # pylint: disable=huawei-redefined-outer-name, inconsistent-return-statements
+    @staticmethod
+    def _align_prev_bev(self, prev_bev, bev_h, bev_w, bev_z, **kwargs):
+        # Patch: jit compile optimization
         if prev_bev is not None:
             pc_range = self.cam_encoder.pc_range
             ref_y, ref_x, ref_z = torch.meshgrid(
@@ -103,32 +181,30 @@ def panoseg_transformer_occ_patch(panoseg_transformer_occ_module: ModuleType, op
 
             return prev_bev
 
-    
-    if hasattr(panoseg_transformer_occ_module, 'PanoSegOccTransformer'):
-        panoseg_transformer_occ_module.PanoSegOccTransformer.align_prev_bev = align_prev_bev
-    else:
-        raise AttributeError('PanoSegOccTransformer attr not found')
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.bevformer.modules.panoseg_transformer_occ.PanoSegOccTransformer.align_prev_bev",
+                cls._align_prev_bev,
+            ),
+        ]
 
 
-def worker_init_fn(worker_id, num_workers, rank, seed):
-    # The seed of each worker equals to
-    # num_worker * rank + worker_id + user_seed
-    worker_seed = num_workers * rank + worker_id + seed
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
+class Mmdet3dDatasetBuilderPatch(Patch):
+    name = "panoocc_mmdet3d_dataset_builder"
 
+    @staticmethod
+    def _worker_init_fn(worker_id, num_workers, rank, seed):
+        # The seed of each worker equals to
+        # num_worker * rank + worker_id + user_seed
+        worker_seed = num_workers * rank + worker_id + seed
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
 
-# pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
-def mmdet3d_dataset_builder_patch(builder_module: ModuleType, options: Dict):
-    from functools import partial
-    from mmcv.runner import get_dist_info
-    from mmcv.parallel import collate
-    from mmdet.datasets.samplers import GroupSampler
-    from projects.mmdet3d_plugin.datasets.samplers.sampler import build_sampler
-    from torch.utils.data import DataLoader
-
-    # PATCH: Pin Memory, turn off shuffle
-    def build_dataloader(dataset,
+    # pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
+    @staticmethod
+    def _build_dataloader(dataset,
                         samples_per_gpu,
                         workers_per_gpu,
                         num_gpus=1,
@@ -138,6 +214,14 @@ def mmdet3d_dataset_builder_patch(builder_module: ModuleType, options: Dict):
                         shuffler_sampler=None,
                         nonshuffler_sampler=None,
                         **kwargs):
+        from functools import partial
+        from mmcv.runner import get_dist_info
+        from mmcv.parallel import collate
+        from mmdet.datasets.samplers import GroupSampler
+        from projects.mmdet3d_plugin.datasets.samplers.sampler import build_sampler
+        from torch.utils.data import DataLoader
+
+        # PATCH: Pin Memory, turn off shuffle
         shuffle = False
         rank, world_size = get_dist_info()
         if dist:
@@ -173,7 +257,7 @@ def mmdet3d_dataset_builder_patch(builder_module: ModuleType, options: Dict):
             num_workers = num_gpus * workers_per_gpu
 
         init_fn = partial(
-            worker_init_fn, num_workers=num_workers, rank=rank,
+            Mmdet3dDatasetBuilderPatch._worker_init_fn, num_workers=num_workers, rank=rank,
             seed=seed) if seed is not None else None
 
         data_loader = DataLoader(
@@ -188,20 +272,26 @@ def mmdet3d_dataset_builder_patch(builder_module: ModuleType, options: Dict):
 
         return data_loader
 
-    if hasattr(builder_module, 'build_dataloader'):
-        builder_module.build_dataloader = build_dataloader
-    else:
-        raise AttributeError('build_dataloader attr not found')
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.datasets.builder.build_dataloader",
+                cls._build_dataloader,
+            ),
+        ]
 
 
-# pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
-def mmdet3d_dataset_compose_patch(compose_module: ModuleType, options: Dict):
-    
-    from mmcv.utils import build_from_cfg
-    from mmdet.datasets.builder import PIPELINES
-    from mmdet3d.datasets.builder import PIPELINES as PIPELINES_3d
-    
-    def __init__(self, transforms):
+class Mmdet3dDatasetComposePatch(Patch):
+    name = "panoocc_mmdet3d_dataset_compose"
+
+    # pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
+    @staticmethod
+    def _init(self, transforms):
+        from mmcv.utils import build_from_cfg
+        from mmdet.datasets.builder import PIPELINES
+        from mmdet3d.datasets.builder import PIPELINES as PIPELINES_3d
+
         self.transforms = []
         for transform in transforms:
             if isinstance(transform, dict):
@@ -215,25 +305,21 @@ def mmdet3d_dataset_compose_patch(compose_module: ModuleType, options: Dict):
             else:
                 raise TypeError('transform must be callable or a dict')
 
-    if hasattr(compose_module, 'CustomCompose'):
-        compose_module.CustomCompose.__init__ = __init__
-    else:
-        raise AttributeError('CustomCompose attr not found')
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.datasets.pipelines.compose.CustomCompose.__init__",
+                cls._init,
+            ),
+        ]
 
 
-indexes_global = None
-max_len_global = None
-bev_mask_id_global = -1
-count_global = None
+class SpatialCrossAttentionPatch(Patch):
+    name = "panoocc_spatial_cross_attention"
 
-
-# pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
-def spatial_cross_attention_patch(spatial_cross_attention_module: ModuleType, options: Dict):
-    
-    from mmcv.runner import force_fp32
-
-    @force_fp32(apply_to=('query', 'key', 'value', 'query_pos', 'reference_points_cam'))
-    def sca_forward(self,
+    @staticmethod
+    def _sca_forward(self,
                 query,
                 key,
                 value,
@@ -317,7 +403,8 @@ def spatial_cross_attention_patch(spatial_cross_attention_module: ModuleType, op
         return self.dropout(slots) + inp_residual
 
 
-    def msda3d_forward(self,
+    @staticmethod
+    def _msda3d_forward(self,
                 query,
                 key=None,
                 value=None,
@@ -395,47 +482,51 @@ def spatial_cross_attention_patch(spatial_cross_attention_module: ModuleType, op
 
         return output
 
-    sca_not_found = False
-    msda3d_not_found = False
-    if hasattr(spatial_cross_attention_module, 'SpatialCrossAttention'):
-        spatial_cross_attention_module.SpatialCrossAttention.forward = sca_forward
-    else:
-        sca_not_found = True
-        
-    if hasattr(spatial_cross_attention_module, 'MSDeformableAttention3D'):
-        spatial_cross_attention_module.MSDeformableAttention3D.forward = msda3d_forward
-    else:
-        msda3d_not_found = True
-        
-    if sca_not_found:
-        raise AttributeError('SpatialCrossAttention attr not found')    
-    if msda3d_not_found:
-        raise AttributeError('MSDeformableAttention3D attr not found')
+    @classmethod
+    def patches(cls, options=None):
+        from mmcv.runner import force_fp32
+
+        sca_forward = force_fp32(
+            apply_to=('query', 'key', 'value', 'query_pos', 'reference_points_cam')
+        )(cls._sca_forward)
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.bevformer.modules.spatial_cross_attention.SpatialCrossAttention.forward",
+                sca_forward,
+            ),
+            AtomicPatch(
+                "projects.mmdet3d_plugin.bevformer.modules.spatial_cross_attention.MSDeformableAttention3D.forward",
+                cls._msda3d_forward,
+            ),
+        ]
 
 
-# pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
-def panoocc_custom_msda_patch(panoocc_custom_msda_module: ModuleType, options: Dict):
-    from mx_driving import multi_scale_deformable_attn
-    
+class PanoOccCustomMsdaPatch(Patch):
+    """PanoOcc custom MSDA wrapper (optional)."""
+    name = "panoocc_custom_msda"
 
-    class MsdaWrapper:
+    class _MsdaWrapper:
         def apply(self, value, spatial_shapes, level_start_index, sampling_locations,
                 attention_weights, im2col_step):
             multi_scale_deformable_attn(value, spatial_shapes, level_start_index, 
                 sampling_locations, attention_weights)
 
-            
-    # Patch target: projects.mmdet3d_plugin.bevformer.modules.multi_scale_deformable_attn_function
-    if hasattr(panoocc_custom_msda_module, 'MultiScaleDeformableAttnFunction_fp32'):
-        panoocc_custom_msda_module.MultiScaleDeformableAttnFunction_fp32 = MsdaWrapper
-    else:
-        raise AttributeError('MultiScaleDeformableAttnFunction_fp32 not found')
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.bevformer.modules.multi_scale_deformable_attn_function.MultiScaleDeformableAttnFunction_fp32",
+                cls._MsdaWrapper,
+            ),
+        ]
 
 
-# pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
-def decoder_patch(decoder_module: ModuleType, options: Dict):
-    
-    def forward(self,
+class DecoderPatch(Patch):
+    name = "panoocc_decoder"
+
+    # pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
+    @staticmethod
+    def _forward(self,
                 query,
                 key=None,
                 value=None,
@@ -507,16 +598,22 @@ def decoder_patch(decoder_module: ModuleType, options: Dict):
 
         return self.dropout(output) + identity
 
-    if hasattr(decoder_module, 'CustomMSDeformableAttention'):
-        decoder_module.CustomMSDeformableAttention.forward = forward
-    else:
-        raise AttributeError('CustomMSDeformableAttention attr not found')
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.bevformer.modules.decoder.CustomMSDeformableAttention.forward",
+                cls._forward,
+            ),
+        ]
 
 
-# pylint: disable=huawei-too-many-arguments
-def occ_temporal_attention_patch(occ_temporal_attention_module: ModuleType, options: Dict):
-    
-    def forward(self, query, key=None, value=None, identity=None, query_pos=None, key_padding_mask=None,
+class OccTemporalAttentionPatch(Patch):
+    name = "panoocc_occ_temporal_attention"
+
+    # pylint: disable=huawei-too-many-arguments
+    @staticmethod
+    def _forward(self, query, key=None, value=None, identity=None, query_pos=None, key_padding_mask=None,
                 reference_points=None, spatial_shapes=None, level_start_index=None, flag='decoder', **kwargs):
         if value is None:
             bs, len_bev, c = query.shape
@@ -606,15 +703,22 @@ def occ_temporal_attention_patch(occ_temporal_attention_module: ModuleType, opti
 
         return self.dropout(output) + identity
 
-    if hasattr(occ_temporal_attention_module, 'OccTemporalAttention'):
-        occ_temporal_attention_module.OccTemporalAttention.forward = forward
-    else:
-        raise AttributeError('OccTemporalAttention attr not found')
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.bevformer.modules.occ_temporal_attention.OccTemporalAttention.forward",
+                cls._forward,
+            ),
+        ]
 
 
-# pylint: disable=huawei-too-many-arguments
-def temporal_self_attention_patch(temporal_self_attention_module: ModuleType, options: Dict):
-    def forward(self, query, key=None, value=None, identity=None, query_pos=None, key_padding_mask=None,
+class TemporalSelfAttentionPatch(Patch):
+    name = "panoocc_temporal_self_attention"
+
+    # pylint: disable=huawei-too-many-arguments
+    @staticmethod
+    def _forward(self, query, key=None, value=None, identity=None, query_pos=None, key_padding_mask=None,
                 reference_points=None, spatial_shapes=None, level_start_index=None, flag='decoder', **kwargs):
         if value is None:
             bs, len_bev, c = query.shape
@@ -699,11 +803,93 @@ def temporal_self_attention_patch(temporal_self_attention_module: ModuleType, op
 
         return self.dropout(output) + identity
 
-    if hasattr(temporal_self_attention_module, 'TemporalSelfAttention'):
-        temporal_self_attention_module.TemporalSelfAttention.forward = forward
-    else:
-        raise AttributeError('TemporalSelfAttention attr not found')
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.bevformer.modules.temporal_self_attention.TemporalSelfAttention.forward",
+                cls._forward,
+            ),
+        ]
 
+
+class HcclBackend(Patch):
+    """Replace NCCL with HCCL for distributed training."""
+    name = "panoocc_hccl_backend"
+
+    @staticmethod
+    def _precheck():
+        try:
+            module = importlib.import_module("mmcv.runner")
+            return hasattr(module, "dist_utils")
+        except ImportError:
+            return False
+
+    @staticmethod
+    @with_imports(("mmcv.runner.dist_utils", "mp", "_init_dist_pytorch", "_init_dist_mpi", "_init_dist_slurm"))
+    def _init_dist(launcher: str, backend: str = 'nccl', **kwargs) -> None:
+        backend = 'hccl'
+        if mp.get_start_method(allow_none=True) is None:  # noqa: F821
+            mp.set_start_method('spawn')  # noqa: F821
+        if launcher == 'pytorch':
+            _init_dist_pytorch(backend, **kwargs)  # noqa: F821
+        elif launcher == 'mpi':
+            _init_dist_mpi(backend, **kwargs)  # noqa: F821
+        elif launcher == 'slurm':
+            _init_dist_slurm(backend, **kwargs)  # noqa: F821
+        else:
+            raise ValueError(f'Invalid launcher type: {launcher}')
+
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "mmcv.runner.init_dist",
+                cls._init_dist,
+                precheck=cls._precheck,
+            ),
+        ]
+
+
+class NpuFusedAdam(Patch):
+    """Use NpuFusedAdam in mmcv runner."""
+    name = "panoocc_npu_fused_adam"
+
+    @staticmethod
+    def _build_optimizer(model, cfg: Dict):
+        module = importlib.import_module("mmcv.runner")
+        copy = module.optimizer.builder.copy
+        build_optimizer_constructor = module.optimizer.builder.build_optimizer_constructor
+        
+        optimizer_cfg = copy.deepcopy(cfg)
+        
+        # PATCH: use NpuFusedAdam optimizer instead
+        optimizer_cfg['type'] = 'NpuFused' + optimizer_cfg['type']
+        
+        constructor_type = optimizer_cfg.pop('constructor',
+                                            'DefaultOptimizerConstructor')
+        paramwise_cfg = optimizer_cfg.pop('paramwise_cfg', None)
+        optim_constructor = build_optimizer_constructor(
+            dict(
+                type=constructor_type,
+                optimizer_cfg=optimizer_cfg,
+                paramwise_cfg=paramwise_cfg))
+        optimizer = optim_constructor(model)
+        return optimizer
+
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "mmcv.runner.build_optimizer",
+                cls._build_optimizer,
+            ),
+        ]
+
+
+# =============================================================================
+# Utilities
+# =============================================================================
 
 # pylint: disable=huawei-redefined-outer-name, huawei-too-many-arguments
 def remove_dropout():
@@ -780,152 +966,11 @@ def fix_randomness(seed=123, is_gpu=False, deterministic=False, rm_dropout=False
     if rm_dropout:
         print("remove dropout to fix randomness")
         remove_dropout()
-    
 
 
-def generate_patcher_builder():
-    patcher_builder = (
-        PatcherBuilder()
-        .add_module_patch("torch", Patch(index), Patch(batch_matmul))
-        .add_module_patch("numpy", Patch(numpy_type))
-        .add_module_patch('mmcv', Patch(mdc), Patch(msda), Patch(dc), Patch(stream), Patch(ddp), Patch(optimizer_hooks))
-        .add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
-        
-        
-        .add_module_patch('projects.mmdet3d_plugin.bevformer.dense_heads.panoseg_occ_head', 
-                          Patch(panoseg_occ_head_patch))
-        
-        .add_module_patch('projects.mmdet3d_plugin.bevformer.modules.panoseg_transformer_occ', 
-                          Patch(panoseg_transformer_occ_patch))
-
-        .add_module_patch('projects.mmdet3d_plugin.bevformer.modules.spatial_cross_attention', 
-                          Patch(spatial_cross_attention_patch))
-        
-        .add_module_patch('projects.mmdet3d_plugin.datasets.builder', Patch(mmdet3d_dataset_builder_patch))
-        
-        .add_module_patch('projects.mmdet3d_plugin.datasets.pipelines.compose', Patch(mmdet3d_dataset_compose_patch))
-        
-        
-        .add_module_patch('projects.mmdet3d_plugin.bevformer.modules.decoder', Patch(decoder_patch))
-        .add_module_patch('projects.mmdet3d_plugin.bevformer.modules.occ_temporal_attention', 
-                          Patch(occ_temporal_attention_patch))
-        .add_module_patch('projects.mmdet3d_plugin.bevformer.modules.temporal_self_attention', 
-                          Patch(temporal_self_attention_patch))
-    )
-    return patcher_builder
-
- 
-brake_flag = False
-profile_flag = False
+def set_brake_at_step(patcher: Patcher, end_step: int = 1000):
+    patcher.brake_at(end_step)
 
 
-def set_brake_at_step(patcher_builder: PatcherBuilder, end_step: int = 1000):
-    if profile_flag is True:
-        raise RuntimeError('with_profiling has been set, brake and profiling are mutually exclusive')
-    patcher_builder.brake_at(end_step)
-    brake_flag = True
-
-
-def set_profiling(patcher_builder: PatcherBuilder, profiling_path: str, profiling_level: int = 0):
-    if brake_flag is True:
-        raise RuntimeError('brake_at has been set, brake and profiling are mutually exclusive')
-    patcher_builder.with_profiling(profiling_path, profiling_level)
-    profile_flag = True
-
-
-class MethodPatcher:
-    
-    @staticmethod
-    def nccl_to_hccl(runner: ModuleType):
-        module = importlib.import_module(runner)
-
-        if hasattr(module, "dist_utils"):
-            mp = module.dist_utils.mp
-            _init_dist_pytorch = module.dist_utils._init_dist_pytorch
-            _init_dist_mpi = module.dist_utils._init_dist_mpi
-            _init_dist_slurm = module.dist_utils._init_dist_slurm
-
-            def hccl_init_dist(launcher: str, backend: str = 'nccl', **kwargs) -> None:
-                
-                # Replacement for using hccl as the backend
-                backend = 'hccl'
-                
-                if mp.get_start_method(allow_none=True) is None:
-                    mp.set_start_method('spawn')
-                if launcher == 'pytorch':
-                    _init_dist_pytorch(backend, **kwargs)
-                elif launcher == 'mpi':
-                    _init_dist_mpi(backend, **kwargs)
-                elif launcher == 'slurm':
-                    _init_dist_slurm(backend, **kwargs)
-                else:
-                    raise ValueError(f'Invalid launcher type: {launcher}')
-        else:
-            raise AttributeError('dist_utils attr not found')
-
-        module.init_dist = hccl_init_dist
-
-
-class ConfigPatcher:
-    @staticmethod
-    def adamw_to_npu_fused_adam(runner: ModuleType):
-        module = importlib.import_module(runner)
-        copy = module.optimizer.builder.copy
-        build_optimizer_constructor = module.optimizer.builder.build_optimizer_constructor
-        
-        def build_optimizer(model, cfg: Dict):
-            optimizer_cfg = copy.deepcopy(cfg)
-            
-            # PATCH: use NpuFusedAdam optimizer instead
-            optimizer_cfg['type'] = 'NpuFused' + optimizer_cfg['type']
-            
-            constructor_type = optimizer_cfg.pop('constructor',
-                                                'DefaultOptimizerConstructor')
-            paramwise_cfg = optimizer_cfg.pop('paramwise_cfg', None)
-            optim_constructor = build_optimizer_constructor(
-                dict(
-                    type=constructor_type,
-                    optimizer_cfg=optimizer_cfg,
-                    paramwise_cfg=paramwise_cfg))
-            optimizer = optim_constructor(model)
-            return optimizer
-
-        module.build_optimizer = build_optimizer
-
-
-def _init():
-    # block dependencies that are not used nor installed
-    sys.modules['mmdet3d.ops.scatter_v2'] = ModuleType('mmdet3d.ops.scatter_v2')
-    sys.modules['torch_scatter'] = ModuleType('torch_scatter')
-    
-    sys.modules['projects.mmdet3d_plugin.models.backbones.sam_modeling.image_encoder'] = \
-        ModuleType('projects.mmdet3d_plugin.models.backbones.sam_modeling.image_encoder')
-    sys.modules['projects.mmdet3d_plugin.models.backbones.sam_modeling.image_encoder.ImageEncoderViT'] = \
-        ModuleType('projects.mmdet3d_plugin.models.backbones.sam_modeling.image_encoder.ImageEncoderViT')
-    
-    sys.modules['projects.mmdet3d_plugin.models.backbones.internv2_impl16'] = \
-        ModuleType('projects.mmdet3d_plugin.models.backbones.internv2_impl16')
-    sys.modules['projects.mmdet3d_plugin.models.backbones.internv2_impl16.InternV2Impl16'] = \
-        ModuleType('projects.mmdet3d_plugin.models.backbones.internv2_impl16.InternV2Impl16')
-    
-    sys.modules['spconv'] = ModuleType('spconv')
-    sys.modules['spconv.pytorch'] = ModuleType('spconv.pytorch')
-    sys.modules['spconv.pytorch.SparseConvTensor'] = ModuleType('spconv.pytorch.SparseConvTensor')
-    sys.modules['spconv.pytorch.SparseSequential'] = ModuleType('spconv.pytorch.SparseSequential')
-    
-    sys.modules['ipdb'] = ModuleType('ipdb')
-    sys.modules['ipdb.set_trace'] = ModuleType('ipdb.set_trace')
-    
-    torch.npu.set_compile_mode(jit_compile=False)
-    torch.npu.config.allow_internal_format = False
-    
-    
-    MethodPatcher.nccl_to_hccl('mmcv.runner')
-    ConfigPatcher.adamw_to_npu_fused_adam('mmcv.runner')
-
-
-''' 
-Initialize to execute method patcher
-Takes place before their corresponding imports
-'''
-_init()
+def set_profiling(patcher: Patcher, profiling_path: str, profiling_level: int = 0):
+    patcher.with_profiling(profiling_path, profiling_level)

@@ -2,12 +2,11 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 # Copyright (c) Robertwyq. All rights reserved.
 
-import importlib
-from types import ModuleType
-from typing import Dict, Optional, Union
+from typing import Dict
 
 import torch
 import mx_driving
+from mx_driving.patcher import Patch, AtomicPatch
 
 
 def custom_unique_n3(coors, return_inverse, return_counts, dim):
@@ -40,11 +39,11 @@ def custom_unique_n3(coors, return_inverse, return_counts, dim):
 
 
 # pylint: disable=huawei-redefined-outer-name, dangerous-default-value, too-many-return-values, huawei-too-many-arguments
-def panoseg_occ_head_patch(panoseg_occ_head_module: ModuleType, options: Dict):
+def _build_panoseg_occ_head():
     import copy
     from mmdet.models import HEADS
     from mmdet.models.dense_heads import DETRHead
-    from mmdet3d.core.bbox.coders import build_bbox_coder
+    from mmdet.core.bbox import build_bbox_coder
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
@@ -733,7 +732,36 @@ def panoseg_occ_head_patch(panoseg_occ_head_module: ModuleType, options: Dict):
             pts_pred = occupancy[:, :, dense[0, :, 0], dense[0, :, 1], dense[0, :, 2]].squeeze(0).softmax(dim=0).argmax(dim=0).cpu().numpy()
             return pts_pred
 
-    if hasattr(panoseg_occ_head_module, 'PanoSegOccHead'):
-        panoseg_occ_head_module.PanoSegOccHead = PanoSegOccHead
-    else:
-        raise ValueError('PanoSegOccHead attr not found')
+    return PanoSegOccHead
+
+
+class PanoSegOccHeadPatch(Patch):
+    """Replace PanoSegOccHead with NPU-compatible implementation."""
+    name = "panoocc_panoseg_occ_head"
+
+    @staticmethod
+    def _replacement():
+        return _build_panoseg_occ_head()
+
+    @staticmethod
+    def _precheck():
+        import importlib
+        try:
+            module = importlib.import_module(
+                "projects.mmdet3d_plugin.bevformer.dense_heads.panoseg_occ_head"
+            )
+        except ImportError:
+            return False
+        if not hasattr(module, "PanoSegOccHead"):
+            raise ValueError("PanoSegOccHead attr not found")
+        return True
+
+    @classmethod
+    def patches(cls, options=None):
+        return [
+            AtomicPatch(
+                "projects.mmdet3d_plugin.bevformer.dense_heads.panoseg_occ_head.PanoSegOccHead",
+                cls._replacement(),
+                precheck=cls._precheck,
+            ),
+        ]

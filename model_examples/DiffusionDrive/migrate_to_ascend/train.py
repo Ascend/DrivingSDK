@@ -1,10 +1,31 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
 # Copyright (c) OpenMMLab. All rights reserved.
 from __future__ import division
-import sys
-import os
-from os import path as osp
+
+# =============================================================================
+# PATCHER SETUP - MUST BE FIRST (before any imports that need patching)
+# =============================================================================
+from mx_driving.patcher import default_patcher
+from migrate_to_ascend.patch import configure_patcher
+
 import argparse
+import os
+
+def _get_performance_flag():
+    """Parse only the performance flag early for patcher configuration."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--performance", action="store_true")
+    args, _ = parser.parse_known_args()
+    return args.performance
+
+configure_patcher(default_patcher, performance=_get_performance_flag())
+default_patcher.apply()
+
+# =============================================================================
+# ORIGINAL CODE BELOW - UNCHANGED
+# =============================================================================
+import sys
+from os import path as osp
 import copy
 import time
 import warnings
@@ -26,8 +47,6 @@ from torch import distributed as dist
 import cv2
 
 import torch_npu
-from torch_npu.contrib import transfer_to_npu
-from migrate_to_ascend.patch import generate_patcher_builder
 import mx_driving
 
 print(sys.executable, os.path.abspath(__file__))
@@ -324,6 +343,4 @@ if __name__ == "__main__":
         "fork", force=True
     )  # use fork workers_per_gpu can be > 1
     args = parse_args()
-    patcher_builder = generate_patcher_builder(args.performance)
-    with patcher_builder.build():
-        main(args)
+    main(args)

@@ -5,6 +5,30 @@
 
 from __future__ import division
 
+# =============================================================================
+# PATCHER SETUP - MUST BE FIRST (before any imports that need patching)
+# =============================================================================
+from mx_driving.patcher import default_patcher, ensure_mmcv_version
+from migrate_to_ascend.patch_main import configure_patcher
+
+ensure_mmcv_version("1.6.0")
+
+def _get_performance_flag():
+    """Parse only the performance flag early for patcher configuration."""
+    import argparse
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--performance", action="store_true")
+    args, _ = parser.parse_known_args()
+    return args.performance
+
+configure_patcher(default_patcher, performance=_get_performance_flag())
+default_patcher.apply()
+
+
+# =============================================================================
+# ORIGINAL CODE BELOW - UNCHANGED
+# =============================================================================
+
 import argparse
 import copy
 import os
@@ -22,10 +46,6 @@ from mmcv.utils import TORCH_VERSION, digit_version
 
 # pylint: disable=huawei-redefined-outer-name, dangerous-default-value, too-many-return-values, huawei-too-many-arguments
 
-from mx_driving.patcher import patch_mmcv_version
-# pylint: disable=huawei-wrong-import-position, wrong-import-order
-patch_mmcv_version('1.6.0')
-
 from mmdet import __version__ as mmdet_version
 from mmdet3d import __version__ as mmdet3d_version
 
@@ -38,7 +58,7 @@ from mmseg import __version__ as mmseg_version
 import torch_npu
 from torch_npu.contrib import transfer_to_npu
 
-from migrate_to_ascend.patch_main import generate_patcher_builder, set_brake_at_step, set_profiling, fix_randomness
+from migrate_to_ascend.patch_main import fix_randomness
 import mx_driving
 
 
@@ -276,17 +296,4 @@ def main(args):
 
 if __name__ == '__main__':    
     args = parse_args()
-    
-    patcher_builder = generate_patcher_builder()
-    
-    '''
-    E.g. for setting brake step or collect profiling:
-        set_brake_at_step(patcher_builder=patcher_builder, end_step=1000)
-        set_profiling(patcher_builder=patcher_builder, profiling_path='./profiling_level0', profiling_level=0)
-    '''
-    
-    if args.performance:
-        set_brake_at_step(patcher_builder=patcher_builder, end_step=1000)
-    
-    with patcher_builder.build():
-        main(args)
+    main(args)

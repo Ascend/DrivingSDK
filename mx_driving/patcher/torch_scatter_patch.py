@@ -1,43 +1,57 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
-"""
-torch scatter patch
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+"""Torch scatter operations patches for NPU."""
+from typing import List
 
-from types import ModuleType
-from typing import Dict, Optional, Tuple
-import importlib
+from mx_driving.patcher.patch import AtomicPatch, BasePatch, Patch
 
 
-def scatter(ts: ModuleType, _: Dict):
-    """
-    patch scatter_sum, scatter_mean and scatter_max to torch-scatter
-    """
-    torch = importlib.import_module("torch")
-    mx_driving = importlib.import_module("mx_driving")
-    sc = importlib.import_module(f"{ts.__name__}.scatter")
+class TorchScatter(Patch):
+    """Torch scatter operations patch (scatter_sum, scatter_mean, scatter_max)."""
 
-    def scatter_sum(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
-                    out: Optional[torch.Tensor] = None,
-                    dim_size: Optional[int] = None) -> torch.Tensor:
-        return mx_driving.scatter_add(src.float(), index.to(torch.int32),
-                                      out, dim, dim_size)
+    name = "torch_scatter"
+    legacy_name = "scatter"
+    target_module = "torch_scatter"
 
-    def scatter_mean(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
-                     out: Optional[torch.Tensor] = None,
-                     dim_size: Optional[int] = None) -> torch.Tensor:
-        return mx_driving.scatter_mean(src.float(), index.to(torch.int32),
-                                       out, dim, dim_size)
+    @classmethod
+    def patches(cls, options=None) -> List[BasePatch]:
+        # replacement_wrapper: convert src to float and index to int32
+        def scatter_wrapper(npu_func):
+            def wrapper(src, index, dim=-1, out=None, dim_size=None):
+                import torch
+                return npu_func(src.float(), index.to(torch.int32), out, dim, dim_size)
+            return wrapper
 
-    def scatter_max(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
-                    out: Optional[torch.Tensor] = None,
-                    dim_size: Optional[int] = None,
-                    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        return mx_driving.scatter_max(src.float(), index.to(torch.int32), out)
-
-    sc.scatter_sum = scatter_sum
-    sc.scatter_mean = scatter_mean
-    sc.scatter_max = scatter_max
-
-    ts.scatter_sum = scatter_sum
-    ts.scatter_mean = scatter_mean
-    ts.scatter_max = scatter_max
+        return [
+            # Patch torch_scatter.scatter submodule
+            AtomicPatch(
+                "torch_scatter.scatter.scatter_sum",
+                "mx_driving.scatter_add",
+                replacement_wrapper=scatter_wrapper,
+            ),
+            AtomicPatch(
+                "torch_scatter.scatter.scatter_mean",
+                "mx_driving.scatter_mean",
+                replacement_wrapper=scatter_wrapper,
+            ),
+            AtomicPatch(
+                "torch_scatter.scatter.scatter_max",
+                "mx_driving.scatter_max",
+                replacement_wrapper=scatter_wrapper,
+            ),
+            # Patch torch_scatter top-level module (re-exports)
+            AtomicPatch(
+                "torch_scatter.scatter_sum",
+                "mx_driving.scatter_add",
+                replacement_wrapper=scatter_wrapper,
+            ),
+            AtomicPatch(
+                "torch_scatter.scatter_mean",
+                "mx_driving.scatter_mean",
+                replacement_wrapper=scatter_wrapper,
+            ),
+            AtomicPatch(
+                "torch_scatter.scatter_max",
+                "mx_driving.scatter_max",
+                replacement_wrapper=scatter_wrapper,
+            ),
+        ]
