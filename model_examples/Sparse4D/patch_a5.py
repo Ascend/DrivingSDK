@@ -22,7 +22,6 @@ from mx_driving.patcher import resnet_add_relu
 sys.path.append("..")
 
 
-
 def models_blocks(models: ModuleType, options: Dict):
     from typing import List
     from mx_driving import npu_deformable_aggregation as DAF
@@ -33,32 +32,27 @@ def models_blocks(models: ModuleType, options: Dict):
         if self.camera_encoder is not None:
             camera_embed = self.camera_encoder(
                 metas["projection_mat"][:, :, :3].reshape(
-                    bs, self.num_cams, -1
-                )
-            )
+                    bs, self.num_cams, -1))
             feature = feature[:, :, None] + camera_embed[:, None]
 
-        weights = (
-            self.weights_fc(feature)
-            .reshape(bs, num_anchor, -1, self.num_groups)
-            .softmax(dim=-2)
-            .reshape(
+        weights = (self.weights_fc(feature).reshape(
+            bs, num_anchor, -1, self.num_groups).softmax(dim=-2).reshape(
                 bs,
                 num_anchor,
                 self.num_cams,
                 self.num_levels,
                 self.num_pts,
                 self.num_groups,
-            )
-        )
+            ))
         if self.training and self.attn_drop > 0:
             # change code
             # change the rand ops to generate on npu
-            mask = torch.rand((bs, num_anchor, self.num_cams, 1, self.num_pts, 1),
-                               device=weights.device, dtype=weights.dtype)
-            weights = ((mask > self.attn_drop) * weights) / (
-                1 - self.attn_drop
-            )
+            mask = torch.rand(
+                (bs, num_anchor, self.num_cams, 1, self.num_pts, 1),
+                device=weights.device,
+                dtype=weights.dtype)
+            weights = (
+                (mask > self.attn_drop) * weights) / (1 - self.attn_drop)
         return weights
 
     @staticmethod
@@ -66,25 +60,24 @@ def models_blocks(models: ModuleType, options: Dict):
         bs, num_anchor, num_pts = key_points.shape[:3]
 
         pts_extend = torch.cat(
-            [key_points, torch.ones_like(key_points[..., :1])], dim=-1
-        )
+            [key_points, torch.ones_like(key_points[..., :1])], dim=-1)
 
         # change code
         projection_mat = projection_mat[:, :, None, None].contiguous()
         pts_extend = pts_extend[:, None, ..., None].contiguous()
         points_2d = []
         for i in range(4):
-            temp = ((projection_mat[:, :, :, :, i, :].unsqueeze(-1)) * pts_extend).squeeze(-1).sum(dim=-1)
+            temp = ((projection_mat[:, :, :, :, i, :].unsqueeze(-1)) *
+                    pts_extend).squeeze(-1).sum(dim=-1)
             points_2d.append(temp)
         points_2d = torch.stack(points_2d, dim=-1)
 
-        points_2d = points_2d[..., :2] / torch.clamp(
-            points_2d[..., 2:3], min=1e-5
-        )
+        points_2d = points_2d[..., :2] / torch.clamp(points_2d[..., 2:3],
+                                                     min=1e-5)
         if image_wh is not None:
             points_2d = points_2d / image_wh[:, :, None, None]
         return points_2d
-    
+
     if hasattr(models, "DeformableFeatureAggregation"):
         models.DeformableFeatureAggregation._get_weights = _get_weights
         models.DeformableFeatureAggregation.project_points = project_points
@@ -113,8 +106,7 @@ def detection_blocks(detection3d_blocks: ModuleType, options: Dict):
         output[..., self.refine_state] += anchor[..., self.refine_state]
         if self.normalize_yaw:
             output[..., [SIN_YAW, COS_YAW]] = torch.nn.functional.normalize(
-                output[..., [SIN_YAW, COS_YAW]], dim=-1
-            )
+                output[..., [SIN_YAW, COS_YAW]], dim=-1)
         if self.output_dim > 8:
             if not isinstance(time_interval, torch.Tensor):
                 time_interval = instance_feature.new_tensor(time_interval)
@@ -133,26 +125,21 @@ def detection_blocks(detection3d_blocks: ModuleType, options: Dict):
         return output, cls, quality
 
     def keypoint_forward(
-            self,
-            anchor,
-            instance_feature=None,
-            T_cur2temp_list=None,
-            cur_timestamp=None,
-            temp_timestamps=None,
-        ):
+        self,
+        anchor,
+        instance_feature=None,
+        T_cur2temp_list=None,
+        cur_timestamp=None,
+        temp_timestamps=None,
+    ):
         bs, num_anchor = anchor.shape[:2]
         size = anchor[..., None, [W, L, H]].exp()
         key_points = self.fix_scale * size
         if self.num_learnable_pts > 0 and instance_feature is not None:
-            learnable_scale = (
-                self.learnable_fc(instance_feature)
-                .reshape(bs, num_anchor, self.num_learnable_pts, 3)
-                .sigmoid()
-                - 0.5
-            )
-            key_points = torch.cat(
-                [key_points, learnable_scale * size], dim=-2
-            )
+            learnable_scale = (self.learnable_fc(instance_feature).reshape(
+                bs, num_anchor, self.num_learnable_pts, 3).sigmoid() - 0.5)
+            key_points = torch.cat([key_points, learnable_scale * size],
+                                   dim=-2)
 
         rotation_mat = anchor.new_zeros([bs, num_anchor, 3, 3])
 
@@ -165,17 +152,12 @@ def detection_blocks(detection3d_blocks: ModuleType, options: Dict):
         rotation_mat[:, :, 1, 1] = cos_yaw
         rotation_mat[:, :, 2, 2] = 1
 
-        key_points = torch.matmul(
-            rotation_mat[:, :, None], key_points[..., None]
-        ).squeeze(-1)
+        key_points = torch.matmul(rotation_mat[:, :, None],
+                                  key_points[..., None]).squeeze(-1)
         key_points = key_points + anchor[..., None, [X, Y, Z]]
 
-        if (
-            cur_timestamp is None
-            or temp_timestamps is None
-            or T_cur2temp_list is None
-            or len(temp_timestamps) == 0
-        ):
+        if (cur_timestamp is None or temp_timestamps is None
+                or T_cur2temp_list is None or len(temp_timestamps) == 0):
             return key_points
 
         temp_key_points_list = []
@@ -183,21 +165,17 @@ def detection_blocks(detection3d_blocks: ModuleType, options: Dict):
         for i, t_time in enumerate(temp_timestamps):
             time_interval = cur_timestamp - t_time
             translation = (
-                velocity
-                * time_interval.to(dtype=velocity.dtype)[:, None, None]
-            )
+                velocity *
+                time_interval.to(dtype=velocity.dtype)[:, None, None])
             temp_key_points = key_points - translation[:, :, None]
             T_cur2temp = T_cur2temp_list[i].to(dtype=key_points.dtype)
-            temp_key_points = (
-                T_cur2temp[:, None, None, :3]
-                @ torch.cat(
-                    [
-                        temp_key_points,
-                        torch.ones_like(temp_key_points[..., :1]),
-                    ],
-                    dim=-1,
-                ).unsqueeze(-1)
-            )
+            temp_key_points = (T_cur2temp[:, None, None, :3] @ torch.cat(
+                [
+                    temp_key_points,
+                    torch.ones_like(temp_key_points[..., :1]),
+                ],
+                dim=-1,
+            ).unsqueeze(-1))
             temp_key_points = temp_key_points.squeeze(-1)
             temp_key_points_list.append(temp_key_points)
         return key_points, temp_key_points_list
@@ -215,41 +193,39 @@ def detection_blocks(detection3d_blocks: ModuleType, options: Dict):
             vel = anchor[..., VX:]
             vel_dim = vel.shape[-1]
             T_src2dst = torch.unsqueeze(
-                T_src2dst_list[i].to(dtype=anchor.dtype), dim=1
-            )
+                T_src2dst_list[i].to(dtype=anchor.dtype), dim=1)
 
             center = anchor[..., [X, Y, Z]]
             if time_intervals is not None:
                 time_interval = time_intervals[i]
             elif src_timestamp is not None and dst_timestamps is not None:
-                time_interval = (src_timestamp - dst_timestamps[i]).to(
-                    dtype=vel.dtype
-                )
+                time_interval = (src_timestamp -
+                                 dst_timestamps[i]).to(dtype=vel.dtype)
             else:
                 time_interval = None
             if time_interval is not None:
                 translation = vel.transpose(0, -1) * time_interval
                 translation = translation.transpose(0, -1)
                 center = center - translation
-            center = (
-                torch.matmul(
-                    T_src2dst[..., :3, :3], center[..., None]
-                ).squeeze(dim=-1)
-                + T_src2dst[..., :3, 3]
-            )
+            center = (torch.matmul(T_src2dst[..., :3, :3],
+                                   center[..., None]).squeeze(dim=-1) +
+                      T_src2dst[..., :3, 3])
 
             size = anchor[..., [W, L, H]]
 
             # change code
             yaw_tmp = []
             for j in range(2):
-                temp = ((T_src2dst[..., j, :2].unsqueeze(-1)) * anchor[..., [COS_YAW, SIN_YAW], None]).squeeze(-1).sum(dim=-1)
+                temp = ((T_src2dst[..., j, :2].unsqueeze(-1)) *
+                        anchor[..., [COS_YAW, SIN_YAW], None]).squeeze(-1).sum(
+                            dim=-1)
                 yaw_tmp.append(temp)
             yaw = torch.stack(yaw_tmp, dim=-1)
 
             vel_tmp = []
             for j in range(vel_dim):
-                temp = ((T_src2dst[..., j, :vel_dim].unsqueeze(-1)) * vel[..., None]).squeeze(-1).sum(dim=-1)
+                temp = ((T_src2dst[..., j, :vel_dim].unsqueeze(-1)) *
+                        vel[..., None]).squeeze(-1).sum(dim=-1)
                 vel_tmp.append(temp)
             vel = torch.stack(vel_tmp, dim=-1)
 
@@ -286,20 +262,14 @@ def detection_losses(losses: ModuleType, options: Dict):
         # Some categories do not distinguish between positive and negative
         # directions. For example, barrier in nuScenes dataset.
         if self.cls_allow_reverse is not None and cls_target is not None:
-            if_reverse = (
-                torch.nn.functional.cosine_similarity(
-                    box_target[..., [SIN_YAW, COS_YAW]],
-                    box[..., [SIN_YAW, COS_YAW]],
-                    dim=-1,
-                )
-                < 0
-            )
-            if_reverse = (
-                torch.isin(
-                    cls_target, cls_target.new_tensor(self.cls_allow_reverse)
-                )
-                & if_reverse
-            )
+            if_reverse = (torch.nn.functional.cosine_similarity(
+                box_target[..., [SIN_YAW, COS_YAW]],
+                box[..., [SIN_YAW, COS_YAW]],
+                dim=-1,
+            ) < 0)
+            if_reverse = (torch.isin(
+                cls_target, cls_target.new_tensor(self.cls_allow_reverse))
+                          & if_reverse)
             box_target[..., [SIN_YAW, COS_YAW]] = torch.where(
                 if_reverse[..., None],
                 -box_target[..., [SIN_YAW, COS_YAW]],
@@ -307,31 +277,32 @@ def detection_losses(losses: ModuleType, options: Dict):
             )
 
         output = {}
-        box_loss = self.loss_box(
-            box, box_target, weight=weight, avg_factor=avg_factor
-        )
+        box_loss = self.loss_box(box,
+                                 box_target,
+                                 weight=weight,
+                                 avg_factor=avg_factor)
         output[f"{prefix}loss_box{suffix}"] = box_loss
 
         if quality is not None:
             cns = quality[..., CNS]
             yns = quality[..., YNS].sigmoid()
-            cns_target = torch.norm(
-                box_target[..., [X, Y, Z]] - box[..., [X, Y, Z]], p=2, dim=-1
-            )
+            cns_target = torch.norm(box_target[..., [X, Y, Z]] -
+                                    box[..., [X, Y, Z]],
+                                    p=2,
+                                    dim=-1)
             cns_target = torch.exp(-cns_target)
             # change code
             # add detach to cns_target to avoid the training error
-            cns_loss = self.loss_cns(cns, cns_target.detach(), avg_factor=avg_factor)
+            cns_loss = self.loss_cns(cns,
+                                     cns_target.detach(),
+                                     avg_factor=avg_factor)
             output[f"{prefix}loss_cns{suffix}"] = cns_loss
 
-            yns_target = (
-                torch.nn.functional.cosine_similarity(
-                    box_target[..., [SIN_YAW, COS_YAW]],
-                    box[..., [SIN_YAW, COS_YAW]],
-                    dim=-1,
-                )
-                > 0
-            )
+            yns_target = (torch.nn.functional.cosine_similarity(
+                box_target[..., [SIN_YAW, COS_YAW]],
+                box[..., [SIN_YAW, COS_YAW]],
+                dim=-1,
+            ) > 0)
             yns_target = yns_target.float()
             yns_loss = self.loss_yns(yns, yns_target, avg_factor=avg_factor)
             output[f"{prefix}loss_yns{suffix}"] = yns_loss
@@ -372,27 +343,19 @@ def detection_target(target: ModuleType, options: Dict):
         cls_pred = cls_pred.sigmoid()
         # change code
         # extract the common parts to reduce the free time
-        neg_cost = (
-            -(1 - cls_pred + self.eps).log()
-            * (1 - self.alpha)
-            * cls_pred.pow(self.gamma)
-        )
-        pos_cost = (
-            -(cls_pred + self.eps).log()
-            * self.alpha
-            * (1 - cls_pred).pow(self.gamma)
-        )
+        neg_cost = (-(1 - cls_pred + self.eps).log() * (1 - self.alpha) *
+                    cls_pred.pow(self.gamma))
+        pos_cost = (-(cls_pred + self.eps).log() * self.alpha *
+                    (1 - cls_pred).pow(self.gamma))
         cost = (pos_cost - neg_cost) * self.cls_weight
         costs = []
         for i in range(bs):
             if len(cls_target[i]) > 0:
-                costs.append(
-                    cost[i, :, cls_target[i]]
-                )
+                costs.append(cost[i, :, cls_target[i]])
             else:
                 costs.append(None)
         return costs
-    
+
     def _box_cost(self, box_pred, box_target, instance_reg_weights):
         bs = box_pred.shape[0]
         cost = []
@@ -403,13 +366,10 @@ def detection_target(target: ModuleType, options: Dict):
             if len(box_target[i]) > 0:
                 cost.append(
                     torch.sum(
-                        torch.abs(box_pred[i, :, None] - box_target[i][None])
-                        * instance_reg_weights[i][None]
-                        * weights,
+                        torch.abs(box_pred[i, :, None] - box_target[i][None]) *
+                        instance_reg_weights[i][None] * weights,
                         dim=-1,
-                    )
-                    * self.box_weight
-                )
+                    ) * self.box_weight)
             else:
                 cost.append(None)
         return cost
@@ -421,36 +381,35 @@ def detection_target(target: ModuleType, options: Dict):
             gt_instance_id = None
 
         if self.max_dn_gt > 0:
-            cls_target = [x[: self.max_dn_gt] for x in cls_target]
-            box_target = [x[: self.max_dn_gt] for x in box_target]
+            cls_target = [x[:self.max_dn_gt] for x in cls_target]
+            box_target = [x[:self.max_dn_gt] for x in box_target]
             if gt_instance_id is not None:
-                gt_instance_id = [x[: self.max_dn_gt] for x in gt_instance_id]
+                gt_instance_id = [x[:self.max_dn_gt] for x in gt_instance_id]
 
         max_dn_gt = max([len(x) for x in cls_target])
         if max_dn_gt == 0:
             return None
-        
+
         box_target = self.encode_reg_target(box_target)
 
         list_cls_t = []
         list_box_t = []
-        
+
         for cls_t, box_t in zip(cls_target, box_target):
-            list_cls_t.append(F.pad(cls_t, (0, max_dn_gt - cls_t.shape[0]), value=-1))
-            list_box_t.append(F.pad(box_t, (0, 0, 0, max_dn_gt - box_t.shape[0])))
-            
+            list_cls_t.append(
+                F.pad(cls_t, (0, max_dn_gt - cls_t.shape[0]), value=-1))
+            list_box_t.append(
+                F.pad(box_t, (0, 0, 0, max_dn_gt - box_t.shape[0])))
+
         cls_target = torch.stack(list_cls_t)
         box_target = torch.stack(list_box_t)
-        box_target = torch.where(
-            cls_target[..., None] == -1, box_target.new_tensor(0), box_target
-        )
+        box_target = torch.where(cls_target[..., None] == -1,
+                                 box_target.new_tensor(0), box_target)
         if gt_instance_id is not None:
-            gt_instance_id = torch.stack(
-                [
-                    F.pad(x, (0, max_dn_gt - x.shape[0]), value=-1)
-                    for x in gt_instance_id
-                ]
-            )
+            gt_instance_id = torch.stack([
+                F.pad(x, (0, max_dn_gt - x.shape[0]), value=-1)
+                for x in gt_instance_id
+            ])
 
         bs, num_gt, state_dims = box_target.shape
         if self.num_dn_groups > 1:
@@ -474,9 +433,8 @@ def detection_target(target: ModuleType, options: Dict):
             dn_anchor = torch.cat([dn_anchor, box_target + noise_neg], dim=1)
             num_gt *= 2
 
-        box_cost = self._box_cost(
-            dn_anchor, box_target, torch.ones_like(box_target)
-        )
+        box_cost = self._box_cost(dn_anchor, box_target,
+                                  torch.ones_like(box_target))
         dn_box_target = torch.zeros_like(dn_anchor)
         dn_cls_target = -torch.ones_like(cls_target) * 3
         if gt_instance_id is not None:
@@ -494,48 +452,40 @@ def detection_target(target: ModuleType, options: Dict):
             if gt_instance_id is not None:
                 dn_id_target[i, anchor_idx] = gt_instance_id[i, gt_idx]
 
-        dn_anchor = (
-            dn_anchor.reshape(self.num_dn_groups, bs, num_gt, state_dims)
-            .permute(1, 0, 2, 3)
-            .contiguous()
-            .view(bs, self.num_dn_groups * num_gt, state_dims)
-        )
-        dn_box_target = (
-            dn_box_target.reshape(self.num_dn_groups, bs, num_gt, state_dims)
-            .permute(1, 0, 2, 3)
-            .contiguous()
-            .view(bs, self.num_dn_groups * num_gt, state_dims)
-        )
-        dn_cls_target = (
-            dn_cls_target.reshape(self.num_dn_groups, bs, num_gt)
-            .permute(1, 0, 2)
-            .contiguous()
-            .view(bs, self.num_dn_groups * num_gt)
-        )
+        dn_anchor = (dn_anchor.reshape(self.num_dn_groups,
+                                       bs, num_gt, state_dims).permute(
+                                           1, 0, 2, 3).contiguous().view(
+                                               bs, self.num_dn_groups * num_gt,
+                                               state_dims))
+        dn_box_target = (dn_box_target.reshape(
+            self.num_dn_groups, bs, num_gt,
+            state_dims).permute(1, 0, 2, 3).contiguous().view(
+                bs, self.num_dn_groups * num_gt, state_dims))
+        dn_cls_target = (dn_cls_target.reshape(
+            self.num_dn_groups, bs,
+            num_gt).permute(1, 0,
+                            2).contiguous().view(bs,
+                                                 self.num_dn_groups * num_gt))
         if gt_instance_id is not None:
-            dn_id_target = (
-                dn_id_target.reshape(self.num_dn_groups, bs, num_gt)
-                .permute(1, 0, 2)
-                .contiguous()
-                .view(bs, self.num_dn_groups * num_gt)
-            )
+            dn_id_target = (dn_id_target.reshape(
+                self.num_dn_groups, bs,
+                num_gt).permute(1, 0, 2).contiguous().view(
+                    bs, self.num_dn_groups * num_gt))
         else:
             dn_id_target = None
         valid_mask = dn_cls_target >= 0
         if self.add_neg_dn:
-            cls_target = (
-                torch.cat([cls_target, cls_target], dim=1)
-                .reshape(self.num_dn_groups, bs, num_gt)
-                .permute(1, 0, 2)
-                .contiguous()
-                .view(bs, self.num_dn_groups * num_gt)
-            )
+            cls_target = (torch.cat([cls_target, cls_target], dim=1).reshape(
+                self.num_dn_groups, bs,
+                num_gt).permute(1, 0, 2).contiguous().view(
+                    bs, self.num_dn_groups * num_gt))
             valid_mask = torch.logical_or(
-                valid_mask, ((cls_target >= 0) & (dn_cls_target == -3))
-            )  # valid denotes the items is not from pad.
-        attn_mask = dn_box_target.new_ones(
-            num_gt * self.num_dn_groups, num_gt * self.num_dn_groups
-        )
+                valid_mask,
+                ((cls_target >= 0) &
+                 (dn_cls_target
+                  == -3)))  # valid denotes the items is not from pad.
+        attn_mask = dn_box_target.new_ones(num_gt * self.num_dn_groups,
+                                           num_gt * self.num_dn_groups)
         for i in range(self.num_dn_groups):
             start = num_gt * i
             end = start + num_gt
@@ -553,18 +503,19 @@ def detection_target(target: ModuleType, options: Dict):
 
     if hasattr(target, "SparseBox3DTarget"):
         target.SparseBox3DTarget._cls_cost = _cls_cost
-    
+
     if hasattr(target, "SparseBox3DTarget"):
         target.SparseBox3DTarget._box_cost = _box_cost
-    
+
     if hasattr(target, "SparseBox3DTarget"):
         target.SparseBox3DTarget.encode_reg_target = encode_reg_target
-    
+
     if hasattr(target, "SparseBox3DTarget"):
         target.SparseBox3DTarget.get_dn_anchors = get_dn_anchors
 
 
 def mmcv_optimizer(hooks: ModuleType, options: Dict):
+
     def clip_grads(self, params, runner):
         params = list(
             filter(lambda p: p.requires_grad and p.grad is not None, params))
@@ -589,7 +540,7 @@ def mmcv_optimizer(hooks: ModuleType, options: Dict):
             if grad_norm is not None:
                 # Add grad norm to the logger
                 runner.log_buffer.update({'grad_norm': float(grad_norm)},
-                                            runner.outputs['num_samples'])
+                                         runner.outputs['num_samples'])
         # backward and update scaler
         self.loss_scaler.step(runner.optimizer)
         self.loss_scaler.update(self._scale_update_param)
@@ -600,7 +551,7 @@ def mmcv_optimizer(hooks: ModuleType, options: Dict):
 
     if hasattr(hooks, "OptimizerHook"):
         hooks.OptimizerHook.clip_grads = clip_grads
-    
+
     if hasattr(hooks, "Fp16OptimizerHook"):
         hooks.Fp16OptimizerHook.after_train_iter = after_train_iter
 
@@ -635,20 +586,19 @@ def get_fused_optimizer(optimizer: ModuleType):
     module = importlib.import_module(optimizer)
     copy = module.optimizer.builder.copy
     build_optimizer_constructor = module.optimizer.builder.build_optimizer_constructor
-    
+
     def build_optimizer(model, cfg: Dict):
         optimizer_cfg = copy.deepcopy(cfg)
         # change code
         # use NpuFused optimizer
         optimizer_cfg['type'] = 'NpuFused' + optimizer_cfg['type']
         constructor_type = optimizer_cfg.pop('constructor',
-                                            'DefaultOptimizerConstructor')
+                                             'DefaultOptimizerConstructor')
         paramwise_cfg = optimizer_cfg.pop('paramwise_cfg', None)
         optim_constructor = build_optimizer_constructor(
-            dict(
-                type=constructor_type,
-                optimizer_cfg=optimizer_cfg,
-                paramwise_cfg=paramwise_cfg))
+            dict(type=constructor_type,
+                 optimizer_cfg=optimizer_cfg,
+                 paramwise_cfg=paramwise_cfg))
         optimizer = optim_constructor(model)
         return optimizer
 
@@ -666,7 +616,7 @@ def graph_mode(target: ModuleType, options: Dict):
         build_head,
         build_neck,
     )
-    
+
     from projects.mmdet3d_plugin.models.grid_mask import GridMask
     from projects.mmdet3d_plugin.models.sparse4d import Sparse4D
 
@@ -688,17 +638,19 @@ def graph_mode(target: ModuleType, options: Dict):
         use_grid_mask=True,
         use_deformable_func=False,
         depth_branch=None,
-        ):
+    ):
         super(Sparse4D, self).__init__(init_cfg=init_cfg)
         if pretrained is not None:
             img_backbone.pretrained = pretrained
         self.img_backbone = build_backbone(img_backbone)
-        
+
         # change code
         # use graph mode
         config = torchair.CompilerConfig()
         npu_backend = torchair.get_npu_backend(compiler_config=config)
-        self.img_backbone = torch.compile(self.img_backbone, backend=npu_backend, dynamic=True)
+        self.img_backbone = torch.compile(self.img_backbone,
+                                          backend=npu_backend,
+                                          dynamic=True)
 
         if img_neck is not None:
             self.img_neck = build_neck(img_neck)
@@ -706,16 +658,22 @@ def graph_mode(target: ModuleType, options: Dict):
         self.use_grid_mask = use_grid_mask
         if use_deformable_func:
             if not DAF_VALID:
-                raise RuntimeError("deformable_aggregation needs to be set up.")
+                raise RuntimeError(
+                    "deformable_aggregation needs to be set up.")
         self.use_deformable_func = use_deformable_func
         if depth_branch is not None:
             self.depth_branch = build_from_cfg(depth_branch, PLUGIN_LAYERS)
         else:
             self.depth_branch = None
         if use_grid_mask:
-            self.grid_mask = GridMask(
-                True, True, rotate=1, offset=False, ratio=0.5, mode=1, prob=0.7
-            )
+            self.grid_mask = GridMask(True,
+                                      True,
+                                      rotate=1,
+                                      offset=False,
+                                      ratio=0.5,
+                                      mode=1,
+                                      prob=0.7)
+
     if hasattr(target, "Sparse4D"):
         Sparse4D.__init__ = __init__
 
@@ -730,16 +688,14 @@ def sparse4d_head(target: ModuleType, options: dict):
         self,
         feature_maps: Union[torch.Tensor, List],
         metas: dict,
-        ):
+    ):
         if isinstance(feature_maps, torch.Tensor):
             feature_maps = [feature_maps]
         batch_size = feature_maps[0].shape[0]
 
         # ========= get instance info ============
-        if (
-            self.sampler.dn_metas is not None
-            and self.sampler.dn_metas["dn_anchor"].shape[0] != batch_size
-        ):
+        if (self.sampler.dn_metas is not None
+                and self.sampler.dn_metas["dn_anchor"].shape[0] != batch_size):
             self.sampler.dn_metas = None
         (
             instance_feature,
@@ -747,9 +703,9 @@ def sparse4d_head(target: ModuleType, options: dict):
             temp_instance_feature,
             temp_anchor,
             time_interval,
-        ) = self.instance_bank.get(
-            batch_size, metas, dn_metas=self.sampler.dn_metas
-        )
+        ) = self.instance_bank.get(batch_size,
+                                   metas,
+                                   dn_metas=self.sampler.dn_metas)
 
         # ========= prepare for denosing training ============
         # 1. get dn metas: noisy-anchors and corresponding GT
@@ -786,9 +742,8 @@ def sparse4d_head(target: ModuleType, options: dict):
                 dn_anchor = torch.cat(
                     [
                         dn_anchor,
-                        dn_anchor.new_zeros(
-                            batch_size, num_dn_anchor, remain_state_dims
-                        ),
+                        dn_anchor.new_zeros(batch_size, num_dn_anchor,
+                                            remain_state_dims),
                     ],
                     dim=-1,
                 )
@@ -796,17 +751,15 @@ def sparse4d_head(target: ModuleType, options: dict):
             instance_feature = torch.cat(
                 [
                     instance_feature,
-                    instance_feature.new_zeros(
-                        batch_size, num_dn_anchor, instance_feature.shape[-1]
-                    ),
+                    instance_feature.new_zeros(batch_size, num_dn_anchor,
+                                               instance_feature.shape[-1]),
                 ],
                 dim=1,
             )
             num_instance = instance_feature.shape[1]
             num_free_instance = num_instance - num_dn_anchor
-            attn_mask = anchor.new_ones(
-                (num_instance, num_instance), dtype=torch.bool
-            )
+            attn_mask = anchor.new_ones((num_instance, num_instance),
+                                        dtype=torch.bool)
             attn_mask[:num_free_instance, :num_free_instance] = False
             attn_mask[num_free_instance:, num_free_instance:] = dn_attn_mask
 
@@ -832,8 +785,7 @@ def sparse4d_head(target: ModuleType, options: dict):
                     query_pos=anchor_embed,
                     key_pos=temp_anchor_embed,
                     attn_mask=attn_mask
-                    if temp_instance_feature is None
-                    else None,
+                    if temp_instance_feature is None else None,
                 )
             elif op == "gnn":
                 instance_feature = self.graph_model(
@@ -859,24 +811,19 @@ def sparse4d_head(target: ModuleType, options: dict):
                     anchor,
                     anchor_embed,
                     time_interval=time_interval,
-                    return_cls=(
-                        self.training
-                        or len(prediction) == self.num_single_frame_decoder - 1
-                        or i == len(self.operation_order) - 1
-                    ),
+                    return_cls=(self.training or len(prediction)
+                                == self.num_single_frame_decoder - 1
+                                or i == len(self.operation_order) - 1),
                 )
                 prediction.append(anchor)
                 classification.append(cls)
                 quality.append(qt)
                 if len(prediction) == self.num_single_frame_decoder:
                     instance_feature, anchor = self.instance_bank.update(
-                        instance_feature, anchor, cls
-                    )
-                    if (
-                        dn_metas is not None
-                        and self.sampler.num_temp_dn_groups > 0
-                        and dn_id_target is not None
-                    ):
+                        instance_feature, anchor, cls)
+                    if (dn_metas is not None
+                            and self.sampler.num_temp_dn_groups > 0
+                            and dn_id_target is not None):
                         (
                             instance_feature,
                             anchor,
@@ -896,13 +843,10 @@ def sparse4d_head(target: ModuleType, options: dict):
                         )
                 if i != len(self.operation_order) - 1:
                     anchor_embed = self.anchor_encoder(anchor)
-                if (
-                    len(prediction) > self.num_single_frame_decoder
-                    and temp_anchor_embed is not None
-                ):
-                    temp_anchor_embed = anchor_embed[
-                        :, : self.instance_bank.num_temp_instances
-                    ]
+                if (len(prediction) > self.num_single_frame_decoder
+                        and temp_anchor_embed is not None):
+                    temp_anchor_embed = anchor_embed[:, :self.instance_bank.
+                                                     num_temp_instances]
             else:
                 raise NotImplementedError(f"{op} is not supported.")
 
@@ -930,24 +874,20 @@ def sparse4d_head(target: ModuleType, options: dict):
                 else:
                     new_quality.append(None)
 
-            output.update(
-                {
-                    "dn_prediction": dn_prediction,
-                    "dn_classification": dn_classification,
-                    "dn_reg_target": dn_reg_target,
-                    "dn_cls_target": dn_cls_target,
-                    "dn_valid_mask": valid_mask,
-                }
-            )
+            output.update({
+                "dn_prediction": dn_prediction,
+                "dn_classification": dn_classification,
+                "dn_reg_target": dn_reg_target,
+                "dn_cls_target": dn_cls_target,
+                "dn_valid_mask": valid_mask,
+            })
             if temp_dn_reg_target is not None:
-                output.update(
-                    {
-                        "temp_dn_reg_target": temp_dn_reg_target,
-                        "temp_dn_cls_target": temp_dn_cls_target,
-                        "temp_dn_valid_mask": temp_valid_mask,
-                        "dn_id_target": dn_id_target,
-                    }
-                )
+                output.update({
+                    "temp_dn_reg_target": temp_dn_reg_target,
+                    "temp_dn_cls_target": temp_dn_cls_target,
+                    "temp_dn_valid_mask": temp_valid_mask,
+                    "dn_id_target": dn_id_target,
+                })
                 dn_cls_target = temp_dn_cls_target
                 valid_mask = temp_valid_mask
             dn_instance_feature = instance_feature[:, num_free_instance:]
@@ -968,22 +908,18 @@ def sparse4d_head(target: ModuleType, options: dict):
             prediction = new_prediction
             quality = new_quality
 
-        output.update(
-            {
-                "classification": classification,
-                "prediction": prediction,
-                "quality": quality,
-            }
-        )
+        output.update({
+            "classification": classification,
+            "prediction": prediction,
+            "quality": quality,
+        })
 
         # cache current instances for temporal modeling
-        self.instance_bank.cache(
-            instance_feature, anchor, cls, metas, feature_maps
-        )
+        self.instance_bank.cache(instance_feature, anchor, cls, metas,
+                                 feature_maps)
         if not self.training:
             instance_id = self.instance_bank.get_instance_id(
-                cls, anchor, self.decoder.score_threshold
-            )
+                cls, anchor, self.decoder.score_threshold)
             output["instance_id"] = instance_id
         return output
 
@@ -994,25 +930,25 @@ def sparse4d_head(target: ModuleType, options: dict):
         reg_preds = model_outs["prediction"]
         quality = model_outs["quality"]
         output = {}
-        for decoder_idx, (cls, reg, qt) in enumerate(
-            zip(cls_scores, reg_preds, quality)
-        ):
-            reg = reg[..., : len(self.reg_weights)]
+        for decoder_idx, (cls, reg,
+                          qt) in enumerate(zip(cls_scores, reg_preds,
+                                               quality)):
+            reg = reg[..., :len(self.reg_weights)]
             cls_target, reg_target, reg_weights = self.sampler.sample(
                 cls,
                 reg,
                 data[self.gt_cls_key],
                 data[self.gt_reg_key],
             )
-            reg_target = reg_target[..., : len(self.reg_weights)]
+            reg_target = reg_target[..., :len(self.reg_weights)]
             mask = torch.logical_not(torch.all(reg_target == 0, dim=-1))
             # change code
             res = reduce_mean(torch.sum(mask).to(dtype=reg.dtype))
             if self.cls_threshold_to_reg > 0:
                 threshold = self.cls_threshold_to_reg
                 mask = torch.logical_and(
-                    mask, cls.max(dim=-1).values.sigmoid() > threshold
-                )
+                    mask,
+                    cls.max(dim=-1).values.sigmoid() > threshold)
 
             cls = cls.flatten(end_dim=1)
             cls_target = cls_target.flatten(end_dim=1)
@@ -1022,9 +958,8 @@ def sparse4d_head(target: ModuleType, options: dict):
             reg_target = reg_target.flatten(end_dim=1)[mask]
             reg = reg.flatten(end_dim=1)[mask]
             reg_weights = reg_weights.flatten(end_dim=1)[mask]
-            reg_target = torch.where(
-                reg_target.isnan(), reg.new_tensor(0.0), reg_target
-            )
+            reg_target = torch.where(reg_target.isnan(), reg.new_tensor(0.0),
+                                     reg_target)
             num_pos = max(res, 1.0)
             cls_loss = self.loss_cls(cls, cls_target, avg_factor=num_pos)
             cls_target = cls_target[mask]
@@ -1059,13 +994,10 @@ def sparse4d_head(target: ModuleType, options: dict):
             reg_weights,
             num_dn_pos,
         ) = self.prepare_for_dn_loss(model_outs)
-        for decoder_idx, (cls, reg) in enumerate(
-            zip(dn_cls_scores, dn_reg_preds)
-        ):
-            if (
-                "temp_dn_valid_mask" in model_outs
-                and decoder_idx == self.num_single_frame_decoder
-            ):
+        for decoder_idx, (cls,
+                          reg) in enumerate(zip(dn_cls_scores, dn_reg_preds)):
+            if ("temp_dn_valid_mask" in model_outs
+                    and decoder_idx == self.num_single_frame_decoder):
                 (
                     dn_valid_mask,
                     dn_cls_target,
@@ -1082,8 +1014,7 @@ def sparse4d_head(target: ModuleType, options: dict):
             )
             reg_loss = self.loss_reg(
                 reg.flatten(end_dim=1)[dn_valid_mask][dn_pos_mask][
-                    ..., : len(self.reg_weights)
-                ],
+                    ..., :len(self.reg_weights)],
                 dn_reg_target,
                 avg_factor=num_dn_pos,
                 weight=reg_weights,
@@ -1092,9 +1023,133 @@ def sparse4d_head(target: ModuleType, options: dict):
             output[f"loss_cls_dn_{decoder_idx}"] = cls_loss
             output.update(reg_loss)
         return output
+
     if hasattr(target, "Sparse4DHead"):
         Sparse4DHead.forward = forward
         Sparse4DHead.loss = loss
+
+
+def data_parallel(target: ModuleType, options: dict):
+    from typing import Any
+    from itertools import chain
+
+    def forward(self, *inputs: Any, **kwargs: Any) -> Any:
+        with torch.autograd.profiler.record_function("DataParallel.forward"):
+            if not self.device_ids:
+                return self.module(*inputs, **kwargs)
+
+            for t in chain(self.module.parameters(), self.module.buffers()):
+                if t.device != t.device:
+                    raise RuntimeError(
+                        "module must have its parameters and buffers "
+                        f"on device {self.src_device_obj} (device_ids[0]) but found one of "
+                        f"them on device: {t.device}")
+
+            inputs, module_kwargs = self.scatter(inputs, kwargs,
+                                                 self.device_ids)
+            # for forward function without any inputs, empty list and dict will be created
+            # so the module can be executed on one device which is the first one in device_ids
+            if not inputs and not module_kwargs:
+                inputs = ((), )
+                module_kwargs = ({}, )
+
+            if len(self.device_ids) == 1:
+                return self.module(*inputs[0], **module_kwargs[0])
+            replicas = self.replicate(self.module,
+                                      self.device_ids[:len(inputs)])
+            outputs = self.parallel_apply(replicas, inputs, module_kwargs)
+            return self.gather(outputs, self.output_device)
+
+    if hasattr(target, "DataParallel"):
+        target.DataParallel.forward = forward
+
+
+def focal_loss(target: ModuleType, options: dict):
+    from torch.autograd.function import once_differentiable
+    from typing import Optional, Union
+    import mx_driving._C
+
+    @staticmethod
+    def forward(ctx,
+                input: torch.Tensor,
+                target: Union[torch.LongTensor, torch.cuda.LongTensor],
+                gamma: float = 2.0,
+                alpha: float = 0.25,
+                weight: Optional[torch.Tensor] = None,
+                reduction: str = 'mean') -> torch.Tensor:
+
+        assert target.dtype == torch.long
+        assert input.dim() == 2
+        assert target.dim() == 1
+        assert input.size(0) == target.size(0)
+        if weight is None:
+            weight = input.new_empty(0)
+        else:
+            assert weight.dim() == 1
+            assert input.size(1) == weight.size(0)
+        ctx.reduction_dict = {'none': 0, 'mean': 1, 'sum': 2}
+        assert reduction in ctx.reduction_dict.keys()
+
+        ctx.gamma = float(gamma)
+        ctx.alpha = float(alpha)
+        ctx.reduction = ctx.reduction_dict[reduction]
+
+        output = input.new_zeros(input.size())
+
+        mx_driving._C.sigmoid_focal_loss(input, target, weight, output,
+                                         ctx.gamma, ctx.alpha)
+        if ctx.reduction == ctx.reduction_dict['mean']:
+            output = output.sum() / input.size(0)
+        elif ctx.reduction == ctx.reduction_dict['sum']:
+            output = output.sum()
+        ctx.save_for_backward(input, target, weight)
+        return output
+
+    @staticmethod
+    @once_differentiable
+    def backward(ctx, grad_output: torch.Tensor) -> tuple:
+        input, target, weight = ctx.saved_tensors
+
+        grad_input = input.new_zeros(input.size())
+
+        mx_driving._C.sigmoid_focal_loss_backward(input, target, weight,
+                                                  grad_input, ctx.gamma,
+                                                  ctx.alpha)
+
+        grad_input *= grad_output
+        if ctx.reduction == ctx.reduction_dict['mean']:
+            grad_input /= input.size(0)
+        return grad_input, None, None, None, None, None
+
+    if hasattr(target, "SigmoidFocalLossFunction"):
+        target.SigmoidFocalLossFunction.forward = forward
+        target.SigmoidFocalLossFunction.backward = backward
+
+
+def modulated_deform_conv2d_(target: ModuleType, options: dict):
+    from mmcv.ops.modulated_deform_conv import modulated_deform_conv2d
+
+    def forward_1(self, x: torch.Tensor, offset: torch.Tensor,
+                  mask: torch.Tensor) -> torch.Tensor:
+        return modulated_deform_conv2d(x, offset, mask, self.weight.half(),
+                                       self.bias, self.stride, self.padding,
+                                       self.dilation, self.groups,
+                                       self.deform_groups)
+
+    def forward_2(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore
+        out = self.conv_offset(x)
+        o1, o2, mask = torch.chunk(out, 3, dim=1)
+        offset = torch.cat((o1, o2), dim=1)
+        mask = torch.sigmoid(mask)
+        return modulated_deform_conv2d(x, offset, mask, self.weight.half(),
+                                       self.bias, self.stride, self.padding,
+                                       self.dilation, self.groups,
+                                       self.deform_groups)
+
+    if hasattr(target, "ModulatedDeformConv2d"):
+        target.ModulatedDeformConv2d.forward = forward_1
+    if hasattr(target, "ModulatedDeformConv2dPack"):
+        target.ModulatedDeformConv2dPack.forward = forward_2
 
 
 def generate_patcher_builder():
@@ -1110,6 +1165,9 @@ def generate_patcher_builder():
         .add_module_patch("projects.mmdet3d_plugin.models.detection3d.target", Patch(detection_target))
         .add_module_patch("projects.mmdet3d_plugin.models.sparse4d_head", Patch(sparse4d_head))
         .add_module_patch("mmcv.runner.hooks.optimizer", Patch(mmcv_optimizer))
+        .add_module_patch("torch.nn.parallel.data_parallel", Patch(data_parallel))
+        .add_module_patch("mmcv.ops.focal_loss", Patch(focal_loss))
+        .add_module_patch("mmcv.ops.modulated_deform_conv", Patch(modulated_deform_conv2d_))
     )
     if os.environ.get("SPARSE4D_PERFORMANCE_FLAG"):
         sparse4d_patcher_builder.brake_at(500)

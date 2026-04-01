@@ -51,6 +51,8 @@ mkdir -p ${output_path}
 cd BEVFormer
 config=projects/configs/bevformer_fp16/bevformer_base_fp16.py
 
+export BEVFORMER_PERFORMANCE_FLAG=1
+
 # 备份config文件
 cp ${config} ${config}.bak
 
