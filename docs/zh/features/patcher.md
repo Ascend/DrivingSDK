@@ -151,7 +151,7 @@ if __name__ == '__main__':
 
 ### 与Default Patcher混用
 
-通常当模型存在一些模型自有的CUDA算子或非NPU亲和的操作，光靠预定义Patch无法保证迁移完备性，可在使用`default_patch_builder`的基础上添加自定义Patch:
+通常当模型存在一些模型自有的CUDA算子或非NPU亲和的操作，光靠预定义Patch无法保证迁移完备性，可在使用`default_patcher_builder`的基础上添加自定义Patch:
 
 patch.py:
 
@@ -162,14 +162,14 @@ def my_patch(root_module: ModuleType, options: Dict):
     ...... # 参考上文
 
 my_patcher_builder = (
- default_patch_builder
+ default_patcher_builder
  .add_module_patch('root_module', Patch(my_patch, {'option1': xxx, 'option2': xxx, ...}))
 )
 ```
 
 ### 与预定义Patch混用
 
-具体要迁移的模型往往并不会使用到`default_patch_builder`内所有的预定义Patch，更优雅的写法是从中挑选出模型实际用的到的Patch:
+具体要迁移的模型往往并不会使用到`default_patcher_builder`内所有的预定义Patch，更优雅的写法是从中挑选出模型实际用的到的Patch:
 patch.py:
 
 ```Python

@@ -58,7 +58,7 @@ def gen_inputs(data_range, batch_size, max_points_per_batch，Ndim):
     num_points_x = ptr_x[-1]
     num_points_y = ptr_y[-1]
     x = gen_points(num_points_x, data_range, Ndim)
-    y = gen_points(num_points_y, data_range，Ndim)
+    y = gen_points(num_points_y, data_range, Ndim)
     return x, y, ptr_x, ptr_y
 
 data_range = 50 # X和Y的取值在[-50, 50]范围内

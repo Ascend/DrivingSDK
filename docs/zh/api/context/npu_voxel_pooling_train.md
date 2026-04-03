@@ -34,8 +34,8 @@ mx_driving.point.npu_voxel_pooling_train(Tensor geom_xyz, Tensor input_features,
 - num_voxel_x <= 1000
 - num_voxel_y <= 1000
 - num_voxel_z <= 10
-- B *num_voxel_y* num_voxel_x * C <= 100000000
-- B *N* C <= 100000000
+- B * num_voxel_y * num_voxel_x * C <= 100000000
+- B * N * C <= 100000000
 - 反向具有相同约束。
 
 ## 支持的型号

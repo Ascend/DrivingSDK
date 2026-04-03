@@ -80,7 +80,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 |       CANN        | 8.2.RC1  |
 |       Python        | 3.9  |
 
-1. 激活 CANN 环境
+1. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
     
 2. 安装Driving SDK
 
@@ -273,4 +273,4 @@ yum install -y gawk
 
 2. 训练过程会自动下载inception权重，如果遇到网络问题等下载失败，可以本地下载后，手动将该权重文件放到日志指定路径
 
-3. 我们支持的训练方式是单数据集nuScenes，若在执行`python -m pip install -r requirements.txt` 时由于网络原因下载kitti仓失败，注释掉对应依赖即可
+3. 我们支持的训练方式是单数据集nuScenes，若在执行`python -m pip install -r requirements.txt` 时由于网络原因下载Kitti相关依赖失败，注释掉对应依赖即可

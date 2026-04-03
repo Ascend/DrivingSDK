@@ -11,7 +11,7 @@
 * CANN包
 * torch_npu包
 * 根目录下requirements.txt里列出的依赖
-* 源码编译并安装了的drivingsdk包
+* 源码编译并安装了的DrivingSDK包
 
 ### 额外依赖
 
@@ -31,7 +31,7 @@
 * 可通过pip安装的依赖，已列于当前目录下的requirements.txt
 
   ```Bash
-  pip install requirements.txt
+  pip install -r requirements.txt
   ```
 
 ### 运行测试脚本

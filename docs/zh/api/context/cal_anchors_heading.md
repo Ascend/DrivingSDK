@@ -3,7 +3,7 @@
 ## 接口原型
 
 ```python
-mx_driving.cal_anchors_heading(Tensor anchors, Tensor origin_pos) -> Tensor
+mx_driving.cal_anchors_heading(Tensor anchors, Tensor origin_pos=None) -> Tensor
 ```
 
 ## 功能描述
@@ -12,7 +12,7 @@ mx_driving.cal_anchors_heading(Tensor anchors, Tensor origin_pos) -> Tensor
 
 ## 参数说明
 
-- `anchors(Tensor)`：每个意图轨迹的序列坐标，数据类型为`float32`，shape 为 `[batch_size, anchors_num, seq_length, 2]`。
+- `anchors(Tensor)`：每个锚点轨迹的序列坐标，数据类型为`float32`，shape 为 `[batch_size, anchors_num, seq_length, 2]`。
 - `origin_pos(Tensor)`：可选参数，每个 anchor 的起始位置坐标，数据类型为`float32`，shape 为 `[batch_size, 2]`。
 
 ## 返回值

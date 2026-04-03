@@ -72,7 +72,7 @@
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-0. 激活 CANN 环境
+0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件，并安装其它依赖项。
 

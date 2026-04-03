@@ -21,7 +21,7 @@ out, argmax = scatter_max(updates, indices, out)
 
 ```Python
 if __name__ == '__main__':
- main()
+    main()
 ```
 
 ### 2. 应用一键patcher
@@ -30,8 +30,8 @@ if __name__ == '__main__':
 from mx_driving.patcher import default_patcher_builder
 #......
 if __name__ == '__main__':
- with default_patcher_builder.build() as patcher:
-  main()
+    with default_patcher_builder.build() as patcher:
+      main()
 ```
 
 若模型训练报错，可进一步参考[模型FAQ](../faq/model_faq.md)进行排查。若希望进一步了解一键patcher特性，可查阅[一键Patcher文档](../features/patcher.md)。 

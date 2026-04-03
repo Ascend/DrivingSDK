@@ -224,7 +224,7 @@ cp -rf test StreamPETR
 
 10. 编译优化
 (1)python编译优化
-参考官网下载并安装毕昇编译器4.1.0版本：<https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler：>
+参考官网下载并安装毕昇编译器4.1.0版本：<https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler>
 
 ```shell
 ulimit -n 4096
@@ -263,7 +263,7 @@ export CXX=clang++
 python安装路径为/home/miniconda3/envs/petr/bin/python
 
 ```shell
-./configure --prefix=/home/miniconda3/envs/petr > --with-lto --enable-optimizations
+./configure --prefix=/home/miniconda3/envs/petr --with-lto --enable-optimizations
 make -j
 make install
 ```

@@ -37,11 +37,10 @@ mx_driving.cartesian_to_frenet(Tensor pt, Tensor poly_line) -> Tuple[torch.Tenso
 import torch
 import torch_npu
 import mx_driving
-batch_size = 2
-num_point = 40
-num_poly_line_point = 20
 batch_size = 5000
+num_point = 40
+num_polyline_point = 20
 pt = torch.randn((batch_size, num_point, 2)).npu()
-poly_line = torch.randn((batch_size, num_poly_line_point, 2)).npu()
+poly_line = torch.randn((batch_size, num_polyline_point, 2)).npu()
 poly_start, poly_end, sl = mx_driving.cartesian_to_frenet(pt, poly_line)
 ```

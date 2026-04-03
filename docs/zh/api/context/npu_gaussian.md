@@ -30,11 +30,11 @@ mx_driving.npu_gaussian(Tensor boxes, int out_size_factor, float gaussian_overla
 
 ## 返回值
 
-- `center_int(Tensor)`：经过计算后的直角三角形斜边，数据类型为`int32`，shape为`[minObjs, 2]`。
+- `center_int(Tensor)`：经过计算后的中心点坐标，数据类型为`int32`，shape为`[minObjs, 2]`。
 - `radius(Tensor)`：经过计算后的高斯半径，数据类型为`int32`，shape为`[minObjs]`。
 - `mask(Tensor)`：经过计算后的符合要求的boxes的掩码，数据类型为`uint8`，shape为`[max_objs]`。
 - `ind(Tensor)`：经过计算后的符合要求的boxes中心点的偏移量，数据类型为`int64`，shape为`[max_objs]`。
-- `anno_box(Tensor)`：经过计算后的直角三角形斜边，数据类型为`float32`，shape为`[max_objs, 10]`。
+- `anno_box(Tensor)`：经过计算后的3D边界框属性，数据类型为`float32`，shape为`[max_objs, 10]`。
 
 ## 算子约束
 
@@ -65,5 +65,5 @@ with_velocity = True
 flip_angle = True
 num_objs = 100
 boxes = -50 + 100 * torch.rand((num_objs, 9), dtype=torch.float32).npu()
-output = npu_gaussian(boxes, out_size_factor, gaussian_overlap, min_radius, voxel_size_x, voxel_size_y, pc_range_x, pc_range_y, feature_map_size_x, feature_map_size_y, norm_bbox, with_velocity, flip_angle)
+output = npu_gaussian(boxes, out_size_factor, gaussian_overlap, min_radius, voxel_size_x, voxel_size_y, pc_range_x, pc_range_y, feature_map_size_x, feature_map_size_y, norm_bbox, with_velocity, flip_angle, num_objs)
 ```

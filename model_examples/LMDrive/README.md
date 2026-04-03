@@ -84,8 +84,8 @@ LMDrive 是首个将大语言模型运用至自动驾驶端到端、闭环训练
 conda create -n lmdrive python=3.8
 conda activate lmdrive
 git clone https://github.com/opendilab/LMDrive.git
-cp -f {DrivingSDK_root_dir}/model_examples/LMDrive/npu.patch LMDrive
-cp -rf {DrivingSDK_root_dir}/model_examples/LMDrive/test LMDrive
+cp -f ${DrivingSDK_root_dir}/model_examples/LMDrive/npu.patch LMDrive
+cp -rf ${DrivingSDK_root_dir}/model_examples/LMDrive/test LMDrive
 cd LMDrive
 git checkout 43fc2e9a914623fd6eec954a94aeca2d3966e3db
 git apply --whitespace=fix npu.patch
@@ -100,11 +100,11 @@ git apply --whitespace=fix npu.patch
     ```shell
     tar -zxvf ffmpeg-4.2.1.tar.gz
     cd ffmpeg-4.2.1
-    ./configure --enable-shared --disable-swresample --disable-x86asm --prefix=/path/to/ffmpeg(安装路径)
-    make -j 32（cpu核数）
+    ./configure --enable-shared --disable-swresample --disable-x86asm --prefix=${FFMPEG_PATH}
+    make -j $(nproc)
     make install
     vi ~/.bashrc
-    export FFMPEG_PATH=/path/to/ffmpeg/
+    export FFMPEG_PATH=${FFMPEG_PATH}
     export LD_LIBRARY_PATH=$FFMPEG_PATH/lib:$LD_LIBRARY_PATH
     source ~/.bashrc
 
@@ -210,7 +210,7 @@ LMDrive/LAVIS/lavis/models/drive/blip2.py：
 
 ### 训练任务
 
-本任务主要提供**单机**的**8卡**训练脚补丁，基于LMDrive模型原仓对训练代码进行修改，使其适配昇腾AI处理器。
+本任务主要提供**单机**的**8卡**训练脚本，基于LMDrive模型原仓对训练代码进行修改，使其适配昇腾AI处理器。
 
 #### 开始训练
 

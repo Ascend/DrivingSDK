@@ -214,7 +214,7 @@ bash migrate_to_ascend/train_8p.sh --performance
 
 `train_8p.sh`
 
-* `--performance`：添加该参数，训练脚本仅验机器性能；未添加时，正常长跑训练完整epochs数
+* `--performance`：添加该参数，训练脚本仅验证模型性能；未添加时，正常长跑训练完整epochs数
 * `--num_npu`: 可调整训练使用的npu卡数
 * `--batch_size`: 可调整每张卡的batch size
 

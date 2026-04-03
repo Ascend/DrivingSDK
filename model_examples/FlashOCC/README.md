@@ -59,7 +59,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-0. 激活 CANN 环境
+0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 1. 准备模型源码及安装基础依赖
 
@@ -223,7 +223,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 # FAQ
 
-## 训练时报错`ImportError: cannot import name 'gcd' from 'fraction'` 
+## 训练时报错`ImportError: cannot import name 'gcd' from 'fractions'` 
 
 报错原因为networkx版本低，使用`pip install networkx==3.1`升级依赖版本即可。
 

@@ -23,8 +23,8 @@ mx_driving.common.three_nn(Tensor target, Tensor source) -> (Tensor dist, Tensor
 
 ## 返回值
 
-- `dist(Tensor)`：采样后的索引数据，数据类型为`float32/float16`。shape为`[B, npoint, 3]`。
-- `idx(Tensor)`：采样后的索引数据，数据类型为`int32/int32`。shape为`[B, npoint, 3]`。
+- `dist(Tensor)`：采样后的距离数据，数据类型为`float32/float16`。shape为`[B, npoint, 3]`。
+- `idx(Tensor)`：采样后的索引数据，数据类型为`int32/int64`。shape为`[B, npoint, 3]`。
 
 ## 算子约束
 

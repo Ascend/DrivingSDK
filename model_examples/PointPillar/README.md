@@ -80,7 +80,7 @@ code_path=model_examples/PointPillar
    pip install ccimport==0.3.7
    ```
   
-  手动编译安装cumm==0.2.9，spconv=2.1.25。需要安装指定版本GCC，版本为GCC 7.5.0
+  手动编译安装cumm==0.2.9，spconv==2.1.25。需要安装指定版本GCC，版本为GCC 7.5.0
 
   #### 2.2 编译安装cumm
 
@@ -126,9 +126,13 @@ code_path=model_examples/PointPillar
 
    4. 将spconv/spconv/pytorch/ops.py文件第32行代码进行调整
 
+      将代码 
       ```python
-      将代码 if hasattr(_ext, "cumm"):
-      调整为 if 0:
+      if hasattr(_ext, "cumm"):
+      ```
+      调整为 
+      ```python
+      if 0:
       ```
 
    5. 注释spconv/spconv/utils/\_\_init\_\_.py文件第26-30行代码
@@ -218,7 +222,7 @@ code_path=model_examples/PointPillar
    ```
 
 2. 运行训练脚本。
-   该模型支持单机单机8卡训练
+   该模型支持单机8卡训练
    
    运行脚本支持命令行参数：
    - '--num-npu'：NPU卡数，默认为8；
@@ -288,7 +292,7 @@ conda install -c conda-forge blas
 
 ### 数据预处理序列化时报错
 
-可能时网络不稳定导致数据集下载时缺失部分image或者.bin文件
+可能是网络不稳定导致数据集下载时缺失部分image或者.bin文件
 
 ### 报错：KeyError:'road_plane'
 

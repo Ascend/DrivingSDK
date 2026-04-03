@@ -8,6 +8,8 @@ mx_driving.npu_batch_matmul(Tensor projection_mat, Tensor pts_extend) -> Tensor
 
 ## 功能描述
 
+实现批量矩阵乘法，与`torch.batch_matmul`功能相同。
+
 ## 参数说明
 
 - `projection_mat(Tensor)`：投影矩阵，数据类型为`float32`。Shape为4-6维，最后两维需要是`4, 4`或`3, 3`，且和pts_extend互相可广播。

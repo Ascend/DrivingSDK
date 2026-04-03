@@ -144,7 +144,7 @@ TPVFormer_for_PyTorch/data
 1. 进入解压后的源码包根目录。
 
    ```shell
-   cd /${模型文件夹名称} 
+   cd DrivingSDK/model_examples/TPVFormer/
    ```
 
 2. *lidar segmentation dim64*任务训练

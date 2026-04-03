@@ -28,8 +28,8 @@ mx_driving.grid_sampler2d_v2(Tensor input, Tensor grid, str mode="bilinear", str
 - `input` 和 `grid` 均不支持 `inf` 、`-inf` 和 `nan`，不支持空 tensor。
 - `grid` 最后一维必须为 2，元素值需归一化到 `[-1, 1]`。
 - `input`、 `grid` 和 `output` 的元素个数在 int32 范围内，并且每个元素的偏移量均能用 32 位索引表示。
-- mode仅支持 `"bilinear"`，padding_mode仅支持`"zeros"`，`"border"`，input要求 C <= 128，且为4的倍数。
-- 相比于 cann 中的 `grid_sample`，针对 BEVDet 模型场景做了性能优化，所有参数配置需要与模型配置保持一致。即 `input: (24, 4, 64, 176), grid: (24, 5632, 176, 2), "bilinear", "zeros", True`。
+- mode仅支持 `"bilinear"`，padding_mode仅支持`"zeros"`，`"border"`，input要求 C <= 128，且C为4的倍数。
+- 相比于 CANN 中的 `grid_sample`，针对 BEVDet 模型场景做了性能优化，所有参数配置需要与模型配置保持一致。即 `input: (24, 4, 64, 176), grid: (24, 5632, 176, 2), "bilinear", "zeros", True`。
 
 ## 支持的型号
 

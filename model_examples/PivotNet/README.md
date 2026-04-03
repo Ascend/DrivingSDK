@@ -75,7 +75,7 @@ code_path=model_examples/PivotNet
 | :-----: | :------: |
 | PyTorch |  2.1.0   |
 
-0. 激活 CANN 环境
+0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
@@ -155,13 +155,13 @@ code_path=model_examples/PivotNet
 
   - 安装毕昇编译器
 
-  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器，官网下载毕昇编译器4.1.0版本：<https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler。>
+  将CANN包安装目录记为cann_root_dir，执行下列命令安装毕昇编译器，官网下载毕昇编译器4.1.0版本：<https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler>
 
   ```shell
   tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
   export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
   export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
-  source {cann_root_dir}/set_env.sh
+  source ${cann_root_dir}/set_env.sh
   ```
 
   - 安装依赖，将安装mpdecimal依赖包的目录记为mpdecimal_install_path。
@@ -193,7 +193,7 @@ code_path=model_examples/PivotNet
   cd Python-3.8.17
   export CC=clang
   export CXX=clang++
-  ./configure --prefix=python_path > --with-lto --enable-optimizations
+  ./configure --prefix=python_path --with-lto --enable-optimizations
   make -j
   make install
   ```
@@ -206,7 +206,7 @@ code_path=model_examples/PivotNet
   cd PivotNet
   git checkout 3f334e499bae6c9e2f3ed06cf77ac6cbd22d0ba8
   git apply --reject --whitespace=fix pivotnet.patch
-  pip install -r requirement.txt
+  pip install -r requirements.txt
   ```
 
 ### 模型数据准备
@@ -237,8 +237,8 @@ code_path=model_examples/PivotNet
 ```shell
 cd /path/to/pivotnet
 cd assets/weights
-wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/efficientnet-b0-355c32eb.pth .
-wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/resnet50-0676ba61.pth .
+wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/efficientnet-b0-355c32eb.pth
+wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/resnet50-0676ba61.pth
 wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_tiny_patch4_window7_512x512.pth .
 ```
 

@@ -3,7 +3,7 @@
 ## 接口原型
 
 ```python
-mx_driving.npu_assign_target_of_single_head(Tensor boxes, Tensor cur_class_id, int num_classes int out_size_factor, float gaussian_overlap, int min_radius, FloatList voxel_size, FloatList pc_range, IntList feature_map_size, bool norm_bbox, bool with_velocity, bool flip_angle, int max_objs) -> (Tensor heatmap, Tensor anno_box, Tensor ind, Tensor mask)
+mx_driving.npu_assign_target_of_single_head(Tensor boxes, Tensor cur_class_id, int num_classes, int out_size_factor, float gaussian_overlap, int min_radius, FloatList voxel_size, FloatList pc_range, IntList feature_map_size, bool norm_bbox, bool with_velocity, bool flip_angle, int max_objs) -> (Tensor heatmap, Tensor anno_box, Tensor ind, Tensor mask)
 ```
 
 ## 功能描述
@@ -12,8 +12,8 @@ mx_driving.npu_assign_target_of_single_head(Tensor boxes, Tensor cur_class_id, i
 
 ## 参数说明
 
-- `boxes(Tensor)`：每个目标的3D边界框信息，数据类型为`float32`，shape为`[Num_objs, W]`。
-- `cur_class_id(Tensor)`：对应目标所在的热力图（heatmap）编号，数据类型为`int32`, shape为`[boxObjs]`。
+- `boxes(Tensor)`：每个目标的3D边界框信息，数据类型为`float32`，shape为`[num_objs, W]`。
+- `cur_class_id(Tensor)`：对应目标所在的热力图（heatmap）编号，数据类型为`int32`, shape为`[num_objs]`。
 - `num_classes(int)`：热力图（heatmap）的数量。
 - `out_size_factor(int)`：特征图缩放因子。
 - `gaussian_overlap(float)`：用于控制高斯半径的计算。
@@ -24,14 +24,14 @@ mx_driving.npu_assign_target_of_single_head(Tensor boxes, Tensor cur_class_id, i
 - `norm_bbox(bool)`：是否对3D边界框的参数进行归一化。
 - `with_velocity(bool)`：是否在目标检测任务中引入速度信息。
 - `flip_angle(bool)`：是否在结果中将正弦余弦结果反转。
-- `max_objs(int)`：处理boxes数量的上限。
+- `max_objs(int)`：处理boxes数量的上限，可选参数，默认值为500。
 
 ## 返回值
 
-- `heatmap(Tensor)`：通过计算得到的热力图（heatmap），数据类型为`float32`，shape为`[num_classes, feature_map_sizep[1], feature_map_size[0]]`。
+- `heatmap(Tensor)`：通过计算得到的热力图（heatmap），数据类型为`float32`，shape为`[num_classes, feature_map_size[1], feature_map_size[0]]`。
 - `anno_box(Tensor)`：经过计算后的直角三角形斜边，数据类型为`float32`，shape为`[max_objs, 10]`。
-- `mask(Tensor)`：经过计算后的符合要求的boxes的掩码，数据类型为`uint8`，shape为`[max_objs]`。
 - `ind(Tensor)`：经过计算后的符合要求的boxes中心点的偏移量，数据类型为`int64`，shape为`[max_objs]`。
+- `mask(Tensor)`：经过计算后的符合要求的boxes的掩码，数据类型为`uint8`，shape为`[max_objs]`。
 
 ## 算子约束
 

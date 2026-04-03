@@ -3,7 +3,7 @@
 ## 接口原型
 
 ```python
-mx_driving.scatter_add(Tensor src, Tensor indices, int dim=0， Tensor out=None, int dim_size=None) -> Tensor
+mx_driving.scatter_add(Tensor src, Tensor indices, int dim=0, Tensor out=None, int dim_size=None) -> Tensor
 ```
 
 ## 功能描述
@@ -25,7 +25,7 @@ mx_driving.scatter_add(Tensor src, Tensor indices, int dim=0， Tensor out=None,
 ## 算子约束
 
 - `indices`的维度必须小于等于`src`的维度，且每一维的长度均必须与`src`长度相同。
-- `indices`的取值必须为非负的有效索引值，参数`out`或`data_size`不为`None`时，`indices`的取值应该为输出张量在`dim`维的有效索引值。
+- `indices`的取值必须为非负的有效索引值，参数`out`或`dim_size`不为`None`时，`indices`的取值应该为输出张量在`dim`维的有效索引值。
 - `out`的维度必须与`src`的维度相同，且除第`dim`维外其余维的长度必须与`src`相同。
 - `dim`取值不能超过`indices`的维度。
 - `dim_size`的取值必须为非负的有效长度值。

@@ -32,7 +32,7 @@ mx_driving.common.knn(int k, Tensor xyz, Tensor center_xyz, bool Transposed) -> 
 1. k必须>0且<100。
 2. xyz中的每个batch中的任意一个点到center_xyz对应batch中的任意一个点的距离必须在1e10f以内。
 3. xyz和center_xyz的shape必须是3维，当Transposed=True时，xyz和center_xyz的shape的dim的第1维必须是3；当Transposed=False时，xyz和center_xyz的shape的dim的第2维必须是3。
-4. 由于距离相同时排序为不稳定排序，存在距离精度通过但索引精度错误问题，与竞品无法完全对齐。
+4. 由于距离相同时排序为不稳定排序，导致距离精度满足要求但索引精度出现问题，因而无法与竞品完全对齐。
 5. 性能在N值较大的场景下较优。
 
 ## 支持的型号

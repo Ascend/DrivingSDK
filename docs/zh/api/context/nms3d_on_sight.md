@@ -27,7 +27,7 @@ mx_driving.nms3d_on_sight(Tensor boxes, Tensor scores, float threshold) -> Tenso
 - 0 < N <= 2500
 - 0 <= scores <= 1
 - -0.5 <= threshold <= 1
-- 由于距离相同时排序为不稳定排序，存在距离精度通过但索引精度错误问题，与竞品无法完全对齐。
+- 由于距离相同时排序为不稳定排序，导致距离精度满足要求但索引精度出现问题，因而无法与竞品完全对齐。
 
 ## 支持的型号
 

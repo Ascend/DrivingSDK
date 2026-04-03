@@ -125,10 +125,13 @@ python -c "import cumm"
     ```
 
 4. 将spconv/spconv/pytorch/ops.py文件第32行代码进行调整
-
+    将代码
     ```python
-    # 将代码 if hasattr(_ext, "cumm"):
-    # 调整为 if 0:
+    if hasattr(_ext, "cumm"):
+    ```
+    调整为
+    ```python 
+    if 0:
     ```
 
 5. 注释spconv/spconv/utils/\_\_init\_\_.py文件第26-30行代码
@@ -225,7 +228,7 @@ python setup.py develop
     ```
 
 3. 运行训练脚本。
-   该模型支持单机单机8卡训练
+   该模型支持单机8卡训练
 
    ```shell
    cd tools/test
@@ -523,7 +526,7 @@ yum -y install bc
 pip install protobuf
 ```
 
-### 在Pytorh 2.5, Python 3.10环境下，需要在1 基本环境准备 中使用CenterPoint路径下的2.5_requirements.txt进行依赖安装
+### 在Pytorch 2.5, Python 3.10环境下，需要在1 基本环境准备 中使用CenterPoint路径下的2.5_requirements.txt进行依赖安装
 
 在CenterPoint路径下执行
 

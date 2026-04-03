@@ -20,7 +20,7 @@ mx_driving.detection.box_iou_quadri(Tensor boxes_a, Tensor boxes_b, str mode='io
 
 - `boxes_a (Tensor)`：第一组bounding boxes，数据类型为`float32`。shape为`[M, 8]`。其中`8`分别代表`x1, y1, x2, y2, x3, y3, x4, y4`, 表示box四个顶点的横纵坐标。
 - `boxes_b (Tensor)`：第二组bounding boxes，数据类型为`float32`。shape为`[N, 8]`。其中`8`分别代表`x1, y1, x2, y2, x3, y3, x4, y4`, 表示box四个顶点的横纵坐标。
-- `mode (str)`：取值为`"iou"`时，计算IoU（intersection over union）；取值为`"iof"`时，计算IoF（intersection over foregroud）。
+- `mode (str)`：取值为`"iou"`时，计算IoU（intersection over union）；取值为`"iof"`时，计算IoF（intersection over foreground）。
 - `aligned (bool)`：取值为`True`时，只计算配对的box之间的结果；取值为`False`时，计算每对box之间的结果。
 
 ## 返回值

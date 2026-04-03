@@ -21,7 +21,7 @@ mx_driving.detection.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans
 - `self(Tensor)`：边界框张量，数据类型为`float32, float16`，形状为`[B, N, 5]`。
 - `query_boxes(Tensor)`：查询框张量，数据类型为`float32, float16`，形状为`[B, M, 5]`。
 - `trans(bool)`：是否进行坐标变换。默认值为`False`。值为`True`时，表示`xyxyt`, 值为`False`时，表示`xywht`，其中`t`为角度制。
-- `is_cross(bool)`：值为`True`时，则对两组边界框中每个边界框之间进行计算。值为`False`时，只对对齐的边界框之间进行计算。
+- `is_cross(bool)`：值为`True`时，则对两组边界框中每个边界框之间进行计算。值为`False`时，只对已对齐的边界框进行计算。
 - `mode(int)`：计算IoU的模式。默认值为`0`。值为`0`时，表示计算`IoU`，值为`1`时，表示计算`IoF`。
 - `v_threshold(float)`：顶点判断的容忍阈值。
 - `e_threshold(float)`：边相交判断的容忍阈值。

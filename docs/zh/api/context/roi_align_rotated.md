@@ -3,14 +3,14 @@
 ## 接口原型
 
 ```python
-mx_driving.roi_align_rotated(Tensor feature_map, Tensor rois, float: spatial_scale,
+mx_driving.roi_align_rotated(Tensor feature_map, Tensor rois, float spatial_scale,
                              int: sampling_ratio, int: pooled_height, int: pooled_width, bool: aligned, bool: clockwise) -> Tensor
 ```
 
 兼容：
 
 ```python
-mx_driving.detection.roi_align_rotated(Tensor feature_map, Tensor rois, float: spatial_scale,
+mx_driving.detection.roi_align_rotated(Tensor feature_map, Tensor rois, float spatial_scale,
                                        int: sampling_ratio, int: pooled_height, int: pooled_width, bool: aligned, bool: clockwise) -> Tensor
 ```
 
@@ -20,7 +20,7 @@ mx_driving.detection.roi_align_rotated(Tensor feature_map, Tensor rois, float: s
 
 ## 参数说明
 
-- `feature map(Tensor)`：特征图张量，数据类型为`float32`，形状为`[B, C, H, W]`。
+- `feature_map(Tensor)`：特征图张量，数据类型为`float32`，形状为`[B, C, H, W]`。
 - `rois(Tensor)`：感兴趣区域张量，数据类型为`float32`，形状为`[n, 6]`。
 - `spatial_scale(float)`：感兴趣区域边界框的缩放率，数据类型为`float32`。
 - `sampling_ratio(int)`：采样率，数据类型为`int`。取值范围为非负整数。

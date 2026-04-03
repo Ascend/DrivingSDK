@@ -79,7 +79,7 @@ cd nwm
 git checkout 3f6cd8e70d6f2d1e2b9684acff510710135f0f41
 cp -f ../NWM_npu.patch .
 git apply --reject --whitespace=fix NWM_npu.patch
-cp -r ../test 
+cp -r ../test .
 ```
 
 - 安装环境依赖
@@ -143,7 +143,7 @@ bash test/train_8p_nwm_full.sh --max-epochs 7
 
 #### 单机八卡训练性能和loss对比
 
-| 芯片          | 卡数 | gloabl batchsize |  Loss  |  SPS  |
+| 芯片          | 卡数 | global batchsize |  Loss  |  SPS  |
 | ------------- | :--: | :--------------: | :----: | :---: |
 | 竞品A         |  8p  |       96        | 0.1413 | 383.06 |
 | Atlas 800T A2 |  8p  |       96        | 0.1502 | 363.39 |

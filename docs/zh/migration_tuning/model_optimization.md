@@ -79,7 +79,7 @@ tcmalloc（即Thread-Caching Malloc）是一个通用的内存分配器，通过
 
 #### 【算子替换示例】
 
-当采集完profiling后，查看算子耗时统计，分析耗时占比大的算子，进行替换，以BEVFormer模型为例，multi_scale_deformable_attn算子正反向在模型中占比很高，需要替换成mxDriving中的亲和算子：
+当采集完profiling后，查看算子耗时统计，分析耗时占比大的算子，进行替换，以BEVFormer模型为例，multi_scale_deformable_attn算子正反向在模型中占比很高，需要替换成mx_driving的亲和算子：
 <img src="./figures/op_statistic.png" alt="算子耗时占比" width="800" align="center">
 
 替换过程如下，算子详细参数参考[算子清单](../api/README.md)，算子使用位置为projects/mmdet3d_plugin/bevformer/modules/decoder.py：
@@ -116,7 +116,7 @@ import mx_driving
 
 ### 2.3 自驾模型host bound问题优化
 
-自动驾驶算法有很多slice、gather、sort等小算子，2D图像特征转换到BEV空间，涉及大量投影、插值、采样等操作，点云数据的体素化处理、稀疏卷积等。自动驾驶算法中涉及很多逻辑处理，如检测算法的target assign，规控类算法lovaz loss，以及一些对groundtruth处理的操作。Host bound问题：小算子下发多，CPU计算处理逻辑多、负载大，算子没有NPU高性能替换等造成host bound问题严重。
+自动驾驶算法有很多slice、gather、sort等小算子，2D图像特征转换到BEV空间，涉及大量投影、插值、采样等操作，点云数据的体素化处理、稀疏卷积等。自动驾驶算法中涉及很多逻辑处理，如检测算法的target assign，规控类算法lovasz loss，以及一些对groundtruth处理的操作。Host bound问题：小算子下发多，CPU计算处理逻辑多、负载大，算子没有NPU高性能替换等造成host bound问题严重。
 
 #### 2.3.1 减少算子下发次数
 
@@ -162,7 +162,7 @@ def nll_with_covariances(gt, predictions, confidences, avails, covariance_matric
 
 ```python
 def custom_logdet(covariance_matrices):
-    U, S, V = torch.svd(A)
+    U, S, V = torch.svd(covariance_matrices)
     abs_det = torch.prod(S)
     return torch.log(abs_det)
 
@@ -203,7 +203,7 @@ BEVDet是一种用于3D目标检测的深度学习模型，可以从一个俯视
 | 优化手段 | 修改文件 |
 | -------  | --------|
 |export TASK_QUEUE_ENABLE=2 开启L2流水优化 | 环境变量配置 |
-| export CPU_AFFINITY=1 开启粗粒度绑核 | 环境变量配置  |
+| export CPU_AFFINITY_CONF=1 开启粗粒度绑核 | 环境变量配置  |
 | export COMBINED_ENABLE=1 优化非连续两个算子组合 | 环境变量配置 |
 | 替换NpuFusedAdamW融合优化器 | configs/bevdet/bevdet-r50.py |
 | 替换bev_pool_v3融合算子 | mmdet3d/models/necks/view_transformer.py |
@@ -271,8 +271,7 @@ git clone -b 1.x https://github.com/open-mmlab/mmcv.git
 适配pytorch2.x版本，修改mmcv/mmcv/parallel/distributed.py文件159行，原始代码为：
 
 ```python
-module_to_run = self._replicated_tensor_module if
-self._use_replicated_tensor_module else self.module
+module_to_run = self._replicated_tensor_module if self._use_replicated_tensor_module else self.module
 ```
 
 替换为：

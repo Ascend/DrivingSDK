@@ -74,7 +74,7 @@ code_path=model_examples/Senna
 | :-----: | :------: |
 | PyTorch |  2.1.0   |
 
-0. 激活 CANN 环境
+0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
@@ -122,7 +122,6 @@ git clone https://github.com/SlightwindSec/bitsandbytes.git -b multi-backend-ref
 在setup.py文件中：第11行setup()函数, 增加入参version="0.45.4"
 
 ```shell
-source {cann_root_dir}/set_env.sh
 bash deploy.sh
 python setup.py install
 ```
@@ -131,7 +130,7 @@ python setup.py install
 
 ### 准备数据集
 
-参考原仓data_preparation章节(<https://github.com/hustvl/Senna/tree/main)使用llava模型推理生成数据集llava_output>
+参考原仓data_preparation章节(https://github.com/hustvl/Senna/tree/main)使用LLaVA模型推理生成数据集llava_output
 
 还需下载：
 LLaVA训练数据集：<https://huggingface.co/datasets/liuhaotian/LLaVA-Pretrain>
@@ -175,18 +174,18 @@ Senna
 将Senna模型所在目录记作 Senna_root_dir
 
 ```shell
-MODEL="{Senna_root_dir}/vicuna-7b-v1.5/"
-DATA="{Senna_root_dir}/llaVa-Pretrain/blip_laion_cc_sbu_558k.json"
-IMAGE_DATA="/{Senna_root_dir}/llaVa-Pretrain"
-OUT_DIR="/{Senna_root_dir}/output1/"
+MODEL="${Senna_root_dir}/vicuna-7b-v1.5/"
+DATA="${Senna_root_dir}/llaVa-Pretrain/blip_laion_cc_sbu_558k.json"
+IMAGE_DATA="${Senna_root_dir}/llaVa-Pretrain"
+OUT_DIR="${Senna_root_dir}/output1/"
 ```
 
 (2) 在train_tools/train_senna_llava.sh中第3-5行更换文件路径
 
 ```shell
-MODEL="/{Senna_root_dir}/output1/"
-DATA="/{Senna_root_dir}/lava_output/"
-OUT_DIR="/{Senna_root_dir}/output2/"
+MODEL="${Senna_root_dir}/output1/"
+DATA="${Senna_root_dir}/llava_output/"
+OUT_DIR="${Senna_root_dir}/output2/"
 ```
 
 - 运行训练脚本。
