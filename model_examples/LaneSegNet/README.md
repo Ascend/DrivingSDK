@@ -160,7 +160,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
   tar -xvf mpdecimal-2.5.1.tar.gz
   cd mpdecimal-2.5.1
-  bash ./configure --prefix=mpdecimal_install_path
+  bash ./configure --prefix=${mpdecimal_install_path}
   make -j
   make install
   ```
@@ -183,7 +183,7 @@ code_path=DrivingSDK/model_examples/LaneSegNet
   cd Python-3.9.18
   export CC=clang
   export CXX=clang++
-  ./configure --prefix=python_path > --with-lto --enable-optimizations
+  ./configure --prefix=${python_path} --with-lto --enable-optimizations
   make -j
   make install
   ```

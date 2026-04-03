@@ -73,17 +73,9 @@ code_path=model_examples/HiVT
 | :-----: | :------: |
 | PyTorch |  2.1.0   |
 
-0. 激活 CANN 环境
+0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
-
-    ```shell
-    conda create -n HiVT python=3.8
-    conda activate HiVT
-    # 安装torch和torch_npu
-    pip install torch-2.1.0.xxxxxxxxx.whl
-    pip install torch_npu-2.1.0.xxxxxxxxx.whl
-    ```
 
 2. 安装 DrivingSDK 加速库，安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK)。
 
@@ -157,10 +149,10 @@ code_path=model_examples/HiVT
     find /usr -name libtcmalloc.so*
     ```
 
-    将find指令的输出路径记为libtomalloc_dir，执行下列文件使用tcmalloc动态库。
+    将find指令的输出路径记为libtcmalloc_dir，执行下列文件使用tcmalloc动态库。
 
     ```shell
-    export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
+    export LD_PRELOAD="$LD_PRELOAD:${libtcmalloc_dir}/libtcmalloc.so"
     ```
     
 6. 安装pip依赖
@@ -204,7 +196,7 @@ Argoverse
 
 - 数据预处理
 
-当数据集解压后置于数据集路径下，pytorch-lightening框架会在第一次执行训练脚本时，自动开始数据预处理过程，处理总时长大约10小时。
+当数据集解压后置于数据集路径下，pytorch-lightning框架会在第一次执行训练脚本时，自动开始数据预处理过程，处理总时长大约10小时。
 
 ## 快速开始
 

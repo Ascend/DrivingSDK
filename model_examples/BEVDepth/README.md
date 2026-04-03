@@ -20,7 +20,7 @@
 - 参考实现：
 
   ```shell
-  url=<https://github.com/Megvii-BaseDetection/BEVDepth.git>
+  url=https://github.com/Megvii-BaseDetection/BEVDepth.git
   commit_id=d78c7b58b10b9ada940462ba83ab24d99cae5833
 
   ```
@@ -125,6 +125,7 @@
       找到pytorch_lightning的安装路径，初始化pytorch_lightning代码仓并提交一个commit记录，然后将源码根目录下面lightning.patch文件复制到pytorch_lightning安装路径下。
 
       ```shell
+      cd ${pytorch_lightning_install_path}
       git init
       git add .
       git commit -m "Initialize pytorch-lightning" 

@@ -15,7 +15,7 @@
 
 | Modality  | Voxel type (voxel size) | 训练方式 |
 |-----------|-------------------------|------|
-| lidar-cam | lidar-cam               | FP32、FP16 |
+| lidar-cam | voxel0075              | FP32、FP16 |
 
 # 训练环境准备
 
@@ -81,7 +81,7 @@
   cd ../
   ```
 
-## 数据准备
+# 数据准备
 
 ```shell
 cd mmdetection3d/

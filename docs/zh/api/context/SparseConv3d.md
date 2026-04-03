@@ -30,7 +30,7 @@ mx_driving.spconv.SparseConv3d(in_channels, out_channels, kernel_size, stride=1,
 
 ## 返回值
 
-- `SparseConvTensor(Tensor)`：存储了输出的特征值`out_feature`，对应索引位置`out_indices`和对应的spatital_shape。
+- `SparseConvTensor(Tensor)`：存储了输出的特征值`out_feature`，对应索引位置`out_indices`和对应的`spatial_shape`。
 
 ## 支持的型号
 

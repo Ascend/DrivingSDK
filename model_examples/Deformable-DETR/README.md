@@ -33,7 +33,7 @@
 | FrameworkPTAdapter | 7.0.RC1 |
 | CANN | 8.1.RC1 |
 
-1、激活 CANN 包环境
+1、激活 CANN 包环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 2、创建 conda 环境并激活：
 
@@ -50,11 +50,11 @@ conda activate deformable_detr
 4、使用 patch 文件
 
 ```shell
-pip install -r requirements.txt
 git clone https://github.com/fundamentalvision/Deformable-DETR.git
 cp -f Deformable-DETR_npu.patch Deformable-DETR
 cd Deformable-DETR
 git apply Deformable-DETR_npu.patch
+pip install -r requirements.txt
 cp -rf ../test .
 ```
 
@@ -78,8 +78,8 @@ coco_path/
 - 在模型根目录下运行训练脚本
 
 ```shell
-bash test/train_8p_full.sh --data_path='.data/coco'  # 替换成你的coco数据集路径，进行 8 卡训练
-bash test/train_8p_performance.sh --data_path='.data/coco'  # 替换成你的coco数据集路径，进行 8 卡性能测试
+bash test/train_8p_full.sh --data_path='./data/coco'  # 替换成你的coco数据集路径，进行 8 卡训练
+bash test/train_8p_performance.sh --data_path='./data/coco'  # 替换成你的coco数据集路径，进行 8 卡性能测试
 ```
 
 训练脚本参数说明：

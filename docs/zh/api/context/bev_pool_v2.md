@@ -36,7 +36,7 @@ BEV池化优化。可参考论文`BEVDet: High-performance Multi-camera 3D Objec
 
 ## 约束说明
 
-- `ranks_depth`的值必须在`[0, B*B*D*H*W]`之间。
+- `ranks_depth`的值必须在`[0, B*D*H*W]`之间。
 - `ranks_feat`的值必须在`[0, B*N*H*W]`之间。
 - `ranks_bev`的值必须在`[0, B*D*H*W]`之间。
 - C <= 1024

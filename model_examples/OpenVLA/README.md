@@ -133,10 +133,10 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
   ```shell
   cd $VLA_HOME
   mkdir models && cd models
-  git clone git@hf.co:openvla/openvla-7b-prismatic
+  git clone https://huggingface.co/openvla/openvla-7b-prismatic
   ```
 
-如遇到网络问题，请到 [openvla-7b-prismatic](https://huggingface.co/openvla/openvla-7b-prismatic/tree/main) 手动下载文件到 `$VLA_HOME/model/openvla-7b-prismatic`
+如遇到网络问题，请到 [openvla-7b-prismatic](https://huggingface.co/openvla/openvla-7b-prismatic/tree/main) 手动下载文件到 `$VLA_HOME/models/openvla-7b-prismatic`
 
 ## 使用高性能内存库
 
@@ -192,7 +192,7 @@ export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
 
   ```shell
   # 用自己的 hf_token 替换  "hf_..." 
-  echo hf_... >>> .hf_token
+  echo hf_... >> .hf_token
   ```
 
 - 单机8卡精度

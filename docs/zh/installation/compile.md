@@ -161,7 +161,7 @@ Driving SDK仓编译依赖以下组件：
 
     **在Develop模式下编译特定算子**
 
-    如果你想编译一个或多个算子，比如`DeformableConv2d`和`MultiScaleDeformbaleAttn`,算子名为`op_host/xx.cpp`中的`OpDef`定义的名字，可以使用`--kernel-name`参数。示例如下：
+    如果你想编译一个或多个算子，比如`DeformableConv2d`和`MultiScaleDeformableAttn`,算子名为`op_host/xx.cpp`中的`OpDef`定义的名字，可以使用`--kernel-name`参数。示例如下：
 
     ```shell
     python3.8 setup.py develop --kernel-name="DeformableConv2d;MultiScaleDeformableAttn"

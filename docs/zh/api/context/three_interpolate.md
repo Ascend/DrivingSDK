@@ -23,8 +23,8 @@ mx_driving.common.three_interpolate(features: torch.Tensor, indices: torch.Tenso
   - `indices`的元素值需小于`features`的第三维度，即值在[0, M)。
 - `weight(Tensor)`：获取目标特征计算的权重，数据类型为`float32|float16`，维度为（B, N, 3）。
   - `weight`数据类型与`features`须一致。
-- `features`，`indices`，`weights`三个参数的每个维度须小于10000。
-- `features`，`indices`，`weights`三个参数的大小请勿超过2^24。
+- `features`，`indices`，`weight`三个参数的每个维度须小于10000。
+- `features`，`indices`，`weight`三个参数的大小请勿超过2^24。
 
 ## 返回值
 

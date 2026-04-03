@@ -74,7 +74,7 @@ code_path=model_examples/DETR
 | :-----: | :------: |
 | PyTorch 2.1 | torchvision==0.16.0 |
 
-0. 激活 CANN 环境
+0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
@@ -141,7 +141,7 @@ coco_path/
   训练脚本参数说明：
 
   ```shell
-  --data_path    # 数据集路径，必填
+  --data-path    # 数据集路径，必填
   --epochs       # 重复训练次数，可选项
   --batch-size   # 训练batch size，可选填，默认值为8
   --num-npu      # 训练卡数，可选填，默认值为8

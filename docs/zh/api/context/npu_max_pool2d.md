@@ -19,6 +19,9 @@ mx_driving.fused.npu_max_pool2d(Tensor x, int kernel_size, int stride, int paddi
 ## 参数说明
 
 - `x (Tensor)`：一组待池化对象，数据类型为`float32`，format为NCHW，输入数据量不超过10亿。
+- `kernel_size (int)`：池化核大小，当前仅支持3。
+- `stride (int)`：池化核在输入数据上滑动时的步长，当前仅支持2。
+- `padding (int)`：填充值，当前仅支持1。
 
 ## 返回值
 

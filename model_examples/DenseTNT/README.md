@@ -28,7 +28,7 @@
 
 | 模型            | 任务列表       | 精度     | Backbone | 是否支持  |
 | --------------- | -------------- | -------- | -------- | --------- |
-| DenseTNT | 轨迹预测 | FP32精度 | VectorNet | $\sqrt{}$ |
+| DenseTNT | 轨迹预测 | FP32精度 | VectorNet | $\checkmark$ |
 
 ## 准备训练环境
 
@@ -43,7 +43,7 @@
 | FrameworkPTAdapter | 7.0.0 |
 | CANN | 8.1.RC1 |
 
-1、激活 CANN 包环境
+1、激活 CANN 包环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 2、创建 conda 环境并激活：
 
@@ -106,7 +106,7 @@ find /usr -name libtcmalloc.so*
 将find指令输出路径记作 libtcmalloc_root_dir
 
 ```shell
-export LD_PRELOAD="$LD_PRELOAD:/{libtcmalloc_root_dir}/libtcmalloc.so"
+export LD_PRELOAD="$LD_PRELOAD:${libtcmalloc_root_dir}/libtcmalloc.so"
 ```
 
 ## 准备数据集
@@ -155,6 +155,6 @@ bash test/train_8p_performance.sh --data_path='data/train' --output_path='argove
 2025.4.22：性能优化
 2025.4.28：性能优化，等价代码替换
 
-## FQA
+## FAQ
 
 暂无

@@ -1,4 +1,4 @@
-# graph_softmax[beta]
+# graph_softmax
 
 ## 接口原型
 
@@ -12,7 +12,7 @@ mx_driving.graph_softmax(Tensor src,Tensor index) -> Tensor
 
 ## 参数说明
 
-- `src (Tensor)`：各条边对应的特征，数据类型为`float32`，shape为`[num_edge, num_feature]`，该算子为了适配QCNet模型，故num_feature取值与模型一致默认为8。
+- `src (Tensor)`：各条边对应的特征，数据类型为`float32`，shape为`[num_edge, num_feature]`，当前仅支持num_feature=8。
 - `index (Tensor)`：各条边指向的节点，数据类型为`int32`，shape为`[num_edge]`。
 
 ## 返回值
@@ -41,7 +41,7 @@ torch.manual_seed(1)
 
 def gen_inputs(Num_Edge, Num_Feature):
     src = torch.rand((Num_Edge , Num_Feature))*1000-500 # src range is [-500, 500)
-    index = torch.randint(0, 1500000, (Num_Edge,)) # [0, 1500000)
+    index = torch.randint(0, 1500000, (Num_Edge,), dtype=torch.int32) # [0, 1500000)
     return src, index
 
 Num_Feature = 8 # Feature number is 8 in QCNet Model

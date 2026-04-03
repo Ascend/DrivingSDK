@@ -78,9 +78,9 @@ code_path=model_examples/SalsaNext
 
 ```shell
 git clone https://github.com/TiagoCortinhal/SalsaNext.git
-cp -f {DrivingSDK_root_dir}/model_examples/SalsaNext/salsanext.patch SalsaNext
-cp -rf {DrivingSDK_root_dir}/model_examples/SalsaNext/test SalsaNext
-cp -rf {DrivingSDK_root_dir}/model_examples/SalsaNext/train SalsaNext
+cp -f ${DrivingSDK_root_dir}/model_examples/SalsaNext/salsanext.patch SalsaNext
+cp -rf ${DrivingSDK_root_dir}/model_examples/SalsaNext/test SalsaNext
+cp -rf ${DrivingSDK_root_dir}/model_examples/SalsaNext/train SalsaNext
 cd SalsaNext
 git checkout 7548c124b48f0259cdc40e98dfc3aeeadca6070c
 git apply --whitespace=fix salsanext.patch
@@ -164,14 +164,14 @@ git apply --whitespace=fix salsanext.patch
 
   ```shell
   # epoch = 20
-  bash test/train_8p_performance.sh -d /数据集路径/ -a ./salsanext.yml -l ./
+  bash test/train_8p_performance.sh -d /path/to/dataset -a ./salsanext.yml -l ./
   ```
 
 - 单机8卡精度
 
   ```shell
   # epoch = 150
-  bash test/train_8p.sh -d /数据集路径/ -a ./salsanext.yml -l ./
+  bash test/train_8p.sh -d /path/to/dataset -a ./salsanext.yml -l ./
   ```
 
 - 训练脚本参数说明

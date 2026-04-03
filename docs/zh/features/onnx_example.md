@@ -76,7 +76,7 @@ if __name__ =='__main__':
 若onnx转换om过程中出现FAQ中 The model has 2  domain_version fields 问题，则需要安装转换仓库进行domain转换，其中转换仓库为：<https://gitee.com/Ronnie_zheng/MagicONNX>
 转换脚本为：
 
-```shell
+```python
 from magiconnx import OnnxGraph
 graph = OnnxGraph('msda.onnx')
 
@@ -84,17 +84,17 @@ graph.keep_default_domain()
 graph.save('msda.onnx')
 ```
 
-执行后会将onnx模型中的多个domian进行统一
+执行后会将onnx模型中的多个domain进行统一
 
 ## onnx转换om
 
-通过atc将onnx转换为om模型，在执行前需要设置环境变量，环境变量与转换指令如下，其中soc_version可通过npu-smi info进行查看：
+通过ATC将onnx转换为om模型，在执行前需要设置环境变量，环境变量与转换指令如下，其中soc_version可通过npu-smi info进行查看：
 
 ```shell
 pip3 show mx_driving
 export ASCEND_CUSTOM_OPP_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/
 export LD_LIBRARY_PATH=xxx/site-packages/mx_driving/packages/vendors/customize/op_api/lib/:$LD_LIBRARY_PATH
-atc --framework 5 --output msda --soc_version Ascend910B2 --model msda.onnx --op_select_implmode high_precision --precision_mode must_keep_origin_dtype -log debug
+atc --framework 5 --output msda --soc_version Ascend910B2 --model msda.onnx --op_select_implmode high_precision --precision_mode must_keep_origin_dtype --log debug
 ```
 
 执行后若出现ATC run success, welcome to the next use. 则说明om模型转换成功
@@ -132,7 +132,7 @@ input5.tofile("./inputs/input5.bin")
 
 ## om执行
 
-克隆仓库<https://gitee.com/ascend/tools/tree/master/msame，并按照readme进行安装>
+克隆仓库<https://gitee.com/ascend/tools/tree/master/msame>，并按照readme进行安装
 
 随后通过msame工具，将生成好的模型输入文件输入到om模型中执行
 

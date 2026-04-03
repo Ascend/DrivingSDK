@@ -1,9 +1,9 @@
-# draw_gaussian_to_heatmap[beta]
+# npu_draw_gaussian_to_heatmap[beta]
 
 ## 接口原型
 
 ```python
-mx_driving.draw_gaussian_to_heatmap(Tensor mask, Tensor cur_class_id, Tensor center_int, Tensor radius, int feature_map_size_x, int feature_map_size_y, int num_classes) -> (Tensor heatmap)
+mx_driving.npu_draw_gaussian_to_heatmap(Tensor mask, Tensor cur_class_id, Tensor center_int_trans, Tensor radius, int feature_map_size_x, int feature_map_size_y, int num_classes) -> (Tensor heatmap)
 ```
 
 ## 功能描述
@@ -12,7 +12,7 @@ mx_driving.draw_gaussian_to_heatmap(Tensor mask, Tensor cur_class_id, Tensor cen
 
 ## 参数说明
 
-- `mask(Tensor)`：每个目标的3D边界框信息，数据类型为`uint_8`，shape为`[maxObjs, W]`。
+- `mask(Tensor)`：每个目标的3D边界框信息，数据类型为`uint8`，shape为`[maxObjs, W]`。
 - `cur_class_id(Tensor)`：对应目标所在的热力图（heatmap）编号，数据类型为`int32`, shape为`[Num_objs]`。
 - `center_int_trans(Tensor)`：经过`npu_gaussian`的直角三角形斜边转置后的Tensor, 数据类型为`int32`, shape为`[2, minObjs]`。
 - `radius(Tensor)`：通过`npu_gaussian`计算后的高斯半径，数据类型为`int32`

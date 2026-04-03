@@ -3,7 +3,7 @@
 ## 接口原型
 
 ```python
-mx_driving.box_iou_rotated(Tensor boxes_a, Tensor boxes_b, str mode='iou', bool aligned=False) -> Tensor
+mx_driving.box_iou_rotated(Tensor boxes_a, Tensor boxes_b, str mode='iou', bool aligned=False, bool clockwise=True) -> Tensor
 ```
 
 ## 功能描述

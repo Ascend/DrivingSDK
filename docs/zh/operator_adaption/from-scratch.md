@@ -118,7 +118,7 @@ at::Tensor npu_bev_pool_v3(const at::Tensor& depth, const at::Tensor& feat, cons
 }
 ```
 
-然后，执行`python setup.py develp`, 你就可以在Python中使用`bev_pool_v3`算子了。当然，这个算子还没有实现任何功能，接下来我们将逐步完善它。
+然后，执行`python setup.py develop`, 你就可以在Python中使用`bev_pool_v3`算子了。当然，这个算子还没有实现任何功能，接下来我们将逐步完善它。
 
 ## 5. 增加AscendC测的算子接口
 
@@ -479,7 +479,7 @@ ranksQue_.FreeTensor(ranks);
 
 ### 8.6 计算逻辑实现-三段式
 
-这里的三段式值的是三级流水线的计算模式，即计算的三个阶段：1. 搬运数据（PIPE_MTE2），2. 计算（PIPE_V），3. 写回数据（PIPE_MTE3）。这种模式可以提高计算的效率，因为每个阶段（对于没有数据依赖的）都是独立的，可以并行执行。我们将这三个阶段封装到三个函数中，并使用队列进行通信和同步：
+这里的三段式指的是三级流水线的计算模式，即计算的三个阶段：1. 搬运数据（PIPE_MTE2），2. 计算（PIPE_V），3. 写回数据（PIPE_MTE3）。这种模式可以提高计算的效率，因为每个阶段（对于没有数据依赖的）都是独立的，可以并行执行。我们将这三个阶段封装到三个函数中，并使用队列进行通信和同步：
 
 ```cpp
 __aicore__ inline void BEVPoolV3Kernel::CopyIn(int32_t rd, int32_t rf)

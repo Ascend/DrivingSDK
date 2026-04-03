@@ -56,8 +56,8 @@ from mx_driving import deformable_aggregation
 bs, num_feat, c, cam, anchor, pts, scale, group = 1, 2816, 256, 1, 10, 2000, 1, 8
 
 feature_maps = torch.ones_like(torch.randn(bs,num_feat ,c))
-spatial_shape = torch.tensor([[[32, 88]]])
-scale_start_index = torch.tensor([[0]])
+spatial_shape = torch.tensor([[[32, 88]]], dtype=torch.int32)
+scale_start_index = torch.tensor([[0]], dtype=torch.int32)
 sampling_location = torch.rand(bs, anchor, pts, cam, 2)
 weights = torch.randn(bs, anchor, pts, cam, scale, group)
 feature_maps.requires_grad = True

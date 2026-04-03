@@ -71,7 +71,7 @@
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-0. 激活 CANN 环境
+0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 1. 创建conda环境
 
@@ -160,5 +160,5 @@ Q: 在无网络或者有防火墙的网络下，模型无法自动下载paligemm
 A: 可自行下载[paligemma权重](https://huggingface.co/google/paligemma-3b-pt-224)，将权重路径记作 paligemma_weights。再执行以下命令，使用脚本将本地权重路径替换进模型代码：
 
   ```shell
-  bash test/paligemma_weights_mod.sh {paligemma_weights}
+  bash test/paligemma_weights_mod.sh ${paligemma_weights}
   ```

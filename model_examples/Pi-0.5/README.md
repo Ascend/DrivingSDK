@@ -150,7 +150,7 @@ python src/lerobot/datasets/v30/augment_dataset_quantile_stats.py --repo-id={dat
 
 ### 执行训练
 
-进入模型代码目录 `path/to/lerobot`
+`conda activate pi05 && cd path/to/lerobot`
 
 - 单机性能
 
@@ -206,5 +206,5 @@ Q: 在无网络或者有防火墙的网络下，模型无法自动下载paligemm
 A: 可自行下载[paligemma权重](https://huggingface.co/google/paligemma-3b-pt-224)，将权重路径记作 paligemma_weights。再执行以下命令，使用脚本将本地权重路径替换进模型代码：
 
 ```shell
-bash test/paligemma_weights_mod.sh {paligemma_weights}
+bash test/paligemma_weights_mod.sh ${paligemma_weights}
 ```

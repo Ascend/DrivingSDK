@@ -295,7 +295,7 @@ bash test/train_multi_server.sh 8 2 1 'XX.XX.XX.XX' '3389' #副节点
 
 ## FAQ
 
-Q: 训练时报错`ImportError: cannot import name 'gcd' from 'fraction'` 
+Q: 训练时报错`ImportError: cannot import name 'gcd' from 'fractions'` 
 
 A: 报错原因是networkx版本低，使用`pip install networkx==3.1`升级依赖版本即可。
 

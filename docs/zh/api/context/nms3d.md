@@ -3,17 +3,17 @@
 ## 接口原型
 
 ```python
-mx_driving.nms3d(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
+mx_driving.nms3d(Tensor boxes, Tensor scores, float iou_threshold) -> Tensor
 ```
 
 兼容：
 
 ```python
-mx_driving.detection.nms3d(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
+mx_driving.detection.nms3d(Tensor boxes, Tensor scores, float iou_threshold) -> Tensor
 ```
 
 ```python
-mx_driving.detection.npu_nms3d(Tensor boxes, Tensor scores, float: iou_threshold) -> Tensor
+mx_driving.detection.npu_nms3d(Tensor boxes, Tensor scores, float iou_threshold) -> Tensor
 ```
 
 ## 功能描述
