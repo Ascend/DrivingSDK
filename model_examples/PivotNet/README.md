@@ -193,7 +193,7 @@ code_path=model_examples/PivotNet
   cd Python-3.8.17
   export CC=clang
   export CXX=clang++
-  ./configure --prefix=python_path --with-lto --enable-optimizations
+  ./configure --prefix=${python_path} --with-lto --enable-optimizations
   make -j
   make install
   ```
@@ -239,7 +239,7 @@ cd /path/to/pivotnet
 cd assets/weights
 wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/efficientnet-b0-355c32eb.pth
 wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/resnet50-0676ba61.pth
-wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_tiny_patch4_window7_512x512.pth .
+wget https://github.com/wenjie710/PivotNet/releases/download/v1.0/upernet_swin_tiny_patch4_window7_512x512.pth
 ```
 
 - 生成模型训练数据

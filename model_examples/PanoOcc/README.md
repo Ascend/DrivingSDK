@@ -274,7 +274,7 @@ bash migrate_to_ascend/train_8p.sh # 8卡精度
 * 运行`PanoOcc/tools/`里的脚本如遇到`AssertionError: MMCV==1.7.2 is used but incompatible`，可通过以下任意一种方式解决：
   * 在脚本最上方添加以下两行解决
 
-    ```shell
+    ```python
     from mx_driving.patcher import patch_mmcv_version
     patch_mmcv_version("1.6.0")
     ```

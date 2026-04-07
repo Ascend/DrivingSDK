@@ -20,7 +20,7 @@
 
 | 模型            | 任务列表       | 精度     | Backbone | 是否支持  |
 | --------------- | -------------- | -------- | -------- | --------- |
-| Deformable DETR | 训练目标检测器 | FP32精度 | ResNet50 | $\sqrt{}$ |
+| Deformable DETR | 训练目标检测器 | FP32精度 | ResNet50 | $\checkmark$ |
 
 ## 环境准备
 

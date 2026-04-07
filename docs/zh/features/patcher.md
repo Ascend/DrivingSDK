@@ -301,7 +301,7 @@ my_wrapped_patch = Patch(func=my_patch,
 主要API：
 
 * `__init__(self, module_patches: Dict[str, List[Patch]], blacklist: Set[str], allow_internal_format: bool = False)`
-  * blacklist可以指定要diable的Patch，需传入`Patch(func)`内的func函数名
+  * blacklist可以指定要disable的Patch，需传入`Patch(func)`内的func函数名
   * allow_internal_format默认关闭私有格式，可设为True开启
 * `apply(self)`
   * 应用所有的非黑名单上的Patch

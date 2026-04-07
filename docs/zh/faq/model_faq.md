@@ -373,7 +373,7 @@ pip install --upgrade pip
 
 <a id="3-13"></a>
 
-#### 3.13 `PivotNet`模型安装模型环境时，需安装`loguru`组件，报错：`error: subprocess-exited-with-error pip subprocee to install build dependencies did not run successfully.`
+#### 3.13 `PivotNet`模型安装模型环境时，需安装`loguru`组件，报错：`error: subprocess-exited-with-error pip subprocess to install build dependencies did not run successfully.`
 
 报错原因是由于`setuptools`组件版本与`loguru`组件版本不匹配，可使用`pip install loguru==0.7.2`解决报错，更详细的报错原因和解决方法可参考[开源社区Issue：pip subprocess to install build dependencies did not run successfully](https://github.com/pypa/packaging-problems/issues/721)。
 

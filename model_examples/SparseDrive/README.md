@@ -166,7 +166,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 - 单机多卡性能测试脚本
 
 ```shell
-  #stage1\stage2默认训练1000个step
+  #stage1和stage2默认训练1000个step
   bash test/train_8p_performance.sh
   (option) bash test/train_8p_performance.sh 64 48 8
   (option) bash test/train_8p_performance.sh --batch_node_size_stage1=64 --batch_node_size_stage2=48 --num_npu=8

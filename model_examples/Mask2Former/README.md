@@ -156,9 +156,9 @@ python tools/dataset_converters/cityscapes.py data/cityscapes --nproc 8
 
     ```shell
     公共参数：
-    --resume                                 //--resume=1 开启断点续训，默认不开启，train_performance_8p.sh脚本不支持该参数
-    --batch_size                             //单卡batch_size，默认为2
-    --num_workers                            //dataloader的workers数量，默认为2
+    --resume                                 #--resume=1 开启断点续训，默认不开启，train_performance_8p.sh脚本不支持该参数
+    --batch_size                             #单卡batch_size，默认为2
+    --num_workers                            #dataloader的workers数量，默认为2
     ```
 
     训练完成后，日志文件保存在 `test/output` 路径下，并输出模型训练精度和性能信息。

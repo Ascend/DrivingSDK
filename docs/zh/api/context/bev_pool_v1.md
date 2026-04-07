@@ -39,7 +39,7 @@ BEV池化。可参考论文`BEVFusion: Multi-Task Multi-Sensor Fusion with Unifi
 - `geom_feat`的4个对应的值必须在`[0, H-1]`, `[0, W-1]`, `[0, B-1]`, `[0, D-1]`之间。
 - `geom_feat`和`feat`的第0维长度必须相同。
 - C <= 1024
-- B *D* H *W* C <= 2^31, B, D <= 8, H, W <= 256
+- B * D * H * W * C <= 2^31, B, D <= 8, H, W <= 256
 - 对于反向也是同样的约束。
 
 ## 调用示例

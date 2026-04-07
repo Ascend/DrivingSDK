@@ -27,7 +27,7 @@ mx_driving.point.Voxelization(Tensor points, List[float] voxel_size, List[float]
 
 ## API语义
 
-当max_num_points=-1且max_voxels=-1时，进行`dynamic_voxelize`计算，否则进行`hard_voxelize`
+当max_points=-1且max_voxels=-1时，进行`dynamic_voxelize`计算，否则进行`hard_voxelize`
 
 ## 返回值
 

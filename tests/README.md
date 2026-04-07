@@ -41,7 +41,7 @@
 对于`torch/`目录下的UT脚本，可通过运行`run_test.py`执行torch里面的所有UT测试脚本，可运行：
 
 ```Bash
-python [Path_to_DrivingSDK]/tests/torch/run_test.py
+python ${PATH_TO_DRIVINGSDK}/tests/torch/run_test.py
 ```
 
 ### 注意事项
