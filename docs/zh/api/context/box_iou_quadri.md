@@ -6,12 +6,6 @@
 mx_driving.box_iou_quadri(Tensor boxes_a, Tensor boxes_b, str mode='iou', bool aligned=False) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.detection.box_iou_quadri(Tensor boxes_a, Tensor boxes_b, str mode='iou', bool aligned=False) -> Tensor
-```
-
 ## 功能描述
 
 计算两个边界框的IoU。

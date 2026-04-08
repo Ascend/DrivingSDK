@@ -6,12 +6,6 @@
 mx_driving.knn(int k, Tensor xyz, Tensor center_xyz, bool Transposed) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.common.knn(int k, Tensor xyz, Tensor center_xyz, bool Transposed) -> Tensor
-```
-
 ## 功能描述
 
 对center_xyz中的每个点找到xyz中对应batch中的距离最近的k个点，并且返回此k个点的索引值。

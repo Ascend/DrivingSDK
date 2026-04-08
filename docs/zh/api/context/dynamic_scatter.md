@@ -6,12 +6,6 @@
 mx_driving.dynamic_scatter(Tensor feats, Tensor coors, str reduce_type = 'max') -> Tuple[torch.Tensor, torch.Tensor]
 ```
 
-兼容：
-
-```python
-mx_driving.point.npu_dynamic_scatter(Tensor feats, Tensor coors, str reduce_type = 'max') -> Tuple[torch.Tensor, torch.Tensor]
-```
-
 ## 功能描述
 
 将点云特征点在对应体素中进行特征压缩。

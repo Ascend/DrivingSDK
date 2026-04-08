@@ -25,15 +25,10 @@ at::Tensor npu_three_interpolate(
 at::Tensor npu_three_interpolate_backward(
     int b, int c, int n, int m, const at::Tensor& grad_out, const at::Tensor& idx, const at::Tensor& weight);
 
-std::tuple<at::Tensor, at::Tensor> scatter_max_with_argmax_v2(
-    const at::Tensor& updates, const at::Tensor& indices, c10::optional<at::Tensor> out);
-
 std::tuple<at::Tensor, at::Tensor> scatter_max_v3(
     const at::Tensor& src, const at::Tensor& index, c10::optional<at::Tensor> out);
  
 at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments);
-
-at::Tensor npu_scatter(const at::Tensor& self, const at::Tensor& indices, const at::Tensor& updates, int64_t dim);
 
 at::Tensor npu_scatter_mean_grad(at::Tensor& grad_out, at::Tensor& index, at::Tensor& count, int32_t dim);
 
@@ -67,15 +62,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_backw
     const at::Tensor& value_spatial_shapes, const at::Tensor& value_level_start_index,
     const at::Tensor& sampling_locations, const at::Tensor& attention_weights, const at::Tensor& grad_output);
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> multi_scale_deformable_attn_grad_v2(const at::Tensor& value,
-    const at::Tensor& shape, const at::Tensor& level_start_index, const at::Tensor& location_trans,
-    const at::Tensor& attn_weight_trans, const at::Tensor& grad_output);
-
 at::Tensor npu_add_relu(at::Tensor& x, const at::Tensor& y);
 
 at::Tensor npu_add_relu_grad(at::Tensor& self, at::Tensor& grad_output);
-std::tuple<at::Tensor, at::Tensor> npu_scatter_mean(at::Tensor& src, at::Tensor& index, c10::optional<at::Tensor> out,
-    c10::optional<int> dim, c10::optional<int> dim_size);
 
 at::Tensor fused_bias_leaky_relu(const at::Tensor& x, const at::Tensor& bias, double negative_slop, double scale);
 
@@ -111,9 +100,6 @@ at::Tensor group_points(
 
 at::Tensor group_points_backward(const at::Tensor& grad_out, const at::Tensor& idx, int64_t b, int64_t c, int64_t n,
     int64_t npoints, int64_t nsample);
-
-at::Tensor vec_pool_backward(const at::Tensor& grad_new_features, const at::Tensor& point_cnt_of_grid,
-    const at::Tensor& grouped_idxs, const int64_t n, const int64_t num_c_in);
 
 at::Tensor point_to_voxel(const at::Tensor& points, const std::vector<float> voxel_sizes,
     const std::vector<float> coor_ranges, const char* layout);
@@ -164,27 +150,13 @@ at::Tensor dynamic_voxelization(const at::Tensor& points, at::Tensor& coors, int
 at::Tensor npu_bev_pool_v3(const c10::optional<at::Tensor>& depth, const at::Tensor& feat,
     const c10::optional<at::Tensor>& ranks_depth, const c10::optional<at::Tensor>& ranks_feat,
     const at::Tensor& ranks_bev, int64_t b, int64_t d, int64_t h, int64_t w);
+
 std::tuple<c10::optional<at::Tensor>, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor& grad_out,
     const c10::optional<at::Tensor>& depth, const at::Tensor& feat, const c10::optional<at::Tensor>& ranks_depth,
     const c10::optional<at::Tensor>& ranks_feat, const at::Tensor& ranks_bev);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_subm_sparse_conv3d(const at::Tensor& feature,
-    const at::Tensor& indices, const at::Tensor& weight, at::IntArrayRef kernel_size, int out_channel,
-    at::IntArrayRef outSpatialShape, int batch_size, const at::Tensor& temp);
-
-std::tuple<at::Tensor, at::Tensor> multi_to_sparse(const at::Tensor& out_features,
-    const at::Tensor& unique_indices_offset, const at::Tensor& sorted_idx_to_former_indices,
-    const at::Tensor& outidx_pair);
-
-std::tuple<at::Tensor, at::Tensor> multi_to_sparse_v2(const at::Tensor& features, const at::Tensor& weight,
-    const at::Tensor& unique_indices_offset, const at::Tensor& sorted_idx_to_former_indices,
-    const at::Tensor& outidx_pair);
 
 std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d(const at::Tensor& indices, at::IntArrayRef kernel_size,
     at::IntArrayRef stride, at::IntArrayRef padding, int out_channel, at::IntArrayRef outSpatialShape, int batch_size);
-
-std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad(const at::Tensor& indices_offset,
-    const at::Tensor& former_sorted_indices, const at::Tensor& feature, const at::Tensor& weight,
-    const at::Tensor& grad);
 
 std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad_v2(const at::Tensor& former_sorted_indices, 
     const at::Tensor& indices_offset, const at::Tensor& feature, const at::Tensor& weight,const at::Tensor& grad);
@@ -192,9 +164,6 @@ std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad_v2(const at::Tensor& f
 at::Tensor npu_sparse_inverse_conv3d(const at::Tensor& features, const at::Tensor& origin_indices,
     const at::Tensor& unique_indices_offset, const at::Tensor& sorted_idx_to_former_indices,
     at::IntArrayRef kernel_size, int in_channels);
-
-std::tuple<at::Tensor, at::Tensor> npu_prepare_subm_conv3d(
-    const at::Tensor& flattenIndices, at::IntArrayRef outSpatialShape, int batch_size);
 
 std::tuple<at::Tensor, at::Tensor> nms3d_normal(const at::Tensor& boxes, double nms_overlap_thresh);
 
@@ -253,9 +222,6 @@ std::tuple<at::Tensor, at::Tensor> geometric_kernel_attention_backward(const at:
     const at::Tensor& attn_weights, const at::Tensor& grad_output);
 
 at::Tensor cal_anchors_heading(const at::Tensor& anchors, const at::Tensor& origin_pos);
-at::Tensor npu_subm_sparse_conv3d_grad(const at::Tensor& ouidx_offset, const at::Tensor& valid_indices,
-                                       const at::Tensor& weight, const at::Tensor& grad, int indices_number,
-                                       at::IntArrayRef kernel_size);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> npu_gaussian(const at::Tensor& boxes,
     int32_t out_size_factor, float overlap, int32_t min_radius, float size_x, float size_y,
@@ -284,8 +250,6 @@ at::Tensor npu_scatter_add(at::Tensor& src, at::Tensor& indices, c10::optional<a
 
 at::Tensor npu_scatter_add_grad(at::Tensor& grad_out, at::Tensor& index, int32_t dim);
 
-at::Tensor npu_batch_matmul(const at::Tensor& projection_mat, const at::Tensor& pts_extend);
-
 at::Tensor select_idx_with_mask(const at::Tensor& poly_line, const at::Tensor& min_idx, const at::Tensor& pt, const at::Tensor& back_idx);
 
 std::tuple<at::Tensor, at::Tensor> cartesian_to_frenet1(const at::Tensor& dist_vec);
@@ -293,10 +257,6 @@ std::tuple<at::Tensor, at::Tensor> cartesian_to_frenet1(const at::Tensor& dist_v
 std::tuple<at::Tensor, at::Tensor, at::Tensor> calc_poly_start_end_sl(const at::Tensor& min_idx, const at::Tensor& poly_line, const at::Tensor& points, const at::Tensor& s_cum);
 
 at::Tensor min_area_polygons(const at::Tensor& pointsets);
-
-std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& feature,
-    const at::Tensor& indices, const at::Tensor& map1, const at::Tensor& map2, at::IntArrayRef kernel_size, int in_channels,
-    at::IntArrayRef out_spatial_shape, int batch_size, double sparse_rate);
 
 std::tuple<at::Tensor, at::Tensor> radius(at::Tensor& x, at::Tensor& y, at::Tensor& ptr_x, at::Tensor& ptr_y, double r, int max_num_neighbors);
 

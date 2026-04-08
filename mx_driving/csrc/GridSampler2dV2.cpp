@@ -76,3 +76,24 @@ at::Tensor grid_sampler2d_v2(const at::Tensor& input, const at::Tensor& grid, in
     output = output.slice(1, 0, c);
     return output;
 }
+
+std::tuple<at::Tensor, at::Tensor> grid_sampler2d_v2_backward(const at::Tensor& grad_output,
+    const at::Tensor& input_x, const at::Tensor& input_grid, int64_t interpolation_mode, int64_t padding_mode, bool align_corners)
+{
+    TORCH_CHECK_NPU(grad_output);
+    TORCH_CHECK_NPU(input_x);
+    TORCH_CHECK_NPU(input_grid);
+    TORCH_CHECK(grad_output.dim() == 4, "grad_output must to be a 4D Tensor, but got: ", grad_output.dim());
+    TORCH_CHECK(input_x.dim() == 4, "input_x has to be a 4D Tensor, but got: ", input_x.dim());
+    TORCH_CHECK(input_grid.dim() == 4, "input_grid has to be a 4D Tensor, but got: ", input_grid.dim());
+
+    auto input_x_sizes = input_x.sizes();
+    auto input_grid_sizes = input_grid.sizes();
+    at::Tensor grad_x = at::zeros(input_x_sizes, input_x.options());
+    at::Tensor grad_grid = at::empty(input_grid_sizes, input_grid.options());
+
+    EXEC_NPU_CMD(aclnnGridSampler2dV2Grad, grad_output, input_x, input_grid, interpolation_mode, padding_mode, align_corners,
+        grad_x, grad_grid);
+    grad_x = grad_x.permute({0, 3, 1, 2});
+    return std::tie(grad_x, grad_grid);
+}

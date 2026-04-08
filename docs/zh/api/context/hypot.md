@@ -6,12 +6,6 @@
 mx_driving.hypot(Tensor input, Tensor other) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.common.hypot(Tensor input, Tensor other) -> Tensor
-```
-
 ## 功能描述
 
 给出直角三角形的两边，返回它的斜边。

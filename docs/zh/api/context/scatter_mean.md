@@ -6,12 +6,6 @@
 mx_driving.scatter_mean(Tensor src, Tensor indices, Tensor out=None, int dim=0, int dim_size=None) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.common.scatter_mean(Tensor points, int num_points) -> Tensor
-```
-
 ## 功能描述
 
 将输入张量`src`中的元素按照`indices`中的索引在指定的`dim`维进行分组，并计算每组的平均值，返回平均值。

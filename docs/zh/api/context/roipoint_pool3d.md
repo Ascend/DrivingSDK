@@ -6,12 +6,6 @@
 mx_driving.roipoint_pool3d(int num_sampled_points, Tensor points, Tensor point_features, Tensor boxes3d) -> (Tensor pooled_features, Tensor pooled_empty_flag)
 ```
 
-兼容
-
-```python
-mx_driving.preprocess.roipoint_pool3d(int num_sampled_points, Tensor points, Tensor point_features, Tensor boxes3d) -> (Tensor pooled_features, Tensor pooled_empty_flag)
-```
-
 ## 功能描述
 
 对每个3D方案的几何特定特征进行编码。

@@ -6,16 +6,6 @@
 mx_driving.boxes_overlap_bev(Tensor boxes_a, Tensor boxes_b) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.detection.boxes_overlap_bev(Tensor boxes_a, Tensor boxes_b) -> Tensor
-```
-
-```python
-mx_driving.detection.npu_boxes_overlap_bev(Tensor boxes_a, Tensor boxes_b) -> Tensor
-```
-
 ## 功能描述
 
 计算BEV视角下两个边界框的重叠面积。

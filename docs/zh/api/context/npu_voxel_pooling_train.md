@@ -6,12 +6,6 @@
 mx_driving.npu_voxel_pooling_train(Tensor geom_xyz, Tensor input_features, List[int] voxel_num) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.point.npu_voxel_pooling_train(Tensor geom_xyz, Tensor input_features, List[int] voxel_num) -> Tensor
-```
-
 ## 功能描述
 
 点云数据体素化。

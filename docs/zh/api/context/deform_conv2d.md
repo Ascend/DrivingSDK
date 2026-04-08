@@ -6,12 +6,6 @@
 mx_driving.deform_conv2d(Tensor x, Tensor offset, Tensor weight, Union[int, Tuple[int, ...]] stride, Union[int, Tuple[int, ...]] padding, Union[int, Tuple[int, ...]] dilation, int groups, int deformable_groups) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.fused.deform_conv2d(Tensor x, Tensor offset, Tensor weight, Union[int, Tuple[int, ...]] stride, Union[int, Tuple[int, ...]] padding, Union[int, Tuple[int, ...]] dilation, int groups, int deformable_groups) -> Tensor
-```
-
 ## 功能描述
 
 可变形卷积。

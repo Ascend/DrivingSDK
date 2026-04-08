@@ -35,3 +35,20 @@ at::Tensor npu_bev_pool_v3(const c10::optional<at::Tensor>& depth, const at::Ten
     EXEC_NPU_CMD(aclnnBEVPoolV3, depth, feat, ranks_depth, ranks_feat, ranks_bev, with_depth, b, d, h, w, c, out);
     return out;
 }
+
+std::tuple<c10::optional<at::Tensor>, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor& grad_out,
+    const c10::optional<at::Tensor>& depth, const at::Tensor& feat, const c10::optional<at::Tensor>& ranks_depth,
+    const c10::optional<at::Tensor>& ranks_feat, const at::Tensor& ranks_bev)
+{
+    TORCH_CHECK_NPU(feat);
+    TORCH_CHECK_NPU(ranks_bev);
+    c10::optional<at::Tensor> grad_depth;
+    bool with_depth = depth.has_value();
+    if (with_depth) {
+        grad_depth = at::zeros_like(depth.value());
+    }
+    auto grad_feat = at::zeros_like(feat);
+    EXEC_NPU_CMD(aclnnBEVPoolV3Grad, grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, with_depth, grad_depth,
+        grad_feat);
+    return std::make_tuple(grad_depth, grad_feat);
+}

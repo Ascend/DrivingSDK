@@ -201,7 +201,7 @@ class SparseInverseConvFunction(Function):
         weight_shape = weight.shape
         weight.data = weight.data.permute(0, 1, 2, 4, 3).contiguous()
 
-        inverse_feature_grad, outidx = mx_driving._C.multi_to_sparse_v2(
+        inverse_feature_grad, outidx = mx_driving._C.npu_sparse_matmul(
             grad_out_features, weight, unique_indices_offset, sorted_idx_to_former_indices, outidx_pair
         )
         inverse_weight_grad = (grad_out_features.transpose(0, 1).contiguous() @ output_img2col)

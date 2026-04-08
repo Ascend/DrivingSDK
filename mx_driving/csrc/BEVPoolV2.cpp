@@ -61,3 +61,36 @@ at::Tensor npu_bev_pool_v2(const at::Tensor& depth, const at::Tensor& feat, cons
         d, h, w, c, out);
     return out;
 }
+
+/**
+ * @brief pillar pooling, bev_pool_v2_backward
+ * @param grad_out: input grad, 5D tensor(b, d, h, w, c)
+ * @param depth: input depth, 5D tensor(b, n, d, h, w)
+ * @param feat: input feature, 5D tensor(b, n, h, w, c)
+ * @param ranks_depth: input depth rank, 1D tensor
+ * @param ranks_feat: input feature rank, 1D tensor
+ * @param ranks_bev: input bev rank, 1D tensor
+ * @param interval_lengths: the number of points in each interval, 1D tensor(n_interval)
+ * @param interval_starts: starting position for pooled point, 1D tensor(n_interval)
+ * @param b: batch_size, int64
+ * @param d: depth, int64
+ * @param h: height, int64
+ * @param w: width, int64
+ * @return grad_depth: output grad, 5D tensor(b, n, d, h, w)
+ * @return grad_feat: output grad, 5D tensor(b, n, h, w, c)
+ */
+std::tuple<at::Tensor, at::Tensor> npu_bev_pool_v2_backward(const at::Tensor& grad_out, const at::Tensor& depth,
+    const at::Tensor& feat, const at::Tensor& ranks_depth, const at::Tensor& ranks_feat, const at::Tensor& ranks_bev,
+    const at::Tensor& interval_lengths, const at::Tensor& interval_starts, int64_t b, int64_t d, int64_t h, int64_t w)
+{
+    check_npu(depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_lengths, interval_starts);
+    auto depth_sizes = depth.sizes();
+    auto feat_sizes = feat.sizes();
+    auto grad_depth = at::zeros(depth_sizes, depth.options());
+    auto grad_feat = at::zeros(feat_sizes, depth.options());
+    auto c = feat.size(C_IDX);
+
+    EXEC_NPU_CMD(aclnnBEVPoolV2Grad, grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_lengths,
+        interval_starts, b, d, h, w, c, grad_depth, grad_feat);
+    return std::make_tuple(grad_depth, grad_feat);
+}

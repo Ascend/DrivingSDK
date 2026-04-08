@@ -6,12 +6,6 @@
 mx_driving.pixel_group(Tensor score, Tensor mask, Tensor embedding, Tensor kernel_label, Tensor kernel_contour, int kernel_region_num, float distance_threshold) -> List[List]
 ```
 
-兼容：
-
-```python
-mx_driving.detection.pixel_group(Tensor score, Tensor mask, Tensor embedding, Tensor kernel_label, Tensor kernel_contour, int kernel_region_num, float distance_threshold) -> List[List]
-```
-
 ## 功能描述
 
 根据像素之间的嵌入向量和距离，将未被分组的像素分组。

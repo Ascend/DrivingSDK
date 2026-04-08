@@ -6,15 +6,9 @@
 mx_driving.furthest_point_sample_with_dist(Tensor points, int num_points) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.point.furthest_point_sample_with_dist(Tensor points, int num_points) -> Tensor
-```
-
 ## 功能描述
 
-与`npu_furthest_point_sampling`功能相同，但输入略有不同。
+与`furthest_point_sampling`功能相同，但输入略有不同。
 
 ## 参数说明
 

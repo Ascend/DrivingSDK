@@ -6,12 +6,6 @@
 mx_driving.multi_scale_deformable_attn(Tensor value, Tensor value_spatial_shapes, Tensor value_level_start_index, Tensor sampling_locations, Tensor attention_weights) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.point.npu_multi_scale_deformable_attn_function(Tensor value, Tensor value_spatial_shapes, Tensor value_level_start_index, Tensor sampling_locations, Tensor attention_weights) -> Tensor
-```
-
 ## 功能描述
 
 多尺度可变形注意力机制, 将多个视角的特征图进行融合。

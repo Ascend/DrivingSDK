@@ -6,12 +6,6 @@
 mx_driving.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=False, int mode=0, bool is_cross=True, float v_threshold=0.0, float e_threshold=0.0) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.detection.npu_rotated_iou(Tensor self, Tensor query_boxes, bool trans=False, int mode=0, bool is_cross=True, float v_threshold=0.0, float e_threshold=0.0) -> Tensor
-```
-
 ## 功能描述
 
 计算旋转框的IoU。

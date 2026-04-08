@@ -6,12 +6,6 @@
 mx_driving.three_interpolate(features: torch.Tensor, indices: torch.Tensor, weight: torch.Tensor) -> torch.Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.common.three_interpolate(features: torch.Tensor, indices: torch.Tensor, weight: torch.Tensor) -> torch.Tensor
-```
-
 ## 功能描述
 
 对三维数据进行加权最近邻线性插值处理

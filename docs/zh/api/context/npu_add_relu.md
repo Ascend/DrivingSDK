@@ -6,12 +6,6 @@
 mx_driving.npu_add_relu(Tensor x, Tensor y) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.fused.npu_add_relu(Tensor x, Tensor y) -> Tensor
-```
-
 ## 功能描述
 
 与`relu(x + y)`功能相同。

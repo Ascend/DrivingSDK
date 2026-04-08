@@ -4,14 +4,7 @@
 
 ```python
 mx_driving.roi_align_rotated(Tensor feature_map, Tensor rois, float spatial_scale,
-                             int: sampling_ratio, int: pooled_height, int: pooled_width, bool: aligned, bool: clockwise) -> Tensor
-```
-
-兼容：
-
-```python
-mx_driving.detection.roi_align_rotated(Tensor feature_map, Tensor rois, float spatial_scale,
-                                       int: sampling_ratio, int: pooled_height, int: pooled_width, bool: aligned, bool: clockwise) -> Tensor
+                             int sampling_ratio, int pooled_height, int pooled_width, bool aligned, bool clockwise) -> Tensor
 ```
 
 ## 功能描述

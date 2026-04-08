@@ -6,12 +6,6 @@
 mx_driving.points_in_box(Tensor boxes, Tensor points) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.preprocess.npu_points_in_box(Tensor boxes, Tensor points) -> Tensor
-```
-
 ## 功能描述
 
 判断点是否在框内。

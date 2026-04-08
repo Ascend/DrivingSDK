@@ -6,12 +6,6 @@
 mx_driving.furthest_point_sampling(Tensor points, int num_points) -> Tensor
 ```
 
-兼容
-
-```python
-mx_driving.point.npu_furthest_point_sampling(Tensor points, int num_points) -> Tensor
-```
-
 ## 功能描述
 
 点云数据的最远点采样。

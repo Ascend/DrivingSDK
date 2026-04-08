@@ -18,80 +18,19 @@
 #include "csrc/functions.h"
 
 namespace {
-    constexpr size_t TOTAL_CAPACITY = 8;
-    constexpr uint8_t KERNEL_SIZE_1 = 1;
-    constexpr uint8_t KERNEL_SIZE_3 = 3;
-    constexpr uint8_t KERNEL_SIZE_5 = 5;
-    constexpr uint32_t KERNEL_SIZE_IDX_0 = 0;
-    constexpr uint32_t KERNEL_SIZE_IDX_1 = 1;
-    constexpr uint32_t KERNEL_SIZE_IDX_2 = 2;
-};
+constexpr size_t TOTAL_CAPACITY = 8;
+constexpr uint8_t KERNEL_SIZE_1 = 1;
+constexpr uint8_t KERNEL_SIZE_3 = 3;
+constexpr uint8_t KERNEL_SIZE_5 = 5;
+constexpr uint32_t KERNEL_SIZE_IDX_0 = 0;
+constexpr uint32_t KERNEL_SIZE_IDX_1 = 1;
+constexpr uint32_t KERNEL_SIZE_IDX_2 = 2;
+}; // namespace
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> npu_subm_sparse_conv3d(const at::Tensor& feature,
-    const at::Tensor& indices, const at::Tensor& weight, at::IntArrayRef kernel_size, int out_channel,
-    at::IntArrayRef outSpatialShape, int batch_size, const at::Tensor& temp)
-{
-    TORCH_CHECK_NPU(feature);
-    TORCH_CHECK_NPU(indices);
-    TORCH_CHECK_NPU(weight);
-    TORCH_CHECK_NPU(temp);
-
-    auto indices_size = indices.sizes();
-    auto feature_size = feature.sizes();
-    auto weight_dim = weight.dim();
-    int64_t kernelsum = 1;
-    for (int32_t i = 0; i < static_cast<int32_t>(kernel_size.size()); i++) {
-        kernelsum *= kernel_size[i];
-    }
-    int64_t outputsum = indices_size[0] * kernelsum;
-    c10::SmallVector<int64_t, TOTAL_CAPACITY> output_size = {indices_size[0], kernelsum, feature_size[1]};
-    c10::SmallVector<int64_t, TOTAL_CAPACITY> indices_out_size = {outputsum};
-    c10::SmallVector<int64_t, TOTAL_CAPACITY> indices_pairs_size = {indices_size[0]};
-    at::Tensor indices_trans = indices.transpose(0, 1).contiguous();
-    at::Tensor out = at::empty(output_size, feature.options()).fill_(0);
-    at::Tensor indices_out = at::empty(indices_out_size, feature.options().dtype(at::kInt)).fill_(-1);
-    at::Tensor indices_pairs = at::empty(indices_pairs_size, feature.options().dtype(at::kInt));
-    EXEC_NPU_CMD(aclnnSubmSparseConv3d, feature, indices_trans, weight, temp, kernel_size, out_channel, outSpatialShape,
-        batch_size, out, indices_out, indices_pairs);
-    return std::tie(out, indices_pairs, indices_out);
-}
-
-
-std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v2(const at::Tensor& feature,
-    const at::Tensor& indices, const at::Tensor& map1, const at::Tensor& map2, at::IntArrayRef kernel_size, int in_channels,
-    at::IntArrayRef out_spatial_shape, int batch_size, double sparse_rate)
-{
-    TORCH_CHECK_NPU(feature);
-    TORCH_CHECK_NPU(indices);
-    TORCH_CHECK((kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_1 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_1 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_1) ||
-        (kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_3 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_3 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_3) ||
-        (kernel_size[KERNEL_SIZE_IDX_0] == KERNEL_SIZE_5 && kernel_size[KERNEL_SIZE_IDX_1] == KERNEL_SIZE_5 && kernel_size[KERNEL_SIZE_IDX_2] == KERNEL_SIZE_5),
-        "kernel size current only support (1, 1, 1), (3, 3, 3) and (5, 5, 5) but got: (",
-        kernel_size[KERNEL_SIZE_IDX_0], ", ", kernel_size[KERNEL_SIZE_IDX_1], ", ", kernel_size[KERNEL_SIZE_IDX_2], ")");
-
-    auto indices_size = indices.sizes();
-    int64_t kernelsum = 1;
-    for (int32_t i = 0; i < static_cast<int32_t>(kernel_size.size()); i++) {
-        kernelsum *= kernel_size[i];
-    }
-    int64_t outputsum = indices_size[0] * kernelsum;
-
-    c10::SmallVector<int64_t, TOTAL_CAPACITY> output_size = {indices_size[0], kernelsum * in_channels};
-    c10::SmallVector<int64_t, TOTAL_CAPACITY> indices_out_size = {outputsum};
-    
-    at::Tensor feature_out = at::zeros(output_size, feature.options());
-    at::Tensor indices_offset = at::empty(indices_out_size, feature.options().dtype(at::kInt));
-
-    EXEC_NPU_CMD(aclnnSubmSparseConv3dV2, feature, indices, map1, map2, kernel_size, in_channels, out_spatial_shape,
-        batch_size, sparse_rate, feature_out, indices_offset);
-
-    return std::tie(feature_out, indices_offset);
-}
-
-
-std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v3(const at::Tensor& feature, const at::Tensor& weight, const at::Tensor& indices,
-    const at::Tensor& indices_offset, const at::Tensor& map1, const at::Tensor& map2, at::IntArrayRef kernel_size, int in_channels,
-    int out_channels, at::IntArrayRef out_spatial_shape, int batch_size, int with_key)
+std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v3(const at::Tensor& feature, const at::Tensor& weight,
+    const at::Tensor& indices, const at::Tensor& indices_offset, const at::Tensor& map1, const at::Tensor& map2,
+    at::IntArrayRef kernel_size, int in_channels, int out_channels, at::IntArrayRef out_spatial_shape, int batch_size,
+    int with_key)
 {
     TORCH_CHECK_NPU(feature);
     TORCH_CHECK_NPU(indices);
@@ -106,12 +45,41 @@ std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_v3(const at::Tensor& f
 
     c10::SmallVector<int64_t, TOTAL_CAPACITY> output_size = {indices_size[0], out_channels};
     c10::SmallVector<int64_t, TOTAL_CAPACITY> indices_out_size = {outputsum};
-    
+
     at::Tensor feature_out = at::zeros(output_size, feature.options());
     at::Tensor out_indices_offset = at::empty(indices_out_size, feature.options().dtype(at::kInt));
 
-    EXEC_NPU_CMD(aclnnSubmSparseConv3dV3, feature, weight, indices, indices_offset, map1, map2, kernel_size, in_channels, out_channels, out_spatial_shape,
-        batch_size, with_key, feature_out, out_indices_offset);
+    EXEC_NPU_CMD(aclnnSubmSparseConv3dV3, feature, weight, indices, indices_offset, map1, map2, kernel_size,
+        in_channels, out_channels, out_spatial_shape, batch_size, with_key, feature_out, out_indices_offset);
 
     return std::tie(feature_out, out_indices_offset);
+}
+
+std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_grad_v2(const at::Tensor& features, const at::Tensor& weight,
+    const at::Tensor& grad_out_features, const at::Tensor& indices_offset)
+{
+    TORCH_CHECK_NPU(features);
+    TORCH_CHECK_NPU(weight);
+    TORCH_CHECK_NPU(grad_out_features);
+    TORCH_CHECK_NPU(indices_offset);
+
+    auto features_size = features.sizes();
+    auto weight_size = weight.sizes();
+
+    at::Tensor features_grad = at::zeros(features_size, features.options());
+    at::Tensor weight_grad = at::zeros(weight_size, weight.options());
+
+    // zero init
+    if (features.options().dtype() == at::kFloat) {
+        EXEC_NPU_CMD(aclnnSubmSparseConv3dGradV2, features, weight, grad_out_features, indices_offset, features_grad,
+            weight_grad);
+    } else {
+        at::Tensor weight_grad_fp32 = at::zeros(weight_size, weight.options().dtype(at::kFloat));
+        EXEC_NPU_CMD(aclnnSubmSparseConv3dGradV2, features, weight, grad_out_features, indices_offset, features_grad,
+            weight_grad_fp32);
+
+        weight_grad = weight_grad_fp32.to(at::kHalf);
+    }
+
+    return std::tie(features_grad, weight_grad);
 }

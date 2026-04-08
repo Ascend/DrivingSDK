@@ -6,12 +6,6 @@
 mx_driving.npu_fused_bias_leaky_relu(Tensor x, Tensor bias, float negative_slope, float scale) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.fused.npu_fused_bias_leaky_relu(Tensor x, Tensor bias, float negative_slope, float scale) -> Tensor
-```
-
 ## 功能描述
 
 实现对输入x进行偏置后的值，即x+bias进行LeakyReLU。

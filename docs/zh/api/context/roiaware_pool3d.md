@@ -7,13 +7,6 @@ mx_driving.roiaware_pool3d(Tensor rois, Tensor pts, Tensor pts_feature,
                     Union[int, tuple] out_size, int max_pts_per_voxel, int mode) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.detection.roiaware_pool3d(Tensor rois, Tensor pts, Tensor pts_feature,
-                    Union[int, tuple] out_size, int max_pts_per_voxel, int mode) -> Tensor
-```
-
 ## 功能描述
 
 将输入的点云特征在ROI框内进行池化

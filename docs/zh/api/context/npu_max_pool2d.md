@@ -6,12 +6,6 @@
 mx_driving.npu_max_pool2d(Tensor x, int kernel_size, int stride, int padding) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.fused.npu_max_pool2d(Tensor x, int kernel_size, int stride, int padding) -> Tensor
-```
-
 ## 功能描述
 
 对输入进行最大池化，并输出最大池化值。

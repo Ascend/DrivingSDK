@@ -6,12 +6,6 @@
 mx_driving.SubMConv3d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, indice_key=None, mode='mmcv') -> SparseConvTensor
 ```
 
-兼容
-
-```python
-mx_driving.spconv.SubMConv3d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, indice_key=None, mode='mmcv') -> SparseConvTensor
-```
-
 ## 功能描述
 
 稀疏卷积，只有当卷积核中心参与计算时，才会影响输出

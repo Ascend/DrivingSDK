@@ -6,12 +6,6 @@
 mx_driving.border_align(Tensor feature_map, Tensor rois, int pooled_size) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.detection.border_align(Tensor feature_map, Tensor rois, int pooled_size) -> Tensor
-```
-
 ## 功能描述
 
 对输入的RoI框进行边缘特征提取。

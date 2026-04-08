@@ -6,12 +6,6 @@
 mx_driving.three_nn(Tensor target, Tensor source) -> (Tensor dist, Tensor idx)
 ```
 
-兼容：
-
-```python
-mx_driving.common.three_nn(Tensor target, Tensor source) -> (Tensor dist, Tensor idx)
-```
-
 ## 功能描述
 
 对target中的每个点找到source中对应batch中的距离最近的3个点，并且返回此3个点的距离和索引值。

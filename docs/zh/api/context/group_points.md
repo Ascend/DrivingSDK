@@ -6,13 +6,6 @@
 mx_driving.group_points(Tensor features, Tensor indices) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.point.group_points(Tensor features, Tensor indices) -> Tensor
-mx_driving.point.npu_group_points(Tensor features, Tensor indices) -> Tensor
-```
-
 ## 功能描述
 
 点云数据按照索引重新分组。

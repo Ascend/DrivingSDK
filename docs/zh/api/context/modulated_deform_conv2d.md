@@ -6,12 +6,6 @@
 mx_driving.modulated_deform_conv2d(Tensor x, Tensor offset, Tensor mask, Tensor weight, Tensor bias, Union[int, Tuple[int, ...]] stride, Union[int, Tuple[int, ...]] padding, Union[int, Tuple[int, ...]] dilation, int groups, int deformable_groups) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.fused.modulated_deform_conv2d(Tensor x, Tensor offset, Tensor mask, Tensor weight, Tensor bias, Union[int, Tuple[int, ...]] stride, Union[int, Tuple[int, ...]] padding, Union[int, Tuple[int, ...]] dilation, int groups, int deformable_groups) -> Tensor
-```
-
 ## 功能描述
 
 在可变形卷积的基础之上加上了 modulation 机制，通过调控输出特征的幅度，提升可变形卷积的聚焦相关区域的能力。

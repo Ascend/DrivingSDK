@@ -6,13 +6,6 @@
 mx_driving.deformable_aggregation(Tensor feature_maps, Tensor spatial_shape, Tensor scale_start_index, Tensor sample_locations, Tensor weight) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.fused.npu_deformable_aggregation(Tensor feature_maps, Tensor spatial_shape, Tensor scale_start_index, Tensor sample_locations, Tensor weight) -> Tensor
-mx_driving.npu_deformable_aggregation(Tensor feature_maps, Tensor spatial_shape, Tensor scale_start_index, Tensor sample_locations, Tensor weight) -> Tensor
-```
-
 ## 功能描述
 
 可变形聚合，对于每个锚点实例，对多个关键点的多时间戳、视图、缩放特征进行稀疏采样后分层融合为实例特征，实现精确的锚点细化。

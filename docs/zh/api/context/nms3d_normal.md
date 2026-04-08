@@ -6,16 +6,6 @@
 mx_driving.nms3d_normal(Tensor boxes, Tensor scores, float iou_threshold) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.detection.nms3d_normal(Tensor boxes, Tensor scores, float iou_threshold) -> Tensor
-```
-
-```python
-mx_driving.detection.npu_nms3d_normal(Tensor boxes, Tensor scores, float iou_threshold) -> Tensor
-```
-
 ## 功能描述
 
 3D非极大值抑制。

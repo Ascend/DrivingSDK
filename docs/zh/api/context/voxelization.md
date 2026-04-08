@@ -6,12 +6,6 @@
 mx_driving.Voxelization(Tensor points, List[float] voxel_size, List[float] coors_range, int max_points=-1, int max_voxels=-1, bool deterministic=True) -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.point.Voxelization(Tensor points, List[float] voxel_size, List[float] coors_range, int max_points=-1, int max_voxels=-1, bool deterministic=True) -> Tensor
-```
-
 ## 功能描述
 
 将点云数据进行体素化。

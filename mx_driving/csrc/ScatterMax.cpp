@@ -19,52 +19,6 @@
 
 using namespace std;
 
-namespace {
-constexpr uint32_t MAX_INDICES_VALUE = 120000;
-constexpr uint32_t SUPPORT_UPDATES = 32;
-constexpr uint32_t MAX_SUPPORT_UPDATES = 512;
-} // namespace
-
-void npu_scatter_max_check(const at::Tensor& updates, const at::Tensor& indices, const at::Tensor& result)
-{
-    auto indicesSizes = indices.sizes();
-    auto updatesSizes = updates.sizes();
-    auto resultSizes = result.sizes();
-    int32_t indicesLength = 1;
-    for (size_t i = 1; i < static_cast<size_t>(indices.dim()); i++) {
-        indicesLength *= indicesSizes[i];
-    }
-    auto updates_dims = updatesSizes.size();
-    auto index_dims = indicesSizes.size();
-    auto result_dims = resultSizes.size();
-    TORCH_CHECK(updates_dims != 0 && index_dims != 0, "updates and index should not be empty.");
-    TORCH_CHECK(result_dims == updates_dims, "out's dimension should be equal to updates's dimension.");
-    for (size_t i = 1; i < static_cast<size_t>(result.dim()); i++) {
-        TORCH_CHECK(updatesSizes[i] == resultSizes[i], "updates and out should have the same size except for dim 0.");
-    }
-    TORCH_CHECK(indicesLength == 1,
-        "all the dims's range except the first dim of input tensor [indices] should be equal to 1.");
-    TORCH_CHECK(
-        indices.sizes()[0] == updates.sizes()[0], "input's updates size of dim 0 should be equal to indices's size.");
-}
-
-std::tuple<at::Tensor, at::Tensor> scatter_max_with_argmax_v2(
-    const at::Tensor& updates, const at::Tensor& indices, c10::optional<at::Tensor> out)
-{
-    auto sizes = updates.sizes().vec();
-    auto indicesMax = indices.max().item().toLong();
-    TORCH_CHECK(indicesMax >= 0, "the value of indices is not a valid index.");
-    sizes[0] = indicesMax + 1;
-    at::Tensor result = out.value_or(at::zeros(sizes, updates.options().dtype(at::kFloat)));
-    npu_scatter_max_check(updates, indices, result);
-    auto argmax_init = updates.sizes().vec()[0];
-    at::Tensor argmax = at::empty(result.sizes(), result.options().dtype(at::kInt)).fill_(argmax_init);
-    at::Tensor var = out.value_or(at::empty(sizes, updates.options().dtype(at::kFloat)).fill_(-3.4e+38));
-
-    EXEC_NPU_CMD(aclnnScatterMaxWithArgmaxV2, var, indices, updates, result, argmax);
-    return std::tie(result, argmax);
-}
-
 at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments)
 {
     c10::SmallVector<int64_t, SIZE> output_size;
@@ -87,4 +41,50 @@ at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segme
         .Attr("check_ids", true)
         .Run();
     return out;
+}
+
+void scatter_max_validate(const at::Tensor& src, const at::Tensor& index, const at::Tensor& res)
+{
+    auto indexSizes = index.sizes();
+    auto srcSizes = src.sizes();
+    auto resSizes = res.sizes();
+    int32_t indexLength = 1;
+    for (size_t i = 1; i < static_cast<size_t>(index.dim()); i++) {
+        indexLength *= indexSizes[i];
+    }
+    auto src_dims = srcSizes.size();
+    auto index_dims = indexSizes.size();
+    auto res_dims = resSizes.size();
+    TORCH_CHECK(src_dims != 0 && index_dims != 0, "src and index should not be empty.");
+    TORCH_CHECK(res_dims == src_dims, "out's dimension should be equal to src's dimension.");
+    for (size_t i = 1; i < static_cast<size_t>(res.dim()); i++) {
+        TORCH_CHECK(srcSizes[i] == resSizes[i], "src and out should have the same size except for dim 0.");
+    }
+    TORCH_CHECK(indexLength == 1,
+        "all the dims's range except the first dim of input tensor [index] should be equal to 1.");
+    TORCH_CHECK(
+        index.sizes()[0] == src.sizes()[0], "input's src size of dim 0 should be equal to index's size.");
+}
+
+std::tuple<at::Tensor, at::Tensor> scatter_max_v3(
+    const at::Tensor& src, const at::Tensor& index, c10::optional<at::Tensor> out)
+{
+    auto sizes = src.sizes().vec();
+    auto idxMaxVal = index.max().item().toLong();
+    TORCH_CHECK(idxMaxVal >= 0, "invalid index value.");
+
+    sizes[0] = idxMaxVal + 1;
+    float ninf = -std::numeric_limits<float>::infinity();
+    at::Tensor res = out.value_or(at::empty(sizes, src.options().dtype(at::kFloat)).fill_(ninf));
+    at::Tensor argmax = at::empty(res.sizes(), res.options().dtype(at::kInt)).fill_(-1);
+    scatter_max_validate(src, index, res);
+
+    EXEC_NPU_CMD(aclnnScatterMaxV3, src, index, res, argmax);
+    res.masked_fill_(res == ninf, 0.0f);
+
+    EXEC_NPU_CMD(aclnnScatterMaxArgmaxV3, src, index, res, argmax);
+    auto argmaxInvalidVal = src.sizes().vec()[0];
+    argmax.masked_fill_(argmax == -1, argmaxInvalidVal);
+
+    return std::tie(res, argmax);
 }

@@ -6,12 +6,6 @@
 mx_driving.assign_score_withk(Tensor scores, Tensor point_features, Tensor center_features, Tensor knn_idx, str aggregate='sum') -> Tensor
 ```
 
-兼容：
-
-```python
-mx_driving.common.assign_score_withk(Tensor scores, Tensor point_features, Tensor center_features, Tensor knn_idx, str aggregate='sum') -> Tensor
-```
-
 ## 功能描述
 
 根据`knn_idx`得到采样点及其邻居点的索引，计算`point_features`和`center_features`的差，并与`scores`相乘后在特征维度进行聚合，返回采样点的特征。

@@ -12,16 +12,12 @@ def npu_three_interpolate(
 def npu_three_interpolate_backward(
     b: int, c: int, n: int, m: int, grad_out: torch.Tensor, idx: torch.Tensor, weight: torch.Tensor
 ) -> torch.Tensor: ...
-def scatter_max_with_argmax_v2(
-    updates: torch.Tensor, indices: torch.Tensor, out: Optional[torch.Tensor] = None
-) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_scatter_max_backward(
     x: torch.Tensor, segment_ids: torch.Tensor, num_segments: torch.Tensor
 ) -> torch.Tensor: ...
 def scatter_max_v3(
     src: torch.Tensor, index: torch.Tensor, out: Optional[torch.Tensor] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
-def npu_scatter(self: torch.Tensor, indices: torch.Tensor, updates: torch.Tensor, dim: int) -> torch.Tensor: ...
 def npu_scatter_mean_grad(
     grad_out: torch.Tensor, index: torch.Tensor, count: torch.Tensor, dim: int
 ) -> torch.Tensor: ...
@@ -157,19 +153,6 @@ def modulated_deformable_conv2d_backward(
     groups: int,
     deformable_groups: int,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: ...
-def multi_to_sparse(
-    out_features: torch.Tensor,
-    unique_indices_offset: torch.Tensor,
-    sorted_idx_to_former_indices: torch.Tensor,
-    outidx_pair: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]: ...
-def multi_to_sparse_v2(
-    features: torch.Tensor,
-    weight: torch.Tensor,
-    unique_indices_offset: torch.Tensor,
-    sorted_idx_to_former_indices: torch.Tensor,
-    outidx_pair: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_sparse_conv3d(
     indices: torch.Tensor,
     kernel_size: Tuple[int, int, int],
@@ -178,13 +161,6 @@ def npu_sparse_conv3d(
     out_channel: int,
     outSpatialShape: Tuple[int, int, int],
     batch_size: int,
-) -> Tuple[torch.Tensor, torch.Tensor]: ...
-def npu_sparse_conv3d_grad(
-    indices_offset: torch.Tensor,
-    former_sorted_indices: torch.Tensor,
-    feature: torch.Tensor,
-    weight: torch.Tensor,
-    grad: torch.Tensor,
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_sparse_conv3d_grad_v2(
     former_sorted_indices: torch.Tensor,
@@ -271,9 +247,6 @@ def group_points_backward(
 ) -> torch.Tensor: ...
 def index_select(feature: torch.Tensor, dim: int, index: torch.Tensor) -> torch.Tensor: ...
 def index_select_backward(input_dim: int, dim: int, index: torch.Tensor, source: torch.Tensor) -> torch.Tensor: ...
-def vec_pool_backward(
-    grad_new_features: torch.Tensor, point_cnt_of_grid: torch.Tensor, grouped_idxs: torch.Tensor, n: int, num_c_in: int
-) -> torch.Tensor: ...
 def point_to_voxel(
     points: torch.Tensor, voxel_sizes: List[float], coor_ranges: List[float], layout: str
 ) -> torch.Tensor: ...
@@ -424,10 +397,6 @@ def grid_sampler2d_v2_backward(
     padding_mode: int,
     align_corners: bool,
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
-def npu_batch_matmul(
-    projection_mat: torch.Tensor,
-    pts_extend: torch.Tensor,
-) -> torch.Tensor: ...
 def boxes_iou_bev(
     boxes_a: torch.Tensor,
     boxes_b: torch.Tensor,
@@ -493,11 +462,8 @@ __all__ = [
     "knn",
     "npu_three_interpolate",
     "npu_three_interpolate_backward",
-    "npu_batch_matmul",
-    "scatter_max_with_argmax_v2",
     "scatter_max_v3",
     "npu_scatter_max_backward",
-    "npu_scatter",
     "npu_scatter_mean_grad",
     "npu_scatter_mean",
     "npu_hypot",
@@ -527,7 +493,6 @@ __all__ = [
     "npu_roipoint_pool3d_forward",
     "group_points",
     "group_points_backward",
-    "vec_pool_backward",
     "point_to_voxel",
     "voxel_pooling_train",
     "voxel_pool_train_backward",

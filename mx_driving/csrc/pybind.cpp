@@ -44,7 +44,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     m.def("npu_scatter_mean", &npu_scatter_mean, "npu_scatter_mean NPU version");
 
     // scatter_max
-    m.def("scatter_max_with_argmax_v2", &scatter_max_with_argmax_v2);
     m.def("scatter_max_v3", &scatter_max_v3);
     m.def("npu_scatter_max_backward", &npu_scatter_max_backward);
 
@@ -135,9 +134,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     m.def("group_points", &group_points);
     m.def("group_points_backward", &group_points_backward);
 
-    // vec_pool
-    m.def("vec_pool_backward", &vec_pool_backward);
-
     m.def("point_to_voxel", &point_to_voxel);
 
     m.def("voxel_to_point", &voxel_to_point);
@@ -180,20 +176,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // npu_roipoint_pool3d_forward
     m.def("npu_roipoint_pool3d_forward", &npu_roipoint_pool3d_forward);
 
-    // npu_subm_sparse_conv3d
-    m.def("npu_subm_sparse_conv3d", &npu_subm_sparse_conv3d);
-
     // npu_sparse_conv3d
     m.def("npu_sparse_conv3d", &npu_sparse_conv3d);
-
-    // multi_to_sparse
-    m.def("multi_to_sparse", &multi_to_sparse);
-
-    // multi_to_sparse_v2
-    m.def("multi_to_sparse_v2", &multi_to_sparse_v2);
-
-    // npu_sparse_conv3d_grad
-    m.def("npu_sparse_conv3d_grad", &npu_sparse_conv3d_grad);
 
     // npu_sparse_conv3d_grad_v2
     m.def("npu_sparse_conv3d_grad_v2", &npu_sparse_conv3d_grad_v2);
@@ -201,13 +185,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // npu_sparse_inverse_conv3d
     m.def("npu_sparse_inverse_conv3d", &npu_sparse_inverse_conv3d);
 
-    // npu_prepare_subm_conv3d
-    m.def("npu_prepare_subm_conv3d", &npu_prepare_subm_conv3d);
-
     // cal_anchors_heading
     m.def("cal_anchors_heading", &cal_anchors_heading);
-    // npu_subm_sparse_conv3d_grad
-    m.def("npu_subm_sparse_conv3d_grad", &npu_subm_sparse_conv3d_grad);
 
     // npu_gaussian
     m.def("npu_gaussian", &npu_gaussian);
@@ -242,14 +221,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // calc_poly_start_end_sl
     m.def("calc_poly_start_end_sl", &calc_poly_start_end_sl);
 
-    // npu_batch_matmul
-    m.def("npu_batch_matmul", &npu_batch_matmul);
-
     // min_area_polygons
     m.def("min_area_polygons", &min_area_polygons);
-
-    // npu_subm_sparse_conv3d_v2
-    m.def("npu_subm_sparse_conv3d_v2", &npu_subm_sparse_conv3d_v2);
 
     // radius
     m.def("radius", &radius);
