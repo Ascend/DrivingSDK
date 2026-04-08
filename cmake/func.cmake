@@ -345,7 +345,7 @@ function(add_bin_compile_target_arch35)
           ${BINCMP_TARGET}_${op_file}_copy
           COMMAND cp ${BINCMP_ADP_DIR}/${op_file}.py
                   ${BINCMP_OUT_DIR}/src/${op_type}.py
-          DEPENDS ascendc_impl_gen_arch35)
+          DEPENDS ascendc_impl_gen)
         install(
           DIRECTORY ${BINCMP_KERNEL_DIR}/${BINCMP_COMPUTE_UNIT}/${op_file}
           DESTINATION ${BINCMP_INSTALL_DIR}/${BINCMP_COMPUTE_UNIT}

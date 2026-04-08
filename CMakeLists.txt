@@ -5,13 +5,11 @@ include(cmake/config.cmake)
 include(cmake/func.cmake)
 include(cmake/intf.cmake)
 
-option(USE_ARCH35 "Use kernels_arch35 instead of kernels" OFF)
+option(USE_ARCH35 "Use arch35 specific implementations" OFF)
 
-if(USE_ARCH35)
-    add_subdirectory(${PROJECT_SOURCE_DIR}/kernels_arch35)
-else()
-    add_subdirectory(${PROJECT_SOURCE_DIR}/kernels)
-endif()
+# 添加算子目录
+add_subdirectory(${PROJECT_SOURCE_DIR}/kernels)
 
+# 添加其他子目录
 add_subdirectory(${PROJECT_SOURCE_DIR}/onnx_plugin)
 add_subdirectory(${PROJECT_SOURCE_DIR}/mx_driving/csrc)
