@@ -147,7 +147,7 @@ __aicore__ inline void SparseConv3dGrad<T>::InitBuffer(GM_ADDR features, GM_ADDR
         (__gm__ int32_t*)(usrWorkspace) + usedVectorNum_ * featureWspOffset_); // only true for float32
     outIdxWsp_ = inputIdxWsp_[totalPointsCount_];
     sparseNumWsp_ = outIdxWsp_[totalPointsCount_];
-    
+
     kIdxWsp_ = sparseNumWsp_[sparseWspOffset_].template ReinterpretCast<uint8_t>();
 }
 
@@ -155,10 +155,16 @@ template<typename T>
 __aicore__ inline void SparseConv3dGrad<T>::Process()
 {
     if ASCEND_IS_AIV {
-        Simt::VF_CALL<PrepareGlobalHashMap>(Simt::Dim3 {THREAD_NUM}, (__gm__ int32_t*)sortedIndicesGM_.GetPhyAddr(),
-            (__gm__ int32_t*)indicesOffsetGM_.GetPhyAddr(), (__gm__ int32_t*)inputIdxWsp_.GetPhyAddr(),
-            (__gm__ int32_t*)outIdxWsp_.GetPhyAddr(), (__gm__ uint8_t*)kIdxWsp_.GetPhyAddr(), totalTaskNum_,
-            kernelSize_, startOffset_);
+        Simt::VF_CALL<PrepareGlobalHashMap>(
+            Simt::Dim3 {THREAD_NUM},
+            (__gm__ int32_t*)sortedIndicesGM_.GetPhyAddr(),
+            (__gm__ int32_t*)indicesOffsetGM_.GetPhyAddr(),
+            (__gm__ int32_t*)inputIdxWsp_.GetPhyAddr(),
+            (__gm__ int32_t*)outIdxWsp_.GetPhyAddr(),
+            (__gm__ uint8_t*)kIdxWsp_.GetPhyAddr(),
+            totalTaskNum_,
+            kernelSize_,
+            startOffset_);
         SyncAll();
 
         for (int32_t pointIdx = blockIdx_ * loopPointCount_; pointIdx < totalPointsCount_;
@@ -283,24 +289,25 @@ __aicore__ inline void SparseConv3dGrad<T>::GradFeaturesScatterAdd(uint32_t m)
     if (m <= 0) {
         return;
     }
-    SetFlag<HardEvent::MTE3_MTE2>(1);
+    SetFlag<HardEvent::V_MTE2>(1);
     for (int32_t idxM = 0; idxM < m; idxM += ubMaxTaskNum_) {
         uint32_t loopCount = min(ubMaxTaskNum_, m - idxM);
-        WaitFlag<HardEvent::MTE3_MTE2>(1);
+        WaitFlag<HardEvent::V_MTE2>(1);
         DataCopy(tmpGradFeaturesLocal_, tempGradFeatureWsp_[idxM * inChannels_], loopCount * inChannels_);
 
-        SetFlag<HardEvent::MTE2_MTE3>(1);
-        WaitFlag<HardEvent::MTE2_MTE3>(1);
-        for (uint32_t i = 0; i < loopCount; ++i) {
-            uint32_t inpIdx = inputIdxPtrLocal_.GetValue(idxM + i);
+        SetFlag<HardEvent::MTE2_V>(1);
+        WaitFlag<HardEvent::MTE2_V>(1);
+        Simt::VF_CALL<ScatterAddSimt>(
+            Simt::Dim3 {inChannels_, THREAD_NUM / inChannels_},
+            (__gm__ float*)featuresGradGM_.GetPhyAddr(),
+            (__ubuf__ float*)tmpGradFeaturesLocal_.GetPhyAddr(),
+            (__ubuf__ int32_t*)inputIdxPtrLocal_[idxM].GetPhyAddr(),
+            loopCount,
+            inChannels_);
 
-            SetAtomicAdd<T>();
-            DataCopy(featuresGradGM_[inpIdx * inChannels_], tmpGradFeaturesLocal_[i * inChannels_], inChannels_);
-            SetAtomicNone();
-        }
-        SetFlag<HardEvent::MTE3_MTE2>(1);
+        SetFlag<HardEvent::V_MTE2>(1);
     }
-    WaitFlag<HardEvent::MTE3_MTE2>(1);
+    WaitFlag<HardEvent::V_MTE2>(1);
 }
 
 template<typename T>
@@ -345,6 +352,7 @@ extern "C" __global__ __aicore__ void sparse_conv3d_grad(GM_ADDR features, GM_AD
         return;
     }
     TPipe pipe;
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIC_1_2);
     SparseConv3dGrad<DTYPE_FEATURES> op;
 
     op.featureMatmul_.SetSubBlockIdx(0);

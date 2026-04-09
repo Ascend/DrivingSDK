@@ -25,3 +25,19 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void PrepareGlobalHashMap
         }
     }
 }
+
+__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void ScatterAddSimt(__gm__ float* featureGradGmPtr,
+    __ubuf__ float* tmpGradFeaturesPtr, __ubuf__ int32_t* inputIdxPtr, int32_t sparseM, uint32_t inChannel)
+{
+    int32_t xId = threadIdx.x;
+    int32_t yId = threadIdx.y;
+    int32_t yBlockDim = blockDim.y;
+
+    for (int32_t taskIdx = yId; taskIdx < sparseM; taskIdx += yBlockDim) {
+        int32_t inputIdx = inputIdxPtr[taskIdx];
+
+        int32_t inOffset = inputIdx * inChannel + xId;
+        int32_t outOffset = taskIdx * inChannel + xId;
+        asc_atomic_add(featureGradGmPtr + inOffset, tmpGradFeaturesPtr[outOffset]);
+    }
+}
