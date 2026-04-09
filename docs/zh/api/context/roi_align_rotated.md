@@ -40,13 +40,14 @@ from mx_driving import roi_align_rotated
 
 feature_map = torch.rand([1, 3, 16, 16])
 feature_map.requires_grad = True
-rois = torch.Tensor(6, 6)
-rois[0] = torch.randint(0, 1, (6,))
-rois[1].uniform_(0, 16)
-rois[2].uniform_(0, 16)
-rois[3].uniform_(0, 16)
-rois[4].uniform_(0, 16)
-rois[5].uniform_(0, math.pi)
+
+rois = torch.Tensor(8, 6)
+rois[:, 0] = torch.randint(0, 1, (8,))
+rois[:, 1].uniform_(0, 16)
+rois[:, 2].uniform_(0, 16)
+rois[:, 3].uniform_(0, 16)
+rois[:, 4].uniform_(0, 16)
+rois[:, 5].uniform_(0, math.pi)
 
 output = roi_align_rotated(feature_map.npu(), rois.npu(), 1, 1, 7, 7, True, True)
 output.backward(torch.ones_like(output))
