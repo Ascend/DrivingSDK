@@ -1,6 +1,5 @@
 # Copyright (c) 2025, Huawei Technologies.All rights reserved.
 import os
-import unittest
 from pathlib import Path
 
 import torch
@@ -10,9 +9,6 @@ import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 from data_cache import golden_data_cache
 from cv_fused_double_benchmark_compare import CvFusedDoubleBenchmarkAccuracyCompare
-
-
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 class TestSparseConv3dGrad(TestCase):
@@ -289,7 +285,6 @@ class TestSparseConv3dGrad(TestCase):
         )
         self.case_test_iterator(bevfusion_cases)
 
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "skip this ut")
     def test_bevfusion_cases_fp16(self):
         bevfusion_cases = dict(
             case1=dict(

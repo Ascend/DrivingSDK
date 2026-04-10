@@ -2,7 +2,7 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  */
 #include "scatter_mean.h"
-#include "common.h"
+#include "common/op_host/common.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 

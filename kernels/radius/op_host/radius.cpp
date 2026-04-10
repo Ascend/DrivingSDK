@@ -3,7 +3,7 @@
  */
 
 #include "radius_tiling.h"
-#include "common.h"
+#include "common/op_host/common.h"
 #include "ge/utils.h"
 
 namespace {

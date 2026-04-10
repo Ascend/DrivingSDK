@@ -1,98 +1,54 @@
 # kernels目录的主CMake配置
 
-# 添加公共头文件目录的include路径，供所有算子使用
-# common算子的公共头文件
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common/op_host)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/common/op_kernel)
-
-# deformable_conv2d算子的公共头文件
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/deformable_conv2d/op_kernel)
-
-# dynamic_scatter算子的公共头文件
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dynamic_scatter/op_kernel)
-
-# nms3d_normal算子的公共头文件
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/nms3d_normal/op_host)
-
-# scatter_add算子的公共头文件
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/scatter_add/op_kernel)
-
-# scatter_max算子的公共头文件
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/scatter_max/op_kernel)
-
-# scatter_mean算子的公共头文件
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/scatter_mean/op_kernel)
+# 以 kernels/ 为根添加 include 路径，跨算子引用头文件时使用完整相对路径
+# 例如：#include "common/op_host/common.h"，无需为每个新的跨算子引用单独维护此文件
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # 初始化源文件列表
 set(ASCEND_HOST_SRC "")
 set(ASCEND_KERNEL_SRC "")
 
-# 添加所有算子子目录
-add_subdirectory(add_relu)
-add_subdirectory(assign_score_withk)
-add_subdirectory(batch_matmul_vector)
-add_subdirectory(bev_pool)
-add_subdirectory(bev_pool_v2)
-add_subdirectory(bev_pool_v3)
-add_subdirectory(border_align)
-add_subdirectory(box_iou)
-add_subdirectory(boxes_overlap_bev)
-add_subdirectory(cal_anchors_heading)
-add_subdirectory(calc_poly_start_end_sl)
-add_subdirectory(cartesian_to_frenet1)
-add_subdirectory(common)
-add_subdirectory(cylinder_query)
-add_subdirectory(deformable_aggregation)
-add_subdirectory(deformable_conv2d)
-add_subdirectory(deformable_conv2d_v2)
-add_subdirectory(diff_iou_rotated_sort_vertices)
-add_subdirectory(draw_gaussian_to_heatmap)
-add_subdirectory(dynamic_scatter)
-add_subdirectory(dynamic_voxelization)
-add_subdirectory(furthest_point_sampling)
-add_subdirectory(furthest_point_sampling_with_dist)
-add_subdirectory(fused_bias_leaky_relu)
-add_subdirectory(gather_nms3d_mask)
-add_subdirectory(gaussian)
-add_subdirectory(geometric_kernel_attention)
-add_subdirectory(graph_softmax)
-add_subdirectory(grid_sampler2d_v2)
-add_subdirectory(grid_sampler3d_v1)
-add_subdirectory(group_points)
-add_subdirectory(hard_voxelize)
-add_subdirectory(hypot)
-add_subdirectory(knn)
-add_subdirectory(max_pool2d)
-add_subdirectory(min_area_polygons)
-add_subdirectory(multi_scale_deformable_attn)
-add_subdirectory(nms3d)
-add_subdirectory(nms3d_normal)
-add_subdirectory(nms3d_on_sight)
-add_subdirectory(pixel_group)
-add_subdirectory(point_to_voxel)
-add_subdirectory(points_in_box)
-add_subdirectory(points_in_box_all)
-add_subdirectory(radius)
-add_subdirectory(roi_align_rotated)
-add_subdirectory(roiaware_avgpool3d)
-add_subdirectory(roiaware_maxpool3d)
-add_subdirectory(roiaware_pool3d)
-add_subdirectory(roipoint_pool3d)
-add_subdirectory(scatter_add)
-add_subdirectory(scatter_max)
-add_subdirectory(scatter_mean)
-add_subdirectory(select_idx_with_mask)
-add_subdirectory(sigmoid_focal_loss)
-add_subdirectory(sparse_conv3d)
-add_subdirectory(sparse_inverse_conv3d)
-add_subdirectory(sparse_matmul)
-add_subdirectory(subm_sparse_conv3d)
-add_subdirectory(to_sparse)
-add_subdirectory(unique_v2)
-add_subdirectory(unique_voxel)
-add_subdirectory(vec_pool)
-add_subdirectory(voxel_pooling_train)
-add_subdirectory(voxel_to_point)
+# 自动扫描所有算子子目录并收集源文件。
+# 新增算子文件夹无需修改此文件，也无需在子目录单独创建 CMakeLists.txt。
+file(GLOB op_dirs RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*)
+foreach(op_dir ${op_dirs})
+  set(op_abs ${CMAKE_CURRENT_SOURCE_DIR}/${op_dir})
+  if(NOT IS_DIRECTORY ${op_abs})
+    continue()
+  endif()
+
+  # 收集源文件，USE_ARCH35 时优先使用 arch35 子目录（若存在）
+  if(USE_ARCH35)
+    if(EXISTS ${op_abs}/op_host/arch35)
+      file(GLOB OP_HOST_SRC
+           ${op_abs}/op_host/arch35/*.cpp
+           ${op_abs}/op_host/arch35/*.h)
+    else()
+      file(GLOB OP_HOST_SRC
+           ${op_abs}/op_host/*.cpp
+           ${op_abs}/op_host/*.h)
+    endif()
+    if(EXISTS ${op_abs}/op_kernel/arch35)
+      file(GLOB OP_KERNEL_SRC
+           ${op_abs}/op_kernel/arch35/*.cpp
+           ${op_abs}/op_kernel/arch35/*.h)
+    else()
+      file(GLOB OP_KERNEL_SRC
+           ${op_abs}/op_kernel/*.cpp
+           ${op_abs}/op_kernel/*.h)
+    endif()
+  else()
+    file(GLOB OP_HOST_SRC
+         ${op_abs}/op_host/*.cpp
+         ${op_abs}/op_host/*.h)
+    file(GLOB OP_KERNEL_SRC
+         ${op_abs}/op_kernel/*.cpp
+         ${op_abs}/op_kernel/*.h)
+  endif()
+
+  list(APPEND ASCEND_HOST_SRC ${OP_HOST_SRC})
+  list(APPEND ASCEND_KERNEL_SRC ${OP_KERNEL_SRC})
+endforeach()
 
 # 以下是原有的编译逻辑
 if(BUILD_STAGE EQUAL 0)

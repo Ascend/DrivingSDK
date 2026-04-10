@@ -2,11 +2,11 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  */
 #include "scatter_max_with_argmax_v2.h"
-#include "common.h"
+#include "common/op_host/common.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
-#include "nms3d_normal_tiling.h"
+#include "nms3d_normal/op_host/nms3d_normal_tiling.h"
 
 
 using namespace std;

@@ -15,7 +15,7 @@
 #include "deformable_aggregation_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "common.h"
+#include "common/op_host/common.h"
 
 namespace {
 

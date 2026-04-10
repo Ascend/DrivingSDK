@@ -2,7 +2,7 @@
 #include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
-#include "common.h"
+#include "common/op_host/common.h"
 #include "tiling/platform/platform_ascendc.h"
 
 using namespace ge;

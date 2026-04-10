@@ -1,7 +1,7 @@
 #include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "common.h"
+#include "common/op_host/common.h"
 #include "subm_sparse_conv3d_v3_tiling.h"
 using namespace ge;
 using namespace std;

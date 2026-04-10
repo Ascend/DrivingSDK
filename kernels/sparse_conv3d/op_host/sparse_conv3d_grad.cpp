@@ -1,4 +1,4 @@
-#include "common.h"
+#include "common/op_host/common.h"
 #include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "sparse_conv3d_grad_tiling.h"

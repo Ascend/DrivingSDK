@@ -2,7 +2,7 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
  */
 #include "scatter_add_tiling_v3.h"
-#include "common.h"
+#include "common/op_host/common.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 

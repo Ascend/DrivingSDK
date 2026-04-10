@@ -3,7 +3,7 @@
  */
 
 #include "knn_tiling.h"
-#include "common.h"
+#include "common/op_host/common.h"
 
 namespace optiling {
 /****************class impl*****************/
