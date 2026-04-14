@@ -1,6 +1,6 @@
 #include "subm_sparse_conv3d_grad_v2.h"
 
-#include "common.h"
+#include "common/op_host/common.h"
 #include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"

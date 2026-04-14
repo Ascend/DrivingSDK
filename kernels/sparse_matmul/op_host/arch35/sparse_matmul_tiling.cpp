@@ -1,7 +1,7 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
  */
-#include "common.h"
+#include "common/op_host/common.h"
 #include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
