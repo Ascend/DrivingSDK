@@ -23,10 +23,12 @@ namespace {
     constexpr int32_t HL_OFFSET = 1;
     constexpr int32_t LH_OFFSET = 2;
     constexpr int32_t LL_OFFSET = 3;
+    constexpr uint32_t THREAD_NUM = 1024;
 }
 
+
 template<typename T>
-__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void prepareDataSIMT(
+__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void prepareDataSIMT(
     __gm__ T* samplingLocationGm_,
     __ubuf__ int32_t* usedTaskOffset_, 
     __ubuf__ int32_t* usedWeightOffset_,
@@ -77,7 +79,6 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void prepareDataSIMT(
             float hIm = locH * h - 0.5f;
             float wIm = locW * w - 0.5f;
 
-            // 不能直接用Simt：：Cast，会有奇怪的报错，直接用=也是强制类型转换
             int32_t hLow = static_cast<int32_t>(AscendC::Simt::Floor(hIm));
             int32_t wLow = static_cast<int32_t>(AscendC::Simt::Floor(wIm));
             int32_t hHigh = hLow + 1;
@@ -264,6 +265,9 @@ public:
         DataCopy(scaleStartLocal_, scaleStartIndexGm_, scaleStartBufSize_);
         DataCopy(spatialShapeLocal_, spatialShapesGm_, spatialShapeBufSize_);
 
+        SetFlag<HardEvent::MTE2_V>(0);
+        WaitFlag<HardEvent::MTE2_V>(0);
+
         for (uint32_t taskIdx = curBlockIdx_ * taskCompNum_; taskIdx < taskNum_; taskIdx += coreNum_ * taskCompNum_) {
             ComputeAndCopyOut(taskIdx, min(taskCompNum_, taskNum_ - taskIdx));
         }
@@ -277,28 +281,28 @@ public:
         uint32_t actualCompNum = actualTaskNum * numPoints_ * numCams_;
         
         // simt的优势是处理scalar，离散访存
-        PipeBarrier<PIPE_ALL>();
         AscendC::Simt::VF_CALL<prepareDataSIMT<T>>(
-            AscendC::Simt::Dim3{1024}, 
+            AscendC::Simt::Dim3 {
+                THREAD_NUM
+            },
             (__gm__ T*) samplingLocationGm_[baseOffset * 2].GetPhyAddr(),
-            (__ubuf__ int32_t*) usedTaskOffset_.GetPhyAddr(), 
-            (__ubuf__ int32_t*) usedWeightOffset_.GetPhyAddr(), 
-            (__ubuf__ T*) bilinearWeightLocal_.GetPhyAddr(), 
-            (__ubuf__ int32_t*) usedFeatOffset_.GetPhyAddr(), 
-            (__ubuf__ uint8_t*) taskPtr_.GetPhyAddr(), 
+            (__ubuf__ int32_t*) usedTaskOffset_.GetPhyAddr(),
+            (__ubuf__ int32_t*) usedWeightOffset_.GetPhyAddr(),
+            (__ubuf__ T*) bilinearWeightLocal_.GetPhyAddr(),
+            (__ubuf__ int32_t*) usedFeatOffset_.GetPhyAddr(),
+            (__ubuf__ uint8_t*) taskPtr_.GetPhyAddr(),
             (__ubuf__ int32_t*) scaleStartLocal_.GetPhyAddr(),
-            (__ubuf__ int32_t*) spatialShapeLocal_.GetPhyAddr(), 
-            taskIdx, 
-            baseOffset, 
-            actualCompNum, 
-            numAnchors_, 
-            numPoints_, 
-            numCams_, 
-            numScales_, 
-            numGroups_, 
-            numFeats_, 
+            (__ubuf__ int32_t*) spatialShapeLocal_.GetPhyAddr(),
+            taskIdx,
+            baseOffset,
+            actualCompNum,
+            numAnchors_,
+            numPoints_,
+            numCams_,
+            numScales_,
+            numGroups_,
+            numFeats_,
             numEmbeds_);
-        PipeBarrier<PIPE_ALL>();
 
         Duplicate(resLocal_, static_cast<T>(0.0f), actualTaskNum * cAligned_);
         CompareScalar(taskPtr_, taskPtr_, static_cast<uint8_t>(1), AscendC::CMPMODE::EQ, actualCompNum);
@@ -310,33 +314,35 @@ public:
         for (uint32_t outerIdx = 0; outerIdx < outerLoops; outerIdx++) {
             uint64_t valid = taskPtr_.ReinterpretCast<uint64_t>().GetValue(outerIdx);
             uint32_t innerLoops = min(actualCompNum - 64 * outerIdx, static_cast<uint32_t>(64));
-            for (uint32_t innerIdx = ScalarGetSFFValue<1>(valid); innerIdx < innerLoops && innerIdx >= 0; innerIdx = ScalarGetSFFValue<1>(valid)) {
+            for (int32_t innerIdx = ScalarGetSFFValue<1>(valid); innerIdx < innerLoops && innerIdx >= 0; innerIdx = ScalarGetSFFValue<1>(valid)) {
                 valid = sbitset0(valid, innerIdx);
-
+                SetFlag<HardEvent::V_S>(bufIdx_);
                 uint32_t idx = outerIdx * 64 + innerIdx;
-                int32_t taskOffset = usedTaskOffset_.GetValue(idx);
-                int32_t weightOffset = usedWeightOffset_.GetValue(idx);
 
                 // numScales * numGroups
+                int32_t weightOffset = usedWeightOffset_.GetValue(idx);
                 DataCopy(weightLocal_[bufIdx_ * weightBufSize_], weightsGm_[weightOffset], weightBufSize_);
+
                 SetFlag<HardEvent::MTE2_V>(bufIdx_);
                 WaitFlag<HardEvent::MTE2_V>(bufIdx_);
+                
                 // numScales * cAligned
                 BroadCast<T, 2, 1>(weightMulLocal_[bufIdx_ * weightMulBufSize_], weightLocal_[bufIdx_ * weightBufSize_], dstShape_, srcShape_);
 
                 WaitFlag<HardEvent::V_MTE2>(bufIdx_);
                 // 4 * numScales * cAligned
                 copyInFeat(vLocal_[bufIdx_ * vLocalBufSize_], usedFeatOffset_[4 * idx * numScales_]);
-
+                
                 SetFlag<HardEvent::MTE2_V>(BUFFER_NUM + bufIdx_);
                 WaitFlag<HardEvent::MTE2_V>(BUFFER_NUM + bufIdx_);
-                SetFlag<HardEvent::V_S>(bufIdx_);
-                WaitFlag<HardEvent::V_S>(bufIdx_);
-
+                
                 // 一次性计算4 * numScales个点
+                int32_t taskOffset = usedTaskOffset_.GetValue(idx);
                 computeAggregationVF(resLocal_[taskOffset * cAligned_], weightMulLocal_[bufIdx_ * weightMulBufSize_], 
                     bilinearWeightLocal_[4 * idx * numScales_], vLocal_[bufIdx_ * vLocalBufSize_]);
+
                 SetFlag<HardEvent::V_MTE2>(bufIdx_);
+                WaitFlag<HardEvent::V_S>(bufIdx_);
 
                 bufIdx_ = (bufIdx_ + 1) % BUFFER_NUM;
             }
