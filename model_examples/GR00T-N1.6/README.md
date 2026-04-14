@@ -47,7 +47,7 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
 
 |     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 7.3.0  |
+| FrameworkPTAdapter | 26.0.0  |
 |       CANN        | 9.0.0  |
 
 ## 安装模型环境
