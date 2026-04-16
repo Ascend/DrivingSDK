@@ -1,6 +1,8 @@
-# 版本说明
+# 版本配套说明表
 
-DrivingSDK算子支持的CPU架构、Python、PyTorch和torch_npu版本对应关系如下：
+本文档提供了Driving SDK算子各分支与CPU架构、Python版本、PyTorch版本以及torch_npu版本的完整配套关系对照表。
+
+**表 1** Driving SDK与CPU架构、Python、PyTorch和torch_npu版本的完整版对应关系
 
 | Gitcode分支 |  CPU架构 |  支持的Python版本 | 支持的PyTorch版本 | 支持的torch_npu版本 |
 |-----------|-----------|-------------------|-------------------|---------------------|

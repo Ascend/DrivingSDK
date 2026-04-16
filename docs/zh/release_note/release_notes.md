@@ -37,24 +37,25 @@
 
 ### 相关产品版本配套说明
 
-**表 1**  DrivingSDK配套表
+**表 1**  Driving SDK配套表
 
-|DrivingSDK代码分支名称|CANN版本|Ascend Extension for PyTorch版本|Python版本|PyTorch版本|
+|Driving SDK代码分支名称|CANN版本|Ascend Extension for PyTorch版本|Python版本|PyTorch版本|
 |--|--|--|--|--|
 |branch_v26.0.0|9.0.0|26.0.0|3.8, 3.9, 3.10, 3.11|2.7.1, 2.8.0|
 |branch_v7.3.0|8.5.0|7.3.0|3.8, 3.9, 3.10, 3.11|2.7.1, 2.8.0|
 |branch_v7.2.0|8.3.RC1|7.2.0|3.8, 3.9, 3.10, 3.11|2.1.0, 2.7.1, 2.8.0|
 
 >[!NOTE]  
->用户可根据需要选择MindSpeed代码分支下载源码并进行安装。
+>用户可根据需要选择Driving SDK代码分支下载源码并进行安装。
 
 ## 版本兼容性说明
 
-|DrivingSDK版本|CANN版本|Ascend Extension for PyTorch版本|
+|Driving SDK版本|CANN版本|Ascend Extension for PyTorch版本|
 |--|--|--|
 |26.0.0|CANN 9.0.0<br>CANN 8.5.0<br>CANN 8.3.RC1<br>CANN 8.2.RC1<br>CANN 8.1.RC1<br>|26.0.0|
 |7.3.0|CANN 8.5.0<br>CANN 8.3.RC1<br>CANN 8.2.RC1<br>CANN 8.1.RC1<br>CANN 8.0.0<br>|7.3.0|
 |7.2.0|CANN 8.3.RC1<br>CANN 8.2.RC1<br>CANN 8.1.RC1<br>CANN 8.0.0<br>|7.2.0|
+
 ## 版本使用注意事项
 
 无
