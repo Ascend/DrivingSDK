@@ -26,7 +26,7 @@ export SUBM_FP16_ENABLED=1
 
 # 解析参数
 source ${test_path_dir}/parse_args.sh
-declare_required_params batch_size num_npu # 接收参数顺序
+declare_required_params batch_size num_npu epochs # 接收参数顺序
 parse_common_args "$@"
 
 base_batch_size=$(($batch_size * $num_npu))
@@ -51,6 +51,7 @@ start_time=$(date +%s)
 bash tools/dist_train.sh \
     projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py ${num_npu} \
     --cfg-options train_dataloader.batch_size=${batch_size} auto_scale_lr.base_batch_size=${base_batch_size} \
+    train_cfg.max_epochs=${epochs}\
     load_from=pretrained/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth model.img_backbone.init_cfg.checkpoint=pretrained/swint-nuimages-pretrained.pth --amp \
     > ${test_path_dir}/output/${log_name} 2>&1 &
 
