@@ -1,7 +1,8 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
  */
-#include "scatter_max_v3.h"
+#include "scatter_max_v1.h"
+
 #include "common/op_host/common.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -17,18 +18,18 @@ constexpr uint64_t TILING_KEY_LARGE_TAIL = 1;
 
 namespace optiling {
 
-class ScatterMaxV3Tiling {
+class ScatterMaxV1Tiling {
 public:
-    ScatterMaxV3Tiling() {}
-    ScatterMaxTilingDataV3* GetTilingData(gert::TilingContext*);
-    ScatterMaxTilingDataV3* GetArgmaxTilingData(gert::TilingContext*);
+    ScatterMaxV1Tiling() {}
+    ScatterMaxTilingDataV1* GetTilingData(gert::TilingContext*);
+    ScatterMaxTilingDataV1* GetArgmaxTilingData(gert::TilingContext*);
 
 private:
     ge::graphStatus init(gert::TilingContext*);
     ge::graphStatus setTilingData();
 
 private:
-    ScatterMaxTilingDataV3 tiling;
+    ScatterMaxTilingDataV1 tiling;
 
     uint64_t ubSize;
     uint64_t coreNum;
@@ -39,14 +40,14 @@ private:
     uint64_t idxNumPerCore, idxBatchNum;
     // small tail
     uint64_t tailBatchNum;
-    // large tail 
+    // large tail
     uint64_t srcBatchNum;
     // left
     uint64_t coreNumPerTail, leftSrcBatchNum;
     uint64_t leftSrcNumBigCore, leftSrcBigCoreNum;
 };
 
-ge::graphStatus ScatterMaxV3Tiling::init(gert::TilingContext* ctx)
+ge::graphStatus ScatterMaxV1Tiling::init(gert::TilingContext* ctx)
 {
     if (ctx == nullptr || ctx->GetInputDesc(0) == nullptr || ctx->GetInputDesc(1) == nullptr) {
         return ge::GRAPH_FAILED;
@@ -91,8 +92,8 @@ ge::graphStatus ScatterMaxV3Tiling::init(gert::TilingContext* ctx)
     return ge::GRAPH_SUCCESS;
 }
 
- ge::graphStatus ScatterMaxV3Tiling::setTilingData()
- {
+ge::graphStatus ScatterMaxV1Tiling::setTilingData()
+{
     tiling.set_srcElemNum(srcElemNum);
     tiling.set_idxElemNum(idxElemNum);
     tiling.set_resElemNum(resElemNum);
@@ -111,7 +112,7 @@ ge::graphStatus ScatterMaxV3Tiling::init(gert::TilingContext* ctx)
     return ge::GRAPH_SUCCESS;
 }
 
-ScatterMaxTilingDataV3* ScatterMaxV3Tiling::GetTilingData(gert::TilingContext* ctx)
+ScatterMaxTilingDataV1* ScatterMaxV1Tiling::GetTilingData(gert::TilingContext* ctx)
 {
     if (init(ctx) == ge::GRAPH_FAILED) {
         return nullptr;
@@ -151,7 +152,7 @@ ScatterMaxTilingDataV3* ScatterMaxV3Tiling::GetTilingData(gert::TilingContext* c
     return &tiling;
 }
 
-ScatterMaxTilingDataV3* ScatterMaxV3Tiling::GetArgmaxTilingData(gert::TilingContext* ctx)
+ScatterMaxTilingDataV1* ScatterMaxV1Tiling::GetArgmaxTilingData(gert::TilingContext* ctx)
 {
     if (init(ctx) == ge::GRAPH_FAILED) {
         return nullptr;
@@ -191,14 +192,14 @@ ScatterMaxTilingDataV3* ScatterMaxV3Tiling::GetArgmaxTilingData(gert::TilingCont
 
     return &tiling;
 }
-}
+} // namespace optiling
 
 namespace optiling {
 template<bool argmax>
-static ge::graphStatus ScatterMaxV3TilingFunc(gert::TilingContext* ctx)
+static ge::graphStatus ScatterMaxV1TilingFunc(gert::TilingContext* ctx)
 {
-    ScatterMaxV3Tiling tiling;
-    ScatterMaxTilingDataV3* tilingData;
+    ScatterMaxV1Tiling tiling;
+    ScatterMaxTilingDataV1* tilingData;
 
     if constexpr (argmax) {
         tilingData = tiling.GetArgmaxTilingData(ctx);
@@ -217,16 +218,16 @@ static ge::graphStatus ScatterMaxV3TilingFunc(gert::TilingContext* ctx)
     tilingData->SaveToBuffer(ctx->GetRawTilingData()->GetData(), ctx->GetRawTilingData()->GetCapacity());
     ctx->GetRawTilingData()->SetDataSize(tilingData->GetDataSize());
 
-    size_t *currentWorkspace = ctx->GetWorkspaceSizes(1);
+    size_t* currentWorkspace = ctx->GetWorkspaceSizes(1);
     currentWorkspace[0] = 0;
 
     return ge::GRAPH_SUCCESS;
 }
-}
+} // namespace optiling
 
 
 namespace ge {
-static ge::graphStatus ScatterMaxV3InferShape(gert::InferShapeContext* context)
+static ge::graphStatus ScatterMaxV1InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* x1_shape = context->GetInputShape(0);
     gert::Shape* y_shape = context->GetOutputShape(0);
@@ -239,7 +240,7 @@ static ge::graphStatus ScatterMaxV3InferShape(gert::InferShapeContext* context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus ScatterMaxV3InferDtype(gert::InferDataTypeContext *context)
+static ge::graphStatus ScatterMaxV1InferDtype(gert::InferDataTypeContext* context)
 {
     const ge::DataType var_dtype = context->GetInputDataType(0);
     const ge::DataType indices_dtype = context->GetInputDataType(1);
@@ -247,13 +248,13 @@ static ge::graphStatus ScatterMaxV3InferDtype(gert::InferDataTypeContext *contex
     context->SetOutputDataType(1, indices_dtype);
     return GRAPH_SUCCESS;
 }
-}
+} // namespace ge
 
 
 namespace ops {
-class ScatterMaxV3 : public OpDef {
+class ScatterMaxV1 : public OpDef {
 public:
-    explicit ScatterMaxV3(const char* name) : OpDef(name)
+    explicit ScatterMaxV1(const char* name) : OpDef(name)
     {
         this->Input("src")
             .ParamType(REQUIRED)
@@ -278,24 +279,22 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::ScatterMaxV3InferShape)
-             .SetInferDataType(ge::ScatterMaxV3InferDtype);
+        this->SetInferShape(ge::ScatterMaxV1InferShape).SetInferDataType(ge::ScatterMaxV1InferDtype);
 
-        this->AICore()
-            .SetTiling(optiling::ScatterMaxV3TilingFunc<false>);
+        this->AICore().SetTiling(optiling::ScatterMaxV1TilingFunc<false>);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
     }
 };
 
-OP_ADD(ScatterMaxV3);
-}
+OP_ADD(ScatterMaxV1);
+} // namespace ops
 
 
 namespace ops {
-class ScatterMaxArgmaxV3 : public OpDef {
+class ScatterMaxArgmaxV1 : public OpDef {
 public:
-    explicit ScatterMaxArgmaxV3(const char* name) : OpDef(name)
+    explicit ScatterMaxArgmaxV1(const char* name) : OpDef(name)
     {
         this->Input("src")
             .ParamType(REQUIRED)
@@ -321,15 +320,13 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::ScatterMaxV3InferShape)
-             .SetInferDataType(ge::ScatterMaxV3InferDtype);
+        this->SetInferShape(ge::ScatterMaxV1InferShape).SetInferDataType(ge::ScatterMaxV1InferDtype);
 
-        this->AICore()
-            .SetTiling(optiling::ScatterMaxV3TilingFunc<true>);
+        this->AICore().SetTiling(optiling::ScatterMaxV1TilingFunc<true>);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
     }
 };
 
-OP_ADD(ScatterMaxArgmaxV3);
-}
+OP_ADD(ScatterMaxArgmaxV1);
+} // namespace ops

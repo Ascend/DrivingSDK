@@ -2,8 +2,8 @@
  * Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
  *
  */
-#ifndef _SCATTER_MAX_V3_H_
-#define _SCATTER_MAX_V3_H_
+#ifndef _SCATTER_MAX_V1_H_
+#define _SCATTER_MAX_V1_H_
 
 #include "kernel_operator.h"
 
@@ -17,8 +17,8 @@ public:
     __aicore__ inline KernelScatterMaxBase() = delete;
 
     __aicore__ inline KernelScatterMaxBase(
-        GM_ADDR src, GM_ADDR idx, GM_ADDR res, GM_ADDR argmax, ScatterMaxTilingDataV3 *tiling_data, TPipe* pipe)
-         : _pipe(pipe)
+        GM_ADDR src, GM_ADDR idx, GM_ADDR res, GM_ADDR argmax, ScatterMaxTilingDataV1* tiling_data, TPipe* pipe)
+        : _pipe(pipe)
     {
         uint64_t blockIdx = GetBlockIdx();
         uint64_t blockNum = GetBlockNum();
@@ -55,15 +55,15 @@ public:
         } else {
             _leftSrcIdxPos = _idxNumPerCore * blockNum + blockIdx / _coreNumPerTail;
         }
-        
+
         uint64_t leftIdxNum = _idxElemNum % blockNum;
         if (blockIdx < leftIdxNum * _coreNumPerTail) {
             if (blockIdx % _coreNumPerTail < _leftSrcBigCoreNum) {
                 _leftSrcBaseOffset = _leftSrcIdxPos * _tailElemNum + (blockIdx % _coreNumPerTail) * _leftSrcNumBigCore;
                 _leftSrcNumCurCore = _leftSrcNumBigCore;
             } else {
-                _leftSrcBaseOffset = _leftSrcIdxPos * _tailElemNum + _leftSrcBigCoreNum * _leftSrcNumBigCore
-                         + (blockIdx % _coreNumPerTail - _leftSrcBigCoreNum) * (_leftSrcNumBigCore - 1);
+                _leftSrcBaseOffset = _leftSrcIdxPos * _tailElemNum + _leftSrcBigCoreNum * _leftSrcNumBigCore +
+                                     (blockIdx % _coreNumPerTail - _leftSrcBigCoreNum) * (_leftSrcNumBigCore - 1);
                 _leftSrcNumCurCore = _leftSrcNumBigCore - 1;
             }
         } else {
@@ -79,8 +79,9 @@ public:
     }
 
 protected:
-    template <typename T1, typename T2>
-    __aicore__ inline T1 ceilDiv(T1 a, T2 b) {
+    template<typename T1, typename T2>
+    __aicore__ inline T1 ceilDiv(T1 a, T2 b)
+    {
         return b == 0 ? 0 : (a + b - 1) / b;
     };
 
@@ -129,13 +130,12 @@ protected:
 };
 
 template<bool smallTail>
-class KernelScatterMaxV3 : public KernelScatterMaxBase {
+class KernelScatterMaxV1 : public KernelScatterMaxBase {
 public:
-    __aicore__ inline KernelScatterMaxV3() = delete;
+    __aicore__ inline KernelScatterMaxV1() = delete;
 
-    __aicore__ inline KernelScatterMaxV3(
-        GM_ADDR src, GM_ADDR idx, GM_ADDR res, GM_ADDR argmax, 
-        ScatterMaxTilingDataV3 *tiling_data, TPipe* pipe)
+    __aicore__ inline KernelScatterMaxV1(
+        GM_ADDR src, GM_ADDR idx, GM_ADDR res, GM_ADDR argmax, ScatterMaxTilingDataV1* tiling_data, TPipe* pipe)
         : KernelScatterMaxBase(src, idx, res, argmax, tiling_data, pipe)
     {
         if constexpr (smallTail) {
@@ -212,7 +212,8 @@ private:
         SetAtomicMax<DTYPE_RES>();
         for (uint64_t n = 0; n < tailLoadNum; n++) {
             DTYPE_INDEX idxVal = _idxLocal.GetValue(k * _tailBatchNum + n);
-            DataCopyPad(_resGM[idxVal * _tailElemNum], _srcLocal[n * _tailElemNumAlign], {1, static_cast<uint32_t>(_tailSize), 0, 0, 0});
+            DataCopyPad(_resGM[idxVal * _tailElemNum], _srcLocal[n * _tailElemNumAlign],
+                {1, static_cast<uint32_t>(_tailSize), 0, 0, 0});
         }
         SetAtomicNone();
         SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
@@ -227,14 +228,15 @@ private:
             uint64_t srcOffset = (idxOffset + k) * _tailElemNum + n * _srcBatchNum;
             uint64_t srcLoadNum = min(_srcBatchNum, _tailElemNum - n * _srcBatchNum);
             uint64_t srcLoadNumAlign = AlignUp(srcLoadNum, _elemNumPerBlock);
-            
+
             _srcLocal = _srcBuf.Get<DTYPE_SRC>();
             DataCopy(_srcLocal, _srcGM[srcOffset], srcLoadNumAlign);
             SetFlag<HardEvent::MTE2_MTE3>(EVENT_ID0);
             WaitFlag<HardEvent::MTE2_MTE3>(EVENT_ID0);
-            
+
             SetAtomicMax<DTYPE_RES>();
-            DataCopyPad(_resGM[idxVal * _tailElemNum], _srcLocal, {1, static_cast<uint32_t>(srcLoadNum * sizeof(DTYPE_RES)), 0, 0, 0});
+            DataCopyPad(_resGM[idxVal * _tailElemNum], _srcLocal,
+                {1, static_cast<uint32_t>(srcLoadNum * sizeof(DTYPE_RES)), 0, 0, 0});
             SetAtomicNone();
             SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
             WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
@@ -254,7 +256,7 @@ private:
         DataCopy(_srcLocal, _srcGM[srcOffset], srcLoadNumAlign);
         SetFlag<HardEvent::MTE2_MTE3>(EVENT_ID0);
         WaitFlag<HardEvent::MTE2_MTE3>(EVENT_ID0);
-        
+
         DTYPE_INDEX idxVal = _idxLocal.GetValue(0);
         uint64_t resOffset = idxVal * _tailElemNum + srcOffset % _tailElemNum;
 
@@ -267,13 +269,12 @@ private:
 };
 
 template<bool smallTail>
-class KernelScatterMaxArgmaxV3 : public KernelScatterMaxBase {
+class KernelScatterMaxArgmaxV1 : public KernelScatterMaxBase {
 public:
-    __aicore__ inline KernelScatterMaxArgmaxV3() = delete;
+    __aicore__ inline KernelScatterMaxArgmaxV1() = delete;
 
-    __aicore__ inline KernelScatterMaxArgmaxV3(
-        GM_ADDR src, GM_ADDR idx, GM_ADDR res, GM_ADDR argmax, 
-        ScatterMaxTilingDataV3 *tiling_data, TPipe* pipe)
+    __aicore__ inline KernelScatterMaxArgmaxV1(
+        GM_ADDR src, GM_ADDR idx, GM_ADDR res, GM_ADDR argmax, ScatterMaxTilingDataV1* tiling_data, TPipe* pipe)
         : KernelScatterMaxBase(src, idx, res, argmax, tiling_data, pipe)
     {
         if constexpr (smallTail) {
@@ -373,7 +374,7 @@ private:
             DTYPE_INDEX idxVal = _idxLocal.GetValue(k * _tailBatchNum + n);
             uint64_t resOffset = idxVal * _tailElemNum;
             int64_t srcGlobalPos = tailOffset + n;
-            
+
             DataCopy(_resLocal, _resGM[resOffset], _tailElemNumAlign);
             DataCopy(_argmaxLocal, _argmaxGM[resOffset], _tailElemNumAlign);
             SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
@@ -381,7 +382,8 @@ private:
 
             Compare(_maskLocal, _srcLocal[n * _tailElemNumAlign], _resLocal, CMPMODE::NE, _srcMaskNum);
             Cast(_argmaxFloatLocal, _argmaxLocal, RoundMode::CAST_NONE, _tailElemNumAlign);
-            Select(_argmaxFloatLocal, _maskLocal, _argmaxFloatLocal, static_cast<float>(srcGlobalPos), SELMODE::VSEL_TENSOR_SCALAR_MODE, _tailElemNum);
+            Select(_argmaxFloatLocal, _maskLocal, _argmaxFloatLocal, static_cast<float>(srcGlobalPos),
+                SELMODE::VSEL_TENSOR_SCALAR_MODE, _tailElemNum);
             Cast(_argmaxLocal, _argmaxFloatLocal, RoundMode::CAST_RINT, _tailElemNumAlign);
             SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
             WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
@@ -392,7 +394,6 @@ private:
         }
         SetAtomicNone();
     }
-
 
     __aicore__ inline void elemWiseBatchProcess(uint64_t k, uint64_t idxOffset)
     {
@@ -419,13 +420,15 @@ private:
 
             Compare(_maskLocal, _srcLocal, _resLocal, CMPMODE::NE, _srcMaskNum);
             Cast(_argmaxFloatLocal, _argmaxLocal, RoundMode::CAST_NONE, srcLoadNumAlign);
-            Select(_argmaxFloatLocal, _maskLocal, _argmaxFloatLocal, static_cast<float>(idxPos), SELMODE::VSEL_TENSOR_SCALAR_MODE, _tailElemNum);
+            Select(_argmaxFloatLocal, _maskLocal, _argmaxFloatLocal, static_cast<float>(idxPos),
+                SELMODE::VSEL_TENSOR_SCALAR_MODE, _tailElemNum);
             Cast(_argmaxLocal, _argmaxFloatLocal, RoundMode::CAST_RINT, srcLoadNumAlign);
             SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
             WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
-            
+
             SetAtomicMax<DTYPE_ARGMAX>();
-            DataCopyPad(_argmaxGM[resOffset], _argmaxLocal, {1, static_cast<uint32_t>(srcLoadNum * sizeof(DTYPE_ARGMAX)), 0, 0, 0});
+            DataCopyPad(_argmaxGM[resOffset], _argmaxLocal,
+                {1, static_cast<uint32_t>(srcLoadNum * sizeof(DTYPE_ARGMAX)), 0, 0, 0});
             SetAtomicNone();
             SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
             WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
@@ -448,7 +451,7 @@ private:
 
         DataCopy(_idxLocal, _idxGM[_leftSrcIdxPos], _elemNumPerBlock);
         DataCopy(_srcLocal, _srcGM[srcOffset], srcLoadNumAlign);
-        
+
         DTYPE_INDEX idxVal = _idxLocal.GetValue(0);
         uint64_t resOffset = idxVal * _tailElemNum + srcOffset % _tailElemNum;
 
@@ -459,13 +462,15 @@ private:
 
         Compare(_maskLocal, _srcLocal, _resLocal, CMPMODE::NE, _srcMaskNum);
         Cast(_argmaxFloatLocal, _argmaxLocal, RoundMode::CAST_NONE, srcLoadNumAlign);
-        Select(_argmaxFloatLocal, _maskLocal, _argmaxFloatLocal, static_cast<float>(idxPos), SELMODE::VSEL_TENSOR_SCALAR_MODE, srcLoadNum);
+        Select(_argmaxFloatLocal, _maskLocal, _argmaxFloatLocal, static_cast<float>(idxPos),
+            SELMODE::VSEL_TENSOR_SCALAR_MODE, srcLoadNum);
         Cast(_argmaxLocal, _argmaxFloatLocal, RoundMode::CAST_RINT, srcLoadNumAlign);
         SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
         WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
 
         SetAtomicMax<DTYPE_ARGMAX>();
-        DataCopyPad(_argmaxGM[resOffset], _argmaxLocal, {1, static_cast<uint32_t>(srcLoadNum * sizeof(DTYPE_ARGMAX)), 0, 0, 0});
+        DataCopyPad(
+            _argmaxGM[resOffset], _argmaxLocal, {1, static_cast<uint32_t>(srcLoadNum * sizeof(DTYPE_ARGMAX)), 0, 0, 0});
         SetAtomicNone();
         SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
         WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);

@@ -13,11 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "csrc/functions.h"
 #include <torch/extension.h>
 
 #include <mutex>
 #include <string>
+
+#include "csrc/functions.h"
 
 std::string g_opApiSoPath;
 std::once_flag init_flag; // Flag for one-time initialization
@@ -44,8 +45,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     m.def("npu_scatter_mean", &npu_scatter_mean, "npu_scatter_mean NPU version");
 
     // scatter_max
-    m.def("scatter_max_v3", &scatter_max_v3);
-    m.def("npu_scatter_max_backward", &npu_scatter_max_backward);
+    m.def("scatter_max", &scatter_max);
+    m.def("scatter_max_backward", &scatter_max_backward);
 
     // npu_hypot
     m.def("npu_hypot", &npu_hypot);
@@ -179,8 +180,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // npu_sparse_conv3d
     m.def("npu_sparse_conv3d", &npu_sparse_conv3d);
 
-    // npu_sparse_conv3d_grad_v2
-    m.def("npu_sparse_conv3d_grad_v2", &npu_sparse_conv3d_grad_v2);
+    // npu_sparse_conv3d_grad
+    m.def("npu_sparse_conv3d_grad", &npu_sparse_conv3d_grad);
 
     // npu_sparse_inverse_conv3d
     m.def("npu_sparse_inverse_conv3d", &npu_sparse_inverse_conv3d);
@@ -244,13 +245,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // npu_subm_sparse_conv3d_grad_v2
     m.def("npu_subm_sparse_conv3d_grad_v2", &npu_subm_sparse_conv3d_grad_v2);
-    
+
     // npu_subm_sparse_conv3d_v3
     m.def("npu_subm_sparse_conv3d_v3", &npu_subm_sparse_conv3d_v3);
 
     // npu_sparse_matmul
     m.def("npu_sparse_matmul", &npu_sparse_matmul);
-    
+
     // sigmoid_focal_loss
     m.def("sigmoid_focal_loss", &sigmoid_focal_loss);
     m.def("sigmoid_focal_loss_backward", &sigmoid_focal_loss_backward);

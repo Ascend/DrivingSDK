@@ -19,7 +19,7 @@
 
 using namespace std;
 
-at::Tensor npu_scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments)
+at::Tensor scatter_max_backward(const at::Tensor& x, const at::Tensor& segment_ids, const at::Tensor& num_segments)
 {
     c10::SmallVector<int64_t, SIZE> output_size;
 
@@ -66,7 +66,7 @@ void scatter_max_validate(const at::Tensor& src, const at::Tensor& index, const 
         index.sizes()[0] == src.sizes()[0], "input's src size of dim 0 should be equal to index's size.");
 }
 
-std::tuple<at::Tensor, at::Tensor> scatter_max_v3(
+std::tuple<at::Tensor, at::Tensor> scatter_max(
     const at::Tensor& src, const at::Tensor& index, c10::optional<at::Tensor> out)
 {
     auto sizes = src.sizes().vec();
@@ -79,10 +79,10 @@ std::tuple<at::Tensor, at::Tensor> scatter_max_v3(
     at::Tensor argmax = at::empty(res.sizes(), res.options().dtype(at::kInt)).fill_(-1);
     scatter_max_validate(src, index, res);
 
-    EXEC_NPU_CMD(aclnnScatterMaxV3, src, index, res, argmax);
+    EXEC_NPU_CMD(aclnnScatterMaxV1, src, index, res, argmax);
     res.masked_fill_(res == ninf, 0.0f);
 
-    EXEC_NPU_CMD(aclnnScatterMaxArgmaxV3, src, index, res, argmax);
+    EXEC_NPU_CMD(aclnnScatterMaxArgmaxV1, src, index, res, argmax);
     auto argmaxInvalidVal = src.sizes().vec()[0];
     argmax.masked_fill_(argmax == -1, argmaxInvalidVal);
 

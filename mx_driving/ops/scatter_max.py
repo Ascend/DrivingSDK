@@ -17,7 +17,7 @@ import mx_driving._C
 class ScatterMaxFunction(Function):
     @staticmethod
     def forward(ctx, updates, indices, out=None):
-        func = mx_driving._C.scatter_max_v3
+        func = mx_driving._C.scatter_max
         out, argmax = func(updates, indices, out)
         ctx.save_for_backward(argmax, updates)
         return out, argmax
@@ -40,7 +40,7 @@ class ScatterMaxFunction(Function):
         )
         num_segments = torch.tensor(updates.shape[0] * updates.shape[1]).to(device)
 
-        grad = mx_driving._C.npu_scatter_max_backward(grad_output, grad_updates_indices_uss, num_segments)
+        grad = mx_driving._C.scatter_max_backward(grad_output, grad_updates_indices_uss, num_segments)
 
         return grad.reshape(updates.shape), None, None
 

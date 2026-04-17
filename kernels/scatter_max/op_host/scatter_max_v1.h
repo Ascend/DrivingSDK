@@ -1,13 +1,13 @@
 /*
  * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
  */
-#ifndef SCATTER_MAX_TILING_V3_H
-#define SCATTER_MAX_TILING_V3_H
+#ifndef SCATTER_MAX_TILING_V1_H
+#define SCATTER_MAX_TILING_V1_H
 
 #include "register/tilingdata_base.h"
 
 namespace optiling {
-BEGIN_TILING_DATA_DEF(ScatterMaxTilingDataV3)
+BEGIN_TILING_DATA_DEF(ScatterMaxTilingDataV1)
     TILING_DATA_FIELD_DEF(uint64_t, srcElemNum);
     TILING_DATA_FIELD_DEF(uint64_t, idxElemNum);
     TILING_DATA_FIELD_DEF(uint64_t, resElemNum);
@@ -24,8 +24,8 @@ BEGIN_TILING_DATA_DEF(ScatterMaxTilingDataV3)
     TILING_DATA_FIELD_DEF(uint64_t, leftSrcBatchNum);
 END_TILING_DATA_DEF;
 
-REGISTER_TILING_DATA_CLASS(ScatterMaxV3, ScatterMaxTilingDataV3)
-REGISTER_TILING_DATA_CLASS(ScatterMaxArgmaxV3, ScatterMaxTilingDataV3)
+REGISTER_TILING_DATA_CLASS(ScatterMaxV1, ScatterMaxTilingDataV1)
+REGISTER_TILING_DATA_CLASS(ScatterMaxArgmaxV1, ScatterMaxTilingDataV1)
 }
 
-#endif // SCATTER_MAX_TILING_V3_H
+#endif // SCATTER_MAX_TILING_V1_H

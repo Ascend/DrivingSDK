@@ -48,7 +48,7 @@ std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d(const at::Tensor& indices, 
     return std::tie(indices_pairs, indices_out);
 }
 
-std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad_v2(const at::Tensor& former_sorted_indices,
+std::tuple<at::Tensor, at::Tensor> npu_sparse_conv3d_grad(const at::Tensor& former_sorted_indices,
     const at::Tensor& indices_offset, const at::Tensor& feature, const at::Tensor& weight, const at::Tensor& grad)
 {
     TORCH_CHECK_NPU(former_sorted_indices);

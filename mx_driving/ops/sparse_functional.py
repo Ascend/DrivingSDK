@@ -74,7 +74,7 @@ class SparseConvFunction(Function):
         grad_outidx_pair=None,
     ) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad_v2(
+        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
             sorted_idx_to_former_indices, unique_indices_offset, features, weight, grad_out_features
         )
 

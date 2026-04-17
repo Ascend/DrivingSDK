@@ -12,10 +12,10 @@ def npu_three_interpolate(
 def npu_three_interpolate_backward(
     b: int, c: int, n: int, m: int, grad_out: torch.Tensor, idx: torch.Tensor, weight: torch.Tensor
 ) -> torch.Tensor: ...
-def npu_scatter_max_backward(
+def scatter_max_backward(
     x: torch.Tensor, segment_ids: torch.Tensor, num_segments: torch.Tensor
 ) -> torch.Tensor: ...
-def scatter_max_v3(
+def scatter_max(
     src: torch.Tensor, index: torch.Tensor, out: Optional[torch.Tensor] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_scatter_mean_grad(
@@ -162,7 +162,7 @@ def npu_sparse_conv3d(
     outSpatialShape: Tuple[int, int, int],
     batch_size: int,
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
-def npu_sparse_conv3d_grad_v2(
+def npu_sparse_conv3d_grad(
     former_sorted_indices: torch.Tensor,
     indices_offset: torch.Tensor,
     feature: torch.Tensor,
@@ -255,7 +255,12 @@ def voxel_to_point(
 ) -> torch.Tensor: ...
 def unique_voxel(voxels: torch.Tensor) -> Tuple[int, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: ...
 def hard_voxelize(
-    points: torch.Tensor, voxel_sizes: List[float], coor_ranges: List[float], max_points: int, max_voxels: int, layout: str
+    points: torch.Tensor,
+    voxel_sizes: List[float],
+    coor_ranges: List[float],
+    max_points: int,
+    max_voxels: int,
+    layout: str,
 ) -> Tuple[int, torch.Tensor, torch.Tensor, torch.Tensor]: ...
 def npu_bev_pool(
     feat: torch.Tensor,
@@ -436,10 +441,7 @@ def cylinder_query(
     rot: torch.Tensor,
 ) -> torch.Tensor: ...
 def npu_subm_sparse_conv3d_grad_v2(
-    feature: torch.Tensor, 
-    weight: torch.Tensor,
-    grad_out_features: torch.Tensor,
-    indices_offset: torch.Tensor
+    feature: torch.Tensor, weight: torch.Tensor, grad_out_features: torch.Tensor, indices_offset: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def sigmoid_focal_loss(
     input: torch.Tensor,
@@ -458,18 +460,15 @@ def sigmoid_focal_loss_backward(
     alpha: float,
 ) -> None: ...
 def npu_subm_sparse_conv3d_grad_arch35(
-    feature: torch.Tensor, 
-    weight: torch.Tensor,
-    grad_out_features: torch.Tensor,
-    indices_offset: torch.Tensor
+    feature: torch.Tensor, weight: torch.Tensor, grad_out_features: torch.Tensor, indices_offset: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
 
 __all__ = [
     "knn",
     "npu_three_interpolate",
     "npu_three_interpolate_backward",
-    "scatter_max_v3",
-    "npu_scatter_max_backward",
+    "scatter_max",
+    "scatter_max_backward",
     "npu_scatter_mean_grad",
     "npu_scatter_mean",
     "npu_hypot",

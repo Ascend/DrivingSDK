@@ -181,7 +181,7 @@ class TestSparseConv3dGrad(TestCase):
 
         if grad is None:
             grad = torch.ones(len(indices_offset) - 1, weight_npu.shape[-1], dtype=features.dtype).npu()
-        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad_v2(
+        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
             sorted_indices_npu, indices_offset_npu, features_npu, weight_npu, grad
         )
         return feature_grad, weight_grad
