@@ -182,6 +182,11 @@ at::Tensor npu_bev_pool_v3(const c10::optional<at::Tensor>& depth, const at::Ten
     TORCH_CHECK_NPU(feat);
     TORCH_CHECK_NPU(ranks_bev);
     bool with_depth = depth.has_value();
+    if (with_depth) {
+        TORCH_CHECK_NPU(depth.value());
+        TORCH_CHECK_NPU(ranks_depth.value());
+        TORCH_CHECK_NPU(ranks_feat.value());
+    }
     auto c = feat.size(with_depth ? C_IDX_WITH_DEPTH : C_IDX);
     TORCH_CHECK(c % MINI_CHANNEL == 0, "The channel of feature must be multiple of 8.");
     auto out = at::zeros({b, d, h, w, c}, feat.options());
@@ -193,11 +198,15 @@ std::tuple<c10::optional<at::Tensor>, at::Tensor> npu_bev_pool_v3_backward(const
     const c10::optional<at::Tensor>& depth, const at::Tensor& feat, const c10::optional<at::Tensor>& ranks_depth,
     const c10::optional<at::Tensor>& ranks_feat, const at::Tensor& ranks_bev)
 {
+    TORCH_CHECK_NPU(grad_out);
     TORCH_CHECK_NPU(feat);
     TORCH_CHECK_NPU(ranks_bev);
     c10::optional<at::Tensor> grad_depth;
     bool with_depth = depth.has_value();
     if (with_depth) {
+        TORCH_CHECK_NPU(depth.value());
+        TORCH_CHECK_NPU(ranks_depth.value());
+        TORCH_CHECK_NPU(ranks_feat.value());
         grad_depth = at::zeros_like(depth.value());
     }
     auto grad_feat = at::zeros_like(feat);

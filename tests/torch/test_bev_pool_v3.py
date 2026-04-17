@@ -15,19 +15,21 @@ DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 @golden_data_cache(__file__)
 def golden_bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev, bev_feat_shape):
     B, D, H, W, C = bev_feat_shape
-    N_RANKS = ranks_depth.shape[0]
-    depth = depth.view([-1])
-    feat = feat.view([-1, C])
-    
-    out = torch.zeros([B * D * H * W, C])
-    for i in range(N_RANKS):
-        d = depth[ranks_depth[i]]
-        f = feat[ranks_feat[i]]
-        b = ranks_bev[i]
-        out[b] += d * f
+    depth = depth.view(-1)
+    feat = feat.view(-1, C)
+
+    d_vals = depth[ranks_depth]  # [N_RANKS]
+    f_vals = feat[ranks_feat]    # [N_RANKS, C]
+    weighted = d_vals.unsqueeze(1) * f_vals
+
+    # 使用 index_add_ 实现高效累加（支持 GPU）
+    out = torch.zeros(B * D * H * W, C, device=depth.device)
+    out.index_add_(0, ranks_bev, weighted)  # 在第0维上按索引累加
+
     out = out.view(bev_feat_shape)
-    
+    # 调整维度顺序：[B, D, H, W, C] -> [B, C, D, H, W]
     out = torch.permute(out, [0, 4, 1, 2, 3])
+
     return out
 
 
