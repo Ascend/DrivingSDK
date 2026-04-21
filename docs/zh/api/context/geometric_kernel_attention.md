@@ -29,7 +29,7 @@ mx_driving.geometric_kernel_attention(Tensor value, Tensor spatial_shapes, Tenso
 
 ## 约束说明
 
-- 假设num_points向上取到8的整数倍后为num_points_align，当前版本反向算子仅支持`num_heads * num_levels * num_points_align * dim < 16 * 1024` 并且 `num_heads * num_levels * num_points_align < 256`
+- 假设num_points向上取整到8的整数倍后为num_points_align，当前版本反向算子仅支持`num_heads * num_levels * num_points_align * dim < 16 * 1024` 并且 `num_heads * num_levels * num_points_align < 256`
 - 当前版本反向算子仅支持`dim % 8 == 0`
 
 ## 调用示例

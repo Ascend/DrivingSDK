@@ -27,7 +27,7 @@ $mx\_driving.npu\_index\_select(feature, 0, index)$ 的结果： $out=\begin{bma
 - `feature`仅支持二维`Tensor`；
 - `dim`仅支持0和-2；
 - `index`不支持负索引和越界索引，即取值范围为`[0, feature.shape[0])`；
-- 该api依赖`aclnnIndexAddV2`接口，因此需配置2025年6月18日之后的cann包才能生效；
+- 该API依赖`aclnnIndexAddV2`接口，因此需配置2025年6月18日之后的CANN包才能生效；
 - 反向具有相同约束。
 
 ## 支持的型号

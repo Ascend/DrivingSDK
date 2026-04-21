@@ -29,7 +29,7 @@ mx_driving.grid_sampler3d_v1(Tensor input, Tensor grid, str mode="bilinear", str
 - `grid` 最后一维必须为 3，元素值需归一化到 `[-1, 1]`。
 - `input`、 `grid` 和 `output` 的元素个数在 int32 范围内，并且每个元素的偏移量均能用 32 位索引表示。
 - mode仅支持 `"bilinear"`，padding_mode仅支持`"zeros"`，align_corners仅支持`"True"`，input要求 C <= 128，且为4的倍数。
-- SparseBEV模型中的算子配置作为模型case，所有参数配置需要与模型配置保持一致。即 `input: (64, 64, 6，64, 176), grid: (64, 1460, 4, 1, 3), "bilinear", "zeros", True`。
+- SparseBEV模型中的算子配置作为模型case，所有参数配置需要与模型配置保持一致。即 `input: (64, 64, 6, 64, 176), grid: (64, 1460, 4, 1, 3), "bilinear", "zeros", True`。
 
 ## 支持的型号
 

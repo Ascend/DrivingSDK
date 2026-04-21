@@ -1,6 +1,6 @@
 # API 清单
 
-Driving SDK 提供下列高性能算子，列表中Released标注为N代表使用场景受限，仅针对本仓库上模型，标注为beta的算子为初版，未经过版本测试。
+Driving SDK 提供下列高性能算子，列表中Released标注为N代表使用场景受限，仅针对本仓库的模型，标注为beta的算子为初版，未经过版本测试。
 
 <table align="left">
     <tr>

@@ -8,7 +8,7 @@ mx_driving.diff_iou_rotated_2d(Tensor boxes_a, Tensor boxes_b) -> Tensor
 
 ## 功能描述
 
-计算两个2D旋转目标检测框之间的Iou，并且可自动微分。
+计算两个2D旋转目标检测框之间的IoU，并且可自动微分。
 
 ## 参数说明
 

@@ -21,7 +21,7 @@
 6. **推送到 Fork 仓库**
 7. **创建 Pull Request**
    - 访问gitcode仓库页面
-   - 点击"Pull Request"或"合并请求"
+   - 点击“Pull Request”或“合并请求”
    - 填写PR描述（见PR创建页面模板）
 
 ## PR最佳实践
