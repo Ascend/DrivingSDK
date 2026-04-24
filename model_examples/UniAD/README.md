@@ -266,9 +266,12 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 # FAQ
 
 1. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
+    
+    ```shell
+    find /usr -name libtcmalloc.so*
+    ```
+    
+    找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。
 
-```shell
-find /usr -name libtcmalloc.so*
-```
-
-找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。
+2. Shapely 2.0+ 不再支持直接迭代 MultiPolygon，如果遇到报错 'MultiPolygon' object is not iterable，
+可参考issue： https://gitcode.com/Ascend/DrivingSDK/issues/184，降级 Shapely 到 1.8.x 版本。
