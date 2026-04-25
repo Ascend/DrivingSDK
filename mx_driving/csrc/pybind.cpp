@@ -255,4 +255,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
 
     // npu_subm_sparse_conv3d_grad_arch35
     m.def("npu_subm_sparse_conv3d_grad_arch35", &npu_subm_sparse_conv3d_grad_arch35);
+
+    // npu_fake_tensor_quant
+    m.def("npu_fake_tensor_quant", &npu_fake_tensor_quant);
+    m.def("npu_fake_tensor_quant_inplace", &npu_fake_tensor_quant_inplace);
+    m.def("npu_fake_tensor_quant_with_axis", &npu_fake_tensor_quant_with_axis);
 }

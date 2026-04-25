@@ -461,6 +461,28 @@ def sigmoid_focal_loss_backward(
 def npu_subm_sparse_conv3d_grad_arch35(
     feature: torch.Tensor, weight: torch.Tensor, grad_out_features: torch.Tensor, indices_offset: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
+def npu_fake_tensor_quant(
+        inputs: torch.Tensor,
+        amax: torch.Tensor,
+        num_bits: int,
+        is_unsigned: bool,
+        narrow_range: bool,
+) -> torch.Tensor:...
+def npu_fake_tensor_quant_inplace(
+        inputs: torch.Tensor,
+        amax: torch.Tensor,
+        num_bits: int,
+        is_unsigned: bool,
+        narrow_range: bool,
+) -> torch.Tensor:...
+def npu_fake_tensor_quant_with_axis(
+        inputs: torch.Tensor,
+        amax: torch.Tensor,
+        axis: int,
+        num_bits: int,
+        is_unsigned: bool,
+        narrow_range: bool,
+) -> torch.Tensor:...
 
 __all__ = [
     "knn",
@@ -519,4 +541,7 @@ __all__ = [
     "sigmoid_focal_loss",
     "sigmoid_focal_loss_backward",
     "npu_subm_sparse_conv3d_grad_arch35",
+    "npu_fake_tensor_quant",
+    "npu_fake_tensor_quant_inplace",
+    "npu_fake_tensor_quant_with_axis",
 ]

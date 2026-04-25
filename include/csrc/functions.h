@@ -298,4 +298,13 @@ void sigmoid_focal_loss_backward(const at::Tensor& input, const at::Tensor& targ
 std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_grad_arch35(const at::Tensor& features,
     const at::Tensor& weight, const at::Tensor& grad_out_features, const at::Tensor& indices_offset);
 
+at::Tensor npu_fake_tensor_quant(const at::Tensor& inputs, const at::Tensor& amax, const int num_bits,
+    const bool is_unsigned, const bool narrow_range);
+
+at::Tensor npu_fake_tensor_quant_inplace(const at::Tensor& inputs, const at::Tensor& amax, const int num_bits,
+    const bool is_unsigned, const bool narrow_range);
+
+at::Tensor npu_fake_tensor_quant_with_axis(const at::Tensor& inputs, const at::Tensor& amax, const int axis,
+    const int num_bits, const bool is_unsigned, const bool narrow_range);
+
 #endif // CSRC_FUNCTIONS_H_

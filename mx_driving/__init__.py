@@ -69,6 +69,9 @@ __all__ = [
     "graph_softmax",
     "cylinder_query",
     "sigmoid_focal_loss",
+    "npu_fake_tensor_quant",
+    "npu_fake_tensor_quant_inplace",
+    "npu_fake_tensor_quant_with_axis",
 ]
 
 import os
@@ -142,6 +145,9 @@ from .ops.npu_unique import npu_unique
 from .ops.graph_softmax import graph_softmax
 from .ops.cylinder_query import cylinder_query
 from .ops.sigmoid_focal_loss import sigmoid_focal_loss
+from .ops.npu_fake_tensor_quant import npu_fake_tensor_quant
+from .ops.npu_fake_tensor_quant import npu_fake_tensor_quant_inplace
+from .ops.npu_fake_tensor_quant import npu_fake_tensor_quant_with_axis
 
 
 def _set_env():
