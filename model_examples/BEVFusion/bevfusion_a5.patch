@@ -1,0 +1,389 @@
+diff --git a/mmdet3d/datasets/transforms/dbsampler.py b/mmdet3d/datasets/transforms/dbsampler.py
+index 56e8440b..b3a6382a 100644
+--- a/mmdet3d/datasets/transforms/dbsampler.py
++++ b/mmdet3d/datasets/transforms/dbsampler.py
+@@ -280,7 +280,7 @@ class DataBaseSampler(object):
+                 s_points_list.append(s_points)
+ 
+             gt_labels = np.array([self.cat2label[s['name']] for s in sampled],
+-                                 dtype=np.long)
++                                 dtype=np.compat.long)
+ 
+             if ground_plane is not None:
+                 xyz = sampled_gt_bboxes[:, :3]
+diff --git a/mmdet3d/models/utils/gaussian.py b/mmdet3d/models/utils/gaussian.py
+index 3d094dcc..641a777f 100644
+--- a/mmdet3d/models/utils/gaussian.py
++++ b/mmdet3d/models/utils/gaussian.py
+@@ -4,6 +4,7 @@ from typing import List, Tuple
+ import numpy as np
+ import torch
+ from torch import Tensor
++import math
+ 
+ 
+ def gaussian_2d(shape: Tuple[int, int], sigma: float = 1) -> np.ndarray:
+@@ -76,19 +77,19 @@ def gaussian_radius(det_size: Tuple[Tensor, Tensor],
+     a1 = 1
+     b1 = (height + width)
+     c1 = width * height * (1 - min_overlap) / (1 + min_overlap)
+-    sq1 = torch.sqrt(b1**2 - 4 * a1 * c1)
++    sq1 = math.sqrt(b1**2 - 4 * a1 * c1)
+     r1 = (b1 + sq1) / 2
+ 
+     a2 = 4
+     b2 = 2 * (height + width)
+     c2 = (1 - min_overlap) * width * height
+-    sq2 = torch.sqrt(b2**2 - 4 * a2 * c2)
++    sq2 = math.sqrt(b2**2 - 4 * a2 * c2)
+     r2 = (b2 + sq2) / 2
+ 
+     a3 = 4 * min_overlap
+     b3 = -2 * min_overlap * (height + width)
+     c3 = (min_overlap - 1) * width * height
+-    sq3 = torch.sqrt(b3**2 - 4 * a3 * c3)
++    sq3 = math.sqrt(b3**2 - 4 * a3 * c3)
+     r3 = (b3 + sq3) / 2
+     return min(r1, r2, r3)
+ 
+diff --git a/mmdet3d/structures/bbox_3d/base_box3d.py b/mmdet3d/structures/bbox_3d/base_box3d.py
+index 50b092c0..e287b762 100644
+--- a/mmdet3d/structures/bbox_3d/base_box3d.py
++++ b/mmdet3d/structures/bbox_3d/base_box3d.py
+@@ -5,7 +5,8 @@ from typing import Iterator, Optional, Sequence, Tuple, Union
+ 
+ import numpy as np
+ import torch
+-from mmcv.ops import box_iou_rotated, points_in_boxes_all, points_in_boxes_part
++from mx_driving import box_iou_rotated, points_in_boxes_all
++from mmcv.ops import points_in_boxes_part
+ from torch import Tensor
+ 
+ from mmdet3d.structures.points import BasePoints
+diff --git a/projects/BEVFusion/bevfusion/bevfusion.py b/projects/BEVFusion/bevfusion/bevfusion.py
+index 9f56934e..12f579eb 100644
+--- a/projects/BEVFusion/bevfusion/bevfusion.py
++++ b/projects/BEVFusion/bevfusion/bevfusion.py
+@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Tuple
+ 
+ import numpy as np
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import torch.distributed as dist
+ from mmengine.utils import is_list_of
+ from torch import Tensor
+@@ -13,7 +15,7 @@ from mmdet3d.models import Base3DDetector
+ from mmdet3d.registry import MODELS
+ from mmdet3d.structures import Det3DDataSample
+ from mmdet3d.utils import OptConfigType, OptMultiConfig, OptSampleList
+-from .ops import Voxelization
++from mx_driving.point import Voxelization
+ 
+ 
+ @MODELS.register_module()
+@@ -176,7 +178,7 @@ class BEVFusion(Base3DDetector):
+     def voxelize(self, points):
+         feats, coords, sizes = [], [], []
+         for k, res in enumerate(points):
+-            ret = self.pts_voxel_layer(res)
++            ret = self.pts_voxel_layer(res)[1:]
+             if len(ret) == 3:
+                 # hard voxelize
+                 f, c, n = ret
+diff --git a/projects/BEVFusion/bevfusion/depth_lss.py b/projects/BEVFusion/bevfusion/depth_lss.py
+index 6cc0cc16..949fad6c 100644
+--- a/projects/BEVFusion/bevfusion/depth_lss.py
++++ b/projects/BEVFusion/bevfusion/depth_lss.py
+@@ -3,9 +3,11 @@ from typing import Tuple
+ 
+ import torch
+ from torch import nn
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ 
+ from mmdet3d.registry import MODELS
+-from .ops import bev_pool
++from mx_driving import bev_pool_v3
+ 
+ 
+ def gen_dx_bx(xbound, ybound, zbound):
+@@ -137,10 +139,11 @@ class BaseViewTransform(nn.Module):
+                 & (geom_feats[:, 1] < self.nx[1])
+                 & (geom_feats[:, 2] >= 0)
+                 & (geom_feats[:, 2] < self.nx[2]))
+-        x = x[kept]
+-        geom_feats = geom_feats[kept]
++        valid_indices = torch.nonzero(kept).view(-1)
++        x = torch.index_select(x, 0, valid_indices)
++        geom_feats = torch.index_select(geom_feats, 0, valid_indices)
+ 
+-        x = bev_pool(x, geom_feats, B, self.nx[2], self.nx[0], self.nx[1])
++        x = bev_pool_v3(None, x, None, None, geom_feats.to(torch.int32), [B, self.nx[2], self.nx[0], self.nx[1], C])
+ 
+         # collapse Z
+         final = torch.cat(x.unbind(dim=2), 1)
+diff --git a/projects/BEVFusion/bevfusion/sparse_encoder.py b/projects/BEVFusion/bevfusion/sparse_encoder.py
+index 68bf2bce..21268a3b 100644
+--- a/projects/BEVFusion/bevfusion/sparse_encoder.py
++++ b/projects/BEVFusion/bevfusion/sparse_encoder.py
+@@ -9,6 +9,8 @@ if IS_SPCONV2_AVAILABLE:
+ else:
+     from mmcv.ops import SparseConvTensor
+ 
++import os
++SUBM_FP16_ENABLED = os.environ.get('SUBM_FP16_ENABLED', 0) 
+ 
+ @MODELS.register_module()
+ class BEVFusionSparseEncoder(SparseEncoder):
+@@ -64,7 +66,7 @@ class BEVFusionSparseEncoder(SparseEncoder):
+         self.encoder_channels = encoder_channels
+         self.encoder_paddings = encoder_paddings
+         self.stage_num = len(self.encoder_channels)
+-        self.fp16_enabled = False
++        self.fp16_enabled = SUBM_FP16_ENABLED
+         self.return_middle_feats = return_middle_feats
+         # Spconv init all weight on its own
+ 
+@@ -127,6 +129,8 @@ class BEVFusionSparseEncoder(SparseEncoder):
+                 module returns middle features.
+         """
+         coors = coors.int()
++        if self.fp16_enabled:
++            voxel_features = voxel_features.half()
+         input_sp_tensor = SparseConvTensor(voxel_features, coors,
+                                            self.sparse_shape, batch_size)
+         x = self.conv_input(input_sp_tensor)
+diff --git a/projects/BEVFusion/bevfusion/transfusion_head.py b/projects/BEVFusion/bevfusion/transfusion_head.py
+index 8a3e1750..ef2ea5ee 100644
+--- a/projects/BEVFusion/bevfusion/transfusion_head.py
++++ b/projects/BEVFusion/bevfusion/transfusion_head.py
+@@ -13,11 +13,12 @@ from mmdet.models.utils import multi_apply
+ from mmengine.structures import InstanceData
+ from torch import nn
+ 
+-from mmdet3d.models import circle_nms, draw_heatmap_gaussian, gaussian_radius
++from mmdet3d.models import circle_nms
+ from mmdet3d.models.dense_heads.centerpoint_head import SeparateHead
+ from mmdet3d.models.layers import nms_bev
+ from mmdet3d.registry import MODELS
+ from mmdet3d.structures import xywhr2xyxyr
++from mx_driving import npu_assign_target_of_single_head
+ 
+ 
+ def clip_sigmoid(x, eps=1e-4):
+@@ -696,39 +697,29 @@ class TransFusionHead(nn.Module):
+             [gt_bboxes_3d.gravity_center, gt_bboxes_3d.tensor[:, 3:]],
+             dim=1).to(device)
+         grid_size = torch.tensor(self.train_cfg['grid_size'])
+-        pc_range = torch.tensor(self.train_cfg['point_cloud_range'])
+-        voxel_size = torch.tensor(self.train_cfg['voxel_size'])
++        pc_range = self.train_cfg['point_cloud_range']
++        voxel_size = self.train_cfg['voxel_size']
+         feature_map_size = (grid_size[:2] // self.train_cfg['out_size_factor']
+                             )  # [x_len, y_len]
+-        heatmap = gt_bboxes_3d.new_zeros(self.num_classes, feature_map_size[1],
+-                                         feature_map_size[0])
+-        for idx in range(len(gt_bboxes_3d)):
+-            width = gt_bboxes_3d[idx][3]
+-            length = gt_bboxes_3d[idx][4]
+-            width = width / voxel_size[0] / self.train_cfg['out_size_factor']
+-            length = length / voxel_size[1] / self.train_cfg['out_size_factor']
+-            if width > 0 and length > 0:
+-                radius = gaussian_radius(
+-                    (length, width),
+-                    min_overlap=self.train_cfg['gaussian_overlap'])
+-                radius = max(self.train_cfg['min_radius'], int(radius))
+-                x, y = gt_bboxes_3d[idx][0], gt_bboxes_3d[idx][1]
+-
+-                coor_x = ((x - pc_range[0]) / voxel_size[0] /
+-                          self.train_cfg['out_size_factor'])
+-                coor_y = ((y - pc_range[1]) / voxel_size[1] /
+-                          self.train_cfg['out_size_factor'])
+-
+-                center = torch.tensor([coor_x, coor_y],
+-                                      dtype=torch.float32,
+-                                      device=device)
+-                center_int = center.to(torch.int32)
+-
+-                # original
+-                # draw_heatmap_gaussian(heatmap[gt_labels_3d[idx]], center_int, radius) # noqa: E501
+-                # NOTE: fix
+-                draw_heatmap_gaussian(heatmap[gt_labels_3d[idx]],
+-                                      center_int[[1, 0]], radius)
++        if (torch.numel(gt_bboxes_3d[:,:-1]) == 0):
++            heatmap = gt_bboxes_3d.new_zeros(self.num_classes, feature_map_size[1], feature_map_size[0])
++        
++        gt_bboxes_3d[:, [0, 1]] = gt_bboxes_3d[:, [1, 0]]
++        cur_class_id = gt_labels_3d.int() + 1
++        feature_map_size_list = list(feature_map_size)
++        heatmap, _, _, _ = npu_assign_target_of_single_head(gt_bboxes_3d,
++                                                            cur_class_id,
++                                                            self.num_classes,
++                                                            self.train_cfg['out_size_factor'],
++                                                            self.train_cfg['gaussian_overlap'],
++                                                            self.train_cfg['min_radius'],
++                                                            voxel_size,
++                                                            pc_range,
++                                                            feature_map_size_list,
++                                                            False,
++                                                            False,
++                                                            False,
++                                                            gt_bboxes_3d.shape[0])
+ 
+         mean_iou = ious[pos_inds].sum() / max(len(pos_inds), 1)
+         return (
+diff --git a/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py b/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
+index a08bb66a..04b6c0a2 100644
+--- a/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
++++ b/projects/BEVFusion/configs/bevfusion_lidar-cam_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
+@@ -220,7 +220,7 @@ test_cfg = dict()
+ 
+ optim_wrapper = dict(
+     type='OptimWrapper',
+-    optimizer=dict(type='AdamW', lr=0.0002, weight_decay=0.01),
++    optimizer=dict(type='NpuFusedAdamW', lr=0.0002, weight_decay=0.01),
+     clip_grad=dict(max_norm=35, norm_type=2))
+ 
+ # Default setting for scaling LR automatically
+@@ -230,6 +230,6 @@ optim_wrapper = dict(
+ auto_scale_lr = dict(enable=False, base_batch_size=32)
+ 
+ default_hooks = dict(
+-    logger=dict(type='LoggerHook', interval=50),
++    logger=dict(type='LoggerHook', interval=1),
+     checkpoint=dict(type='CheckpointHook', interval=1))
+ del _base_.custom_hooks
+diff --git a/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py b/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
+index 19dba1a5..bc57c6fa 100644
+--- a/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
++++ b/projects/BEVFusion/configs/bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d.py
+@@ -362,13 +362,13 @@ param_scheduler = [
+ ]
+ 
+ # runtime settings
+-train_cfg = dict(by_epoch=True, max_epochs=20, val_interval=5)
++train_cfg = dict(by_epoch=True, max_epochs=20, val_interval=1)
+ val_cfg = dict()
+ test_cfg = dict()
+ 
+ optim_wrapper = dict(
+     type='OptimWrapper',
+-    optimizer=dict(type='AdamW', lr=lr, weight_decay=0.01),
++    optimizer=dict(type='NpuFusedAdamW', lr=lr, weight_decay=0.01),
+     clip_grad=dict(max_norm=35, norm_type=2))
+ 
+ # Default setting for scaling LR automatically
+@@ -379,6 +379,6 @@ auto_scale_lr = dict(enable=False, base_batch_size=32)
+ log_processor = dict(window_size=50)
+ 
+ default_hooks = dict(
+-    logger=dict(type='LoggerHook', interval=50),
+-    checkpoint=dict(type='CheckpointHook', interval=5))
++    logger=dict(type='LoggerHook', interval=1),
++    checkpoint=dict(type='CheckpointHook', interval=1))
+ custom_hooks = [dict(type='DisableObjectSampleHook', disable_after_epoch=15)]
+diff --git a/requirements/optional.txt b/requirements/optional.txt
+index 099ad8a2..ac361d65 100644
+--- a/requirements/optional.txt
++++ b/requirements/optional.txt
+@@ -1,3 +1,3 @@
+ black==20.8b1 # be compatible with typing-extensions 3.7.4
+ typing-extensions # required by tensorflow<=2.6
+-waymo-open-dataset-tf-2-6-0 # requires python>=3.7
++# waymo-open-dataset-tf-2-6-0 # requires python>=3.7
+diff --git a/requirements/runtime.txt b/requirements/runtime.txt
+index d7828132..125f5db1 100644
+--- a/requirements/runtime.txt
++++ b/requirements/runtime.txt
+@@ -3,7 +3,10 @@ networkx>=2.5
+ numba # you should install numba==0.53.0 if your environment is cuda-9.0
+ numpy
+ nuscenes-devkit
+-open3d==0.16.0
++open3d==0.18.0
++opencv-python==4.11.0.86
++opencv-python-headless==4.11.0.86
++open3d-python
+ plyfile
+ scikit-image
+ # by default we also use tensorboard to log results
+diff --git a/tools/nnodes_dist_train.sh b/tools/nnodes_dist_train.sh
+new file mode 100644
+index 00000000..44801857
+--- /dev/null
++++ b/tools/nnodes_dist_train.sh
+@@ -0,0 +1,19 @@
++#!/usr/bin/env bash
++
++CONFIG=$1
++GPUS=$2
++NNODES=$3
++NODE_RANK=$4
++PORT=$5
++MASTER_ADDR=$6
++
++PYTHONPATH="$(dirname $0)/..":$PYTHONPATH \
++python -m torch.distributed.launch \
++    --nnodes=$NNODES \
++    --node_rank=$NODE_RANK \
++    --master_addr=$MASTER_ADDR \
++    --nproc_per_node=$GPUS \
++    --master_port=$PORT \
++    $(dirname "$0")/train.py \
++    $CONFIG \
++    --launcher pytorch ${@:7}
+diff --git a/tools/train.py b/tools/train.py
+index b2ced54b..c9e51667 100644
+--- a/tools/train.py
++++ b/tools/train.py
+@@ -8,6 +8,11 @@ from mmengine.config import Config, DictAction
+ from mmengine.logging import print_log
+ from mmengine.registry import RUNNERS
+ from mmengine.runner import Runner
++import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++from mx_driving.patcher import batch_matmul, patch_mmcv_version
++patch_mmcv_version("2.0.1")
+ 
+ from mmdet3d.utils import replace_ceph_backend
+ 
+@@ -131,5 +136,36 @@ def main():
+     runner.train()
+ 
+ 
++def seed_all(seed=1234, is_gpu=False):
++    import random
++    import numpy as np
++
++    random.seed(seed)
++    os.environ['PYTHONHASHSEED'] = str(seed)
++    np.random.seed(seed)
++    torch.manual_seed(seed)
++
++    if is_gpu:
++        torch.cuda.manual_seed_all(seed)
++        torch.cuda.manual_seed(seed)
++    else:
++        torch_npu.npu.manual_seed_all(seed)
++        torch_npu.npu.manual_seed(seed)
++
++
+ if __name__ == '__main__':
+-    main()
++    seed_all(1024, is_gpu=False)
++    torch_npu.npu.set_compile_mode(jit_compile=False)
++    
++    from mx_driving.patcher import default_patcher_builder
++    pb = default_patcher_builder
++
++    if os.environ.get('PERFORMANCE_MODE', '0') == '1':
++        # Performance-Testing mode: use Patcher to set breakpoints
++        pb = pb.brake_at(1000)
++        with pb.build(allow_internal_format=True):
++            main()
++    else:
++        # Training mode: run the main function directly
++        with pb.build(allow_internal_format=True):
++            main()

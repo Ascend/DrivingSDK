@@ -1,0 +1,15 @@
+diff --git a/mmcv/ops/focal_loss.py b/mmcv/ops/focal_loss.py
+index 69aab730..1e668f00 100644
+--- a/mmcv/ops/focal_loss.py
++++ b/mmcv/ops/focal_loss.py
+@@ -72,8 +72,8 @@ class SigmoidFocalLossFunction(Function):
+             grad_input /= input.size(0)
+         return grad_input, None, None, None, None, None
+ 
+-
+-sigmoid_focal_loss = SigmoidFocalLossFunction.apply
++import mx_driving
++sigmoid_focal_loss = mx_driving.sigmoid_focal_loss
+ 
+ 
+ class SigmoidFocalLoss(nn.Module):
