@@ -80,7 +80,7 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
       在 GR00T-N1.6根目录下，克隆原始仓，替换其中部分代码并安装
 
       ```sh
-      git clone https://github.com/NVIDIA/Isaac-GR00T
+      git clone https://github.com/NVIDIA/Isaac-GR00T.git
       cd Isaac-GR00T
       git checkout e29d8fc50b0e4745120ae3fb72447986fe638aa6
       cp -f ../gr00t_n1d6.patch ./
@@ -117,7 +117,9 @@ hf download nvidia/GR00T-N1.6-3B --local-dir ./GR00T-N1.6-3B
 ```
 
 ## 准备数据集
+
 以LIBERO 10微调为例，安装数据集
+
 ```sh
 huggingface-cli download \
     --repo-type dataset IPEC-COMMUNITY/libero_10_no_noops_1.0.0_lerobot \
@@ -131,16 +133,19 @@ cp -r examples/LIBERO/modality.json examples/LIBERO/libero_10_no_noops_1.0.0_ler
 * 单机8卡训练
 
 需先进入Isaac-GR00T目录
+
 ```sh
 cd Isaac-GR00T
 ```
 
 **训练脚本**
+
 ```sh
 bash train_8p.sh --num_gpus=8 --global_batch_size=640 --max_steps=20000 --dataset_path=examples/LIBERO/libero_10_no_noops_1.0.0_lerobot/ --base_model_path=./GR00T-N1.6-3B
 ```
 
 **性能测试脚本**
+
 ```sh
 bash train_performance_8p.sh --num_gpus=8 --global_batch_size=640 --max_steps=1000 --dataset_path=examples/LIBERO/libero_10_no_noops_1.0.0_lerobot/ --base_model_path=./GR00T-N1.6-3B
 ```
