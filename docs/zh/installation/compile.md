@@ -8,10 +8,10 @@
 
 表1：产品硬件支持列表
 
-| 产品系列               | 产品型号                         |
-|-----------------------|----------------------------------|
-| Atlas A2 训练系列产品  | Atlas 800T A2 训练服务器          |
-|                       | Atlas 900 A2 PoD 集群基础单元     |
+| 产品系列              | 产品型号                      |
+| --------------------- | ----------------------------- |
+| Atlas A2 训练系列产品 | Atlas 800T A2 训练服务器      |
+|                       | Atlas 900 A2 PoD 集群基础单元 |
 
 ## 部署Driving SDK环境
 
@@ -23,9 +23,9 @@ Driving SDK镜像是基于openEulerOS构建的，包含Driving SDK模型和算�
 <!-- 镜像版本说明需要询问,根据社区上的版本号为准(如7.3.0) -->
 表2：镜像版本、CANN版本、PTA版本和Driving SDK版本配套关系
 
-|镜像版本 |CANN版本 |PTA版本 |Driving SDK版本        |备注|
-|----------|-----------|-----------|--------------------|----|
-|8.3.RC1_alpha001 |8.3.rc1.alpha001 |20250908 |20250908 |支持arm64架构，A2系列|
+| 镜像版本         | CANN版本         | PTA版本  | Driving SDK版本 | 备注                  |
+| ---------------- | ---------------- | -------- | --------------- | --------------------- |
+| 8.3.RC1_alpha001 | 8.3.rc1.alpha001 | 20250908 | 20250908        | 支持arm64架构，A2系列 |
 
 #### 前置依赖
 
@@ -38,7 +38,9 @@ Driving SDK镜像是基于openEulerOS构建的，包含Driving SDK模型和算�
     ```shell
     docker pull swr.cn-south-1.myhuaweicloud.com/ascendhub/drivingsdk:8.3.RC1_alpha001-arm64
     ```
+
     查看镜像名和标签，确认拉取成功。将镜像名记作`$IMAGE`，镜像标签记作`$TAG`。
+
     ```shell
     docker images
     ```
@@ -86,8 +88,10 @@ Driving SDK镜像是基于openEulerOS构建的，包含Driving SDK模型和算�
     ```shell
     bash run_drivingsdk_docker.sh $IMAGE $TAG
     ```
+
     以 `8.3.RC1_alpha001-arm64` 版本举例，指定镜像名和标签：
-    ```
+    
+    ```shell
     bash run_drivingsdk_docker.sh swr.cn-south-1.myhuaweicloud.com/ascendhub/drivingsdk 8.3.RC1_alpha001-arm64
     ```
 
@@ -99,12 +103,11 @@ Driving SDK镜像是基于openEulerOS构建的，包含Driving SDK模型和算�
 
     表3：镜像中提供三个conda环境、Python和torch的配套关系
 
-    |conda环境             |python      |torch|
-    |----------------------|-----------|-----|
-    |torch2.1.0_py38    |3.8        |2.1.0|
-    |torch2.5.1_py39	|3.9	|2.5.1|
-    |torch2.6.0_py310    |3.10    |2.6.0|
-
+    | conda环境        | python | torch |
+    | ---------------- | ------ | ----- |
+    | torch2.1.0_py38  | 3.8    | 2.1.0 |
+    | torch2.5.1_py39  | 3.9    | 2.5.1 |
+    | torch2.6.0_py310 | 3.10   | 2.6.0 |
 
 ### 方式二：源码编译安装
 
@@ -143,17 +146,22 @@ Driving SDK仓编译依赖以下组件：
     该模式适用于生产环境。本文以Python 3.8为例进行演示。
 
     ```shell
+    # 请在仓库根目录下执行编译命令。
     bash ci/build.sh --python=3.8
     或者
     python3.8 setup.py bdist_wheel
-    # 请在仓库根目录下执行编译命令。
+    
+    # 若需要在A5设备上编译算子，需增加'--a5'
+    bash ci/build.sh --a5 --python=3.8
+    或者
+    python3.8 setup.py bdist_wheel --a5
     ```
 
     `--python`参数为指定编译过程中使用的Python版本，支持Python 3.8及以上版本，缺省值为 3.8。生成的whl包在`DrivingSDK/dist`目录下, 命名规则为`mx_driving-1.0.0+git{commit_id}-cp{Python_version}-linux_{arch}.whl`。
 
     **Develop模式**
 
-    该模式适用于开发调试环境。本文以Python 3.8为例进行演示。
+    该模式适用于开发调试环境，暂不支持A5。本文以Python 3.8为例进行演示。
 
     ```shell
     python3.8 setup.py develop

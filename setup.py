@@ -18,7 +18,11 @@ from packaging.version import Version
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 VERSION = "1.0.0"
 
-detect_use_arch35 = os.environ.get('USE_ARCH35', 'false').lower() == 'true'
+_a5_flag = "--a5" in sys.argv or "--A5" in sys.argv
+for _flag in ("--a5", "--A5"):
+    if _flag in sys.argv:
+        sys.argv.remove(_flag)
+detect_use_arch35 = os.environ.get("USE_ARCH35", "false").lower() == "true" or _a5_flag
 
 
 def which(thefile):
