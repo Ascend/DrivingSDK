@@ -11,130 +11,112 @@ using namespace MicroAPI;
 
 constexpr uint32_t taskOffset_ = 2048;
 constexpr uint16_t taskRpt_ = taskOffset_ / B32_DATA_NUM_PER_REPEAT;
+constexpr uint32_t threadNum_ = 1024;
 
 
-template<typename T, typename U>
-__simt_callee__ __aicore__ __attribute__ ((always_inline)) inline bool GetValidPoint(
-    __ubuf__ T* locationFloat, __ubuf__ T* shapeFloat, U oneHeadNum_,
-    U headIdx, U& point, T& x, T& y, T& height, T& width)
+__simt_callee__ __aicore__ __attribute__ ((always_inline)) inline int32_t GetValidPoint(
+    uint32_t oneHeadNum_, uint32_t headIdx, uint32_t& point, __ubuf__ int32_t* validMask)
 {
     for (; point < oneHeadNum_; ++point) {
-        U pointIdx = headIdx * oneHeadNum_ + point;
-        x = locationFloat[pointIdx];
-        y = locationFloat[pointIdx + taskOffset_];
-        width = shapeFloat[pointIdx];
-        height = shapeFloat[pointIdx + taskOffset_];
-
-        if ((x > -1 && y > -1 && x < width && y < height)) {
-            return true;
+        uint32_t pointIdx = headIdx * oneHeadNum_ + point;
+        int32_t mask = validMask[pointIdx];
+        if (mask > 0) {
+            return mask;
         }
     }
-    return false;
+    return 0;
 }
 
 
-template<typename T, typename U>
-__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MSDASimtCompute(
-    __gm__ T* valueGm_, __gm__ T* outputGm_,
-    __ubuf__ T* locationFloat, __ubuf__ T* shapeFloat,
-    __ubuf__ U* locationInt, __ubuf__ T* attnWeight,
-    U count, U baseOffset, U oneHeadNum_, U embedDims_, U outDims_)
+__simt_vf__ __aicore__ LAUNCH_BOUND(threadNum_) inline void MSDASimtCompute(
+    __gm__ float* valueGm_, __gm__ float* outputGm_, __ubuf__ float2* locationFloat,
+    __ubuf__ int32_t* validMask, __ubuf__ int2* locationInt, __ubuf__ float* attnWeight,
+    uint32_t count, uint32_t baseOffset, uint32_t oneHeadNum_, uint32_t outDims_)
 {
-    for (U idx = Simt::GetThreadIdx(); idx < count; idx += AscendC::Simt::GetThreadNum()) {
-        U channelIdx = idx % embedDims_;
-        U headIdx = idx / embedDims_;
-        T value = 0;
-        for (U point = 0; point < oneHeadNum_; ++point) {
-            T x, y, height, width;
-            if (!GetValidPoint(locationFloat, shapeFloat, oneHeadNum_, headIdx, point, x, y, height, width)) {
-                continue;
+    uint32_t channelIdx = threadIdx.x;
+    for (uint32_t headIdx = threadIdx.y; headIdx < count; headIdx += blockDim.y) {
+        float value = 0;
+        for (uint32_t point = 0; point < oneHeadNum_; ++point) {
+            int32_t mask = GetValidPoint(oneHeadNum_, headIdx, point, validMask);
+            if (mask == 0) {
+                break;
             }
 
-            U pointIdx = headIdx * oneHeadNum_ + point;
-            U gmOffset1 = locationInt[pointIdx] + channelIdx;
-            U gmOffset2 = gmOffset1 + outDims_;
-            U gmOffset3 = locationInt[pointIdx + taskOffset_] + channelIdx;
-            U gmOffset4 = gmOffset3 + outDims_;
+            uint32_t pointIdx = headIdx * oneHeadNum_ + point;
+            int2 gmOffset = locationInt[pointIdx];
+            gmOffset.x = gmOffset.x + channelIdx;
+            gmOffset.y = gmOffset.y + channelIdx;
 
-            T v1 = (y >= 0 && x >= 0) ? valueGm_[gmOffset1] : 0;
-            T v2 = (y >= 0 && x < width - 1) ? valueGm_[gmOffset2] : 0;
-            T v3 = (y < height - 1 && x >= 0) ? valueGm_[gmOffset3] : 0;
-            T v4 = (y < height - 1 && x < width - 1) ? valueGm_[gmOffset4] : 0;
+            float v1 = (mask & 1) ? valueGm_[gmOffset.x] : 0;
+            float v2 = (mask & 2) ? valueGm_[gmOffset.x + outDims_] : 0;
+            float v3 = (mask & 4) ? valueGm_[gmOffset.y] : 0;
+            float v4 = (mask & 8) ? valueGm_[gmOffset.y + outDims_] : 0;
 
-            T lh = y - Simt::Floor(y);
-            T lw = x - Simt::Floor(x);
-            T hh = 1 - lh;
-            T hw = 1 - lw;
+            float2 location = locationFloat[pointIdx];
+            float lh = location.y - Simt::Floor(location.y);
+            float lw = location.x - Simt::Floor(location.x);
+            float hh = 1 - lh;
+            float hw = 1 - lw;
 
-            T w1 = hh * hw;
-            T w2 = hh * lw;
-            T w3 = lh * hw;
-            T w4 = lh * lw;
+            float w1 = hh * hw;
+            float w2 = hh * lw;
+            float w3 = lh * hw;
+            float w4 = lh * lw;
 
-            T val = w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4;
-            T w = attnWeight[pointIdx];
+            float val = w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4;
+            float w = attnWeight[pointIdx];
             value = value + w * val;
         }
+        uint32_t idx = headIdx * blockDim.x + channelIdx;
         outputGm_[baseOffset + idx] = value;
     }
 }
 
-
-template<typename T, typename U>
-__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MSDASimtComputeDoubleEmbed(
-    __gm__ T* valueGm_, __gm__ T* outputGm_,
-    __ubuf__ T* locationFloat, __ubuf__ T* shapeFloat,
-    __ubuf__ U* locationInt, __ubuf__ T* attnWeight,
-    U count, U baseOffset, U oneHeadNum_, U embedDims_, U outDims_)
+__simt_vf__ __aicore__ LAUNCH_BOUND(threadNum_) inline void MSDASimtComputeDoubleEmbed(
+    __gm__ float2* valueGm_, __gm__ float2* outputGm_, __ubuf__ float2* locationFloat,
+    __ubuf__ int32_t* validMask, __ubuf__ int2* locationInt, __ubuf__ float* attnWeight,
+    uint32_t count, uint32_t baseOffset, uint32_t oneHeadNum_, uint32_t outDims_)
 {
-    for (U idx = Simt::GetThreadIdx() * 2; idx < count; idx += AscendC::Simt::GetThreadNum() * 2) {
-        U channelIdx = idx % embedDims_;
-        U headIdx = idx / embedDims_;
-
-        T value1 = 0;
-        T value2 = 0;
-        for (U point = 0; point < oneHeadNum_; ++point) {
-            T x, y, height, width;
-            if (!GetValidPoint(locationFloat, shapeFloat, oneHeadNum_, headIdx, point, x, y, height, width)) {
-                continue;
+    uint32_t channelIdx = threadIdx.x * 2;
+    const float2 zero = {0, 0};
+    for (uint32_t headIdx = threadIdx.y; headIdx < count; headIdx += blockDim.y) {
+        float2 value = {0, 0};
+        for (uint32_t point = 0; point < oneHeadNum_; ++point) {
+            int32_t mask = GetValidPoint(oneHeadNum_, headIdx, point, validMask);
+            if (mask == 0) {
+                break;
             }
 
-            U pointIdx = headIdx * oneHeadNum_ + point;
-            U gmOffset1 = locationInt[pointIdx] + channelIdx;
-            U gmOffset2 = gmOffset1 + outDims_;
-            U gmOffset3 = locationInt[pointIdx + taskOffset_] + channelIdx;
-            U gmOffset4 = gmOffset3 + outDims_;
+            uint32_t pointIdx = headIdx * oneHeadNum_ + point;
+            int2 gmOffset = locationInt[pointIdx];
+            gmOffset.x = gmOffset.x + channelIdx;
+            gmOffset.y = gmOffset.y + channelIdx;
 
-            T v1 = (y >= 0 && x >= 0) ? valueGm_[gmOffset1] : 0;
-            T v2 = (y >= 0 && x < width - 1) ? valueGm_[gmOffset2] : 0;
-            T v3 = (y < height - 1 && x >= 0) ? valueGm_[gmOffset3] : 0;
-            T v4 = (y < height - 1 && x < width - 1) ? valueGm_[gmOffset4] : 0;
+            float2 v1 = (mask & 1) ? valueGm_[gmOffset.x >> 1] : zero;
+            float2 v2 = (mask & 2) ? valueGm_[(gmOffset.x + outDims_) >> 1] : zero;
+            float2 v3 = (mask & 4) ? valueGm_[gmOffset.y >> 1] : zero;
+            float2 v4 = (mask & 8) ? valueGm_[(gmOffset.y + outDims_) >> 1] : zero;
 
-            T v5 = (y >= 0 && x >= 0) ? valueGm_[gmOffset1 + 1] : 0;
-            T v6 = (y >= 0 && x < width - 1) ? valueGm_[gmOffset2 + 1] : 0;
-            T v7 = (y < height - 1 && x >= 0) ? valueGm_[gmOffset3 + 1] : 0;
-            T v8 = (y < height - 1 && x < width - 1) ? valueGm_[gmOffset4 + 1] : 0;
+            float2 location = locationFloat[pointIdx];
+            float lh = location.y - Simt::Floor(location.y);
+            float lw = location.x - Simt::Floor(location.x);
+            float hh = 1 - lh;
+            float hw = 1 - lw;
 
-            T lh = y - Simt::Floor(y);
-            T lw = x - Simt::Floor(x);
-            T hh = 1 - lh;
-            T hw = 1 - lw;
+            float w1 = hh * hw;
+            float w2 = hh * lw;
+            float w3 = lh * hw;
+            float w4 = lh * lw;
 
-            T w1 = hh * hw;
-            T w2 = hh * lw;
-            T w3 = lh * hw;
-            T w4 = lh * lw;
+            float val1 = w1 * v1.x + w2 * v2.x + w3 * v3.x + w4 * v4.x;
+            float val2 = w1 * v1.y + w2 * v2.y + w3 * v3.y + w4 * v4.y;
 
-            T val1 = w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4;
-            T val2 = w1 * v5 + w2 * v6 + w3 * v7 + w4 * v8;
-
-            T w = attnWeight[pointIdx];
-
-            value1 = value1 + w * val1;
-            value2 = value2 + w * val2;
+            float w = attnWeight[pointIdx];
+            value.x =  value.x + w * val1;
+            value.y =  value.y + w * val2;
         }
-        outputGm_[baseOffset + idx] = value1;
-        outputGm_[baseOffset + idx + 1] = value2;
+        uint32_t idx = headIdx * blockDim.x * 2 + channelIdx;
+        outputGm_[(baseOffset + idx) >> 1] = value;
     }
 }
 
@@ -165,6 +147,7 @@ public:
         LocalTensor<float> shapeFloat = shapeFloatBuf_.template Get<float>();
         LocalTensor<int32_t> shapeInt = shapeFloatBuf_.template Get<int32_t>();
         LocalTensor<int32_t> offsetInt = offsetIntBuf_.template Get<int32_t>();
+        LocalTensor<int32_t> validMask = validMaskBuf_.template Get<int32_t>();
 
         PrepareShape(shapes, shapeInt, shapeFloat, offset, offsetInt);
 
@@ -176,27 +159,36 @@ public:
             CopyInSample(locationFloat[2 * alignedOneTaskNum_], attentionWeight, taskIdx, taskNum);
             pipe_barrier(PIPE_ALL);
 
-            ComputeGmOffsetVF<float, int32_t>(taskRpt_, numHeads_, embedDims_, baseSrcOffset, nextSrcOffset, baseNum * oneQueryNum_, locationFloat, shapeFloat, offsetInt, locationInt);
+            ComputeGmOffsetVF<float, int32_t>(taskRpt_, numHeads_, embedDims_, baseSrcOffset, nextSrcOffset, baseNum * oneQueryNum_,
+                locationFloat, shapeFloat, offsetInt, locationInt, validMask);
             pipe_barrier(PIPE_ALL);
 
-            CallMSDASimtFunc(taskIdx, taskNum, locationFloat, shapeFloat, locationInt, attentionWeight);
+            CallMSDASimtFunc(taskIdx, taskNum, locationFloat, shapeFloat, locationInt, attentionWeight, validMask);
             pipe_barrier(PIPE_ALL);
         }
     }
 
     __aicore__ inline void CallMSDASimtFunc(uint32_t taskIdx, uint32_t taskNum, const LocalTensor<float>& locationFloat,
-        const LocalTensor<float>& shapeFloat, const LocalTensor<int32_t>& locationInt, const LocalTensor<float>& attentionWeight)
+        const LocalTensor<float>& shapeFloat, const LocalTensor<int32_t>& locationInt, const LocalTensor<float>& attentionWeight,
+        const LocalTensor<int32_t>& validMask)
     {
-        if ((embedDims_ % 2 == 0) && (taskNum * numHeads_ * embedDims_ > 1024)) {
-            AscendC::Simt::VF_CALL<MSDASimtComputeDoubleEmbed<float, int32_t>>(AscendC::Simt::Dim3{1024}, (__gm__ float*)valueGm_.GetPhyAddr(),
-                (__gm__ float*)outputGm_.GetPhyAddr(), (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(),
-                (__ubuf__ int32_t*)locationInt.GetPhyAddr(), (__ubuf__ float*)attentionWeight.GetPhyAddr(),
-                taskNum * numHeads_ * embedDims_, taskIdx * outDims_, oneHeadNum_, embedDims_, outDims_);
+        bool doubleEmbedFlag = (embedDims_ % 2) == 0;
+        if (doubleEmbedFlag) {
+            uint32_t embedDimThreads = embedDims_ / 2;
+            uint32_t headThreads = threadNum_ / embedDimThreads;
+            Simt::VF_CALL<MSDASimtComputeDoubleEmbed>(Simt::Dim3(embedDimThreads, headThreads),
+                (__gm__ float2*)valueGm_.GetPhyAddr(), (__gm__ float2*)outputGm_.GetPhyAddr(),
+                (__ubuf__ float2*)locationFloat.GetPhyAddr(), (__ubuf__ int32_t*)validMask.GetPhyAddr(),
+                (__ubuf__ int2*)locationInt.GetPhyAddr(), (__ubuf__ float*)attentionWeight.GetPhyAddr(),
+                taskNum * numHeads_, taskIdx * outDims_, oneHeadNum_, outDims_);
         } else {
-            AscendC::Simt::VF_CALL<MSDASimtCompute<float, int32_t>>(AscendC::Simt::Dim3{1024}, (__gm__ float*)valueGm_.GetPhyAddr(),
-                (__gm__ float*)outputGm_.GetPhyAddr(), (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(),
-                (__ubuf__ int32_t*)locationInt.GetPhyAddr(), (__ubuf__ float*)attentionWeight.GetPhyAddr(),
-                taskNum * numHeads_ * embedDims_, taskIdx * outDims_, oneHeadNum_, embedDims_, outDims_);
+            uint32_t embedDimThreads = embedDims_;
+            uint32_t headThreads = threadNum_ / embedDimThreads;
+            Simt::VF_CALL<MSDASimtCompute>(Simt::Dim3(embedDimThreads, headThreads),
+                (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)outputGm_.GetPhyAddr(),
+                (__ubuf__ float2*)locationFloat.GetPhyAddr(), (__ubuf__ int32_t*)validMask.GetPhyAddr(),
+                (__ubuf__ int2*)locationInt.GetPhyAddr(), (__ubuf__ float*)attentionWeight.GetPhyAddr(),
+                taskNum * numHeads_, taskIdx * outDims_, oneHeadNum_, outDims_);
         }
     }
 
@@ -244,6 +236,7 @@ protected:
         pipe_->InitBuffer(locationQue_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE);   // x, y
         pipe_->InitBuffer(gmOffsetBuf_, 2 * alignedOneTaskNum_ * B32_BYTE_SIZE);   // x, y
         pipe_->InitBuffer(attentionWeightsQue_, alignedOneTaskNum_ * B32_BYTE_SIZE);
+        pipe_->InitBuffer(validMaskBuf_, alignedOneTaskNum_ * B32_BYTE_SIZE);
     }
 
     __aicore__ inline void PrepareShape(const LocalTensor<int32_t>& shapes, const LocalTensor<int32_t>& shapeInt,
@@ -262,8 +255,10 @@ protected:
                     int32_t h = shapes.GetValue(2 * level);
                     int32_t o = offset.GetValue(level);
                     for (uint32_t point = 0; point < numPoints_; ++point) {
-                        shapeInt.SetValue(idx, w);
-                        shapeInt.SetValue(idx + alignedOneTaskNum_, h);
+                        int32_t xIdx = 2 * idx;
+                        int32_t yIdx = 2 * idx + 1;
+                        shapeInt.SetValue(xIdx, w);
+                        shapeInt.SetValue(yIdx, h);
                         offsetInt.SetValue(idx, o * numHeads_ + head);
                         ++idx;
                     }
@@ -296,7 +291,7 @@ protected:
     GlobalTensor<int32_t> valueSpatialShapesGm_, valueLevelStartIndexGm_;
 
     TBuf<TPosition::VECCALC> locationQue_, attentionWeightsQue_, shapeQue_, offsetQue_;
-    TBuf<TPosition::VECCALC> shapeFloatBuf_, offsetIntBuf_, gmOffsetBuf_;
+    TBuf<TPosition::VECCALC> shapeFloatBuf_, offsetIntBuf_, gmOffsetBuf_, validMaskBuf_;
 
     int32_t blkIdx_;
     // const values

@@ -11,6 +11,9 @@ using namespace MicroAPI;
 
 constexpr uint32_t taskOffset_ = 1024;
 constexpr uint16_t taskRpt_ = taskOffset_ / B32_DATA_NUM_PER_REPEAT;
+constexpr uint32_t threadNum_ = 1024;
+constexpr uint32_t warpSize_ = 32;
+constexpr uint32_t warpCount_ = threadNum_ / warpSize_;
 
 
 template<typename T, typename U>
@@ -26,38 +29,16 @@ __aicore__ inline void ComputeGradVF(const LocalTensor<T> locFloat, const LocalT
     __local_mem__ T* gradLocationPtr = (__local_mem__ T*) gradLocation.GetPhyAddr();
 
     __VEC_SCOPE__ {
-        MicroAPI::RegTensor<T> locationXReg;
-        MicroAPI::RegTensor<T> locationYReg;
-        MicroAPI::RegTensor<T> widthFloatReg;
-        MicroAPI::RegTensor<T> heightFloatReg;
+        MicroAPI::RegTensor<T> locationXY1Reg, locationXY2Reg, shapeInput1Reg, shapeInput2Reg;
+        MicroAPI::RegTensor<T> locationXReg, locationYReg;
+        MicroAPI::RegTensor<U> locationXIntReg, locationYIntReg;
+        MicroAPI::RegTensor<T> widthFloatReg, heightFloatReg;
         MicroAPI::RegTensor<T> attentionWeightReg;
-
-        MicroAPI::RegTensor<U> locationXIntReg;
-        MicroAPI::RegTensor<U> locationYIntReg;
-
-        MicroAPI::RegTensor<T> locationWidthLowReg;
-        MicroAPI::RegTensor<T> locationWidthHighReg;
-        MicroAPI::RegTensor<T> locationHeightLowReg;
-        MicroAPI::RegTensor<T> locationHeightHighReg;
-
-        MicroAPI::RegTensor<T> gradLocW1Reg;
-        MicroAPI::RegTensor<T> gradLocW2Reg;
-        MicroAPI::RegTensor<T> gradLocW3Reg;
-        MicroAPI::RegTensor<T> gradLocW4Reg;
-
-        MicroAPI::RegTensor<T> weight1Reg;
-        MicroAPI::RegTensor<T> weight2Reg;
-        MicroAPI::RegTensor<T> weight3Reg;
-        MicroAPI::RegTensor<T> weight4Reg;
-
-        MicroAPI::RegTensor<T> gradWeight1Reg;
-        MicroAPI::RegTensor<T> gradWeight2Reg;
-        MicroAPI::RegTensor<T> gradWeight3Reg;
-        MicroAPI::RegTensor<T> gradWeight4Reg;
-
-        MicroAPI::RegTensor<T> gradAttnReg;
-        MicroAPI::RegTensor<T> gradLocationXY1Reg;
-        MicroAPI::RegTensor<T> gradLocationXY2Reg;
+        MicroAPI::RegTensor<T> locationWidthLowReg, locationWidthHighReg, locationHeightLowReg, locationHeightHighReg;
+        MicroAPI::RegTensor<T> gradLocW1Reg, gradLocW2Reg, gradLocW3Reg, gradLocW4Reg;
+        MicroAPI::RegTensor<T> weight1Reg, weight2Reg, weight3Reg, weight4Reg;
+        MicroAPI::RegTensor<T> gradWeight1Reg, gradWeight2Reg, gradWeight3Reg, gradWeight4Reg;
+        MicroAPI::RegTensor<T> gradAttnReg, gradLocationXY1Reg, gradLocationXY2Reg;
 
         MicroAPI::MaskReg mask = MicroAPI::CreateMask<T,AscendC::MicroAPI::MaskPattern::ALL>();
         MicroAPI::MaskReg validMask = MicroAPI::CreateMask<T>();
@@ -71,16 +52,26 @@ __aicore__ inline void ComputeGradVF(const LocalTensor<T> locFloat, const LocalT
         for (uint16_t taskIdx = 0; taskIdx < taskRpt_; ++taskIdx) {
             uint32_t localOffset = taskIdx * B32_DATA_NUM_PER_REPEAT;
 
-            MicroAPI::DataCopy(locationXReg, locFloatPtr + localOffset);
-            MicroAPI::DataCopy(locationYReg, locFloatPtr + localOffset + taskOffset_);
-            MicroAPI::DataCopy(widthFloatReg, shapeFloatPtr + localOffset);
-            MicroAPI::DataCopy(heightFloatReg, shapeFloatPtr + localOffset + taskOffset_);
+            MicroAPI::DataCopy(locationXY1Reg, locFloatPtr + 2 * localOffset);
+            MicroAPI::DataCopy(locationXY2Reg, locFloatPtr + 2 * localOffset + B32_DATA_NUM_PER_REPEAT);
+            MicroAPI::DataCopy(shapeInput1Reg, shapeFloatPtr + 2 * localOffset);
+            MicroAPI::DataCopy(shapeInput2Reg, shapeFloatPtr + 2 * localOffset + B32_DATA_NUM_PER_REPEAT);
             MicroAPI::DataCopy(attentionWeightReg, attentionWeightPtr + localOffset);
 
-            MicroAPI::DataCopy(weight1Reg, weightPtr + localOffset);
-            MicroAPI::DataCopy(weight2Reg, weightPtr + localOffset + taskOffset_);
-            MicroAPI::DataCopy(weight3Reg, weightPtr + localOffset + 2 * taskOffset_);
-            MicroAPI::DataCopy(weight4Reg, weightPtr + localOffset + 3 * taskOffset_);
+            MicroAPI::DataCopy(weight1Reg, weightPtr + 4 * localOffset);
+            MicroAPI::DataCopy(weight2Reg, weightPtr + 4 * localOffset + B32_DATA_NUM_PER_REPEAT);
+            MicroAPI::DataCopy(weight3Reg, weightPtr + 4 * localOffset + 2 * B32_DATA_NUM_PER_REPEAT);
+            MicroAPI::DataCopy(weight4Reg, weightPtr + 4 * localOffset + 3 * B32_DATA_NUM_PER_REPEAT);
+
+            // [N, 2] -> [2, N]
+            MicroAPI::DeInterleave(locationXReg, locationYReg, locationXY1Reg, locationXY2Reg);
+            MicroAPI::DeInterleave(widthFloatReg, heightFloatReg, shapeInput1Reg, shapeInput2Reg);
+
+            // [N, 4] -> [4, N]
+            MicroAPI::DeInterleave(gradWeight1Reg, gradWeight2Reg, weight1Reg, weight2Reg);
+            MicroAPI::DeInterleave(gradWeight3Reg, gradWeight4Reg, weight3Reg, weight4Reg);
+            MicroAPI::DeInterleave(weight1Reg, weight3Reg, gradWeight1Reg, gradWeight3Reg);
+            MicroAPI::DeInterleave(weight2Reg, weight4Reg, gradWeight2Reg, gradWeight4Reg);
 
             MicroAPI::Compares<T, CMPMODE::GT>(validMask, locationXReg, -1.0f, mask);
             MicroAPI::Compares<T, CMPMODE::GT>(tmpMask, locationYReg, -1.0f, mask);
@@ -145,307 +136,213 @@ __aicore__ inline void ComputeGradVF(const LocalTensor<T> locFloat, const LocalT
 }
 
 
-template<typename T, typename U, U embedDims_>
-__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MSDASimtComputeGradSmallTemplate(
-    __gm__ T* gradValueGm_, __gm__ T* valueGm_, __gm__ T* gradOutGm_,
-    __ubuf__ T* locFloat, __ubuf__ T* shapeFloat, __ubuf__ U* locationInt,
-    __ubuf__ T* attnWeight, __ubuf__ T* weight, U baseOffset, U count,
-    U oneHeadNum_, U outDims_)
+__simt_vf__ __aicore__ LAUNCH_BOUND(threadNum_) inline void MSDASimtComputeGradSmallByHead(
+    __gm__ float* gradValueGm_, __gm__ float* valueGm_, __gm__ float* gradOutGm_,
+    __ubuf__ float2* locFloat, __ubuf__ float2* shapeFloat, __ubuf__ int2* locationInt,
+    __ubuf__ float* attnWeight, __ubuf__ float4* weight, uint32_t count, uint32_t outDims_,
+    uint32_t embedDims_, uint32_t oneHeadNum_)
 {
-    U reduceGroupCount = Simt::GetWarpSize() / embedDims_;
-    for (U idx = Simt::GetThreadIdx(); idx < count * embedDims_; idx += Simt::GetThreadNum()) {
-        U pointIdx = idx / embedDims_;
-        U channelIdx = idx % embedDims_;
-
-        T x = locFloat[pointIdx];
-        T y = locFloat[pointIdx + taskOffset_];
-        T w = shapeFloat[pointIdx];
-        T h = shapeFloat[pointIdx + taskOffset_];
-
-        if (!(x > -1 && y > -1 && x < w && y < h)) {
-            continue;
-        }
-
-        T lh = y - Simt::Floor(y);
-        T lw = x - Simt::Floor(x);
-        T hh = 1 - lh;
-        T hw = 1 - lw;
-
-        T w1 = hh * hw;
-        T w2 = hh * lw;
-        T w3 = lh * hw;
-        T w4 = lh * lw;
-
-        U gmOffset1 = locationInt[pointIdx] + channelIdx;
-        U gmOffset2 = gmOffset1 + outDims_;
-        U gmOffset3 = locationInt[pointIdx + taskOffset_] + channelIdx;
-        U gmOffset4 = gmOffset3 + outDims_;
-
-        T v1 = (y >= 0 && x >= 0) ? valueGm_[gmOffset1] : 0;
-        T v2 = (y >= 0 && x < w - 1) ? valueGm_[gmOffset2] : 0;
-        T v3 = (y < h - 1 && x >= 0) ? valueGm_[gmOffset3] : 0;
-        T v4 = (y < h - 1 && x < w - 1) ? valueGm_[gmOffset4] : 0;
-
-        U outOffset = pointIdx / oneHeadNum_ * embedDims_ + channelIdx;
-        T grad = gradOutGm_[baseOffset + outOffset];
-        T attn = attnWeight[pointIdx];
-        T gradValueMul = grad * attn;
-
-        if (y >= 0 && x >= 0) {
-            Simt::AtomicAdd(gradValueGm_ + gmOffset1, w1 * gradValueMul);
-        }
-        if (y >= 0 && x < w - 1) {
-            Simt::AtomicAdd(gradValueGm_ + gmOffset2, w2 * gradValueMul);
-        }
-        if (y < h - 1 && x >= 0) {
-            Simt::AtomicAdd(gradValueGm_ + gmOffset3, w3 * gradValueMul);
-        }
-        if (y < h - 1 && x < w - 1) {
-            Simt::AtomicAdd(gradValueGm_ + gmOffset4, w4 * gradValueMul);
-        }
-
-        T val1, val2, val3, val4;
-        U groupIdx = (idx % Simt::GetWarpSize()) / embedDims_;
-        for (U groupLoop = 0; groupLoop < reduceGroupCount; groupLoop++) {
-            T gradWeight1 = groupIdx == groupLoop ? v1 * grad : 0;
-            T gradWeight2 = groupIdx == groupLoop ? v2 * grad : 0;
-            T gradWeight3 = groupIdx == groupLoop ? v3 * grad : 0;
-            T gradWeight4 = groupIdx == groupLoop ? v4 * grad : 0;
-
-            T sum1 = Simt::WarpReduceAddSync(gradWeight1);
-            T sum2 = Simt::WarpReduceAddSync(gradWeight2);
-            T sum3 = Simt::WarpReduceAddSync(gradWeight3);
-            T sum4 = Simt::WarpReduceAddSync(gradWeight4);
-
-            if (groupIdx == groupLoop) {
-                val1 = sum1, val2 = sum2, val3 = sum3, val4 = sum4;
-            }
-        }
-
-        if (idx % embedDims_ == 0) {
-            weight[pointIdx] = val1;
-            weight[pointIdx + taskOffset_] = val2;
-            weight[pointIdx + 2 * taskOffset_] = val3;
-            weight[pointIdx + 3 * taskOffset_] = val4;
-        }
-    }
-}
-
-
-template<typename T, typename U, U embedDims_>
-__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MSDASimtComputeGradLargeTemplate(
-    __gm__ T* gradValueGm_, __gm__ T* valueGm_, __gm__ T* gradOutGm_,
-    __ubuf__ T* locFloat, __ubuf__ T* shapeFloat, __ubuf__ U* locationInt,
-    __ubuf__ T* attnWeight, __ubuf__ T* weight, U baseOffset, U count,
-    U oneHeadNum_, U outDims_)
-{
-    U innerLoops_ = embedDims_ / Simt::GetWarpSize();
-    for (U idx = Simt::GetThreadIdx(); idx < count * Simt::GetWarpSize(); idx += Simt::GetThreadNum()) {
-        U pointIdx = idx / Simt::GetWarpSize();
-        U channelIdx = idx % Simt::GetWarpSize();
-
-        T x = locFloat[pointIdx];
-        T y = locFloat[pointIdx + taskOffset_];
-        T w = shapeFloat[pointIdx];
-        T h = shapeFloat[pointIdx + taskOffset_];
-
-        if (!(x > -1 && y > -1 && x < w && y < h)) {
-            continue;
-        }
-
-        T lh = y - Simt::Floor(y);
-        T lw = x - Simt::Floor(x);
-        T hh = 1 - lh;
-        T hw = 1 - lw;
-
-        T w1 = hh * hw;
-        T w2 = hh * lw;
-        T w3 = lh * hw;
-        T w4 = lh * lw;
-
-        U gmOffset1 = locationInt[pointIdx] + channelIdx;
-        U gmOffset2 = gmOffset1 + outDims_;
-        U gmOffset3 = locationInt[pointIdx + taskOffset_] + channelIdx;
-        U gmOffset4 = gmOffset3 + outDims_;
-        T attn = attnWeight[pointIdx];
-
-        T value1 = 0, value2 = 0, value3 = 0, value4 = 0;
-        for (U innerIdx = 0; innerIdx < innerLoops_; innerIdx++) {
-            U channelOffset = Simt::GetWarpSize() * innerIdx;
-
-            T v1 = (y >= 0 && x >= 0) ? valueGm_[gmOffset1 + channelOffset] : 0;
-            T v2 = (y >= 0 && x < w - 1) ? valueGm_[gmOffset2 + channelOffset] : 0;
-            T v3 = (y < h - 1 && x >= 0) ? valueGm_[gmOffset3 + channelOffset] : 0;
-            T v4 = (y < h - 1 && x < w - 1) ? valueGm_[gmOffset4 + channelOffset] : 0;
-
-            T grad = gradOutGm_[baseOffset + pointIdx / oneHeadNum_ * embedDims_ + channelIdx + channelOffset];
-            T gradValueMul = grad * attn;
-
-            if (y >= 0 && x >= 0) {
-                Simt::AtomicAdd(gradValueGm_ + gmOffset1 + channelOffset, w1 * gradValueMul);
-            }
-            if (y >= 0 && x < w - 1) {
-                Simt::AtomicAdd(gradValueGm_ + gmOffset2 + channelOffset, w2 * gradValueMul);
-            }
-            if (y < h - 1 && x >= 0) {
-                Simt::AtomicAdd(gradValueGm_ + gmOffset3 + channelOffset, w3 * gradValueMul);
-            }
-            if (y < h - 1 && x < w - 1) {
-                Simt::AtomicAdd(gradValueGm_ + gmOffset4 + channelOffset, w4 * gradValueMul);
-            }
-            value1 = value1 + v1 * grad;
-            value2 = value2 + v2 * grad;
-            value3 = value3 + v3 * grad;
-            value4 = value4 + v4 * grad;
-        }
-
-        value1 = Simt::WarpReduceAddSync(value1);
-        value2 = Simt::WarpReduceAddSync(value2);
-        value3 = Simt::WarpReduceAddSync(value3);
-        value4 = Simt::WarpReduceAddSync(value4);
-
-        if (idx % Simt::GetWarpSize()) {
-            weight[pointIdx] = value1;
-            weight[pointIdx + taskOffset_] = value2;
-            weight[pointIdx + 2 * taskOffset_] = value3;
-            weight[pointIdx + 3 * taskOffset_] = value4;
-        }
-    }
-}
-
-
-template<typename T, typename U>
-__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MSDASimtComputeGradSmall(
-    __gm__ T* gradValueGm_, __gm__ T* valueGm_, __gm__ T* gradOutGm_,
-    __ubuf__ T* locFloat, __ubuf__ T* shapeFloat, __ubuf__ U* locationInt,
-    __ubuf__ T* attnWeight, __ubuf__ T* weight, U baseOffset, U count,
-    U oneHeadNum_, U outDims_, U embedDims_)
-{
-    for (U idx = Simt::GetThreadIdx(); idx < count * Simt::GetWarpSize(); idx += Simt::GetThreadNum()) {
-        U pointIdx = idx / Simt::GetWarpSize();
-        U channelIdx = idx % Simt::GetWarpSize();
+    uint32_t channelIdx = threadIdx.x;
+    for (uint32_t headIdx = blockDim.y * threadIdx.z + threadIdx.y; headIdx < count; headIdx += blockDim.y * blockDim.z) {
         if (channelIdx >= embedDims_) {
             continue;
         }
+        uint32_t outOffset = headIdx * embedDims_ + channelIdx;
+        float grad = gradOutGm_[outOffset];
+        for (uint32_t point = 0; point < oneHeadNum_; point++) {
+            uint32_t pointIdx = headIdx * oneHeadNum_ + point;
+            float2 image = shapeFloat[pointIdx];
+            float2 location = locFloat[pointIdx];
+            if (!(location.x > -1 && location.y > -1 && location.x < image.x && location.y < image.y)) {
+                continue;
+            }
 
-        T x = locFloat[pointIdx];
-        T y = locFloat[pointIdx + taskOffset_];
-        T w = shapeFloat[pointIdx];
-        T h = shapeFloat[pointIdx + taskOffset_];
+            int2 gmOffset = locationInt[pointIdx];
+            gmOffset.x = gmOffset.x + channelIdx;
+            gmOffset.y = gmOffset.y + channelIdx;
 
-        if (!(x > -1 && y > -1 && x < w && y < h)) {
-            continue;
-        }
+            float v1 = (location.y >= 0 && location.x >= 0) ? valueGm_[gmOffset.x] : 0;
+            float v2 = (location.y >= 0 && location.x < image.x - 1) ? valueGm_[gmOffset.x + outDims_] : 0;
+            float v3 = (location.y < image.y - 1 && location.x >= 0) ? valueGm_[gmOffset.y] : 0;
+            float v4 = (location.y < image.y - 1 && location.x < image.x - 1) ? valueGm_[gmOffset.y + outDims_] : 0;
 
-        T lh = y - Simt::Floor(y);
-        T lw = x - Simt::Floor(x);
-        T hh = 1 - lh;
-        T hw = 1 - lw;
+            float attn = attnWeight[pointIdx];
+            float gradValueMul = grad * attn;
 
-        T w1 = hh * hw;
-        T w2 = hh * lw;
-        T w3 = lh * hw;
-        T w4 = lh * lw;
+            float lh = location.y - Simt::Floor(location.y);
+            float lw = location.x - Simt::Floor(location.x);
+            float hh = 1 - lh;
+            float hw = 1 - lw;
 
-        U gmOffset1 = locationInt[pointIdx] + channelIdx;
-        U gmOffset2 = gmOffset1 + outDims_;
-        U gmOffset3 = locationInt[pointIdx + taskOffset_] + channelIdx;
-        U gmOffset4 = gmOffset3 + outDims_;
+            float w1 = hh * hw;
+            float w2 = hh * lw;
+            float w3 = lh * hw;
+            float w4 = lh * lw;
 
-        T v1 = (y >= 0 && x >= 0) ? valueGm_[gmOffset1] : 0;
-        T v2 = (y >= 0 && x < w - 1) ? valueGm_[gmOffset2] : 0;
-        T v3 = (y < h - 1 && x >= 0) ? valueGm_[gmOffset3] : 0;
-        T v4 = (y < h - 1 && x < w - 1) ? valueGm_[gmOffset4] : 0;
+            if (location.y >= 0 && location.x >= 0) {
+                Simt::AtomicAdd(gradValueGm_ + gmOffset.x, w1 * gradValueMul);
+            }
+            if (location.y >= 0 && location.x < image.x - 1) {
+                Simt::AtomicAdd(gradValueGm_ + gmOffset.x + outDims_, w2 * gradValueMul);
+            }
+            if (location.y < image.y - 1 && location.x >= 0) {
+                Simt::AtomicAdd(gradValueGm_ + gmOffset.y, w3 * gradValueMul);
+            }
+            if (location.y < image.y - 1 && location.x < image.x - 1) {
+                Simt::AtomicAdd(gradValueGm_ + gmOffset.y + outDims_, w4 * gradValueMul);
+            }
 
-        U outOffset = pointIdx / oneHeadNum_ * embedDims_ + channelIdx;
-        T grad = gradOutGm_[baseOffset + outOffset];
-        T attn = attnWeight[pointIdx];
-        T gradValueMul = grad * attn;
+            for (uint32_t reduceIdx = 0; reduceIdx < blockDim.y; reduceIdx++) {
+                bool reduceFlag = reduceIdx == threadIdx.y;
+                float gradWeight1 = reduceFlag ? v1 * grad : 0;
+                float gradWeight2 = reduceFlag ? v2 * grad : 0;
+                float gradWeight3 = reduceFlag ? v3 * grad : 0;
+                float gradWeight4 = reduceFlag ? v4 * grad : 0;
 
-        if (y >= 0 && x >= 0) {
-            Simt::AtomicAdd(gradValueGm_ + gmOffset1, w1 * gradValueMul);
-        }
-        if (y >= 0 && x < w - 1) {
-            Simt::AtomicAdd(gradValueGm_ + gmOffset2, w2 * gradValueMul);
-        }
-        if (y < h - 1 && x >= 0) {
-            Simt::AtomicAdd(gradValueGm_ + gmOffset3, w3 * gradValueMul);
-        }
-        if (y < h - 1 && x < w - 1) {
-            Simt::AtomicAdd(gradValueGm_ + gmOffset4, w4 * gradValueMul);
-        }
+                float4 results;
+                results.x = Simt::WarpReduceAddSync(gradWeight1);
+                results.y = Simt::WarpReduceAddSync(gradWeight2);
+                results.z = Simt::WarpReduceAddSync(gradWeight3);
+                results.w = Simt::WarpReduceAddSync(gradWeight4);
 
-        T val1 = Simt::WarpReduceAddSync(v1 * grad);
-        T val2 = Simt::WarpReduceAddSync(v2 * grad);
-        T val3 = Simt::WarpReduceAddSync(v3 * grad);
-        T val4 = Simt::WarpReduceAddSync(v4 * grad);
-
-        if (idx % Simt::GetWarpSize() == 0) {
-            weight[pointIdx] = val1;
-            weight[pointIdx + taskOffset_] = val2;
-            weight[pointIdx + 2 * taskOffset_] = val3;
-            weight[pointIdx + 3 * taskOffset_] = val4;
+                if (reduceFlag & (channelIdx == 0)) {
+                    weight[pointIdx] = results;
+                }
+            }
         }
     }
 }
 
-template<typename T, typename U>
-__simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MSDASimtComputeGradLarge(
-    __gm__ T* gradValueGm_, __gm__ T* valueGm_, __gm__ T* gradOutGm_,
-    __ubuf__ T* locFloat, __ubuf__ T* shapeFloat, __ubuf__ U* locationInt,
-    __ubuf__ T* attnWeight, __ubuf__ T* weight, U baseOffset, U count,
-    U oneHeadNum_, U outDims_, U embedDims_)
+__simt_vf__ __aicore__ LAUNCH_BOUND(threadNum_) inline void MSDASimtComputeGradSmall(
+    __gm__ float* gradValueGm_, __gm__ float* valueGm_, __gm__ float* gradOutGm_,
+    __ubuf__ float2* locFloat, __ubuf__ float2* shapeFloat, __ubuf__ int2* locationInt,
+    __ubuf__ float* attnWeight, __ubuf__ float4* weight, uint32_t count, uint32_t outDims_,
+    uint32_t embedDims_, uint32_t magic, uint32_t shift)
 {
-    for (U idx = Simt::GetThreadIdx(); idx < count * Simt::GetWarpSize(); idx += Simt::GetThreadNum()) {
-        U pointIdx = idx / Simt::GetWarpSize();
-        U channelIdx = idx % Simt::GetWarpSize();
-
-        T x = locFloat[pointIdx];
-        T y = locFloat[pointIdx + taskOffset_];
-        T w = shapeFloat[pointIdx];
-        T h = shapeFloat[pointIdx + taskOffset_];
-
-        if (!(x > -1 && y > -1 && x < w && y < h)) {
+    uint32_t channelIdx = threadIdx.x;
+    for (uint32_t pointIdx = blockDim.y * threadIdx.z + threadIdx.y; pointIdx < count; pointIdx += blockDim.y * blockDim.z) {
+        if (channelIdx >= embedDims_) {
+            continue;
+        }
+        float2 image = shapeFloat[pointIdx];
+        float2 location = locFloat[pointIdx];
+        if (!(location.x > -1 && location.y > -1 && location.x < image.x && location.y < image.y)) {
             continue;
         }
 
-        T lh = y - Simt::Floor(y);
-        T lw = x - Simt::Floor(x);
-        T hh = 1 - lh;
-        T hw = 1 - lw;
+        int2 gmOffset = locationInt[pointIdx];
+        gmOffset.x = gmOffset.x + channelIdx;
+        gmOffset.y = gmOffset.y + channelIdx;
 
-        T w1 = hh * hw;
-        T w2 = hh * lw;
-        T w3 = lh * hw;
-        T w4 = lh * lw;
+        float v1 = (location.y >= 0 && location.x >= 0) ? valueGm_[gmOffset.x] : 0;
+        float v2 = (location.y >= 0 && location.x < image.x - 1) ? valueGm_[gmOffset.x + outDims_] : 0;
+        float v3 = (location.y < image.y - 1 && location.x >= 0) ? valueGm_[gmOffset.y] : 0;
+        float v4 = (location.y < image.y - 1 && location.x < image.x - 1) ? valueGm_[gmOffset.y + outDims_] : 0;
 
-        U gmOffset1 = locationInt[pointIdx];
-        U gmOffset2 = gmOffset1 + outDims_;
-        U gmOffset3 = locationInt[pointIdx + taskOffset_];
-        U gmOffset4 = gmOffset3 + outDims_;
-        T attn = attnWeight[pointIdx];
+        uint32_t outOffset = Simt::UintDiv(pointIdx, magic, shift) * embedDims_ + channelIdx;
+        float grad = gradOutGm_[outOffset];
+        float attn = attnWeight[pointIdx];
+        float gradValueMul = grad * attn;
 
-        T value1 = 0, value2 = 0, value3 = 0, value4 = 0;
-        for (; channelIdx < embedDims_; channelIdx += Simt::GetWarpSize()) {
-            T v1 = (y >= 0 && x >= 0) ? valueGm_[gmOffset1 + channelIdx] : 0;
-            T v2 = (y >= 0 && x < w - 1) ? valueGm_[gmOffset2 + channelIdx] : 0;
-            T v3 = (y < h - 1 && x >= 0) ? valueGm_[gmOffset3 + channelIdx] : 0;
-            T v4 = (y < h - 1 && x < w - 1) ? valueGm_[gmOffset4 + channelIdx] : 0;
+        float lh = location.y - Simt::Floor(location.y);
+        float lw = location.x - Simt::Floor(location.x);
+        float hh = 1 - lh;
+        float hw = 1 - lw;
 
-            T grad = gradOutGm_[baseOffset + pointIdx / oneHeadNum_ * embedDims_ + channelIdx];
-            T gradValueMul = grad * attn;
+        float w1 = hh * hw;
+        float w2 = hh * lw;
+        float w3 = lh * hw;
+        float w4 = lh * lw;
 
-            if (y >= 0 && x >= 0) {
-                Simt::AtomicAdd(gradValueGm_ + gmOffset1 + channelIdx, w1 * gradValueMul);
+        if (location.y >= 0 && location.x >= 0) {
+            Simt::AtomicAdd(gradValueGm_ + gmOffset.x, w1 * gradValueMul);
+        }
+        if (location.y >= 0 && location.x < image.x - 1) {
+            Simt::AtomicAdd(gradValueGm_ + gmOffset.x + outDims_, w2 * gradValueMul);
+        }
+        if (location.y < image.y - 1 && location.x >= 0) {
+            Simt::AtomicAdd(gradValueGm_ + gmOffset.y, w3 * gradValueMul);
+        }
+        if (location.y < image.y - 1 && location.x < image.x - 1) {
+            Simt::AtomicAdd(gradValueGm_ + gmOffset.y + outDims_, w4 * gradValueMul);
+        }
+
+        for (uint32_t reduceIdx = 0; reduceIdx < blockDim.y; reduceIdx++) {
+            bool reduceFlag = reduceIdx == threadIdx.y;
+            float gradWeight1 = reduceFlag ? v1 * grad : 0;
+            float gradWeight2 = reduceFlag ? v2 * grad : 0;
+            float gradWeight3 = reduceFlag ? v3 * grad : 0;
+            float gradWeight4 = reduceFlag ? v4 * grad : 0;
+
+            float4 results;
+            results.x = Simt::WarpReduceAddSync(gradWeight1);
+            results.y = Simt::WarpReduceAddSync(gradWeight2);
+            results.z = Simt::WarpReduceAddSync(gradWeight3);
+            results.w = Simt::WarpReduceAddSync(gradWeight4);
+
+            if (reduceFlag & (channelIdx == 0)) {
+                weight[pointIdx] = results;
             }
-            if (y >= 0 && x < w - 1) {
-                Simt::AtomicAdd(gradValueGm_ + gmOffset2 + channelIdx, w2 * gradValueMul);
+        }
+    }
+}
+
+
+__simt_vf__ __aicore__ LAUNCH_BOUND(threadNum_) inline void MSDASimtComputeGradLarge(
+    __gm__ float* gradValueGm_, __gm__ float* valueGm_, __gm__ float* gradOutGm_,
+    __ubuf__ float2* locFloat, __ubuf__ float2* shapeFloat, __ubuf__ int2* locationInt,
+    __ubuf__ float* attnWeight, __ubuf__ float4* weight, uint32_t count,
+    uint32_t outDims_, uint32_t embedDims_, uint32_t magic, uint32_t shift)
+{
+    uint32_t channelIdx = threadIdx.x;
+    for (uint32_t pointIdx = threadIdx.y; pointIdx < count; pointIdx += blockDim.y) {
+        float2 image = shapeFloat[pointIdx];
+        float2 location = locFloat[pointIdx];
+
+        if (!(location.x > -1 && location.y > -1 && location.x < image.x && location.y < image.y)) {
+            continue;
+        }
+
+        float attn = attnWeight[pointIdx];
+        int2 gmOffset = locationInt[pointIdx];
+        gmOffset.x = gmOffset.x + channelIdx;
+        gmOffset.y = gmOffset.y + channelIdx;
+
+        float lh = location.y - Simt::Floor(location.y);
+        float lw = location.x - Simt::Floor(location.x);
+        float hh = 1 - lh;
+        float hw = 1 - lw;
+
+        float w1 = hh * hw;
+        float w2 = hh * lw;
+        float w3 = lh * hw;
+        float w4 = lh * lw;
+
+        float value1 = 0, value2 = 0, value3 = 0, value4 = 0;
+        for (uint32_t channelOffset = 0; channelOffset < embedDims_; channelOffset += Simt::GetWarpSize()) {
+            if ((channelIdx + channelOffset) >= embedDims_) {
+                continue;
             }
-            if (y < h - 1 && x >= 0) {
-                Simt::AtomicAdd(gradValueGm_ + gmOffset3 + channelIdx, w3 * gradValueMul);
+            float v1 = (location.y >= 0 && location.x >= 0) ? valueGm_[gmOffset.x + channelOffset] : 0;
+            float v2 = (location.y >= 0 && location.x < image.x - 1) ? valueGm_[gmOffset.x + outDims_ + channelOffset] : 0;
+            float v3 = (location.y < image.y - 1 && location.x >= 0) ? valueGm_[gmOffset.y + channelOffset] : 0;
+            float v4 = (location.y < image.y - 1 && location.x < image.x - 1) ? valueGm_[gmOffset.y + outDims_ + channelOffset] : 0;
+
+            uint32_t outOffset = Simt::UintDiv(pointIdx, magic, shift) * embedDims_ + channelIdx + channelOffset;
+            float grad = gradOutGm_[outOffset];
+            float gradValueMul = grad * attn;
+
+            if (location.y >= 0 && location.x >= 0) {
+                Simt::AtomicAdd(gradValueGm_ + gmOffset.x + channelOffset, w1 * gradValueMul);
             }
-            if (y < h - 1 && x < w - 1) {
-                Simt::AtomicAdd(gradValueGm_ + gmOffset4 + channelIdx, w4 * gradValueMul);
+            if (location.y >= 0 && location.x < image.x - 1) {
+                Simt::AtomicAdd(gradValueGm_ + gmOffset.x + outDims_ + channelOffset, w2 * gradValueMul);
+            }
+            if (location.y < image.y - 1 && location.x >= 0) {
+                Simt::AtomicAdd(gradValueGm_ + gmOffset.y + channelOffset, w3 * gradValueMul);
+            }
+            if (location.y < image.y - 1 && location.x < image.x - 1) {
+                Simt::AtomicAdd(gradValueGm_ + gmOffset.y + outDims_ + channelOffset, w4 * gradValueMul);
             }
 
             value1 = value1 + v1 * grad;
@@ -454,16 +351,14 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(1024) inline void MSDASimtComputeGradLarge(
             value4 = value4 + v4 * grad;
         }
 
-        value1 = Simt::WarpReduceAddSync(value1);
-        value2 = Simt::WarpReduceAddSync(value2);
-        value3 = Simt::WarpReduceAddSync(value3);
-        value4 = Simt::WarpReduceAddSync(value4);
+        float4 results;
+        results.x = Simt::WarpReduceAddSync(value1);
+        results.y = Simt::WarpReduceAddSync(value2);
+        results.z = Simt::WarpReduceAddSync(value3);
+        results.w = Simt::WarpReduceAddSync(value4);
 
-        if (idx % Simt::GetWarpSize()) {
-            weight[pointIdx] = value1;
-            weight[pointIdx + taskOffset_] = value2;
-            weight[pointIdx + 2 * taskOffset_] = value3;
-            weight[pointIdx + 3 * taskOffset_] = value4;
+        if (channelIdx == 0) {
+            weight[pointIdx] = results;
         }
     }
 }
@@ -496,6 +391,7 @@ public:
         LocalTensor<float> shapeFloat = shapeFloatBuf_.template Get<float>();
         LocalTensor<int32_t> shapeInt = shapeFloatBuf_.template Get<int32_t>();
         LocalTensor<int32_t> offsetInt = offsetIntBuf_.template Get<int32_t>();
+        LocalTensor<int32_t> validMask = validMaskBuf_.template Get<int32_t>();
         LocalTensor<float> weight = weightBuf_.template Get<float>();
         LocalTensor<float> gradLocation = gradLocationQue_.template Get<float>();
         LocalTensor<float> gradAttentionWeights = gradAttentionWeightsQue_.template Get<float>();
@@ -514,7 +410,8 @@ public:
             SetFlag<HardEvent::MTE2_V>(0);
             WaitFlag<HardEvent::MTE2_V>(0);
             Duplicate(weight, 0.f, 4 * alignedOneTaskNum_);
-            ComputeGmOffsetVF<float, int32_t>(taskRpt_, numHeads_, embedDims_, baseSrcOffset, nextSrcOffset, baseNum * oneQueryNum_, locationFloat, shapeFloat, offsetInt, locationInt);
+            ComputeGmOffsetVF<float, int32_t>(taskRpt_, numHeads_, embedDims_, baseSrcOffset, nextSrcOffset, baseNum * oneQueryNum_,
+                locationFloat, shapeFloat, offsetInt, locationInt, validMask);
             pipe_barrier(PIPE_ALL);
 
             CallMSDASimtFunc(taskIdx, taskNum, locationFloat, shapeFloat, locationInt, attentionWeights, weight);
@@ -530,63 +427,22 @@ public:
     __aicore__ inline void CallMSDASimtFunc(uint32_t taskIdx, uint32_t taskNum, const LocalTensor<float>& locationFloat, const LocalTensor<float>& shapeFloat,
         const LocalTensor<int32_t>& locationInt, const LocalTensor<float>& attentionWeights, const LocalTensor<float>& weight)
     {
-        switch (embedDims_) {
-            case 8:
-                AscendC::Simt::VF_CALL<MSDASimtComputeGradSmallTemplate<float, int32_t, 8>>(AscendC::Simt::Dim3{1024},
-                    (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_.GetPhyAddr(),
-                    (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(), (__ubuf__ int32_t*)locationInt.GetPhyAddr(),
-                    (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float*)weight.GetPhyAddr(),
-                    taskIdx * outDims_, taskNum * oneQueryNum_, oneHeadNum_, outDims_);
-                break;
-            case 16:
-                AscendC::Simt::VF_CALL<MSDASimtComputeGradSmallTemplate<float, int32_t, 16>>(AscendC::Simt::Dim3{1024},
-                    (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_.GetPhyAddr(),
-                    (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(), (__ubuf__ int32_t*)locationInt.GetPhyAddr(),
-                    (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float*)weight.GetPhyAddr(),
-                    taskIdx * outDims_, taskNum * oneQueryNum_, oneHeadNum_, outDims_);
-                break;
-            case 32:
-                AscendC::Simt::VF_CALL<MSDASimtComputeGradSmallTemplate<float, int32_t, 32>>(AscendC::Simt::Dim3{1024},
-                    (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_.GetPhyAddr(),
-                    (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(), (__ubuf__ int32_t*)locationInt.GetPhyAddr(),
-                    (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float*)weight.GetPhyAddr(),
-                    taskIdx * outDims_, taskNum * oneQueryNum_, oneHeadNum_, outDims_);
-                break;
-            case 64:
-                AscendC::Simt::VF_CALL<MSDASimtComputeGradLargeTemplate<float, int32_t, 64>>(AscendC::Simt::Dim3{1024},
-                    (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_.GetPhyAddr(),
-                    (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(), (__ubuf__ int32_t*)locationInt.GetPhyAddr(),
-                    (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float*)weight.GetPhyAddr(),
-                    taskIdx * outDims_, taskNum * oneQueryNum_, oneHeadNum_, outDims_);
-                break;
-            case 128:
-                AscendC::Simt::VF_CALL<MSDASimtComputeGradLargeTemplate<float, int32_t, 128>>(AscendC::Simt::Dim3{1024},
-                    (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_.GetPhyAddr(),
-                    (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(), (__ubuf__ int32_t*)locationInt.GetPhyAddr(),
-                    (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float*)weight.GetPhyAddr(),
-                    taskIdx * outDims_, taskNum * oneQueryNum_, oneHeadNum_, outDims_);
-                break;
-            case 256:
-                AscendC::Simt::VF_CALL<MSDASimtComputeGradLargeTemplate<float, int32_t, 256>>(AscendC::Simt::Dim3{1024},
-                    (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_.GetPhyAddr(),
-                    (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(), (__ubuf__ int32_t*)locationInt.GetPhyAddr(),
-                    (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float*)weight.GetPhyAddr(),
-                    taskIdx * outDims_, taskNum * oneQueryNum_, oneHeadNum_, outDims_);
-                break;
-            default:
-                if (embedDims_ <= 32) {
-                    AscendC::Simt::VF_CALL<MSDASimtComputeGradSmall<float, int32_t>>(AscendC::Simt::Dim3{1024},
-                        (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_.GetPhyAddr(),
-                        (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(), (__ubuf__ int32_t*)locationInt.GetPhyAddr(),
-                        (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float*)weight.GetPhyAddr(),
-                        taskIdx * outDims_, taskNum * oneQueryNum_, oneHeadNum_, outDims_, embedDims_);
-                } else {
-                    AscendC::Simt::VF_CALL<MSDASimtComputeGradLarge<float, int32_t>>(AscendC::Simt::Dim3{1024},
-                        (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_.GetPhyAddr(),
-                        (__ubuf__ float*)locationFloat.GetPhyAddr(), (__ubuf__ float*)shapeFloat.GetPhyAddr(), (__ubuf__ int32_t*)locationInt.GetPhyAddr(),
-                        (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float*)weight.GetPhyAddr(),
-                        taskIdx * outDims_, taskNum * oneQueryNum_, oneHeadNum_, outDims_, embedDims_);
-                }
+        if (embedDims_ > warpSize_) {
+            Simt::VF_CALL<MSDASimtComputeGradLarge>(Simt::Dim3(warpSize_, warpCount_),
+                (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_[taskIdx * outDims_].GetPhyAddr(),
+                (__ubuf__ float2*)locationFloat.GetPhyAddr(), (__ubuf__ float2*)shapeFloat.GetPhyAddr(), (__ubuf__ int2*)locationInt.GetPhyAddr(),
+                (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float4*)weight.GetPhyAddr(), taskNum * oneQueryNum_, outDims_, embedDims_, magic, shift);
+        } else if (oneHeadNum_ <= embedDims_) {
+            // if oneHeadNum_ > embedDims_, the thread in this branch can not reach 1024
+            Simt::VF_CALL<MSDASimtComputeGradSmallByHead>(Simt::Dim3(embedDimsAlign_, warpGroupSize_, warpCount_),
+                (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_[taskIdx * outDims_].GetPhyAddr(),
+                (__ubuf__ float2*)locationFloat.GetPhyAddr(), (__ubuf__ float2*)shapeFloat.GetPhyAddr(), (__ubuf__ int2*)locationInt.GetPhyAddr(),
+                (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float4*)weight.GetPhyAddr(), taskNum * numHeads_, outDims_, embedDims_, oneHeadNum_);
+        } else {
+            Simt::VF_CALL<MSDASimtComputeGradSmall>(Simt::Dim3(embedDimsAlign_, warpGroupSize_, warpCount_),
+                (__gm__ float*)gradValueGm_.GetPhyAddr(), (__gm__ float*)valueGm_.GetPhyAddr(), (__gm__ float*)gradOutGm_[taskIdx * outDims_].GetPhyAddr(),
+                (__ubuf__ float2*)locationFloat.GetPhyAddr(), (__ubuf__ float2*)shapeFloat.GetPhyAddr(), (__ubuf__ int2*)locationInt.GetPhyAddr(),
+                (__ubuf__ float*)attentionWeights.GetPhyAddr(), (__ubuf__ float4*)weight.GetPhyAddr(), taskNum * oneQueryNum_, outDims_, embedDims_, magic, shift);
         }
     }
 
@@ -610,6 +466,18 @@ protected:
         compTaskNum_ = taskOffset_ / oneQueryNum_;
         compTaskNum_ = min(numQueries_, compTaskNum_);
         alignedOneTaskNum_ = taskOffset_;
+
+        if (embedDims_ <= warpSize_) {
+            int64_t leadingZeros = ScalarCountLeadingZero((uint64_t)embedDims_);
+            int32_t power = 63 - leadingZeros;
+            if ((embedDims_ & (embedDims_ - 1)) != 0) {
+                power += 1;
+            }
+            embedDimsAlign_ = 1 << power;
+            warpGroupSize_ = warpSize_ / embedDimsAlign_;
+        }
+
+        GetUintDivMagicAndShift(magic, shift, oneHeadNum_);
     }
 
     __aicore__ inline void InitGM(GM_ADDR value, GM_ADDR valueSpatialShapes, GM_ADDR valueLevelStartIndex,
@@ -637,6 +505,7 @@ protected:
         pipe_->InitBuffer(offsetIntBuf_, alignedOneTaskNum_ * B32_BYTE_SIZE);      // offsetInt
         pipe_->InitBuffer(locationQue_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE);   // x, y
         pipe_->InitBuffer(gmOffsetbuf_, 2 * alignedOneTaskNum_ * B32_BYTE_SIZE);   // x, y
+        pipe_->InitBuffer(validMaskBuf_, alignedOneTaskNum_ * B32_BYTE_SIZE);
         pipe_->InitBuffer(attentionWeightsQue_, alignedOneTaskNum_ * B32_BYTE_SIZE);
         pipe_->InitBuffer(weightBuf_, 4 * alignedOneTaskNum_ * B32_BYTE_SIZE);     // w1-w4
         pipe_->InitBuffer(gradLocationQue_, 2 * alignedOneTaskNum_ * B32_BYTE_SIZE); // x, y
@@ -659,8 +528,10 @@ protected:
                     int32_t h = shapes.GetValue(2 * level);
                     int32_t o = offset.GetValue(level);
                     for (uint32_t point = 0; point < numPoints_; ++point) {
-                        shapeInt.SetValue(idx, w);
-                        shapeInt.SetValue(idx + alignedOneTaskNum_, h);
+                        int32_t xIdx = 2 * idx;
+                        int32_t yIdx = 2 * idx + 1;
+                        shapeInt.SetValue(xIdx, w);
+                        shapeInt.SetValue(yIdx, h);
                         offsetInt.SetValue(idx, o * numHeads_ + head);
                         ++idx;
                     }
@@ -711,7 +582,7 @@ protected:
     GlobalTensor<int32_t> valueSpatialShapesGm_, valueLevelStartIndexGm_;
 
     TBuf<TPosition::VECCALC> locationQue_, attentionWeightsQue_, shapeQue_, offsetQue_;
-    TBuf<TPosition::VECCALC> shapeFloatBuf_, offsetIntBuf_, weightBuf_, gmOffsetbuf_;
+    TBuf<TPosition::VECCALC> shapeFloatBuf_, offsetIntBuf_, weightBuf_, gmOffsetbuf_, validMaskBuf_;
     TBuf<TPosition::VECCALC> gradLocationQue_, gradAttentionWeightsQue_;
 
     int32_t blkIdx_;
@@ -720,6 +591,8 @@ protected:
     uint32_t batchSize_, numKeys_, numHeads_, embedDims_, outDims_, numLevels_, numQueries_, numPoints_, realLevels_;
     uint32_t alignedOneTaskNum_;
     uint32_t oneHeadNum_, oneQueryNum_;
+    uint32_t warpGroupSize_, embedDimsAlign_;
+    uint32_t magic, shift;
 };
 
 
