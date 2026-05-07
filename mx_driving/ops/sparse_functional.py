@@ -20,7 +20,6 @@ import torch
 import torch_npu
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
-
 import mx_driving._C
 
 
@@ -74,7 +73,7 @@ class SparseConvFunction(Function):
         grad_outidx_pair=None,
     ) -> tuple:
         features, weight, sorted_idx_to_former_indices, unique_indices_offset = ctx.saved_tensors
-        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad(
+        feature_grad, weight_grad = mx_driving._C.npu_sparse_conv3d_grad_v2(
             sorted_idx_to_former_indices, unique_indices_offset, features, weight, grad_out_features
         )
 
@@ -85,28 +84,24 @@ def generate_map(coors, spaned_spatial_shape, bs, kernel_size):
     padding = kernel_size[0] // 2
     spatial_shape_size = spaned_spatial_shape[0] * spaned_spatial_shape[1] * spaned_spatial_shape[2]
 
-    if (spatial_shape_size > 400000000):
+    if (spatial_shape_size > 40000000):
         spatial_shape1 = (spaned_spatial_shape[1] * spaned_spatial_shape[0])
         new_coors1 = spatial_shape1 * coors[:, 0] + spaned_spatial_shape[1] * coors[:, 1] + coors[:, 2] + (padding + spaned_spatial_shape[1] * padding)
         map1 = torch.full((spatial_shape1 * bs, ), -1, dtype=torch.int32, device=coors.device)
 
-        map1_length, unique_idx, _, _, _ = mx_driving.unique_voxel(new_coors1)
+        unique_idx = torch.unique(new_coors1)
+        map1_length = len(unique_idx)
         map1[unique_idx] = torch.arange(map1_length, dtype=torch.int32, device=coors.device)
             
         map2 = torch.full((map1_length, spaned_spatial_shape[2]), -1, dtype=torch.int32, device=coors.device)
         map2[map1[new_coors1], (coors[:, 3] + padding)] = torch.arange(new_coors1.numel(), dtype=torch.int32, device=coors.device)
     else:
-        flatten_indices = (
-            coors[:, 0] * spatial_shape_size
-            + coors[:, 1] * (spaned_spatial_shape[1] * spaned_spatial_shape[2])
-            + coors[:, 2] * (spaned_spatial_shape[2])
-            + coors[:, 3] + (((spaned_spatial_shape[1] * spaned_spatial_shape[2]) + (spaned_spatial_shape[2]) + 1) * padding)
-        )
-
-        map1 = torch.full((spatial_shape_size * bs, ), -1,
+        map1 = torch.full((bs, spaned_spatial_shape[0], spaned_spatial_shape[1], spaned_spatial_shape[2]), -1,
             dtype=torch.int32, device=coors.device)
-
-        map1[flatten_indices] = torch.arange(flatten_indices.numel(), dtype=torch.int32, device=coors.device)
+        bs, sp0, sp1, sp2 = coors.split(1, dim=1)
+        bs, sp0, sp1, sp2 = bs.flatten(), sp0.flatten(), sp1.flatten(), sp2.flatten()
+        map1[bs, sp0 + padding, sp1 + padding, sp2 + padding] = torch.arange(coors.shape[0], dtype=torch.int32, device=coors.device)
+        map1 = map1.flatten().contiguous()
         map2 = torch.Tensor([]).int()
 
     return map1, map2
@@ -135,6 +130,7 @@ class SubMConvFunction(Function):
         indices = indices.contiguous()
         spaned_spatial_shape = (out_spatial_shape[0] + 2 * (kernel_size[0] // 2), out_spatial_shape[1] + 2 * (kernel_size[1] // 2),
                      out_spatial_shape[2] + 2 * (kernel_size[2] // 2))
+        
         if indices_offset is None:
             map1, map2 = generate_map(indices, spaned_spatial_shape, batch_size, kernel_size)
             with_key = 0
@@ -142,9 +138,17 @@ class SubMConvFunction(Function):
         else:
             map1, map2 = torch.Tensor([]).int(), torch.Tensor([]).int()
             with_key = 1
-
-        out_features, out_indices_offset = mx_driving._C.npu_subm_sparse_conv3d_v3(features, weight, indices, indices_offset, map1, map2, kernel_size,
-            features.shape[1], out_channels, spaned_spatial_shape, batch_size, with_key)
+        
+        DEVICE_NAME = torch_npu.npu.get_device_name(features.device.index)
+        if 'Ascend910' in DEVICE_NAME:
+            subm_forward_func = mx_driving._C.npu_subm_sparse_conv3d_v3
+        elif 'Ascend950' in DEVICE_NAME:
+            subm_forward_func = mx_driving._C.npu_subm_sparse_conv3d_arch35
+        else:
+            raise NotImplementedError('The npu_subm_sparse_conv3d operator currently only supports Ascend910B, Ascend910C and Ascend950.')
+        
+        out_features, out_indices_offset = subm_forward_func(features, weight, indices, indices_offset,
+            map1, map2, kernel_size, features.shape[1], out_channels, spaned_spatial_shape, batch_size, with_key)
 
         indices_offset = indices_offset if with_key == 1 else out_indices_offset
         ctx.save_for_backward(features, weight, indices_offset)
@@ -155,7 +159,6 @@ class SubMConvFunction(Function):
     # pylint: disable=too-many-return-values
     def backward(ctx: Any, grad_out_features: torch.Tensor, grad_outidx=None, grad_offset=None) -> tuple:
         features, weight, ouidx_offset = ctx.saved_tensors
-
         DEVICE_NAME = torch_npu.npu.get_device_name(features.device.index)
         if 'Ascend910' in DEVICE_NAME:
             subm_grad_func = mx_driving._C.npu_subm_sparse_conv3d_grad_v2

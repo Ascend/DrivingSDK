@@ -6,7 +6,7 @@
 using namespace AscendC;
  
 namespace {
-constexpr int64_t SPATIAL_SHAPE_THRESHOLD = 400000000;
+constexpr int64_t SPATIAL_SHAPE_THRESHOLD = 40000000;
 constexpr int32_t INT32_BYTE_SIZE = 4;
 constexpr int32_t INDICES_ELEMENTS_COUNT = 4;
 constexpr int32_t REPEAT_BYTE_SIZE = 256;
