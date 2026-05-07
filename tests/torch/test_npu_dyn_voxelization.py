@@ -72,7 +72,6 @@ class TestDynVoxelization(TestCase):
         points_npu = points_cpu.npu()
         return points_cpu, points_npu
 
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DynVoxelization` is only supported on 910B, skip this ut!")
     def test_dyn_voxelization_general(self):
         dtype = torch.float32
         points_shape_list = [
@@ -96,7 +95,6 @@ class TestDynVoxelization(TestCase):
                 self.assertRtolEqual(coors_cpu, coors_npu)
                 self.assertRtolEqual(coors_cpu, coors_npu1)
                 
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `DynVoxelization` is only supported on 910B, skip this ut!")
     def test_dyn_voxelization_boundary(self):
         points_cpu = torch.tensor([[0.9890, 4.6407, -4.9517, -1.3076, 0.2576, -1.4615, -1.6132, -1.8242, 0.4206]])
         voxel_size = [35.47308521738105, 15.469724056371934, 92.16283622466237]

@@ -62,6 +62,8 @@ if(BUILD_STAGE EQUAL 0)
   # 根据USE_ARCH35选择不同的autogen路径
   if(USE_ARCH35)
     set(AUTOGEN_PATH ${ASCEND_AUTOGEN_PATH_ARCH35})
+    # A5架构在kernel侧的编码为__CCE_AICORE__=310(由cann仓定义), 因此定义host侧编码为310, 与kernel侧编码保持一致
+    target_compile_definitions(ascend_all_ops PRIVATE __DRIVING_HOST_AICORE__=310)
   else()
     set(AUTOGEN_PATH ${ASCEND_AUTOGEN_PATH})
   endif()

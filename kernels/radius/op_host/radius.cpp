@@ -206,6 +206,9 @@ public:
         this->AICore().SetTiling(optiling::TilingForRadius);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

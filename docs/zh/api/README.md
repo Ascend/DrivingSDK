@@ -87,7 +87,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/scatter_add.md">scatter_add</a></td>
@@ -101,7 +101,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/npu_unique[beta].md">npu_unique[beta]</a></td>
@@ -151,7 +151,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/roiaware_pool3d.md">roiaware_pool3d</a></td>
@@ -236,7 +236,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/dynamic_scatter.md">dynamic_scatter</a></td>
@@ -393,7 +393,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/npu_gaussian.md">npu_gaussian</a></td>

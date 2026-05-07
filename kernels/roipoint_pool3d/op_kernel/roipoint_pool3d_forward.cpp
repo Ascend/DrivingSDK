@@ -17,6 +17,8 @@ __aicore__ inline void gather(LocalTensor<U> dstLocal,
                               uint32_t srcBaseAddr,
                               uint32_t count)
 {
+    SetFlag<HardEvent::V_S>(0);
+    WaitFlag<HardEvent::V_S>(0);
     for (uint32_t i = 0; i < count; i++) {
         dstLocal(i) = srcLocal(srcOffsetLocal(i));
     }
@@ -29,8 +31,8 @@ __aicore__ inline void gathermask(LocalTensor<T>& dstLocal,
                                   uint32_t calCount,
                                   uint64_t& rsvdCnt)
 {
-    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    SetFlag<HardEvent::V_S>(0);
+    WaitFlag<HardEvent::V_S>(0);
     for (uint32_t i = 0, j = 0; i < calCount; i++) {
         if (src1Pattern(i)) {
             dstLocal(j++) = src0Local(i);
@@ -154,6 +156,8 @@ private:
         LocalTensor<float> x = pointsFloat[0];
         LocalTensor<float> y = pointsFloat[pointNumT];
         LocalTensor<float> z = pointsFloat[2 * pointNumT];
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
         float cx = -static_cast<float>(box3d(0));
         float cy = -static_cast<float>(box3d(1));
         float cz = -static_cast<float>(box3d(2));
@@ -187,8 +191,10 @@ private:
         LocalTensor<float> sin = calcSin.Get<float>();
         LocalTensor<float> cos = calcCos.Get<float>();
         Cos(cos[0], rz[0], 1);
-        float cosa = cos(0);
         Sin(sin[0], rz[0], 1);
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
+        float cosa = cos(0);
         float sina = sin(0);
 
         // local_x = (x - cx) * cosa + (y - cy) * (-sina)
@@ -216,7 +222,7 @@ private:
         // in_flag = in_flag && (local_y < y_size / 2)
         CompareScalar(uint8Flag, local_y, y_size, CMPMODE::LT, CEIL_BASE(pointNum, 256 / sizeof(float)));
         Select(pointsFlag, uint8Flag, pointsFlag, zeros, SELMODE::VSEL_TENSOR_TENSOR_MODE, pointNum);
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
     }
 
     __aicore__ inline void Compute(uint32_t batchIdx, uint32_t boxesSum, uint32_t boxesLen)
@@ -237,8 +243,8 @@ private:
         if constexpr (sizeof(T) == sizeof(float)) {
             pointsFloat = pointsLocal;
         } else {
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE2_V>(0);
+            WaitFlag<HardEvent::MTE2_V>(0);
             pointsFloat = calcPointsFloat.Get<float>();
             Cast(pointsFloat, pointsLocal, RoundMode::CAST_NONE, this->pointNumT * 3);
         }
@@ -250,7 +256,7 @@ private:
         Duplicate<T>(pooledFeaturesLocal, 0,
             CEIL_BASE(boxesLen * this->numSampledPoints * (3 + this->featureLen), 32 / sizeof(T)));
         Duplicate<DTYPE_POOLED_EMPTY_FLAG>(pooledEmptyFlagLocal, 0, pooledEmptyFlagLocal.GetSize());
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
 
         for (int32_t boxesIdx = 0; boxesIdx < boxesLen; boxesIdx++) {
             CheckPointInBox3d(pointsFloat, boxes3dLocal[boxesIdx * 7]);
@@ -271,17 +277,21 @@ private:
                 Cast(iPointsFlag, tPointsFlag, RoundMode::CAST_RINT, this->pointNum);
                 gathermask(pointsIdx, pointsIdx, uPointsFlag, this->pointNum, cnt);
             }
-            pipe_barrier(PIPE_V);
+            PipeBarrier<PIPE_V>();
 
             if (cnt == 0) {
+                SetFlag<HardEvent::V_S>(0);
+                WaitFlag<HardEvent::V_S>(0);
                 pooledEmptyFlagLocal(boxesIdx) = 1;
                 continue;
             }
             if (cnt < this->numSampledPoints) {
+                SetFlag<HardEvent::V_S>(0);
+                WaitFlag<HardEvent::V_S>(0);
                 if (cnt == 1) {
                     int32_t pointsIdxTemp = pointsIdx(0);
                     Duplicate<int32_t>(pointsIdx, pointsIdxTemp, this->numSampledPoints);
-                    pipe_barrier(PIPE_V);
+                    PipeBarrier<PIPE_V>();
                 } else {
                     for (uint32_t i = cnt; i < this->numSampledPoints; i++) {
                         pointsIdx(i) = pointsIdx(i % cnt);
@@ -303,7 +313,7 @@ private:
                        pointFeaturesLocal[this->pointNumT * idx],
                        uPointsIdx, 0, this->numSampledPoints);
             }
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
         }
 
         DataCopyExtParams dataCopyParams = {1, 0, 0, 0, 0};

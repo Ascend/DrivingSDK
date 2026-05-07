@@ -333,12 +333,12 @@ private:
         ComputeParamFor0Interface<float>(ptNum, mask, repeatTime, formerNum, tailNum);
         if (repeatTime > 0) {
             Duplicate(thresholdLocal, thresholdF, mask, repeatTime, 1, 8);
-            pipe_barrier(PIPE_V);
+            PipeBarrier<PIPE_V>();
             Compare(selMask, srcLocal, thresholdLocal, compareMode, mask, repeatTime, {1, 1, 1, 8, 8, 8});
         }
         if (tailNum > 0) {
             Duplicate(thresholdLocal[formerNum], thresholdF, tailNum, 1, 1, 0);
-            pipe_barrier(PIPE_V);
+            PipeBarrier<PIPE_V>();
             Compare(selMask[formerNum], srcLocal[formerNum], thresholdLocal[formerNum], compareMode, tailNum, 1,
                     {1, 1, 1, 0, 0, 0});
         }

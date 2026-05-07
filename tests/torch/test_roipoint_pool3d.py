@@ -133,7 +133,6 @@ def cpu_roipoint_pool3d(num_sampled_points, points, point_features, boxes3d):
 
 
 class TestRoipointPool3d(TestCase):
-    @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `RoipointPool3d` is only supported on 910B, skip this ut!")
     def test_roipoint_pool3d_float(self):
         random.seed()
         batch_size = random.randint(1, 4)  # B
@@ -167,7 +166,6 @@ class TestRoipointPool3d(TestCase):
         self.assertRtolEqual(float_pooled_features, cpu_pooled_features, prec=0.00005)  # (B, M, num, 3+C)
         self.assertRtolEqual(float_pooled_empty_flag, cpu_pooled_empty_flag, prec=0.00005)  # (B, M)
 
-    @unittest.skipIf(DEVICE_NAME != "Ascend910B", "OP `RoipointPool3d` is only supported on 910B, skip this ut!")
     def test_roipoint_pool3d_half(self):
         random.seed()
         batch_size = random.randint(1, 4)  # B

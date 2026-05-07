@@ -228,6 +228,7 @@ private:
         if (blockIdx == usedCoreNum - 1) {
             PipeBarrier<PIPE_ALL>();
             Duplicate(numNeighborsTensor, numOutputPoints, ALIGN_NUM_8);
+            PipeBarrier<PIPE_ALL>();
             DataCopyPad(numNeighborsGm, numNeighborsTensor, copyParamsNumNeighbors);
             PipeBarrier<PIPE_ALL>();
         }
@@ -263,6 +264,9 @@ private:
 };
 
 extern "C" __global__ __aicore__ void radius(GM_ADDR x, GM_ADDR y, GM_ADDR ptrX, GM_ADDR ptrY, GM_ADDR outTemp, GM_ADDR outFinal, GM_ADDR numTotalNeighbors, GM_ADDR workspace, GM_ADDR tiling) {
+#if __CCE_AICORE__ == 310
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
+#endif
     GET_TILING_DATA(tiling_data, tiling);
     GM_ADDR usrWorkspace = GetUserWorkspace(workspace);
     KernelRadius op;
