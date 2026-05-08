@@ -78,7 +78,7 @@ public:
 
         DataCopy(gradOutLocal, gradOutGm[(offset + i) * c], cAligned);
         DataCopy(indicesLocal, indicesGm[offset + i], indicesAligned);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
 
         int32_t b_idx = (offset + i) / (npoints * nsample);
         int32_t idx = indicesLocal.GetValue(0);

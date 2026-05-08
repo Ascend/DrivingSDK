@@ -62,16 +62,16 @@ public:
             uint32_t compBatchIdxRound64Size = compBatchNumActual * numIdxRound64;
             uint16_t gatherRepeatTimes = (2 * compBatchNumActual * numIdx + 63) / 64;
 
-            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+            SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+            WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
             DataCopyPad(polyLineLocal, polyLineGm[batchIdx * numPoint * 2], {1, static_cast<uint32_t>(compBatchPointSize * 2 * sizeof(float)), 0, 0, 0}, {false, 0, 0, 0});
             DataCopyPad(minIdxLocal, minIdxGm[batchIdx * numIdx], {1, static_cast<uint32_t>(compBatchIdxSize * sizeof(int32_t)), 0, 0, 0}, {false, 0, 0, 0});
             DataCopyPad(ptLocal, ptGm[batchIdx * numIdx * 2], {1, static_cast<uint32_t>(compBatchIdxSize * 2 * sizeof(float)), 0, 0, 0}, {false, 0, 0, 0});
             DataCopyPad(backidxLocal, backIdxGm[batchIdx * numIdx], {1, static_cast<uint32_t>(compBatchIdxSize * sizeof(int32_t)), 0, 0, 0}, {false, 0, 0, 0});
 
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+            WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
 
             BatchIdxSelect(frontPoint, minIdxLocal, polyLineLocal, ubLengthBatchIdxSize, compBatchIdxSize);
             BatchIdxSelect(backPoint, backidxLocal, polyLineLocal, ubLengthBatchIdxSize, compBatchIdxSize);
@@ -93,13 +93,13 @@ public:
 
             Adds(minIdxSubOne, minIdxLocal, static_cast<int32_t>(-1), compBatchIdxRound64Size);
 
-            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
+            WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
 
             Select(outMinIdxLocal.ReinterpretCast<float>(), orResult, minIdxSubOne.ReinterpretCast<float>(), minIdxLocal.ReinterpretCast<float>(), SELMODE::VSEL_TENSOR_TENSOR_MODE, compBatchIdxRound64Size);
 
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+            SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+            WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
 
             DataCopyPad(outMinIdxGm[batchIdx * numIdx], outMinIdxLocal, {1, static_cast<uint32_t>(compBatchIdxSize * sizeof(int32_t)), 0, 0, 0});
         }

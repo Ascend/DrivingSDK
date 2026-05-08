@@ -138,7 +138,7 @@ private:
         for (uint32_t i = 0; i < dimSize; i++) {
             DataCopy(gtBoxes[copyLen * i], gtBoxesGm[singleBaseGmOffset + numObjs * i], copyLen);
         }
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         Sub(coord, gtBoxes, pcr, copyLen);
         Sub(coord[copyLen], gtBoxes[copyLen], pcr[copyLen], copyLen);
         Div(coord, coord, voxelSize, copyLen);
@@ -213,7 +213,7 @@ private:
         for (uint32_t i = 0; i < dimSize + 1; i++) {
             Select(retBoxes[copyLen * i], cmpLocal, retBoxes[copyLen * i], 0.0f, SELMODE::VSEL_TENSOR_SCALAR_MODE, copyLen);
         }
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         DataCopyExtParams centerIntCopyParams {1, (uint16_t)(actualTaskNum * sizeof(int32_t)), 0, 0, 0};
         DataCopyExtParams radiusCopyParams {1, (uint16_t)(actualTaskNum * sizeof(int32_t)), 0, 0, 0};
         DataCopyExtParams maskCopyParams {1, (uint16_t)(actualTaskNum * sizeof(uint8_t)), 0, 0, 0};
@@ -228,7 +228,7 @@ private:
         for (uint32_t i = 0; i < dimSize + 1; i++) {
             DataCopyPad(retBoxesGm[singleBaseGmOffset + numMaxObjs * i], retBoxes[copyLen * i], retCopyParams);
         }
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
     }
 
 private:
@@ -256,7 +256,7 @@ __aicore__ inline void KernelGaussian::Process()
             actualTaskNum = (curCoreTaskNum - 1) % singleProcessTaskNum + 1;
         }
         ProcessSingle(i, actualTaskNum);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
     }
 }
 

@@ -287,8 +287,8 @@ private:
                 DataCopyPad(inputXLocalTensor[seCpInOffsetStart + cpInOffset], inputGm[1][ncBaseOffset + sePointIndex], copyParams, padParams);
             }
             event_t eventID1 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
-            set_flag(PIPE_MTE2, PIPE_V, eventID1);
-            wait_flag(PIPE_MTE2, PIPE_V, eventID1);
+            SetFlag<HardEvent::MTE2_V>(eventID1);
+            WaitFlag<HardEvent::MTE2_V>(eventID1);
             for (int32_t k = 0; k < groupSize; k++) {
                 int32_t cpInOffset = alignedChannel * k;
                 int32_t coorIndex = groupOffset + k;
@@ -346,8 +346,8 @@ private:
                 DataCopyPad(inputXLocalTensor[seCpInOffsetStart + cpInOffset], inputGm[1][ncBaseOffset + sePointIndex], copyParams, padParams);
             }
             event_t eventID1 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
-            set_flag(PIPE_MTE2, PIPE_V, eventID1);
-            wait_flag(PIPE_MTE2, PIPE_V, eventID1);
+            SetFlag<HardEvent::MTE2_V>(eventID1);
+            WaitFlag<HardEvent::MTE2_V>(eventID1);
             for (int32_t k = 0; k < tailNums; k++) {
                 int32_t cpInOffset = alignedChannel * k;
                 int32_t coorIndex = groupOffset + k;

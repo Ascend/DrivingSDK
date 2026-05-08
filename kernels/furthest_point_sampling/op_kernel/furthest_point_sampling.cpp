@@ -140,8 +140,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
     uint32_t offsetIdx    = loopNum & (this->dataNumIn1024Bytes - 1); // aka. loopNum % this->dataNumIn1024Bytes
     uint32_t mask = 32 * 3 / sizeof(gmDataType);
 
-    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+    SetFlag<HardEvent::S_MTE2>(EVENT_ID0);
+    WaitFlag<HardEvent::S_MTE2>(EVENT_ID0);
 
 #ifndef __GET_CODE_CHANNEL__
     if constexpr(std::is_same_v<bfloat16_t, gmDataType>) {
@@ -155,17 +155,17 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
     }
 #endif
 
-    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+    WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
 
     if constexpr(std::is_same_v<bfloat16_t, gmDataType>) {
         Cast(this->ubBlocks.pointSampledLocal, this->ubBlocks.pointTempLocal, AscendC::RoundMode::CAST_NONE, mask, 1, {1, 1, 8, 4});
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
     }
 
     Muls<dataType>(this->ubBlocks.pointSampledLocal, this->ubBlocks.pointSampledLocal, dataType(-1.0), mask);
-    set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    SetFlag<HardEvent::V_S>(EVENT_ID0);
+    WaitFlag<HardEvent::V_S>(EVENT_ID0);
     this->ubBlocks.idxLocal.SetValue(offsetIdx, this->maxDistIdx);
     this->pointXSampled = this->ubBlocks.pointSampledLocal.GetValue(offsetLocalX);
     this->pointYSampled = this->ubBlocks.pointSampledLocal.GetValue(offsetLocalY);
@@ -185,15 +185,15 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         } else {
             ComputePointsSquare();
 
-            pipe_barrier(PIPE_V);
+            PipeBarrier<PIPE_V>();
 
             ComputeDist();
 
-            pipe_barrier(PIPE_V);
+            PipeBarrier<PIPE_V>();
 
             ComputeSamplePoints(0, 0);
         }
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
 
         updateDist();
 
@@ -218,43 +218,43 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
                 // Cal point_x -> Mov point_x, Cal point_y -> Mov point_y, Cal point_z -> Mov point_z
                 ComputePointDeltaSquare(this->ubBlocks.pointXLocal, this->ubBlocks.pointTempXLocal, this->pointXSampled);
 
-                set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-                wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+                SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+                WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
                 CopyInPointAxis(PointAxis::X, loopSplit);
 
                 ComputePointDeltaSquare(this->ubBlocks.pointYLocal, this->ubBlocks.pointTempYLocal, this->pointYSampled);
 
-                set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
-                wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+                SetFlag<HardEvent::V_MTE2>(EVENT_ID1);
+                WaitFlag<HardEvent::V_MTE2>(EVENT_ID1);
 
                 CopyInPointAxis(PointAxis::Y, loopSplit);
 
                 ComputePointDeltaSquare(this->ubBlocks.pointZLocal, this->ubBlocks.pointTempZLocal, this->pointZSampled);
 
-                set_flag(PIPE_V, PIPE_MTE2, EVENT_ID2);
-                wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID2);
+                SetFlag<HardEvent::V_MTE2>(EVENT_ID2);
+                WaitFlag<HardEvent::V_MTE2>(EVENT_ID2);
 
                 CopyInPointAxis(PointAxis::Z, loopSplit);
 
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
 
                 ComputeDist();
 
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
 
                 ComputeSamplePoints(loopSplit, comBlock);
 
-                set_flag(PIPE_V, PIPE_MTE2, EVENT_ID3);
-                wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID3);
+                SetFlag<HardEvent::V_MTE2>(EVENT_ID3);
+                WaitFlag<HardEvent::V_MTE2>(EVENT_ID3);
 
-                set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-                wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+                SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
+                WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
 
                 CopyInNearestDistTemp(loopSplit);
             }
         }
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
 
         updateDist();
 
@@ -270,33 +270,33 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
     // Mov point_x -> Cal point_x, Mov point_y -> Cal point_y, Mov point_z -> Cal point_z
     CopyInPointAxis(PointAxis::X, loopSplit);
 
-    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+    WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
 
     ComputePointDeltaSquare(this->ubBlocks.pointXLocal, this->ubBlocks.pointTempXLocal, this->pointXSampled);
 
     CopyInPointAxis(PointAxis::Y, loopSplit);
 
-    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
-    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+    SetFlag<HardEvent::MTE2_V>(EVENT_ID1);
+    WaitFlag<HardEvent::MTE2_V>(EVENT_ID1);
 
     ComputePointDeltaSquare(this->ubBlocks.pointYLocal, this->ubBlocks.pointTempYLocal, this->pointYSampled);
 
     CopyInPointAxis(PointAxis::Z, loopSplit);
 
-    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID2);
-    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID2);
+    SetFlag<HardEvent::MTE2_V>(EVENT_ID2);
+    WaitFlag<HardEvent::MTE2_V>(EVENT_ID2);
 
     ComputePointDeltaSquare(this->ubBlocks.pointZLocal, this->ubBlocks.pointTempZLocal, this->pointZSampled);
 
-    pipe_barrier(PIPE_V);
+    PipeBarrier<PIPE_V>();
 
     ComputeDist();
 
     CopyInNearestDist(loopSplit);
 
-    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID3);
-    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID3);
+    SetFlag<HardEvent::MTE2_V>(EVENT_ID3);
+    WaitFlag<HardEvent::MTE2_V>(EVENT_ID3);
 
     ComputeSamplePoints(loopSplit, loopSplit);
 }
@@ -333,8 +333,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
             break;
     }
 
-    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID1);
-    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID1);
+    SetFlag<HardEvent::S_MTE2>(EVENT_ID1);
+    WaitFlag<HardEvent::S_MTE2>(EVENT_ID1);
 
     if constexpr (std::is_same_v<float, gmDataType> || std::is_same_v<half, gmDataType>) {
         switch (pointAxis) {
@@ -361,28 +361,28 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
             case PointAxis::X:
 #ifndef __GET_CODE_CHANNEL__
                 DataCopyPad(this->ubBlocks.pointTempLocal, pointGm[offset], data_copy_param, pad_param);
-                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+                SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+                WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
                 Cast(this->ubBlocks.pointXLocal, this->ubBlocks.pointTempLocal, AscendC::RoundMode::CAST_NONE, mask, repeatTimes, repeatParams);
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
 #endif
                 break;
             case PointAxis::Y:
 #ifndef __GET_CODE_CHANNEL__
                 DataCopyPad(this->ubBlocks.pointTempLocal, pointGm[offset], data_copy_param, pad_param);
-                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
-                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+                SetFlag<HardEvent::MTE2_V>(EVENT_ID1);
+                WaitFlag<HardEvent::MTE2_V>(EVENT_ID1);
                 Cast(this->ubBlocks.pointYLocal, this->ubBlocks.pointTempLocal, AscendC::RoundMode::CAST_NONE, mask, repeatTimes, repeatParams);
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
 #endif
                 break;
             case PointAxis::Z:
 #ifndef __GET_CODE_CHANNEL__
                 DataCopyPad(this->ubBlocks.pointTempLocal, pointGm[offset], data_copy_param, pad_param);
-                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID2);
-                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID2);
+                SetFlag<HardEvent::MTE2_V>(EVENT_ID2);
+                WaitFlag<HardEvent::MTE2_V>(EVENT_ID2);
                 Cast(this->ubBlocks.pointZLocal, this->ubBlocks.pointTempLocal, AscendC::RoundMode::CAST_NONE, mask, repeatTimes, repeatParams);
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
 #endif
                 break;
             default:
@@ -404,8 +404,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         data_copy_param.blockLen = this->sizeofFormer;
     }
 
-    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID2);
-    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID2);
+    SetFlag<HardEvent::S_MTE2>(EVENT_ID2);
+    WaitFlag<HardEvent::S_MTE2>(EVENT_ID2);
 
 #ifndef __GET_CODE_CHANNEL__
     DataCopyPad(this->ubBlocks.nearestDistLocal, nearestDistGm[offset], data_copy_param, pad_param);
@@ -425,8 +425,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         data_copy_param_temp.blockLen = this->sizeofFormer;
     }
 
-    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID2);
-    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID2);
+    SetFlag<HardEvent::S_MTE2>(EVENT_ID2);
+    WaitFlag<HardEvent::S_MTE2>(EVENT_ID2);
 
 #ifndef __GET_CODE_CHANNEL__
     DataCopyPad(this->ubBlocks.nearestDistLocal, nearestDistTempGm[offset_temp], data_copy_param_temp, pad_param_temp);
@@ -444,8 +444,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
         dupTime = (dupTime > OP_MAX_REPEAT_NUM) ? OP_MAX_REPEAT_NUM : dupTime;
 
-        set_flag(PIPE_S, PIPE_V, EVENT_ID3);
-        wait_flag(PIPE_S, PIPE_V, EVENT_ID3);
+        SetFlag<HardEvent::S_V>(EVENT_ID3);
+        WaitFlag<HardEvent::S_V>(EVENT_ID3);
 
         Adds<dataType>(this->ubBlocks.pointTempXLocal[offset], this->ubBlocks.pointXLocal[offset], this->pointXSampled,
             this->dataNumIn256Bytes, dupTime, {1, 1, 8, 8});
@@ -454,7 +454,7 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         Adds<dataType>(this->ubBlocks.pointTempZLocal[offset], this->ubBlocks.pointZLocal[offset], this->pointZSampled,
             this->dataNumIn256Bytes, dupTime, {1, 1, 8, 8});
 
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
 
         Mul<dataType>(this->ubBlocks.pointTempXLocal[offset], this->ubBlocks.pointTempXLocal[offset],
             this->ubBlocks.pointTempXLocal[offset], this->dataNumIn256Bytes, dupTime, {1, 1, 1, 8, 8, 8});
@@ -477,13 +477,13 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
         dupTime = (dupTime > OP_MAX_REPEAT_NUM) ? OP_MAX_REPEAT_NUM : dupTime;
 
-        set_flag(PIPE_S, PIPE_V, EVENT_ID3);
-        wait_flag(PIPE_S, PIPE_V, EVENT_ID3);
+        SetFlag<HardEvent::S_V>(EVENT_ID3);
+        WaitFlag<HardEvent::S_V>(EVENT_ID3);
 
         Adds<dataType>(pointTempLocal[offset], pointLocal[offset], pointSampled, this->dataNumIn256Bytes,
             dupTime, {1, 1, 8, 8});
 
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
 
         Mul<dataType>(pointTempLocal[offset], pointTempLocal[offset], pointTempLocal[offset], this->dataNumIn256Bytes,
             dupTime, {1, 1, 1, 8, 8, 8});
@@ -501,13 +501,13 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
         dupTime = (dupTime > OP_MAX_REPEAT_NUM) ? OP_MAX_REPEAT_NUM : dupTime;
 
-        set_flag(PIPE_S, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::S_V>(EVENT_ID0);
+        WaitFlag<HardEvent::S_V>(EVENT_ID0);
 
         Add<dataType>(this->ubBlocks.distLocal[offset], this->ubBlocks.pointTempXLocal[offset],
             this->ubBlocks.pointTempYLocal[offset], this->dataNumIn256Bytes, dupTime, {1, 1, 1, 8, 8, 8});
 
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
 
         Add<dataType>(this->ubBlocks.distLocal[offset], this->ubBlocks.distLocal[offset],
             this->ubBlocks.pointTempZLocal[offset], this->dataNumIn256Bytes, dupTime, {1, 1, 1, 8, 8, 8});
@@ -529,8 +529,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         dupTime = (total_num * sizeof(dataType)) / ALLIGNED_BYTES;
         dupTime = (dupTime > OP_MAX_REPEAT_NUM) ? OP_MAX_REPEAT_NUM : dupTime;
 
-        set_flag(PIPE_S, PIPE_V, EVENT_ID1);
-        wait_flag(PIPE_S, PIPE_V, EVENT_ID1);
+        SetFlag<HardEvent::S_V>(EVENT_ID1);
+        WaitFlag<HardEvent::S_V>(EVENT_ID1);
 
         Min<dataType>(this->ubBlocks.nearestDistLocal[offset], this->ubBlocks.nearestDistLocal[offset],
             this->ubBlocks.distLocal[offset], this->dataNumIn256Bytes, dupTime, {1, 1, 1, 8, 8, 8});
@@ -538,12 +538,12 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
 
     if (this->TA->pieces > 1) {
         // set_flag: After Updated nearestDistLocal, Mov nearestDistLocal to GM.
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         CopyOutNearestDistTemp(comBlock);
     }
 
-    pipe_barrier(PIPE_ALL);
+    PipeBarrier<PIPE_ALL>();
 
     // ReduceMax
     ReduceMax<dataType>(this->ubBlocks.idxTempLocal[reduceOffset], this->ubBlocks.nearestDistLocal,
@@ -586,8 +586,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         offset = offset + (this->TA->numPoints / elemNum * elemNum);
     }
 
-    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    SetFlag<HardEvent::S_MTE3>(EVENT_ID0);
+    WaitFlag<HardEvent::S_MTE3>(EVENT_ID0);
 
 #ifndef __GET_CODE_CHANNEL__
     DataCopyPad(idxGm[offset], this->ubBlocks.idxLocal, data_copy_param);
@@ -606,8 +606,8 @@ __aicore__ inline void furthestPointSamplingKernel<dataType, gmDataType, idxType
         data_copy_param.blockLen = this->sizeofFormer;
     }
 
-    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID1);
-    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID1);
+    SetFlag<HardEvent::S_MTE3>(EVENT_ID1);
+    WaitFlag<HardEvent::S_MTE3>(EVENT_ID1);
 
 #ifndef __GET_CODE_CHANNEL__
     DataCopyPad(nearestDistTempGm[offset], this->ubBlocks.nearestDistLocal, data_copy_param);

@@ -233,8 +233,8 @@ __aicore__ inline void GeometricKernelAttnGrad::Process()
 
     DataCopy(spatialShapesOriginLocal, spatialShapesGm, 2 * numLevelsAligned);
     DataCopy(levelStartIdxLocal, levelStartIndexGm, numLevelsAligned);
-    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+    WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
 
     for (levelIdx = 0; levelIdx < numLevels; levelIdx++) {
         H = spatialShapesOriginLocal.GetValue(levelIdx * 2);
@@ -257,14 +257,14 @@ __aicore__ inline void GeometricKernelAttnGrad::Process()
         samplingGatherParams.repeatTimes = taskCompActual * numHeads * numLevels;
         compLenActual = taskCompActual * numHeads * numLevels * numPointsAligned;
 
-        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
         samplingLocationOffset = taskIdx * numHeads * numLevels * numPoints * 2;
         DataCopyPad(keyIdxsLocal.ReinterpretCast<DTYPE_SAMPLING_LOCATIONS>(), samplingLocationsGm[samplingLocationOffset], samplingCopyParams, {});
 
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
 
         Cast(keyIdxsLocal.ReinterpretCast<DTYPE_SPATIAL_SHAPES>(), keyIdxsLocal.ReinterpretCast<DTYPE_SAMPLING_LOCATIONS>(),
              AscendC::RoundMode::CAST_RINT, taskCompActual * numHeads * numLevels * numPointsAligned * 2);
@@ -287,8 +287,8 @@ __aicore__ inline void GeometricKernelAttnGrad::Process()
         DataCopy(gradOutputLocal, gradOutputGm[gradOutputOffset], taskCompActual * numHeads * embedDims);
         DataCopyPad(attnWeightLocal, attnWeightsGm[attnWeightsOffset], copyParams, {});
 
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
 
         for (taskCompIdx = 0; taskCompIdx < taskCompActual; taskCompIdx++) {
             batchIdx = (taskCompIdx + taskIdx) / numQueries;
@@ -302,15 +302,15 @@ __aicore__ inline void GeometricKernelAttnGrad::Process()
                 BroadCastForDtype32B<DTYPE_VALUE>(gradOutputBoradLocal, gradOutputLocal, 0, broadDstOffset, gradOutputIdx, dstShapeCGO, srcShapeCGO);
             }
             
-            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
+            WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
             BroadCast<DTYPE_VALUE, 2, 1>(gradValueLocal, attnWeightLocal[taskIdxStart], dstShapeCAW, srcShapeCAW);
             Mul(gradValueLocal, gradValueLocal, gradOutputBoradLocal, numHeads * numLevels * numPointsAligned * embedDims);
 
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+            SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+            WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
+            SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+            WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
             for (headIdx = 0; headIdx < numHeads; headIdx++) {
                 for (levelIdx = 0; levelIdx < numLevels; levelIdx++) {
                     for (pointIdx = 0; pointIdx < numPoints; pointIdx++) {
@@ -326,15 +326,15 @@ __aicore__ inline void GeometricKernelAttnGrad::Process()
                 }
             }
 
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+            WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
             Mul(valueLocal, valueLocal, gradOutputBoradLocal, numHeads * numLevels * numPointsAligned * embedDims);
             RepeatReduceSum(gradAttnWeightsLocal[taskIdxStart], valueLocal, numHeads * numLevels * numPointsAligned,
                             embedDims, 0, 1, 1, embedDims / (32 / sizeof(DTYPE_VALUE)));
         }
 
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         DataCopyPad(gradAttnWeightsGm[attnWeightsOffset], gradAttnWeightsLocal, copyParams);
     }
 }

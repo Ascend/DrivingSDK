@@ -45,7 +45,7 @@ public:
     {
         for (uint32_t i = 0; i < coreRepeatTimes; i++) {
             Compute(i);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
         }
     }
 
@@ -111,7 +111,7 @@ private:
         SetFlag<HardEvent::S_MTE2>(eventIDSToMTE2);
         WaitFlag<HardEvent::S_MTE2>(eventIDSToMTE2);
         DataCopyPad(indicesLocal, indicesGm[taskOffset * 4], indicesCopyParams, indicesPadParams);
-        pipe_barrier(PIPE_MTE2);
+        PipeBarrier<PIPE_MTE2>();
 
         for (uint32_t i = 0; i < forMoveLen; i++) {
             // GetValue feature's locations
@@ -132,7 +132,7 @@ private:
             int32_t outEndH = Min(AlignUp(featureH + 1, strideHeight) / strideHeight, outputHeight);
             int32_t outEndW = Min(AlignUp(featureW + 1, strideWidth) / strideWidth, outputWidth);
 
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             for (int32_t ix = outBeginD; ix < outEndD; ix++) {
                 uint32_t xOffset = (uint32_t)ix * outputHeight * outputWidth;
                 for (int32_t iy = outBeginH; iy < outEndH; iy++) {
@@ -156,7 +156,7 @@ private:
                     }
                 }
             }
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
         }
         DataCopyPad(outputIndicesGm[taskOffset * kernelSize], outIndicesTemp, outIndicesCopyParams);
         DataCopyPad(outputIndicesPairGm[taskOffset * kernelSize * 4], outIndicesPairTemp, outPairCopyParams);

@@ -140,16 +140,16 @@ private:
 
     __aicore__ inline void MultiScaleKernelAttnSampling(int32_t valueCopyInPreIndex, int32_t valueCopyoutIndex)
     {
-        set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
         Duplicate(OutputTensor, ZERO_FLOAT_VALUE, alignDim);
 
         for (int32_t levelIndex = 0; levelIndex < numLevels; levelIndex++) {
             int32_t levelWidth = SpatialShapesTensor.GetValue(levelIndex * DOUBLE_NUM + ONE_VALUE);
             int32_t levelHeight = SpatialShapesTensor.GetValue(levelIndex * DOUBLE_NUM);
             int32_t levelStartId = LevelStartIndexTensor.GetValue(levelIndex);
-            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+            SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+            WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
             for (int32_t pointIndex = 0; pointIndex < numPoints; pointIndex++) {
                 int32_t wLocation = TmpSamplingLocationTensor.GetValue((levelIndex * numPoints + pointIndex) * 2);
                 int32_t hLocation = TmpSamplingLocationTensor.GetValue((levelIndex * numPoints + pointIndex) * 2 + 1);
@@ -157,15 +157,15 @@ private:
                 hLocation = ScalarClamp(hLocation, 0, levelHeight - 1);
                 int32_t valueCopyinIndex = (valueCopyInPreIndex + (levelStartId + hLocation * levelWidth + wLocation)) * dim;
                 DataCopy(ValueTensor[pointIndex * alignDim], valueGM[static_cast<uint64_t>(valueCopyinIndex)], alignDim);
-                set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-                wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+                SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+                WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
                 float pointAttentionWeight = AttentionWeightTensor.GetValue(levelIndex * numPoints + pointIndex);
                 Axpy(OutputTensor, ValueTensor[pointIndex * alignDim], pointAttentionWeight, dim);
             }
         }
         Mul(OutputTensor, OutputTensor, AtomicAddTensor, alignDim);
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         SingleValueCopyOut(valueCopyoutIndex);
     }
 

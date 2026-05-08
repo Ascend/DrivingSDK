@@ -138,23 +138,23 @@ private:
 
     __aicore__ inline void CopyIn(uint64_t copyIndex, int32_t copyLength)
     {
-        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
         int32_t IndexCopyLength = (copyLength + ALIGN_NUM - 1) / ALIGN_NUM * ALIGN_NUM;
         DataCopy(IndexTensor, indexGM[copyIndex], IndexCopyLength);
         DataCopy(SoftmaxOutputTensor, softmaxGM[copyIndex * SRC_SHAPE_DIM], copyLength * SRC_SHAPE_DIM);
         DataCopy(GradOutputTensor, gradGM[copyIndex * SRC_SHAPE_DIM], copyLength * SRC_SHAPE_DIM);
 
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
         Mul(GradOutputTensor, SoftmaxOutputTensor, GradOutputTensor, GradOutputTensor.GetSize());
     }
 
     __aicore__ inline void ReduceSum(int32_t egTotalNum)
     {
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         SetAtomicAdd<float>();
         for (int32_t egIndex = 0; egIndex < egTotalNum; egIndex++) {
             int32_t group = IndexTensor.GetValue(egIndex);
@@ -162,21 +162,21 @@ private:
         }
         SetAtomicNone();
 
-        set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
     }
 
     __aicore__ inline void SingleLoopIndexSelect(int32_t egTotalNum)
     {
-        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
         for (int32_t egIndex = 0; egIndex < egTotalNum; egIndex++) {
             int32_t group = IndexTensor.GetValue(egIndex);
             DataCopy(TmpIndexSelectTensor[egIndex * SRC_SHAPE_DIM], reducesumGM[group * SRC_SHAPE_DIM], SRC_SHAPE_DIM);
         }
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
 
         Mul(TmpIndexSelectTensor, TmpIndexSelectTensor, SoftmaxOutputTensor, SoftmaxOutputTensor.GetSize());
         Sub(SrcGradTensor, GradOutputTensor, TmpIndexSelectTensor, TmpIndexSelectTensor.GetSize());
@@ -184,8 +184,8 @@ private:
 
     __aicore__ inline void MultiLoopIndexSelect(uint64_t copyIndex, int32_t egTotalNum)
     {
-        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
         for (int32_t egIndex = 0; egIndex < egTotalNum; egIndex++) {
             int32_t group = IndexTensor.GetValue(egIndex);
@@ -195,8 +195,8 @@ private:
         DataCopy(SoftmaxOutputTensor, softmaxGM[copyIndex * SRC_SHAPE_DIM], egTotalNum * SRC_SHAPE_DIM);
         DataCopy(GradOutputTensor, gradGM[copyIndex * SRC_SHAPE_DIM], egTotalNum * SRC_SHAPE_DIM);
 
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
         Mul(GradOutputTensor, SoftmaxOutputTensor, GradOutputTensor, GradOutputTensor.GetSize());
         Mul(TmpIndexSelectTensor, TmpIndexSelectTensor, SoftmaxOutputTensor, SoftmaxOutputTensor.GetSize());
         Sub(SrcGradTensor, GradOutputTensor, TmpIndexSelectTensor, TmpIndexSelectTensor.GetSize());
@@ -204,11 +204,11 @@ private:
 
     __aicore__ inline void CopyOut(uint64_t copyIndex, int32_t copyLength)
     {
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         DataCopy(srcgradGM[copyIndex * SRC_SHAPE_DIM], SrcGradTensor, copyLength * SRC_SHAPE_DIM);
-        set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
     }
 
 private:

@@ -105,9 +105,9 @@ private:
         uint64_t outAlign = AlignUp(taskDealNum, this->paramsEachBlock);
         uint32_t baseOutOffset = headPartId * this->gradOutUbSize;
 
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         DataCopy(gradOutLocal, gradOutGm[outOffset], outAlign);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
 
         SetFlag<HardEvent::MTE3_V>(0);
         SetFlag<HardEvent::V_MTE2>(0);

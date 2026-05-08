@@ -67,7 +67,7 @@ private:
     {
         LocalTensor<int16_t> maskLocal = inQueueMask.DeQue<int16_t>();
         maskTemp = maskLocal & maskTemp;
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         inQueueMask.FreeTensor(maskLocal);
     }
     __aicore__ inline void SaveKeep(int32_t idx)

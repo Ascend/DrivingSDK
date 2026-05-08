@@ -94,7 +94,7 @@ private:
     {
         DataCopy(xPart2Local, xTransGm[baseOffset * channel], batchNum - channel);
         DataCopy(xPart3Local, xTransGm[(baseOffset + inWidth) * channel], batchNum - channel);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
 
         Max(maxPart2Local, xPart2Local, xPart3Local, batchNum - channel);
         Max(resLocal, maxPart2Local, maxPart2Local[channel], channel);
@@ -108,7 +108,7 @@ private:
             inOffset = baseOffset + (idx1 * wBatch + 1) * stride - padding;
             DataCopy(xBatchLocal1, xTransGm[inOffset * channel], (wBatch * stride + 1) * channel);
             DataCopy(xBatchLocal2, xTransGm[(inOffset + inWidth) * channel], (wBatch * stride + 1) * channel);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             Max(xBatchLocal3, xBatchLocal1, xBatchLocal2, (wBatch * stride + 1) * channel);
 
             for (uint32_t idx2 = 0; idx2 < wBatch; idx2++) {
@@ -117,7 +117,7 @@ private:
                 Max(xBatchLocal4[idx2 * channel], xBatchLocal4[idx2 * channel],
                     xBatchLocal3[idx2 * stride * channel + 2 * channel], channel);
             }
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             DataCopy(yTransGm[outOffset + (idx1 * wBatch + 1) * channel], xBatchLocal4, wBatch * channel);
         }
@@ -125,7 +125,7 @@ private:
             inOffset = baseOffset + (wBatch * wRounds + 1) * stride - padding;
             DataCopy(xBatchLocal1, xTransGm[inOffset * channel], (wTail * stride + 1) * channel);
             DataCopy(xBatchLocal2, xTransGm[(inOffset + inWidth) * channel], (wTail * stride + 1) * channel);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             Max(xBatchLocal3, xBatchLocal1, xBatchLocal2, (wTail * stride + 1) * channel);
 
             for (uint32_t idx2 = 0; idx2 < wTail; idx2++) {
@@ -134,7 +134,7 @@ private:
                 Max(xBatchLocal4[idx2 * channel], xBatchLocal4[idx2 * channel],
                     xBatchLocal3[idx2 * stride * channel + 2 * channel], channel);
             }
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             DataCopy(yTransGm[outOffset + (wBatch * wRounds + 1) * channel], xBatchLocal4, wTail * channel);
         }
@@ -142,7 +142,7 @@ private:
             inOffset = baseOffset + (outWidth - 1) * stride - padding;
             DataCopy(xPart2Local, xTransGm[inOffset * channel], batchNum - channel);
             DataCopy(xPart3Local, xTransGm[(inOffset + inWidth) * channel], batchNum - channel);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             Max(maxPart2Local, xPart2Local, xPart3Local, batchNum - channel);
             Max(resLocal, maxPart2Local, maxPart2Local[channel], channel);
@@ -159,7 +159,7 @@ private:
         DataCopy(xPart1Local, xTransGm[baseOffset * channel], batchNum - channel);
         DataCopy(xPart2Local, xTransGm[(baseOffset + inWidth) * channel], batchNum - channel);
         DataCopy(xPart3Local, xTransGm[(baseOffset + inWidth * 2) * channel], batchNum - channel);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
 
         Max(maxPart1Local, xPart1Local, xPart2Local, batchNum - channel);
         Max(maxPart2Local, maxPart1Local, xPart3Local, batchNum - channel);
@@ -174,7 +174,7 @@ private:
             DataCopy(xBatchLocal2, xTransGm[(inOffset + inWidth) * channel], (wBatch * stride + 1) * channel);
             DataCopy(xBatchLocal3, xTransGm[(inOffset + inWidth * 2) * channel], (wBatch * stride + 1) * channel);
 
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             Max(xBatchLocal1, xBatchLocal1, xBatchLocal2, (wBatch * stride + 1) * channel);
             Max(xBatchLocal3, xBatchLocal1, xBatchLocal3, (wBatch * stride + 1) * channel);
@@ -185,7 +185,7 @@ private:
                 Max(xBatchLocal4[idx2 * channel], xBatchLocal4[idx2 * channel],
                     xBatchLocal3[idx2 * stride * channel + 2 * channel], channel);
             }
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             DataCopy(yTransGm[outOffset + (idx1 * wBatch + 1) * channel], xBatchLocal4, wBatch * channel);
         }
@@ -194,7 +194,7 @@ private:
             DataCopy(xBatchLocal1, xTransGm[inOffset * channel], (wTail * stride + 1) * channel);
             DataCopy(xBatchLocal2, xTransGm[(inOffset + inWidth) * channel], (wTail * stride + 1) * channel);
             DataCopy(xBatchLocal3, xTransGm[(inOffset + inWidth * 2) * channel], (wTail * stride + 1) * channel);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             Max(xBatchLocal1, xBatchLocal1, xBatchLocal2, (wTail * stride + 1) * channel);
             Max(xBatchLocal3, xBatchLocal1, xBatchLocal3, (wTail * stride + 1) * channel);
@@ -205,7 +205,7 @@ private:
                 Max(xBatchLocal4[idx2 * channel], xBatchLocal4[idx2 * channel],
                     xBatchLocal3[idx2 * stride * channel + 2 * channel], channel);
             }
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             DataCopy(yTransGm[outOffset + (wBatch * wRounds + 1) * channel], xBatchLocal4, wTail * channel);
         }
@@ -216,7 +216,7 @@ private:
             DataCopy(xPart1Local, xTransGm[inOffset * channel], batchNum - channel);
             DataCopy(xPart2Local, xTransGm[(inOffset + inWidth) * channel], batchNum - channel);
             DataCopy(xPart3Local, xTransGm[(inOffset + inWidth * 2) * channel], batchNum - channel);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             Max(maxPart1Local, xPart1Local, xPart2Local, batchNum - channel);
             Max(maxPart2Local, maxPart1Local, xPart3Local, batchNum - channel);

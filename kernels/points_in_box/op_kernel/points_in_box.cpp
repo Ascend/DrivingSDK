@@ -83,8 +83,8 @@ private:
         auto z = pointLocal.GetValue(i * 3 + 2);
         int repeat = (this->box_number + mask - 1) / mask;
         BinaryRepeatParams repeatParams = { 1, 1, 1, 8, 8, 8 };
-        set_flag(PIPE_S, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_S, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::S_V>(EVENT_ID0);
+        WaitFlag<HardEvent::S_V>(EVENT_ID0);
 
         // shift_x = x - boxes_ub[ :, 0]
         Muls(shiftx, boxesLocal_cx, oneminsnumber, mask, repeat, { 1, 1, 8, 8 });
@@ -116,7 +116,7 @@ private:
         Add(ylocal, sina, temp,  mask, repeat, {1, 1, 1, 8, 8, 8 });
 
         Abs(xlocal, xlocal, mask, repeat, { 1, 1, 8, 8 });
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
         Abs(ylocal, ylocal, mask, repeat, { 1, 1, 8, 8 });
 
         // dup full zeronumber tensor
@@ -131,14 +131,14 @@ private:
         Muls(shifty, boxesLocal_dy, halfnumber, mask, repeat, { 1, 1, 8, 8 });
 
         // cmp_1 = Abs(local_x) < x_size + 1e-5
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         uint8temp = xlocal <= shiftx;
         Duplicate<DTYPE_BOXES>(xlocal, zeronumber, mask, repeat, 1, 8);
         Select(xlocal, uint8temp, temp, sina,
                SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
 
         // cmp_2 = Abs(local_y) < y_size+ 1e-5
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         uint8temp = ylocal <= shifty;
         Duplicate<DTYPE_BOXES>(ylocal, zeronumber, mask, repeat, 1, 8);
         Select(ylocal, uint8temp, temp, sina,
@@ -148,11 +148,11 @@ private:
         Muls(sina, boxesLocal_cz, oneminsnumber, mask, repeat, { 1, 1, 8, 8 });
         Adds(sina, sina, z, mask, repeat, { 1, 1, 8, 8 });
         Abs(sina, sina, mask, repeat, { 1, 1, 8, 8 });
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
 
         // z_size + 1e-5 cosa
         Muls(cosa, boxesLocal_dz, halfnumber, mask, repeat, { 1, 1, 8, 8 });
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
 
         // dup full zeronumber tensor
         Duplicate<DTYPE_BOXES>(shifty, zeronumber, mask, repeat, 1, 8);
@@ -160,25 +160,25 @@ private:
         Duplicate<DTYPE_BOXES>(temp, onenumber, mask, repeat, 1, 8);
 
         // cmp_3 = Abs(zlocal) < z_size
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         uint8temp = sina <= cosa;
         Duplicate<DTYPE_BOXES>(sina, zeronumber, mask, repeat, 1, 8);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         Select(sina, uint8temp, temp, shifty,
                SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         
         // select which point is in box
         Add(ylocal, ylocal, sina, this->box_number);
         Add(ylocal, ylocal, xlocal, this->box_number);
         ReduceMax<float>(xlocal, ylocal, sina, this->box_number, true);
-        set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+        SetFlag<HardEvent::V_S>(EVENT_ID0);
+        WaitFlag<HardEvent::V_S>(EVENT_ID0);
         // if sumnumber is equal 3 means the point is in this box
         if (xlocal.GetValue(0) == 3) {
             DTYPE_BOXES a = xlocal.GetValue(1);
             zLocal.SetValue(i, static_cast<DTYPE_BOXES_IDX_OF_POINTS>(*reinterpret_cast<int32_t *>(&a)));
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
         }
     }
     __aicore__ inline void Compute(int32_t progress, int32_t tensor_size, uint64_t address)
@@ -216,14 +216,14 @@ private:
         DataCopyPad(boxesLocal_dy, boxesGm[this->box_number*4], copyParams_box, padParams);
         DataCopyPad(boxesLocal_dz, boxesGm[this->box_number*5], copyParams_box, padParams);
         DataCopyPad(boxesLocal_rz, boxesGm[this->box_number*6], copyParams_box, padParams);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        SetFlag<HardEvent::MTE2_S>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE2_S>(EVENT_ID0);
         for (int32_t i = 0; i < tensor_size; i++) {
             if (zLocal.GetValue(i) == -1) {
                 ComputeBoxs(i);
             }
         }
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         DataCopyPad(outputGm[address], zLocal, copyParams_out);
         inQueuePTS.FreeTensor(boxesLocal_cx);
         inQueueBOXES.FreeTensor(pointLocal);

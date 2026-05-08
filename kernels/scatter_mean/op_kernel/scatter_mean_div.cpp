@@ -80,28 +80,28 @@ private:
     {
         uint64_t tailLoop = tail / ubTailNum;
         uint64_t offset = 0;
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         for (uint64_t loop = 0; loop < tailLoop; loop++) {
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             offset = loop * ubTailNum;
             DataCopy(srcLocal, srcGm[baseOffset + offset], ubTailNum);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             Muls(srcLocal, srcLocal, mulValue, ubTailNum);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             DataCopy(outGm[baseOffset + offset], srcLocal, ubTailNum);
         }
 
         offset = tailLoop * ubTailNum;
         uint64_t tailLast = tail - offset;
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         if (tailLast != 0) {
             CopyParamasInit(tailLast);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             DataCopy(srcLocal, srcGm[baseOffset + offset], AlignUp(tailLast, dataEachBlock));
             SetFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
             WaitFlag<HardEvent::MTE2_V>(eventIdMte2ToV_0);
             Muls(srcLocal, srcLocal, mulValue, AlignUp(tailLast, dataEachBlock));
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             DataCopyPad(outGm[baseOffset + offset], srcLocal, copyParamsOut);
         }
     }
@@ -115,10 +115,10 @@ private:
         DataCopy(countLocal, countGm[count_offset], AlignUp(taskLine, countEachBlock));
 
         CopyParamasInit(tail);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         for (uint64_t idx = 0; idx < taskLine; idx++) {
             DTYPE_COUNT countValue = countLocal.GetValue(idx);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             if (countValue != 0) {
                 float mulValue = 1 / countValue;
                 ComputeTailDiv(tail, count_offset * tail + idx * tail, mulValue);

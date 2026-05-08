@@ -98,14 +98,14 @@ public:
             posLocal.SetValue(2, sampleX);
 
             DataCopy(outLocal, featuresGm[(offset + i) * numChannels], numChannelsAligned);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             DataCopyPad(posGm[(offset + i) * INDICES_NUM], posLocal, copyParamsPos);
 
             int64_t offset_out =
                 static_cast<int64_t>(b_idx) * numVoxelY * numVoxelX * numChannels + sampleY * numVoxelX * numChannels + sampleX * numChannels;
             SetAtomicAdd<DTYPE_G>();
             DataCopyPad(outGm[offset_out], outLocal, copyParamsOut);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             SetAtomicNone();
         }
 

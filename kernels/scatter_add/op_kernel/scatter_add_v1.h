@@ -325,7 +325,7 @@ private:
         uint64_t outLoadNum = headNum * _outNumPerHead;
         uint64_t indicesLoadNum = headNum * _indicesNumPerHead;
 
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         DataCopy(_outLocal, _outGm[outLoadOffset], AlignUp(outLoadNum, _dataNumPerBlock));
         DataCopy(_srcLocal, _srcGm[indicesLoadOffset], AlignUp(indicesLoadNum, _dataNumPerBlock));
         DataCopy(_indicesLocal, _indicesGm[indicesLoadOffset], AlignUp(indicesLoadNum, _dataNumPerBlock));
@@ -690,7 +690,7 @@ private:
         uint64_t srcOffset = indicesOffset * _tailLen;
         uint16_t loadTailNum = calcTailLoadNum(i);
 
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         DataCopy(_indicesLocal, _indicesGm[indicesOffset], AlignUp(loadTailNum, _dataNumPerBlock));
         copyParamsIn = {loadTailNum, static_cast<uint32_t>(_tailLen * sizeof(DTYPE_SRC)), 0, 0, 0};
         DataCopyPadExtParams<DTYPE_OUT> queryCopyInPadParams {false, 0, 0, 0};

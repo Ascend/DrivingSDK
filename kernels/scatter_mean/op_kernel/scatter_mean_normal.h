@@ -103,9 +103,9 @@ private:
         auto idx2 = (idxTure - idx1 * srcLineEachHead) / body;
         auto idx3 = idxTure - idx1 * srcLineEachHead - idx2 * body;
         uint64_t outLineOffset = idx3 + dataInIndices * body + idx1 * (outDimSize * body);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         for (uint64_t loop = 0; loop < tailLoop; loop++) {
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             offset = loop * ubTailNum;
 
             DataCopy(srcLocal, srcGm[src_offset + offset], ubTailNum);
@@ -116,7 +116,7 @@ private:
 
         offset = tailLoop * ubTailNum;
         if (tailLast != 0) {
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             CopyParamasInit(tailLast);
             DataCopy(srcLocal, srcGm[src_offset + offset], AlignUp(tailLast, dataEachBlock));
             SetFlag<HardEvent::MTE2_MTE3>(eventIdMte2ToMte3_0);
@@ -135,7 +135,7 @@ private:
 
         uint64_t indices_offset = indicesBaseOffset + taskEachLine * taskId;
         DataCopy(indicesLocal, indicesGm[indices_offset], AlignUp(taskLine, indicesEachBlock));
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         for (uint64_t idx = 0; idx < taskLine; idx++) {
             DTYPE_INDICES dataInIndices = indicesLocal.GetValue(idx);
             auto idxTure = indices_offset + idx;

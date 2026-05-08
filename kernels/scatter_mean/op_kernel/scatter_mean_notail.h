@@ -99,7 +99,7 @@ private:
         uint64_t headId = baseheadId + batchId;
         uint64_t outHeadOffset = headId * outHeadNum;
         uint64_t outBaseOffset = outHeadOffset + headPartId * outLineEachBacth + taskId * taskEachDataNum;
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         DataCopy(outLocalTemp, outGm[outBaseOffset], AlignUp(taskEachDataNum, indicesEachBlock));
 
         countTemp = outSetNote.Get<DTYPE_SRC>();
@@ -112,7 +112,7 @@ private:
         for (uint64_t loop = 0; loop < indicesLoop; loop++) {
             DataCopy(indicesLocal, indicesGm[indicesOffset], ubIndicesNumAlign);
             DataCopy(srcLocal, srcGm[indicesOffset], ubIndicesNumAlign);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             Adds(indicesLocal, indicesLocal, addsForSubindicesStart, ubIndicesNumAlign);
 
@@ -130,7 +130,7 @@ private:
             DataCopy(indicesLocal, indicesGm[indicesOffset], AlignUp(indicesLastNum, indicesEachBlock));
             DataCopy(srcLocal, srcGm[indicesOffset], AlignUp(indicesLastNum, indicesEachBlock));
 
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             Adds(indicesLocal, indicesLocal, addsForSubindicesStart, AlignUp(indicesLastNum, indicesEachBlock));
 
             for (uint64_t idx = 0; idx < indicesLastNum; idx++) {

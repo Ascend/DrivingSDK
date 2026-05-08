@@ -106,7 +106,7 @@ private:
         uint64_t thisOutOffset = headId * outHeadNum;
         for (uint64_t loop = 0; loop < indicesLoop; loop++) {
             uint64_t indicesOffset = basdIndicesOffset + loop * ubIndicesNum;
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             DataCopy(indicesLocal, indicesGm[indicesOffset], ubIndicesNumAlign);
             DataCopy(srcLocal, srcGm[indicesOffset], ubIndicesNumAlign);
 
@@ -145,7 +145,7 @@ private:
 
         uint64_t headThisId = baseHeadId + taskId * headEachNum;
         uint64_t outBaseOffset = headThisId * outHeadNum;
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         auto dataNumAlign = AlignUp(dataNum, dataEachBlock);
         DataCopy(outLocalTemp, outGm[outBaseOffset], dataNumAlign);
         Duplicate(countTemp, (float)0, dataNumAlign);
@@ -184,7 +184,7 @@ private:
 
         uint64_t headId = baseHeadId + batchId;
         uint64_t outBaseOffset = headId * outHeadNum + taskId * taskEachDataNum;
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         DataCopy(outLocalTemp, outGm[outBaseOffset], AlignUp(taskLine, indicesEachBlock));
         Duplicate(countTemp, (float)0, taskLine);
 
@@ -192,7 +192,7 @@ private:
         ComputeEachHeadNoTail(headId, taskLine, outBaseOffset, indicesStart);
 
         CopyParamasInit(taskLine);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         DataCopyPad(countGm[outBaseOffset], countTemp, copyParamsOut);
         DataCopyPad(outGm[outBaseOffset], outLocalTemp, copyParamsOut);
     }

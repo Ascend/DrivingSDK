@@ -148,8 +148,8 @@ private:
             int64_t valid_idx = indices_ub.GetValue(i) % total_kernel_size;
             int64_t offset_idx = offset_ub.GetValue(i);
             DataCopyPad(feature_ub, FeaturesGm[offset_idx * this->inchannel], copyParams_grad, padParams);
-            set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
+            SetFlag<HardEvent::MTE2_MTE3>(EVENT_ID0);
+            WaitFlag<HardEvent::MTE2_MTE3>(EVENT_ID0);
             DataCopyPad(outputGm[(int32_t)(feature_idx * total_kernel_size * this->inchannel + valid_idx* this->inchannel)],
                         feature_ub, copyParams_grad);
             PipeBarrier<PIPE_ALL>();

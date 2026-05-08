@@ -109,7 +109,7 @@ private:
             DataCopy(yLocal, centerIntGm[singleProcessCopyLen * i + taskObj], floatcopyLen);
             DataCopy(radiusLocal, radiusGm[singleProcessCopyLen * i], floatcopyLen);
             DataCopy(curIdLocal, curClassIdGm[singleProcessCopyLen * i], floatcopyLen);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             for (uint32_t j = 0; j < copyLen; j ++) {
                 uint8_t mask = maskLocal.GetValue(j);
                 int32_t curid = curIdLocal.GetValue(j);
@@ -189,7 +189,7 @@ __aicore__ inline void KernelDrawGaussianToHeatmap::Process()
 {
     for (int32_t i = beginId; i < endId; i++) {
         ProcessSingle(i);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
     }
 }
 

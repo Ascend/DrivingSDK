@@ -105,7 +105,7 @@ public:
     {
         for (uint32_t i = 0; i < coreRepeatTimes; i++) {
             Compute(i);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
         }
     }
 

@@ -159,7 +159,7 @@ __aicore__ inline void ScatterAddGradLine<T>::ComputeSmallTail(int32_t taskId, u
     uint64_t indicesEnd = indicesOffset + taskLine;
     uint64_t headNum = (indicesEnd - 1) / gradInEachHead - indicesOffset / gradInEachHead + 1;
     this->copyParamsOut.blockCount = static_cast<uint32_t>(taskLine);
-    pipe_barrier(PIPE_ALL);
+    PipeBarrier<PIPE_ALL>();
     DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(taskLine, this->indicesEachBlock));
 
     uint64_t startTask = 0;
@@ -174,8 +174,8 @@ __aicore__ inline void ScatterAddGradLine<T>::ComputeSmallTail(int32_t taskId, u
         startTask = innerOffset;
     }
 
-    set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID2);
-    wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID2);
+    SetFlag<HardEvent::MTE2_MTE3>(EVENT_ID2);
+    WaitFlag<HardEvent::MTE2_MTE3>(EVENT_ID2);
     DataCopyPad(gradInGm[gradInOffset], gradOutLocal, this->copyParamsOut);
 }
 
@@ -191,23 +191,23 @@ __aicore__ inline void ScatterAddGradLine<T>::ComputeTail(uint64_t idxTure, uint
     for (uint64_t loop = 0; loop < tailLoop; loop++) {
         offset = loop * ubTailNum;
         auto localOffset = getEventIdforDoublebuffer();
-        wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        WaitFlag<HardEvent::MTE3_MTE2>(eventId);
         DataCopy(gradOutLocal[localOffset], gradOutGm[outLineOffset * this->tail + offset], ubTailNum);
-        set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
-        wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+        SetFlag<HardEvent::MTE2_MTE3>(eventId);
+        WaitFlag<HardEvent::MTE2_MTE3>(eventId);
         DataCopy(gradInGm[gradInLocalOffset + offset], gradOutLocal[localOffset], ubTailNum);
-        set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        SetFlag<HardEvent::MTE3_MTE2>(eventId);
     }
 
     offset = tailLoop * ubTailNum;
     if (tailLast != 0) {
         auto localOffset = getEventIdforDoublebuffer();
-        wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        WaitFlag<HardEvent::MTE3_MTE2>(eventId);
         DataCopy(gradOutLocal[localOffset], gradOutGm[outLineOffset * this->tail + offset], AlignUp(tailLast, this->paramsEachBlock));
-        set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
-        wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+        SetFlag<HardEvent::MTE2_MTE3>(eventId);
+        WaitFlag<HardEvent::MTE2_MTE3>(eventId);
         DataCopyPad(gradInGm[gradInLocalOffset + offset], gradOutLocal[localOffset], this->copyParamsOut);
-        set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        SetFlag<HardEvent::MTE3_MTE2>(eventId);
     }
 }
 

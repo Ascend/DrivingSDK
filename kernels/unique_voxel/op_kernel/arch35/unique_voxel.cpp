@@ -427,7 +427,7 @@ __aicore__ inline void UniqueVoxelKernel::CompactOutput()
     WaitFlag<HardEvent::MTE3_MTE2>(0);
     WaitFlag<HardEvent::MTE3_MTE2>(1);
 
-    pipe_barrier(PIPE_ALL);
+    PipeBarrier<PIPE_ALL>();
 
     if (blkIdx_ == usedBlkNum_ - 1) {
         inT.SetValue(0, totalVoxelCnt);

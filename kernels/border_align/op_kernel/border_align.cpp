@@ -196,8 +196,8 @@ private:
             float weightP4 = static_cast<float>(ly * lx);
             uint64_t baseAddrCopyIn_ = baseAddrCopyIn + channelIdx * channels / 4;
 
-            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+            SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+            WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
             DataCopy(featureFloorFloor, featureGm[baseAddrCopyIn_ + yFloor * inputW * channels + xFloor * channels], moveInLength);
             inQueueFeatureFloorFloor.EnQue(featureFloorFloor);
             featureFloorFloor = inQueueFeatureFloorFloor.DeQue<float>();
@@ -210,8 +210,8 @@ private:
             DataCopy(featureCeilCeil, featureGm[baseAddrCopyIn_ + yCeil * inputW * channels + xCeil * channels], moveInLength);
             inQueueFeatureCeilCeil.EnQue(featureCeilCeil);
             featureCeilCeil = inQueueFeatureCeilCeil.DeQue<float>();
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+            SetFlag<HardEvent::MTE2_V>(EVENT_ID1);
+            WaitFlag<HardEvent::MTE2_V>(EVENT_ID1);
             Muls(tmpValue[moveInLength * 0], featureFloorFloor, weightP1, moveInLength);
             Muls(tmpValue[moveInLength * 1], featureFloorCeil, weightP2, moveInLength);
             Add(tmpValue[moveInLength * 0], tmpValue[moveInLength * 0], tmpValue[moveInLength * 1], moveInLength);
@@ -226,12 +226,12 @@ private:
     {
         outQueueFeature.EnQue(outFeature);
         outFeature = outQueueFeature.DeQue<float>();
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID5);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID5);
+        SetFlag<HardEvent::V_MTE3>(EVENT_ID5);
+        WaitFlag<HardEvent::V_MTE3>(EVENT_ID5);
         DataCopyExtParams copyParams{1, moveOutLength, 0, 0, 0};
         DataCopyPad(outputGm[baseAddrCopyOut + poolIdx * channels + channelIdx * channels / 4], outFeature, copyParams);
-        set_flag(PIPE_MTE3, PIPE_V, EVENT_ID6);
-        wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID6);
+        SetFlag<HardEvent::MTE3_V>(EVENT_ID6);
+        WaitFlag<HardEvent::MTE3_V>(EVENT_ID6);
     }
 
 private:

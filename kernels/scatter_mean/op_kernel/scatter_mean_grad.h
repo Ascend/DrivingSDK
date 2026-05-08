@@ -100,7 +100,7 @@ private:
         DataCopy(gradOutLocal, gradOutGm[outOffset], outAlign);
         DataCopy(countLocal, countGm[outOffset], outAlign);
 
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         Div(gradOutLocal, gradOutLocal, countLocal, outAlign);
 
         for (uint64_t head = 0; head < headNum; head++) {
@@ -132,7 +132,7 @@ private:
 
         DataCopy(gradOutLocal, gradOutGm[outOffset], outAlign);
         DataCopy(countLocal, countGm[outOffset], outAlign);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         Div(gradOutLocal, gradOutLocal, countLocal, outAlign);
 
         for (uint64_t head = 0; head < headNum; head++) {
@@ -143,7 +143,7 @@ private:
             for (uint64_t loop = 0; loop < indexLoop; loop++) {
                 offset = this->indexUbSize * loop;
                 DataCopy(indexLocal, indexGm[indexOffset + head * headIndexSize + offset], this->indexUbSize);
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
                 Adds(indexLocal, indexLocal, (int32_t)headOutOffset, this->indexUbSize);
                 Duplicate(gradInLocal, float(0), this->indexUbSize);
                 for (uint64_t idx = 0; idx < this->indexUbSize; idx++) {
@@ -159,7 +159,7 @@ private:
                 offset = this->indexUbSize * indexLoop;
                 uint64_t indicesAlign = AlignUp(indexLast, this->indicesEachBlock);
                 DataCopy(indexLocal, indexGm[indexOffset + head * headIndexSize + offset], indicesAlign);
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
                 Adds(indexLocal, indexLocal, (int32_t)headOutOffset, indicesAlign);
                 Duplicate(gradInLocal, float(0), indicesAlign);
                 for (uint64_t idx = 0; idx < indexLast; idx++) {

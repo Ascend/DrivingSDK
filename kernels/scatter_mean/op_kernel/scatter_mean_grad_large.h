@@ -84,16 +84,16 @@ private:
         DataCopy(gradOutLocal, gradOutGm[outOffset], outAlign);
         DataCopy(countLocal, countGm[outOffset], outAlign);
 
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
         Div(gradOutLocal, gradOutLocal, countLocal, outAlign);
 
         uint64_t offset = 0;
-        set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
         for (uint64_t loop = 0; loop < indexLoop; loop++) {
             offset = loop * this->indexUbSize;
             DataCopy(indexLocal, indexGm[indexOffset + offset], this->indexUbSize);
 
-            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
             Duplicate(gradInLocal, float(0), this->indexUbSize);
             for (uint64_t idx = 0; idx < this->indexUbSize; idx++) {
                 auto indexValue = indexLocal.GetValue(idx);
@@ -105,13 +105,13 @@ private:
             SetAtomicAdd<T>();
             DataCopy(gradInGm[indexOffset + offset], gradInLocal, this->indexUbSize);
             SetAtomicNone();
-            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
         }
         if (indexLast != 0) {
             offset = indexLoop * this->indexUbSize;
             uint64_t indicesAlign = AlignUp(indexLast, this->indicesEachBlock);
             DataCopy(indexLocal, indexGm[indexOffset + offset], indicesAlign);
-            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
             Duplicate(gradInLocal, float(0), indicesAlign);
             for (uint64_t idx = 0; idx < indexLast; idx++) {
                 auto indexValue = indexLocal.GetValue(idx);
@@ -123,9 +123,9 @@ private:
             SetAtomicAdd<T>();
             DataCopyPad(gradInGm[indexOffset + offset], gradInLocal, this->copyParamsOut);
             SetAtomicNone();
-            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
         }
-        wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
     }
 
 private:

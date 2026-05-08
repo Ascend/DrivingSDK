@@ -83,7 +83,7 @@ public:
             int64_t offset_grad_out = static_cast<int64_t>(idx0) * h * w * num_channels + idx1 * w * num_channels + idx2 * num_channels;
             DataCopy(gradOutLocal, gradOutGm[offset_grad_out], numChannelsAligned);
 
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
             DataCopyPad(gradFeaturesGm[(offset + i) * num_channels], gradOutLocal, copyParamsOut);
         }
 

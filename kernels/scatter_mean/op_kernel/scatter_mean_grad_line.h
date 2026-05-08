@@ -39,16 +39,16 @@ public:
                 ComputeSmallTail(taskNum - 1, taskLastLine);
             }
         } else {
-            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+            SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
+            SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID1);
             for (int32_t i = 0; i < taskNum - 1; i++) {
                 ComputeEachTask(i, taskEachLine);
             }
             if (taskLastLine != 0) {
                 ComputeEachTask(taskNum - 1, taskLastLine);
             }
-            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+            WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
+            WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID1);
         }
     }
 
@@ -136,13 +136,13 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeSmallTail(int32_t taskId, 
 
     uint64_t indicesOffset = indicesBaseOffset + taskEachLine * taskId;
     uint64_t gradInOffset = indicesOffset * this->tail;
-    pipe_barrier(PIPE_ALL);
+    PipeBarrier<PIPE_ALL>();
     DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(taskLine, this->indicesEachBlock));
-    set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-    wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+    SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+    WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
     Muls(indicesLocal, indicesLocal, (int32_t)this->body, AlignUp(taskLine, this->indicesEachBlock));
 
-    set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+    SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
 #pragma bisheng auto_sync parallel
     for (uint64_t idx = 0; idx < taskLine; idx++) {
         DTYPE_INDEX dataInIndices = indicesLocal.GetValue(idx);
@@ -157,17 +157,17 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeSmallTail(int32_t taskId, 
         DataCopy(countLocal, countGm[outLineOffset], this->indicesEachBlock);
         auto mulValue = 1 / countLocal.GetValue(0);
 
-        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
         DataCopy(gradOutLocal, gradOutGm[outLineOffset * this->tail], ubTailNum);
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
         Muls(gradInLocal[gradInLocalOffset], gradOutLocal, mulValue, ubTailNum);
-        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
     }
-    wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+    WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
-    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID2);
-    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID2);
+    SetFlag<HardEvent::V_MTE3>(EVENT_ID2);
+    WaitFlag<HardEvent::V_MTE3>(EVENT_ID2);
     DataCopy(gradInGm[gradInOffset], gradInLocal, taskLine * this->tail);
 }
 
@@ -189,29 +189,29 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeTail(uint64_t idxTure, uin
     for (uint64_t loop = 0; loop < tailLoop; loop++) {
         offset = loop * ubTailNum;
         auto localOffset = getEventIdforDoublebuffer();
-        wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        WaitFlag<HardEvent::MTE3_MTE2>(eventId);
         DataCopy(gradOutLocal[localOffset], gradOutGm[outLineOffset * this->tail + offset], ubTailNum);
-        set_flag(PIPE_MTE2, PIPE_V, eventId);
-        wait_flag(PIPE_MTE2, PIPE_V, eventId);
+        SetFlag<HardEvent::MTE2_V>(eventId);
+        WaitFlag<HardEvent::MTE2_V>(eventId);
         Muls(gradOutLocal[localOffset], gradOutLocal[localOffset], mulValue, ubTailNum);
-        set_flag(PIPE_V, PIPE_MTE3, eventId);
-        wait_flag(PIPE_V, PIPE_MTE3, eventId);
+        SetFlag<HardEvent::V_MTE3>(eventId);
+        WaitFlag<HardEvent::V_MTE3>(eventId);
         DataCopy(gradInGm[gradInLocalOffset + offset], gradOutLocal[localOffset], ubTailNum);
-        set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        SetFlag<HardEvent::MTE3_MTE2>(eventId);
     }
 
     offset = tailLoop * ubTailNum;
     if (tailLast != 0) {
         auto localOffset = getEventIdforDoublebuffer();
-        wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        WaitFlag<HardEvent::MTE3_MTE2>(eventId);
         DataCopy(gradOutLocal[localOffset], gradOutGm[outLineOffset * this->tail + offset], AlignUp(tailLast, this->paramsEachBlock));
-        set_flag(PIPE_MTE2, PIPE_V, eventId);
-        wait_flag(PIPE_MTE2, PIPE_V, eventId);
+        SetFlag<HardEvent::MTE2_V>(eventId);
+        WaitFlag<HardEvent::MTE2_V>(eventId);
         Muls(gradOutLocal[localOffset], gradOutLocal[localOffset], mulValue, AlignUp(tailLast, this->paramsEachBlock));
-        set_flag(PIPE_V, PIPE_MTE3, eventId);
-        wait_flag(PIPE_V, PIPE_MTE3, eventId);
+        SetFlag<HardEvent::V_MTE3>(eventId);
+        WaitFlag<HardEvent::V_MTE3>(eventId);
         DataCopyPad(gradInGm[gradInLocalOffset + offset], gradOutLocal[localOffset], this->copyParamsOut);
-        set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+        SetFlag<HardEvent::MTE3_MTE2>(eventId);
     }
 }
 

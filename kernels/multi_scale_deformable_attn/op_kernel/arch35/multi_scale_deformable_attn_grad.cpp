@@ -412,10 +412,10 @@ public:
             Duplicate(weight, 0.f, 4 * alignedOneTaskNum_);
             ComputeGmOffsetVF<float, int32_t>(taskRpt_, numHeads_, embedDims_, baseSrcOffset, nextSrcOffset, baseNum * oneQueryNum_,
                 locationFloat, shapeFloat, offsetInt, locationInt, validMask);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             CallMSDASimtFunc(taskIdx, taskNum, locationFloat, shapeFloat, locationInt, attentionWeights, weight);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             ComputeGradVF<float, int32_t>(locationFloat, shapeFloat, attentionWeights, weight, gradAttentionWeights, gradLocation);
             SetFlag<HardEvent::V_MTE3>(0);

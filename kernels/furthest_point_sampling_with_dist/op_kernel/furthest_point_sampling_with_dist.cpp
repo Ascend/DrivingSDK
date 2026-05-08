@@ -171,8 +171,8 @@ __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::P
         CalculatePartUb(move_n_times - 1, n_tail);
         last_idx = now_max_dim;
         idx_local.SetValue(i, now_max_dim);
-        set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+        SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID0);
     }
     idx_queue.EnQue<idxType>(idx_local);
     CopyOut(id_times, id_len);
@@ -181,7 +181,7 @@ __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::P
 template<typename dataType, typename idxType>
 __aicore__ inline void KernelFurthestPointSamplingWithDist<dataType, idxType>::CalculatePartUb(uint32_t n_times, uint32_t n_len) {
     CopyIn(n_times, n_len);
-    pipe_barrier(PIPE_ALL);
+    PipeBarrier<PIPE_ALL>();
     Compute(n_times, n_len);
     CopyOutDist(n_times, n_len);
 }

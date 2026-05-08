@@ -157,14 +157,14 @@ public:
             uint32_t baseSrcOffset = taskIdx / numQueries_ * numKeys_ * numHeads_;
             uint32_t nextSrcOffset = baseSrcOffset + numKeys_ * numHeads_;
             CopyInSample(locationFloat[2 * alignedOneTaskNum_], attentionWeight, taskIdx, taskNum);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             ComputeGmOffsetVF<float, int32_t>(taskRpt_, numHeads_, embedDims_, baseSrcOffset, nextSrcOffset, baseNum * oneQueryNum_,
                 locationFloat, shapeFloat, offsetInt, locationInt, validMask);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             CallMSDASimtFunc(taskIdx, taskNum, locationFloat, shapeFloat, locationInt, attentionWeight, validMask);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
         }
     }
 

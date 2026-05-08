@@ -164,8 +164,8 @@ private:
         DataCopyPad(pointLocalx, ptsGm[addressPoints * 3], copyParams_in, padParams);
         DataCopyPad(pointLocaly, ptsGm[addressPoints * 3 + 1], copyParams_in, padParams);
         DataCopyPad(pointLocalz, ptsGm[addressPoints * 3 + 2], copyParams_in, padParams);
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
         Duplicate<DTYPE_BOXES_IDX_OF_POINTS>(zLocal, zeronumber, tensorSize * computeBoxNum);
 
         // broadcast param
@@ -228,7 +228,7 @@ private:
         Mul(sina, shifty, cosa, mask, repeat, {1, 1, 1, 8, 8, 8 });
         Add(yLocal, sina, temp,  mask, repeat, {1, 1, 1, 8, 8, 8 });
         Abs(xLocal, xLocal, mask, repeat, { 1, 1, 8, 8 });
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
         Abs(yLocal, yLocal, mask, repeat, { 1, 1, 8, 8 });
 
         // dup full zeronumber tensor
@@ -242,7 +242,7 @@ private:
         Muls(shiftx, cosa, halfnumber, mask, repeat, { 1, 1, 8, 8 });
 
         // cmp_1 = Abs(local_x) < x_size
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
         uint8temp = xLocal < shiftx;
         Duplicate<DTYPE_BOXES>(xLocal, zeronumber, mask, repeat, 1, 8);
         Select(xLocal, uint8temp, temp, sina,
@@ -253,7 +253,7 @@ private:
         Muls(shifty, cosa, halfnumber, mask, repeat, { 1, 1, 8, 8 });
 
         // cmp_2 = Abs(local_y) < y_size
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
         uint8temp = yLocal < shifty;
         Duplicate<DTYPE_BOXES>(yLocal, zeronumber, mask, repeat, 1, 8);
         Select(yLocal, uint8temp, temp, sina,
@@ -280,7 +280,7 @@ private:
         Duplicate<DTYPE_BOXES>(temp, onenumber, mask, repeat, 1, 8);
 
         // cmp_3 = Abs(zlocal) < z_size
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
         uint8temp = sina <= cosa;
         Duplicate<DTYPE_BOXES>(sina, zeronumber, mask, repeat, 1, 8);
         Select(sina, uint8temp, temp, shifty,
@@ -291,14 +291,14 @@ private:
         Add(yLocal, yLocal, xLocal, computeBoxNum * tensorSize);
 
         Duplicate<DTYPE_BOXES>(shiftx, threenumber, mask, repeat, 1, 8);
-        pipe_barrier(PIPE_V);
+        PipeBarrier<PIPE_V>();
         uint8temp = yLocal == shiftx;
         Select(yLocal, uint8temp, temp, shifty,
                SELMODE::VSEL_TENSOR_TENSOR_MODE, computeBoxNum * tensorSize);
         Cast(zLocal, yLocal, RoundMode::CAST_RINT, computeBoxNum * tensorSize);
 
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         DataCopyPad(outputGm[addressOutput + outAddressOffset], zLocal, copyParams_out);
         inQueuePTS.FreeTensor(pointLocalx);
         inQueueBOXES.FreeTensor(boxesLocalCx);

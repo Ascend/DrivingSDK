@@ -45,18 +45,18 @@ public:
             indexLoop = headIndexSize / this->indexUbSize;
             indexLast = headIndexSize - indexLoop * this->indexUbSize;
             this->copyParamsOut.blockLen = static_cast<int32_t>(indexLast * sizeof(float));
-            set_flag(PIPE_MTE3, PIPE_V, 0);
-            set_flag(PIPE_V, PIPE_MTE2, 0);
-            set_flag(PIPE_V, PIPE_MTE2, 1);
+            SetFlag<HardEvent::MTE3_V>(0);
+            SetFlag<HardEvent::V_MTE2>(0);
+            SetFlag<HardEvent::V_MTE2>(1);
             for (uint64_t taskId = 0; taskId < taskNum - 1; taskId++) {
                 ComputeModeLargeData(taskId, headTask);
             }
             if (headLastTask != 0) {
                 ComputeModeLargeData(taskNum - 1, headLastTask);
             }
-            wait_flag(PIPE_MTE3, PIPE_V, 0);
-            wait_flag(PIPE_V, PIPE_MTE2, 0);
-            wait_flag(PIPE_V, PIPE_MTE2, 1);
+            WaitFlag<HardEvent::MTE3_V>(0);
+            WaitFlag<HardEvent::V_MTE2>(0);
+            WaitFlag<HardEvent::V_MTE2>(1);
         }
     }
 
@@ -104,23 +104,23 @@ private:
         this->copyParamsOut.blockCount = static_cast<uint32_t>(headNum);
         uint64_t outAlign = AlignUp(headNum * headOutSize, this->paramsEachBlock);
 
-        set_flag(PIPE_V, PIPE_MTE2, 0);
-        wait_flag(PIPE_V, PIPE_MTE2, 0);
+        SetFlag<HardEvent::V_MTE2>(0);
+        WaitFlag<HardEvent::V_MTE2>(0);
         DataCopyPad(indexLocal, indexGm[indexOffset], copyParamsIn, copyParamsInPad);
         DataCopy(gradOutLocal, gradOutGm[outOffset], outAlign);
-        set_flag(PIPE_MTE2, PIPE_V, 0);
-        wait_flag(PIPE_MTE2, PIPE_V, 0);
+        SetFlag<HardEvent::MTE2_V>(0);
+        WaitFlag<HardEvent::MTE2_V>(0);
         for (uint64_t head = 0; head < headNum; head++) {
             int32_t indexLocalOffset = head * headIndexSizeAlign;
             int32_t outLocalOffset = head * headOutSize;
             Adds(indexLocal[indexLocalOffset], indexLocal[indexLocalOffset], outLocalOffset, headIndexSizeAlign);
         }
         Muls(indexLocal, indexLocal, (int32_t)sizeof(T), headNum * headIndexSizeAlign);
-        set_flag(PIPE_MTE3, PIPE_V, 0);
-        wait_flag(PIPE_MTE3, PIPE_V, 0);
+        SetFlag<HardEvent::MTE3_V>(0);
+        WaitFlag<HardEvent::MTE3_V>(0);
         Gather(gradInLocal, gradOutLocal, indexLocal.ReinterpretCast<uint32_t>(), 0, headNum * headIndexSizeAlign);
-        set_flag(PIPE_V, PIPE_MTE3, 0);
-        wait_flag(PIPE_V, PIPE_MTE3, 0);
+        SetFlag<HardEvent::V_MTE3>(0);
+        WaitFlag<HardEvent::V_MTE3>(0);
         DataCopyPad(gradInGm[indexOffset], gradInLocal, this->copyParamsOut);
     }
 
@@ -135,49 +135,49 @@ private:
         uint64_t outOffset = firstHeadId * headOutSize;
         uint64_t outAlign = AlignUp(headNum * headOutSize, this->paramsEachBlock);
 
-        wait_flag(PIPE_V, PIPE_MTE2, 1);
+        WaitFlag<HardEvent::V_MTE2>(1);
         DataCopy(gradOutLocal, gradOutGm[outOffset], outAlign);
-        set_flag(PIPE_MTE2, PIPE_V, 1);
-        wait_flag(PIPE_MTE2, PIPE_V, 1);
+        SetFlag<HardEvent::MTE2_V>(1);
+        WaitFlag<HardEvent::MTE2_V>(1);
 
         for (uint64_t head = 0; head < headNum; head++) {
             uint64_t indicesAlign = AlignUp(headIndexSize, this->indicesEachBlock);
             auto headOutOffset = head * headOutSize;
             for (uint64_t loop = 0; loop < indexLoop; loop++) {
                 uint64_t offset = this->indexUbSize * loop;
-                wait_flag(PIPE_V, PIPE_MTE2, 0);
+                WaitFlag<HardEvent::V_MTE2>(0);
                 DataCopy(indexLocal, indexGm[indexOffset + head * headIndexSize + offset], this->indexUbSize);
-                set_flag(PIPE_MTE2, PIPE_V, 0);
-                wait_flag(PIPE_MTE2, PIPE_V, 0);
+                SetFlag<HardEvent::MTE2_V>(0);
+                WaitFlag<HardEvent::MTE2_V>(0);
                 Adds(indexLocal, indexLocal, (int32_t)headOutOffset, this->indexUbSize);
                 Muls(indexLocal, indexLocal, (int32_t)sizeof(T), this->indexUbSize);
-                wait_flag(PIPE_MTE3, PIPE_V, 0);
+                WaitFlag<HardEvent::MTE3_V>(0);
                 Gather(gradInLocal, gradOutLocal, indexLocal.ReinterpretCast<uint32_t>(), (uint32_t)0, this->indexUbSize);
-                set_flag(PIPE_V, PIPE_MTE2, 0);
-                set_flag(PIPE_V, PIPE_MTE3, 0);
-                wait_flag(PIPE_V, PIPE_MTE3, 0);
+                SetFlag<HardEvent::V_MTE2>(0);
+                SetFlag<HardEvent::V_MTE3>(0);
+                WaitFlag<HardEvent::V_MTE3>(0);
                 DataCopy(gradInGm[indexOffset + head * headIndexSize + offset], gradInLocal, this->indexUbSize);
-                set_flag(PIPE_MTE3, PIPE_V, 0);
+                SetFlag<HardEvent::MTE3_V>(0);
             }
             if (indexLast != 0) {
                 uint64_t offset = this->indexUbSize * indexLoop;
                 uint64_t indicesAlign = AlignUp(indexLast, this->indicesEachBlock);
-                wait_flag(PIPE_V, PIPE_MTE2, 0);
+                WaitFlag<HardEvent::V_MTE2>(0);
                 DataCopy(indexLocal, indexGm[indexOffset + head * headIndexSize + offset], indicesAlign);
-                set_flag(PIPE_MTE2, PIPE_V, 0);
-                wait_flag(PIPE_MTE2, PIPE_V, 0);
+                SetFlag<HardEvent::MTE2_V>(0);
+                WaitFlag<HardEvent::MTE2_V>(0);
                 Adds(indexLocal, indexLocal, (int32_t)headOutOffset, indicesAlign);
                 Muls(indexLocal, indexLocal, (int32_t)sizeof(T), indicesAlign);
-                wait_flag(PIPE_MTE3, PIPE_V, 0);
+                WaitFlag<HardEvent::MTE3_V>(0);
                 Gather(gradInLocal, gradOutLocal, indexLocal.ReinterpretCast<uint32_t>(), (uint32_t)0, indexLast);
-                set_flag(PIPE_V, PIPE_MTE2, 0);
-                set_flag(PIPE_V, PIPE_MTE3, 0);
-                wait_flag(PIPE_V, PIPE_MTE3, 0);
+                SetFlag<HardEvent::V_MTE2>(0);
+                SetFlag<HardEvent::V_MTE3>(0);
+                WaitFlag<HardEvent::V_MTE3>(0);
                 DataCopyPad(gradInGm[indexOffset + head * headIndexSize + offset], gradInLocal, this->copyParamsOut);
-                set_flag(PIPE_MTE3, PIPE_V, 0);
+                SetFlag<HardEvent::MTE3_V>(0);
             }
         }
-        set_flag(PIPE_V, PIPE_MTE2, 1);
+        SetFlag<HardEvent::V_MTE2>(1);
     }
 
 private:

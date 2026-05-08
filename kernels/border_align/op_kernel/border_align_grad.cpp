@@ -72,13 +72,13 @@ public:
         
         DataCopy(gradOutLocal, gradOutGm[(static_cast<int64_t>(offset) + index) * 4], 4 * compNum);
         DataCopy(argmaxIdxLocal, argmaxIdxGm[(static_cast<int64_t>(offset) + index) * 4], 4 * compNum);
-        pipe_barrier(PIPE_ALL);
+        PipeBarrier<PIPE_ALL>();
 
         for (int64_t currentTask = 0; currentTask < taskNum; currentTask++) {
             int64_t batchIdx = (offset + index + currentTask) / (channels * boxSize);
             int64_t boxIdx = (offset + index + currentTask) % boxSize + batchIdx * boxSize;
             DataCopy(boxesLocal, boxesGm[boxIdx * 4], 8);
-            pipe_barrier(PIPE_ALL);
+            PipeBarrier<PIPE_ALL>();
 
             int64_t channelsIdx = (offset + index + currentTask) / boxSize % channels;
             float boxWidth;
@@ -206,7 +206,7 @@ public:
                 DataCopyPad(gradInputGm[dstIdx4], gradInputLocal, outCopyParams);
 
                 AscendC::SetAtomicNone();
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
             }
         }
         

@@ -87,12 +87,12 @@ public:
             uint64_t targetOffset = currentTask * 3; // B M 3
             uint64_t copyOutOffset = currentTask * k; // B M N
 
-            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+            SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
+            WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
             DataCopy(targetLocal, targetGm[targetOffset], 8);
 
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE2_V>(EVENT_ID0);
+            WaitFlag<HardEvent::MTE2_V>(EVENT_ID0);
             Duplicate<T>(sourceBackupLocal, targetLocal.GetValue(0), (int32_t)compNum);
             Duplicate<T>(sourceBackupLocal[compNum], targetLocal.GetValue(1), (int32_t)compNum);
             Duplicate<T>(sourceBackupLocal[compNum * 2], targetLocal.GetValue(2), (int32_t)compNum);
@@ -100,14 +100,14 @@ public:
             Duplicate(sortTmp1Local, minFloatValue, mergeLength * 4);
             Duplicate(sortTmp2Local, minFloatValue, mergeLength * 4);
 
-            set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+            SetFlag<HardEvent::V_MTE2>(EVENT_ID1);
             for (uint32_t currentLoop = 0; currentLoop < loopTimes; currentLoop++) {
                 Compute(currentLoop, compNum, sourceOffset);
             }
             if (tailNum > 0) {
                 Compute(loopTimes, tailNum, sourceOffset);
             }
-            wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+            WaitFlag<HardEvent::V_MTE2>(EVENT_ID1);
 
             CopyOut(copyOutOffset);
         }
@@ -118,7 +118,7 @@ public:
         uint32_t copyInLength = static_cast<uint32_t>(copySize * sizeof(T));
         uint32_t loopOffset = currentLoop * compNum;
 
-        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+        WaitFlag<HardEvent::V_MTE2>(EVENT_ID1);
         DataCopyPad(sourceLocal, sourceGm[sourceOffset + loopOffset],
                     {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
         DataCopyPad(sourceLocal[compNum], sourceGm[sourceOffset + loopOffset + nSource],
@@ -126,15 +126,15 @@ public:
         DataCopyPad(sourceLocal[compNum * 2], sourceGm[sourceOffset + loopOffset + nSource * 2],
                     {1, copyInLength, 0, 0, 0}, {false, 0, 0, 0});
 
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID1);
+        SetFlag<HardEvent::MTE2_V>(EVENT_ID1);
+        WaitFlag<HardEvent::MTE2_V>(EVENT_ID1);
         Sub<T>(sourceLocal, sourceLocal, sourceBackupLocal, compNum * 3);
         Mul<T>(sourceLocal, sourceLocal, sourceLocal, compNum * 3);
 
         Duplicate(distLocal, maxFloatValue, compNum);
         Add<T>(distLocal, sourceLocal, sourceLocal[compNum], copySize);
         Add<T>(distLocal, distLocal, sourceLocal[compNum * 2], copySize);
-        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID1);
+        SetFlag<HardEvent::V_MTE2>(EVENT_ID1);
 
         if (isFromKnn) {
             Mins<T>(distLocal, distLocal, static_cast<T>(1e10f), compNum);
@@ -166,8 +166,8 @@ public:
 
     __aicore__ inline void CopyOut(uint64_t offset)
     {
-        set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+        SetFlag<HardEvent::MTE3_V>(EVENT_ID0);
+        WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
         AscendC::LocalTensor<uint32_t> interpreIdxOutTensor = bestIdxLocal.ReinterpretCast<uint32_t>();
         if (((nSource + compNum - 1) / compNum) % 2 == 1) {
             Extract(bestDistLocal, interpreIdxOutTensor, sortTmp2Local, sort32RepeatTimes);
@@ -176,8 +176,8 @@ public:
         }
         Muls(bestDistLocal, bestDistLocal, -1.0f, k);
 
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
+        WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         DataCopyPad(distGm[offset], bestDistLocal,
             {1, static_cast<uint32_t>(k * sizeof(T)), 0, 0, 0});
         DataCopyPad(idxGm[offset], bestIdxLocal,

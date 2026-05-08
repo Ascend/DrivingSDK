@@ -103,7 +103,7 @@ private:
                 this->pointIdx = argsortCoorLocal.GetValue(idx);
                 Compare(bitMaskLocal, voxelFeatsLocal, pointFeatsLocal[idx * this->featsDimAligned], CMPMODE::EQ, mask,
                     repeatTimes, compareParams);
-                pipe_barrier(PIPE_ALL);
+                PipeBarrier<PIPE_ALL>();
 
                 Not(bitMaskTmpLocal, recordMaskLocal, maskDimAlignedB16);
                 And(bitMaskLocalB16, bitMaskLocalB16, bitMaskTmpLocal, maskDimAlignedB16);
