@@ -11,9 +11,6 @@ import mx_driving.point, mx_driving._C
 from mx_driving.ops.npu_dynamic_scatter import DynamicScatterFunction
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 class TestDynamicScatter(TestCase):
     def cpu_op_exec(self, feats, coors, reduce_type):
         clean_coors = coors.masked_fill(coors.lt(0).any(-1, True), -1)

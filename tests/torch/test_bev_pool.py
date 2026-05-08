@@ -10,9 +10,6 @@ import mx_driving.point
 from mx_driving import bev_pool
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 @golden_data_cache(__file__)
 def golden_bev_pool(feat, geom_feat, b, d, h, w, c):

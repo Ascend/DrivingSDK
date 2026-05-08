@@ -10,9 +10,6 @@ from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 @golden_data_cache(__file__)
 def cpu_gen_inputs(data_range_x, data_range_y, x_shape, y_shape):
     x = np.random.uniform(data_range_x[0], data_range_x[1], x_shape).astype(np.float32)

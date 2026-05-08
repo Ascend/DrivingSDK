@@ -11,7 +11,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "hard_voxelize_tiling.h"
+#include "hard_voxelize/op_host/hard_voxelize_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "common/op_host/common.h"

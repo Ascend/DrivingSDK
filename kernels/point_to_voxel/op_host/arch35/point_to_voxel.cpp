@@ -12,7 +12,7 @@
 #include <cmath>
 #include <cstring>
 
-#include "point_to_voxel_tiling.h"
+#include "point_to_voxel/op_host/point_to_voxel_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 

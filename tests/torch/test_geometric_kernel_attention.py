@@ -14,9 +14,6 @@ from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 # pylint: disable=too-many-return-values
 @golden_data_cache(__file__)
 def cpu_gen_inputs(shape):

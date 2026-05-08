@@ -1,7 +1,7 @@
 /*
 Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 */
-#include "gaussian_tiling.h"
+#include "gaussian/op_host/gaussian_tiling.h"
 #include "ge/utils.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"

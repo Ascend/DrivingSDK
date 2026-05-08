@@ -9,9 +9,6 @@ from torch_npu.testing.testcase import TestCase, run_tests
 import mx_driving._C
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 class TestPointToVoxel(TestCase):
     seed = 1024
     np.random.seed(seed)

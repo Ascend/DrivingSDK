@@ -10,9 +10,6 @@ import mx_driving.point
 from mx_driving import Voxelization
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 class TestHardVoxelize(TestCase):
     seed = 1024
     point_nums = [1, 7, 6134, 99999]

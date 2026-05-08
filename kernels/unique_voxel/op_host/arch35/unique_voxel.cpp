@@ -11,7 +11,7 @@
 
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "unique_voxel_tiling.h"
+#include "unique_voxel/op_host/unique_voxel_tiling.h"
 #include "common/op_host/common.h"
 namespace {
 constexpr size_t POINT_IDX = 0;

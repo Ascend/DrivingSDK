@@ -8,9 +8,6 @@ from torch_npu.testing.testcase import TestCase, run_tests
 from mx_driving import npu_gaussian
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 def gaussian_radius(det_size, min_overlap=0.5):
     height, width = det_size
 

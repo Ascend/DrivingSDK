@@ -12,9 +12,6 @@ import mx_driving
 import mx_driving.detection
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 @dataclass
 class KernelParams:
     score: torch.Tensor

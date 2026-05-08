@@ -9,9 +9,6 @@ from mx_driving import bev_pool_v2
 from mx_driving._C import npu_bev_pool_v2_backward
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 # pylint: disable=too-many-arguments,huawei-too-many-arguments
 @golden_data_cache(__file__)
 def golden_bev_pool_v2(

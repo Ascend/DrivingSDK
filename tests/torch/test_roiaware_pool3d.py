@@ -11,9 +11,6 @@ import mx_driving
 import mx_driving.detection
 
 
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
-
-
 class TestRoIAwarePool3dGrad(TestCase):
     @golden_data_cache(__file__)
     def roiaware_pool3d_cpu(self, rois, pts, pts_feature, out, max_pts_per_voxel, pool_method, dtype):
