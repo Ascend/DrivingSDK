@@ -41,7 +41,7 @@ repos:
             "-L",
             "CANN,cann,NNAL,nnal,ASCEND,ascend,EnQue,CopyIn,ArchType,AND,ND,tbe,copyin,alog",
             "--skip",
-            "*.py,*.cpp,*.hpp,*.c,*.h",
+            "*.toml,*.py,*.cpp,*.hpp,*.c,*.h",
           ]
 
   # pylint：指定 pre-commit/pyproject.toml
@@ -80,8 +80,6 @@ repos:
       - id: clang-format
         files: \.(c|h|cpp|hpp|cc|hh|cxx|hxx)$
         args:
-          - "--style={BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 120, BreakBeforeBraces: Allman}"
+          - "--style=file"  # 读取 .clang-format 文件
           - "--verbose"
           - "-i"
-        exclude: ^build/|tests/third_party/
-
