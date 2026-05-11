@@ -72,9 +72,9 @@
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
+1. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
-1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件，并安装其它依赖项。
+2. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件，并安装其它依赖项。
 
     ```shell
     cd DrivingSDK/model_examples/GameFormer
@@ -85,7 +85,7 @@
     pip install -r requirements.txt
     ```
 
-2. 安装waymo-open-dataset库：
+3. 安装waymo-open-dataset库：
 
     对于x86架构Linux系统：
 
@@ -100,7 +100,7 @@
     pip install waymo_open_dataset_tf_2.11.0-1.5.0-py3-none-any.whl
     ```
 
-3. 拉取GameFormer模型代码仓库：
+4. 拉取GameFormer模型代码仓库：
 
     ```shell
     git clone https://github.com/MCZhi/GameFormer.git
@@ -110,7 +110,7 @@
     cd ..
     ```
 
-4. 根据操作系统，安装tcmalloc动态库。
+5. 根据操作系统，安装tcmalloc动态库。
     - OpenEuler系统
 
     在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
@@ -235,9 +235,9 @@
 
 # FAQ
 
-1. Openexr包编译安装失败？
+1. OpenEXR包编译安装失败？
 
-在某些操作系统里，可能由于缺少依赖库的原因，pip install openexr执行失败，解决方案是升级gcc、g++、cmake版本，并且安装OpenEXR和OpenEXR-devel库。EulerOS/CentOS系统，执行以下命令：
+    在某些操作系统里，可能由于缺少依赖库的原因，pip install openexr执行失败，解决方案是升级gcc、g++、cmake版本，并且安装OpenEXR和OpenEXR-devel库。EulerOS/CentOS系统，执行以下命令：
 
     ```shell
     sudo yum makecache
@@ -254,7 +254,9 @@
     sudo apt install cmake
     sudo apt install openexr libopenexr-dev
     ```
+
     此外，如果在编译过程中遇到git网络问题，可以尝试以下命令：
+
     ```shell
     git config --global http.sslVerify false
     git config --global https.sslVerify false
@@ -263,14 +265,14 @@
 
 2. libc.so.6: version 'GLIBC_xxx' not found问题。
 
-这是由于操作系统的GLIBC版本过低，waymo-open-dataset库需要GLIBC的版本在2.31以上。可以通过**ldd --version**命令查看GLIBC版本，若小于2.31需升级系统的GLIBC库。
+    这是由于操作系统的GLIBC版本过低，waymo-open-dataset库需要GLIBC的版本在2.31以上。可以通过**ldd --version**命令查看GLIBC版本，若小于2.31需升级系统的GLIBC库。
 
 3. tcmalloc的动态库文件找不到问题。
 
-tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
+    tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
 
-```shell
-find /usr -name libtcmalloc.so*
-```
+    ```shell
+    find /usr -name libtcmalloc.so*
+    ```
 
-找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。
+    找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

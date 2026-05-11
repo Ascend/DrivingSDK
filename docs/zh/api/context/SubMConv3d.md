@@ -14,19 +14,19 @@ mx_driving.spconv.SubMConv3d(in_channels, out_channels, kernel_size, stride=1, p
 
 ## 功能描述
 
-稀疏卷积，只有当卷积核中心参与计算时，才会影响输出
+稀疏卷积，只有当卷积核中心参与计算时，才会影响输出。
 
 ## 参数说明
 
-- `in_channels(int)`：输入数据的通道数
-- `out_channels(int)`：输出通道数
-- `kernel_size(List(int)/Tuple(int)/int)`：卷积神经网络中卷积核的大小
-- `stride(List(int)/Tuple(int)/int)`：卷积核在输入数据上滑动时的步长
-- `dilation(List(int)/Tuple(int)/int)`：空洞卷积大小
-- `groups(int)`：分组卷积
-- `bias(bool)`：偏置项
-- `indice_key(str)`：该输入用于复用之前计算的索引信息
-- `mode(str)`：区分了`mmcv`和`spconv`两种不同框架下的稀疏卷积
+- `in_channels(int)`：输入数据的通道数。
+- `out_channels(int)`：输出通道数。
+- `kernel_size(List(int)/Tuple(int)/int)`：卷积神经网络中卷积核的大小。
+- `stride(List(int)/Tuple(int)/int)`：卷积核在输入数据上滑动时的步长。
+- `dilation(List(int)/Tuple(int)/int)`：空洞卷积大小。
+- `groups(int)`：分组卷积。
+- `bias(bool)`：偏置项。
+- `indice_key(str)`：该输入用于复用之前计算的索引信息。
+- `mode(str)`：区分了`mmcv`和`spconv`两种不同框架下的稀疏卷积。
 
 ## 返回值
 
@@ -38,10 +38,10 @@ mx_driving.spconv.SubMConv3d(in_channels, out_channels, kernel_size, stride=1, p
 
 ## 约束说明
 
-- `kernel_size`当前支持数据类型为三维List/Tuple或Int，当前值仅支持1、3
-- `stride`当前支持数据类型为三维List/Tuple或Int,当前仅支持值为1
-- `dilation`，`groups`当前仅支持值为1
-- 对于反向也是同样的约束。
+- `kernel_size`当前支持数据类型为三维List/Tuple或Int，当前值仅支持1、3。
+- `stride`当前支持数据类型为三维List/Tuple或Int,当前仅支持值为1。
+- `dilation`，`groups`当前仅支持值为1。
+- 对于反向也有同样的约束。
 
 ## 调用示例
 

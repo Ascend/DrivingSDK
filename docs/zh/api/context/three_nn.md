@@ -29,7 +29,7 @@ mx_driving.common.three_nn(Tensor target, Tensor source) -> (Tensor dist, Tensor
 ## 算子约束
 
 1. source和target的shape必须是3维，且source和target的shape的dim的第2维必须是3。
-2. 距离相同时排序为不稳定排序，存在距离精度通过但索引精度错误问题，与竞品无法完全对齐。
+2. 距离相同时，排序为不稳定排序；此时存在距离精度符合要求但索引精度错误问题，导致与竞品无法完全对齐。
 3. 性能在N值较大的场景下较优。
 
 ## 支持的型号

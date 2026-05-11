@@ -58,11 +58,11 @@ tcmalloc（即Thread-Caching Malloc）是一个通用的内存分配器，通过
 
 通过使用融合算子可以减少小算子下发，提升模型性能。
 首先可以替换融合优化器，详细可参考：<https://www.hiascend.com/document/detail/zh/Pytorch/700/ptmoddevg/trainingmigrguide/performance_tuning_0036.html>
-自驾模型通常用adamw优化器，替换如下：
+自驾模型通常用AdamW优化器，替换如下：
 
 | 优化器  |  样例源码 |  修改后代码 | 
 |--------------|-------|----------|
-| adamw | optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr) | optimizer = torch_npu.optim.NpuFusedAdamW(model.parameters(), lr=args.lr) |
+| AdamW | optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr) | optimizer = torch_npu.optim.NpuFusedAdamW(model.parameters(), lr=args.lr) |
 
 进一步可替换计算融合算子，DrivingSDK仓高性能算子介绍可参考：<https://gitcode.com/Ascend/DrivingSDK/blob/master/docs/zh/api/README.md>
 常用融合算子举例：

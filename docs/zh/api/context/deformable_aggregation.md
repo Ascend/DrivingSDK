@@ -21,7 +21,7 @@ mx_driving.npu_deformable_aggregation(Tensor feature_maps, Tensor spatial_shape,
 
 - `feature_maps(Tensor)`：特征张量，数据类型为`float32`。shape为`[bs, num_feat, c]`。其中`bs`为batch size，`num_feat`为特征图的大小，`c`为特征图的维度。
 - `spatial_shape(Tensor)`：特征图的形状，数据类型为`int32`。shape为`[cam, scale, 2]`。其中`cam`为相机数量，其中`scale`为每个相机的特征图数量，`2`分别代表H, W。
-- `scale_start_index(Tensor)`：每个特征图的偏移位置张量，数据类型为`int32`。shape为`[cam, scale]`，其中`cam`为相机数量，其中`scale`每个相机的特征图数量。
+- `scale_start_index(Tensor)`：每个特征图的偏移位置张量，数据类型为`int32`。shape为`[cam, scale]`，其中`cam`为相机数量，其中`scale`为每个相机的特征图数量。
 - `sample_locations(Tensor)`：位置张量，数据类型为`float32`。shape为`[bs, anchor, pts, cam, 2]`。其中`bs`为batch size，`anchor`为锚点数量，`pts`为采样点的数量，`cam`为相机的数量，`2`分别代表y, x。
 - `weight(Tensor)`：权重张量，数据类型为`float32`。shape为`[bs, anchor, pts, cam, scale, group]`。其中`bs`为batch size，`anchor`为锚点数量，`pts`为采样点的数量，`cam`为相机的数量，`scale`每个相机的特征图数量，`group`为分组数。
 

@@ -1,14 +1,13 @@
 # DrivingSDK常见部署问题FAQ
 
-1. Q: fatal error: proto/onnx/ge_onnx.pb.h: No such file or directory
-A:如果你不需要使用`onnx`进行推理，请在`CMakePresets.json`中关闭`ENABLE_ONNX`选项，将`True`改为`False`。
-如果需要`onnx`可尝试执行`bash ci/docker/ARM/build_protobuf.sh`安装`protobuf`。
-2. Q: third_party/acl/inc/acl/acl_base.h: No such file or directory
-A: 你可能没有成功安装torch_npu，重新安装即可。
-3. Q: undefind symbol: _ZN2at4_ops4view4callERKNS_6TensorEN3c108ArrayRefIlEE
-A: torch 与torch_npu的版本可能不配套。
-4. Q: opbuild ops error: Invalid socVersion ascend910_93 of xxx
-A: 更换最新的Ascend-cann-toolkit套件
+1. Q：fatal error: proto/onnx/ge_onnx.pb.h: No such file or directory<br>
+A：如果你不需要使用`onnx`进行推理，请在`CMakePresets.json`中关闭`ENABLE_ONNX`选项，将`True`改为`False`。如果需要`onnx`可尝试执行`bash ci/docker/ARM/build_protobuf.sh`安装`protobuf`。
+2. Q：third_party/acl/inc/acl/acl_base.h: No such file or directory<br>
+A：你可能没有成功安装torch_npu，重新安装即可。
+3. Q：undefind symbol: _ZN2at4_ops4view4callERKNS_6TensorEN3c108ArrayRefIlEE<br>
+A：torch 与torch_npu的版本可能不配套。
+4. Q：opbuild ops error: Invalid socVersion ascend910_93 of xxx<br>
+A：更换最新的Ascend-cann-toolkit套件
 
 # DrivingSDK常见模型问题FAQ
 
@@ -36,11 +35,11 @@ A: 更换最新的Ascend-cann-toolkit套件
         <td align="center">报错关键字及解决方法</td>
     </tr>
     <tr>
-        <td rowspan="1", align="center">编译错误</td>
+        <td rowspan="1" align="center">编译错误</td>
         <td align="center"><a href="#1-1">ModuleNotFoundError: No module named 'torch'</a></td>
     </tr>
     <tr>
-        <td rowspan="3", align="center">数据集错误</td>
+        <td rowspan="3" align="center">数据集错误</td>
         <td align="center"><a href="#2-1">训练时报错无pkl格式文件</a></td>
     </tr>
     <tr>
@@ -50,7 +49,7 @@ A: 更换最新的Ascend-cann-toolkit套件
         <td align="center"><a href="#2-3">训练或验证过程中突然报错缺少数据集文件</a></td>
     </tr>
     <tr>
-        <td rowspan="12", align="center">组件及依赖错误</td>
+        <td rowspan="12" align="center">组件及依赖错误</td>
         <td align="center"><a href="#3-1">yapf组件报错：`EOFError: Ran out of input`</a></td>
     </tr>
     <tr>
@@ -87,14 +86,14 @@ A: 更换最新的Ascend-cann-toolkit套件
         <td align="center"><a href="#3-15">模型训练过程中，`numpy`组件报无属性、无函数或其他类似错误</a></td>
     </tr>
     <tr>
-        <td rowspan="2", align="center">训练错误</td>
+        <td rowspan="2" align="center">训练错误</td>
         <td align="center"><a href="#4-1">`AttributeError: 'int' object has no attribute 'type'`</a></td>
     </tr>
     <tr>
         <td align="center"><a href="#4-4">模型训练过程偶现`AssertionError`，导致模型训练中断</a></td>
     </tr>
     <tr>
-        <td rowspan="3", align="center">环境变量及依赖错误</td>
+        <td rowspan="3" align="center">环境变量及依赖错误</td>
         <td align="center"><a href="#5-1">模型训练过程报错：`ImportError:/usr/local/gcc-7.5.0/lib64/libgomp.so.1:cannot allocate memory in static TLS block`</a></td>
     </tr>
     <tr>
@@ -104,14 +103,14 @@ A: 更换最新的Ascend-cann-toolkit套件
         <td align="center"><a href="#5-3">模型训练过程报错：`ImportError: {conda_env_path}/site-packages/sklearn/__check_build/../../scikit_learn.libs/libgomp-d22c30c5.so.1.0.0`</a></td>
     </tr>
     <tr>
-        <td rowspan="2", align="center">LTO及PGO编译优化错误</td>
+        <td rowspan="2" align="center">LTO及PGO编译优化错误</td>
         <td align="center"><a href="#6-1">为什么要使用编译优化</a></td>
     </tr>
     <tr>
         <td align="center"><a href="#6-2">编译优化`torch_npu`时，报错`undefind symbol`</a></td>
     </tr>
     <tr>
-        <td rowspan="3", align="center">其他错误及问题</td>
+        <td rowspan="3" align="center">其他错误及问题</td>
         <td align="center"><a href="#7-1">模型所需的预训练权重文件因网络问题下载失败</a></td>
     </tr>
     <tr>
@@ -120,7 +119,6 @@ A: 更换最新的Ascend-cann-toolkit套件
     <tr>
         <td align="center"><a href="#7-3">可以使用同一套环境管理所有模型吗？</a></td>
     </tr>
-    
 </table>
 
 ## 模型特定问题速查
@@ -131,14 +129,14 @@ A: 更换最新的Ascend-cann-toolkit套件
         <td align="center">报错关键字及解决方法</td>
     </tr>
     <tr>
-        <td rowspan="2", align="center">CenterPoint</td>
+        <td rowspan="2" align="center">CenterPoint</td>
         <td align="center"><a href="#1-2">'cumm'编译过程报ccimport错误</a></td>
     </tr>
     <tr>
         <td align="center"><a href="#1-3">源码编译`OpenPCDet`解决方法</a></td>
     </tr>
     <tr>
-        <td rowspan="2", align="center">PointPillar</td>
+        <td rowspan="2" align="center">PointPillar</td>
         <td align="center"><a href="#1-2">'cumm'编译过程报ccimport错误</a></td>
     </tr>
     <tr>
@@ -153,7 +151,7 @@ A: 更换最新的Ascend-cann-toolkit套件
         <td align="center"><a href="#3-8">安装`Openexr`过程失败</a></td>
     </tr>
     <tr>
-        <td rowspan="2", align="center">HiVT</td>
+        <td rowspan="2" align="center">HiVT</td>
         <td align="center"><a href="#3-10">安装`omegaconf==2.1.0`组件报错：`ERROR: Could not find a version that satisfies the requirement`</a></td>
     </tr>
     <tr>

@@ -126,10 +126,13 @@ python -c "import cumm"
 
 4. 将spconv/spconv/pytorch/ops.py文件第32行代码进行调整
     将代码
+
     ```python
     if hasattr(_ext, "cumm"):
     ```
+
     调整为
+    
     ```python 
     if 0:
     ```
@@ -432,7 +435,7 @@ python setup.py develop
     ```
 
 3. 运行训练脚本。
-   该模型支持单机单机8卡训练
+   该模型支持单机8卡训练
 
    ```shell
    cd tools/test
