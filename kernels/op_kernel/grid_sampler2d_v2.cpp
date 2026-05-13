@@ -11,7 +11,7 @@ constexpr int32_t BUFFER_NUM = 2;
 constexpr int32_t GRID_CHANNEL = 2;
 constexpr int32_t COMPARE_ALIGN_BYTE = 256;
 
-enum PaddingMode {
+enum GridSamplerPaddingMode {
     ZEROS,
     BORDER,
     REFLECTION
@@ -408,9 +408,9 @@ __aicore__ inline void GridSampler2dV2Kernel::SafeDowngradeToIntRange(const Loca
 __aicore__ inline void GridSampler2dV2Kernel::ComputeSourceIndex(const LocalTensor<float>& coord, const int32_t size)
 {
     UnnormalizeCoord(coord, size);
-    if (paddingMode_ == PaddingMode::BORDER) {
+    if (paddingMode_ == GridSamplerPaddingMode::BORDER) {
         ClipCoord(coord, size);
-    } else if (paddingMode_ == PaddingMode::REFLECTION) {
+    } else if (paddingMode_ == GridSamplerPaddingMode::REFLECTION) {
         int32_t twiceLow = alignCorners_ ? 0 : -1;
         int32_t twiceHigh = alignCorners_ ? (2 * (size - 1)) : (2 * size - 1);
         ReflectCoord(coord, twiceLow, twiceHigh);
