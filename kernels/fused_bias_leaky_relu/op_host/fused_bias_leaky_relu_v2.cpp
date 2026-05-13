@@ -24,9 +24,7 @@ constexpr uint32_t SIZE_OF_DATA = 4;
 constexpr uint32_t BLOCK_SIZE = 32 * 1024;
 constexpr int32_t SINGLE_BLOCK = BLOCK_SIZE / SIZE_OF_DATA;
 
-
-static ge::graphStatus TilingForFusedBiasLeakyReluV2(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForFusedBiasLeakyReluV2(gert::TilingContext *context) {
     FusedBiasLeakyReluV2TilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -88,15 +86,13 @@ static ge::graphStatus TilingForFusedBiasLeakyReluV2(gert::TilingContext* contex
 }
 }
 
-
 namespace ge {
-static ge::graphStatus InferShapeForFusedBiasLeakyReluV2(gert::InferShapeContext* context)
-{
-    const gert::Shape* xShape = context->GetInputShape(0);
+static ge::graphStatus InferShapeForFusedBiasLeakyReluV2(gert::InferShapeContext *context) {
+    const gert::Shape *xShape = context->GetInputShape(0);
     if (xShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* outShape = context->GetOutputShape(0);
+    gert::Shape *outShape = context->GetOutputShape(0);
     if (outShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -104,44 +100,45 @@ static ge::graphStatus InferShapeForFusedBiasLeakyReluV2(gert::InferShapeContext
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForFusedBiasLeakyReluV2(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForFusedBiasLeakyReluV2(gert::InferDataTypeContext *context) {
     const ge::DataType value_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, value_dtype);
     return GRAPH_SUCCESS;
 }
 }
 
-
 namespace ops {
 class FusedBiasLeakyReluV2 : public OpDef {
-public:
-    explicit FusedBiasLeakyReluV2(const char* name) : OpDef(name)
-    {
-    this->Input("x")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
-        .Format({ge::FORMAT_ND, ge::FORMAT_ND})
-        .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
-    this->Input("bias")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
-        .Format({ge::FORMAT_ND, ge::FORMAT_ND})
-        .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
-    this->Output("output")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
-        .Format({ge::FORMAT_ND, ge::FORMAT_ND})
-        .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
-    this->Attr("negative_slope").Float();
-    this->Attr("scale").Float();
+  public:
+    explicit FusedBiasLeakyReluV2(const char *name) : OpDef(name) {
+        this->Input("x")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("bias")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Output("output")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Attr("negative_slope").Float();
+        this->Attr("scale").Float();
 
-    this->SetInferShape(ge::InferShapeForFusedBiasLeakyReluV2)
-        .SetInferDataType(ge::InferDataTypeForFusedBiasLeakyReluV2);;
+        this->SetInferShape(ge::InferShapeForFusedBiasLeakyReluV2)
+            .SetInferDataType(ge::InferDataTypeForFusedBiasLeakyReluV2);
+        ;
 
-    this->AICore().SetTiling(optiling::TilingForFusedBiasLeakyReluV2);
-    this->AICore().AddConfig("ascend910b");
-    this->AICore().AddConfig("ascend910_93");
+        this->AICore().SetTiling(optiling::TilingForFusedBiasLeakyReluV2);
+        this->AICore().AddConfig("ascend910b");
+        this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 OP_ADD(FusedBiasLeakyReluV2);

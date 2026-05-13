@@ -17,7 +17,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/scatter_max.md">scatter_max</a></td>
@@ -38,14 +38,14 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/three_nn.md">three_nn</a></td>
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/scatter_mean.md">scatter_mean</a></td>
@@ -59,28 +59,28 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/furthest_point_sampling.md">furthest_point_sampling</a></td>
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/furthest_point_sample_with_dist.md">furthest_point_sample_with_dist</a></td>
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/group_points.md">group_points</a></td>
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/unique_voxel.md">unique_voxel</a></td>
@@ -115,7 +115,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/sigmoid_focal_loss.md">sigmoid_focal_loss</a></td>
@@ -165,7 +165,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/bev_pool_v1.md">bev_pool_v1</a></td>
@@ -200,14 +200,14 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/pixel_group.md">pixel_group</a></td>
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/grid_sampler2d_v2.md">grid_sampler2d_v2</a></td>
@@ -321,7 +321,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td rowspan="3">稀疏</td>
@@ -421,7 +421,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/npu_batch_matmul.md">npu_batch_matmul</a></td>
@@ -442,7 +442,7 @@ Driving SDK 提供下列高性能API，列表中Released标注为空的代表使
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
 </table>
 

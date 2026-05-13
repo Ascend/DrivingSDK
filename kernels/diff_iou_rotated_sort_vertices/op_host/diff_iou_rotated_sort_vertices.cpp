@@ -11,11 +11,10 @@ constexpr uint32_t NUM_BOXES_IDX = 1;
 constexpr uint32_t OUTPUT_VERTICES_COUNT = 9;
 constexpr uint32_t NUM_VALID_IDX = 2;
 constexpr uint32_t SINGLE_LOOP_TASK = 64;
-}   // some const express
+} // some const express
 
 namespace optiling {
-static ge::graphStatus TilingForDiffIouRotatedSortVertices(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForDiffIouRotatedSortVertices(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -41,10 +40,10 @@ static ge::graphStatus TilingForDiffIouRotatedSortVertices(gert::TilingContext* 
     auto verticesShape = context->GetInputShape(VERTICES_IDX)->GetStorageShape();
     uint32_t batchSize = verticesShape.GetDim(BATCH_SIZE_IDX);
     uint32_t numBoxes = verticesShape.GetDim(NUM_BOXES_IDX);
-    
+
     uint32_t totalTask = batchSize * numBoxes;
     uint32_t coreTask = (totalTask + aivNum - 1) / aivNum;
-    uint32_t bigCoreCount = totalTask % aivNum == 0? aivNum : totalTask % aivNum;
+    uint32_t bigCoreCount = totalTask % aivNum == 0 ? aivNum : totalTask % aivNum;
     uint32_t singleLoopTaskCount = SINGLE_LOOP_TASK;
 
     DiffIouRotatedSortVerticesTilingData tilingData;
@@ -67,10 +66,9 @@ static ge::graphStatus TilingForDiffIouRotatedSortVertices(gert::TilingContext* 
 }
 
 namespace ge {
-static ge::graphStatus InferShapeForDiffIouRotatedSortVertices(gert::InferShapeContext* context)
-{
-    const gert::Shape* vertices = context->GetInputShape(VERTICES_IDX);
-    gert::Shape* sortedIdx = context->GetOutputShape(OUTPUT_IDX);
+static ge::graphStatus InferShapeForDiffIouRotatedSortVertices(gert::InferShapeContext *context) {
+    const gert::Shape *vertices = context->GetInputShape(VERTICES_IDX);
+    gert::Shape *sortedIdx = context->GetOutputShape(OUTPUT_IDX);
     if (vertices == nullptr || sortedIdx == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -81,8 +79,7 @@ static ge::graphStatus InferShapeForDiffIouRotatedSortVertices(gert::InferShapeC
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForDiffIouRotatedSortVertices(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForDiffIouRotatedSortVertices(gert::InferDataTypeContext *context) {
     const ge::DataType num_valid_dtype = context->GetInputDataType(NUM_VALID_IDX);
     context->SetOutputDataType(OUTPUT_IDX, num_valid_dtype);
     return GRAPH_SUCCESS;
@@ -91,9 +88,8 @@ static ge::graphStatus InferDataTypeForDiffIouRotatedSortVertices(gert::InferDat
 
 namespace ops {
 class DiffIouRotatedSortVertices : public OpDef {
-public:
-    explicit DiffIouRotatedSortVertices(const char* name) : OpDef(name)
-    {
+  public:
+    explicit DiffIouRotatedSortVertices(const char *name) : OpDef(name) {
         this->Input("vertices")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -114,17 +110,21 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND})
             .AutoContiguous();
-        
+
         this->Output("sortedIdx")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShapeForDiffIouRotatedSortVertices).SetInferDataType(ge::InferDataTypeForDiffIouRotatedSortVertices);
+        this->SetInferShape(ge::InferShapeForDiffIouRotatedSortVertices)
+            .SetInferDataType(ge::InferDataTypeForDiffIouRotatedSortVertices);
         this->AICore().SetTiling(optiling::TilingForDiffIouRotatedSortVertices);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

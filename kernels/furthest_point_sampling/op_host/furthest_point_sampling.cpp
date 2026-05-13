@@ -46,28 +46,25 @@ struct ub_memory_tag {
 };
 
 /****************function definition*****************/
-template<typename T>
-inline T getSmallestMulVal(T data, T multiple)
-{
+template <typename T> inline T getSmallestMulVal(T data, T multiple) {
     if (multiple == 0) {
         return 0;
     }
     return ((data + multiple - 1) / multiple);
 }
 
-template<typename T>
-inline T getSmallestMul(T data, T multiple)
-{
+template <typename T> inline T getSmallestMul(T data, T multiple) {
     return (getSmallestMulVal(data, multiple) * multiple);
 }
 
 /****************class definition*****************/
 class FurthestPointSamplingTiling {
-public:
-    explicit FurthestPointSamplingTiling(gert::TilingContext* context) : TilingContext(context) {};
+  public:
+    explicit FurthestPointSamplingTiling(gert::TilingContext *context) : TilingContext(context) {};
     ge::graphStatus Init();
     ge::graphStatus RunKernelTiling();
-private:
+
+  private:
     inline void SetTilingKeyMode(ge::DataType dType);
     inline uint64_t UbBlocksDataSpace(uint64_t data_num);
     inline uint64_t UbBlocksWorkSpace(uint64_t data_num);
@@ -75,9 +72,10 @@ private:
     inline uint64_t FindMaxDataBlock();
     // in Kernel, we use ReduceMax requiring us to calc size of worklocal
     inline uint32_t calcWorkLocalSize(uint32_t max_repeat_times);
-private:
+
+  private:
     FurthestPointSamplingTilingData TilingData;
-    gert::TilingContext* TilingContext = nullptr;
+    gert::TilingContext *TilingContext = nullptr;
 
     uint32_t coreNum;
 
@@ -101,11 +99,10 @@ private:
 };
 
 /****************class impl*****************/
-ge::graphStatus FurthestPointSamplingTiling::Init()
-{
+ge::graphStatus FurthestPointSamplingTiling::Init() {
     const gert::StorageShape *point_xyz_shape = TilingContext->GetInputShape(0);
-    const gert::RuntimeAttrs *attrs           = TilingContext->GetAttrs();
-    uint64_t                  max_data_num;
+    const gert::RuntimeAttrs *attrs = TilingContext->GetAttrs();
+    uint64_t max_data_num;
 
     auto platformInfoPtr = TilingContext->GetPlatformInfo();
     if ((platformInfoPtr == nullptr) || (point_xyz_shape == nullptr) || (attrs == nullptr)) {
@@ -137,8 +134,8 @@ ge::graphStatus FurthestPointSamplingTiling::Init()
     if (point_xyz_shape->GetStorageShape().GetDimNum() != optiling::POINTSDIMSNUM) {
         return ge::GRAPH_FAILED;
     }
-    this->batch     = point_xyz_shape->GetStorageShape().GetDim(0);
-    this->N         = point_xyz_shape->GetStorageShape().GetDim(2);
+    this->batch = point_xyz_shape->GetStorageShape().GetDim(0);
+    this->N = point_xyz_shape->GetStorageShape().GetDim(2);
     this->numPoints = *(attrs->GetAttrPointer<uint32_t>(0));
 
     // get the capability on UB
@@ -150,28 +147,28 @@ ge::graphStatus FurthestPointSamplingTiling::Init()
     UbBlocksSpace(max_data_num);
 
     // Tiling Args calc
-    this->bigCoreBatch   = getSmallestMulVal<uint32_t>(this->batch, this->coreNum);
+    this->bigCoreBatch = getSmallestMulVal<uint32_t>(this->batch, this->coreNum);
     this->smallCoreBatch = this->batch / this->coreNum;
     if (this->bigCoreBatch == this->smallCoreBatch) {
         this->bigCoreNum = this->coreNum;
     } else if ((this->bigCoreBatch == 1) && (this->smallCoreBatch == 0)) {
         this->bigCoreNum = this->batch;
     } else {
-        this->bigCoreNum = (this->batch - (this->smallCoreBatch * this->coreNum)) /
-            (this->bigCoreBatch - this->smallCoreBatch);
+        this->bigCoreNum =
+            (this->batch - (this->smallCoreBatch * this->coreNum)) / (this->bigCoreBatch - this->smallCoreBatch);
     }
 
     this->formerNum = ((this->repeats * 256) / this->point_dtype_size);
-    this->tailNum   = this->N - this->formerNum * (this->pieces - 1);
+    this->tailNum = this->N - this->formerNum * (this->pieces - 1);
 
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus FurthestPointSamplingTiling::RunKernelTiling()
-{
+ge::graphStatus FurthestPointSamplingTiling::RunKernelTiling() {
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(TilingContext->GetPlatformInfo());
     uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
-    size_t userWorkSpaceSize = this->batch * this->N * this->point_dtype_size; // NearestDist needs a space to be moved out
+    size_t userWorkSpaceSize =
+        this->batch * this->N * this->point_dtype_size; // NearestDist needs a space to be moved out
     size_t *currentWorkSpace = TilingContext->GetWorkspaceSizes(1);
     if (currentWorkSpace == nullptr) {
         return ge::GRAPH_FAILED;
@@ -200,26 +197,28 @@ ge::graphStatus FurthestPointSamplingTiling::RunKernelTiling()
         return ge::GRAPH_FAILED;
     }
 
-    TilingData.SaveToBuffer(TilingContext->GetRawTilingData()->GetData(), TilingContext->GetRawTilingData()->GetCapacity());
+    TilingData.SaveToBuffer(
+        TilingContext->GetRawTilingData()->GetData(), TilingContext->GetRawTilingData()->GetCapacity());
     TilingContext->GetRawTilingData()->SetDataSize(TilingData.GetDataSize());
 
     return ge::GRAPH_SUCCESS;
 }
 
-inline uint32_t FurthestPointSamplingTiling::calcWorkLocalSize(uint32_t max_repeat_times)
-{
-    uint32_t elemPerBlock     = 32 / this->point_dtype_size; // num of data one block can store
-    uint32_t elemPerRepeat    = 256 / this->point_dtype_size; // num of data one repeat can deal
-    
+inline uint32_t FurthestPointSamplingTiling::calcWorkLocalSize(uint32_t max_repeat_times) {
+    uint32_t elemPerBlock = 32 / this->point_dtype_size; // num of data one block can store
+    uint32_t elemPerRepeat = 256 / this->point_dtype_size; // num of data one repeat can deal
+
     uint32_t iter1OutputCount = max_repeat_times * 2; // num of temp data in 1st stage
-    uint32_t iter2AlignStart  = getSmallestMul<uint32_t>(iter1OutputCount, elemPerBlock); // align with 32 bytes
-    uint32_t iter2OutputCount = getSmallestMulVal<uint32_t>(iter1OutputCount, elemPerRepeat) * 2; // num of temp data in 2nd stage
-    uint32_t iter3AlignStart  = getSmallestMul<uint32_t>(iter2OutputCount, elemPerBlock); // align with 32 bytes
-    uint32_t iter3OutputCount = getSmallestMulVal<uint32_t>(iter1OutputCount, elemPerRepeat) * 2; // num of temp data in 3rd stage
-    uint32_t iter3AlignEnd    = getSmallestMul<uint32_t>(iter2OutputCount, elemPerBlock); // align with 32 bytes
+    uint32_t iter2AlignStart = getSmallestMul<uint32_t>(iter1OutputCount, elemPerBlock); // align with 32 bytes
+    uint32_t iter2OutputCount =
+        getSmallestMulVal<uint32_t>(iter1OutputCount, elemPerRepeat) * 2; // num of temp data in 2nd stage
+    uint32_t iter3AlignStart = getSmallestMul<uint32_t>(iter2OutputCount, elemPerBlock); // align with 32 bytes
+    uint32_t iter3OutputCount =
+        getSmallestMulVal<uint32_t>(iter1OutputCount, elemPerRepeat) * 2; // num of temp data in 3rd stage
+    uint32_t iter3AlignEnd = getSmallestMul<uint32_t>(iter2OutputCount, elemPerBlock); // align with 32 bytes
 
     uint32_t finalWorkLocalNeedSize = iter2AlignStart + iter3AlignStart + iter3AlignEnd;
-    uint32_t totalBytes             = finalWorkLocalNeedSize * this->point_dtype_size;
+    uint32_t totalBytes = finalWorkLocalNeedSize * this->point_dtype_size;
 
     if (totalBytes % 32 != 0) {
         return ge::GRAPH_FAILED;
@@ -227,8 +226,7 @@ inline uint32_t FurthestPointSamplingTiling::calcWorkLocalSize(uint32_t max_repe
     return totalBytes;
 }
 
-inline uint64_t FurthestPointSamplingTiling::FindMaxDataBlock()
-{
+inline uint64_t FurthestPointSamplingTiling::FindMaxDataBlock() {
     // divide & conquer ==> find the capability, if bigger than N, split then cal
     uint64_t M = this->ub_memory.ub_size - this->ub_memory.ub_reserve;
     uint64_t low = 1; // at least there exits one data in UB
@@ -248,40 +246,37 @@ inline uint64_t FurthestPointSamplingTiling::FindMaxDataBlock()
     return max_data_num;
 }
 
-inline void FurthestPointSamplingTiling::SetTilingKeyMode(ge::DataType dType)
-{
+inline void FurthestPointSamplingTiling::SetTilingKeyMode(ge::DataType dType) {
     switch (dType) {
-        case ge::DT_FLOAT:
-            TilingContext->SetTilingKey(FP32_MODE);
-            this->point_dtype_size = SIZE_4; // 4: float32, 4 bytes
-            this->needPointTemp = 0;
-            break;
-        case ge::DT_FLOAT16:
-            TilingContext->SetTilingKey(FP16_MODE);
-            this->point_dtype_size = SIZE_2;
-            this->needPointTemp = 0;
-            break;
-        case ge::DT_BF16:
-            TilingContext->SetTilingKey(BF16_MODE);
-            this->point_dtype_size = SIZE_4; // bf need cast float, 4 bytes
-            this->needPointTemp = 1;
-            break;
-        default:
-            TilingContext->SetTilingKey(FP32_MODE);
-            this->point_dtype_size = SIZE_4; // 4: float32, 4 bytes
-            this->needPointTemp = 0;
-            break;
+    case ge::DT_FLOAT:
+        TilingContext->SetTilingKey(FP32_MODE);
+        this->point_dtype_size = SIZE_4; // 4: float32, 4 bytes
+        this->needPointTemp = 0;
+        break;
+    case ge::DT_FLOAT16:
+        TilingContext->SetTilingKey(FP16_MODE);
+        this->point_dtype_size = SIZE_2;
+        this->needPointTemp = 0;
+        break;
+    case ge::DT_BF16:
+        TilingContext->SetTilingKey(BF16_MODE);
+        this->point_dtype_size = SIZE_4; // bf need cast float, 4 bytes
+        this->needPointTemp = 1;
+        break;
+    default:
+        TilingContext->SetTilingKey(FP32_MODE);
+        this->point_dtype_size = SIZE_4; // 4: float32, 4 bytes
+        this->needPointTemp = 0;
+        break;
     }
 }
 
-inline uint64_t FurthestPointSamplingTiling::UbBlocksDataSpace(uint64_t data_num)
-{
+inline uint64_t FurthestPointSamplingTiling::UbBlocksDataSpace(uint64_t data_num) {
     // data type is the same among the first 5 blocks, the num is data_num, aligned with 256 bytes
     return getSmallestMul<uint64_t>(this->point_dtype_size * data_num, 256);
 }
 
-inline uint64_t FurthestPointSamplingTiling::UbBlocksWorkSpace(uint64_t data_num)
-{
+inline uint64_t FurthestPointSamplingTiling::UbBlocksWorkSpace(uint64_t data_num) {
     uint64_t singleBlockRepeats = getSmallestMulVal<uint64_t>(this->point_dtype_size * data_num, 256);
     uint64_t totalRepeats = getSmallestMulVal<uint64_t>(this->point_dtype_size * this->N, 256);
 
@@ -290,10 +285,9 @@ inline uint64_t FurthestPointSamplingTiling::UbBlocksWorkSpace(uint64_t data_num
     return (uint64_t)calcWorkLocalSize(this->repeats);
 }
 
-inline uint64_t FurthestPointSamplingTiling::UbBlocksSpace(uint64_t data_num)
-{
-    uint64_t dataSpace   = UbBlocksDataSpace(data_num);
-    uint64_t workSpace   = UbBlocksWorkSpace(data_num);
+inline uint64_t FurthestPointSamplingTiling::UbBlocksSpace(uint64_t data_num) {
+    uint64_t dataSpace = UbBlocksDataSpace(data_num);
+    uint64_t workSpace = UbBlocksWorkSpace(data_num);
 
     this->workSize = workSpace;
     this->idxTempSize = getSmallestMul<uint32_t>(this->pieces * 2 * this->point_dtype_size, 32);
@@ -302,8 +296,7 @@ inline uint64_t FurthestPointSamplingTiling::UbBlocksSpace(uint64_t data_num)
 }
 
 /****************main body*****************/
-static ge::graphStatus TilingFurthestPointSampling(gert::TilingContext* context)
-{
+static ge::graphStatus TilingFurthestPointSampling(gert::TilingContext *context) {
     FurthestPointSamplingTiling tilingObject(context);
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -315,11 +308,10 @@ static ge::graphStatus TilingFurthestPointSampling(gert::TilingContext* context)
 }
 
 namespace ge {
-static ge::graphStatus InfershapeForFurthestPointSampling(gert::InferShapeContext *context)
-{
-    const gert::Shape        *point_xyz_shape = context->GetInputShape(0);
-    const gert::RuntimeAttrs *attrs           = context->GetAttrs();
-    gert::Shape              *index_shape     = context->GetOutputShape(0);
+static ge::graphStatus InfershapeForFurthestPointSampling(gert::InferShapeContext *context) {
+    const gert::Shape *point_xyz_shape = context->GetInputShape(0);
+    const gert::RuntimeAttrs *attrs = context->GetAttrs();
+    gert::Shape *index_shape = context->GetOutputShape(0);
     if ((point_xyz_shape == nullptr) || (attrs == nullptr) || (index_shape == nullptr)) {
         return ge::GRAPH_FAILED;
     }
@@ -330,8 +322,8 @@ static ge::graphStatus InfershapeForFurthestPointSampling(gert::InferShapeContex
     if (point_xyz_shape->GetDimNum() != optiling::POINTSDIMSNUM) {
         return ge::GRAPH_FAILED;
     }
-    uint32_t batch      = point_xyz_shape->GetDim(0);
-    uint32_t N          = point_xyz_shape->GetDim(2);
+    uint32_t batch = point_xyz_shape->GetDim(0);
+    uint32_t N = point_xyz_shape->GetDim(2);
     uint32_t num_points = *(attrs->GetAttrPointer<int32_t>(0));
 
     index_shape->SetDimNum(2);
@@ -341,8 +333,7 @@ static ge::graphStatus InfershapeForFurthestPointSampling(gert::InferShapeContex
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForFurthestPointSampling(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDataTypeForFurthestPointSampling(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_INT32);
     return GRAPH_SUCCESS;
 }
@@ -350,9 +341,8 @@ static ge::graphStatus InferDataTypeForFurthestPointSampling(gert::InferDataType
 
 namespace ops {
 class FurthestPointSampling : public OpDef {
-public:
-    explicit FurthestPointSampling(const char* name) : OpDef(name)
-    {
+  public:
+    explicit FurthestPointSampling(const char *name) : OpDef(name) {
         this->Input("point_xyz")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
@@ -368,9 +358,7 @@ public:
             .DataType({ge::DT_INT32, ge::DT_INT32, ge::DT_INT32})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
-        this->Attr("num_points")
-            .AttrType(REQUIRED)
-            .Int();
+        this->Attr("num_points").AttrType(REQUIRED).Int();
 
         this->SetInferShape(ge::InfershapeForFurthestPointSampling)
             .SetInferDataType(ge::InferDataTypeForFurthestPointSampling);
@@ -383,6 +371,9 @@ public:
             .DynamicShapeSupportFlag(true);
         this->AICore().AddConfig("ascend910b", aicore_config);
         this->AICore().AddConfig("ascend910_93", aicore_config);
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

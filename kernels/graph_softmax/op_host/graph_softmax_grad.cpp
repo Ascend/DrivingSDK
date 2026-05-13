@@ -21,8 +21,7 @@ const float UB_RATIO = 0.8f;
 }
 
 namespace optiling {
-static ge::graphStatus TilingForGraphSoftmaxGrad(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForGraphSoftmaxGrad(gert::TilingContext *context) {
     GraphSoftmaxGradTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -32,7 +31,8 @@ static ge::graphStatus TilingForGraphSoftmaxGrad(gert::TilingContext* context)
     auto softmaxOutputTensorPtr = context->GetInputShape(SOFTMAX_OUTPUT_PTR_INDEX);
     auto gradOutputTensorPtr = context->GetInputShape(GRAD_OUTPUT_PTR_INDEX);
     auto reduceSumTensorPtr = context->GetInputShape(REDUCE_SUM_PTR_INDEX);
-    if (indexTensorPtr == nullptr || softmaxOutputTensorPtr == nullptr || gradOutputTensorPtr == nullptr || reduceSumTensorPtr == nullptr) {
+    if (indexTensorPtr == nullptr || softmaxOutputTensorPtr == nullptr || gradOutputTensorPtr == nullptr ||
+        reduceSumTensorPtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -40,7 +40,8 @@ static ge::graphStatus TilingForGraphSoftmaxGrad(gert::TilingContext* context)
     auto softmaxOutputShape = context->GetInputShape(SOFTMAX_OUTPUT_PTR_INDEX);
     auto gradOutputShape = context->GetInputShape(GRAD_OUTPUT_PTR_INDEX);
     auto reduceSumShape = context->GetInputShape(REDUCE_SUM_PTR_INDEX);
-    if (indexShape == nullptr || softmaxOutputShape == nullptr || gradOutputShape == nullptr || reduceSumShape == nullptr) {
+    if (indexShape == nullptr || softmaxOutputShape == nullptr || gradOutputShape == nullptr ||
+        reduceSumShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -103,21 +104,20 @@ static ge::graphStatus TilingForGraphSoftmaxGrad(gert::TilingContext* context)
 }
 }
 
-
 namespace ge {
-static ge::graphStatus InferShapeGraphSoftmaxGrad(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShapeGraphSoftmaxGrad(gert::InferShapeContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
-    const gert::Shape* indexShape = context->GetInputShape(INDEX_PTR_INDEX);
-    const gert::Shape* softmaxOutputShape = context->GetInputShape(SOFTMAX_OUTPUT_PTR_INDEX);
-    const gert::Shape* gradOutputShape = context->GetInputShape(GRAD_OUTPUT_PTR_INDEX);
-    const gert::Shape* reduceSumShape = context->GetInputShape(REDUCE_SUM_PTR_INDEX);
-    gert::Shape* srcGradShape = context->GetOutputShape(SRC_GRAD_PTR_INDEX);
+    const gert::Shape *indexShape = context->GetInputShape(INDEX_PTR_INDEX);
+    const gert::Shape *softmaxOutputShape = context->GetInputShape(SOFTMAX_OUTPUT_PTR_INDEX);
+    const gert::Shape *gradOutputShape = context->GetInputShape(GRAD_OUTPUT_PTR_INDEX);
+    const gert::Shape *reduceSumShape = context->GetInputShape(REDUCE_SUM_PTR_INDEX);
+    gert::Shape *srcGradShape = context->GetOutputShape(SRC_GRAD_PTR_INDEX);
 
-    if (indexShape == nullptr || softmaxOutputShape == nullptr || gradOutputShape == nullptr || reduceSumShape == nullptr) {
+    if (indexShape == nullptr || softmaxOutputShape == nullptr || gradOutputShape == nullptr ||
+        reduceSumShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -126,9 +126,7 @@ static ge::graphStatus InferShapeGraphSoftmaxGrad(gert::InferShapeContext* conte
     return GRAPH_SUCCESS;
 }
 
-
-static ge::graphStatus InferDataTypeGraphSoftmaxGrad(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeGraphSoftmaxGrad(gert::InferDataTypeContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -138,12 +136,10 @@ static ge::graphStatus InferDataTypeGraphSoftmaxGrad(gert::InferDataTypeContext*
 }
 }
 
-
 namespace ops {
 class GraphSoftmaxGrad : public OpDef {
-public:
-    explicit GraphSoftmaxGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit GraphSoftmaxGrad(const char *name) : OpDef(name) {
         this->Input("index")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
@@ -171,13 +167,14 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShapeGraphSoftmaxGrad)
-            .SetInferDataType(ge::InferDataTypeGraphSoftmaxGrad);
+        this->SetInferShape(ge::InferShapeGraphSoftmaxGrad).SetInferDataType(ge::InferDataTypeGraphSoftmaxGrad);
 
-        this->AICore()
-            .SetTiling(optiling::TilingForGraphSoftmaxGrad);
+        this->AICore().SetTiling(optiling::TilingForGraphSoftmaxGrad);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

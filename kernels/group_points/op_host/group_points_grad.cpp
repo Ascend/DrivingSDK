@@ -32,8 +32,7 @@ constexpr size_t NS_IDX = 4;
 } // namespace
 namespace optiling {
 
-static ge::graphStatus TilingForGroupPointsGrad(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForGroupPointsGrad(gert::TilingContext *context) {
     GroupPointsGradTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -112,11 +111,9 @@ static ge::graphStatus TilingForGroupPointsGrad(gert::TilingContext* context)
 }
 } // namespace optiling
 
-
 namespace ge {
-static ge::graphStatus InferShapeForGroupPointsGrad(gert::InferShapeContext* context)
-{
-    if (context->GetOutputShape(0) == nullptr|| context->GetAttrs() == nullptr) {
+static ge::graphStatus InferShapeForGroupPointsGrad(gert::InferShapeContext *context) {
+    if (context->GetOutputShape(0) == nullptr || context->GetAttrs() == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto attrs = context->GetAttrs();
@@ -131,13 +128,12 @@ static ge::graphStatus InferShapeForGroupPointsGrad(gert::InferShapeContext* con
     auto c = getAttr(C_IDX);
     auto n = getAttr(N_IDX);
 
-    gert::Shape* outShape = context->GetOutputShape(0);
+    gert::Shape *outShape = context->GetOutputShape(0);
     *outShape = {b * n, c};
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForGroupPointsGrad(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForGroupPointsGrad(gert::InferDataTypeContext *context) {
     const ge::DataType value_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, value_dtype);
     return GRAPH_SUCCESS;
@@ -145,12 +141,10 @@ static ge::graphStatus InferDataTypeForGroupPointsGrad(gert::InferDataTypeContex
 
 } // namespace ge
 
-
 namespace ops {
 class GroupPointsGrad : public OpDef {
-public:
-    explicit GroupPointsGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit GroupPointsGrad(const char *name) : OpDef(name) {
         this->Input("grad_out")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
@@ -178,6 +172,9 @@ public:
         this->AICore().SetTiling(optiling::TilingForGroupPointsGrad);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

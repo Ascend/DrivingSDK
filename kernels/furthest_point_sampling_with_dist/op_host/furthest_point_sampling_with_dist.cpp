@@ -6,8 +6,7 @@
 #include "tiling/platform/platform_ascendc.h"
 
 namespace optiling {
-static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -20,7 +19,7 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
     static uint32_t core_num = ascendcPlatform.GetCoreNumAiv();
     uint64_t UB_size;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
-    
+
     auto dist_shape_ptr = context->GetInputShape(0);
     if (dist_shape_ptr == nullptr) {
         return ge::GRAPH_FAILED;
@@ -33,7 +32,7 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
     if (core_num == 0) {
         return ge::GRAPH_FAILED;
     }
-    
+
     uint32_t points_num = *(attrs->GetAttrPointer<int32_t>(0));
     uint32_t b = dist_shape.GetDim(0);
     uint32_t n = dist_shape.GetDim(1);
@@ -99,11 +98,9 @@ static ge::graphStatus TilingForFurthestPointSamplingWithDist(gert::TilingContex
 }
 }
 
-
 namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
-{
-    const gert::Shape* points_dist_shape = context->GetInputShape(0);
+static ge::graphStatus InferShape(gert::InferShapeContext *context) {
+    const gert::Shape *points_dist_shape = context->GetInputShape(0);
     if (points_dist_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -113,7 +110,7 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     }
     uint32_t points_num = *(attrs->GetAttrPointer<int32_t>(0));
 
-    gert::Shape* idx_shape = context->GetOutputShape(0);
+    gert::Shape *idx_shape = context->GetOutputShape(0);
     if (idx_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -121,19 +118,16 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     idx_shape->AppendDim(points_num);
     return GRAPH_SUCCESS;
 }
-static ge::graphStatus InferDataType(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataType(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_INT32);
     return GRAPH_SUCCESS;
 }
 }
 
-
 namespace ops {
 class FurthestPointSamplingWithDist : public OpDef {
-public:
-    explicit FurthestPointSamplingWithDist(const char* name) : OpDef(name)
-    {
+  public:
+    explicit FurthestPointSamplingWithDist(const char *name) : OpDef(name) {
         this->Input("points_dist")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -153,10 +147,12 @@ public:
 
         this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDataType);
 
-        this->AICore()
-            .SetTiling(optiling::TilingForFurthestPointSamplingWithDist);
+        this->AICore().SetTiling(optiling::TilingForFurthestPointSamplingWithDist);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

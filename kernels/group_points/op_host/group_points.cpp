@@ -17,7 +17,6 @@
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
-
 namespace {
 constexpr uint32_t SINGLE_INDICES = 1;
 constexpr uint32_t BLOCK_SIZE = 32;
@@ -38,8 +37,7 @@ constexpr size_t NS_IDX = 4;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForGroupPoints(gert::TilingContext *context) {
     GroupPointsTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -124,7 +122,7 @@ static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
     }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -133,10 +131,8 @@ static ge::graphStatus TilingForGroupPoints(gert::TilingContext* context)
 }
 } // namespace optiling
 
-
 namespace ge {
-static ge::graphStatus InferShapeForGroupPoints(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShapeForGroupPoints(gert::InferShapeContext *context) {
     auto attrs = context->GetAttrs();
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
@@ -153,7 +149,7 @@ static ge::graphStatus InferShapeForGroupPoints(gert::InferShapeContext* context
     auto nsample = getAttr(NS_IDX);
     auto cSize = getAttr(C_IDX);
 
-    gert::Shape* outShape = context->GetOutputShape(0);
+    gert::Shape *outShape = context->GetOutputShape(0);
     if (outShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -161,8 +157,7 @@ static ge::graphStatus InferShapeForGroupPoints(gert::InferShapeContext* context
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForGroupPoints(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForGroupPoints(gert::InferDataTypeContext *context) {
     const auto inputDataType = context->GetInputDataType(0);
     if (inputDataType == DT_UNDEFINED) {
         return ge::GRAPH_FAILED;
@@ -172,12 +167,10 @@ static ge::graphStatus InferDataTypeForGroupPoints(gert::InferDataTypeContext* c
 }
 } // namespace ge
 
-
 namespace ops {
 class GroupPoints : public OpDef {
-public:
-    explicit GroupPoints(const char* name) : OpDef(name)
-    {
+  public:
+    explicit GroupPoints(const char *name) : OpDef(name) {
         this->Input("points")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT16, ge::DT_FLOAT})
@@ -205,6 +198,9 @@ public:
         this->AICore().SetTiling(optiling::TilingForGroupPoints);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

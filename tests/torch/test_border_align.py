@@ -1,11 +1,8 @@
 """
 Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 """
+
 import copy
-import math
-import unittest
-from functools import reduce
-from typing import List
 
 import numpy as np
 import torch
@@ -13,13 +10,11 @@ import torch_npu
 from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
-import mx_driving
 from mx_driving import border_align
 
 
 torch.npu.config.allow_internal_format = False
 torch_npu.npu.set_compile_mode(jit_compile=False)
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 EPS = 1e-8
 
 
@@ -54,7 +49,7 @@ def border_align_cpu_golden(inputs, rois, pooled_size_):
     inputs = inputs.view(n, 4, c, h, w).permute(0, 2, 3, 4, 1).contiguous()
     outputs_features = torch.zeros(n, c, h * w, 4)
     outputs_index = torch.zeros(n, c, h * w, 4).int()
-    for index in (range(n * c * h * w)):
+    for index in range(n * c * h * w):
         pn = index // (c * h * w)
         pc = (index // (h * w)) % c
         ph = (index // w) % h
@@ -112,10 +107,10 @@ def bilinear_interpolate(offset_input, height, width, y, x):
     v2 = offset_input[y_low * width + x_high]
     v3 = offset_input[y_high * width + x_low]
     v4 = offset_input[y_high * width + x_high]
-    w1 = (hy * hx)
-    w2 = (hy * lx)
-    w3 = (ly * hx)
-    w4 = (ly * lx)
+    w1 = hy * hx
+    w2 = hy * lx
+    w3 = ly * hx
+    w4 = ly * lx
     val = w1 * v1 + w2 * v2 + w3 * v3 + w4 * v4
     return val
 
@@ -152,7 +147,7 @@ def bilinear_interpolate_backward(inputs, args_dict):
             continue
         if x_ < -1 or x_ > inputs.shape[2]:
             continue
-        
+
         w1_ = w1[argmax_idx[i]]
         w2_ = w2[argmax_idx[i]]
         w3_ = w3[argmax_idx[i]]
@@ -176,8 +171,8 @@ def border_align_box(box, pool_size, inputs, output, argmax_idx):
     ## output [C, 4],  argmax_idx [C, 4]
     # 解析 box
     x1, y1, x2, y2 = box
-    
-    #计算对应channel
+
+    # 计算对应channel
     c_idx = inputs.shape[0] // 4
 
     # 遍历四个边缘
@@ -199,16 +194,12 @@ def border_align_box(box, pool_size, inputs, output, argmax_idx):
 
         elif i == 3:  # 右边边缘---->生成y序列反向
             y = np.linspace(y2, y1, num=pool_size + 1)
-            x = np.full_like(y, x2)  
-        
-        # 双线性插值并找到最大值   
-        args_dict = dict(x=x, 
-                         y=y, 
-                         c_start=c_idx * i, 
-                         output=output[:, i], 
-                         argmax_idx=argmax_idx[:, i])
-        
-        bilinear_interpolate_backward(inputs, args_dict) 
+            x = np.full_like(y, x2)
+
+        # 双线性插值并找到最大值
+        args_dict = dict(x=x, y=y, c_start=c_idx * i, output=output[:, i], argmax_idx=argmax_idx[:, i])
+
+        bilinear_interpolate_backward(inputs, args_dict)
 
     return inputs
 
@@ -223,15 +214,17 @@ def border_align_grad_cpu_golden(boxes, pool_size, inputs, grad_output, argmax_i
     B, C, H, W = inputs.shape
     C = int(C / 4)
 
-    #对每个batch的每个box进行border_align
+    # 对每个batch的每个box进行border_align
     for b in range(B):
         input_each_b = copy.deepcopy(grad_inputs[b])
-        output_each_b = grad_output[b] # [HW, C, 4]
-        argmax_idx_b = argmax_idx[b] # [HW, C, 4]
-        temp = np.zeros((C * 4, H, W)) # [4C, H, W]
+        output_each_b = grad_output[b]  # [HW, C, 4]
+        argmax_idx_b = argmax_idx[b]  # [HW, C, 4]
+        temp = np.zeros((C * 4, H, W))  # [4C, H, W]
 
         for i, box in enumerate(boxes[b]):
-            temp = temp + border_align_box(box, pool_size, input_each_b, output_each_b[i], argmax_idx_b[i]) # [4C, H, W]
+            temp = temp + border_align_box(
+                box, pool_size, input_each_b, output_each_b[i], argmax_idx_b[i]
+            )  # [4C, H, W]
             input_each_b.fill(0)
 
         grad_inputs[b] = copy.deepcopy(temp)
@@ -245,14 +238,12 @@ class TestBorderAlign(TestCase):
         grad_features = border_align_grad_cpu_golden(rois, pooled_size, features, grad_output, index)
         grad_features = torch.tensor(grad_features)
         return output, grad_features
-   
 
     def npu_to_exec(self, features, rois, grad_output, pooled_size):
         npu_outputs = border_align(features.npu(), rois.npu(), pooled_size)
         npu_outputs.backward(grad_output.npu())
         return npu_outputs, features.grad
 
-    @unittest.skipIf(DEVICE_NAME not in ['Ascend910B'], "OP `BorderAlign` is not supported, skip this ut!")
     def test_border_align(self):
         shape_format = [
             # Aligned Case

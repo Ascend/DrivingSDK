@@ -24,7 +24,6 @@ constexpr uint32_t SIZE_OF_FP16 = 2;
 constexpr uint32_t SIZE_OF_FP32 = 4;
 constexpr uint32_t BLOCK_INT32 = BLOCK_SIZE / SIZE_OF_FP32;
 
-
 constexpr size_t C_IDX = 0;
 constexpr size_t BS_IDX = 1;
 constexpr size_t H_IDX = 2;
@@ -34,14 +33,14 @@ constexpr size_t BAS_IDX = 5;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingForBorderAlignGrad(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForBorderAlignGrad(gert::TilingContext *context) {
     BorderAlignGradTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
-    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr ||
+        context->GetInputShape(2) == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -106,11 +105,10 @@ static ge::graphStatus TilingForBorderAlignGrad(gert::TilingContext* context)
 }
 } // namespace optiling
 
-
 namespace ge {
-static ge::graphStatus InferShapeForBorderAlignGrad(gert::InferShapeContext* context)
-{
-    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+static ge::graphStatus InferShapeForBorderAlignGrad(gert::InferShapeContext *context) {
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr ||
+        context->GetInputShape(2) == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -133,27 +131,23 @@ static ge::graphStatus InferShapeForBorderAlignGrad(gert::InferShapeContext* con
     auto height = getAttr(H_IDX);
     auto width = getAttr(W_IDX);
     auto batchSize = getAttr(BAS_IDX);
-    
-    gert::Shape* outShape = context->GetOutputShape(0);
+
+    gert::Shape *outShape = context->GetOutputShape(0);
     *outShape = {batchSize, channels * 4, height, width};
     return GRAPH_SUCCESS;
 }
 
-
-static ge::graphStatus InferDataTypeForBorderAlignGrad(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForBorderAlignGrad(gert::InferDataTypeContext *context) {
     const auto inputDataType = context->GetInputDataType(0);
     context->SetOutputDataType(0, inputDataType);
     return GRAPH_SUCCESS;
 }
 } // namespace ge
 
-
 namespace ops {
 class BorderAlignGrad : public OpDef {
-public:
-    explicit BorderAlignGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit BorderAlignGrad(const char *name) : OpDef(name) {
         this->Input("gradOut")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -188,6 +182,9 @@ public:
         this->AICore().SetTiling(optiling::TilingForBorderAlignGrad);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

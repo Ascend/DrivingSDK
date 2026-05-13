@@ -17,8 +17,7 @@ constexpr uint32_t RESERVED_UB_SIZE = 16 * 1024;
 constexpr uint32_t BUFFER_NUM = 2;
 constexpr uint32_t QUEUE_NUM = 6;
 
-static ge::graphStatus TilingFunc(gert::TilingContext *context)
-{
+static ge::graphStatus TilingFunc(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -27,7 +26,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
         return ge::GRAPH_FAILED;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
-    auto coreNum  = ascendcPlatform.GetCoreNumAiv();
+    auto coreNum = ascendcPlatform.GetCoreNumAiv();
     uint64_t ubSizePlatform;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSizePlatform);
     if (coreNum == 0) {
@@ -53,13 +52,16 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
     uint32_t formerLength = (baseLength + (formerNum ? 1 : 0)) * ALIGN_NUM;
     uint32_t tailLength = baseLength * ALIGN_NUM;
 
-    uint32_t formerSlice = formerLength * QUEUE_NUM * SIZE_OF_FLOAT * BUFFER_NUM / (ubSizePlatform - RESERVED_UB_SIZE) + 1;
+    uint32_t formerSlice =
+        formerLength * QUEUE_NUM * SIZE_OF_FLOAT * BUFFER_NUM / (ubSizePlatform - RESERVED_UB_SIZE) + 1;
     uint32_t tailSlice = tailLength * QUEUE_NUM * SIZE_OF_FLOAT * BUFFER_NUM / (ubSizePlatform - RESERVED_UB_SIZE) + 1;
 
     uint32_t formerTileLength = (formerLength / formerSlice + ALIGN_NUM - 1) / ALIGN_NUM * ALIGN_NUM;
     uint32_t tailTileLength = (tailLength / tailSlice + ALIGN_NUM - 1) / ALIGN_NUM * ALIGN_NUM;
-    uint32_t formerTileNum = (formerTileLength == 0) ? 0 : formerLength / formerTileLength + ((formerLength % formerTileLength) ? 1 : 0);
-    uint32_t tailTileNum = (tailTileLength == 0) ? 0 : tailLength / tailTileLength + ((tailLength % tailTileLength) ? 1 : 0);
+    uint32_t formerTileNum =
+        (formerTileLength == 0) ? 0 : formerLength / formerTileLength + ((formerLength % formerTileLength) ? 1 : 0);
+    uint32_t tailTileNum =
+        (tailTileLength == 0) ? 0 : tailLength / tailTileLength + ((tailLength % tailTileLength) ? 1 : 0);
     uint32_t formerRemainTileLength = (formerTileNum == 0) ? 0 : formerLength - (formerTileNum - 1) * formerTileLength;
     uint32_t tailRemainTileLength = (tailTileNum == 0) ? 0 : tailLength - (tailTileNum - 1) * tailTileLength;
 
@@ -85,8 +87,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext *context)
 }
 
 namespace ge {
-static ge::graphStatus Infershape(gert::InferShapeContext *context)
-{
+static ge::graphStatus Infershape(gert::InferShapeContext *context) {
     const auto inputShape = context->GetInputShape(0);
     auto outputShape1 = context->GetOutputShape(0);
     auto outputShape2 = context->GetOutputShape(1);
@@ -98,8 +99,7 @@ static ge::graphStatus Infershape(gert::InferShapeContext *context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDtype(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDtype(gert::InferDataTypeContext *context) {
     const auto out_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, out_dtype);
     context->SetOutputDataType(1, out_dtype);
@@ -109,9 +109,8 @@ static ge::graphStatus InferDtype(gert::InferDataTypeContext *context)
 
 namespace ops {
 class HypotGrad : public OpDef {
-public:
-    explicit HypotGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit HypotGrad(const char *name) : OpDef(name) {
         this->Input("x")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -142,11 +141,13 @@ public:
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
-        this->SetInferShape(ge::Infershape)
-            .SetInferDataType(ge::InferDtype);
+        this->SetInferShape(ge::Infershape).SetInferDataType(ge::InferDtype);
         this->AICore().SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

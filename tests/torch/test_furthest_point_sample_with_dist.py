@@ -12,19 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 
 import numpy as np
 import torch
-import torch_npu
 from data_cache import golden_data_cache
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving
 import mx_driving.point
-
-
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 class TestFurthestPointSampleWithDist(TestCase):
@@ -38,8 +33,9 @@ class TestFurthestPointSampleWithDist(TestCase):
                 x1, y1, z1 = point_xyz[batch_id, src_id]
                 for dst_id in range(n):
                     x2, y2, z2 = point_xyz[batch_id, dst_id]
-                    point_dist[batch_id, src_id, dst_id] = point_dist[batch_id, src_id, dst_id] =\
-                    (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2)
+                    point_dist[batch_id, src_id, dst_id] = point_dist[batch_id, src_id, dst_id] = (
+                        (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2)
+                    )
         return point_dist
 
     def compare_min(self, a, b):
@@ -62,7 +58,7 @@ class TestFurthestPointSampleWithDist(TestCase):
                 last_time_idx = result_cpu[batch, idx - 1]
                 for i in range(n):
                     tmp[batch, i] = self.compare_min(point_dist[batch, last_time_idx, i], tmp[batch, i])
-                    if(best < tmp[batch, i]):
+                    if best < tmp[batch, i]:
                         best = tmp[batch, i]
                         best_i = i
                 result_cpu[batch, idx] = best_i
@@ -77,7 +73,6 @@ class TestFurthestPointSampleWithDist(TestCase):
 
         return output.cpu().numpy()
 
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampleWithDist` is only supported on 910B, skip this ut!")
     def test_FurthestPointSampleWithDist(self):
         shape_list = [[4, 100], [30, 1000], [3, 2567], [454, 6]]
         point_num_list = [32, 1000, 1400, 3]
@@ -93,6 +88,7 @@ class TestFurthestPointSampleWithDist(TestCase):
             output = self.custom_op_exec(point_dist, point_num, input_dtype)
 
             self.assertRtolEqual(exoutput, output)
+
 
 if __name__ == "__main__":
     run_tests()

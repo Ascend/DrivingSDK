@@ -31,8 +31,7 @@ constexpr size_t W_IDX = 4;
 } // namespace
 namespace optiling {
 
-static ge::graphStatus TilingForVoxelPoolingTrainGrad(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForVoxelPoolingTrainGrad(gert::TilingContext *context) {
     VoxelPoolingTrainGradTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -100,10 +99,8 @@ static ge::graphStatus TilingForVoxelPoolingTrainGrad(gert::TilingContext* conte
 }
 } // namespace optiling
 
-
 namespace ge {
-static ge::graphStatus InferShapeForVoxelPoolingTrainGrad(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShapeForVoxelPoolingTrainGrad(gert::InferShapeContext *context) {
     auto attrs = context->GetAttrs();
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
@@ -122,7 +119,7 @@ static ge::graphStatus InferShapeForVoxelPoolingTrainGrad(gert::InferShapeContex
     if (context->GetOutputShape(0) == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* grad_features = context->GetOutputShape(0);
+    gert::Shape *grad_features = context->GetOutputShape(0);
     grad_features->SetDimNum(0);
     grad_features->AppendDim(batchSize);
     grad_features->AppendDim(numPoints);
@@ -131,8 +128,7 @@ static ge::graphStatus InferShapeForVoxelPoolingTrainGrad(gert::InferShapeContex
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForVoxelPoolingTrainGrad(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForVoxelPoolingTrainGrad(gert::InferDataTypeContext *context) {
     const ge::DataType value_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, value_dtype);
     return GRAPH_SUCCESS;
@@ -140,12 +136,10 @@ static ge::graphStatus InferDataTypeForVoxelPoolingTrainGrad(gert::InferDataType
 
 } // namespace ge
 
-
 namespace ops {
 class VoxelPoolingTrainGrad : public OpDef {
-public:
-    explicit VoxelPoolingTrainGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit VoxelPoolingTrainGrad(const char *name) : OpDef(name) {
         this->Input("grad_out")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -174,6 +168,9 @@ public:
         this->AICore().SetTiling(optiling::TilingForVoxelPoolingTrainGrad);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

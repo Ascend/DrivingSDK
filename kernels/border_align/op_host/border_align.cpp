@@ -10,8 +10,7 @@ using namespace std;
 namespace optiling {
 const uint32_t TILE_NUM = 8;
 const uint32_t BOX_INFO = 4; // 每个box有四个坐标
-static ge::graphStatus TilingForBorderAlign(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForBorderAlign(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -26,7 +25,7 @@ static ge::graphStatus TilingForBorderAlign(gert::TilingContext* context)
     if (context->GetOutputShape(0) == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     auto inputShape = context->GetInputShape(0)->GetStorageShape(); // [B, H, W, C]
     auto roisShape = context->GetInputShape(1)->GetStorageShape(); // [B, H * W, 4]
     auto outputShape = context->GetOutputShape(0)->GetStorageShape(); // [B, H * W, P + 1, C]
@@ -63,7 +62,7 @@ static ge::graphStatus TilingForBorderAlign(gert::TilingContext* context)
     if (platform == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     auto platform_info = platform_ascendc::PlatformAscendC(platform);
     uint32_t BLOCK_DIM = platform_info.GetCoreNumAiv();
     if (BLOCK_DIM == 0) {
@@ -82,7 +81,7 @@ static ge::graphStatus TilingForBorderAlign(gert::TilingContext* context)
     uint32_t roisNumPerLcore = roisNumPerScore + TILE_NUM;
     uint32_t scoreNum = (BLOCK_DIM * (TILE_NUM + roisNumPerScore) - roisNumAligned) / TILE_NUM;
     uint32_t lcoreNum = BLOCK_DIM - scoreNum;
-    
+
     if (roisNumPerScore == 0) {
         BLOCK_DIM = BLOCK_DIM - scoreNum;
     }
@@ -125,14 +124,13 @@ static ge::graphStatus TilingForBorderAlign(gert::TilingContext* context)
 }
 
 namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShape(gert::InferShapeContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const gert::Shape* inputShape = context->GetInputShape(0);
-    const gert::Shape* roisShape = context->GetInputShape(1);
-    gert::Shape* outputShape = context->GetOutputShape(0);
+    const gert::Shape *inputShape = context->GetInputShape(0);
+    const gert::Shape *roisShape = context->GetInputShape(1);
+    gert::Shape *outputShape = context->GetOutputShape(0);
     if (inputShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -151,13 +149,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
         return ge::GRAPH_FAILED;
     }
     uint32_t pooledSize = *(attrsPtr->GetAttrPointer<uint32_t>(0));
-    
+
     *outputShape = {batchSize, heightTimesWidth, pooledSize + 1, channels};
 
     return GRAPH_SUCCESS;
 }
-static ge::graphStatus InferDataTypeBorderAlign(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeBorderAlign(gert::InferDataTypeContext *context) {
     const ge::DataType valueDtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, valueDtype);
     return GRAPH_SUCCESS;
@@ -166,9 +163,8 @@ static ge::graphStatus InferDataTypeBorderAlign(gert::InferDataTypeContext* cont
 
 namespace ops {
 class BorderAlign : public OpDef {
-public:
-    explicit BorderAlign(const char* name) : OpDef(name)
-    {
+  public:
+    explicit BorderAlign(const char *name) : OpDef(name) {
         this->Input("input")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -185,12 +181,13 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("pooledSize").AttrType(REQUIRED).Int();
-        this->SetInferShape(ge::InferShape)
-            .SetInferDataType(ge::InferDataTypeBorderAlign);
-        this->AICore()
-            .SetTiling(optiling::TilingForBorderAlign);
+        this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDataTypeBorderAlign);
+        this->AICore().SetTiling(optiling::TilingForBorderAlign);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

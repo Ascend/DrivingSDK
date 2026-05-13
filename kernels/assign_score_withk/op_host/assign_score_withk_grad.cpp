@@ -27,8 +27,7 @@ constexpr size_t OUTPUT_GRADCENTERS_POSITION = 2;
 
 namespace optiling {
 /****************class impl*****************/
-static ge::graphStatus AssignScoreWithkGradTilingFunc(gert::TilingContext *context)
-{
+static ge::graphStatus AssignScoreWithkGradTilingFunc(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -40,9 +39,9 @@ static ge::graphStatus AssignScoreWithkGradTilingFunc(gert::TilingContext *conte
     const gert::RuntimeAttrs *attr = context->GetAttrs();
     auto platformInfoPtr = context->GetPlatformInfo();
     auto platformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
-    if ((gradOutShape == nullptr) || (pointShape == nullptr) || (centerShape == nullptr) ||
-        (scoreShape == nullptr) || (knnIdxShape == nullptr) || (attr == nullptr) ||
-        (platformInfoPtr == nullptr) || (context->GetInputDesc(0) == nullptr)) {
+    if ((gradOutShape == nullptr) || (pointShape == nullptr) || (centerShape == nullptr) || (scoreShape == nullptr) ||
+        (knnIdxShape == nullptr) || (attr == nullptr) || (platformInfoPtr == nullptr) ||
+        (context->GetInputDesc(0) == nullptr)) {
         return ge::GRAPH_FAILED;
     }
     auto batchSizePtr = attr->GetAttrPointer<uint32_t>(BATCH_IDX);
@@ -52,8 +51,8 @@ static ge::graphStatus AssignScoreWithkGradTilingFunc(gert::TilingContext *conte
     auto numNeighborsPtr = attr->GetAttrPointer<uint32_t>(NNEIGHBORS_IDX);
     auto numFeaturesPtr = attr->GetAttrPointer<uint32_t>(NFEATURES_IDX);
     auto aggregatePtr = attr->GetAttrPointer<uint32_t>(AGG_IDX);
-    if ((!aggregatePtr) || (!batchSizePtr) || (!nsourcePtr) || (!npointPtr) || (!numWeightsPtr) ||
-        (!numNeighborsPtr) || (!numFeaturesPtr)) {
+    if ((!aggregatePtr) || (!batchSizePtr) || (!nsourcePtr) || (!npointPtr) || (!numWeightsPtr) || (!numNeighborsPtr) ||
+        (!numFeaturesPtr)) {
         return ge::GRAPH_FAILED;
     }
     uint32_t batchSize = *batchSizePtr;
@@ -111,13 +110,13 @@ static ge::graphStatus AssignScoreWithkGradTilingFunc(gert::TilingContext *conte
 }
 
 namespace ge {
-static ge::graphStatus AssignScoreWithkGradInferShape(gert::InferShapeContext *context)
-{
+static ge::graphStatus AssignScoreWithkGradInferShape(gert::InferShapeContext *context) {
     const gert::RuntimeAttrs *attr = context->GetAttrs();
     gert::Shape *gradScoresShape = context->GetOutputShape(OUTPUT_GRADSCORES_POSITION);
     gert::Shape *gradPointsShape = context->GetOutputShape(OUTPUT_GRADPOINTS_POSITION);
     gert::Shape *gradCentersShape = context->GetOutputShape(OUTPUT_GRADCENTERS_POSITION);
-    if ((attr == nullptr) || (gradScoresShape == nullptr) || (gradPointsShape == nullptr) || (gradCentersShape == nullptr)) {
+    if ((attr == nullptr) || (gradScoresShape == nullptr) || (gradPointsShape == nullptr) ||
+        (gradCentersShape == nullptr)) {
         return ge::GRAPH_FAILED;
     }
 
@@ -127,7 +126,8 @@ static ge::graphStatus AssignScoreWithkGradInferShape(gert::InferShapeContext *c
     auto numWeightsPtr = attr->GetAttrPointer<uint32_t>(NWEIGHTS_IDX);
     auto numNeighborsPtr = attr->GetAttrPointer<uint32_t>(NNEIGHBORS_IDX);
     auto numFeaturesPtr = attr->GetAttrPointer<uint32_t>(NFEATURES_IDX);
-    if ((!batchSizePtr) || (!nsourcePtr) || (!npointPtr) || (!numWeightsPtr) || (!numNeighborsPtr) || (!numFeaturesPtr)) {
+    if ((!batchSizePtr) || (!nsourcePtr) || (!npointPtr) || (!numWeightsPtr) || (!numNeighborsPtr) ||
+        (!numFeaturesPtr)) {
         return ge::GRAPH_FAILED;
     }
     uint32_t batchSize = *batchSizePtr;
@@ -147,8 +147,7 @@ static ge::graphStatus AssignScoreWithkGradInferShape(gert::InferShapeContext *c
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus AssignScoreWithkGradInferDataType(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus AssignScoreWithkGradInferDataType(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_FLOAT);
     context->SetOutputDataType(1, ge::DT_FLOAT);
     context->SetOutputDataType(2, ge::DT_FLOAT);
@@ -158,9 +157,8 @@ static ge::graphStatus AssignScoreWithkGradInferDataType(gert::InferDataTypeCont
 
 namespace ops {
 class AssignScoreWithkGrad : public OpDef {
-public:
-    explicit AssignScoreWithkGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit AssignScoreWithkGrad(const char *name) : OpDef(name) {
         this->Input("grad_out")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -192,27 +190,13 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND})
             .AutoContiguous();
 
-        this->Attr("batch_size")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("nsource")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("npoint")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("num_weights")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("num_neighbors")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("num_features")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("aggregate")
-            .AttrType(REQUIRED)
-            .Int();
+        this->Attr("batch_size").AttrType(REQUIRED).Int();
+        this->Attr("nsource").AttrType(REQUIRED).Int();
+        this->Attr("npoint").AttrType(REQUIRED).Int();
+        this->Attr("num_weights").AttrType(REQUIRED).Int();
+        this->Attr("num_neighbors").AttrType(REQUIRED).Int();
+        this->Attr("num_features").AttrType(REQUIRED).Int();
+        this->Attr("aggregate").AttrType(REQUIRED).Int();
 
         this->Output("grad_scores")
             .ParamType(REQUIRED)
@@ -230,11 +214,13 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::AssignScoreWithkGradInferShape)
-            .SetInferDataType(ge::AssignScoreWithkGradInferDataType);
+        this->SetInferShape(ge::AssignScoreWithkGradInferShape).SetInferDataType(ge::AssignScoreWithkGradInferDataType);
         this->AICore().SetTiling(optiling::AssignScoreWithkGradTilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

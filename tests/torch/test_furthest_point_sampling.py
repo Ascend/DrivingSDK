@@ -12,21 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 from abc import ABC, abstractmethod
 
-import numpy as np
 import torch
-import torch_npu
 from data_cache import golden_data_cache
-from torch_npu.testing.common_utils import create_common_tensor
 from torch_npu.testing.testcase import TestCase, run_tests
 
 import mx_driving
 import mx_driving.point
-
-
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 
 
 class CreateBenchMarkTest(ABC):
@@ -46,7 +39,7 @@ class CreateBenchMarkTest(ABC):
     def compare_min(self, a):
         if a[0] > a[1]:
             return a[1]
-        else :
+        else:
             return a[0]
 
     @golden_data_cache(__file__)
@@ -86,7 +79,7 @@ class Test1(CreateBenchMarkTest):
         for i in range(self.batch):
             for j in range(self.N):
                 self.point[i, 0, j] = j
-        
+
         if datatype == torch.bfloat16:
             self.nearestDist = torch.ones([self.batch, self.N], dtype=torch.float32) * 1e10
         else:
@@ -154,7 +147,9 @@ class TestFurthestPointSample(TestCase):
 
     def npu_op_exec(self, myTest):
         res1 = mx_driving.point.furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
-        res2 = mx_driving.point.npu_furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
+        res2 = mx_driving.point.npu_furthest_point_sampling(
+            myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints
+        )
         res3 = mx_driving.furthest_point_sampling(myTest.point.clone().permute(0, 2, 1).npu(), myTest.numPoints)
         return res1, res2, res3
 
@@ -166,21 +161,18 @@ class TestFurthestPointSample(TestCase):
         self.assertRtolEqual(cpuOutput, npuOutput2)
         self.assertRtolEqual(cpuOutput, npuOutput3)
 
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampling` is only for 910B, skip it.")
     def test_FurthestPointSampleF32(self):
         print("start float32")
         self.compare_res(Test1(torch.float32))
         self.compare_res(Test2(torch.float32))
         self.compare_res(Test3(torch.float32))
-    
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampling` is only for 910B, skip it.")
+
     def test_FurthestPointSampleF16(self):
         print("start float16")
         self.compare_res(Test1(torch.float16))
         self.compare_res(Test2(torch.float16))
         self.compare_res(Test3(torch.float16))
-    
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `FurthestPointSampling` is only for 910B, skip it.")
+
     def test_FurthestPointSampleBF16(self):
         print("start bfloat16")
         self.compare_res(Test1(torch.bfloat16))

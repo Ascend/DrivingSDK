@@ -7,7 +7,6 @@
 #include "tiling/tiling_api.h"
 #include "voxel_pooling_train_tiling.h"
 
-
 namespace {
 constexpr uint32_t INDICES = 3;
 
@@ -25,8 +24,7 @@ constexpr size_t Z_IDX = 5;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingForVoxelPooling(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForVoxelPooling(gert::TilingContext *context) {
     VoxelPoolingTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -79,7 +77,7 @@ static ge::graphStatus TilingForVoxelPooling(gert::TilingContext* context)
     tiling.set_average(average);
     tiling.set_taskLast(taskLast);
     tiling.set_usedCoreNum(usedCoreNum);
-    
+
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -91,11 +89,10 @@ static ge::graphStatus TilingForVoxelPooling(gert::TilingContext* context)
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus InferShapeForVoxelPoolingTrain(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShapeForVoxelPoolingTrain(gert::InferShapeContext *context) {
     auto attrsPtr = context->GetAttrs();
-    gert::Shape* outFeaturesShape = context->GetOutputShape(0);
-    gert::Shape* posMemoShape = context->GetOutputShape(1);
+    gert::Shape *outFeaturesShape = context->GetOutputShape(0);
+    gert::Shape *posMemoShape = context->GetOutputShape(1);
     if (attrsPtr == nullptr || outFeaturesShape == nullptr || posMemoShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -121,8 +118,7 @@ static ge::graphStatus InferShapeForVoxelPoolingTrain(gert::InferShapeContext* c
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForVoxelPoolingTrain(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForVoxelPoolingTrain(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_FLOAT);
     context->SetOutputDataType(1, ge::DT_INT32);
     return GRAPH_SUCCESS;
@@ -131,9 +127,8 @@ static ge::graphStatus InferDataTypeForVoxelPoolingTrain(gert::InferDataTypeCont
 
 namespace ops {
 class VoxelPoolingTrain : public OpDef {
-public:
-    explicit VoxelPoolingTrain(const char* name) : OpDef(name)
-    {
+  public:
+    explicit VoxelPoolingTrain(const char *name) : OpDef(name) {
         this->Input("geom")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
@@ -161,11 +156,13 @@ public:
         this->Attr("num_voxel_y").Int();
         this->Attr("num_voxel_z").Int();
 
-        this->SetInferShape(ge::InferShapeForVoxelPoolingTrain)
-            .SetInferDataType(ge::InferDataTypeForVoxelPoolingTrain);
+        this->SetInferShape(ge::InferShapeForVoxelPoolingTrain).SetInferDataType(ge::InferDataTypeForVoxelPoolingTrain);
         this->AICore().SetTiling(optiling::TilingForVoxelPooling);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 OP_ADD(VoxelPoolingTrain);

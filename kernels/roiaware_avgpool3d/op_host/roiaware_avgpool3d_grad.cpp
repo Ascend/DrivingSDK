@@ -3,8 +3,7 @@
 #include "tiling/platform/platform_ascendc.h"
 
 namespace optiling {
-static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -29,8 +28,7 @@ static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext* conte
     uint64_t ubSize;
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
 
-    if (context->GetInputShape(0) == nullptr ||
-        context->GetInputShape(1) == nullptr ||
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr ||
         context->GetOutputShape(0) == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -50,12 +48,15 @@ static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext* conte
 
     uint32_t totalTask = boxesNum * outX * outY * outZ;
     uint32_t singleCoreTask = (totalTask + aivNum - 1) / aivNum;
-    uint32_t channelAligned = ((channels * ONE_ELEMENT_SIZE + BYTE_ALIGNED - 1) / BYTE_ALIGNED) * (BYTE_ALIGNED / ONE_ELEMENT_SIZE);
-    uint32_t maxPtsPerVoxelAligned = ((maxPtsPerVoxel * sizeof(int32_t) + BYTE_ALIGNED - 1) / BYTE_ALIGNED) * (BYTE_ALIGNED / sizeof(int32_t));
+    uint32_t channelAligned =
+        ((channels * ONE_ELEMENT_SIZE + BYTE_ALIGNED - 1) / BYTE_ALIGNED) * (BYTE_ALIGNED / ONE_ELEMENT_SIZE);
+    uint32_t maxPtsPerVoxelAligned =
+        ((maxPtsPerVoxel * sizeof(int32_t) + BYTE_ALIGNED - 1) / BYTE_ALIGNED) * (BYTE_ALIGNED / sizeof(int32_t));
 
-    uint32_t singleLoopTask = (ubSize * INPUT_UB_RATIO) / BUFFER_NUM / (ONE_ELEMENT_SIZE * channelAligned + sizeof(int32_t) * maxPtsPerVoxelAligned);
+    uint32_t singleLoopTask = (ubSize * INPUT_UB_RATIO) / BUFFER_NUM /
+        (ONE_ELEMENT_SIZE * channelAligned + sizeof(int32_t) * maxPtsPerVoxelAligned);
     uint32_t outputLoopTask = (ubSize * OUTPUT_UB_RATIO) / (ONE_ELEMENT_SIZE * channelAligned);
-    uint32_t bigCoreCount = totalTask % aivNum == 0? aivNum : totalTask % aivNum;
+    uint32_t bigCoreCount = totalTask % aivNum == 0 ? aivNum : totalTask % aivNum;
 
     /* Set tilingData */
     RoiawareAvgpool3dGradTilingData tilingData;
@@ -69,7 +70,7 @@ static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext* conte
     tilingData.set_bigCoreCount(bigCoreCount);
     tilingData.set_totalTask(totalTask);
     tilingData.set_npoints(npoints);
-    
+
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -88,15 +89,14 @@ static ge::graphStatus TilingForRoiawareAvgpool3dGrad(gert::TilingContext* conte
 }
 
 namespace ge {
-static ge::graphStatus InferShapeForRoiawareAvgpool3dGrad(gert::InferShapeContext* context)
-{
-    const gert::Shape* ptsIdx = context->GetInputShape(0);
-    const gert::Shape* gradOut = context->GetInputShape(1);
-    gert::Shape* gradIn = context->GetOutputShape(0);
+static ge::graphStatus InferShapeForRoiawareAvgpool3dGrad(gert::InferShapeContext *context) {
+    const gert::Shape *ptsIdx = context->GetInputShape(0);
+    const gert::Shape *gradOut = context->GetInputShape(1);
+    gert::Shape *gradIn = context->GetOutputShape(0);
     if (ptsIdx == nullptr || gradOut == nullptr || gradIn == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     int64_t channels = gradOut->GetDim(4);
     auto runtimeAttrs = context->GetAttrs();
     const int32_t *npoints = (int32_t *)runtimeAttrs->GetInt(5);
@@ -104,20 +104,17 @@ static ge::graphStatus InferShapeForRoiawareAvgpool3dGrad(gert::InferShapeContex
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForRoiawareAvgpool3dGrad(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForRoiawareAvgpool3dGrad(gert::InferDataTypeContext *context) {
     const ge::DataType value_dtype = context->GetInputDataType(1);
     context->SetOutputDataType(0, value_dtype);
     return GRAPH_SUCCESS;
 }
 }
 
-
 namespace ops {
 class RoiawareAvgpool3dGrad : public OpDef {
-public:
-    explicit RoiawareAvgpool3dGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit RoiawareAvgpool3dGrad(const char *name) : OpDef(name) {
         this->Input("pts_idx_of_voxels")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
@@ -135,7 +132,7 @@ public:
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
-            
+
         this->Attr("boxes_num").Int();
         this->Attr("out_x").Int();
         this->Attr("out_y").Int();
@@ -144,10 +141,14 @@ public:
         this->Attr("npoints").Int();
         this->Attr("max_pts_per_voxel").Int();
 
-        this->SetInferShape(ge::InferShapeForRoiawareAvgpool3dGrad).SetInferDataType(ge::InferDataTypeForRoiawareAvgpool3dGrad);
+        this->SetInferShape(ge::InferShapeForRoiawareAvgpool3dGrad)
+            .SetInferDataType(ge::InferDataTypeForRoiawareAvgpool3dGrad);
         this->AICore().SetTiling(optiling::TilingForRoiawareAvgpool3dGrad);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

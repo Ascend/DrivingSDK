@@ -17,8 +17,7 @@ constexpr size_t AGG_IDX = 6;
 namespace optiling {
 
 /****************class impl*****************/
-static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
-{
+static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -29,12 +28,11 @@ static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
     const gert::RuntimeAttrs *attr = context->GetAttrs();
     auto platformInfoPtr = context->GetPlatformInfo();
     auto platformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
-    if ((pointShape == nullptr) || (centerShape == nullptr) || (scoreShape == nullptr) ||
-        (knnIdxShape == nullptr) || (attr == nullptr) || (platformInfoPtr == nullptr) ||
-        (context->GetInputDesc(0) == nullptr)) {
+    if ((pointShape == nullptr) || (centerShape == nullptr) || (scoreShape == nullptr) || (knnIdxShape == nullptr) ||
+        (attr == nullptr) || (platformInfoPtr == nullptr) || (context->GetInputDesc(0) == nullptr)) {
         return ge::GRAPH_FAILED;
     }
-    
+
     auto batchSizePtr = attr->GetAttrPointer<uint32_t>(BATCH_IDX);
     auto nsourcePtr = attr->GetAttrPointer<uint32_t>(NSOURCE_IDX);
     auto npointPtr = attr->GetAttrPointer<uint32_t>(NPOINT_IDX);
@@ -42,8 +40,8 @@ static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
     auto numNeighborsPtr = attr->GetAttrPointer<uint32_t>(NNEIGHBORS_IDX);
     auto numFeaturesPtr = attr->GetAttrPointer<uint32_t>(NFEATURES_IDX);
     auto aggregatePtr = attr->GetAttrPointer<uint32_t>(AGG_IDX);
-    if ((!aggregatePtr) || (!batchSizePtr) || (!nsourcePtr) || (!npointPtr) || (!numWeightsPtr) ||
-        (!numNeighborsPtr) || (!numFeaturesPtr)) {
+    if ((!aggregatePtr) || (!batchSizePtr) || (!nsourcePtr) || (!npointPtr) || (!numWeightsPtr) || (!numNeighborsPtr) ||
+        (!numFeaturesPtr)) {
         return ge::GRAPH_FAILED;
     }
     uint32_t batchSize = *batchSizePtr;
@@ -90,8 +88,7 @@ static ge::graphStatus AssignScoreWithkTilingFunc(gert::TilingContext *context)
 }
 
 namespace ge {
-static ge::graphStatus AssignScoreWithkInferShape(gert::InferShapeContext *context)
-{
+static ge::graphStatus AssignScoreWithkInferShape(gert::InferShapeContext *context) {
     const gert::RuntimeAttrs *attr = context->GetAttrs();
     gert::Shape *outputShape = context->GetOutputShape(0);
     if ((attr == nullptr) || (outputShape == nullptr)) {
@@ -115,8 +112,7 @@ static ge::graphStatus AssignScoreWithkInferShape(gert::InferShapeContext *conte
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus AssignScoreWithkInferDataType(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus AssignScoreWithkInferDataType(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_FLOAT);
     return GRAPH_SUCCESS;
 }
@@ -124,9 +120,8 @@ static ge::graphStatus AssignScoreWithkInferDataType(gert::InferDataTypeContext 
 
 namespace ops {
 class AssignScoreWithk : public OpDef {
-public:
-    explicit AssignScoreWithk(const char* name) : OpDef(name)
-    {
+  public:
+    explicit AssignScoreWithk(const char *name) : OpDef(name) {
         this->Input("points")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -152,38 +147,26 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND})
             .AutoContiguous();
 
-        this->Attr("batch_size")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("nsource")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("npoint")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("num_weights")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("num_neighbors")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("num_features")
-            .AttrType(REQUIRED)
-            .Int();
-        this->Attr("aggregate")
-            .AttrType(REQUIRED)
-            .Int();
+        this->Attr("batch_size").AttrType(REQUIRED).Int();
+        this->Attr("nsource").AttrType(REQUIRED).Int();
+        this->Attr("npoint").AttrType(REQUIRED).Int();
+        this->Attr("num_weights").AttrType(REQUIRED).Int();
+        this->Attr("num_neighbors").AttrType(REQUIRED).Int();
+        this->Attr("num_features").AttrType(REQUIRED).Int();
+        this->Attr("aggregate").AttrType(REQUIRED).Int();
 
         this->Output("output")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
-        this->SetInferShape(ge::AssignScoreWithkInferShape)
-            .SetInferDataType(ge::AssignScoreWithkInferDataType);
+        this->SetInferShape(ge::AssignScoreWithkInferShape).SetInferDataType(ge::AssignScoreWithkInferDataType);
         this->AICore().SetTiling(optiling::AssignScoreWithkTilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

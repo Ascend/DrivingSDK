@@ -17,12 +17,11 @@ constexpr uint32_t MEMORY_DIVIDED = 200;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingFuncForPixelGroup(gert::TilingContext *context)
-{
+static ge::graphStatus TilingFuncForPixelGroup(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     PixelGroupTilingData tiling;
 
     const gert::StorageShape *scoreShape = context->GetInputShape(0);
@@ -63,7 +62,7 @@ static ge::graphStatus TilingFuncForPixelGroup(gert::TilingContext *context)
     uint32_t pixelLast = totalPixels % coreNum;
     uint64_t availableUbSize;
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, availableUbSize);
-    availableUbSize = (availableUbSize - 20*1024) / SIZE_OF_FP32 / MEMORY_DIVIDED;
+    availableUbSize = (availableUbSize - 20 * 1024) / SIZE_OF_FP32 / MEMORY_DIVIDED;
     availableUbSize = Ceil(availableUbSize, dataAlign) * dataAlign;
     uint32_t usedCoreNum = coreNum;
     if (averagePixels == 0) {
@@ -92,7 +91,7 @@ static ge::graphStatus TilingFuncForPixelGroup(gert::TilingContext *context)
 
     size_t usrSize = (kernelRegionNum * embeddingDim * 2) * SIZE_OF_FP32;
     size_t systemWorkspaceSize = static_cast<size_t>(ascendplatformInfo.GetLibApiWorkSpaceSize());
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -102,8 +101,7 @@ static ge::graphStatus TilingFuncForPixelGroup(gert::TilingContext *context)
 }
 
 namespace ge {
-static ge::graphStatus InferShapeForPixelGroup(gert::InferShapeContext *context)
-{
+static ge::graphStatus InferShapeForPixelGroup(gert::InferShapeContext *context) {
     const gert::Shape *labelShape = context->GetInputShape(3);
     if (labelShape == nullptr) {
         return ge::GRAPH_FAILED;
@@ -128,8 +126,7 @@ static ge::graphStatus InferShapeForPixelGroup(gert::InferShapeContext *context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForPixelGroup(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDataTypeForPixelGroup(gert::InferDataTypeContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -141,54 +138,59 @@ static ge::graphStatus InferDataTypeForPixelGroup(gert::InferDataTypeContext *co
 
 namespace ops {
 class PixelGroup : public OpDef {
-public:
-    explicit PixelGroup(const char *name) : OpDef(name)
-    {
+  public:
+    explicit PixelGroup(const char *name) : OpDef(name) {
         this->Input("score")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_FLOAT})
-        .Format({ge::FORMAT_ND}).AutoContiguous()
-        .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .AutoContiguous()
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("mask")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_BOOL})
-        .Format({ge::FORMAT_ND}).AutoContiguous()
-        .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_BOOL})
+            .Format({ge::FORMAT_ND})
+            .AutoContiguous()
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("embedding")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_FLOAT})
-        .Format({ge::FORMAT_ND}).AutoContiguous()
-        .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .AutoContiguous()
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("kernel_label")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_INT32})
-        .Format({ge::FORMAT_ND}).AutoContiguous()
-        .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_INT32})
+            .Format({ge::FORMAT_ND})
+            .AutoContiguous()
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("kernel_contour")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_UINT8})
-        .Format({ge::FORMAT_ND}).AutoContiguous()
-        .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_UINT8})
+            .Format({ge::FORMAT_ND})
+            .AutoContiguous()
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Output("point_vector")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_FLOAT})
-        .Format({ge::FORMAT_ND})
-        .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Output("label_updated")
-        .ParamType(REQUIRED)
-        .DataType({ge::DT_INT32})
-        .Format({ge::FORMAT_ND})
-        .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_INT32})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("kernel_region_num").Int();
         this->Attr("distance_threshold").Float();
 
-        this->SetInferShape(ge::InferShapeForPixelGroup)
-            .SetInferDataType(ge::InferDataTypeForPixelGroup);
+        this->SetInferShape(ge::InferShapeForPixelGroup).SetInferDataType(ge::InferDataTypeForPixelGroup);
 
-        this->AICore()
-            .SetTiling(optiling::TilingFuncForPixelGroup);
+        this->AICore().SetTiling(optiling::TilingFuncForPixelGroup);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

@@ -7,11 +7,11 @@ using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 1;
 
 class KernelPixelGroup {
-public:
+  public:
     __aicore__ inline KernelPixelGroup() {}
-    __aicore__ inline void Init(GM_ADDR score, GM_ADDR mask, GM_ADDR embedding, GM_ADDR kernel_label, GM_ADDR kernel_contour,
-                                GM_ADDR point_vector, GM_ADDR label_updated, GM_ADDR workspace, const PixelGroupTilingData* tiling_data)
-    {
+    __aicore__ inline void Init(GM_ADDR score, GM_ADDR mask, GM_ADDR embedding, GM_ADDR kernel_label,
+        GM_ADDR kernel_contour, GM_ADDR point_vector, GM_ADDR label_updated, GM_ADDR workspace,
+        const PixelGroupTilingData *tiling_data) {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
         usedCoreNum = tiling_data->core_used;
@@ -27,7 +27,9 @@ public:
         lastLoopFront = tiling_data->last_loop_front;
         loopTimeRear = tiling_data->loop_time_rear;
         lastLoopRear = tiling_data->last_loop_rear;
-        if (embeddingDim % 8 != 0) paddingNum = dimAlign - embeddingDim;
+        if (embeddingDim % 8 != 0) {
+            paddingNum = dimAlign - embeddingDim;
+        }
 
         // GM
         scoreGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_SCORE *>(score), totalPixels);
@@ -66,8 +68,7 @@ public:
         pipe.InitBuffer(tempBuf, sizeof(float));
     }
 
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         uint32_t coreId = GetBlockIdx();
         if (coreId > usedCoreNum) {
             return;
@@ -96,9 +97,9 @@ public:
             }
         }
     }
-private:
-    __aicore__ inline void CopyIn(uint32_t tensorSize, uint64_t offset)
-    {
+
+  private:
+    __aicore__ inline void CopyIn(uint32_t tensorSize, uint64_t offset) {
         // alloc tensor from queue memory
         LocalTensor<DTYPE_SCORE> scoreLocal = inQueueScore.AllocTensor<DTYPE_SCORE>();
         LocalTensor<DTYPE_KERNEL_CONTOUR> maskLocal = inQueueMask.AllocTensor<DTYPE_KERNEL_CONTOUR>();
@@ -110,7 +111,7 @@ private:
         DataCopyParams copyParamsScore{1, uint16_t(tensorSize * sizeof(float)), 0, 0};
         DataCopyParams copyParamsLable{1, uint16_t(tensorSize * sizeof(int32_t)), 0, 0};
         DataCopyExtParams copyParamsInEmbedding{uint16_t(tensorSize), uint32_t(embeddingDim * sizeof(float)), 0, 0, 0};
-        DataCopyPadExtParams<float> padParamsEmbedding {true, 0, paddingNum, 0.f};
+        DataCopyPadExtParams<float> padParamsEmbedding{true, 0, paddingNum, 0.f};
 
         DataCopyPad(scoreLocal, scoreGm[offset], copyParamsScore, padParams);
         DataCopyPad(maskLocal, maskGm[offset], copyParamsMask, padParams);
@@ -123,8 +124,7 @@ private:
         inQueueEmbedding.EnQue(embeddingLocal);
     }
 
-    __aicore__ inline void Compute(uint32_t tensorSize, uint64_t offset)
-    {
+    __aicore__ inline void Compute(uint32_t tensorSize, uint64_t offset) {
         LocalTensor<float> scoreLocal = inQueueScore.DeQue<float>();
         LocalTensor<uint8_t> maskLocal = inQueueMask.DeQue<uint8_t>();
         LocalTensor<int32_t> labelLocal = inQueueLabel.DeQue<int32_t>();
@@ -157,7 +157,8 @@ private:
             SetAtomicAdd<float>();
             for (int32_t i = 0; i < tensorSize; ++i) {
                 if (labelLocal.GetValue(i) == label) {
-                    DataCopyPad(kernelVectorGm[label * embeddingDim], embeddingLocal[i * dimAlign], copyParamsVectorOut);
+                    DataCopyPad(
+                        kernelVectorGm[label * embeddingDim], embeddingLocal[i * dimAlign], copyParamsVectorOut);
                     DataCopyPad(countGm[label * embeddingDim], vectorNum, copyParamsVectorOut);
                 }
             }
@@ -176,16 +177,19 @@ private:
 
             LocalTensor<uint8_t> label_mask = maskBuf.Get<uint8_t>();
             CompareScalar(label_mask, labelBroadcast, 0, CMPMODE::EQ, AlignUp(tensorSize * dimAlign, 64));
-            Select(labelEmbeddings, label_mask, embeddingLocal, 0.f, SELMODE::VSEL_TENSOR_SCALAR_MODE, tensorSize * dimAlign);
+            Select(labelEmbeddings, label_mask, embeddingLocal, 0.f, SELMODE::VSEL_TENSOR_SCALAR_MODE,
+                tensorSize * dimAlign);
             CompareScalar(label_mask, scoreBroadcast, 0.5f, CMPMODE::GT, AlignUp(tensorSize * dimAlign, 64));
-            Select(labelEmbeddings, label_mask, labelEmbeddings, 0.f, SELMODE::VSEL_TENSOR_SCALAR_MODE, tensorSize * dimAlign);
+            Select(labelEmbeddings, label_mask, labelEmbeddings, 0.f, SELMODE::VSEL_TENSOR_SCALAR_MODE,
+                tensorSize * dimAlign);
             Sub(tempVector, labelEmbeddings, tempVector, tensorSize * dimAlign);
             Power(vectorSquared, tempVector, 2.f, tensorSize * dimAlign);
             SumParams params{tensorSize, dimAlign, embeddingDim};
             Sum(distances, vectorSquared, params);
 
             LocalTensor<uint8_t> within_threshold = maskBuf.Get<uint8_t>();
-            CompareScalar(within_threshold, distances, distanceThreshold * distanceThreshold, CMPMODE::LT, AlignUp(tensorSize, 64));
+            CompareScalar(within_threshold, distances, distanceThreshold * distanceThreshold, CMPMODE::LT,
+                AlignUp(tensorSize, 64));
             Duplicate<float>(vectorNum, static_cast<float>(label), tensorSize);
             Cast(kernelLabel, labelLocal, RoundMode::CAST_ROUND, tensorSize);
             Select(kernelLabel, within_threshold, vectorNum, kernelLabel, SELMODE::VSEL_CMPMASK_SPR, tensorSize);
@@ -215,7 +219,8 @@ private:
         inQueueEmbedding.FreeTensor(embeddingLocal);
         inQueueLabel.FreeTensor(labelLocal);
     }
-private:
+
+  private:
     TPipe pipe;
     TQue<QuePosition::VECIN, BUFFER_NUM> inQueueScore, inQueueMask, inQueueEmbedding, inQueueLabel;
     TBuf<TPosition::VECCALC> kernelVectorBuf, disBuf, embeddingBuf, vectorBuf, labelBuf, numBuf, scoreBuf;
@@ -247,9 +252,10 @@ private:
 };
 
 extern "C" __global__ __aicore__ void pixel_group(GM_ADDR score, GM_ADDR mask, GM_ADDR embedding, GM_ADDR kernel_label,
-                                                  GM_ADDR kernel_contour, GM_ADDR point_vector, GM_ADDR label_updated,
-                                                  GM_ADDR workspace, GM_ADDR tiling)
-{
+    GM_ADDR kernel_contour, GM_ADDR point_vector, GM_ADDR label_updated, GM_ADDR workspace, GM_ADDR tiling) {
+#if __CCE_AICORE__ == 310
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
+#endif
     GET_TILING_DATA(tiling_data, tiling);
     KernelPixelGroup op;
     op.Init(score, mask, embedding, kernel_label, kernel_contour, point_vector, label_updated, workspace, &tiling_data);

@@ -4,8 +4,7 @@
 
 namespace optiling {
 
-static ge::graphStatus TilingForRoiawareMaxpool3dGrad(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForRoiawareMaxpool3dGrad(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -51,14 +50,17 @@ static ge::graphStatus TilingForRoiawareMaxpool3dGrad(gert::TilingContext* conte
     uint32_t coreTask = (totalTask + aivNum - 1) / aivNum;
     uint32_t smallCoreTask = coreTask - 1;
     uint32_t firstSmallCoreIdx = totalTask % aivNum == 0 ? aivNum : totalTask % aivNum;
-    uint32_t channelAligned = ((channels * ONE_ELEMENT_SIZE + BYTE_ALIGNED - 1) / BYTE_ALIGNED) * (BYTE_ALIGNED / ONE_ELEMENT_SIZE);
+    uint32_t channelAligned =
+        ((channels * ONE_ELEMENT_SIZE + BYTE_ALIGNED - 1) / BYTE_ALIGNED) * (BYTE_ALIGNED / ONE_ELEMENT_SIZE);
 
-    uint32_t singleLoopTask = (ubSize * INPUT_UB_RATIO) / (GRADOUT_BUFFER_NUMER * ONE_ELEMENT_SIZE + IDX_BUFFER_NUMBER * sizeof(int32_t)) / channelAligned;
+    uint32_t singleLoopTask = (ubSize * INPUT_UB_RATIO) /
+        (GRADOUT_BUFFER_NUMER * ONE_ELEMENT_SIZE + IDX_BUFFER_NUMBER * sizeof(int32_t)) / channelAligned;
     uint32_t singleLoopOutput = (ubSize * OUTPUT_UB_RATIO) / ONE_ELEMENT_SIZE / 3 / channelAligned;
 
-    uint32_t singleLoopTask_add = singleLoopTask <= MAX_REPEAT_TIMES? singleLoopTask : MAX_REPEAT_TIMES;   // for Add api
-    uint32_t singleLoopTask_select = (COMPUTE_BYTE_SIZE * MAX_REPEAT_TIMES) / (channelAligned * ONE_ELEMENT_SIZE);  // for Select Api
-    singleLoopTask = singleLoopTask_add < singleLoopTask_select? singleLoopTask_add : singleLoopTask_select;
+    uint32_t singleLoopTask_add = singleLoopTask <= MAX_REPEAT_TIMES ? singleLoopTask : MAX_REPEAT_TIMES; // for Add api
+    uint32_t singleLoopTask_select =
+        (COMPUTE_BYTE_SIZE * MAX_REPEAT_TIMES) / (channelAligned * ONE_ELEMENT_SIZE); // for Select Api
+    singleLoopTask = singleLoopTask_add < singleLoopTask_select ? singleLoopTask_add : singleLoopTask_select;
     /* Set tilingData */
     RoiawareMaxpool3dGradTilingData tilingData;
 
@@ -89,15 +91,14 @@ static ge::graphStatus TilingForRoiawareMaxpool3dGrad(gert::TilingContext* conte
 }
 
 namespace ge {
-static ge::graphStatus InferShapeForRoiawareMaxpool3dGrad(gert::InferShapeContext* context)
-{
-    const gert::Shape* argmax = context->GetInputShape(0);
-    const gert::Shape* gradOut = context->GetInputShape(1);
-    gert::Shape* gradIn = context->GetOutputShape(0);
+static ge::graphStatus InferShapeForRoiawareMaxpool3dGrad(gert::InferShapeContext *context) {
+    const gert::Shape *argmax = context->GetInputShape(0);
+    const gert::Shape *gradOut = context->GetInputShape(1);
+    gert::Shape *gradIn = context->GetOutputShape(0);
     if (argmax == nullptr || gradOut == nullptr || gradIn == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     int64_t channels = argmax->GetDim(4);
     auto runtimeAttrs = context->GetAttrs();
     if (runtimeAttrs == nullptr) {
@@ -111,20 +112,17 @@ static ge::graphStatus InferShapeForRoiawareMaxpool3dGrad(gert::InferShapeContex
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForRoiawareMaxpool3dGrad(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForRoiawareMaxpool3dGrad(gert::InferDataTypeContext *context) {
     const ge::DataType value_dtype = context->GetInputDataType(1);
     context->SetOutputDataType(0, value_dtype);
     return GRAPH_SUCCESS;
 }
 }
 
-
 namespace ops {
 class RoiawareMaxpool3dGrad : public OpDef {
-public:
-    explicit RoiawareMaxpool3dGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit RoiawareMaxpool3dGrad(const char *name) : OpDef(name) {
         this->Input("argmax")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32})
@@ -147,10 +145,14 @@ public:
         this->Attr("channels").Int();
         this->Attr("npoints").Int();
 
-        this->SetInferShape(ge::InferShapeForRoiawareMaxpool3dGrad).SetInferDataType(ge::InferDataTypeForRoiawareMaxpool3dGrad);
+        this->SetInferShape(ge::InferShapeForRoiawareMaxpool3dGrad)
+            .SetInferDataType(ge::InferDataTypeForRoiawareMaxpool3dGrad);
         this->AICore().SetTiling(optiling::TilingForRoiawareMaxpool3dGrad);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

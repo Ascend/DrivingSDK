@@ -7,8 +7,7 @@
 
 namespace optiling {
 /****************class impl*****************/
-static ge::graphStatus TilingForKnn(gert::TilingContext *context)
-{
+static ge::graphStatus TilingForKnn(gert::TilingContext *context) {
     uint32_t batch;
     uint32_t nPoint;
     uint32_t nSource;
@@ -65,8 +64,7 @@ static ge::graphStatus TilingForKnn(gert::TilingContext *context)
 }
 
 namespace ge {
-static ge::graphStatus InfershapeForKnn(gert::InferShapeContext *context)
-{
+static ge::graphStatus InfershapeForKnn(gert::InferShapeContext *context) {
     const gert::Shape *xyzShape = context->GetInputShape(0);
     const gert::Shape *centerXyzShape = context->GetInputShape(1);
     gert::Shape *distShape = context->GetOutputShape(0);
@@ -74,8 +72,9 @@ static ge::graphStatus InfershapeForKnn(gert::InferShapeContext *context)
     const gert::RuntimeAttrs *attr = context->GetAttrs();
     uint32_t batch;
     uint32_t nPoint;
-    if ((xyzShape == nullptr) || (centerXyzShape == nullptr) || (distShape == nullptr) || (idxShape == nullptr) || (attr == nullptr)) {
-            return ge::GRAPH_FAILED;
+    if ((xyzShape == nullptr) || (centerXyzShape == nullptr) || (distShape == nullptr) || (idxShape == nullptr) ||
+        (attr == nullptr)) {
+        return ge::GRAPH_FAILED;
     }
     if ((xyzShape->GetDimNum() != 3) || ((centerXyzShape->GetDimNum() != 3))) { // 3 : input dim is 3
         return ge::GRAPH_FAILED;
@@ -88,7 +87,7 @@ static ge::graphStatus InfershapeForKnn(gert::InferShapeContext *context)
     distShape->SetDim(0, batch);
     distShape->SetDim(1, nPoint);
     distShape->SetDim(2, k);
-    
+
     idxShape->SetDimNum(3);
     idxShape->SetDim(0, batch);
     idxShape->SetDim(1, nPoint);
@@ -96,8 +95,7 @@ static ge::graphStatus InfershapeForKnn(gert::InferShapeContext *context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForKnn(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDataTypeForKnn(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_FLOAT);
     context->SetOutputDataType(1, ge::DT_INT32);
     return GRAPH_SUCCESS;
@@ -106,9 +104,8 @@ static ge::graphStatus InferDataTypeForKnn(gert::InferDataTypeContext *context)
 
 namespace ops {
 class Knn : public OpDef {
-public:
-    explicit Knn(const char* name) : OpDef(name)
-    {
+  public:
+    explicit Knn(const char *name) : OpDef(name) {
         this->Input("xyz")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -119,12 +116,8 @@ public:
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
-        this->Attr("is_from_knn")
-            .AttrType(REQUIRED)
-            .Bool();
-        this->Attr("k")
-            .AttrType(REQUIRED)
-            .Int();
+        this->Attr("is_from_knn").AttrType(REQUIRED).Bool();
+        this->Attr("k").AttrType(REQUIRED).Int();
         this->Output("dist")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -135,8 +128,7 @@ public:
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
-        this->SetInferShape(ge::InfershapeForKnn)
-            .SetInferDataType(ge::InferDataTypeForKnn);
+        this->SetInferShape(ge::InfershapeForKnn).SetInferDataType(ge::InferDataTypeForKnn);
         this->AICore().SetTiling(optiling::TilingForKnn);
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)
@@ -145,6 +137,9 @@ public:
             .DynamicShapeSupportFlag(true);
         this->AICore().AddConfig("ascend910b", aicore_config);
         this->AICore().AddConfig("ascend910_93", aicore_config);
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

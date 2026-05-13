@@ -17,11 +17,10 @@ constexpr float ONE_FLOAT_VALUE = 1.0f;
 constexpr float UB_RATIO = 0.8f;
 
 class GraphSoftmaxGrad {
-public:
-    __aicore__ inline GraphSoftmaxGrad()
-    {}
-    __aicore__ inline void Init(GM_ADDR index, GM_ADDR softmax_output, GM_ADDR grad_output, GM_ADDR reduce_sum, GM_ADDR src_grad, const GraphSoftmaxGradTilingData *tiling_data, TPipe* pipe)
-    {
+  public:
+    __aicore__ inline GraphSoftmaxGrad() {}
+    __aicore__ inline void Init(GM_ADDR index, GM_ADDR softmax_output, GM_ADDR grad_output, GM_ADDR reduce_sum,
+        GM_ADDR src_grad, const GraphSoftmaxGradTilingData *tiling_data, TPipe *pipe) {
         ASSERT(GetBlockNum() != 0 && "Block Dim can not be Zero!");
         this->blockIndex = GetBlockIdx();
         this->_pipe = pipe;
@@ -44,8 +43,7 @@ public:
         this->_pipe->InitBuffer(TmpIndexSelectBuffer, bufferSize);
     }
 
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         AllocLocalTensors();
         if (taskLoop == 1) {
             SingleLoopComputing();
@@ -54,10 +52,8 @@ public:
         }
     }
 
-private:
-
-    __aicore__ inline void GetTilingData(const GraphSoftmaxGradTilingData *tiling_data)
-    {
+  private:
+    __aicore__ inline void GetTilingData(const GraphSoftmaxGradTilingData *tiling_data) {
         edgeNum = tiling_data->edgeNum;
         alignTaskNum = tiling_data->alignTaskNum;
         tailNum = tiling_data->tailNum;
@@ -70,8 +66,7 @@ private:
         ubTotalSize = tiling_data->ubTotalSize;
     }
 
-    __aicore__ inline uint64_t GetCopyIndex(uint32_t taskLoopIndex)
-    {
+    __aicore__ inline uint64_t GetCopyIndex(uint32_t taskLoopIndex) {
         uint64_t copyIndex = blockIndex * taskNumPerCore + taskLoopIndex * taskNumPerLoop;
         if (blockIndex >= tailCoreNum) {
             copyIndex -= (blockIndex - tailCoreNum);
@@ -79,8 +74,7 @@ private:
         return copyIndex;
     }
 
-    __aicore__ inline int32_t GetTaskNum(uint32_t taskLoopIndex)
-    {
+    __aicore__ inline int32_t GetTaskNum(uint32_t taskLoopIndex) {
         int32_t taskNumPerCurLoop;
         if (taskLoopIndex == taskLoop - 1) {
             taskNumPerCurLoop = taskNumPerCore - taskLoopIndex * taskNumPerLoop;
@@ -93,8 +87,7 @@ private:
         return taskNumPerCurLoop;
     }
 
-    __aicore__ inline void SingleLoopComputing()
-    {
+    __aicore__ inline void SingleLoopComputing() {
         uint64_t copyIndex = GetCopyIndex(ZERO_VALUE);
         int32_t taskNumPerCurLoop = GetTaskNum(ZERO_VALUE);
         CopyIn(copyIndex, taskNumPerCurLoop);
@@ -104,8 +97,7 @@ private:
         CopyOut(copyIndex, taskNumPerCurLoop);
     }
 
-    __aicore__ inline void MultiLoopComputing()
-    {
+    __aicore__ inline void MultiLoopComputing() {
         for (uint32_t taskLoopIndex = 0; taskLoopIndex < taskLoop; taskLoopIndex++) {
             uint64_t copyIndex = GetCopyIndex(taskLoopIndex);
             int32_t taskNumPerCurLoop = GetTaskNum(taskLoopIndex);
@@ -124,8 +116,7 @@ private:
         }
     }
 
-    __aicore__ inline void AllocLocalTensors()
-    {
+    __aicore__ inline void AllocLocalTensors() {
         IndexTensor = IndexTensorBuffer.Get<DTYPE_INDEX>();
         SoftmaxOutputTensor = SoftmaxOutputBuffer.Get<DTYPE_SOFTMAX_OUTPUT>();
         GradOutputTensor = GradOutputBuffer.Get<DTYPE_GRAD_OUTPUT>();
@@ -136,8 +127,7 @@ private:
         Duplicate(TmpIndexSelectTensor, ZERO_FLOAT_VALUE, taskNumPerLoop * SRC_SHAPE_DIM);
     }
 
-    __aicore__ inline void CopyIn(uint64_t copyIndex, int32_t copyLength)
-    {
+    __aicore__ inline void CopyIn(uint64_t copyIndex, int32_t copyLength) {
         SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
         WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
@@ -151,8 +141,7 @@ private:
         Mul(GradOutputTensor, SoftmaxOutputTensor, GradOutputTensor, GradOutputTensor.GetSize());
     }
 
-    __aicore__ inline void ReduceSum(int32_t egTotalNum)
-    {
+    __aicore__ inline void ReduceSum(int32_t egTotalNum) {
         SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
         WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         SetAtomicAdd<float>();
@@ -166,8 +155,7 @@ private:
         WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
     }
 
-    __aicore__ inline void SingleLoopIndexSelect(int32_t egTotalNum)
-    {
+    __aicore__ inline void SingleLoopIndexSelect(int32_t egTotalNum) {
         SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
         WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
@@ -182,8 +170,7 @@ private:
         Sub(SrcGradTensor, GradOutputTensor, TmpIndexSelectTensor, TmpIndexSelectTensor.GetSize());
     }
 
-    __aicore__ inline void MultiLoopIndexSelect(uint64_t copyIndex, int32_t egTotalNum)
-    {
+    __aicore__ inline void MultiLoopIndexSelect(uint64_t copyIndex, int32_t egTotalNum) {
         SetFlag<HardEvent::V_MTE2>(EVENT_ID0);
         WaitFlag<HardEvent::V_MTE2>(EVENT_ID0);
 
@@ -202,8 +189,7 @@ private:
         Sub(SrcGradTensor, GradOutputTensor, TmpIndexSelectTensor, TmpIndexSelectTensor.GetSize());
     }
 
-    __aicore__ inline void CopyOut(uint64_t copyIndex, int32_t copyLength)
-    {
+    __aicore__ inline void CopyOut(uint64_t copyIndex, int32_t copyLength) {
         SetFlag<HardEvent::V_MTE3>(EVENT_ID0);
         WaitFlag<HardEvent::V_MTE3>(EVENT_ID0);
         DataCopy(srcgradGM[copyIndex * SRC_SHAPE_DIM], SrcGradTensor, copyLength * SRC_SHAPE_DIM);
@@ -211,11 +197,11 @@ private:
         WaitFlag<HardEvent::MTE3_V>(EVENT_ID0);
     }
 
-private:
+  private:
     TPipe *_pipe;
-    TBuf <TPosition::VECCALC> IndexTensorBuffer, SoftmaxOutputBuffer, GradOutputBuffer;
-    TBuf <TPosition::VECCALC> SrcGradTensorBuffer;
-    TBuf <TPosition::VECCALC> TmpIndexSelectBuffer;
+    TBuf<TPosition::VECCALC> IndexTensorBuffer, SoftmaxOutputBuffer, GradOutputBuffer;
+    TBuf<TPosition::VECCALC> SrcGradTensorBuffer;
+    TBuf<TPosition::VECCALC> TmpIndexSelectBuffer;
 
     LocalTensor<int32_t> IndexTensor;
     LocalTensor<float> SoftmaxOutputTensor, GradOutputTensor;
@@ -233,7 +219,11 @@ private:
     uint64_t blockIndex, ubTotalSize;
 };
 
-extern "C" __global__ __aicore__ void graph_softmax_grad(GM_ADDR index, GM_ADDR softmax_output, GM_ADDR grad_output, GM_ADDR reduce_sum, GM_ADDR src_grad, GM_ADDR workspace, GM_ADDR tiling) {
+extern "C" __global__ __aicore__ void graph_softmax_grad(GM_ADDR index, GM_ADDR softmax_output, GM_ADDR grad_output,
+    GM_ADDR reduce_sum, GM_ADDR src_grad, GM_ADDR workspace, GM_ADDR tiling) {
+#if __CCE_AICORE__ == 310
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
+#endif
     TPipe pipe;
     GET_TILING_DATA(tiling_data, tiling);
     if (TILING_KEY_IS(1)) {
