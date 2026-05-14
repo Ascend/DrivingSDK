@@ -14,7 +14,8 @@
   - [获取预训练权重](#获取预训练权重)
   - [准备数据集](#准备数据集-1)
 - [快速开始](#快速开始)
-  - [训练结果展示](#训练结果展示)
+  - [单机8卡训练](#单机8卡训练)
+  - [单卡推理](#单卡推理)
 - [版本说明](#版本说明)
   - [变更](#变更)
   - [FAQ](#faq)
@@ -90,7 +91,7 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
       cp -f ../test/train* ./
     ```
 
-3. 安装ffmpeg与torchcodec
+3. 安装ffmpeg, torchcodec和decord
 
     ```sh
     # 安装ffmpeg
@@ -103,6 +104,40 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
     cd torchcodec
     git checkout v0.5.0
     pip install -e . --no-build-isolation
+
+    # 安装decord
+    git clone --recursive https://github.com/dmlc/decord --depth 1
+    cd decord
+    mkdir build && cd build
+    cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH="/usr/local/ffmpeg/"
+    make
+
+    # 编译whl包
+    cd ../python
+    python setup.py sdist bdist_wheel
+    cd ../..
+    pip install decord/python/dist/decord-0.6.0-cp310-cp310-linux_aarch64.whl
+    ```
+
+4. 安装triton-ascend
+
+    ```sh
+    # 通过pip安装Triton-Ascend的最新稳定版本
+    pip install triton-ascend==3.2.0
+    ```
+
+    注意：triton-ascend 3.2.0 及以下 Triton-Ascend和Triton 不能同时存在。需要先卸载社区 Triton，再安装 Triton-Ascend, 详细参考triton-ascend原仓安装介绍: <https://gitcode.com/Ascend/triton-ascend/blob/main/docs/zh/installation_guide.md>
+
+5. 安装git-lfs
+
+    ```sh
+    # 通过源码安装git-lfs
+    wget --no-check-certificate https://github.com/git-lfs/git-lfs/releases/download/v3.6.1/git-lfs-linux-arm64-v3.6.1.tar.gz
+    tar -zxf git-lfs-linux-arm64-v3.6.1.tar.gz
+    cd git-lfs-3.6.1
+    cp git-lfs /usr/bin/
+    git lfs install
+    git lfs version
     ```
 
 # 准备数据集
@@ -118,19 +153,26 @@ hf download nvidia/GR00T-N1.6-3B --local-dir ./GR00T-N1.6-3B
 
 ## 准备数据集
 
-以LIBERO 10微调为例，安装数据集
+- 以LIBERO 10微调为例，安装数据集
 
-```sh
-huggingface-cli download \
-    --repo-type dataset IPEC-COMMUNITY/libero_10_no_noops_1.0.0_lerobot \
-    --local-dir examples/LIBERO/libero_10_no_noops_1.0.0_lerobot/
+  ```sh
+  huggingface-cli download \
+      --repo-type dataset IPEC-COMMUNITY/libero_10_no_noops_1.0.0_lerobot \
+      --local-dir examples/LIBERO/libero_10_no_noops_1.0.0_lerobot/
 
-cp -r examples/LIBERO/modality.json examples/LIBERO/libero_10_no_noops_1.0.0_lerobot/meta/
-```
+  cp -r examples/LIBERO/modality.json examples/LIBERO/libero_10_no_noops_1.0.0_lerobot/meta/
+  ```
+
+- 以gr1.PickNPlace的推理为例，安装数据集
+
+  ```sh
+  cd /home/workspace/DrivingSDK/model_examples/GR00T-N1.6/Isaac-GR00T
+  git lfs pull
+  ```
 
 # 快速开始
 
-* 单机8卡训练
+## 单机8卡训练
 
 需先进入Isaac-GR00T目录
 
@@ -150,19 +192,44 @@ bash train_8p.sh --num_gpus=8 --global_batch_size=640 --max_steps=20000 --datase
 bash train_performance_8p.sh --num_gpus=8 --global_batch_size=640 --max_steps=1000 --dataset_path=examples/LIBERO/libero_10_no_noops_1.0.0_lerobot/ --base_model_path=./GR00T-N1.6-3B
 ```
 
-## 训练结果展示
+**训练结果展示**
 
 **表 3**  训练结果展示表
 
 |     芯片      | 卡数 | global batch size | max steps | Final loss | FPS  |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------|
-|     竞品A     |  8p  |         640       |  20000 |  0.0084 |  457  |    
-| Atlas 800T A2 |  8p  |         640       |  20000 |  0.0082 |  449  | 
+|     竞品A     |  8p  |         640       |  20000 |  0.0084 |  457  |
+| Atlas 800T A2 |  8p  |         640       |  20000 |  0.0082 |  449  |
+
+## 单卡推理
+
+需先进入Isaac-GR00T目录
+
+```sh
+cd Isaac-GR00T
+```
+
+**推理脚本**
+
+```sh
+# 使用GR00T N1.6官方的base Model进行推理，GR00T-N1.6-3B
+taskset -c 0-7 python scripts/deployment/standalone_inference_script.py --model-path ./GR00T-N1.6-3B --dataset-path demo_data/gr1.PickNPlace --embodiment-tag GR1 --traj-ids 0 1 2 --inference-mode pytorch --action-horizon 8 --video_backend decord
+```
+
+**推理结果展示**
+
+**表 4**  推理结果展示表
+
+|     芯片      | 卡数 | 数据集 | Average MSE | Average MAE | Avg time/step(s) |  SPS  |
+| :-----------: | :--: | :----- | :---------: | :---------: | :--------------: | :---: |
+|     竞品A     |  1p  |  ...   |   1.179     |   0.673     |      0.147       | 6.80  |
+| Atlas 800T A2 |  1p  |  ...   |   1.185     |   0.674     |      0.145       | 6.90  |
 
 # 版本说明
 
 ## 变更
 
+2026.5.7: 新增推理适配。
 2026.4.3: 首次发布。
 
 ## FAQ
@@ -174,3 +241,16 @@ A: 用户可以前往官网或使用 Hugging Face 镜像源在有网络的情况
 Q: 若运行过程中出现torchcodec相关报错，如decoder等？
 
 A：可能是受到环境内系统原有ffmpeg的影响，需进入`/usr/local/`目录下，将ffmpeg目录更名（如`mv ffmpeg ffmpeg_bak`）来避免冲突，从而确保只依赖于conda版本，随后可重新编译安装torchcodec
+
+Q: 若推理过程中出现`/lib/python3.10/site-packages/torch/utils/_triton.py`文件中cuda版本校验失败？
+
+A：torch.compile 在 NPU 上运行时， `torch._dynamo` 会调用 `_triton.py` 中的函数检查 CUDA 设备能力，但 NPU 环境下 CUDA 相关接口返回 None ，导致 None >= (9, 0) 和 None >= 7 的类型比较错误。可尝试注释该校验，或者参考下面的修改:
+
+```python
+ _cap = torch.cuda.get_device_capability() if torch.cuda.is_available() else None
+        if (
+            _cap is not None
+            and _cap >= (9, 0)
+            and not torch.version.hip
+        ):
+```

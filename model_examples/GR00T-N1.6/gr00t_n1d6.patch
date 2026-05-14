@@ -16,7 +16,7 @@ index da488eb..106638d 100755
 +++ b/gr00t/configs/training/training_config.py
 @@ -32,7 +32,7 @@ class TrainingConfig:
      start_from_checkpoint: Optional[str] = None
- 
+
      # Mixed precision
 -    tf32: bool = True
 +    tf32: bool = False
@@ -36,12 +36,12 @@ index f5deb7e..1f934c8 100644
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
 +from gr00t.utils.patch import generate_patcher_builder
- 
+
  # Make sure the user provided modality config is registered.
  def load_modality_config(modality_config_path: str):
 @@ -26,6 +29,7 @@ def load_modality_config(modality_config_path: str):
- 
- 
+
+
  if __name__ == "__main__":
 +    generate_patcher_builder()
      # Set LOGURU_LEVEL environment variable if not already set (default: INFO)
@@ -59,7 +59,7 @@ index d477898..2eef027 100644
 +        self.hidden_dim = hidden_dim
          self.W = nn.Parameter(0.02 * torch.randn(num_categories, input_dim, hidden_dim))
          self.b = nn.Parameter(torch.zeros(num_categories, hidden_dim))
- 
+
 @@ -59,8 +61,12 @@ class CategorySpecificLinear(nn.Module):
          Returns:
              [B, T, hidden_dim] output tensor
@@ -73,7 +73,7 @@ index d477898..2eef027 100644
 +        selected_W = selected_W_flat.view(B, self.input_dim, self.hidden_dim)
 +        selected_b = torch.matmul(one_hot, self.b)
          return torch.bmm(x, selected_W) + selected_b.unsqueeze(1)
- 
+
      def expand_action_dimension(
 diff --git a/gr00t/model/modules/nvidia/Eagle-Block2A-2B-v2/modeling_siglip2.py b/gr00t/model/modules/nvidia/Eagle-Block2A-2B-v2/modeling_siglip2.py
 index 94251a4..a363c22 100644
@@ -82,22 +82,22 @@ index 94251a4..a363c22 100644
 @@ -56,7 +56,7 @@ from typing import Optional, Tuple
  import torch
  import torch.nn.functional as F
- 
+
 -from transformers.utils import is_flash_attn_2_available, is_flash_attn_greater_or_equal, logging
 +from transformers.utils import is_flash_attn_2_available, is_flash_attn_greater_or_equal, logging, is_torch_npu_available
  from transformers.integrations.flash_attention import flash_attention_forward as original_flash_attention_forward
  flash_241 = is_flash_attn_greater_or_equal("2.4.1")
  deterministic_g = os.environ.get("FLASH_ATTENTION_DETERMINISTIC", "0") == "1"
 @@ -71,6 +71,11 @@ if is_flash_attn_2_available():
- 
+
      _flash_supports_window_size = "window_size" in list(inspect.signature(flash_attn_func).parameters)
- 
+
 +if is_torch_npu_available():
 +    from transformers.integrations.npu_flash_attention import index_first_axis, pad_input, unpad_input
 +    from transformers.integrations.npu_flash_attention import npu_flash_attn_func as flash_attn_func
 +    from transformers.integrations.npu_flash_attention import npu_flash_attn_varlen_func as flash_attn_varlen_func
 +    _flash_supports_window_size = "window_size" in list(inspect.signature(flash_attn_func).parameters)
- 
+
  def _flash_attention_forward(
      query_states: torch.Tensor,
 diff --git a/pyproject.toml b/pyproject.toml
@@ -123,9 +123,53 @@ index 93eb2e0..8c8d0c1 100644
 @@ -53,8 +51,6 @@ tensorrt = [
  where = ["."]
  include = ["gr00t*"]
- 
+
 -[tool.uv.extra-build-dependencies]
 -flash-attn = ["torch==2.7.0", "numpy==1.26.4"]
- 
+
  [tool.ruff]
  line-length = 100
+diff --git a/scripts/deployment/standalone_inference_script.py b/scripts/deployment/standalone_inference_script.py
+index da5ebbd..b7368eb 100644
+--- a/scripts/deployment/standalone_inference_script.py
++++ b/scripts/deployment/standalone_inference_script.py
+@@ -19,10 +19,14 @@ from matplotlib import pyplot as plt
+ import numpy as np
+ import pandas as pd
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
++import torchair
+ import tyro
+
++from gr00t.utils.patch import generate_patcher_builder
+
+ warnings.simplefilter("ignore", category=FutureWarning)
+
+ """
+ Combined inference script supporting both PyTorch and TensorRT modes.
+@@ -662,9 +666,14 @@ def main(args: ArgsConfig):
+             replace_dit_with_tensorrt(policy, args.trt_engine_path)
+             logging.info(" TensorRT mode enabled")
+         else:
+-            # PyTorch mode with torch.compile
++            # PyTorch mode with torch.compile
++            config = torchair.CompilerConfig()
++            npu_backend = torchair.get_npu_backend(compiler_config=config)
+             policy.model.action_head.model.forward = torch.compile(
+-                policy.model.action_head.model.forward, mode="max-autotune"
++                policy.model.action_head.model.forward,
++                backend=npu_backend,
++                dynamic=False,
++                fullgraph=True,
+             )
+             logging.info(" PyTorch mode enabled with torch.compile")
+
+@@ -811,6 +820,7 @@ def main(args: ArgsConfig):
+
+
+ if __name__ == "__main__":
++    generate_patcher_builder()
+     # Parse arguments using tyro
+     config = tyro.cli(ArgsConfig)
+     main(config)
