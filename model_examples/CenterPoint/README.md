@@ -126,11 +126,14 @@ python -c "import cumm"
 
 4. 将spconv/spconv/pytorch/ops.py文件第32行代码进行调整
     将代码
+
     ```python
     if hasattr(_ext, "cumm"):
     ```
+
     调整为
-    ```python 
+
+    ```python
     if 0:
     ```
 
@@ -440,7 +443,7 @@ python setup.py develop
    bash train_centerpoint3d_performance_8p.sh # 8p性能训练
    ```
 
-   训练完成后，权重文件保存在当前路径下，并输出模型训练精度和性能信息
+   训练完成后，权重文件保存在当前路径下，并输出模型训练精度和性能信息。
 
 ### 训练结果对比
 

@@ -20,7 +20,7 @@
 #### 镜像及其版本介绍
 
 Driving SDK镜像是基于openEulerOS构建的，包含Driving SDK模型和算子运行的基础环境，可实现模型训练快速上手。
-<!-- 镜像版本说明需要询问,根据社区上的版本号为准(如7.3.0) -->
+
 表2：镜像版本、CANN版本、PTA版本和Driving SDK版本配套关系
 
 | 镜像版本         | CANN版本         | PTA版本  | Driving SDK版本 | 备注                  |
@@ -50,64 +50,64 @@ Driving SDK镜像是基于openEulerOS构建的，包含Driving SDK模型和算�
     > - 如需下载其它版本的镜像，请前往[镜像版本](https://www.hiascend.com/developer/ascendhub/detail/696b50584fa04d4a8e99f7894f8eb176)页面进行下载。
 2. 创建容器。
 
-    2.1 创建`run_drivingsdk_docker.sh`脚本。
+    1. 创建`run_drivingsdk_docker.sh`脚本。
 
-    ```shell
-    #!/usr/bin/bash
+        ```shell
+        #!/usr/bin/bash
 
-    # 需要保证宿主机已经安装好了昇腾驱动，并将/usr/local/Ascend/driver挂载到容器中。
-    # 容器中自带CANN包，位于/usr/local/Ascend/ascend-toolkit路径下。
-    # 执行时需指定镜像名与镜像标签。
+        # 需要保证宿主机已经安装好了昇腾驱动，并将/usr/local/Ascend/driver挂载到容器中。
+        # 容器中自带CANN包，位于/usr/local/Ascend/ascend-toolkit路径下。
+        # 执行时需指定镜像名与镜像标签。
 
-    IMAGE=$1
-    TAG=$2
+        IMAGE=$1
+        TAG=$2
 
-    docker run -it --ipc=host \
-    --network=host \
-    --privileged -u=root \
-    --device=/dev/davinci0 \
-    --device=/dev/davinci1 \
-    --device=/dev/davinci2 \
-    --device=/dev/davinci3 \
-    --device=/dev/davinci4 \
-    --device=/dev/davinci5 \
-    --device=/dev/davinci6 \
-    --device=/dev/davinci7 \
-    --device=/dev/davinci_manager \
-    --device=/dev/devmm_svm \
-    --device=/dev/hisi_hdc \
-    -v /usr/local/sbin/npu-smi:/usr/local/sbin/npu-smi \
-    -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
-    -v /usr/bin/hccn_tool:/usr/bin/hccn_tool \
-    ${IMAGE}:${TAG} \
-    /bin/bash
-    ```
+        docker run -it --ipc=host \
+        --network=host \
+        --privileged -u=root \
+        --device=/dev/davinci0 \
+        --device=/dev/davinci1 \
+        --device=/dev/davinci2 \
+        --device=/dev/davinci3 \
+        --device=/dev/davinci4 \
+        --device=/dev/davinci5 \
+        --device=/dev/davinci6 \
+        --device=/dev/davinci7 \
+        --device=/dev/davinci_manager \
+        --device=/dev/devmm_svm \
+        --device=/dev/hisi_hdc \
+        -v /usr/local/sbin/npu-smi:/usr/local/sbin/npu-smi \
+        -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
+        -v /usr/bin/hccn_tool:/usr/bin/hccn_tool \
+        ${IMAGE}:${TAG} \
+        /bin/bash
+        ```
 
-    2.2 执行脚本创建并进入容器。
+    2. 执行脚本创建并进入容器。
 
-    ```shell
-    bash run_drivingsdk_docker.sh $IMAGE $TAG
-    ```
+        ```shell
+        bash run_drivingsdk_docker.sh $IMAGE $TAG
+        ```
 
-    以 `8.3.RC1_alpha001-arm64` 版本举例，指定镜像名和标签：
-    
-    ```shell
-    bash run_drivingsdk_docker.sh swr.cn-south-1.myhuaweicloud.com/ascendhub/drivingsdk 8.3.RC1_alpha001-arm64
-    ```
+        以 `8.3.RC1_alpha001-arm64` 版本举例，指定镜像名和标签：
 
-    2.3 进入模型所需conda环境。
+        ```shell
+        bash run_drivingsdk_docker.sh swr.cn-south-1.myhuaweicloud.com/ascendhub/drivingsdk 8.3.RC1_alpha001-arm64
+        ```
 
-    ```shell
-    conda activate torch2.1.0_py38
-    ```
+        2.3 进入模型所需conda环境。
 
-    表3：镜像中提供三个conda环境、Python和torch的配套关系
+        ```shell
+        conda activate torch2.1.0_py38
+        ```
 
-    | conda环境        | python | torch |
-    | ---------------- | ------ | ----- |
-    | torch2.1.0_py38  | 3.8    | 2.1.0 |
-    | torch2.5.1_py39  | 3.9    | 2.5.1 |
-    | torch2.6.0_py310 | 3.10   | 2.6.0 |
+        表3：镜像中提供三个conda环境、Python和torch的配套关系
+
+        | conda环境        | python | torch |
+        | ---------------- | ------ | ----- |
+        | torch2.1.0_py38  | 3.8    | 2.1.0 |
+        | torch2.5.1_py39  | 3.9    | 2.5.1 |
+        | torch2.6.0_py310 | 3.10   | 2.6.0 |
 
 ### 方式二：源码编译安装
 
@@ -150,7 +150,7 @@ Driving SDK仓编译依赖以下组件：
     bash ci/build.sh --python=3.8
     或者
     python3.8 setup.py bdist_wheel
-    
+
     # 若需要在A5设备上编译算子，需增加'--a5'
     bash ci/build.sh --a5 --python=3.8
     或者

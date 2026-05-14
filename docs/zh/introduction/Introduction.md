@@ -4,7 +4,7 @@ Driving SDK自动驾驶训练加速套件，基于昇腾AI集群系统开发，�
 
 <p align="center"> <img src="./figures/DrivingSDK_Arc.png"> </p>
 
-## Driving SDK 组成部分 
+## Driving SDK 组成部分
 
 ### 高性能算子库
 
@@ -18,4 +18,4 @@ Driving SDK自动驾驶加速套件提供50+主流场景模型，包含BEVFormer
 
 ### 一键Patcher
 
-DrivingSDK内置一键Patcher，可以帮助用户快速将GPU工程迁移到NPU，默认通用优化自动使能，同时集成性能采集分析工具，帮助快速分析定位问题。
+Driving SDK内置一键Patcher，可以帮助用户快速将GPU工程迁移到NPU，默认通用优化自动使能，同时集成性能采集分析工具，帮助快速分析定位问题。

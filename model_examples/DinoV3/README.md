@@ -1,4 +1,4 @@
-# DinoV3 
+# DinoV3
 
 ## 目录
 
@@ -46,7 +46,7 @@ DinoV3是一项突破性的自监督视觉模型研究，其核心目标是无�
 ## 代码实现
 
 - 参考实现：
-  
+
   ```shell
   url=https://github.com/facebookresearch/dinov3
   commit_id=cb054165e9ec6bd86dbae674416eb36c8349adcb
@@ -97,7 +97,7 @@ DinoV3是一项突破性的自监督视觉模型研究，其核心目标是无�
     git apply --reject --whitespace=fix dinov3.patch
     cp -rf ../test ./
     ```
-    
+
 2. 安装依赖
 
     ```shell
@@ -109,10 +109,10 @@ DinoV3是一项突破性的自监督视觉模型研究，其核心目标是无�
 目前昇腾不支持模型中使用的`PREMUL_SUM` reduce算子。然而在模型中，factor为1的情况下，`PREMUL_SUM` 与 `SUM`算子等价。因此，做如下替换：
     1. `pip show torch` 查看torch的安装路径，如xxx/lib/python3.11/site-packages/torch, 记做`$torch`
     2. 将`$torch/distributed/distributed_c10d.py` 文件中第4434行修改为：
-    
+
     ```shell
     -   opts.reduceOp=op
-    
+
     +   opts.reduceOp=torch.distributed.Reduceop.SUM
     ```
 
@@ -134,14 +134,14 @@ DinoV3是一项突破性的自监督视觉模型研究，其核心目标是无�
     ```
 
 2. 按照模型官网 `Data Preparation` 章节，进行数据预处理，将输出路径定为 `$EXTRA`。
-    
+
     ```python
     from dinov3.data.datasets import ImageNet
 
     for split in ImageNet.Split:
         dataset = ImageNet(split=split, root="<DATA_ROOT>", extra="<EXTRA>")
         dataset.dump_extra()
-    
+
     ```
 
     生成的文件如下：
@@ -154,19 +154,19 @@ DinoV3是一项突破性的自监督视觉模型研究，其核心目标是无�
     <EXTRA>/entries-TEST.npy
     <EXTRA>/entries-TRAIN.npy
     <EXTRA>/entries-VAL.npy
-    ```   
+    ```
 
 # 执行训练
 
 以下提供本文中使用到的参数解释
 
-**表 1** 训练参数
+**表 3** 训练参数
 
-|     参数      | 可选/必选 | 说明 | 
-| :-----------: | :--: | :---------------: | 
-|     DATA_ROOT     |  必选  |    ImageNet-1k 数据集存放路径       |  
-| EXTRA |  必选  |    数据预处理步骤中生成数据存放路径      |  
-| OUTPUT_PATH |  必选  |     模型训练生成的权重保存路径      |  
+|     参数      | 可选/必选 | 说明 |
+| :-----------: | :--: | :---------------: |
+|     DATA_ROOT     |  必选  |    ImageNet-1k 数据集存放路径       |
+| EXTRA |  必选  |    数据预处理步骤中生成数据存放路径      |
+| OUTPUT_PATH |  必选  |     模型训练生成的权重保存路径      |
 
 进入到模型根目录（DrivingSDK/model_examples/DinoV3/dinov3）下执行以下命令，进行
 
@@ -186,22 +186,22 @@ DinoV3是一项突破性的自监督视觉模型研究，其核心目标是无�
 
 本次使用8卡环境对DinoV3模型进行训练，125000步后训练loss为9.9375，性能为 393.8 FPS
 
-**表 2** 训练结果展示表
+**表 4** 训练结果展示表
 
 |     芯片      | 卡数 | global batch size | max steps | final loss | FPS|
 | :-----------: | :--: | :---------------: | :---: | :--------------------: |:--------------------: |
 |     竞品A     |  8p  |         512       |  125000 |  9.9345 |  616.8 |
 | Atlas 800T A2 |  8p  |         512      |  125000 |   9.9374 | 393.8 |
 
-**表 3** 结果字段说明
+**表 5** 结果字段说明
 
-|     字段      | 说明 | 
-| :-----------: | :---------------: | 
-|     卡数     |    训练使用的昇腾芯片数量      |  
-| global batch size  |    每次训练迭代处理的样本总数      |  
-| max steps  |     训练的迭代数      |  
-| final loss |     训练结束时的损失      |  
-| FPS |     Frames Per Second，平均每秒处理的样本总数      |  
+|     字段      | 说明 |
+| :-----------: | :---------------: |
+|     卡数     |    训练使用的昇腾芯片数量      |
+| global batch size  |    每次训练迭代处理的样本总数      |
+| max steps  |     训练的迭代数      |
+| final loss |     训练结束时的损失      |
+| FPS |     Frames Per Second，平均每秒处理的样本总数      |
 
 # 版本说明
 

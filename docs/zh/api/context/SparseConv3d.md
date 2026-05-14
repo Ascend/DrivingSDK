@@ -12,15 +12,15 @@ mx_driving.SparseConv3d(in_channels, out_channels, kernel_size, stride=1, paddin
 
 ## 参数说明
 
-- `in_channels(int)`：输入数据的通道数
-- `out_channels(int)`：输出通道数
-- `kernel_size(List(int)/Tuple(int)/int)`：卷积神经网络中卷积核的大小
-- `stride(List(int)/Tuple(int)/int)`：卷积核在输入数据上滑动时的步长
-- `dilation(List(int)/Tuple(int)/int)`：空洞卷积大小
-- `groups(int)`：分组卷积
-- `bias(bool)`：偏置项
-- `indice_key(str)`：该输入用于复用之前计算的索引信息
-- `mode(str)`：区分了`mmcv`和`spconv`两种不同框架下的稀疏卷积
+- `in_channels(int)`：输入数据的通道数。
+- `out_channels(int)`：输出通道数。
+- `kernel_size(List(int)/Tuple(int)/int)`：卷积神经网络中卷积核的大小。
+- `stride(List(int)/Tuple(int)/int)`：卷积核在输入数据上滑动时的步长。
+- `dilation(List(int)/Tuple(int)/int)`：空洞卷积大小。
+- `groups(int)`：分组卷积。
+- `bias(bool)`：偏置项。
+- `indice_key(str)`：该输入用于复用之前计算的索引信息。
+- `mode(str)`：区分了`mmcv`和`spconv`两种不同框架下的稀疏卷积。
 
 ## 返回值
 

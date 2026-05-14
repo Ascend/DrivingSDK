@@ -33,7 +33,7 @@ torch_npu框架可以使能多种特性, 包括环境变量配置，框架编译
 
 #### 2.1.1 通用环境变量配置及介绍
 
-| 环境变量配置  |  含义 |   
+| 环境变量配置  |  含义 |
 |--------------|-------|
 |export TASK_QUEUE_ENABLE=2 | 设置是否开启task queue，0-关闭/1-Level 1优化/2-Level 2优化 |
 |export CPU_AFFINITY_CONF=1 | 设置任务绑核，减少调度开销，0-关闭/1-粗粒度绑核/2-细粒度绑核|
@@ -44,7 +44,7 @@ torch_npu框架可以使能多种特性, 包括环境变量配置，框架编译
 
 框架支持Python, PyTorch, torch_npu的编译优化，能够缩短链接耗时和内存占用，具体使用方式可参考：
 
-| 编译优化方式  |  参考链接 |   
+| 编译优化方式  |  参考链接 |
 |--------------|-------|
 | Python | <https://www.hiascend.com/document/detail/zh/Pytorch/700/ptmoddevg/trainingmigrguide/performance_tuning_0064.html>|
 | PyTorch | <https://www.hiascend.com/document/detail/zh/Pytorch/700/ptmoddevg/trainingmigrguide/performance_tuning_0065.html> |
@@ -58,11 +58,11 @@ tcmalloc（即Thread-Caching Malloc）是一个通用的内存分配器，通过
 
 通过使用融合算子可以减少小算子下发，提升模型性能。
 首先可以替换融合优化器，详细可参考：<https://www.hiascend.com/document/detail/zh/Pytorch/700/ptmoddevg/trainingmigrguide/performance_tuning_0036.html>
-自驾模型通常用adamw优化器，替换如下：
+自驾模型通常用AdamW优化器，替换如下：
 
-| 优化器  |  样例源码 |  修改后代码 | 
+| 优化器  |  样例源码 |  修改后代码 |
 |--------------|-------|----------|
-| adamw | optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr) | optimizer = torch_npu.optim.NpuFusedAdamW(model.parameters(), lr=args.lr) |
+| AdamW | optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr) | optimizer = torch_npu.optim.NpuFusedAdamW(model.parameters(), lr=args.lr) |
 
 进一步可替换计算融合算子，DrivingSDK仓高性能算子介绍可参考：<https://gitcode.com/Ascend/DrivingSDK/blob/master/docs/zh/api/README.md>
 常用融合算子举例：
@@ -267,7 +267,7 @@ code_path=model_examples/BEVDet
     git clone -b 1.x https://github.com/open-mmlab/mmcv.git
     ```
 
-    适配pytorch2.x版本，修改mmcv/mmcv/parallel/distributed.py文件159行，原  始代码为：
+    适配pytorch2.x版本，修改mmcv/mmcv/parallel/distributed.py文件159行，原始代码为：
 
     ```python
     module_to_run = self._replicated_tensor_module if self. _use_replicated_tensor_module else self.module
@@ -494,7 +494,7 @@ code_path=model_examples/BEVDet
         f'<={mmseg_maximum_version}.'
     ```
 
-7. 原始代码中bev_pool_v2算子为cuda代码，需要替换DrivingSDK仓的bev_pool_v3，更加亲和高效，安装DrivingSDK，参考DrivingSDK: <https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md> 
+7. 原始代码中bev_pool_v2算子为cuda代码，需要替换DrivingSDK仓的bev_pool_v3，更加亲和高效，安装DrivingSDK，参考DrivingSDK: <https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md>
     在mmdet3d/models/necks/view_transformer.py文件中，删除原始代码：
 
     ```python
@@ -713,4 +713,3 @@ code_path=model_examples/BEVDet
 
         return heatmaps, anno_boxes, inds, masks
     ```
-    

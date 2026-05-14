@@ -43,7 +43,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
   url=https://github.com/swc-17/SparseDrive
   commit_id=52c4c05b6d446b710c8a12eb9fb19d698b33cb2b
   ```
-  
+
 - 适配昇腾 AI 处理器的实现：
 
   ```shell
@@ -56,7 +56,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 ## 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
 | 软件类型          | 首次支持版本     |
@@ -79,9 +79,9 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
 - 安装Driving SDK
 
-  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK。
 
-- 建议使用依赖安装一键配置脚本，可使用如下指令完成后续基础依赖，`geos`, `mmcv`，模型代码patch的安装和更新：
+- 建议使用依赖安装一键配置脚本，可使用如下指令完成后续基础依赖、`geos`、`mmcv`、模型代码patch的安装和更新：
 
    ```shell
    bash install_SparseDrive.sh
@@ -110,7 +110,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 - 安装基础依赖
 
   在模型源码包根目录下执行命令，安装模型需要的依赖。
-  
+
   ```shell
   pip install -r requirements.txt
   ```

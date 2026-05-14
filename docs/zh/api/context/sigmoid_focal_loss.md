@@ -8,7 +8,7 @@ mx_driving.sigmoid_focal_loss(Tensor logit, Tensor target, float gamma=2, float 
 
 ## 功能描述
 
-先计算输入logit中每个元素的sigmoid值,然后计算sigmoid值与类别目标值之间的Focal Loss，功能与mmcv库的sigmoid_focal_loss一致。
+先计算输入logit中每个元素的sigmoid值，然后计算sigmoid值与类别目标值之间的Focal Loss，功能与mmcv库的sigmoid_focal_loss一致。
 
 ## 参数说明
 

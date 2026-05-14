@@ -35,12 +35,12 @@
 |   类型                             |   Linux权限参考最大值   |
 |----------------------------------- |-----------------------|
 |  用户主目录                         |   750（rwxr-x---）     |
-|  程序文件(含脚本文件、库文件等)       |   550（r-xr-x---）     |
+|  程序文件（含脚本文件、库文件等）       |   550（r-xr-x---）     |
 |  程序文件目录                       |   550（r-xr-x---）     |
 |  配置文件                           |   640（rw-r-----）     |
 |  配置文件目录                       |   750（rwxr-x---）     |
-|  日志文件(记录完毕或者已经归档)       |   440（r--r-----）     |
-|  日志文件(正在记录)                  |   640（rw-r-----）    |
+|  日志文件（记录完毕或者已经归档）       |   440（r--r-----）     |
+|  日志文（正在记录）                  |   640（rw-r-----）    |
 |  日志文件目录                       |   750（rwxr-x---）     |
 |  Debug文件                         |   640（rw-r-----）      |
 |  Debug文件目录                      |   750（rwxr-x---）     |
@@ -70,7 +70,7 @@ Driving SDK代码中包含公网地址声明如下表所示：
 |   类型   |   开源代码地址   | 文件名                                 |   公网IP地址/公网URL地址/域名/邮箱地址   | 用途说明                          |
 |-------------------------|-------------------------|-------------------------------------|-------------------------|-------------------------------|
 |   自研   |   不涉及   | ci/docker/ARM/Dockerfile            |  <https://mirrors.aliyun.com/pypi/simple>   | docker配置文件，用于配置pip源           |
-|   自研   |   不涉及   | ci/docker/X86/Dockerfile            |   <https://mirrors.aliyun.com/pypi/simple>  | docker配置文件，用于配置pip源           |   |
+|   自研   |   不涉及   | ci/docker/X86/Dockerfile            |   <https://mirrors.aliyun.com/pypi/simple>  | docker配置文件，用于配置pip源           |
 |   自研   |   不涉及   | ci/docker/ARM/install_cann.sh     |   <https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN>   | CANN包下载地址    |
 |   自研   |   不涉及   | ci/docker/x86/install_cann.sh     |   <https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN>   | CANN包下载地址    |
 |   自研   |   不涉及   | ci/docker/ARM/install_obs.sh     |   <https://obs-community.obs.cn-north-1.myhuaweicloud.com/obsutil/current/obsutil_linux_arm64.tar.gz>   | obs下载链接                 |

@@ -42,7 +42,7 @@ conda create -n deformable_detr python=3.9
 conda activate deformable_detr
 ```
 
-3、安装`Pytorch2.1`、`torch_npu2.1.0`和`mx_driving`。
+3、安装`Pytorch 2.1`、`torch_npu 2.1.0`和`mx_driving`。
 
 - 搭建 PyTorch 环境参考：<https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes/ptes_00001.html>
 - 搭建 mx_driving 环境参考：<https://gitcode.com/Ascend/DrivingSDK>
