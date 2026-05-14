@@ -462,26 +462,69 @@ def npu_subm_sparse_conv3d_grad_arch35(
     feature: torch.Tensor, weight: torch.Tensor, grad_out_features: torch.Tensor, indices_offset: torch.Tensor
 ) -> Tuple[torch.Tensor, torch.Tensor]: ...
 def npu_fake_tensor_quant(
-        inputs: torch.Tensor,
-        amax: torch.Tensor,
-        num_bits: int,
-        is_unsigned: bool,
-        narrow_range: bool,
+    inputs: torch.Tensor,
+    amax: torch.Tensor,
+    num_bits: int,
+    is_unsigned: bool,
+    narrow_range: bool,
 ) -> torch.Tensor:...
 def npu_fake_tensor_quant_inplace(
-        inputs: torch.Tensor,
-        amax: torch.Tensor,
-        num_bits: int,
-        is_unsigned: bool,
-        narrow_range: bool,
+    inputs: torch.Tensor,
+    amax: torch.Tensor,
+    num_bits: int,
+    is_unsigned: bool,
+    narrow_range: bool,
 ) -> torch.Tensor:...
 def npu_fake_tensor_quant_with_axis(
-        inputs: torch.Tensor,
-        amax: torch.Tensor,
-        axis: int,
-        num_bits: int,
-        is_unsigned: bool,
-        narrow_range: bool,
+    inputs: torch.Tensor,
+    amax: torch.Tensor,
+    axis: int,
+    num_bits: int,
+    is_unsigned: bool,
+    narrow_range: bool,
+) -> torch.Tensor:...
+def npu_sparse_matmul(
+    features: torch.Tensor,
+    weight: torch.Tensor,
+    unique_indices_offset: torch.Tensor,
+    sorted_idx_to_former_indices: torch.Tensor,
+    outidx_pair: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:...
+def npu_subm_sparse_conv3d_v3(
+    feature: torch.Tensor,
+    weight: torch.Tensor,
+    indices: torch.Tensor,
+    indices_offset: torch.Tensor,
+    map1: torch.Tensor,
+    map2: torch.Tensor,
+    kernel_size: List[int],
+    in_channels: int,
+    out_channels: int,
+    out_spatial_shape: List[int],
+    batch_size: int,
+    with_key: int,
+) -> Tuple[torch.Tensor, torch.Tensor]:...
+def npu_subm_sparse_conv3d_arch35(
+    feature: torch.Tensor,
+    weight: torch.Tensor,
+    indices: torch.Tensor,
+    indices_offset: torch.Tensor,
+    map1: torch.Tensor,
+    map2: torch.Tensor,
+    kernel_size: List[int],
+    in_channels: int,
+    out_channels: int,
+    out_spatial_shape: List[int],
+    batch_size: int,
+    with_key: int,
+) -> Tuple[torch.Tensor, torch.Tensor]:...
+def npu_sparse_inverse_conv3d(
+    features: torch.Tensor,
+    origin_indices: torch.Tensor,
+    unique_indices_offset: torch.Tensor,
+    sorted_idx_to_former_indices: torch.Tensor,
+    kernel_size: List[int],
+    in_channel: int,
 ) -> torch.Tensor:...
 
 __all__ = [
@@ -544,4 +587,8 @@ __all__ = [
     "npu_fake_tensor_quant",
     "npu_fake_tensor_quant_inplace",
     "npu_fake_tensor_quant_with_axis",
+    "npu_sparse_matmul",
+    "npu_subm_sparse_conv3d_v3",
+    "npu_subm_sparse_conv3d_arch35",
+    "npu_sparse_inverse_conv3d",
 ]
