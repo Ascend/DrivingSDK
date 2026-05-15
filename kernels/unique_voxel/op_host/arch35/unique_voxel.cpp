@@ -9,18 +9,17 @@
 #include <algorithm>
 #include <cmath>
 
+#include "common/op_host/common.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "unique_voxel/op_host/unique_voxel_tiling.h"
-#include "common/op_host/common.h"
 namespace {
 constexpr size_t POINT_IDX = 0;
 constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
-constexpr int32_t COEF = 17;    // 4[vox1, vox2, idx, arg] * 4[float size] + 1[temp] = 17
+constexpr int32_t COEF = 17; // 4[vox1, vox2, idx, arg] * 4[float size] + 1[temp] = 17
 constexpr int32_t ONE_REPEAT_FLOAT_SIZE = 64;
 
-ge::graphStatus TaskSchedule(gert::TilingContext* context, optiling::UniqueVoxelTilingData& tilingData)
-{
+ge::graphStatus TaskSchedule(gert::TilingContext *context, optiling::UniqueVoxelTilingData &tilingData) {
     auto platformInfo = context->GetPlatformInfo();
     if (!platformInfo) {
         return ge::GRAPH_FAILED;
@@ -31,7 +30,8 @@ ge::graphStatus TaskSchedule(gert::TilingContext* context, optiling::UniqueVoxel
     uint64_t ubSize;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
 
-    int32_t avgPts = FloorAlign<int32_t>((ubSize - RESERVE_UB) / COEF, ONE_REPEAT_FLOAT_SIZE); // avgPts must be multiple of 64
+    int32_t avgPts =
+        FloorAlign<int32_t>((ubSize - RESERVE_UB) / COEF, ONE_REPEAT_FLOAT_SIZE); // avgPts must be multiple of 64
     auto pointShape = context->GetInputShape(POINT_IDX);
     if (!pointShape) {
         return ge::GRAPH_FAILED;
@@ -65,17 +65,16 @@ ge::graphStatus TaskSchedule(gert::TilingContext* context, optiling::UniqueVoxel
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus AddWorkspace(gert::TilingContext* context, optiling::UniqueVoxelTilingData& tilingData)
-{
+ge::graphStatus AddWorkspace(gert::TilingContext *context, optiling::UniqueVoxelTilingData &tilingData) {
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
+    uint64_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
     // outputIdx0, count0, outputIdx1, ...
-    uint32_t alignSize = 256;
-    uint32_t totalPts = tilingData.get_totalPts();
-    uint32_t usrWorkspaceSize = CeilAlign<int32_t>(tilingData.get_usedBlkNum() * sizeof(int32_t) * 2, alignSize);
-    uint32_t spaceNum = 3; // tmpVox, tmpArg, tmpIdx
-    usrWorkspaceSize += CeilAlign<int32_t>((totalPts + 1) * sizeof(int32_t), alignSize) * spaceNum;
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    uint64_t alignSize = 256;
+    uint64_t totalPts = tilingData.get_totalPts();
+    uint64_t usrWorkspaceSize = CeilAlign<int64_t>(tilingData.get_usedBlkNum() * sizeof(int32_t) * 2, alignSize);
+    uint64_t spaceNum = 3; // tmpVox, tmpArg, tmpIdx
+    usrWorkspaceSize += CeilAlign<int64_t>((totalPts + 1) * sizeof(int32_t), alignSize) * spaceNum;
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -84,10 +83,8 @@ ge::graphStatus AddWorkspace(gert::TilingContext* context, optiling::UniqueVoxel
 }
 } // namespace
 
-
 namespace optiling {
-static ge::graphStatus TilingForUniqueVoxel(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForUniqueVoxel(gert::TilingContext *context) {
     if (!context) {
         return ge::GRAPH_FAILED;
     }
@@ -112,18 +109,16 @@ static ge::graphStatus TilingForUniqueVoxel(gert::TilingContext* context)
 }
 } // namespace optiling
 
-
 namespace ge {
-static ge::graphStatus InferShapeForUniqueVoxel(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShapeForUniqueVoxel(gert::InferShapeContext *context) {
     if (!context) {
         return ge::GRAPH_FAILED;
     }
-    const gert::Shape* pointShape = context->GetInputShape(POINT_IDX);
-    gert::Shape* uniVoxShape = context->GetOutputShape(0);
-    gert::Shape* uniIdxShape = context->GetOutputShape(1);
-    gert::Shape* uniArgsortIdxShape = context->GetOutputShape(2);
-    gert::Shape* voxNumShape = context->GetOutputShape(3);
+    const gert::Shape *pointShape = context->GetInputShape(POINT_IDX);
+    gert::Shape *uniVoxShape = context->GetOutputShape(0);
+    gert::Shape *uniIdxShape = context->GetOutputShape(1);
+    gert::Shape *uniArgsortIdxShape = context->GetOutputShape(2);
+    gert::Shape *voxNumShape = context->GetOutputShape(3);
     if (!pointShape || !uniVoxShape || !uniArgsortIdxShape || !uniIdxShape || !voxNumShape) {
         return ge::GRAPH_FAILED;
     }
@@ -137,8 +132,7 @@ static ge::graphStatus InferShapeForUniqueVoxel(gert::InferShapeContext* context
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForUniqueVoxel(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForUniqueVoxel(gert::InferDataTypeContext *context) {
     if (!context) {
         return ge::GRAPH_FAILED;
     }
@@ -152,9 +146,8 @@ static ge::graphStatus InferDataTypeForUniqueVoxel(gert::InferDataTypeContext* c
 
 namespace ops {
 class UniqueVoxel : public OpDef {
-public:
-    explicit UniqueVoxel(const char* name) : OpDef(name)
-    {
+  public:
+    explicit UniqueVoxel(const char *name) : OpDef(name) {
         this->Input("voxels")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
