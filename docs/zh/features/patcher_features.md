@@ -1,42 +1,50 @@
+
 # 功能详解
+
+<!-- This file uses <a id> anchors for TOC link-validity. markdownlint MD033 is disabled for the entire file. -->
+<!-- markdownlint-disable MD033 -->
 
 本文档详细说明一键Patcher 的各项功能，包括使用场景、参数说明和代码示例。
 
-> 基础概念请参阅 [README.md](./README.md)。
+> 基础概念及快速上手请参阅 [一键Patcher](./patcher.md)。
 
----
+***
 
 ## 目录
 
+<!-- markdownlint-disable MD051 -->
+
 - [架构概览](#架构概览)
 - [导入控制](#导入控制)
-  - [skip_import - 跳过不可用模块](#skip_import-跳过不可用模块)
-  - [replace_import - 替换模块导入](#replace_import-替换模块导入)
-  - [inject_import - 注入缺失导入](#inject_import-注入缺失导入)
+  - [skip\_import - 跳过不可用模块](#skip_import)
+  - [replace\_import - 替换模块导入](#replace_import)
+  - [inject\_import - 注入缺失导入](#inject_import)
 - [补丁机制](#补丁机制)
-  - [AtomicPatch - 原子补丁](#atomicpatch-原子补丁)
-  - [Patch - 组合补丁](#patch-组合补丁)
-  - [RegistryPatch - 注册表补丁](#registrypatch-注册表补丁)
-  - [aliases - 处理模块重导出](#aliases-处理模块重导出)
-  - [precheck - 应用前条件检查](#precheck-应用前条件检查)
-  - [runtime_check - 运行时条件分发](#runtime_check-运行时条件分发)
-  - [with_imports - 延迟导入装饰器](#with_imports-延迟导入装饰器)
-  - [target_wrapper - 包装原函数](#target_wrapper-包装原函数)
-  - [replacement_wrapper - 包装替换函数](#replacement_wrapper-包装替换函数)
+  - [AtomicPatch - 原子补丁](#atomicpatch)
+  - [Patch - 组合补丁](#patch)
+  - [RegistryPatch - 注册表补丁](#registrypatch)
+  - [aliases - 处理模块重导出](#aliases)
+  - [precheck - 应用前条件检查](#precheck)
+  - [runtime\_check - 运行时条件分发](#runtime_check)
+  - [with\_imports - 延迟导入装饰器](#with_imports)
+  - [target\_wrapper - 包装原函数](#target_wrapper)
+  - [replacement\_wrapper - 包装替换函数](#replacement_wrapper)
 - [辅助工具](#辅助工具)
-  - [with_profiling - 性能采集](#with_profiling-性能采集)
-  - [brake_at - 训练早停](#brake_at-训练早停)
-  - [allow_internal_format - NPU 内部格式控制](#allow_internal_format-npu-内部格式控制)
+  - [with\_profiling - 性能采集](#with_profiling)
+  - [brake\_at - 训练早停](#brake_at)
+  - [allow\_internal\_format - NPU 内部格式控制](#allow_internal_format)
   - [日志配置](#日志配置)
   - [补丁状态查看](#补丁状态查看)
 - [实战示例](#实战示例)
 - [进阶用法](#进阶用法)
-  - [自定义Patcher（不使用default_patcher）](#自定义patcher不使用default_patcher)
+  - [自定义Patcher（不使用default\_patcher）](#自定义patcher不使用default_patcher)
   - [Legacy兼容（1.0 API）](#legacy兼容10-api)
+
+<!-- markdownlint-enable MD051 -->
 - [为什么选择2.0写法？](#为什么选择20写法)
 - [注意事项](#注意事项)
 
----
+***
 
 ## 架构概览
 
@@ -88,7 +96,7 @@ flowchart TB
     L4 --> L5
 ```
 
----
+***
 
 ## 导入控制
 
@@ -96,11 +104,11 @@ flowchart TB
 
 三个导入控制 API 解决的是三类不同问题，建议先判断问题发生在哪一层：
 
-| 你遇到的问题 | 该用什么 | 是否要求在目标 import 之前 |
-|--------------|----------|----------------------------|
-| CUDA 专属依赖在当前环境不存在，但后续逻辑不会真正执行它 | `skip_import()` | 是 |
-| 原模块本身就该被另一个模块或导出表整体接管 | `replace_import()` | 是 |
-| 父模块少导出了某个类/函数，导致 `from pkg import Name` 失败 | `inject_import()` | 最好是；它会立即执行，但若消费方已经提前导入失败，就仍然太晚 |
+| 你遇到的问题                                     | 该用什么               | 是否要求在目标 import 之前              |
+| ------------------------------------------ | ------------------ | ------------------------------ |
+| CUDA 专属依赖在当前环境不存在，但后续逻辑不会真正执行它             | `skip_import()`    | 是                              |
+| 原模块本身就该被另一个模块或导出表整体接管                      | `replace_import()` | 是                              |
+| 父模块少导出了某个类/函数，导致 `from pkg import Name` 失败 | `inject_import()`  | 最好是；它会立即执行，但若消费方已经提前导入失败，就仍然太晚 |
 
 仓内真实案例：
 
@@ -108,7 +116,9 @@ flowchart TB
 - `replace_import()`：DiffusionDrive 将 `projects.mmdet3d_plugin.ops.deformable_aggregation` 的导出替换为 NPU 实现
 - `inject_import()`：DiffusionDrive 将 `V1SparseDrive`、`V1SparseDriveHead` 等类补回 `projects.mmdet3d_plugin.models`
 
-### skip_import - 跳过不可用模块
+<a id="skip_import"></a>
+
+### skip\_import - 跳过不可用模块
 
 **使用场景**：运行开源模型时遇到 `ModuleNotFoundError`，报错的模块是 CUDA 生态专属的（如 `flash_attn`、`torch_scatter`），在昇腾环境中不存在也无需安装。这类 import 可能分散在模型代码的多个文件中，逐个找到并删除既麻烦又会修改原始代码。`skip_import` 可以在不改动任何源代码的情况下，拦截这些 import 请求并返回无害的 Stub 对象。
 
@@ -136,9 +146,11 @@ patcher.skip_import("torch_scatter")
 - 这些模块只是“会被 import”，但后续真正运行时不会走到它们的原始实现。
 - 如果下游逻辑真的依赖这个模块提供的计算能力，`skip_import()` 只会让 import 过掉，不会替你补功能；这时通常应该改用 `replace_import()`。
 
----
+***
 
-### replace_import - 替换模块导入
+<a id="replace_import"></a>
+
+### replace\_import - 替换模块导入
 
 **使用场景**：某个 CUDA 算子模块需要替换为 NPU 实现。与 `skip_import` 不同，替换后的模块提供实际可用的功能实现。
 
@@ -289,9 +301,11 @@ patcher.replace_import(
 - 把 `replace_import("old.module", "new.module")` 视为常规能力。
 - 把 `replace_with.module(MyKernel=...)` 视为特殊能力，只在你明确需要“构造替身模块导出表”时使用。
 
----
+***
 
-### inject_import - 注入缺失导入
+<a id="inject_import"></a>
+
+### inject\_import - 注入缺失导入
 
 **使用场景**：开源模型自身遗漏了某些 import（例如 `__init__.py` 中未导出某个类），导致运行时 `ImportError`。这种情况虽然罕见，但一旦遇到，`inject_import` 可以在不修改模型代码的前提下修复问题。
 
@@ -325,9 +339,11 @@ patcher.inject_import(
 - 如果目标模块已有同名属性，不会覆盖原值。
 - 如果目标模块定义了 `__all__`，注入成功后会尽量把名称补进 `__all__`。
 
----
+***
 
 ## 补丁机制
+
+<a id="atomicpatch"></a>
 
 ### AtomicPatch - 原子补丁
 
@@ -355,7 +371,9 @@ AtomicPatch(
 )
 ```
 
----
+***
+
+<a id="patch"></a>
 
 ### Patch - 组合补丁
 
@@ -389,7 +407,9 @@ class MyOpPatch(Patch):
 - 需要稳定外部标识时，仍建议显式写 `name`，例如补丁会被用户配置禁用、会跨版本迁移，或需要和 `legacy_name` 对齐。
 - `patcher.disable()` 接受三类参数：字符串名、`Patch` 类、补丁实例。2.0 推荐直接写 `patcher.disable(MyOpPatch)`。
 
----
+***
+
+<a id="registrypatch"></a>
 
 ### RegistryPatch - 注册表补丁
 
@@ -406,7 +426,9 @@ RegistryPatch(
 )
 ```
 
----
+***
+
+<a id="aliases"></a>
 
 ### aliases - 处理模块重导出
 
@@ -416,7 +438,7 @@ RegistryPatch(
 
 1. **`from ... import ...`**：target 被直接导入到另一个模块的命名空间
 2. **`import ... as ...`**：target 被重命名导入
-3. **`__init__.py` 重导出**：target 通过包的 `__init__.py` 被提升到上层路径
+3. **`__init__.py`** **重导出**：target 通过包的 `__init__.py` 被提升到上层路径
 
 如果模型代码使用的是这些 **别名路径** 而非 target 的原始定义路径，那么只替换原始路径是不够的。`aliases` 参数用于指定 **target 的所有别名路径**，确保所有访问路径都被替换。
 
@@ -436,7 +458,9 @@ AtomicPatch(
 )
 ```
 
----
+***
+
+<a id="precheck"></a>
 
 ### precheck - 应用前条件检查
 
@@ -473,11 +497,13 @@ AtomicPatch(
 )
 ```
 
----
+***
 
-### runtime_check - 运行时条件分发
+<a id="runtime_check"></a>
 
-runtime_check 在每次被补丁替换后的函数被调用时执行检查，动态选择调用 **replacement 函数**（NPU 实现）还是**原始函数**。参数必须与 target 函数一致。
+### runtime\_check - 运行时条件分发
+
+runtime\_check 在每次被补丁替换后的函数被调用时执行检查，动态选择调用 **replacement 函数**（NPU 实现）还是**原始函数**。参数必须与 target 函数一致。
 
 ```mermaid
 ---
@@ -511,9 +537,11 @@ AtomicPatch(
 )
 ```
 
----
+***
 
-### with_imports - 延迟导入装饰器
+<a id="with_imports"></a>
+
+### with\_imports - 延迟导入装饰器
 
 **使用场景**：编写 replacement 函数时，通常需要 import 一些 NPU 相关的模块（如 `torch_npu`）。直接在函数体内写 `import` 语句会导致以下问题：
 
@@ -603,9 +631,11 @@ def inference(x):
 - 不要在同一个函数上叠多层 `@with_imports`；当前实现会给 warning，推荐合并成一个装饰器调用。
 - `apply_decorators` 仍然兼容，但新代码更推荐 `@decorator_expr` 这种写法，因为更直观，也更接近普通 Python 装饰器。
 
----
+***
 
-### target_wrapper - 包装原函数
+<a id="target_wrapper"></a>
+
+### target\_wrapper - 包装原函数
 
 用于在原函数基础上添加逻辑（如同步、日志），而非完全替换。使用时**不提供 replacement**。
 
@@ -624,16 +654,18 @@ AtomicPatch("model.Module.forward", target_wrapper=add_stream_sync)
 
 > 如果同时提供了 `replacement` 和 `target_wrapper`，以 `replacement` 为准，`target_wrapper` 不生效。
 
----
+***
 
-### replacement_wrapper - 包装替换函数
+<a id="replacement_wrapper"></a>
+
+### replacement\_wrapper - 包装替换函数
 
 用于对 replacement 函数进行额外包装（如添加日志、计时）。
 
-| 对比 | target_wrapper | replacement_wrapper |
-|------|----------------|---------------------|
-| 包装对象 | 原函数 | replacement 函数 |
-| 能否访问原函数 | 能（作为参数传入） | 不能 |
+| 对比      | target\_wrapper | replacement\_wrapper |
+| ------- | --------------- | -------------------- |
+| 包装对象    | 原函数             | replacement 函数       |
+| 能否访问原函数 | 能（作为参数传入）       | 不能                   |
 
 ```python
 def add_logging(func):
@@ -645,7 +677,7 @@ def add_logging(func):
 AtomicPatch("module.func", npu_func, replacement_wrapper=add_logging)
 ```
 
----
+***
 
 ## 辅助工具
 
@@ -688,9 +720,11 @@ AtomicPatch(
 )
 ```
 
----
+***
 
-### with_profiling - 性能采集
+<a id="with_profiling"></a>
+
+### with\_profiling - 性能采集
 
 在训练循环中采集 NPU 性能数据，生成 profiling 报告。
 
@@ -706,11 +740,13 @@ patcher.with_profiling(
 )
 ```
 
-**总迭代次数** = skip_first + (wait + warmup + active) × (repeat + 1)
+**总迭代次数** = skip\_first + (wait + warmup + active) × (repeat + 1)
 
----
+***
 
-### brake_at - 训练早停
+<a id="brake_at"></a>
+
+### brake\_at - 训练早停
 
 在指定步数停止训练，用于调试或性能测试：
 
@@ -718,9 +754,9 @@ patcher.with_profiling(
 patcher.brake_at(1000)  # 在第 1000 步停止
 ```
 
----
+***
 
-### allow_internal_format - NPU 内部格式控制
+### <a id="allow_internal_format"></a> allow_internal_format - NPU 内部格式控制
 
 NPU 内部格式（Internal Format）是昇腾 NPU 的一种数据布局优化，可能提升某些算子的性能，但在某些场景下可能导致精度问题。
 
@@ -733,7 +769,7 @@ patcher.disallow_internal_format()    # 禁用（默认）
 
 **建议**：首次迁移保持默认，功能验证通过后再尝试启用。
 
----
+***
 
 ### 日志配置
 
@@ -797,7 +833,7 @@ patcher_logger.set_rank_from_env()  # 自动从环境变量检测
 - `apply()` 默认不是逐条直接 `print()`，而是先缓冲，再通过 logger 发出层级化 summary。
 - 因为 summary 现在也走 logger，所以 `set_patcher_log_level(logging.WARNING)` 会同时影响 summary 是否可见。
 
----
+***
 
 ### 补丁状态查看
 
@@ -808,7 +844,7 @@ patcher.print_info(diff=True)   # 包含代码差异（输出量较大，调试�
 
 输出示例：
 
-```
+```text
 ======================================================================
   MX-DRIVING PATCHER SUMMARY
 ======================================================================
@@ -824,7 +860,7 @@ patcher.print_info(diff=True)   # 包含代码差异（输出量较大，调试�
 ======================================================================
 ```
 
----
+***
 
 ## 实战示例
 
@@ -952,11 +988,11 @@ from my_model import Model
 model = Model()
 ```
 
----
+***
 
 ## 进阶用法
 
-### 自定义Patcher（不使用default_patcher）
+### 自定义Patcher（不使用default\_patcher）
 
 当需要完全控制补丁列表时，可创建独立的Patcher：
 
@@ -983,23 +1019,21 @@ with patcher_builder.build() as patcher:
     train()
 ```
 
-详细迁移指南请参阅 [MIGRATION.md](./MIGRATION.md)。
-
----
+***
 
 ## 为什么选择2.0写法？
 
 相比1.0的函数式写法，2.0的声明式写法具有以下优势：
 
-| 维度 | 1.0 | 2.0 |
-|------|-----|-----|
-| 设计范式 | 命令式 | 声明式 |
+| 维度   | 1.0      | 2.0      |
+| ---- | -------- | -------- |
+| 设计范式 | 命令式      | 声明式      |
 | 补丁粒度 | 粗粒度（函数级） | 细粒度（属性级） |
-| 可追踪性 | 差 | 优秀 |
-| 可测试性 | 困难 | 简单 |
-| 代码复用 | 困难 | 简单 |
-| 错误定位 | 模糊 | 精确 |
-| 向后兼容 | - | 完全兼容 |
+| 可追踪性 | 差        | 优秀       |
+| 可测试性 | 困难       | 简单       |
+| 代码复用 | 困难       | 简单       |
+| 错误定位 | 模糊       | 精确       |
+| 向后兼容 | -        | 完全兼容     |
 
 **可读性提升**：1.0的黑盒函数难以快速了解替换了什么，2.0的声明式清单一目了然。
 
@@ -1009,9 +1043,7 @@ with patcher_builder.build() as patcher:
 
 **更好的错误处理**：2.0错误信息精确到具体的target路径。
 
-详细迁移指南请参阅 [MIGRATION.md](./MIGRATION.md)。
-
----
+***
 
 ## 注意事项
 
@@ -1046,11 +1078,11 @@ from mx_driving.patcher import default_patcher
 default_patcher.apply()  # torch 已导入，相关补丁可能不生效
 ```
 
-### replacement 与 target_wrapper
+### replacement 与 target\_wrapper
 
 两者至少提供一个。同时提供时以 `replacement` 为准，`target_wrapper` 不生效。
 
-### runtime_check 参数签名
+### runtime\_check 参数签名
 
 `runtime_check` 的参数必须与 target 函数的参数一致：
 

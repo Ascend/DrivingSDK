@@ -1,6 +1,6 @@
 # DiffusionDrive
 
-## 目录 
+## 目录
 
 - [DiffusionDrive](#diffusiondrive)
   - [目录](#目录)
@@ -85,7 +85,7 @@
   - setuptools
   - CANN包
   - torch_npu包
-  - DrivingSDK根目录下requirements.txt里列出的依赖
+  - Driving SDK根目录下requirements.txt里列出的依赖
   - 源码编译并安装了的drivingsdk包
 
 - 源码安装geos
@@ -233,7 +233,7 @@ bash migrate_to_ascend/train_8p.sh --performance
 
 2025.06.16：首次发布。
 
-2025.07.29: 修复预处理脚本和训练脚本统计step time的bug，更新GPU基线数据，更新DrivingSDK版本得到性能增益，刷新性能数据。
+2025.07.29: 修复预处理脚本和训练脚本统计step time的bug，更新GPU基线数据，更新 Driving SDK 版本得到性能增益，刷新性能数据。
 
 ## FAQ
 

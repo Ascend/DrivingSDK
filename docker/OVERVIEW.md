@@ -1,9 +1,9 @@
-# DrivingSDK Docker Images Overview
+# Driving SDK Docker Images Overview
 
 ## Quick Reference
 
-- **Maintained by**: DrivingSDK Team
-- **Where to file issues**: [DrivingSDK Issue Tracker](https://gitcode.com/Ascend/DrivingSDK/issues)
+- **Maintained by**: Driving SDK Team
+- **Where to file issues**: [Driving SDK Issue Tracker](https://gitcode.com/Ascend/DrivingSDK/issues)
 - **Supported architectures**: `x86_64` (AMD64), `aarch64` (ARM64)
 - **Supported OS**: Ubuntu 22.04, openEuler 24.03
 - **Base image**: CANN 9.0.0, CANN 8.5.1
@@ -20,7 +20,7 @@ The image tags follow this naming convention:
 
 | Field | Description | Available Values |
 |-------|-------------|------------------|
-| **DrivingSDK_VERSION** | DrivingSDK version | `26.0.0` |
+| **Driving SDK VERSION** | Driving SDK version | `26.0.0` |
 | **CANN_VERSION** | CANN version | `8.5.1`, `9.0.0` |
 | **NPU_TYPE** | NPU type | `910b`, `a3`|
 | **OS_TYPE** | Operating System type | `ubuntu22.04`, `openeuler24.03` |
@@ -158,7 +158,7 @@ The Docker images provide multiple Python environments via Miniconda:
 
 ### Core Components
 
-- **DrivingSDK**: DrivingSDK version 26.0.0
+- **Driving SDK**: Driving SDK version 26.0.0
 - **CANN**: Compute Architecture for Neural Networks (8.5.1 / 9.0.0)
 - **PyTorch**: Deep learning framework (2.1.0 / 2.7.1)
 - **torch-npu**: PyTorch NPU backend for Ascend
@@ -211,7 +211,7 @@ pip install your-package
    ```bash
    # Check NPU devices
    npu-smi info
-   
+
    # Ensure devices are mounted
    docker run --device=/dev/davinci0 ...
    ```
@@ -247,7 +247,7 @@ This project is licensed under the terms specified in the LICENSE file at the ro
 
 ## Disclaimer
 
-**IMPORTANT**: This software is provided "as is" without warranty of any kind, express or implied. 
+**IMPORTANT**: This software is provided "as is" without warranty of any kind, express or implied.
 
 - Use at your own risk
 - The maintainers are not responsible for any damages arising from the use of this software
@@ -262,9 +262,9 @@ For production deployments, please consult the official Huawei Ascend documentat
 ## Support and Resources
 
 - **CANN Documentation**: [Ascend Documentation](https://www.hiascend.com/document)
-- **Issue Tracker**: [DrivingSDK Issues](https://gitcode.com/Ascend/DrivingSDK/issues)
+- **Issue Tracker**: [Driving SDK Issues](https://gitcode.com/Ascend/DrivingSDK/issues)
 
 ---
 
-**Last Updated**: 2026-04-23  
-**Maintainer**: DrivingSDK Team
+**Last Updated**: 2026-04-23
+**Maintainer**: Driving SDK Team

@@ -10,7 +10,7 @@
 #
 # Prerequisites:
 #   - Python environment with PyTorch 2.7.1
-#   - DrivingSDK already installed
+#   - Driving SDK already installed
 # ============================================================================
 
 set -e
@@ -33,7 +33,7 @@ if [ -d "$BEVFORMER_SRC" ]; then
     echo "✓ Files copied from $BEVFORMER_SRC"
 else
     echo "Error: BEVFormer directory not found at $BEVFORMER_SRC"
-    echo "Please ensure DrivingSDK source code is copied to /workspace/DrivingSDK"
+    echo "Please ensure Driving SDK source code is copied to /workspace/DrivingSDK"
     exit 1
 fi
 
@@ -124,4 +124,3 @@ echo "  - mmdetection"
 echo "  - detectron2"
 echo "  - BEVFormer"
 echo "========================================"
-

@@ -53,28 +53,28 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
 
 1. 安装 mx_driving
 
-  在 DrivingSDK 根目录下安装 mx_driving
+    在 Driving SDK 根目录下安装 mx_driving
 
-  ```shell
-  # 请先 cd 到 DrivingSDK 根目录
-  pip install -r requirements.txt
-  python setup.py develop --release
-  ```
+    ```shell
+    # 请先 cd 到 Driving SDK 根目录
+    pip install -r requirements.txt
+    python setup.py develop --release
+    ```
 
 2. 准备模型源码，安装依赖项
 
-  在 Panoptic-PolarNet 根目录下，克隆 Panoptic-PolarNet 仓，替换其中部分代码并安装依赖项
+    在 Panoptic-PolarNet 根目录下，克隆 Panoptic-PolarNet 仓，替换其中部分代码并安装依赖项
 
-  ```shell
-  git clone https://github.com/edwardzhou130/Panoptic-PolarNet/tree/main
-  cd Panoptic-PolarNet/
-  git checkout 3a72f2380a4e505e191b69da596f521a9d9f1a71
-  cp -f ../Panoptic-PolarNet.patch ./
-  git apply --reject Panoptic-PolarNet.patch
-  cp -r ../test/ ./
-  pip install -r requirements.txt
-  pip install torchvision==0.16.0
-  ```
+    ```shell
+    git clone https://github.com/edwardzhou130/Panoptic-PolarNet/tree/main
+    cd Panoptic-PolarNet/
+    git checkout 3a72f2380a4e505e191b69da596f521a9d9f1a71
+    cp -f ../Panoptic-PolarNet.patch ./
+    git apply --reject Panoptic-PolarNet.patch
+    cp -r ../test/ ./
+    pip install -r requirements.txt
+    pip install torchvision==0.16.0
+    ```
 
 ## 准备数据集
 
@@ -82,13 +82,13 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
 2. 上传数据集到 data 文件夹，以 SemanticKITTI 为例，数据集在`data/`目录下。
 3. 当前提供的训练脚本是以 SemanticKITTI 数据集为例，该数据集需要经过预处理方可用于训练。 数据集预处理前目录结构参考如下：
 
-  ```shell
+    ```shell
     ./
     ├── train.py
     ├── ...
     └── data/
         ├──sequences
-            ├── 00/           
+            ├── 00/
             │   ├── velodyne/ # Unzip from KITTI Odometry Benchmark Velodyne point clouds.
             |   | ├── 000000.bin
             |   | ├── 000001.bin
@@ -100,30 +100,30 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
             ├── ...
             └── 21/
             └── ...
-  ```
+    ```
 
-  > **说明：** 
-  >该数据集的训练过程脚本只作为一种参考示例。
+    > **说明：**
+    >该数据集的训练过程脚本只作为一种参考示例。
 
 4. 请在 Panoptic-PolarNet 模型根目录，使用如下命令预处理 SemanticKITTI 数据集。
 
-  ```shell
-  # data_root 请替换成 SemanticKITTI 数据集 sequences 目录所在路径
-  data_root=/home/datasets/SemanticKITTI/data/sequences
-  ln -nsf $data_root data/sequences
-  python instance_preprocess.py
-  ```
+    ```shell
+    # data_root 请替换成 SemanticKITTI 数据集 sequences 目录所在路径
+    data_root=/home/datasets/SemanticKITTI/data/sequences
+    ln -nsf $data_root data/sequences
+    python instance_preprocess.py
+    ```
 
-  处理后的文件夹应该如下。
+    处理后的文件夹应该如下。
 
-  ```shell
+    ```shell
     ./
     ├── train.py
     ├── ...
     └── data/
         ├──instance_path.pkl
         ├──sequences
-            ├── 00/           
+            ├── 00/
             │   ├── velodyne/ # Unzip from KITTI Odometry Benchmark Velodyne point clouds.
             |   | ├── 000000.bin
             |   | ├── 000001.bin
@@ -139,7 +139,7 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
             ├── ...
             └── 21/
             └── ...
-  ```
+    ```
 
 # 开始训练
 
@@ -154,7 +154,7 @@ PanopticPolarNet 是一种用于 3D 点云全景分割（Panoptic Segmentation�
      ```shell
      bash ./test/train.sh
      ```
-   
+
   训练完成后，权重文件保存在当前路径下，并输出模型训练精度和性能信息。
 
 # 训练结果展示

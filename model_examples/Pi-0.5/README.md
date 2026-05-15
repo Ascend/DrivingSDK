@@ -87,7 +87,7 @@
     conda activate pi05
     ```
 
-2. 拉取 DrivingSDK 代码仓
+2. 拉取 Driving SDK 代码仓
 
     ```shell
     git clone https://gitcode.com/Ascend/DrivingSDK.git

@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # ============================================================================
-# DrivingSDK Pre-built Package Installation Script
+# Driving SDK Pre-built Package Installation Script
 # ============================================================================
-# This script downloads and installs pre-built DrivingSDK wheel packages
+# This script downloads and installs pre-built Driving SDK wheel packages
 #
 # Usage:
 #   bash install_drivingsdk.sh <BUILD_DATE> <TORCH_VERSION> <PYTHON_VERSION> <ARCH>
@@ -54,7 +54,7 @@ TARBALL_NAME="mx_driving-1.0.${BUILD_DATE}-${PYTHON_TAG}-${PYTHON_TAG}-linux_${A
 DOWNLOAD_URL="${BASE_URL}/torch${TORCH_VERSION}/${BUILD_DATE}.${BUILD_NUMBER}/${TARBALL_NAME}"
 
 echo "========================================"
-echo "DrivingSDK Installation"
+echo "Driving SDK Installation"
 echo "========================================"
 echo "Build Date:      ${BUILD_DATE}.${BUILD_NUMBER}"
 echo "PyTorch Version: ${TORCH_VERSION}"
@@ -69,7 +69,7 @@ TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR"
 
 # Download the tarball
-echo "1. Downloading DrivingSDK wheel package..."
+echo "1. Downloading Driving SDK wheel package..."
 if ! wget --timeout=300 --tries=3 "$DOWNLOAD_URL"; then
     echo "Error: Failed to download from $DOWNLOAD_URL"
     echo "Please check:"
@@ -95,7 +95,7 @@ echo "✓ Found wheel file: $WHEEL_FILE"
 echo ""
 
 # Install the wheel
-echo "3. Installing DrivingSDK..."
+echo "3. Installing Driving SDK..."
 pip install --no-cache-dir "$WHEEL_FILE"
 
 if [ $? -eq 0 ]; then
@@ -111,4 +111,3 @@ cd /
 rm -rf "$TEMP_DIR"
 
 echo "✓ Cleanup completed"
-

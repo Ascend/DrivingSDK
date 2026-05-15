@@ -37,7 +37,7 @@ RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkg
 # ============================================================================
 FROM env-builder AS torch21-envs
 
-# Copy requirements file from DrivingSDK repository
+# Copy requirements file from Driving SDK repository
 COPY requirements.txt /tmp/requirements.txt
 COPY docker/install_drivingsdk.sh /tmp/install_drivingsdk.sh
 
@@ -95,7 +95,7 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
 # ============================================================================
 FROM torch271-envs AS bevformer-envs
 
-# Copy requirements file from DrivingSDK repository
+# Copy requirements file from Driving SDK repository
 COPY docker/install_bevformer.sh /tmp/install_bevformer.sh
 COPY model_examples/BEVFormer /tmp/BEVFormer
 
@@ -124,14 +124,14 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
 RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /opt/conda/etc/profile.d/conda.sh && \
     conda activate bevformer && \
-    bash /tmp/install_bevformer.sh 
+    bash /tmp/install_bevformer.sh
 
 # ============================================================================
 # Stage 6: Create BEVFusion Environments
 # ============================================================================
 FROM bevformer-envs AS bevfusion-envs
 
-# Copy requirements file from DrivingSDK repository
+# Copy requirements file from Driving SDK repository
 COPY docker/install_bevfusion.sh /tmp/install_bevfusion.sh
 COPY model_examples/BEVFusion /tmp/BEVFusion
 
@@ -160,14 +160,14 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
 RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /opt/conda/etc/profile.d/conda.sh && \
     conda activate bevfusion && \
-    bash /tmp/install_bevfusion.sh 
+    bash /tmp/install_bevfusion.sh
 
 # ============================================================================
 # Stage 7: Create Sparse4D Environments
 # ============================================================================
 FROM bevfusion-envs AS sparse4d-envs
 
-# Copy requirements file from DrivingSDK repository
+# Copy requirements file from Driving SDK repository
 COPY docker/install_sparse4d.sh /tmp/install_sparse4d.sh
 COPY model_examples/Sparse4D /tmp/Sparse4D
 
@@ -196,6 +196,6 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
 RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /opt/conda/etc/profile.d/conda.sh && \
     conda activate sparse4d && \
-    bash /tmp/install_sparse4d.sh 
+    bash /tmp/install_sparse4d.sh
 
 RUN echo "source /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc

@@ -22,7 +22,7 @@
 ## 昇腾环境安装
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   首次支持版本   |
@@ -40,7 +40,7 @@
   |:-------------:|
   |  PyTorch 2.1、PyTorch 2.7  |
 
-- 下载并编译安装`DrivingSDK`加速库，参考<https://gitcode.com/Ascend/DrivingSDK>
+- 下载并编译安装`Driving SDK`加速库，参考<https://gitcode.com/Ascend/DrivingSDK>
 
 - 安装依赖。
 
@@ -58,28 +58,28 @@
 
   1. 源码编译安装`mmcv`
 
-  ```shell
-  git clone -b main https://github.com/open-mmlab/mmcv.git
-  cd mmcv
-  pip install -r requirements/runtime.txt
-  pip install ninja
-  pip install "setuptools<=78.1.1"
-  MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
-  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-  cd ../
-  ```
+      ```shell
+      git clone -b main https://github.com/open-mmlab/mmcv.git
+      cd mmcv
+      pip install -r requirements/runtime.txt
+      pip install ninja
+      pip install "setuptools<=78.1.1"
+      MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
+      MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
+      cd ../
+      ```
 
   2. 源码安装`mmdetection3d v1.2.0`版本
 
-  ```shell
-  git clone -b v1.2.0 https://github.com/open-mmlab/mmdetection3d.git
-  cp -f bevfusion.patch mmdetection3d/
-  cd mmdetection3d
-  git apply bevfusion.patch --reject
-  pip install mmengine==0.10.7 mmdet==3.1.0 numpy==1.23.5 yapf
-  pip install -e . --no-build-isolation
-  cd ../
-  ```
+      ```shell
+      git clone -b v1.2.0 https://github.com/open-mmlab/mmdetection3d.git
+      cp -f bevfusion.patch mmdetection3d/
+      cd mmdetection3d
+      git apply bevfusion.patch --reject
+      pip install mmengine==0.10.7 mmdet==3.1.0 numpy==1.23.5 yapf
+      pip install -e . --no-build-isolation
+      cd ../
+      ```
 
 # 数据准备
 
@@ -148,7 +148,7 @@ cd ../
 ```
 
 - 单机8卡训练
-  
+
   运行脚本支持命令行参数（支持默认值+关键字参数+位置参数）
   - `--batch-size`：每卡batch size大小，默认值4；
   - `--num-npu`：每节点NPU卡数，默认值8；
@@ -163,13 +163,13 @@ cd ../
 
   # 性能测试拉起脚本，默认训练1个epochs
   # FP32
-  bash test/train_performance_8p_base_fp32.sh --batch-size=4 --num-npu=8 
+  bash test/train_performance_8p_base_fp32.sh --batch-size=4 --num-npu=8
   # FP16
   bash test/train_performance_8p_base_fp16.sh --batch-size=4 --num-npu=8
   ```
 
 - 双机16卡性能（FP32）
-  
+
   运行脚本支持命令行参数（支持默认值+关键字参数+位置参数）
   - `--batch-size`：每卡batch size大小，默认值4；
   - `--num-npu`：每节点NPU卡数，默认值8；
@@ -223,19 +223,19 @@ cd ../
 ## FAQ
 
 1. `RuntimeError: The server socket has failed to listen on any local network address. The server socket has failed to bind to [::]:29500 (errno: 98 - Address already in use).`
-   
+
    表示默认端口已被占用，自行修改`mmdetection3d`源码文件`tools/dist_train.sh`下的`PORT`默认值。
 
 2. `FileNotFoundError: pretrained/swint-nuimages-pretrained.pth can not be found.`
-   
-   数据文件缺失，请对照[数据准备](##数据准备)检查数据是否完整。
+
+   数据文件缺失，请对照[数据准备](#数据准备)检查数据是否完整。
 
 3. `AssertionError: MMCV==2.2.0 is used but incompatible. Please install mmcv>=2.0.0rc4, <2.1.0.`
-   
+
    MMCV版本冲突，修改`MMCV`源码文件`mmcv/version.py`中的`__version__ = '2.0.1'`
 
 4. `Environment variable [HCCL_IF_IP] is invalid. Reason: it should be "ip[%ifname]".`
-   
+
    将环境变量设置脚本`test/env_npu.sh`中的`export HCCL_IF_IP=...`注释即可。
 
 5. 当前训练脚本采用`lidar-only`预训练权重，若需要基于`lidar-cam`预训练权重进行训练，仅需将脚本中的`bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth`更改为对应权重文件即可。

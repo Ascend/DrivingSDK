@@ -1,8 +1,8 @@
-# DrivingSDK负载均衡特性
+# Driving SDK负载均衡特性
 
 自动驾驶场景中，涉及多种传感器数据和不同的道路交通环境，导致自动驾驶模型易出现计算负载不均衡的现象，造成性能瓶颈。
 
-DrivingSDK实现了自动驾驶模型负载均衡特性，通过负载均衡策略，缓解计算负载不均衡瓶颈，提升模型性能。
+Driving SDK实现了自动驾驶模型负载均衡特性，通过负载均衡策略，缓解计算负载不均衡瓶颈，提升模型性能。
 
 ## 背景
 
@@ -16,7 +16,7 @@ DrivingSDK实现了自动驾驶模型负载均衡特性，通过负载均衡策�
 
 ### 1. `Dynamic Dataset`
 
-DrivingSDK负载均衡特性提供`DynamicDataset`抽象类，该类包含`sorting`和`bucketing`两个抽象方法。
+Driving SDK负载均衡特性提供`DynamicDataset`抽象类，该类包含`sorting`和`bucketing`两个抽象方法。
 
  - `sorting`抽象类方法
  根据模型中造成负载不均衡瓶颈的主要元素，对元素进行排序。
@@ -24,7 +24,7 @@ DrivingSDK负载均衡特性提供`DynamicDataset`抽象类，该类包含`sorti
  - `bucketing`抽象类方法
  根据`sorting`方法结果，对数据集样本进行分桶。
 
-用户可以自行继承该抽象类，实现抽象类方法，同时，DrivingSDK提供两个继承`DynamicDataset`的子类，均已实现`bucketing`类方法。
+用户可以自行继承该抽象类，实现抽象类方法，同时，Driving SDK提供两个继承`DynamicDataset`的子类，均已实现`bucketing`类方法。
 
  - `UniformBucketingDynamicDataset`
  该类需传入`num_bucket`参数，作为分桶总量，数据集样本将按照`sorting`方法结果，均匀分布到所有桶内。
@@ -34,12 +34,12 @@ DrivingSDK负载均衡特性提供`DynamicDataset`抽象类，该类包含`sorti
 
 ### 2. `Dynamic Sampler`
 
-DrivingSDK负载均衡特性提供`DynamicSampler`抽象类，该类包含`bucket_arange`抽象方法。
+Driving SDK负载均衡特性提供`DynamicSampler`抽象类，该类包含`bucket_arange`抽象方法。
 
  - `bucket_arange`抽象类方法
  根据`DynamicDataset`类`bucketing`方法结果，对分桶结果进行随机化。
 
-用户可以自行继承该抽象类，实现抽象类方法，同时，DrivingSDK提供两个继承`DynamicSampler`的子类，均已实现`bucket_arange`类方法。
+用户可以自行继承该抽象类，实现抽象类方法，同时，Driving SDK提供两个继承`DynamicSampler`的子类，均已实现`bucket_arange`类方法。
 
  - `DynamicDistributedSampler`
  该类进行两次随机化处理：
@@ -60,7 +60,7 @@ DrivingSDK负载均衡特性提供`DynamicSampler`抽象类，该类包含`bucke
 
 ## 使用方法
 
-以CenterPoint3D模型为例，介绍DrivingSDK负载均衡特性的使用方法。
+以CenterPoint3D模型为例，介绍Driving SDK负载均衡特性的使用方法。
 
 ### 1. 确认引入负载不均衡瓶颈的元素
 

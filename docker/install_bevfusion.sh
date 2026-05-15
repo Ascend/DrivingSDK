@@ -10,7 +10,7 @@
 #
 # Prerequisites:
 #   - Python environment with PyTorch 2.7.1
-#   - DrivingSDK already installed
+#   - Driving SDK already installed
 # ============================================================================
 
 set -e
@@ -33,7 +33,7 @@ if [ -d "$BEVFUSION_SRC" ]; then
     echo "✓ Files copied from $BEVFUSION_SRC"
 else
     echo "Error: BEVFusion directory not found at $BEVFUSION_SRC"
-    echo "Please ensure DrivingSDK source code is copied to /workspace/DrivingSDK"
+    echo "Please ensure Driving SDK source code is copied to /workspace/DrivingSDK"
     exit 1
 fi
 
@@ -79,4 +79,3 @@ echo "Installed components:"
 echo "  - mmcv (with NPU support)"
 echo "  - mmdetection3d"
 echo "========================================"
-

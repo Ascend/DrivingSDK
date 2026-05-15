@@ -1,6 +1,6 @@
 # 模型清单
 
-DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端到端领域典型模型及部分主流VLA、世界模型。列表中Released为Y的表示已通过版本测试发布，N的表示开发自验通过但未经过版本测试。
+Driving SDK已支持下列开源模型，覆盖自动驾驶感知、规控、端到端领域典型模型及部分主流VLA、世界模型。列表中Released为Y的表示已通过版本测试发布，N的表示开发自验通过但未经过版本测试。
 
 <table align="left">
     <tr>
@@ -146,10 +146,10 @@ DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端�
         <td align="left">Y</td>
     </tr>
     <tr>
-        <td rowspan="2", align="left"><a href="../../../model_examples/BEVNeXt/README.md">BEVNeXt</a></td>
+        <td rowspan="2" align="left"><a href="../../../model_examples/BEVNeXt/README.md">BEVNeXt</a></td>
         <td align="left">stage1: 16.568</td>
         <td align="left">stage1: 36.643</td>
-        <td rowspan="2", align="left">N</td>
+        <td rowspan="2" align="left">N</td>
     </tr>
     <tr>
         <td align="left">stage2: 7.572</td>
@@ -269,20 +269,20 @@ DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端�
     </tr>
     <tr>
         <td rowspan="6">端到端</td>
-        <td rowspan="2", align="left"><a href="../../../model_examples/UniAD/README.md">UniAD</a></td>
+        <td rowspan="2" align="left"><a href="../../../model_examples/UniAD/README.md">UniAD</a></td>
         <td align="left">stage1: 1.002</td>
         <td align="left">stage1: 1.359</td>
-        <td rowspan="2", align="left">Y</td>
+        <td rowspan="2" align="left">Y</td>
     </tr>
     <tr>
         <td align="left">stage2: 1.554</td>
         <td align="left">stage2: 2</td>
     </tr>
     <tr>
-        <td rowspan="2", align="left"><a href="../../../model_examples/SparseDrive/README.md">SparseDrive</a></td>
+        <td rowspan="2" align="left"><a href="../../../model_examples/SparseDrive/README.md">SparseDrive</a></td>
         <td align="left">stage1: 46.3</td>
         <td align="left">stage1: 41.0</td>
-        <td rowspan="2", align="left">Y</td>
+        <td rowspan="2" align="left">Y</td>
     </tr>
     <tr>
         <td align="left">stage2: 37.9</td>
@@ -327,10 +327,10 @@ DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端�
         <td align="left">Y</td>
     </tr>
     <tr>
-        <td rowspan="2", align="left"><a href="../../../model_examples/Dexvla/README.md">Dexvla</a></td>
+        <td rowspan="2" align="left"><a href="../../../model_examples/Dexvla/README.md">Dexvla</a></td>
         <td align="left">stage2: 16.72</td>
         <td align="left">stage2: 18.88</td>
-        <td rowspan="2", align="left">Y</td>
+        <td rowspan="2" align="left">Y</td>
     </tr>
     <tr>
         <td align="left">stage3: 15.85</td>
@@ -392,10 +392,10 @@ DrivingSDK已支持下列开源模型，覆盖自动驾驶感知、规控、端�
         <td align="left">N</td>
     </tr>
     <tr>
-        <td rowspan="2", align="left"><a href="../../../model_examples/Cosmos-Reason1/README.md">Cosmos-Reason1</a></td>
+        <td rowspan="2" align="left"><a href="../../../model_examples/Cosmos-Reason1/README.md">Cosmos-Reason1</a></td>
         <td align="left">SFT: 15.5 </td>
         <td align="left">SFT: 17.6 </td>
-        <td rowspan="2", align="left">N</td>
+        <td rowspan="2" align="left">N</td>
     </tr>
     <tr>
         <td align="left">RL: 11.8 </td>

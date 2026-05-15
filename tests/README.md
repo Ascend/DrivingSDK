@@ -1,6 +1,6 @@
 # Tests
 
-该目录存放了DrivingSDK的各类测试脚本
+该目录存放了Driving SDK的各类测试脚本
 
 ## 安装
 
@@ -11,7 +11,7 @@
 * CANN包
 * torch_npu包
 * 根目录下requirements.txt里列出的依赖
-* 源码编译并安装了的DrivingSDK包
+* 源码编译并安装了的Driving SDK包
 
 ### 额外依赖
 

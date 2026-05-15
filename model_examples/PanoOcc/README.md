@@ -82,13 +82,13 @@
         - torch_npu安装步骤包含了pyyaml和setuptools的安装，如果是通过whl包安装，请先安装`pip install pyyaml setuptools`
      - 根目录下requirements.txt里列出的依赖
      - 源码编译并安装了的drivingsdk包
-  
+
 2. 准备模型源码
 
     克隆并准备 PanoOcc 源码
     * 仅以clone至`DrivingSDK/model_example/PanoOcc/`目录举例
       * 完成clone后路径会包含`.../PanoOcc/PanoOcc/`连续两个PanoOcc字段。
-      * 前者的PanoOcc主要存放DrivingSDK仓内的昇腾迁移优化补丁文件
+      * 前者的PanoOcc主要存放 Driving SDK 仓内的昇腾迁移优化补丁文件
       * 后者的PanoOcc是模型源码仓目录
     * 实际工程路径可用户自行选择，只需将`migrate_to_ascend`文件夹拷贝到实际的PanoOcc源码目录下即可
 
@@ -99,8 +99,8 @@
     ```
 
 3. - 拷贝该模型专用的昇腾迁移补丁文件`migrate_to_ascend`至PanoOcc源码仓内
-    
-    如果PanoOcc源码仓clone至`DrivingSDK/model_example/PanoOcc/`目录下，在该路径里面的那个`PanoOcc`源码仓路径下运行：    
+
+    如果PanoOcc源码仓clone至`DrivingSDK/model_example/PanoOcc/`目录下，在该路径里面的那个`PanoOcc`源码仓路径下运行：
 
     ```shell
     cp -r ../migrate_to_ascend ./
@@ -109,7 +109,7 @@
     如果在其他路径下，则:
 
     ```shell
-    cp -r DrivingSDK/model_example/PanoOcc/migrate_to_ascend/ [PATH_TO_PANOOCC_SOURCE_CODE]/PanoOcc/ 
+    cp -r DrivingSDK/model_example/PanoOcc/migrate_to_ascend/ [PATH_TO_PANOOCC_SOURCE_CODE]/PanoOcc/
     ```
 
     补丁文件主要包含以下内容：

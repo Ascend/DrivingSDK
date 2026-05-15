@@ -64,7 +64,7 @@ tcmalloc（即Thread-Caching Malloc）是一个通用的内存分配器，通过
 |--------------|-------|----------|
 | AdamW | optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr) | optimizer = torch_npu.optim.NpuFusedAdamW(model.parameters(), lr=args.lr) |
 
-进一步可替换计算融合算子，DrivingSDK仓高性能算子介绍可参考：<https://gitcode.com/Ascend/DrivingSDK/blob/master/docs/zh/api/README.md>
+进一步可替换计算融合算子，Driving SDK仓高性能算子介绍可参考：<https://gitcode.com/Ascend/DrivingSDK/blob/master/docs/zh/api/README.md>
 常用融合算子举例：
 
 | 算子名 | 使用方式 |
@@ -494,7 +494,7 @@ code_path=model_examples/BEVDet
         f'<={mmseg_maximum_version}.'
     ```
 
-7. 原始代码中bev_pool_v2算子为cuda代码，需要替换DrivingSDK仓的bev_pool_v3，更加亲和高效，安装DrivingSDK，参考DrivingSDK: <https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md>
+7. 原始代码中bev_pool_v2算子为cuda代码，需要替换Driving SDK仓的bev_pool_v3，更加亲和高效，安装Driving SDK，参考Driving SDK: <https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md>
     在mmdet3d/models/necks/view_transformer.py文件中，删除原始代码：
 
     ```python

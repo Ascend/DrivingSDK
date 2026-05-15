@@ -1,6 +1,6 @@
 # 部署Driving SDK环境
 
- 本文主要介绍部署Driving SDK环境的两种方式，分别镜像部署和源码编译安装。推荐使用镜像部署Driving SDK环境，以便能够快速上手。
+本文主要介绍部署Driving SDK环境的三种方式，分别为容器部署、自定义镜像构建和源码编译安装。推荐使用容器部署Driving SDK环境，以便能够快速上手。
 
 ## 安装说明
 
@@ -89,11 +89,11 @@ Driving SDK镜像是基于openEulerOS构建的，包含Driving SDK模型和算�
         bash run_drivingsdk_docker.sh $IMAGE $TAG
         ```
 
-        以 `8.3.RC1_alpha001-arm64` 版本举例，指定镜像名和标签：
+    以 `8.3.RC1_alpha001-arm64` 版本举例，指定镜像名和标签：
 
-        ```shell
-        bash run_drivingsdk_docker.sh swr.cn-south-1.myhuaweicloud.com/ascendhub/drivingsdk 8.3.RC1_alpha001-arm64
-        ```
+    ```shell
+    bash run_drivingsdk_docker.sh swr.cn-south-1.myhuaweicloud.com/ascendhub/drivingsdk 8.3.RC1_alpha001-arm64
+    ```
 
         2.3 进入模型所需conda环境。
 
@@ -109,7 +109,17 @@ Driving SDK镜像是基于openEulerOS构建的，包含Driving SDK模型和算�
         | torch2.5.1_py39  | 3.9    | 2.5.1 |
         | torch2.6.0_py310 | 3.10   | 2.6.0 |
 
-### 方式二：源码编译安装
+### 方式二：自定义镜像构建
+
+除了使用社区提供的预置镜像外，Driving SDK 还支持用户根据自身需求自定义构建 Docker 镜像。仓库的 `docker/` 目录下提供了多种 CANN 版本、NPU 类型和操作系统的 Dockerfile 组合，用户可基于这些 Dockerfile 进行本地构建或二次开发。适用于以下场景：
+
+- 需要使用特定 CANN 版本或 NPU 类型组合，而社区预置镜像未覆盖
+- 需要在基础镜像上添加额外的系统依赖或 Python 包
+- 需要基于 Driving SDK 镜像进行二次定制开发
+
+详细的镜像标签说明、Dockerfile 归档路径、构建步骤、硬件支持信息及常见问题，请参考[自定义镜像构建指导](./docker_guide.md)。
+
+### 方式三：源码编译安装
 
 #### 前置依赖
 
@@ -139,7 +149,7 @@ Driving SDK仓编译依赖以下组件：
 支持Release和Develop两种编译模式，请按需选择。
     > **说明：**
     >
-    > 如果你遇到编译问题，可查看[FAQ](../faq/model_faq.md)或者去issue中留言。
+    > 如果你遇到编译问题，可查看[FAQ](../faq/faq.md)或者去issue中留言。
 
    **Release模式**
 

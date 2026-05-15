@@ -77,10 +77,10 @@ code_path=model_examples/HiVT
 
 1. 参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》安装 2.1.0 版本的 PyTorch 框架和 torch_npu 插件。
 
-2. 安装 DrivingSDK 加速库，安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK)。
+2. 安装 Driving SDK 加速库，安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK)。
 
     ```shell
-    # DrivingSDK 加速库安装完成后到HiVT模型目录下
+    # Driving SDK 加速库安装完成后到HiVT模型目录下
     cd DrivingSDK/model_examples/HiVT
     ```
 
@@ -94,7 +94,7 @@ code_path=model_examples/HiVT
     pip install -e .
     wget https://s3.amazonaws.com/argoverse/datasets/av1.1/tars/hd_maps.tar.gz
     tar -zxvf hd_maps.tar.gz
-    cd ..    
+    cd ..
     ```
 
 4. 安装torch_scatter
@@ -154,7 +154,7 @@ code_path=model_examples/HiVT
     ```shell
     export LD_PRELOAD="$LD_PRELOAD:${libtcmalloc_dir}/libtcmalloc.so"
     ```
-    
+
 6. 安装pip依赖
 
     ```shell
@@ -243,19 +243,19 @@ cd /path/DrivingSDK/model_examples/HiVT
 
 1. pip安装omegaconf==2.1.0报错
 
-  ```shell
+    ```shell
     ERROR: Ignored the following yanked versions: 1.0.0, 1.0.1, 1.0.2, 2.0.0rc1, 2.0.0rc2, 2.0.0rc22, 2.0.0rc23, 2.0.0rc24, 2.0.0rc25, 2.0.0rc26, 2.0.0rc27, 2.0.0rc28, 2.0.0rc29, 2.0.1rc1, 2.0.1rc2, 2.0.1rc3, 2.0.1rc4, 2.0.1rc5, 2.2.0
     ERROR: Could not find a version that satisfies the requirement omegaconf==2.1.0
-  ```
+    ```
 
-解决方法：pip install pip==24.0
+    解决方法：pip install pip==24.0
 
 2. pip安装h5py报错
 
-  ```shell
+    ```shell
     ERROR: Failed building wheel for h5py
     Failed to build h5py
     ERROR: Could not build wheels for h5py, which is required to install pyproject.toml-based projects
-  ```
+    ```
 
-解决方法：conda install h5py
+    解决方法：conda install h5py

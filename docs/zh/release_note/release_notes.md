@@ -33,7 +33,7 @@
 </table>
 
 > [!NOTE]
-> 有关DrivingSDK的版本维护，具体请参见[分支维护策略](https://gitcode.com/Ascend/DrivingSDK/blob/branch_v26.0.0/README.md#driving-sdk-%E5%88%86%E6%94%AF%E7%BB%B4%E6%8A%A4%E7%AD%96%E7%95%A5)。
+> 有关Driving SDK的版本维护，具体请参见[分支维护策略](https://gitcode.com/Ascend/DrivingSDK/blob/branch_v26.0.0/README.md#driving-sdk-%E5%88%86%E6%94%AF%E7%BB%B4%E6%8A%A4%E7%AD%96%E7%95%A5)。
 
 ### 相关产品版本配套说明
 

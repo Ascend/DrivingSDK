@@ -1,4 +1,4 @@
-# DrivingSDK常见部署问题FAQ
+# Driving SDK常见部署问题FAQ
 
 1. Q：fatal error: proto/onnx/ge_onnx.pb.h: No such file or directory<br>
 A：如果你不需要使用`onnx`进行推理，请在`CMakePresets.json`中关闭`ENABLE_ONNX`选项，将`True`改为`False`。如果需要`onnx`可尝试执行`bash ci/docker/ARM/build_protobuf.sh`安装`protobuf`。
@@ -9,13 +9,13 @@ A：torch 与torch_npu的版本可能不配套。
 4. Q：opbuild ops error: Invalid socVersion ascend910_93 of xxx<br>
 A：更换最新的Ascend-cann-toolkit套件
 
-# DrivingSDK常见模型问题FAQ
+# Driving SDK常见模型问题FAQ
 
 如果你在使用DrivingSDK/model_examples/中的模型时，遇到报错问题，可查看本文档或者去issue中留言。
 
 ## 目录
 
-- [DrivingSDK常见模型问题FAQ](#drivingsdk常见模型问题faq)
+- [Driving SDK常见模型问题FAQ](#driving-sdk常见模型问题faq)
   - [通用问题速查](#通用问题速查)
   - [模型特定问题速查](#模型特定问题速查)
   - [目录](#目录)
@@ -36,9 +36,11 @@ A：更换最新的Ascend-cann-toolkit套件
     </tr>
     <tr>
         <td rowspan="1" align="center">编译错误</td>
+        <td rowspan="1" align="center">编译错误</td>
         <td align="center"><a href="#1-1">ModuleNotFoundError: No module named 'torch'</a></td>
     </tr>
     <tr>
+        <td rowspan="3" align="center">数据集错误</td>
         <td rowspan="3" align="center">数据集错误</td>
         <td align="center"><a href="#2-1">训练时报错无pkl格式文件</a></td>
     </tr>
@@ -191,7 +193,7 @@ pip install ccimport==0.3.7
 
 #### 1.3 CenterPoint2D或CenterPoint3D模型源码编译`OpenPCDet`时，执行`python setup.py develop`语句时报错：`subprocess.CalledProcessError: Command ['which', 'c++'] return non-zero exit status 1.`
 
-该报错是由于操作系统的GCC版本过高，推荐使用[DrivingSDK仓库README文档](https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md)中的建议版本`gcc 10.2`进行编译，或使用[CenterPoint模型README文档](https://gitcode.com/Ascend/DrivingSDK/blob/master/model_examples/CenterPoint/README.md)中的建议版本`gcc 7.5`进行编译。
+该报错是由于操作系统的GCC版本过高，推荐使用[Driving SDK仓库README文档](https://gitcode.com/Ascend/DrivingSDK/blob/master/README.md)中的建议版本`gcc 10.2`进行编译，或使用[CenterPoint模型README文档](https://gitcode.com/Ascend/DrivingSDK/blob/master/model_examples/CenterPoint/README.md)中的建议版本`gcc 7.5`进行编译。
 
 ### 2. 数据集错误
 
@@ -219,7 +221,7 @@ pip install ccimport==0.3.7
 
 #### 3.1 模型训练时，yapf组件报错：`EOFError: Ran out of input`
 
-该报错的原因是，yapf组件会创建`~/.cache/YAPF`缓存，在多进程环境中，部分进程创建该缓存后，还未向缓存文件写入内容时，其他进程识别到缓存文件存在，并试图读取文件中的内容，从而报出`EOFError: Ran out of input`错误。遇见此报错时，重新拉起模型训练即可解决。更详细的报错原因及解决方案可参考[开源社区issue \[Bug\] \[Crash\]\[Reproducible\] EOFError: Ran out of input when import yapf with multiprocess](https://github.com/google/yapf/issues/1204)。
+该报错的原因是，yapf组件会创建`~/.cache/YAPF`缓存，在多进程环境中，部分进程创建该缓存后，还未向缓存文件写入内容时，其他进程识别到缓存文件存在，并试图读取文件中的内容，从而报出`EOFError: Ran out of input`错误。遇见此报错时，重新拉起模型训练即可解决。更详细的报错原因及解决方案可参考[开源社区issue\[Bug\] \[Crash\]\[Reproducible\] EOFError: Ran out of input when import yapf with multiprocess](https://github.com/google/yapf/issues/1204)。
 
 <a id="3-2"></a>
 

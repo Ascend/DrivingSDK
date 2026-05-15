@@ -120,7 +120,7 @@ at::Tensor npu_bev_pool_v3(const at::Tensor& depth, const at::Tensor& feat, cons
 
 然后，执行`python setup.py develop`, 你就可以在Python中使用`bev_pool_v3`算子了。当然，这个算子还没有实现任何功能，接下来我们将逐步完善它。
 
-## 5. 增加AscendC测的算子接口
+## 5. 增加AscendC侧的算子接口
 
 当我们执行一个NPU算子时，任务经由python到我们的C++ ABI，然后再到NPU的C++ ABI(CANN 运行时)，运行时找到算子的二进制文件，将它加载到硬件上执行，并配置好输入输出。因此我们还需要增加一个运行时能够找到二进制，配置下发计算任务的算子定义接口。
 我们在`mx_driving/point/kernels/op_host`下增加一个新的文件`bev_pool_v3.cpp`中增加如下代码：

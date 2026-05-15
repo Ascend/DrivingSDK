@@ -166,7 +166,7 @@ code_path=model_examples/QCNet
     export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
     ```
 
-6. 安装 DrivingSDK 加速库
+6. 安装 Driving SDK 加速库
 
    安装方法参考[官方文档](https://gitcode.com/Ascend/DrivingSDK)。
 
