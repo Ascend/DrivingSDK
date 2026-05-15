@@ -19,11 +19,10 @@ const uint32_t BOXES_NUM_DIM = 0;
 const uint32_t BOXES_FORMAT_SIZE_DIM = 1;
 
 const uint32_t TILE_N_910B = 64;
-}   // some const express
+} // some const express
 
 namespace optiling {
-static ge::graphStatus TilingFunc4BoxesOverlapBevV1(gert::TilingContext* context)
-{
+static ge::graphStatus TilingFunc4BoxesOverlapBevV1(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -35,7 +34,7 @@ static ge::graphStatus TilingFunc4BoxesOverlapBevV1(gert::TilingContext* context
     }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoPtr);
     auto aivNum = ascendplatformInfo.GetCoreNumAiv();
-    
+
     context->SetBlockDim(aivNum);
 
     uint64_t ubSize;
@@ -53,14 +52,14 @@ static ge::graphStatus TilingFunc4BoxesOverlapBevV1(gert::TilingContext* context
     if (boxesATensorPtr == nullptr || boxesBTensorPtr == nullptr || attrs == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     auto formatFlagPtr = attrs->GetAttrPointer<int>(POS_ATTR_FORMAT_FLAG);
     auto clockwisePtr = attrs->GetAttrPointer<bool>(POS_ATTR_CLOCKWISE);
     auto modeFlagPtr = attrs->GetAttrPointer<int>(POS_ATTR_MODE_FLAG);
     auto alignedPtr = attrs->GetAttrPointer<bool>(POS_ATTR_ALIGNED);
     auto marginPtr = attrs->GetAttrPointer<float>(POS_ATTR_MARGIN);
-    if (formatFlagPtr == nullptr || clockwisePtr == nullptr || modeFlagPtr == nullptr ||
-        alignedPtr == nullptr || marginPtr == nullptr) {
+    if (formatFlagPtr == nullptr || clockwisePtr == nullptr || modeFlagPtr == nullptr || alignedPtr == nullptr ||
+        marginPtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -81,10 +80,10 @@ static ge::graphStatus TilingFunc4BoxesOverlapBevV1(gert::TilingContext* context
     uint32_t tileN = TILE_N_910B;
     uint32_t tileCountM = M;
     uint32_t tileCountN = Ceil(N, tileN);
-    
+
     /* Set tilingData */
     BoxesOverlapBevV1TilingData tilingData;
-    
+
     tilingData.set_M(M);
     tilingData.set_N(N);
     tilingData.set_totalCoreCount(aivNum);
@@ -112,8 +111,7 @@ static ge::graphStatus TilingFunc4BoxesOverlapBevV1(gert::TilingContext* context
 }
 
 namespace ge {
-static ge::graphStatus Infershape4BoxesOverlapBevV1(gert::InferShapeContext *context)
-{
+static ge::graphStatus Infershape4BoxesOverlapBevV1(gert::InferShapeContext *context) {
     auto boxesAShape = context->GetInputShape(POS_INPUT_BOXES_A);
     auto boxesBShape = context->GetInputShape(POS_INPUT_BOXES_B);
     auto areaOverlapShape = context->GetOutputShape(POS_OUTPUT_RES);
@@ -146,20 +144,17 @@ static ge::graphStatus Infershape4BoxesOverlapBevV1(gert::InferShapeContext *con
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataType4BoxesOverlapBevV1(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDataType4BoxesOverlapBevV1(gert::InferDataTypeContext *context) {
     const ge::DataType box_dtype = context->GetInputDataType(POS_INPUT_BOXES_A);
     context->SetOutputDataType(POS_OUTPUT_RES, box_dtype);
     return GRAPH_SUCCESS;
 }
 }
 
-
 namespace ops {
 class BoxesOverlapBevV1 : public OpDef {
-public:
-    explicit BoxesOverlapBevV1(const char* name) : OpDef(name)
-    {
+  public:
+    explicit BoxesOverlapBevV1(const char *name) : OpDef(name) {
         this->Input("boxes_a")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -184,12 +179,14 @@ public:
         this->Attr("aligned").AttrType(OPTIONAL).Bool(false);
         this->Attr("margin").AttrType(OPTIONAL).Float(1e-5);
 
-        this->SetInferShape(ge::Infershape4BoxesOverlapBevV1)
-            .SetInferDataType(ge::InferDataType4BoxesOverlapBevV1);
+        this->SetInferShape(ge::Infershape4BoxesOverlapBevV1).SetInferDataType(ge::InferDataType4BoxesOverlapBevV1);
 
         this->AICore().SetTiling(optiling::TilingFunc4BoxesOverlapBevV1);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

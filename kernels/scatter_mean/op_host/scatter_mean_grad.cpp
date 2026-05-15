@@ -19,8 +19,8 @@ constexpr uint32_t BLOCK_BYTES = 32;
 constexpr uint64_t RESERVE_SAPCE = 4 * 1024;
 constexpr uint32_t FLOAT_DTYPE_BYTES = 4;
 
-constexpr uint64_t MAX_OUT_LINE =  16000;
-constexpr uint64_t MAX_DEAL_NUM =  2048;
+constexpr uint64_t MAX_OUT_LINE = 16000;
+constexpr uint64_t MAX_DEAL_NUM = 2048;
 constexpr uint64_t LEAST_LINE_EACH_TASK = 4;
 constexpr uint64_t BUFFER_NUM = 2;
 
@@ -29,18 +29,19 @@ constexpr uint64_t GRADOUT_UB_NUM = 2;
 constexpr uint64_t INDICES_UB_NUM = 2;
 
 class ScatterMeanGradTiling {
-public:
-    explicit ScatterMeanGradTiling(gert::TilingContext* context) : context(context){};
+  public:
+    explicit ScatterMeanGradTiling(gert::TilingContext *context) : context(context) {};
     ge::graphStatus Init();
     ge::graphStatus RunKernelTiling();
     void TilingDataPrint();
-private:
+
+  private:
     void SetModeNoTail(int32_t gradDims, int32_t indexDims, uint32_t coreNum);
     void SetModeLine(int32_t gradDims, int32_t indexDims, uint32_t coreNum);
     void SetHeadNumForTask(uint64_t headMaxTask, uint32_t coreNum);
     void SetUbSize(uint64_t headIndicesSize);
     ScatterMeanGradTilingData TilingData;
-    gert::TilingContext* context = nullptr;
+    gert::TilingContext *context = nullptr;
     uint64_t paramsPre = 1;
     uint64_t dimRange = 1;
     uint64_t dimRangeOut = 1;
@@ -75,24 +76,22 @@ private:
     uint32_t indexDsize = 4;
 };
 
-uint64_t CeilValue(uint64_t a, uint64_t b)
-{
+uint64_t CeilValue(uint64_t a, uint64_t b) {
     if (b == 0) {
         return 0;
     }
     return ((a - 1) / b + 1) * b;
 }
 
-static uint64_t GetCeilInt(uint64_t value1, uint64_t value2)
-{
+static uint64_t GetCeilInt(uint64_t value1, uint64_t value2) {
     if (value2 == 0) {
         return value1;
     }
     return (value1 + value2 - 1) / value2;
 }
 
-static void ComputeTaskNumForeLine(uint64_t ubOutNum, uint64_t outLineEachCore, uint64_t *taskNum, uint64_t *taskEachLine, uint64_t *taskLastLine)
-{
+static void ComputeTaskNumForeLine(
+    uint64_t ubOutNum, uint64_t outLineEachCore, uint64_t *taskNum, uint64_t *taskEachLine, uint64_t *taskLastLine) {
     if (outLineEachCore <= ubOutNum) {
         *taskNum = 1;
         *taskEachLine = outLineEachCore;
@@ -105,8 +104,7 @@ static void ComputeTaskNumForeLine(uint64_t ubOutNum, uint64_t outLineEachCore, 
     }
 }
 
-void ScatterMeanGradTiling::SetUbSize(uint64_t headIndicesSize)
-{
+void ScatterMeanGradTiling::SetUbSize(uint64_t headIndicesSize) {
     if (headIndicesSize > INDICES_ONCE_DATANUM) {
         indexUbSize = INDICES_ONCE_DATANUM;
     } else {
@@ -117,8 +115,7 @@ void ScatterMeanGradTiling::SetUbSize(uint64_t headIndicesSize)
     return;
 }
 
-void ScatterMeanGradTiling::SetHeadNumForTask(uint64_t headMaxTask, uint32_t coreNum)
-{
+void ScatterMeanGradTiling::SetHeadNumForTask(uint64_t headMaxTask, uint32_t coreNum) {
     uint64_t headBigCore = GetCeilInt(paramsPre, coreNum);
     uint64_t headSmallCore = headBigCore - 1;
     bigCoreNum = paramsPre - headSmallCore * coreNum;
@@ -132,12 +129,11 @@ void ScatterMeanGradTiling::SetHeadNumForTask(uint64_t headMaxTask, uint32_t cor
     headLastTaskBig = headBigCore - (taskNumBig - 1) * headTaskBig;
 }
 
-void ScatterMeanGradTiling::SetModeNoTail(int32_t gradDims, int32_t indexDims, uint32_t coreNum)
-{
+void ScatterMeanGradTiling::SetModeNoTail(int32_t gradDims, int32_t indexDims, uint32_t coreNum) {
     if (coreNum == 0 || gradDims == 0 || indexDims == 0) {
         return;
     }
-    
+
     uint64_t headOutSize = dimRangeOut * paramsPro;
     uint64_t headIndicesSize = dimRange * paramsPro;
 
@@ -151,13 +147,14 @@ void ScatterMeanGradTiling::SetModeNoTail(int32_t gradDims, int32_t indexDims, u
         indexUbSize = headTaskBig * headIndicesSize;
     } else {
         SetUbSize(headIndicesSize);
-        if (gradOutUbSize > headOutSize)  {
+        if (gradOutUbSize > headOutSize) {
             context->SetTilingKey(DATA_SMALL_MODE);
             tilingMode = 1;
             auto headMaxTask = gradOutUbSize / headOutSize;
             SetHeadNumForTask(headMaxTask, coreNum);
             gradOutUbSize = headTaskBig * headOutSize;
-            indexUbSize = std::min((ubSize - gradOutUbSize * GRADOUT_UB_NUM * gradDsize) / INDICES_UB_NUM / indexDsize, headIndicesSize);
+            indexUbSize = std::min(
+                (ubSize - gradOutUbSize * GRADOUT_UB_NUM * gradDsize) / INDICES_UB_NUM / indexDsize, headIndicesSize);
             indexUbSize = CeilValue(indexUbSize, indexNumPerBlock);
         } else {
             context->SetTilingKey(DATA_LARGE_MODE);
@@ -180,8 +177,7 @@ void ScatterMeanGradTiling::SetModeNoTail(int32_t gradDims, int32_t indexDims, u
     TilingData.set_taskEachHead(taskEachHead);
 }
 
-void ScatterMeanGradTiling::SetModeLine(int32_t gradDims, int32_t indexDims, uint32_t coreNum)
-{
+void ScatterMeanGradTiling::SetModeLine(int32_t gradDims, int32_t indexDims, uint32_t coreNum) {
     if (coreNum == 0 || gradDims == 0 || indexDims == 0) {
         return;
     }
@@ -192,7 +188,7 @@ void ScatterMeanGradTiling::SetModeLine(int32_t gradDims, int32_t indexDims, uin
 
     auto body = paramsPro / tail;
     uint64_t dataLine = dimRange * paramsPre * (paramsPro / tail);
-    
+
     if (dataLine <= 2 * LEAST_LINE_EACH_TASK) {
         coreUsed = 1;
         dataLineBigCore = dataLine;
@@ -209,7 +205,7 @@ void ScatterMeanGradTiling::SetModeLine(int32_t gradDims, int32_t indexDims, uin
     uint64_t taskLastLine;
     if (tail % paramsNumPerBlock == 0 && tail < MAX_DEAL_NUM / gradDsize) {
         tilingMode = 1;
-        ubTailNum =  tail;
+        ubTailNum = tail;
         auto availSize = ubSize - ubTailNum * BUFFER_NUM * gradDsize;
         taskEachLine = std::min(dataLineBigCore, availSize / gradDsize / (tail + 1));
         taskNum = GetCeilInt(dataLineBigCore, taskEachLine);
@@ -220,7 +216,8 @@ void ScatterMeanGradTiling::SetModeLine(int32_t gradDims, int32_t indexDims, uin
         gradOutUbSize = ubTailNum;
     } else {
         tilingMode = 0;
-        auto availIndicesSize = ubSize - std::min(CeilValue(tail, paramsNumPerBlock), MAX_DEAL_NUM) * BUFFER_NUM * gradDsize;
+        auto availIndicesSize =
+            ubSize - std::min(CeilValue(tail, paramsNumPerBlock), MAX_DEAL_NUM) * BUFFER_NUM * gradDsize;
         ComputeTaskNumForeLine(availIndicesSize / indexDsize, dataLineBigCore, &taskNum, &taskEachLine, &taskLastLine);
 
         indexUbSize = std::min(availIndicesSize / indexDsize, dataLineBigCore);
@@ -238,8 +235,7 @@ void ScatterMeanGradTiling::SetModeLine(int32_t gradDims, int32_t indexDims, uin
     TilingData.set_gradOutUbSize(gradOutUbSize);
 }
 
-ge::graphStatus ScatterMeanGradTiling::Init()
-{
+ge::graphStatus ScatterMeanGradTiling::Init() {
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
         return ge::GRAPH_FAILED;
@@ -254,7 +250,8 @@ ge::graphStatus ScatterMeanGradTiling::Init()
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, totalUbSize);
     ubSize = totalUbSize - RESERVE_SAPCE;
 
-    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr ||
+        context->GetInputShape(2) == nullptr) {
         return ge::GRAPH_FAILED;
     }
     if (context->GetOutputShape(0) == nullptr) {
@@ -268,7 +265,7 @@ ge::graphStatus ScatterMeanGradTiling::Init()
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const int64_t* axisPtr = attrs->GetAttrPointer<int64_t>(0);
+    const int64_t *axisPtr = attrs->GetAttrPointer<int64_t>(0);
     int32_t axis = static_cast<int32_t>(*axisPtr);
 
     // check inputs shape
@@ -316,8 +313,7 @@ ge::graphStatus ScatterMeanGradTiling::Init()
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus ScatterMeanGradTiling::RunKernelTiling()
-{
+ge::graphStatus ScatterMeanGradTiling::RunKernelTiling() {
     context->SetBlockDim(coreUsed);
     TilingData.set_tilingMode(tilingMode);
     TilingData.set_dimRange(dimRange);
@@ -328,7 +324,7 @@ ge::graphStatus ScatterMeanGradTiling::RunKernelTiling()
     TilingData.set_indexUbSize(indexUbSize);
     TilingData.set_gradOutUbSize(gradOutUbSize);
     TilingData.set_indexSumUbSize(indexSumUbSize);
-    
+
     TilingData.set_gradInNum(gradInNum);
     TilingData.set_indexNum(indexNum);
     TilingData.set_gradOutNum(gradOutNum);
@@ -350,8 +346,7 @@ ge::graphStatus ScatterMeanGradTiling::RunKernelTiling()
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus TilingFunc4ScatterMeanGrad(gert::TilingContext* context)
-{
+static ge::graphStatus TilingFunc4ScatterMeanGrad(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -362,10 +357,8 @@ static ge::graphStatus TilingFunc4ScatterMeanGrad(gert::TilingContext* context)
 }
 }
 
-
 namespace ge {
-static ge::graphStatus InferShape4ScatterMeanGrad(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShape4ScatterMeanGrad(gert::InferShapeContext *context) {
     const gert::Shape *gradOutShape = context->GetInputShape(0);
     if (gradOutShape == nullptr) {
         return ge::GRAPH_FAILED;
@@ -393,20 +386,17 @@ static ge::graphStatus InferShape4ScatterMeanGrad(gert::InferShapeContext* conte
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDtype4ScatterMeanGrad(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDtype4ScatterMeanGrad(gert::InferDataTypeContext *context) {
     const ge::DataType grad_out_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, grad_out_dtype);
     return GRAPH_SUCCESS;
 }
 }
 
-
 namespace ops {
 class ScatterMeanGrad : public OpDef {
-public:
-    explicit ScatterMeanGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit ScatterMeanGrad(const char *name) : OpDef(name) {
         this->Input("grad_out")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -428,12 +418,13 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("dim").Int();
-        this->SetInferShape(ge::InferShape4ScatterMeanGrad)
-             .SetInferDataType(ge::InferDtype4ScatterMeanGrad);
-        this->AICore()
-            .SetTiling(optiling::TilingFunc4ScatterMeanGrad);
+        this->SetInferShape(ge::InferShape4ScatterMeanGrad).SetInferDataType(ge::InferDtype4ScatterMeanGrad);
+        this->AICore().SetTiling(optiling::TilingFunc4ScatterMeanGrad);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

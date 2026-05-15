@@ -10,12 +10,11 @@
 namespace ScatterMeanGradNS {
 using namespace AscendC;
 
-template <typename T>
-class ScatterMeanGrad : public ScatterMeanGradBase<T> {
-public:
+template <typename T> class ScatterMeanGrad : public ScatterMeanGradBase<T> {
+  public:
     __aicore__ inline ScatterMeanGrad() {}
-    __aicore__ inline void Init(GM_ADDR gradOut, GM_ADDR index, GM_ADDR count, GM_ADDR gradIn, const ScatterMeanGradTilingData* tilingData)
-    {
+    __aicore__ inline void Init(
+        GM_ADDR gradOut, GM_ADDR index, GM_ADDR count, GM_ADDR gradIn, const ScatterMeanGradTilingData *tilingData) {
         this->InitTiling(tilingData);
         InitNoTailTiling(tilingData);
         gradInGm.SetGlobalBuffer((__gm__ T *)gradIn, this->gradInNum);
@@ -29,8 +28,7 @@ public:
         pipe.InitBuffer(inCountUb, this->gradOutUbSize * sizeof(T));
     }
 
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         if (this->tilingMode == 0) {
             for (uint64_t taskId = 0; taskId < taskNum - 1; taskId++) {
                 ComputeModeSmallData(taskId, headTask);
@@ -51,9 +49,8 @@ public:
         }
     }
 
-private:
-    __aicore__ inline void InitNoTailTiling(const ScatterMeanGradTilingData *tiling_data)
-    {
+  private:
+    __aicore__ inline void InitNoTailTiling(const ScatterMeanGradTilingData *tiling_data) {
         auto headTaskSmall = tiling_data->headTaskSmall;
         auto taskNumSmall = tiling_data->taskNumSmall;
         auto headLastTaskSmall = tiling_data->headLastTaskSmall;
@@ -82,8 +79,7 @@ private:
         this->copyParamsOut.blockLen = static_cast<int32_t>(headTask * headIndexSize * sizeof(float));
     }
 
-    __aicore__ inline void ComputeModeSmallData(uint64_t taskId, uint64_t headNum)
-    {
+    __aicore__ inline void ComputeModeSmallData(uint64_t taskId, uint64_t headNum) {
         LocalTensor<int32_t> indexLocal = inIndexUb.Get<int32_t>();
         LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
         LocalTensor<T> countLocal = inCountUb.Get<T>();
@@ -103,6 +99,9 @@ private:
         PipeBarrier<PIPE_ALL>();
         Div(gradOutLocal, gradOutLocal, countLocal, outAlign);
 
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
+
         for (uint64_t head = 0; head < headNum; head++) {
             uint64_t indexLocalOffset = head * headIndexSize;
             uint64_t outLocalOffset = head * headOutSize;
@@ -118,8 +117,7 @@ private:
         DataCopyPad(gradInGm[indexOffset], gradInLocal, this->copyParamsOut);
     }
 
-    __aicore__ inline void ComputeModeLargeData(uint64_t taskId, uint64_t headNum)
-    {
+    __aicore__ inline void ComputeModeLargeData(uint64_t taskId, uint64_t headNum) {
         LocalTensor<int32_t> indexLocal = inIndexUb.Get<int32_t>();
         LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
         LocalTensor<T> countLocal = inCountUb.Get<T>();
@@ -135,6 +133,9 @@ private:
         PipeBarrier<PIPE_ALL>();
         Div(gradOutLocal, gradOutLocal, countLocal, outAlign);
 
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
+
         for (uint64_t head = 0; head < headNum; head++) {
             uint64_t indicesAlign = AlignUp(headIndexSize, this->indicesEachBlock);
             auto headOutOffset = head * headOutSize;
@@ -146,6 +147,10 @@ private:
                 PipeBarrier<PIPE_ALL>();
                 Adds(indexLocal, indexLocal, (int32_t)headOutOffset, this->indexUbSize);
                 Duplicate(gradInLocal, float(0), this->indexUbSize);
+
+                SetFlag<HardEvent::V_S>(0);
+                WaitFlag<HardEvent::V_S>(0);
+
                 for (uint64_t idx = 0; idx < this->indexUbSize; idx++) {
                     auto indexValue = indexLocal.GetValue(idx);
                     auto gradInValue = gradOutLocal.GetValue(indexValue);
@@ -162,6 +167,10 @@ private:
                 PipeBarrier<PIPE_ALL>();
                 Adds(indexLocal, indexLocal, (int32_t)headOutOffset, indicesAlign);
                 Duplicate(gradInLocal, float(0), indicesAlign);
+
+                SetFlag<HardEvent::V_S>(0);
+                WaitFlag<HardEvent::V_S>(0);
+
                 for (uint64_t idx = 0; idx < indexLast; idx++) {
                     auto indexValue = indexLocal.GetValue(idx);
                     auto gradInValue = gradOutLocal.GetValue(indexValue);
@@ -174,7 +183,7 @@ private:
         }
     }
 
-private:
+  private:
     TPipe pipe;
     TBuf<TPosition::VECCALC> inGradOutUb, inIndexUb, outGradInUb, inCountUb;
 

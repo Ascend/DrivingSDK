@@ -10,12 +10,11 @@
 
 namespace ScatterMeanGradNS {
 using namespace AscendC;
-template <typename T>
-class ScatterMeanGradLine : public ScatterMeanGradBase<T> {
-public:
+template <typename T> class ScatterMeanGradLine : public ScatterMeanGradBase<T> {
+  public:
     __aicore__ inline ScatterMeanGradLine() {}
-    __aicore__ inline void InitLine(GM_ADDR gradOut, GM_ADDR index, GM_ADDR count, GM_ADDR gradIn, const ScatterMeanGradTilingData* tilingData)
-    {
+    __aicore__ inline void InitLine(
+        GM_ADDR gradOut, GM_ADDR index, GM_ADDR count, GM_ADDR gradIn, const ScatterMeanGradTilingData *tilingData) {
         this->InitTiling(tilingData);
         InitLocalTiling(tilingData);
         gradInGm.SetGlobalBuffer((__gm__ T *)gradIn, this->gradInNum);
@@ -29,8 +28,7 @@ public:
         pipe.InitBuffer(inGradOutUb, gradOutUbSize * sizeof(T));
     }
 
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         if (this->tilingMode == 1) {
             for (int32_t i = 0; i < taskNum - 1; i++) {
                 ComputeSmallTail(i, taskEachLine);
@@ -52,7 +50,7 @@ public:
         }
     }
 
-private:
+  private:
     TPipe pipe;
     TBuf<TPosition::VECCALC> inGradOutUb, inIndexUb, inCountUb, outGradInUb;
     GlobalTensor<T> gradInGm, gradOutGm, countGm;
@@ -78,8 +76,7 @@ private:
 };
 
 template <typename T>
-__aicore__ inline void ScatterMeanGradLine<T>::InitLocalTiling(const ScatterMeanGradTilingData *tiling_data)
-{
+__aicore__ inline void ScatterMeanGradLine<T>::InitLocalTiling(const ScatterMeanGradTilingData *tiling_data) {
     taskNum = tiling_data->taskNum;
     taskEachLine = tiling_data->taskEachLine;
     taskLastLine = tiling_data->taskLastLine;
@@ -97,7 +94,8 @@ __aicore__ inline void ScatterMeanGradLine<T>::InitLocalTiling(const ScatterMean
         } else {
             taskLastLine = taskLastLine - 1;
         }
-        indicesBaseOffset = this->bigCoreNum * (coreDataLine + 1) + (this->curBlockIdx - this->bigCoreNum) * coreDataLine;
+        indicesBaseOffset =
+            this->bigCoreNum * (coreDataLine + 1) + (this->curBlockIdx - this->bigCoreNum) * coreDataLine;
     }
     gradInEachHead = this->dimRange * this->body;
     outEachHead = this->dimRangeOut * this->body;
@@ -111,9 +109,7 @@ __aicore__ inline void ScatterMeanGradLine<T>::InitLocalTiling(const ScatterMean
     this->copyParamsOut.blockLen = static_cast<uint32_t>(tailLast * sizeof(float));
 }
 
-template <typename T>
-__aicore__ inline int64_t ScatterMeanGradLine<T>::getEventIdforDoublebuffer()
-{
+template <typename T> __aicore__ inline int64_t ScatterMeanGradLine<T>::getEventIdforDoublebuffer() {
     uint64_t localOffset;
     if (countUb % BUFFER_NUM == 0) {
         localOffset = 0;
@@ -127,8 +123,7 @@ __aicore__ inline int64_t ScatterMeanGradLine<T>::getEventIdforDoublebuffer()
 }
 
 template <typename T>
-__aicore__ inline void ScatterMeanGradLine<T>::ComputeSmallTail(int32_t taskId, uint64_t taskLine)
-{
+__aicore__ inline void ScatterMeanGradLine<T>::ComputeSmallTail(int32_t taskId, uint64_t taskLine) {
     LocalTensor<int32_t> indicesLocal = inIndexUb.Get<int32_t>();
     LocalTensor<T> gradInLocal = outGradInUb.Get<T>();
     LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
@@ -172,8 +167,8 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeSmallTail(int32_t taskId, 
 }
 
 template <typename T>
-__aicore__ inline void ScatterMeanGradLine<T>::ComputeTail(uint64_t idxTure, uint64_t dataInIndices, uint64_t gradInLocalOffset)
-{
+__aicore__ inline void ScatterMeanGradLine<T>::ComputeTail(
+    uint64_t idxTure, uint64_t dataInIndices, uint64_t gradInLocalOffset) {
     LocalTensor<T> gradOutLocal = inGradOutUb.Get<T>();
     LocalTensor<T> countLocal = inCountUb.Get<T>();
 
@@ -204,7 +199,8 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeTail(uint64_t idxTure, uin
     if (tailLast != 0) {
         auto localOffset = getEventIdforDoublebuffer();
         WaitFlag<HardEvent::MTE3_MTE2>(eventId);
-        DataCopy(gradOutLocal[localOffset], gradOutGm[outLineOffset * this->tail + offset], AlignUp(tailLast, this->paramsEachBlock));
+        DataCopy(gradOutLocal[localOffset], gradOutGm[outLineOffset * this->tail + offset],
+            AlignUp(tailLast, this->paramsEachBlock));
         SetFlag<HardEvent::MTE2_V>(eventId);
         WaitFlag<HardEvent::MTE2_V>(eventId);
         Muls(gradOutLocal[localOffset], gradOutLocal[localOffset], mulValue, AlignUp(tailLast, this->paramsEachBlock));
@@ -216,8 +212,7 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeTail(uint64_t idxTure, uin
 }
 
 template <typename T>
-__aicore__ inline void ScatterMeanGradLine<T>::ComputeEachTask(int32_t taskId, uint64_t taskLine)
-{
+__aicore__ inline void ScatterMeanGradLine<T>::ComputeEachTask(int32_t taskId, uint64_t taskLine) {
     LocalTensor<int32_t> indicesLocal = inIndexUb.Get<int32_t>();
     auto indicesOffset = indicesBaseOffset + taskEachLine * taskId;
     DataCopy(indicesLocal, indexGm[indicesOffset], AlignUp(taskLine, this->indicesEachBlock));
@@ -228,6 +223,9 @@ __aicore__ inline void ScatterMeanGradLine<T>::ComputeEachTask(int32_t taskId, u
         auto idxTure = indicesOffset + idx;
         auto gradInLocalOffset = idxTure * this->tail;
         ComputeTail(idxTure, dataInIndices, gradInLocalOffset);
+
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
     }
 }
 

@@ -8,12 +8,11 @@
 using namespace std;
 
 namespace optiling {
-static ge::graphStatus Nms3dTilingFunc(gert::TilingContext *context)
-{
+static ge::graphStatus Nms3dTilingFunc(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     Nms3dTilingData tiling;
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
@@ -22,7 +21,8 @@ static ge::graphStatus Nms3dTilingFunc(gert::TilingContext *context)
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(platformInfo);
     static uint32_t coreNum = ascendcPlatform.GetCoreNumAiv();
 
-    if (context->GetInputShape(0) == nullptr || context->GetOutputShape(0) == nullptr || context->GetInputDesc(0) == nullptr || context->GetRawTilingData() == nullptr) {
+    if (context->GetInputShape(0) == nullptr || context->GetOutputShape(0) == nullptr ||
+        context->GetInputDesc(0) == nullptr || context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -59,8 +59,7 @@ static ge::graphStatus Nms3dTilingFunc(gert::TilingContext *context)
     tiling.set_tailNum(tailNum);
     tiling.set_maskNum(maskNum);
     tiling.set_overlapThresh(nms_overlap_thresh);
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
-                        context->GetRawTilingData()->GetCapacity());
+    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
@@ -73,40 +72,37 @@ static ge::graphStatus Nms3dTilingFunc(gert::TilingContext *context)
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus Nms3dInferShape(gert::InferShapeContext *context)
-{
-    return GRAPH_SUCCESS;
-}
-static ge::graphStatus Nms3dInferDataType(gert::InferDataTypeContext *context)
-{
-    context -> SetOutputDataType(0, ge::DT_INT16);
+static ge::graphStatus Nms3dInferShape(gert::InferShapeContext *context) { return GRAPH_SUCCESS; }
+static ge::graphStatus Nms3dInferDataType(gert::InferDataTypeContext *context) {
+    context->SetOutputDataType(0, ge::DT_INT16);
     return GRAPH_SUCCESS;
 }
 } // namespace ge
 
 namespace ops {
 class Nms3d : public OpDef {
-public:
-    explicit Nms3d(const char *name) : OpDef(name)
-    {
+  public:
+    explicit Nms3d(const char *name) : OpDef(name) {
         this->Input("boxes")
-                .ParamType(REQUIRED)
-                .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
-                .Format({ge::FORMAT_ND, ge::FORMAT_ND})
-                .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("mask")
-                .ParamType(REQUIRED)
-                .DataType({ge::DT_INT16, ge::DT_INT16})
-                .Format({ge::FORMAT_ND, ge::FORMAT_ND})
-                .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_INT16, ge::DT_INT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Attr("threshold").AttrType(REQUIRED).Float();
 
-        this->SetInferShape(ge::Nms3dInferShape)
-            .SetInferDataType(ge::Nms3dInferDataType);
+        this->SetInferShape(ge::Nms3dInferShape).SetInferDataType(ge::Nms3dInferDataType);
 
         this->AICore().SetTiling(optiling::Nms3dTilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

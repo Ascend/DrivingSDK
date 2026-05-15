@@ -47,20 +47,17 @@ constexpr uint32_t XYZWHDR_DY_OFFSET = 4;
 constexpr uint32_t XYZWHDR_DZ_OFFSET = 5;
 constexpr uint32_t XYZWHDR_ANGLE_OFFSET = 6;
 
-
 struct Point {
     float x, y;
 
     __aicore__ Point() {}
 
-    __aicore__ Point(float _x, float _y)
-    {
+    __aicore__ Point(float _x, float _y) {
         x = _x;
         y = _y;
     }
 
-    __aicore__ void set(float _x, float _y)
-    {
+    __aicore__ void set(float _x, float _y) {
         x = _x;
         y = _y;
     }
@@ -70,13 +67,11 @@ struct Point {
     __aicore__ Point operator-(const Point &b) const { return Point(x - b.x, y - b.y); }
 };
 
-template<bool clockwise, bool aligned>
-class BoxesOverlapBevKernel {
-public:
+template <bool clockwise, bool aligned> class BoxesOverlapBevKernel {
+  public:
     __aicore__ inline BoxesOverlapBevKernel() {}
-    __aicore__ inline void Init(GM_ADDR boxesA, GM_ADDR boxesB, GM_ADDR res,
-                                const BoxesOverlapBevTilingData *tilingData, TPipe *tmpPipe)
-    {
+    __aicore__ inline void Init(
+        GM_ADDR boxesA, GM_ADDR boxesB, GM_ADDR res, const BoxesOverlapBevTilingData *tilingData, TPipe *tmpPipe) {
         pipe_ = tmpPipe;
         uint32_t curBlockIdx = GetBlockIdx();
         uint32_t blockBytes = 32;
@@ -110,15 +105,16 @@ public:
         GetLocalTensor();
     }
 
-    __aicore__ inline void SetGlobalBuffer(GM_ADDR boxesA, GM_ADDR boxesB, GM_ADDR res)
-    {
-        boxesAGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(boxesA), static_cast<uint64_t>(boxesANum_) * boxesFormatSize_);
-        boxesBGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(boxesB), static_cast<uint64_t>(boxesBNum_) * boxesFormatSize_);
-        resGm_.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_RES *>(res), static_cast<uint64_t>(boxesANum_) * boxesBNum_);
+    __aicore__ inline void SetGlobalBuffer(GM_ADDR boxesA, GM_ADDR boxesB, GM_ADDR res) {
+        boxesAGm_.SetGlobalBuffer(
+            reinterpret_cast<__gm__ DTYPE_RES *>(boxesA), static_cast<uint64_t>(boxesANum_) * boxesFormatSize_);
+        boxesBGm_.SetGlobalBuffer(
+            reinterpret_cast<__gm__ DTYPE_RES *>(boxesB), static_cast<uint64_t>(boxesBNum_) * boxesFormatSize_);
+        resGm_.SetGlobalBuffer(
+            reinterpret_cast<__gm__ DTYPE_RES *>(res), static_cast<uint64_t>(boxesANum_) * boxesBNum_);
     }
 
-    __aicore__ inline void InitBuffer()
-    {
+    __aicore__ inline void InitBuffer() {
         pipe_->InitBuffer(boxesABuf_, dataAlign_ * sizeof(DTYPE_RES));
         pipe_->InitBuffer(boxesBBuf_, dataAlign_ * sizeof(DTYPE_RES));
         pipe_->InitBuffer(resBuf_, dataAlign_ * sizeof(DTYPE_RES));
@@ -127,8 +123,7 @@ public:
         pipe_->InitBuffer(cosBuf_, dataAlign_ * sizeof(DTYPE_RES));
     }
 
-    __aicore__ inline void GetLocalTensor()
-    {
+    __aicore__ inline void GetLocalTensor() {
         boxesALocalT_ = boxesABuf_.Get<DTYPE_RES>();
         boxesBLocalT_ = boxesBBuf_.Get<DTYPE_RES>();
         resLocalT_ = resBuf_.Get<DTYPE_RES>();
@@ -137,8 +132,7 @@ public:
         cosLocalT_ = cosBuf_.Get<DTYPE_RES>();
     }
 
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         if (aligned) {
             for (uint64_t offsetRes = startOffset_; offsetRes < endOffset_; ++offsetRes) {
                 uint64_t offsetBoxes = offsetRes * boxesFormatSize_;
@@ -153,8 +147,7 @@ public:
         }
     }
 
-    __aicore__ inline void ProcessMain(uint64_t offsetBoxesA, uint64_t offsetBoxesB, uint64_t offsetRes)
-    {
+    __aicore__ inline void ProcessMain(uint64_t offsetBoxesA, uint64_t offsetBoxesB, uint64_t offsetRes) {
         DataCopyPad(boxesALocalT_, boxesAGm_[offsetBoxesA], cpInPadParams_, cpInPadExtParams_);
         DataCopyPad(boxesBLocalT_, boxesBGm_[offsetBoxesB], cpInPadParams_, cpInPadExtParams_);
 
@@ -165,28 +158,25 @@ public:
             res = ComputeIoF(res);
         }
         resLocalT_.SetValue(0, res);
-        
+
         DataCopyPad(resGm_[offsetRes], resLocalT_, cpOutPadParams_);
     }
 
-protected:
+  protected:
     __aicore__ inline float Cross(const Point &a, const Point &b) { return a.x * b.y - a.y * b.x; }
 
-    __aicore__ inline float Cross(const Point &p1, const Point &p2, const Point &p0)
-    {
+    __aicore__ inline float Cross(const Point &p1, const Point &p2, const Point &p0) {
         return (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y);
     }
 
-    __aicore__ int CheckRectCross(const Point &p1, const Point &p2, const Point &q1, const Point &q2)
-    {
+    __aicore__ int CheckRectCross(const Point &p1, const Point &p2, const Point &q1, const Point &q2) {
         int ret = (min(p1.x, p2.x) <= max(q1.x, q2.x)) && (min(q1.x, q2.x) <= max(p1.x, p2.x)) &&
-                  (min(p1.y, p2.y) <= max(q1.y, q2.y)) && (min(q1.y, q2.y) <= max(p1.y, p2.y));
+            (min(p1.y, p2.y) <= max(q1.y, q2.y)) && (min(q1.y, q2.y) <= max(p1.y, p2.y));
         return ret;
     }
 
-    __aicore__ inline int Intersection(const Point &p1, const Point &p0, const Point &q1, const Point &q0,
-                                       Point &ansPoints)
-    {
+    __aicore__ inline int Intersection(
+        const Point &p1, const Point &p0, const Point &q1, const Point &q0, Point &ansPoints) {
         if (CheckRectCross(p0, p1, q0, q1) == 0) {
             return 0;
         }
@@ -217,8 +207,8 @@ protected:
         return 1;
     }
 
-    __aicore__ inline void RotateAroundCenter(const Point &center, const float angleCos, const float angleSin, Point &p)
-    {
+    __aicore__ inline void RotateAroundCenter(
+        const Point &center, const float angleCos, const float angleSin, Point &p) {
         float newX;
         float newY;
         if (clockwise) {
@@ -231,23 +221,26 @@ protected:
         p.set(newX, newY);
     }
 
-    __aicore__ inline int CheckInBox2d(const LocalTensor<float> &box, const Point &p, const float centerX, const float centerY)
-    {
+    __aicore__ inline int CheckInBox2d(
+        const LocalTensor<float> &box, const Point &p, const float centerX, const float centerY) {
         Point center(centerX, centerY);
         Point rot(p.x, p.y);
         angleLocalT_.SetValue(0, -box.GetValue(4));
         Sin(sinLocalT_, angleLocalT_);
         Cos(cosLocalT_, angleLocalT_);
+
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
+
         float angleCos = cosLocalT_.GetValue(0);
         float angleSin = sinLocalT_.GetValue(0);
         RotateAroundCenter(center, angleCos, angleSin, rot);
 
         return ((rot.x > box.GetValue(0) - margin_) && (rot.x < box.GetValue(2) + margin_) &&
-                (rot.y > box.GetValue(1) - margin_) && (rot.y < box.GetValue(3) + margin_));
+            (rot.y > box.GetValue(1) - margin_) && (rot.y < box.GetValue(3) + margin_));
     }
 
-    __aicore__ inline int PointCmp(const Point &a, const Point &b, const Point &center)
-    {
+    __aicore__ inline int PointCmp(const Point &a, const Point &b, const Point &center) {
         float aX = a.x - center.x;
         float aY = a.y - center.y;
         float bX = b.x - center.x;
@@ -264,8 +257,7 @@ protected:
         }
     }
 
-    __aicore__ inline void ParseBox(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor)
-    {
+    __aicore__ inline void ParseBox(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor) {
         if (formatFlag_ == FORMAT_FLAG_XYXYR) {
             aX1_ = boxATensor.GetValue(XYXYR_X1_OFFSET);
             aY1_ = boxATensor.GetValue(XYXYR_Y1_OFFSET);
@@ -348,8 +340,7 @@ protected:
         }
     }
 
-    __aicore__ inline void updateBoxDesc(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor)
-    {
+    __aicore__ inline void updateBoxDesc(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor) {
         boxATensor.SetValue(0, aX1_);
         boxATensor.SetValue(1, aY1_);
         boxATensor.SetValue(2, aX2_);
@@ -363,8 +354,7 @@ protected:
         boxBTensor.SetValue(4, bAngle_);
     }
 
-    __aicore__ inline float BoxOverlap(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor)
-    {
+    __aicore__ inline float BoxOverlap(const LocalTensor<float> &boxATensor, const LocalTensor<float> &boxBTensor) {
         ParseBox(boxATensor, boxBTensor);
         updateBoxDesc(boxATensor, boxBTensor);
 
@@ -378,6 +368,10 @@ protected:
         angleLocalT_.SetValue(1, bAngle_);
         Sin(sinLocalT_, angleLocalT_);
         Cos(cosLocalT_, angleLocalT_);
+
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
+
         float aAngleCos = cosLocalT_.GetValue(0);
         float aAngleSin = sinLocalT_.GetValue(0);
         float bAngleCos = cosLocalT_.GetValue(1);
@@ -400,8 +394,8 @@ protected:
         polyCenter.set(0, 0);
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                flag = Intersection(boxACorners[i + 1], boxACorners[i], boxBCorners[j + 1], boxBCorners[j],
-                                    crossPoints[count]);
+                flag = Intersection(
+                    boxACorners[i + 1], boxACorners[i], boxBCorners[j + 1], boxBCorners[j], crossPoints[count]);
                 if (flag) {
                     polyCenter = polyCenter + crossPoints[count];
                     count++;
@@ -445,20 +439,18 @@ protected:
         return abs(res) / static_cast<float>(2.0);
     }
 
-    __aicore__ inline float ComputeIoU(float res)
-    {
+    __aicore__ inline float ComputeIoU(float res) {
         float areaA = aDx_ * aDy_;
         float areaB = bDx_ * bDy_;
         return res / max(areaA + areaB - res, EPS);
     }
 
-    __aicore__ inline float ComputeIoF(float res)
-    {
+    __aicore__ inline float ComputeIoF(float res) {
         float areaA = aDx_ * aDy_;
         return res / areaA;
     }
 
-protected:
+  protected:
     TPipe *pipe_;
     GlobalTensor<DTYPE_RES> boxesAGm_, boxesBGm_, resGm_;
 
@@ -482,9 +474,8 @@ protected:
     DataCopyPadExtParams<DTYPE_RES> cpInPadExtParams_;
 };
 
-extern "C" __global__ __aicore__ void boxes_overlap_bev(GM_ADDR boxesA, GM_ADDR boxesB, GM_ADDR res,
-                                                        GM_ADDR workspace, GM_ADDR tiling)
-{
+extern "C" __global__ __aicore__ void boxes_overlap_bev(
+    GM_ADDR boxesA, GM_ADDR boxesB, GM_ADDR res, GM_ADDR workspace, GM_ADDR tiling) {
     TPipe pipe;
     GET_TILING_DATA(tilingData, tiling);
     if (TILING_KEY_IS(0)) {

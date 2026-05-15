@@ -33,8 +33,7 @@ const uint32_t TILING_KEY_FF = 3;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
-{
+static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context) {
     BoxesOverlapBevTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -65,8 +64,8 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
     auto modeFlagPtr = attrs->GetAttrPointer<int>(POS_ATTR_MODE_FLAG);
     auto alignedPtr = attrs->GetAttrPointer<bool>(POS_ATTR_ALIGNED);
     auto marginPtr = attrs->GetAttrPointer<float>(POS_ATTR_MARGIN);
-    if (formatFlagPtr == nullptr || clockwisePtr == nullptr || modeFlagPtr == nullptr ||
-        alignedPtr == nullptr || marginPtr == nullptr) {
+    if (formatFlagPtr == nullptr || clockwisePtr == nullptr || modeFlagPtr == nullptr || alignedPtr == nullptr ||
+        marginPtr == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto formatFlag = *formatFlagPtr;
@@ -126,8 +125,7 @@ static ge::graphStatus TilingFunc4BoxesOverlapBev(gert::TilingContext *context)
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus Infershape4BoxesOverlapBev(gert::InferShapeContext *context)
-{
+static ge::graphStatus Infershape4BoxesOverlapBev(gert::InferShapeContext *context) {
     auto boxesAShape = context->GetInputShape(POS_INPUT_BOXES_A);
     auto boxesBShape = context->GetInputShape(POS_INPUT_BOXES_B);
     auto areaOverlapShape = context->GetOutputShape(POS_OUTPUT_RES);
@@ -160,8 +158,7 @@ static ge::graphStatus Infershape4BoxesOverlapBev(gert::InferShapeContext *conte
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataType4BoxesOverlapBev(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDataType4BoxesOverlapBev(gert::InferDataTypeContext *context) {
     const ge::DataType box_dtype = context->GetInputDataType(POS_INPUT_BOXES_A);
     context->SetOutputDataType(POS_OUTPUT_RES, box_dtype);
     return GRAPH_SUCCESS;
@@ -170,9 +167,8 @@ static ge::graphStatus InferDataType4BoxesOverlapBev(gert::InferDataTypeContext 
 
 namespace ops {
 class BoxesOverlapBev : public OpDef {
-public:
-    explicit BoxesOverlapBev(const char *name) : OpDef(name)
-    {
+  public:
+    explicit BoxesOverlapBev(const char *name) : OpDef(name) {
         this->Input("boxes_a")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -196,12 +192,14 @@ public:
         this->Attr("aligned").AttrType(OPTIONAL).Bool(false);
         this->Attr("margin").AttrType(OPTIONAL).Float(1e-5);
 
-        this->SetInferShape(ge::Infershape4BoxesOverlapBev)
-            .SetInferDataType(ge::InferDataType4BoxesOverlapBev);
+        this->SetInferShape(ge::Infershape4BoxesOverlapBev).SetInferDataType(ge::InferDataType4BoxesOverlapBev);
 
         this->AICore().SetTiling(optiling::TilingFunc4BoxesOverlapBev);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

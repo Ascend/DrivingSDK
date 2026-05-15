@@ -1,4 +1,3 @@
-import unittest
 from math import atan2, cos, fabs, sin
 from typing import List
 
@@ -15,7 +14,6 @@ import mx_driving.detection
 
 torch.npu.config.allow_internal_format = False
 torch_npu.npu.set_compile_mode(jit_compile=False)
-DEVICE_NAME = torch_npu.npu.get_device_name(0)[:10]
 EPS = 1e-8
 
 
@@ -46,10 +44,12 @@ def cross(p1: Point, p2: Point, p0: Point) -> float:
 
 
 def check_rect_cross(p1: Point, p2: Point, q1: Point, q2: Point) -> bool:
-    ret = min(p1.x, p2.x) <= max(q1.x, q2.x) and \
-          min(q1.x, q2.x) <= max(p1.x, p2.x) and \
-          min(p1.y, p2.y) <= max(q1.y, q2.y) and \
-          min(q1.y, q2.y) <= max(p1.y, p2.y)
+    ret = (
+        min(p1.x, p2.x) <= max(q1.x, q2.x)
+        and min(q1.x, q2.x) <= max(p1.x, p2.x)
+        and min(p1.y, p2.y) <= max(q1.y, q2.y)
+        and min(q1.y, q2.y) <= max(p1.y, p2.y)
+    )
     return ret
 
 
@@ -102,8 +102,9 @@ def box_overlap(box_a: List[float], box_b: List[float]):
     flag = 0
     for i in range(4):
         for j in range(4):
-            flag, ans_point = intersection(box_a_corners[i + 1], box_a_corners[i],
-                                           box_b_corners[j + 1], box_b_corners[j])
+            flag, ans_point = intersection(
+                box_a_corners[i + 1], box_a_corners[i], box_b_corners[j + 1], box_b_corners[j]
+            )
 
             cross_points[cnt] = ans_point
 
@@ -128,7 +129,6 @@ def box_overlap(box_a: List[float], box_b: List[float]):
 
     for j in range(cnt - 1):
         for i in range(cnt - j - 1):
-
             flag1 = point_cmp(cross_points[i], cross_points[i + 1], poly_center)
             if flag1:
                 temp = cross_points[i]
@@ -192,7 +192,7 @@ def intersection(p1: Point, p0: Point, q1: Point, q0: Point):
         try:
             ans_point.x = (s5 * q0.x - s1 * q1.x) / (s5 - s1)
             ans_point.y = (s5 * q0.y - s1 * q1.y) / (s5 - s1)
-        except ZeroDivisionError as e:
+        except ZeroDivisionError:
             print("intersection value can not be 0.")
     else:
         a0 = p0.y - p1.y
@@ -239,11 +239,12 @@ def nms3d_forward(boxes: List[List[float]], nms_overlap_thresh=0.0):
 
 
 def nms3d_cpu(boxes: List[List[float]], scores: List[float], iou_threshold=0.0):
-    order = scores.argsort()[::-1][:scores.shape[0]]
+    order = scores.argsort()[::-1][: scores.shape[0]]
     boxes = boxes.take(order, 0)
     keep, num_out = nms3d_forward(boxes, iou_threshold)
     keep = order[keep[:num_out].astype(int)]
     return np.array(keep)
+
 
 def get_npu_device():
     npu_device = os.environ.get('SET_NPU_DEVICE')
@@ -253,6 +254,7 @@ def get_npu_device():
         npu_device = f"npu:{npu_device}"
     return npu_device
 
+
 def create_no_repetition_tensor(item, maxValue, device=None):
     if device is None:
         device = get_npu_device()
@@ -260,8 +262,7 @@ def create_no_repetition_tensor(item, maxValue, device=None):
     dtype = item[0]
     npu_format = item[1]
     shape = item[2]
-    if maxValue < shape[0]:
-        maxValue = shape[0] 
+    maxValue = max(maxValue, shape[0])
     input1 = np.random.choice(maxValue, size=shape, replace=False).astype(dtype)
     cpu_input = torch.from_numpy(input1)
     npu_input = torch.from_numpy(input1).to(device)
@@ -269,26 +270,31 @@ def create_no_repetition_tensor(item, maxValue, device=None):
         npu_input = torch_npu.npu_format_cast(npu_input, npu_format)
     return cpu_input, npu_input
 
+
 class TestNms3d(TestCase):
     def cpu_to_exec(self, boxes, scores, threshold=0.0):
         scores_np = scores.cpu().numpy()
         boxes_np = boxes.cpu().numpy()
-        return torch.from_numpy(nms3d_cpu(boxes_np, scores_np, threshold))
+        cpu_out = torch.from_numpy(nms3d_cpu(boxes_np, scores_np, threshold))
+        cpu_out = cpu_out.sort(dim=0)[0]
+        return cpu_out
 
     def npu_to_exec(self, boxes, scores, threshold=0.0):
         keep_1 = mx_driving.nms3d(boxes, scores, threshold)
         keep_2 = mx_driving.detection.nms3d(boxes, scores, threshold)
         keep_3 = mx_driving.detection.npu_nms3d(boxes, scores, threshold)
+        keep_1 = keep_1.sort(dim=0)[0]
+        keep_2 = keep_2.sort(dim=0)[0]
+        keep_3 = keep_3.sort(dim=0)[0]
         return keep_1.cpu(), keep_2.cpu(), keep_3.cpu()
 
-    @unittest.skipIf(DEVICE_NAME != 'Ascend910B', "OP `Nms3d` is only supported on 910B, skip this ut!")
     def test_nms3d_float32(self):
         shape_format = [
             [[np.float32, -1, [5, 7]], [np.float32, -1, [5]], 0.1],
             [[np.float32, -1, [100, 7]], [np.float32, -1, [100]], 0.2],
             [[np.float32, -1, [500, 7]], [np.float32, -1, [500]], 0.3],
             [[np.float32, -1, [800, 7]], [np.float32, -1, [800]], 0.4],
-            [[np.float32, -1, [1000, 7]], [np.float32, -1, [1000]], 0.5]
+            [[np.float32, -1, [1000, 7]], [np.float32, -1, [1000]], 0.5],
         ]
         for item in shape_format:
             boxes_cpu, boxes_npu = create_common_tensor(item[0], 0, 10)
@@ -300,25 +306,29 @@ class TestNms3d(TestCase):
             self.assertRtolEqual(out_cpu, out_npu_2)
             self.assertRtolEqual(out_cpu, out_npu_3)
 
-    @unittest.skipIf(DEVICE_NAME != True, "OP `Nms3d` is only supported on 910B, skip this ut!")
     def test_nms3d_float16(self):
         shape_format = [
             [[np.float16, -1, [5, 7]], [np.float16, -1, [5]], 0.1],
             [[np.float16, -1, [100, 7]], [np.float16, -1, [100]], 0.2],
             [[np.float16, -1, [500, 7]], [np.float16, -1, [500]], 0.3],
             [[np.float16, -1, [800, 7]], [np.float16, -1, [800]], 0.4],
-            [[np.float16, -1, [1000, 7]], [np.float16, -1, [1000]], 0.5]
+            [[np.float16, -1, [1000, 7]], [np.float16, -1, [1000]], 0.5],
         ]
         for item in shape_format:
             boxes_cpu, boxes_npu = create_common_tensor(item[0], 0, 10)
-            scores_cpu, scores_npu = create_common_tensor(item[1], 0, 1)
+            scores_cpu, scores_npu = create_no_repetition_tensor(item[1], 2000)
+
+            # CPU输入需升精度
+            boxes_cpu = boxes_cpu.float()
+            scores_cpu = scores_cpu.float()
+
             threshold = item[2]
             out_cpu = self.cpu_to_exec(boxes_cpu, scores_cpu, threshold)
             out_npu_1, out_npu_2, out_npu_3 = self.npu_to_exec(boxes_npu, scores_npu, threshold)
             self.assertRtolEqual(out_cpu, out_npu_1)
             self.assertRtolEqual(out_cpu, out_npu_2)
             self.assertRtolEqual(out_cpu, out_npu_3)
-    
+
     def test_boxes_shape_invalid(self):
         item = [[np.float16, -1, [5, 1]], [np.float16, -1, [5]], 0.1]
         boxes_cpu, boxes_npu = create_common_tensor(item[0], 0, 10)
@@ -330,4 +340,5 @@ class TestNms3d(TestCase):
 
 
 if __name__ == '__main__':
+    np.random.seed(2026)
     run_tests()

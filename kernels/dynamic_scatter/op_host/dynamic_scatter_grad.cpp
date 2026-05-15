@@ -6,7 +6,6 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/tiling_api.h"
 
-
 using namespace ge;
 using namespace std;
 using namespace AscendC;
@@ -25,9 +24,7 @@ constexpr uint32_t RESERVED_UB_SIZE = 2 * 1024;
 std::string DEFAULT_REDUCE_TYPE = "max";
 static std::map<std::string, uint32_t> REDUCE_TYPE_MAP = {{"sum", 0}, {"mean", 1}, {"max", 2}};
 
-
-void DynamicScatterGradTiling::CalUsedCoreNum(const uint32_t coreNumPlatform)
-{
+void DynamicScatterGradTiling::CalUsedCoreNum(const uint32_t coreNumPlatform) {
     voxelNumPerCore = (totalVoxelNum + coreNumPlatform - 1) / coreNumPlatform;
     usedCoreNum = (totalVoxelNum + voxelNumPerCore - 1) / voxelNumPerCore;
     voxelNumLastCore = totalVoxelNum - (voxelNumPerCore * (usedCoreNum - 1));
@@ -35,8 +32,7 @@ void DynamicScatterGradTiling::CalUsedCoreNum(const uint32_t coreNumPlatform)
     eleNumLastCore = voxelNumLastCore * featDim;
 }
 
-ge::graphStatus DynamicScatterGradTiling::CalTilingAligned()
-{
+ge::graphStatus DynamicScatterGradTiling::CalTilingAligned() {
     alignedNum = BYTE_BLOCK / SIZE_OF_B32;
     featDimAligned = (featDim + alignedNum - 1) / alignedNum * alignedNum;
     blockLen = featDimAligned / alignedNum;
@@ -54,8 +50,7 @@ ge::graphStatus DynamicScatterGradTiling::CalTilingAligned()
     return ge::GRAPH_SUCCESS;
 }
 
-void DynamicScatterGradTiling::CalMaskTiling()
-{
+void DynamicScatterGradTiling::CalMaskTiling() {
     uint32_t alignedMaskNum = BYTE_BLOCK / SIZE_OF_B8;
     maskDim = (featDim + BIT_OF_B8 - 1) / BIT_OF_B8;
     maskDimAligned = (maskDim + alignedMaskNum - 1) / alignedMaskNum * alignedMaskNum;
@@ -63,9 +58,9 @@ void DynamicScatterGradTiling::CalMaskTiling()
     blockLenMask = maskDimAligned / alignedMaskNum;
 }
 
-ge::graphStatus DynamicScatterGradTiling::Init()
-{
-    if (tilingContext == nullptr || tilingContext->GetInputShape(0) == nullptr || tilingContext->GetOutputShape(0) == nullptr || tilingContext->GetPlatformInfo() == nullptr) {
+ge::graphStatus DynamicScatterGradTiling::Init() {
+    if (tilingContext == nullptr || tilingContext->GetInputShape(0) == nullptr ||
+        tilingContext->GetOutputShape(0) == nullptr || tilingContext->GetPlatformInfo() == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto voxelShape = tilingContext->GetInputShape(0)->GetStorageShape();
@@ -91,7 +86,7 @@ ge::graphStatus DynamicScatterGradTiling::Init()
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    const char* reduceTypePtr = attrs->GetAttrPointer<char>(DIM_INDEX0);
+    const char *reduceTypePtr = attrs->GetAttrPointer<char>(DIM_INDEX0);
     std::string reduceType(reduceTypePtr);
     if (reduceType != "sum" && reduceType != "mean" && reduceType != "max") {
         return ge::GRAPH_PARAM_INVALID;
@@ -110,8 +105,7 @@ ge::graphStatus DynamicScatterGradTiling::Init()
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus DynamicScatterGradTiling::RunKernelTiling()
-{
+ge::graphStatus DynamicScatterGradTiling::RunKernelTiling() {
     tilingContext->SetBlockDim(usedCoreNum);
     tilingData.set_totalPointNum(totalPointNum);
     tilingData.set_totalVoxelNum(totalVoxelNum);
@@ -141,8 +135,7 @@ ge::graphStatus DynamicScatterGradTiling::RunKernelTiling()
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus TilingForDynamicScatterGrad(gert::TilingContext* context)
-{
+ge::graphStatus TilingForDynamicScatterGrad(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -153,13 +146,12 @@ ge::graphStatus TilingForDynamicScatterGrad(gert::TilingContext* context)
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus InferShapeForDynamicScatterGrad(gert::InferShapeContext* context)
-{
-    const gert::Shape* featShape = context->GetInputShape(3);
+static ge::graphStatus InferShapeForDynamicScatterGrad(gert::InferShapeContext *context) {
+    const gert::Shape *featShape = context->GetInputShape(3);
     if (featShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* outShape = context->GetOutputShape(0);
+    gert::Shape *outShape = context->GetOutputShape(0);
     if (outShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -168,8 +160,7 @@ static ge::graphStatus InferShapeForDynamicScatterGrad(gert::InferShapeContext* 
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForDynamicScatterGrad(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDataTypeForDynamicScatterGrad(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_FLOAT);
     return GRAPH_SUCCESS;
 }
@@ -177,9 +168,8 @@ static ge::graphStatus InferDataTypeForDynamicScatterGrad(gert::InferDataTypeCon
 
 namespace ops {
 class DynamicScatterGrad : public OpDef {
-public:
-    explicit DynamicScatterGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit DynamicScatterGrad(const char *name) : OpDef(name) {
         this->Input("grad_voxel_feats")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -216,6 +206,9 @@ public:
             .DynamicShapeSupportFlag(true);
         this->AICore().AddConfig("ascend910b", aicore_config);
         this->AICore().AddConfig("ascend910_93", aicore_config);
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950", aicore_config);
+#endif
     }
 };
 

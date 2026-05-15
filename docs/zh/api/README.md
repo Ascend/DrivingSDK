@@ -24,7 +24,7 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/three_interpolate.md">three_interpolate</a></td>
@@ -52,7 +52,7 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/assign_score_withk.md">assign_score_withk</a></td>
@@ -94,7 +94,7 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/radius.md">radius</a></td>
@@ -243,7 +243,7 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td rowspan="11">检测</td>
@@ -251,7 +251,7 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/box_iou_quadri.md">box_iou_quadri</a></td>
@@ -279,21 +279,21 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/nms3d_normal.md">nms3d_normal</a></td>
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/nms3d_on_sight.md">nms3d_on_sight</a></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/npu_rotated_iou[beta].md">npu_rotated_iou[beta]</a></td>

@@ -10,24 +10,23 @@ using namespace std;
 
 namespace optiling {
 const uint64_t BLOCK_SIZE = 32;
-const uint64_t MAX_OUT_LINE =  16000;
-const uint64_t MAX_DEAL_NUM =  2048;
+const uint64_t MAX_OUT_LINE = 16000;
+const uint64_t MAX_DEAL_NUM = 2048;
 const uint64_t INDICES_ONCE_DATANUM = 2048;
 const uint64_t TILING_MODE_NO_TAIL_MULTIHEAD = 3;
 const uint64_t TILING_MODE_NO_TAIL = 2;
 const uint64_t TILING_MODE_NORMAL = 1;
 const uint64_t LEAST_LINE_EACH_TASK = 4;
 
-static uint64_t GetCeilInt(uint64_t value1, uint64_t value2)
-{
+static uint64_t GetCeilInt(uint64_t value1, uint64_t value2) {
     if (value2 == 0) {
         return value1;
     }
     return (value1 + value2 - 1) / value2;
 }
 
-static void ComputeTaskForBatch(uint64_t ubOutNum, uint64_t outLineEachBacth, uint64_t *taskNum, uint64_t *taskEachLine, uint64_t *taskLastLine)
-{
+static void ComputeTaskForBatch(
+    uint64_t ubOutNum, uint64_t outLineEachBacth, uint64_t *taskNum, uint64_t *taskEachLine, uint64_t *taskLastLine) {
     if (outLineEachBacth <= ubOutNum) {
         *taskNum = 1;
         *taskEachLine = outLineEachBacth;
@@ -40,8 +39,8 @@ static void ComputeTaskForBatch(uint64_t ubOutNum, uint64_t outLineEachBacth, ui
     }
 }
 
-static ge::graphStatus ScatterMeanGetUBNum(gert::TilingContext* context, uint64_t indicesNumEachHead, uint64_t *ubOutNum, uint64_t *ubIndicesNum)
-{
+static ge::graphStatus ScatterMeanGetUBNum(
+    gert::TilingContext *context, uint64_t indicesNumEachHead, uint64_t *ubOutNum, uint64_t *ubIndicesNum) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -55,7 +54,7 @@ static ge::graphStatus ScatterMeanGetUBNum(gert::TilingContext* context, uint64_
 
     auto dataDtype = context->GetInputDesc(0)->GetDataType();
     auto indicesDtype = context->GetInputDesc(1)->GetDataType();
-    uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
+    uint64_t bytesData = kDataSizeMap[dataDtype]; // now only support float32
     uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
     auto dataEachBlock = BLOCK_SIZE / bytesData;
 
@@ -67,8 +66,8 @@ static ge::graphStatus ScatterMeanGetUBNum(gert::TilingContext* context, uint64_
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus ScatterMeanGetUBNumMulitHead(gert::TilingContext* context, uint64_t indicesNumEachHead, uint64_t outNumEachHead, uint64_t *ubOutNum, uint64_t *ubIndicesNum, uint64_t * headNum)
-{
+static ge::graphStatus ScatterMeanGetUBNumMulitHead(gert::TilingContext *context, uint64_t indicesNumEachHead,
+    uint64_t outNumEachHead, uint64_t *ubOutNum, uint64_t *ubIndicesNum, uint64_t *headNum) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -85,11 +84,11 @@ static ge::graphStatus ScatterMeanGetUBNumMulitHead(gert::TilingContext* context
     }
     auto dataDtype = context->GetInputDesc(0)->GetDataType();
     auto indicesDtype = context->GetInputDesc(1)->GetDataType();
-    uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
+    uint64_t bytesData = kDataSizeMap[dataDtype]; // now only support float32
     uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
     auto dataEachBlock = BLOCK_SIZE / bytesData;
 
-    UB_size =  UB_size - 8 * 1024;
+    UB_size = UB_size - 8 * 1024;
     uint64_t tempHeadNum = UB_size / BLOCK_SIZE * dataEachBlock / (indicesNumEachHead + outNumEachHead) / 2;
     *headNum = tempHeadNum;
 
@@ -100,14 +99,13 @@ static ge::graphStatus ScatterMeanGetUBNumMulitHead(gert::TilingContext* context
         *ubIndicesNum = ubIndicesNumTemp;
     } else {
         // new
-        *ubOutNum  = tempHeadNum * outNumEachHead;
+        *ubOutNum = tempHeadNum * outNumEachHead;
         *ubIndicesNum = tempHeadNum * indicesNumEachHead;
     }
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
-{
+static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext *context) {
     ScatterMeanTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -123,7 +121,8 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     }
 
     uint64_t outTailNum = 1;
-    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr ||
+        context->GetInputShape(2) == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto srcShape = context->GetInputShape(0)->GetStorageShape();
@@ -172,7 +171,7 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     uint64_t taskNumLast;
     uint64_t taskEachLineLast;
     uint64_t taskLastLineLast;
-    
+
     if (head > coreNum) {
         context->SetTilingKey(TILING_MODE_NO_TAIL_MULTIHEAD);
         ScatterMeanGetUBNumMulitHead(context, indicesNumEachHead, outNumEachHead, &ubOutNum, &ubIndicesNum, &headNum);
@@ -253,8 +252,7 @@ static ge::graphStatus ScatterMeanNoTailTilingFunc(gert::TilingContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-static uint64_t GetAvailableDimNum(gert::TilingContext* context)
-{
+static uint64_t GetAvailableDimNum(gert::TilingContext *context) {
     auto indicesShape = context->GetInputShape(1)->GetStorageShape();
     uint64_t indicesDim = indicesShape.GetDimNum();
     uint64_t lastIndicesDim = 0;
@@ -268,8 +266,7 @@ static uint64_t GetAvailableDimNum(gert::TilingContext* context)
     return indicesDim - lastIndicesDim;
 }
 
-static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
-{
+static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext *context) {
     ScatterMeanTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -287,7 +284,8 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
 
     uint64_t outTailNum = 1;
-    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetInputShape(2) == nullptr) {
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr ||
+        context->GetInputShape(2) == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto srcShape = context->GetInputShape(0)->GetStorageShape();
@@ -343,7 +341,7 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
     }
     auto dataDtype = context->GetInputDesc(0)->GetDataType();
     auto indicesDtype = context->GetInputDesc(1)->GetDataType();
-    uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
+    uint64_t bytesData = kDataSizeMap[dataDtype]; // now only support float32
     uint64_t bytesIndices = kDataSizeMap[indicesDtype]; // now only support int32
     auto dataEachBlock = BLOCK_SIZE / bytesData;
 
@@ -400,8 +398,7 @@ static ge::graphStatus ScatterMeanNormalTilingFunc(gert::TilingContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus ScatterMeanTilingFunc(gert::TilingContext* context)
-{
+static ge::graphStatus ScatterMeanTilingFunc(gert::TilingContext *context) {
     ScatterMeanTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -441,20 +438,17 @@ static ge::graphStatus ScatterMeanTilingFunc(gert::TilingContext* context)
 
 }
 
-
 namespace ge {
-static ge::graphStatus ScatterMeanInferShape(gert::InferShapeContext* context)
-{
-    const gert::Shape* x1_shape = context->GetInputShape(0);
-    gert::Shape* y_shape = context->GetOutputShape(0);
+static ge::graphStatus ScatterMeanInferShape(gert::InferShapeContext *context) {
+    const gert::Shape *x1_shape = context->GetInputShape(0);
+    gert::Shape *y_shape = context->GetOutputShape(0);
     if (x1_shape == nullptr || y_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
     *y_shape = *x1_shape;
     return GRAPH_SUCCESS;
 }
-static ge::graphStatus ScatterMeanInferDataType(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus ScatterMeanInferDataType(gert::InferDataTypeContext *context) {
     const ge::DataType src_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, src_dtype);
     context->SetOutputDataType(1, src_dtype);
@@ -464,9 +458,8 @@ static ge::graphStatus ScatterMeanInferDataType(gert::InferDataTypeContext *cont
 
 namespace ops {
 class ScatterMean : public OpDef {
-public:
-    explicit ScatterMean(const char* name) : OpDef(name)
-    {
+  public:
+    explicit ScatterMean(const char *name) : OpDef(name) {
         this->Input("src")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -497,13 +490,14 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("dim").Int();
 
-        this->SetInferShape(ge::ScatterMeanInferShape)
-              .SetInferDataType(ge::ScatterMeanInferDataType);
+        this->SetInferShape(ge::ScatterMeanInferShape).SetInferDataType(ge::ScatterMeanInferDataType);
 
-        this->AICore()
-            .SetTiling(optiling::ScatterMeanTilingFunc);
+        this->AICore().SetTiling(optiling::ScatterMeanTilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 
@@ -512,8 +506,7 @@ OP_ADD(ScatterMean);
 
 /***********scatterMeanDiv***********/
 namespace optiling {
-static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext* context)
-{
+static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext *context) {
     ScatterMeanDivTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -531,7 +524,8 @@ static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext* context)
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, UB_size);
 
     uint64_t outTailNum = 1;
-    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr || context->GetOutputShape(0) == nullptr) {
+    if (context->GetInputShape(0) == nullptr || context->GetInputShape(1) == nullptr ||
+        context->GetOutputShape(0) == nullptr) {
         return ge::GRAPH_FAILED;
     }
     auto srcShape = context->GetInputShape(0)->GetStorageShape();
@@ -572,7 +566,7 @@ static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext* context)
     ComputeTaskForBatch(MAX_OUT_LINE, coreSmallLine, &taskNumSmall, &taskEachLineSmall, &taskLastLineSmall);
 
     auto dataDtype = context->GetInputDesc(0)->GetDataType();
-    uint64_t bytesData = kDataSizeMap[dataDtype];       // now only support float32
+    uint64_t bytesData = kDataSizeMap[dataDtype]; // now only support float32
     auto dataEachBlock = BLOCK_SIZE / bytesData;
 
     UB_size = UB_size - 8 * 1024;
@@ -614,8 +608,7 @@ static ge::graphStatus ScatterMeanDivTilingFunc2(gert::TilingContext* context)
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus ScatterMeanDivTilingFunc(gert::TilingContext* context)
-{
+static ge::graphStatus ScatterMeanDivTilingFunc(gert::TilingContext *context) {
     ScatterMeanDivTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -638,20 +631,17 @@ static ge::graphStatus ScatterMeanDivTilingFunc(gert::TilingContext* context)
 
 }
 
-
 namespace ge {
-static ge::graphStatus ScatterMeanDivInferShape(gert::InferShapeContext* context)
-{
-    const gert::Shape* x1_shape = context->GetInputShape(0);
-    gert::Shape* y_shape = context->GetOutputShape(0);
+static ge::graphStatus ScatterMeanDivInferShape(gert::InferShapeContext *context) {
+    const gert::Shape *x1_shape = context->GetInputShape(0);
+    gert::Shape *y_shape = context->GetOutputShape(0);
     if (x1_shape == nullptr || y_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
     *y_shape = *x1_shape;
     return GRAPH_SUCCESS;
 }
-static ge::graphStatus ScatterMeanDivInferDataType(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus ScatterMeanDivInferDataType(gert::InferDataTypeContext *context) {
     const ge::DataType src_dtype = context->GetInputDataType(0);
     context->SetOutputDataType(0, src_dtype);
     return GRAPH_SUCCESS;
@@ -660,9 +650,8 @@ static ge::graphStatus ScatterMeanDivInferDataType(gert::InferDataTypeContext *c
 
 namespace ops {
 class ScatterMeanDiv : public OpDef {
-public:
-    explicit ScatterMeanDiv(const char* name) : OpDef(name)
-    {
+  public:
+    explicit ScatterMeanDiv(const char *name) : OpDef(name) {
         this->Input("src")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -681,13 +670,14 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::ScatterMeanDivInferShape)
-             .SetInferDataType(ge::ScatterMeanDivInferDataType);
+        this->SetInferShape(ge::ScatterMeanDivInferShape).SetInferDataType(ge::ScatterMeanDivInferDataType);
 
-        this->AICore()
-            .SetTiling(optiling::ScatterMeanDivTilingFunc);
+        this->AICore().SetTiling(optiling::ScatterMeanDivTilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

@@ -11,8 +11,7 @@ namespace optiling {
 constexpr uint32_t DATA_ALIGN = 16;
 constexpr uint32_t BOX_DIM = 2;
 constexpr uint32_t MASK_DIM = 2;
-static ge::graphStatus Nms3dNormalTilingFunc(gert::TilingContext* context)
-{
+static ge::graphStatus Nms3dNormalTilingFunc(gert::TilingContext *context) {
     Nms3dNormalTilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -25,15 +24,15 @@ static ge::graphStatus Nms3dNormalTilingFunc(gert::TilingContext* context)
     static uint32_t coreNum = ascendcPlatform.GetCoreNumAiv();
 
     auto attrs = context->GetAttrs();
-    if (attrs == nullptr || context->GetInputShape(0) == nullptr || context->GetOutputShape(0) == nullptr
-        || context->GetInputDesc(0) == nullptr || context->GetRawTilingData() == nullptr) {
+    if (attrs == nullptr || context->GetInputShape(0) == nullptr || context->GetOutputShape(0) == nullptr ||
+        context->GetInputDesc(0) == nullptr || context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
     auto boxShape = context->GetInputShape(0)->GetStorageShape();
     auto maskShape = context->GetOutputShape(0)->GetStorageShape();
     auto dtype = context->GetInputDesc(0)->GetDataType();
-    
+
     if (boxShape.GetDimNum() != BOX_DIM || maskShape.GetDimNum() != MASK_DIM) {
         return ge::GRAPH_FAILED;
     }
@@ -75,22 +74,17 @@ static ge::graphStatus Nms3dNormalTilingFunc(gert::TilingContext* context)
 }
 
 namespace ge {
-static ge::graphStatus Nms3dNormalInferShape(gert::InferShapeContext* context)
-{
-    return GRAPH_SUCCESS;
-}
-static ge::graphStatus Nms3dNormalInferDataType(gert::InferDataTypeContext* context)
-{
-    context -> SetOutputDataType(0, ge::DT_INT16);
+static ge::graphStatus Nms3dNormalInferShape(gert::InferShapeContext *context) { return GRAPH_SUCCESS; }
+static ge::graphStatus Nms3dNormalInferDataType(gert::InferDataTypeContext *context) {
+    context->SetOutputDataType(0, ge::DT_INT16);
     return GRAPH_SUCCESS;
 }
 }
 
 namespace ops {
 class Nms3dNormal : public OpDef {
-public:
-    explicit Nms3dNormal(const char* name) : OpDef(name)
-    {
+  public:
+    explicit Nms3dNormal(const char *name) : OpDef(name) {
         this->Input("boxes")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
@@ -101,20 +95,18 @@ public:
             .DataType({ge::DT_INT16, ge::DT_INT16})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
-        this->Attr("nms_overlap_thresh")
-            .AttrType(REQUIRED)
-            .Float();
+        this->Attr("nms_overlap_thresh").AttrType(REQUIRED).Float();
 
-        this->SetInferShape(ge::Nms3dNormalInferShape)
-            .SetInferDataType(ge::Nms3dNormalInferDataType);
+        this->SetInferShape(ge::Nms3dNormalInferShape).SetInferDataType(ge::Nms3dNormalInferDataType);
 
-        this->AICore()
-            .SetTiling(optiling::Nms3dNormalTilingFunc);
+        this->AICore().SetTiling(optiling::Nms3dNormalTilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 
 OP_ADD(Nms3dNormal);
 }
-

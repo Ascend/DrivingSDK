@@ -14,12 +14,11 @@ constexpr uint32_t BLOCK = 256;
 
 namespace optiling {
 
-static ge::graphStatus Nms3dOnSightTilingFunc(gert::TilingContext *context)
-{
+static ge::graphStatus Nms3dOnSightTilingFunc(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     Nms3dOnSightTilingData tiling;
     auto platformInfo = context->GetPlatformInfo();
     if (platformInfo == nullptr) {
@@ -79,12 +78,12 @@ static ge::graphStatus Nms3dOnSightTilingFunc(gert::TilingContext *context)
     tiling.set_assignBox(assignBox);
     tiling.set_alignedN(alignedN);
     tiling.set_threshold(threshold);
-    MX_DRIVING_LOGI("Nms3dOnSight tiling: usedCoreNum=%d, boxNum=%d, loopTime=%d, alignedN=%d, threshold=%f, assignBox=%d",
+    MX_DRIVING_LOGI(
+        "Nms3dOnSight tiling: usedCoreNum=%d, boxNum=%d, loopTime=%d, alignedN=%d, threshold=%f, assignBox=%d",
         usedCoreNum, boxNum, loopTime, alignedN, threshold, assignBox);
 
     // 待拆解功能
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(),
-                        context->GetRawTilingData()->GetCapacity());
+    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
@@ -97,40 +96,37 @@ static ge::graphStatus Nms3dOnSightTilingFunc(gert::TilingContext *context)
 } // namespace optiling
 
 namespace ge {
-static ge::graphStatus Nms3dOnSightInferShape(gert::InferShapeContext *context)
-{
-    return GRAPH_SUCCESS;
-}
-static ge::graphStatus Nms3dOnSightInferDataType(gert::InferDataTypeContext *context)
-{
-    context -> SetOutputDataType(0, ge::DT_INT16);
+static ge::graphStatus Nms3dOnSightInferShape(gert::InferShapeContext *context) { return GRAPH_SUCCESS; }
+static ge::graphStatus Nms3dOnSightInferDataType(gert::InferDataTypeContext *context) {
+    context->SetOutputDataType(0, ge::DT_INT16);
     return GRAPH_SUCCESS;
 }
 } // namespace ge
 
 namespace ops {
 class Nms3dOnSight : public OpDef {
-public:
-    explicit Nms3dOnSight(const char *name) : OpDef(name)
-    {
+  public:
+    explicit Nms3dOnSight(const char *name) : OpDef(name) {
         this->Input("boxes")
-                .ParamType(REQUIRED)
-                .DataType({ge::DT_FLOAT})
-                .Format({ge::FORMAT_ND})
-                .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Output("mask")
-                .ParamType(REQUIRED)
-                .DataType({ge::DT_INT16})
-                .Format({ge::FORMAT_ND})
-                .UnknownShapeFormat({ge::FORMAT_ND});
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_INT16})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Attr("threshold").AttrType(REQUIRED).Float();
 
-        this->SetInferShape(ge::Nms3dOnSightInferShape)
-            .SetInferDataType(ge::Nms3dOnSightInferDataType);
+        this->SetInferShape(ge::Nms3dOnSightInferShape).SetInferDataType(ge::Nms3dOnSightInferDataType);
 
         this->AICore().SetTiling(optiling::Nms3dOnSightTilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

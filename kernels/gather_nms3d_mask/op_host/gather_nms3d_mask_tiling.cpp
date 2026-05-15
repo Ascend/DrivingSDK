@@ -7,8 +7,7 @@
 
 namespace optiling {
 const uint32_t BLOCK_DIM = 1;
-static ge::graphStatus GatherNms3dMaskTiling(gert::TilingContext *context)
-{
+static ge::graphStatus GatherNms3dMaskTiling(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -31,13 +30,9 @@ static ge::graphStatus GatherNms3dMaskTiling(gert::TilingContext *context)
 }
 
 namespace ge {
-static ge::graphStatus GatherNms3dMaskInferShape(gert::InferShapeContext* context)
-{
-    return GRAPH_SUCCESS;
-}
+static ge::graphStatus GatherNms3dMaskInferShape(gert::InferShapeContext *context) { return GRAPH_SUCCESS; }
 
-static ge::graphStatus InferDataTypeForGatherNms3dMask(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus InferDataTypeForGatherNms3dMask(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_INT16);
     context->SetOutputDataType(1, ge::DT_INT16);
     return GRAPH_SUCCESS;
@@ -46,9 +41,8 @@ static ge::graphStatus InferDataTypeForGatherNms3dMask(gert::InferDataTypeContex
 
 namespace ops {
 class GatherNms3dMask : public OpDef {
-public:
-    explicit GatherNms3dMask(const char *name) : OpDef(name)
-    {
+  public:
+    explicit GatherNms3dMask(const char *name) : OpDef(name) {
         this->Input("mask")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT16})
@@ -65,14 +59,15 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::GatherNms3dMaskInferShape)
-            .SetInferDataType(ge::InferDataTypeForGatherNms3dMask);
+        this->SetInferShape(ge::GatherNms3dMaskInferShape).SetInferDataType(ge::InferDataTypeForGatherNms3dMask);
 
-        this->AICore()
-            .SetTiling(optiling::GatherNms3dMaskTiling);
+        this->AICore().SetTiling(optiling::GatherNms3dMaskTiling);
 
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 
