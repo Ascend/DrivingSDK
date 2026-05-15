@@ -11,16 +11,14 @@ using namespace AscendC;
 namespace optiling {
 const uint32_t BLOCK_DIM = 8;
 const uint32_t TILE_NUM = 8;
-static int32_t GetCeilInt(int32_t value1, int32_t value2)
-{
+static int32_t GetCeilInt(int32_t value1, int32_t value2) {
     if (value2 == 0) {
         return value1;
     }
     return static_cast<int32_t>((value1 + value2 - 1) / value2);
 }
 
-static ge::graphStatus TilingFunc(gert::TilingContext* context)
-{
+static ge::graphStatus TilingFunc(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -31,7 +29,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
     auto ascendplatformInfo = platform_ascendc::PlatformAscendC(platformInfoptr);
     auto core_number = ascendplatformInfo.GetCoreNumAiv();
-    if (context->GetInputTensor(0) == nullptr || context->GetInputTensor(1) ==nullptr) {
+    if (context->GetInputTensor(0) == nullptr || context->GetInputTensor(1) == nullptr) {
         return ge::GRAPH_FAILED;
     }
     uint32_t totalresult = context->GetInputTensor(1)->GetShapeSize() / 3;
@@ -52,7 +50,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
     uint64_t available_ub_size;
     ascendplatformInfo.GetCoreMemSize(platform_ascendc::CoreMemType::UB, available_ub_size);
-    available_ub_size = (available_ub_size - 20*1024) / 50 / 4;
+    available_ub_size = (available_ub_size - 20 * 1024) / 50 / 4;
     available_ub_size = GetCeilInt(available_ub_size, 32) * 32;
     if (available_ub_size == 0) {
         return ge::GRAPH_FAILED;
@@ -80,13 +78,12 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 }
 
 namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
-{
-    const gert::Shape* pts_shape = context->GetInputShape(1);
+static ge::graphStatus InferShape(gert::InferShapeContext *context) {
+    const gert::Shape *pts_shape = context->GetInputShape(1);
     if (pts_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* y_shape = context->GetOutputShape(0);
+    gert::Shape *y_shape = context->GetOutputShape(0);
     if (y_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -96,19 +93,16 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus PointsInBoxInferDataType(gert::InferDataTypeContext *context)
-{
+static ge::graphStatus PointsInBoxInferDataType(gert::InferDataTypeContext *context) {
     context->SetOutputDataType(0, ge::DT_INT32);
     return GRAPH_SUCCESS;
 }
 }
 
-
 namespace ops {
 class PointsInBox : public OpDef {
-public:
-    explicit PointsInBox(const char* name) : OpDef(name)
-    {
+  public:
+    explicit PointsInBox(const char *name) : OpDef(name) {
         this->Input("boxes")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -125,13 +119,14 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->SetInferShape(ge::InferShape)
-            .SetInferDataType(ge::PointsInBoxInferDataType);
-        
-        this->AICore()
-            .SetTiling(optiling::TilingFunc);
+        this->SetInferShape(ge::InferShape).SetInferDataType(ge::PointsInBoxInferDataType);
+
+        this->AICore().SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

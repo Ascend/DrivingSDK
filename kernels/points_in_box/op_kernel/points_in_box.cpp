@@ -6,15 +6,14 @@
  */
 #include "kernel_operator.h"
 using namespace AscendC;
-constexpr int32_t BUFFER_NUM = 2;                                     // tensor num for each queue
+constexpr int32_t BUFFER_NUM = 2; // tensor num for each queue
 
 class KernelPointsInBox {
-public:
+  public:
     __aicore__ inline KernelPointsInBox() {}
 
-    __aicore__ inline void Init(GM_ADDR boxes, GM_ADDR pts, GM_ADDR boxes_idx_of_points,
-                                PointsInBoxTilingData *tiling_data)
-    {
+    __aicore__ inline void Init(
+        GM_ADDR boxes, GM_ADDR pts, GM_ADDR boxes_idx_of_points, PointsInBoxTilingData *tiling_data) {
         this->core_used = tiling_data->core_used;
         this->core_data = tiling_data->core_data;
         this->copy_loop = tiling_data->copy_loop;
@@ -26,10 +25,10 @@ public:
         this->box_number = tiling_data->box_number;
         this->available_ub_size = tiling_data->available_ub_size;
 
-        ptsGm.SetGlobalBuffer((__gm__ DTYPE_PTS*)pts + GetBlockIdx() * this->core_data * 3, this->core_data * 3);
-        boxesGm.SetGlobalBuffer((__gm__ DTYPE_PTS*)boxes, this->box_number * 7);
+        ptsGm.SetGlobalBuffer((__gm__ DTYPE_PTS *)pts + GetBlockIdx() * this->core_data * 3, this->core_data * 3);
+        boxesGm.SetGlobalBuffer((__gm__ DTYPE_PTS *)boxes, this->box_number * 7);
         outputGm.SetGlobalBuffer(
-            (__gm__ DTYPE_BOXES_IDX_OF_POINTS*)boxes_idx_of_points + GetBlockIdx() * this->core_data, this->core_data);
+            (__gm__ DTYPE_BOXES_IDX_OF_POINTS *)boxes_idx_of_points + GetBlockIdx() * this->core_data, this->core_data);
         pipe.InitBuffer(inQueuePTS, BUFFER_NUM, this->available_ub_size * 3 * sizeof(DTYPE_PTS));
         pipe.InitBuffer(inQueueBOXES, BUFFER_NUM, this->available_ub_size * 7 * sizeof(DTYPE_PTS));
         pipe.InitBuffer(outQueueOUTPUT, BUFFER_NUM, this->available_ub_size * sizeof(DTYPE_BOXES_IDX_OF_POINTS));
@@ -43,13 +42,12 @@ public:
         pipe.InitBuffer(uint8que, this->available_ub_size * sizeof(DTYPE_PTS));
     }
 
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         uint32_t core_id = GetBlockIdx();
         if (core_id > this->core_used) {
             return;
         }
-        if (core_id != (this->core_used -1)) {
+        if (core_id != (this->core_used - 1)) {
             for (int32_t i = 0; i < this->copy_loop; i++) {
                 uint64_t address = i * this->available_ub_size;
                 Compute(i, this->available_ub_size, address);
@@ -70,54 +68,53 @@ public:
         }
     }
 
-private:
-    __aicore__ inline void ComputeBoxs(int32_t i)
-    {
+  private:
+    __aicore__ inline void ComputeBoxs(int32_t i) {
         float oneminsnumber = -1;
-        float halfnumber =  0.5;
-        float zeronumber =  0;
-        float onenumber =  1;
+        float halfnumber = 0.5;
+        float zeronumber = 0;
+        float onenumber = 1;
         uint64_t mask = 64;
         auto x = pointLocal.GetValue(i * 3);
         auto y = pointLocal.GetValue(i * 3 + 1);
         auto z = pointLocal.GetValue(i * 3 + 2);
         int repeat = (this->box_number + mask - 1) / mask;
-        BinaryRepeatParams repeatParams = { 1, 1, 1, 8, 8, 8 };
+        BinaryRepeatParams repeatParams = {1, 1, 1, 8, 8, 8};
         SetFlag<HardEvent::S_V>(EVENT_ID0);
         WaitFlag<HardEvent::S_V>(EVENT_ID0);
 
         // shift_x = x - boxes_ub[ :, 0]
-        Muls(shiftx, boxesLocal_cx, oneminsnumber, mask, repeat, { 1, 1, 8, 8 });
-        Adds(shiftx, shiftx, x, mask, repeat, { 1, 1, 8, 8 });
+        Muls(shiftx, boxesLocal_cx, oneminsnumber, mask, repeat, {1, 1, 8, 8});
+        Adds(shiftx, shiftx, x, mask, repeat, {1, 1, 8, 8});
 
         // shift_y = y - boxes_ub[ :, 1]
-        Muls(shifty, boxesLocal_cy, oneminsnumber, mask, repeat, { 1, 1, 8, 8 });
-        Adds(shifty, shifty, y, mask, repeat, { 1, 1, 8, 8 });
+        Muls(shifty, boxesLocal_cy, oneminsnumber, mask, repeat, {1, 1, 8, 8});
+        Adds(shifty, shifty, y, mask, repeat, {1, 1, 8, 8});
 
         // cosa = Cos(-boxes_ub[ :, 6])
-        Muls(temp, boxesLocal_rz, oneminsnumber, mask, repeat, { 1, 1, 8, 8 });
+        Muls(temp, boxesLocal_rz, oneminsnumber, mask, repeat, {1, 1, 8, 8});
         Cos<DTYPE_BOXES, false>(cosa, temp, uint8temp, this->box_number);
 
         // sina = Sin(-boxes_ub[ :, 6])
-        Muls(temp, boxesLocal_rz, oneminsnumber, mask, repeat, { 1, 1, 8, 8 });
+        Muls(temp, boxesLocal_rz, oneminsnumber, mask, repeat, {1, 1, 8, 8});
         Sin<DTYPE_BOXES, false>(sina, temp, uint8temp, this->box_number);
 
         // local_x = shift_x * cosa + shift_y * (-sina)
-        Mul(temp, shiftx, cosa, mask, repeat, {1, 1, 1, 8, 8, 8 });
+        Mul(temp, shiftx, cosa, mask, repeat, {1, 1, 1, 8, 8, 8});
         Duplicate<DTYPE_BOXES>(xlocal, zeronumber, this->box_number);
-        Add(xlocal, xlocal, temp, mask, repeat, {1, 1, 1, 8, 8, 8 });
-        Muls(temp, sina, oneminsnumber, mask, repeat, { 1, 1, 8, 8 });
-        Mul(temp, shifty, temp, mask, repeat, {1, 1, 1, 8, 8, 8 });
-        Add(xlocal, xlocal, temp, mask, repeat, {1, 1, 1, 8, 8, 8 });
+        Add(xlocal, xlocal, temp, mask, repeat, {1, 1, 1, 8, 8, 8});
+        Muls(temp, sina, oneminsnumber, mask, repeat, {1, 1, 8, 8});
+        Mul(temp, shifty, temp, mask, repeat, {1, 1, 1, 8, 8, 8});
+        Add(xlocal, xlocal, temp, mask, repeat, {1, 1, 1, 8, 8, 8});
 
         // local_y = shift_x * sina + shift_y * cosa
-        Mul(temp, shiftx, sina, mask, repeat, {1, 1, 1, 8, 8, 8 });
-        Mul(sina, shifty, cosa, mask, repeat, {1, 1, 1, 8, 8, 8 });
-        Add(ylocal, sina, temp,  mask, repeat, {1, 1, 1, 8, 8, 8 });
+        Mul(temp, shiftx, sina, mask, repeat, {1, 1, 1, 8, 8, 8});
+        Mul(sina, shifty, cosa, mask, repeat, {1, 1, 1, 8, 8, 8});
+        Add(ylocal, sina, temp, mask, repeat, {1, 1, 1, 8, 8, 8});
 
-        Abs(xlocal, xlocal, mask, repeat, { 1, 1, 8, 8 });
+        Abs(xlocal, xlocal, mask, repeat, {1, 1, 8, 8});
         PipeBarrier<PIPE_V>();
-        Abs(ylocal, ylocal, mask, repeat, { 1, 1, 8, 8 });
+        Abs(ylocal, ylocal, mask, repeat, {1, 1, 8, 8});
 
         // dup full zeronumber tensor
         Duplicate<DTYPE_BOXES>(sina, zeronumber, mask, repeat, 1, 8);
@@ -125,33 +122,31 @@ private:
         Duplicate<DTYPE_BOXES>(temp, onenumber, mask, repeat, 1, 8);
 
         // x_size + 1e-5 shiftx
-        Muls(shiftx, boxesLocal_dx, halfnumber, mask, repeat, { 1, 1, 8, 8 });
+        Muls(shiftx, boxesLocal_dx, halfnumber, mask, repeat, {1, 1, 8, 8});
 
         // y_size + 1e-5 shifty
-        Muls(shifty, boxesLocal_dy, halfnumber, mask, repeat, { 1, 1, 8, 8 });
+        Muls(shifty, boxesLocal_dy, halfnumber, mask, repeat, {1, 1, 8, 8});
 
         // cmp_1 = Abs(local_x) < x_size + 1e-5
         PipeBarrier<PIPE_ALL>();
         uint8temp = xlocal <= shiftx;
         Duplicate<DTYPE_BOXES>(xlocal, zeronumber, mask, repeat, 1, 8);
-        Select(xlocal, uint8temp, temp, sina,
-               SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
+        Select(xlocal, uint8temp, temp, sina, SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
 
         // cmp_2 = Abs(local_y) < y_size+ 1e-5
         PipeBarrier<PIPE_ALL>();
         uint8temp = ylocal <= shifty;
         Duplicate<DTYPE_BOXES>(ylocal, zeronumber, mask, repeat, 1, 8);
-        Select(ylocal, uint8temp, temp, sina,
-               SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
+        Select(ylocal, uint8temp, temp, sina, SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
 
         // zlocal = z-cz  sina
-        Muls(sina, boxesLocal_cz, oneminsnumber, mask, repeat, { 1, 1, 8, 8 });
-        Adds(sina, sina, z, mask, repeat, { 1, 1, 8, 8 });
-        Abs(sina, sina, mask, repeat, { 1, 1, 8, 8 });
+        Muls(sina, boxesLocal_cz, oneminsnumber, mask, repeat, {1, 1, 8, 8});
+        Adds(sina, sina, z, mask, repeat, {1, 1, 8, 8});
+        Abs(sina, sina, mask, repeat, {1, 1, 8, 8});
         PipeBarrier<PIPE_ALL>();
 
         // z_size + 1e-5 cosa
-        Muls(cosa, boxesLocal_dz, halfnumber, mask, repeat, { 1, 1, 8, 8 });
+        Muls(cosa, boxesLocal_dz, halfnumber, mask, repeat, {1, 1, 8, 8});
         PipeBarrier<PIPE_ALL>();
 
         // dup full zeronumber tensor
@@ -161,13 +156,14 @@ private:
 
         // cmp_3 = Abs(zlocal) < z_size
         PipeBarrier<PIPE_ALL>();
+
         uint8temp = sina <= cosa;
         Duplicate<DTYPE_BOXES>(sina, zeronumber, mask, repeat, 1, 8);
         PipeBarrier<PIPE_ALL>();
-        Select(sina, uint8temp, temp, shifty,
-               SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
+
+        Select(sina, uint8temp, temp, shifty, SELMODE::VSEL_TENSOR_TENSOR_MODE, mask, repeat, repeatParams);
         PipeBarrier<PIPE_ALL>();
-        
+
         // select which point is in box
         Add(ylocal, ylocal, sina, this->box_number);
         Add(ylocal, ylocal, xlocal, this->box_number);
@@ -181,8 +177,7 @@ private:
             PipeBarrier<PIPE_ALL>();
         }
     }
-    __aicore__ inline void Compute(int32_t progress, int32_t tensor_size, uint64_t address)
-    {
+    __aicore__ inline void Compute(int32_t progress, int32_t tensor_size, uint64_t address) {
         float oneminsnumber = -1;
         boxesLocal_cx = inQueueBOXES.AllocTensor<DTYPE_BOXES>();
         boxesLocal_cy = boxesLocal_cx[this->available_ub_size];
@@ -211,11 +206,11 @@ private:
         // move boxes number to each localtensor
         DataCopyPad(boxesLocal_cx, boxesGm, copyParams_box, padParams);
         DataCopyPad(boxesLocal_cy, boxesGm[this->box_number], copyParams_box, padParams);
-        DataCopyPad(boxesLocal_cz, boxesGm[this->box_number*2], copyParams_box, padParams);
-        DataCopyPad(boxesLocal_dx, boxesGm[this->box_number*3], copyParams_box, padParams);
-        DataCopyPad(boxesLocal_dy, boxesGm[this->box_number*4], copyParams_box, padParams);
-        DataCopyPad(boxesLocal_dz, boxesGm[this->box_number*5], copyParams_box, padParams);
-        DataCopyPad(boxesLocal_rz, boxesGm[this->box_number*6], copyParams_box, padParams);
+        DataCopyPad(boxesLocal_cz, boxesGm[this->box_number * 2], copyParams_box, padParams);
+        DataCopyPad(boxesLocal_dx, boxesGm[this->box_number * 3], copyParams_box, padParams);
+        DataCopyPad(boxesLocal_dy, boxesGm[this->box_number * 4], copyParams_box, padParams);
+        DataCopyPad(boxesLocal_dz, boxesGm[this->box_number * 5], copyParams_box, padParams);
+        DataCopyPad(boxesLocal_rz, boxesGm[this->box_number * 6], copyParams_box, padParams);
         SetFlag<HardEvent::MTE2_S>(EVENT_ID0);
         WaitFlag<HardEvent::MTE2_S>(EVENT_ID0);
         for (int32_t i = 0; i < tensor_size; i++) {
@@ -230,7 +225,7 @@ private:
         outQueueOUTPUT.FreeTensor(zLocal);
     }
 
-private:
+  private:
     TPipe pipe;
     TQue<QuePosition::VECIN, 1> inQueuePTS, inQueueBOXES;
     TBuf<TPosition::VECCALC> shiftxque, shiftyque, cosaque, sinaque, xlocalque, ylocalque, tempque, uint8que;
@@ -267,10 +262,8 @@ private:
     LocalTensor<uint8_t> uint8temp;
 };
 
-extern "C" __global__ __aicore__ void points_in_box(GM_ADDR boxes, GM_ADDR pts,
-                                                    GM_ADDR boxes_idx_of_points,
-                                                    GM_ADDR workspace, GM_ADDR tiling)
-{
+extern "C" __global__ __aicore__ void points_in_box(
+    GM_ADDR boxes, GM_ADDR pts, GM_ADDR boxes_idx_of_points, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
     KernelPointsInBox op;
     op.Init(boxes, pts, boxes_idx_of_points, &tiling_data);
@@ -279,10 +272,8 @@ extern "C" __global__ __aicore__ void points_in_box(GM_ADDR boxes, GM_ADDR pts,
 
 #ifndef __CCE_KT_TEST__
 // call of kernel function
-void points_in_box_do(uint32_t blockDim, void* l2ctrl,
-                      void* stream, uint8_t* boxes, uint8_t* pts, uint8_t* boxes_idx_of_points,
-                      uint8_t* workspace, uint8_t* tiling)
-{
+void points_in_box_do(uint32_t blockDim, void *l2ctrl, void *stream, uint8_t *boxes, uint8_t *pts,
+    uint8_t *boxes_idx_of_points, uint8_t *workspace, uint8_t *tiling) {
     points_in_box<<<blockDim, l2ctrl, stream>>>(boxes, pts, boxes_idx_of_points, workspace, tiling);
 }
 #endif
