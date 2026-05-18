@@ -24,37 +24,31 @@ constexpr int32_t TILING_FP32_BIT = 1;
 constexpr int32_t TILING_FP16_BIT = 2;
 constexpr int32_t TILING_BF16_BIT = 3;
 
-int32_t GetTilingKey(const ge::DataType dtype, optiling::BEVPoolTilingData& tiling)
-{
+int32_t GetTilingKey(const ge::DataType dtype, optiling::BEVPoolTilingData &tiling) {
     auto dtypeBytes = ge::GetSizeByDataType(dtype);
     int32_t cBytes = tiling.get_stride0() * dtypeBytes;
     int32_t key = cBytes % 32 == 0 ? TILING_ALIGN32B_FLAG : 0;
     switch (dtype) {
-        case ge::DT_FLOAT:
-            key |= 1 << TILING_FP32_BIT;
-            break;
-        case ge::DT_FLOAT16:
-            key |= 1 << TILING_FP16_BIT;
-            break;
-        case ge::DT_BF16:
-            key |= 1 << TILING_BF16_BIT;
-            break;
-        default:
-            break; // here, fail-safe is not a good idea
+    case ge::DT_FLOAT:
+        key |= 1 << TILING_FP32_BIT;
+        break;
+    case ge::DT_FLOAT16:
+        key |= 1 << TILING_FP16_BIT;
+        break;
+    case ge::DT_BF16:
+        key |= 1 << TILING_BF16_BIT;
+        break;
+    default:
+        break; // here, fail-safe is not a good idea
     }
     return key;
 }
 
-enum Version {
-    V1,
-    V2
-};
+enum Version { V1, V2 };
 } // namespace
 
 namespace optiling {
-template<Version version>
-static ge::graphStatus TilingForBEVPool(gert::TilingContext* context)
-{
+template <Version version> static ge::graphStatus TilingForBEVPool(gert::TilingContext *context) {
     CHECK_NULLPTR(context);
     BEVPoolTilingData tiling;
     CHECK_NULLPTR(context->GetPlatformInfo());
@@ -113,8 +107,7 @@ static ge::graphStatus TilingForBEVPool(gert::TilingContext* context)
 } // namespace optiling
 
 namespace ge {
-static graphStatus InferShapeForBEVPool(gert::InferShapeContext* context)
-{
+static graphStatus InferShapeForBEVPool(gert::InferShapeContext *context) {
     auto attrs = context->GetAttrs();
     if (attrs == nullptr) {
         return ge::GRAPH_FAILED;
@@ -134,7 +127,7 @@ static graphStatus InferShapeForBEVPool(gert::InferShapeContext* context)
     if (b < 0 || d < 0 || h < 0 || w < 0 || c < 0) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* outShape = context->GetOutputShape(0);
+    gert::Shape *outShape = context->GetOutputShape(0);
     if (outShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -142,10 +135,9 @@ static graphStatus InferShapeForBEVPool(gert::InferShapeContext* context)
     return GRAPH_SUCCESS;
 }
 
-static graphStatus InferShapeForBEVPoolGrad(gert::InferShapeContext* context)
-{
+static graphStatus InferShapeForBEVPoolGrad(gert::InferShapeContext *context) {
     CHECK_NULLPTR(context);
-    const gert::Shape* GeomFeatShape = context->GetInputShape(GEOM_FEAT_IDX);
+    const gert::Shape *GeomFeatShape = context->GetInputShape(GEOM_FEAT_IDX);
     CHECK_NULLPTR(GeomFeatShape);
     const auto n = GeomFeatShape->GetDim(0);
     auto attrs = context->GetAttrs();
@@ -153,22 +145,21 @@ static graphStatus InferShapeForBEVPoolGrad(gert::InferShapeContext* context)
     auto c_ptr = attrs->GetInt(C_IDX);
     CHECK_NULLPTR(c_ptr);
     auto c = *c_ptr;
-    gert::Shape* gradFeatShape = context->GetOutputShape(0);
+    gert::Shape *gradFeatShape = context->GetOutputShape(0);
     CHECK_NULLPTR(gradFeatShape);
     *gradFeatShape = {n, c};
     return GRAPH_SUCCESS;
 }
 
-static graphStatus InferShapeForBEVPoolV2Grad(gert::InferShapeContext* context)
-{
+static graphStatus InferShapeForBEVPoolV2Grad(gert::InferShapeContext *context) {
     CHECK_NULLPTR(context);
-    gert::Shape* gradDepthShape = context->GetOutputShape(0);
-    const gert::Shape* depthShape = context->GetInputShape(1);
+    gert::Shape *gradDepthShape = context->GetOutputShape(0);
+    const gert::Shape *depthShape = context->GetInputShape(1);
     CHECK_NULLPTR(gradDepthShape);
     CHECK_NULLPTR(depthShape);
     *gradDepthShape = *depthShape;
-    gert::Shape* gradFeatShape = context->GetOutputShape(1);
-    const gert::Shape* featShape = context->GetInputShape(2);
+    gert::Shape *gradFeatShape = context->GetOutputShape(1);
+    const gert::Shape *featShape = context->GetInputShape(2);
     CHECK_NULLPTR(gradFeatShape);
     CHECK_NULLPTR(featShape);
     *gradFeatShape = *featShape;
@@ -178,9 +169,8 @@ static graphStatus InferShapeForBEVPoolV2Grad(gert::InferShapeContext* context)
 
 namespace ops {
 class BEVPool : public OpDef {
-public:
-    explicit BEVPool(const char* name) : OpDef(name)
-    {
+  public:
+    explicit BEVPool(const char *name) : OpDef(name) {
         this->Input("feat")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
@@ -219,6 +209,9 @@ public:
         this->AICore().SetTiling(optiling::TilingForBEVPool<V1>);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 
@@ -241,9 +234,8 @@ public:
  * c: channels, type: int
  **/
 class BEVPoolGrad : public OpDef {
-public:
-    explicit BEVPoolGrad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit BEVPoolGrad(const char *name) : OpDef(name) {
         this->Input("grad_out")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
@@ -282,6 +274,9 @@ public:
         this->AICore().SetTiling(optiling::TilingForBEVPool<V1>);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 
