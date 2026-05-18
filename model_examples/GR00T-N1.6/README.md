@@ -12,7 +12,7 @@
   - [安装模型环境](#安装模型环境)
 - [准备数据集](#准备数据集)
   - [获取预训练权重](#获取预训练权重)
-  - [准备数据集](#准备数据集-1)
+  - [准备数据集](#准备数据集)
 - [快速开始](#快速开始)
   - [单机8卡训练](#单机8卡训练)
   - [单卡推理](#单卡推理)
@@ -66,15 +66,14 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
 
 1. 创建环境
 
-    参考原仓下载 Driving SDK 加速库：<https://gitcode.com/Ascend/DrivingSDK>
-
-    随后创建conda环境
+    创建conda环境
 
     ```sh
     conda create -n gr00t python=3.10
     conda activate gr00t
-    cd ./DrivingSDK/model_examples/GR00T-N1.6
     ```
+
+    参考原仓编译安装 Driving SDK 加速库：<https://gitcode.com/Ascend/DrivingSDK>
 
 2. 准备模型源码，安装gr00t
 
@@ -87,7 +86,6 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
       cp -f ../gr00t_n1d6.patch ./
       git apply --reject gr00t_n1d6.patch
       pip install -e .
-      cp -f ../patch.py ./gr00t/utils/
       cp -f ../test/train* ./
     ```
 
@@ -109,7 +107,7 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
     git clone --recursive https://github.com/dmlc/decord --depth 1
     cd decord
     mkdir build && cd build
-    cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH="/usr/local/ffmpeg/"
+    cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH=$CONDA_PREFIX
     make
 
     # 编译whl包
@@ -229,6 +227,7 @@ taskset -c 0-7 python scripts/deployment/standalone_inference_script.py --model-
 
 ## 变更
 
+2026.5.14: 适配一键Patcher 2.0。
 2026.5.7: 新增推理适配。
 2026.4.3: 首次发布。
 

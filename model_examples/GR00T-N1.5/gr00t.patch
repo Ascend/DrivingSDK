@@ -12,9 +12,9 @@ index 4419f69..f807ef4 100755
 +                self.optimizer = AdamW(optimizer_grouped_parameters, **optimizer_kwargs)
 +            else:
 +                self.optimizer = optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs)
- 
+
          return self.optimizer
- 
+
 diff --git a/gr00t/model/backbone/eagle2_hg_model/radio_model.py b/gr00t/model/backbone/eagle2_hg_model/radio_model.py
 index 2df0415..1973cce 100644
 --- a/gr00t/model/backbone/eagle2_hg_model/radio_model.py
@@ -31,8 +31,8 @@ index 2df0415..1973cce 100644
  from timm.models.vision_transformer import (
 @@ -42,14 +45,7 @@ from transformers.utils import ModelOutput
  ####
- 
- 
+
+
 -try:  # v1
 -    from flash_attn.flash_attn_interface import flash_attn_unpadded_qkvpacked_func
 -except ImportError:  # v2
@@ -42,8 +42,8 @@ index 2df0415..1973cce 100644
 -
 -from flash_attn.bert_padding import pad_input, unpad_input
 +from transformers.integrations.npu_flash_attention import pad_input, unpad_input
- 
- 
+
+
  class FlashAttention(nn.Module):
 @@ -85,39 +81,81 @@ class FlashAttention(nn.Module):
              key_padding_mask: a bool tensor of shape (B, S)
@@ -54,7 +54,7 @@ index 2df0415..1973cce 100644
 +        assert qkv.dtype in [torch.float16]
 +        device = qkv.device
 +        atten_mask_npu  = torch.triu(torch.ones([2048, 2048]), diagonal=1).bool().to(device)
-+        
++
          if cu_seqlens is None:
              batch_size = qkv.shape[0]
              seqlen = qkv.shape[1]
@@ -63,7 +63,7 @@ index 2df0415..1973cce 100644
 +            key_states = qkv[:,:,1,:,:]
 +            value_states = qkv[:,:,2,:,:]
 +            head_num = qkv.shape[3]
-+            
++
 +
              if key_padding_mask is None:
                  qkv = rearrange(qkv, "b s ... -> (b s) ...")
@@ -81,22 +81,22 @@ index 2df0415..1973cce 100644
 -                )
 +                if causal:
 +                    output = torch_npu.npu_fusion_attention(
-+                                query_states, key_states, value_states, 
-+                                head_num, "BSND", 
-+                                keep_prob=1.0-self.dropout_p if self.training else 1.0, 
++                                query_states, key_states, value_states,
++                                head_num, "BSND",
++                                keep_prob=1.0-self.dropout_p if self.training else 1.0,
 +                                atten_mask=atten_mask_npu, scale=self.softmax_scale,
-+                                actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
-+                                actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),  
++                                actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
++                                actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
 +                                sparse_mode=3)[0]
 +                else:
 +                    output = torch_npu.npu_fusion_attention(
-+                                query_states, key_states, value_states, 
-+                                head_num, "BSND", 
-+                                keep_prob=1.0-self.dropout_p if self.training else 1.0, 
-+                                actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
-+                                actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
-+                                scale=self.softmax_scale, 
-+                                )[0]                 
++                                query_states, key_states, value_states,
++                                head_num, "BSND",
++                                keep_prob=1.0-self.dropout_p if self.training else 1.0,
++                                actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
++                                actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
++                                scale=self.softmax_scale,
++                                )[0]
 +
                  output = rearrange(output, "(b s) ... -> b s ...", b=batch_size)
              else:
@@ -121,27 +121,27 @@ index 2df0415..1973cce 100644
 +
 +                if causal:
 +                    output_unpad = torch_npu.npu_fusion_attention(
-+                        query_states, key_states, value_states, 
++                        query_states, key_states, value_states,
 +                        head_num, pse=None, padding_mask=None,
 +                        atten_mask=atten_mask_npu,
 +                        keep_prob=1.0-self.dropout_p if self.training else 1.0,
 +                        input_layout="TND",
 +                        scale=self.softmax_scale,
-+                        actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
-+                        actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
++                        actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
++                        actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
 +                        sparse_mode=3)[0]
 +                else:
 +                    output_unpad = torch_npu.npu_fusion_attention(
-+                        query_states, key_states, value_states, 
-+                        head_num, pse=None, 
++                        query_states, key_states, value_states,
++                        head_num, pse=None,
 +                        atten_mask=None,
 +                        keep_prob=1.0-self.dropout_p if self.training else 1.0,
 +                        input_layout="TND",
 +                        scale=self.softmax_scale,
-+                        actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
-+                        actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
++                        actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
++                        actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
 +                        )[0]
-+                    
++
                  output = rearrange(
                      pad_input(
                          rearrange(output_unpad, "nnz h d -> nnz (h d)"), indices, batch_size, seqlen
@@ -158,44 +158,44 @@ index 2df0415..1973cce 100644
 -                causal=causal,
 -            )
 +            head_num = qkv.shape[2]
-+            
++
 +            if causal:
 +                output_unpad = torch_npu.npu_fusion_attention(
-+                    query_states, key_states, value_states, 
++                    query_states, key_states, value_states,
 +                    head_num, pse=None, padding_mask=None,
 +                    atten_mask=atten_mask_npu,
 +                    keep_prob=1.0-self.dropout_p if self.training else 1.0,
 +                    input_layout="TND",
 +                    scale=self.softmax_scale,
-+                    actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
-+                    actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
++                    actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
++                    actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
 +                    sparse_mode=3)[0]
 +            else:
 +                output_unpad = torch_npu.npu_fusion_attention(
-+                    query_states, key_states, value_states, 
-+                    head_num, pse=None, 
++                    query_states, key_states, value_states,
++                    head_num, pse=None,
 +                    atten_mask=None,
 +                    keep_prob=1.0-self.dropout_p if self.training else 1.0,
 +                    input_layout="TND",
 +                    scale=self.softmax_scale,
-+                    actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
-+                    actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()), 
++                    actual_seq_qlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
++                    actual_seq_kvlen=tuple(cu_seqlens[1:].cpu().numpy().tolist()),
 +                    )[0]
- 
+
          return output, None
- 
+
 @@ -180,7 +234,10 @@ def replace_vit_attn_with_flash_attn():
      Attention._flash_attn = _flash_attn
- 
- 
+
+
 -replace_vit_attn_with_flash_attn()
 +# replace_vit_attn_with_flash_attn()
 +Attention.forward = forward
 +Attention.inner_attn = FlashAttention(attention_dropout=0.0)
 +Attention._flash_attn = _flash_attn
  ####
- 
- 
+
+
 diff --git a/gr00t/utils/adamw.py b/gr00t/utils/adamw.py
 new file mode 100644
 index 0000000..ae1f6b6
@@ -403,50 +403,50 @@ index ec765e6..d991f07 100644
  import warnings
  from dataclasses import dataclass, field
  from typing import List, Literal
-+import decord 
- 
++import decord
+
  import numpy as np
  import tyro
 @@ -27,6 +28,8 @@ from gr00t.experiment.data_config import load_data_config
  from gr00t.model.policy import BasePolicy, Gr00tPolicy
  from gr00t.utils.eval import calc_mse_for_single_trajectory
- 
+
 +warnings.filterwarnings("ignore", category=DeprecationWarning, module="pandas")
 +warnings.filterwarnings("ignore", message="The video decoding and encoding capabilities of torchvision are deprecated.*")
  warnings.simplefilter("ignore", category=FutureWarning)
- 
+
  """
 @@ -74,7 +77,7 @@ class ArgsConfig:
      action_horizon: int = None
      """Action horizon to evaluate. If None, will use the data config's action horizon."""
- 
+
 -    video_backend: Literal["decord", "torchvision_av", "torchcodec"] = "torchcodec"
 +    video_backend: Literal["decord", "torchvision_av", "torchcodec"] = "torchvision_av"
      """Video backend to use for various codec options. h264: decord or av: torchvision_av"""
- 
+
      dataset_path: str = "demo_data/robot_sim.PickNPlace/"
 @@ -89,7 +92,7 @@ class ArgsConfig:
      denoising_steps: int = 4
      """Number of denoising steps to use."""
- 
+
 -    save_plot_path: str = None
 +    save_plot_path: str = "eval_test.png"
      """Path to save the plot."""
- 
+
      plot_state: bool = False
 @@ -106,6 +109,8 @@ def main(args: ArgsConfig):
- 
+
      if args.model_path is not None:
          import torch
 +        import torch_npu
 +        from torch_npu.contrib import transfer_to_npu
- 
+
          modality_config = data_config.modality_config()
          modality_transform = data_config.transform()
 @@ -175,7 +180,26 @@ def main(args: ArgsConfig):
      exit()
- 
- 
+
+
 +def seed_all(seed=1234, is_gpu=True):
 +    import random
 +    import numpy as np
@@ -479,47 +479,47 @@ index 4f24b74..e63923a 100644
  # See the License for the specific language governing permissions and
  # limitations under the License.
 -
-+import decord 
++import decord
  import os
  import subprocess
  import sys
 @@ -21,6 +21,8 @@ from pathlib import Path
  from typing import List, Literal
- 
+
  import torch
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
  import tyro
  from transformers import TrainingArguments
- 
+
 @@ -31,6 +33,10 @@ from gr00t.experiment.runner import TrainRunner
  from gr00t.model.gr00t_n1 import GR00T_N1_5
  from gr00t.model.transforms import EMBODIMENT_TAG_MAPPING
  from gr00t.utils.peft import get_lora_model
-+from gr00t.utils.patch import generate_patcher_builder
++from mx_driving.patcher import Patcher, TransformersNPU
 +import warnings
 +warnings.filterwarnings("ignore", category=DeprecationWarning, module="pandas")
 +warnings.filterwarnings("ignore", message="The video decoding and encoding capabilities of torchvision are deprecated.*")
- 
- 
+
+
  @dataclass
 @@ -120,10 +126,10 @@ class ArgsConfig:
      """Where to report training metrics (e.g., 'wandb', 'tensorboard', 'azure_ml')."""
- 
+
      # Data loading parameters
 -    embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
 +    embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"    # type: ignore[reportGeneralTypeIssues]
      """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
- 
+
 -    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchcodec"
 +    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchvision_av"
      """Video backend to use for training. [torchcodec, decord, torchvision_av]"""
- 
+
      # Mixture dataset parameters
 @@ -264,6 +270,10 @@ def main(config: ArgsConfig):
          tune_diffusion_model=config.tune_diffusion_model,  # action head's DiT
      )
- 
+
 +    # # no pretrain
 +    # from gr00t.model.action_head.flow_matching_action_head import FlowmatchingActionHead
 +    # model.action_head = FlowmatchingActionHead(model.action_head.config)
@@ -557,21 +557,21 @@ index 4f24b74..e63923a 100644
          do_eval=False,
          ddp_find_unused_parameters=False,
 @@ -393,6 +405,9 @@ def main(config: ArgsConfig):
- 
- 
+
+
  if __name__ == "__main__":
 +    # Add NPU patch
-+    generate_patcher_builder()
++    Patcher().add(TransformersNPU).apply()
 +
      # Parse arguments using tyro
      config = tyro.cli(ArgsConfig)
- 
+
 @@ -412,6 +427,7 @@ if __name__ == "__main__":
      ), f"Number of GPUs requested ({config.num_gpus}) is greater than the available GPUs ({available_gpus})"
      assert config.num_gpus > 0, "Number of GPUs must be greater than 0"
      print(f"Using {config.num_gpus} GPUs")
-+    
- 
++
+
      if config.num_gpus == 1:
          # Single GPU mode - set CUDA_VISIBLE_DEVICES=0
 @@ -433,7 +449,9 @@ if __name__ == "__main__":
@@ -600,12 +600,12 @@ index 0000000..a48e60f
 +from gr00t.data.dataset import LeRobotSingleDataset
 +from gr00t.model.policy import Gr00tPolicy
 +import numpy as np
-+from gr00t.utils.patch import generate_patcher_builder
++from mx_driving.patcher import Patcher, TransformersNPU
 +import warnings
 +warnings.filterwarnings("ignore", category=DeprecationWarning, module="pandas")
 +warnings.filterwarnings("ignore", message="The video decoding and encoding capabilities of torchvision are deprecated.*")
 +
-+generate_patcher_builder()
++Patcher().add(TransformersNPU).apply()
 +
 +# change the following paths
 +MODEL_PATH = "./GR00T-N1.5-3B"
@@ -687,8 +687,8 @@ index 0000000..a48e60f
 +    data_point = dataset.get_step_data(traj_id, step_count)
 +    state_joints = data_point["state.right_arm"][0]
 +    gt_action_joints = data_point["action.right_arm"][0]
-+    
-+   
++
++
 +    state_joints_across_time.append(state_joints)
 +    gt_action_joints_across_time.append(gt_action_joints)
 +
@@ -721,7 +721,7 @@ index 0000000..a48e60f
 +for i, ax in enumerate(axes):
 +    ax.imshow(images[i])
 +    ax.axis("off")
-+    
++
 +plt.savefig("test.png", dpi=150, bbox_inches='tight')
 +
 +predicted_action = policy.get_action(step_data)

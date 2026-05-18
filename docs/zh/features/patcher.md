@@ -409,6 +409,8 @@ graph TB
 | **torch** | TensorIndex | 张量索引优化 | ✅ |
 | | BatchMatmul | 批量矩阵乘法 | ✅ |
 | **torch_scatter** | TorchScatter | scatter 操作 NPU 实现 | ❌ |
+| **transformers** | TransformersNPU | transformers NPU组合补丁（>=4.51.0） | ❌ |
+| **diffusers** | DiffusersNPU | diffusers NPU组合补丁（==0.35.1） | ❌ |
 
 > ✅ = 已包含在 `default_patcher` 中，`apply()` 即生效。❌ = 需通过 `patcher.add()` 手动添加。
 > `NumpyCompat` 属于默认补丁中的早期兼容补丁，用于恢复 `np.bool` / `np.float` / `np.int` 等已移除别名，避免第三方库在 import-time 就因 NumPy 兼容性问题提前失败。
@@ -553,10 +555,14 @@ default_patcher.with_profiling("/path/to/prof", level=1).brake_at(500).apply()
   - [x] 支持高版本numpy bool类型
   - [x] 修复mmcv 1.x 里stream对npu环境的兼容性问题
   - [x] 修复mmcv 1.x 里ddp对npu环境的兼容性问题
+  - [x] 修复diffusers库对npu环境的兼容性问题
 - [x] 支持易用性提升的Utility功能
   - [x] 支持标准化、简易化采集性能profiling
   - [x] 支持early brake提前终止训练
   - [x] profiling与brake功能的组合
+- [x] 支持transformers库的NPU亲和优化
+  - [x] Qwen3通用优化
+  - [x] flash attention mask缓存优化
 
 - 预定义Patch的源码实现参考该路径`DrivingSDK/mx_driving/patcher/`下的`[模块名]_patch.py`文件
 - 由于MMCV 1.x 变迁到MMCV 2.x时，Runner, Hook, Parallel, Config, FileIO等模块迁移到了MMEngine下，部分目标替换对象属于的MMCV 1.x下的预定义Patch归类到了`mmengine_patch.py`内

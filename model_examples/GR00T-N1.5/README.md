@@ -56,15 +56,14 @@ Isaac GR00T-N1 是 NVIDIA 在2025年初发布的视觉 - 语言 - 动作（VLA�
 
 1. 创建环境
 
-    参考原仓下载 Driving SDK 加速库：<https://gitcode.com/Ascend/DrivingSDK>
-
-    随后创建conda环境
+    创建conda环境
 
     ```sh
     conda create -n gr00t python=3.10
     conda activate gr00t
-    cd ./DrivingSDK/model_examples/GR00T-N1.5
     ```
+
+    参考原仓编译安装 Driving SDK 加速库：<https://gitcode.com/Ascend/DrivingSDK>
 
 2. 准备模型源码，安装gr00t
 
@@ -77,49 +76,21 @@ Isaac GR00T-N1 是 NVIDIA 在2025年初发布的视觉 - 语言 - 动作（VLA�
       cp -f ../gr00t.patch ./
       git apply --reject gr00t.patch
       pip install --upgrade setuptools
-      pip install -e .[base]
-      cp -f ../patch.py ./gr00t/utils/
+      pip install -e .[base] --no-build-isolation
       cp -f ../test/train* ./
     ```
 
-3. 安装ffmpeg与decord库
-
-      a. 安装ffmpeg
+3. 安装ffmpeg与decord
 
     ```sh
-    # 源码编译ffmpeg
-    wget https://ffmpeg.org/releases/ffmpeg-4.4.2.tar.bz2
-    tar -xvf ffmpeg-4.4.2.tar.bz2
-    cd ffmpeg-4.4.2
-    ./configure --enable-shared  --prefix=/usr/local/ffmpeg    # --enable-shared is needed for sharing libavcodec with decord
-    make -j 64
-    make install
-    ffmpeg   #验证安装成功
-    cd ..
-    ```
+    # 安装ffmpeg
+    conda install -c conda-forge ffmpeg=4.4.2
 
-    如果运行ffmpeg后没有输出或者后续出现ffmpeg相关依赖错误，可能是环境变量未添加：
-
-    ```sh
-    # 编辑全局配置文件
-    vim /etc/profile.d/ffmpeg.sh
-
-    # 添加以下内容
-    export PATH="/usr/local/ffmpeg/bin:$PATH"
-    export LD_LIBRARY_PATH="/usr/local/ffmpeg/lib:$LD_LIBRARY_PATH"
-
-    # 使配置立即生效
-    source /etc/profile
-    ```
-
-    b. 安装decord
-
-    ```sh
-    # 源码编译decord
+    # 安装decord
     git clone --recursive https://github.com/dmlc/decord --depth 1
     cd decord
     mkdir build && cd build
-    cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH="/usr/local/ffmpeg/"
+    cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH=$CONDA_PREFIX
     make
 
     # 编译whl包
@@ -175,13 +146,14 @@ bash train_performance_8p.sh --batch_size=64 --num_npu=8 --max_steps=1000 --data
 
 |     芯片      | 卡数 | global batch size | max steps | Final loss | FPS  |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: | :--------------------|
-|     竞品A     |  8p  |         512       |  10000 |  0.0032 |  276.38  |    
-| Atlas 800T A2 |  8p  |         512       |  10000 |  0.0031 |  337.35  | 
+|     竞品A     |  8p  |         512       |  10000 |  0.0032 |  276.38  |
+| Atlas 800T A2 |  8p  |         512       |  10000 |  0.0031 |  337.35  |
 
 # 版本说明
 
 ## 变更
 
+2026.5.14: 适配一键Patcher 2.0。
 2025.10.28: 首次发布。
 
 ## FAQ
@@ -239,4 +211,4 @@ python scripts/eval_policy.py --plot \
    --modality_keys single_arm gripper
 ```
 
-其中<YOUR_CHECKPOINT_PATH>需要替换为训练完成的checkpoint路径（例如/DrivingSDK/model_examples/GR00T-N1.5/Isaac-GR00T/so101-checkpoints/checkpoint-1000/）
+其中`<YOUR_CHECKPOINT_PATH>`需要替换为训练完成的checkpoint路径（例如/DrivingSDK/model_examples/GR00T-N1.5/Isaac-GR00T/so101-checkpoints/checkpoint-1000/）

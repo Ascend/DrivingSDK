@@ -35,7 +35,7 @@ index f5deb7e..1f934c8 100644
 +import torch
 +import torch_npu
 +from torch_npu.contrib import transfer_to_npu
-+from gr00t.utils.patch import generate_patcher_builder
++from mx_driving.patcher import Patcher, TransformersNPU, DiffusersNPU
 
  # Make sure the user provided modality config is registered.
  def load_modality_config(modality_config_path: str):
@@ -43,7 +43,7 @@ index f5deb7e..1f934c8 100644
 
 
  if __name__ == "__main__":
-+    generate_patcher_builder()
++    Patcher().add(TransformersNPU, DiffusersNPU).apply()
      # Set LOGURU_LEVEL environment variable if not already set (default: INFO)
      if "LOGURU_LEVEL" not in os.environ:
          os.environ["LOGURU_LEVEL"] = "INFO"
@@ -142,7 +142,7 @@ index da5ebbd..b7368eb 100644
 +import torchair
  import tyro
 
-+from gr00t.utils.patch import generate_patcher_builder
++from mx_driving.patcher import Patcher, TransformersNPU, DiffusersNPU
 
  warnings.simplefilter("ignore", category=FutureWarning)
 
@@ -169,7 +169,7 @@ index da5ebbd..b7368eb 100644
 
 
  if __name__ == "__main__":
-+    generate_patcher_builder()
++    Patcher().add(TransformersNPU, DiffusersNPU).apply()
      # Parse arguments using tyro
      config = tyro.cli(ArgsConfig)
      main(config)
