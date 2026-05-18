@@ -20,14 +20,14 @@ The image tags follow this naming convention:
 
 | Field | Description | Available Values |
 |-------|-------------|------------------|
-| **Driving SDK VERSION** | Driving SDK version | `26.0.0` |
+| **DrivingSDK_VERSION** | Driving SDK version | `26.0.0` |
 | **CANN_VERSION** | CANN version | `8.5.1`, `9.0.0` |
-| **NPU_TYPE** | NPU type | `910b`, `a3`|
+| **NPU_TYPE** | NPU type | `A2`, `A3`|
 | **OS_TYPE** | Operating System type | `ubuntu22.04`, `openeuler24.03` |
 
 ### Examples
 
-- `26.0.0-cann8.5.1-910b-ubuntu22.04`: CANN 8.5.1, 910, Ubuntu 22.04
+- `26.0.0-cann8.5.1-910b-ubuntu22.04`: CANN 8.5.1, A2, Ubuntu 22.04
 - `26.0.0-cann9.0.0-a3-openeuler24.03`: CANN 9.0.0, A3, openEuler 24.03
 
 ---
@@ -57,7 +57,9 @@ docker/
 ├── install_bevformer.sh
 ├── install_bevfusion.sh
 ├── install_drivingsdk.sh
-└── install_sparse4d.sh
+├── install_sparse4d.sh
+├── OVERVIEW.md
+└── OVERVIEW.zh.md
 ```
 
 ---
@@ -123,8 +125,8 @@ docker run -it --rm \
 
 | NPU Type | Architecture | Description | Status |
 |----------|--------------|-------------|--------|
-| **910b** | x86_64, aarch64 | 910B | Production Ready |
-| **a3** | x86_64, aarch64 | A3 | Production Ready |
+| **A2** | x86_64, aarch64 | A2 | Production Ready |
+| **A3** | x86_64, aarch64 | A3 | Production Ready |
 
 ### Supported Operating Systems
 
@@ -147,7 +149,7 @@ The Docker images provide multiple Python environments via Miniconda:
 
 ### Hardware Requirements
 
-- **Minimum**: 1 NPU device (910B or A3)
+- **Minimum**: 1 NPU device (A2 or A3)
 - **Recommended**: 2+ NPU devices for distributed training
 - **Memory**: Minimum 32GB RAM, recommended 64GB+
 - **Storage**: Minimum 100GB for Docker images and datasets
@@ -158,10 +160,10 @@ The Docker images provide multiple Python environments via Miniconda:
 
 ### Core Components
 
-- **Driving SDK**: Driving SDK version 26.0.0
+- **DrivingSDK**: Driving SDK version 26.0.0
 - **CANN**: Compute Architecture for Neural Networks (8.5.1 / 9.0.0)
 - **PyTorch**: Deep learning framework (2.1.0 / 2.7.1)
-- **torch-npu**: PyTorch NPU backend for Ascend
+- **torch-npu**: PyTorch NPU backend
 - **Miniconda**: Python environment management
 
 ### Model Examples
@@ -239,7 +241,7 @@ This project is licensed under the terms specified in the LICENSE file at the ro
 
 ### Third-Party Licenses
 
-- **CANN**: Huawei Ascend Software License
+- **CANN**: CANN Software License
 - **PyTorch**: BSD 3-Clause License
 - **Miniconda**: Anaconda Terms of Service
 
@@ -252,10 +254,10 @@ This project is licensed under the terms specified in the LICENSE file at the ro
 - Use at your own risk
 - The maintainers are not responsible for any damages arising from the use of this software
 - Always test in a non-production environment before deployment
-- Ensure compliance with Huawei Ascend licensing terms
+- Ensure compliance with Atlas licensing terms
 - NPU hardware must be properly configured and accessible
 
-For production deployments, please consult the official Huawei Ascend documentation and follow best practices for security and performance optimization.
+For production deployments, please consult the official Atlas documentation and follow best practices for security and performance optimization.
 
 ---
 
