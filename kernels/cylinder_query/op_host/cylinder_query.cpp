@@ -94,6 +94,9 @@ static ge::graphStatus TilingForCylinderQuery(gert::TilingContext *context) {
     // 计算单次可处理数据量最大值
     uint64_t ubSize;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
+    if ((uint64_t)nsample >= (ubSize / 2 - 1000) / 8) {
+        return ge::GRAPH_PARAM_INVALID;
+    }
     uint32_t xyzBlockNum = (N + BLOCK_POINT_SIZE - 1) / BLOCK_POINT_SIZE; // 点云的总块数
     uint32_t tileBlockNum = (ubSize / 2 - 1000 - 8 * nsample) / 340; // 一次最多可以放入的点云的块数
     uint32_t tileDataNum = (tileBlockNum * BLOCK_BYTE_SIZE) / (FLOAT_BYTE_SIZE * 3); // tileBlockNum中对应的点的数量

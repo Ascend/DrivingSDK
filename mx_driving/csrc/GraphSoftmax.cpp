@@ -22,14 +22,14 @@ constexpr size_t EDGE_NUM_DIM = 0;
 constexpr size_t SRC_FEATURE_DIM = 1;
 constexpr size_t FEATURE_NUM = 8;
 
-at::Tensor graph_softmax(const at::Tensor& src, const at::Tensor& index, int N)
-{
+at::Tensor graph_softmax(const at::Tensor &src, const at::Tensor &index, int N) {
     TORCH_CHECK_NPU(src);
     TORCH_CHECK_NPU(index);
     TORCH_CHECK(src.dim() == 2, "src must be a 2D Tensor, but got: ", src.dim());
     TORCH_CHECK(index.dim() == 1, "index must be a 1D Tensor, but got: ", index.dim());
     TORCH_CHECK(index.sizes()[0] == src.sizes()[0], "The first dimension of index and src must be of equal size.");
     TORCH_CHECK(src[0].sizes() == 8, "The second dimension of src must be 8, but got: ", src[0].sizes());
+    TORCH_CHECK(N > 0, "N must be positive, but got: ", N);
 
     at::Tensor softmax_result = at::zeros_like(src);
 
@@ -39,8 +39,7 @@ at::Tensor graph_softmax(const at::Tensor& src, const at::Tensor& index, int N)
 }
 
 at::Tensor graph_softmax_grad(
-    const at::Tensor& index, const at::Tensor& softmax_out, const at::Tensor& grad_output, int32_t node_num)
-{
+    const at::Tensor &index, const at::Tensor &softmax_out, const at::Tensor &grad_output, int32_t node_num) {
     TORCH_CHECK(index.scalar_type() == at::kInt,
         "index: int32 tensor expected but got a tensor with dtype: ", index.scalar_type());
     TORCH_CHECK(softmax_out.scalar_type() == at::kFloat,

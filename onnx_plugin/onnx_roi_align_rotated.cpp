@@ -22,8 +22,7 @@ using NodeProto = ge::onnx::NodeProto;
 
 static const int REQ_ATTR_NUM = 6;
 
-Status ParseParamsRoiAlignRotatedV2(const Message* op_src, ge::Operator &op_dest)
-{
+Status ParseParamsRoiAlignRotatedV2(const Message *op_src, ge::Operator &op_dest) {
     const NodeProto *node = reinterpret_cast<const NodeProto *>(op_src);
     if (node == nullptr) {
         return FAILED;
@@ -37,7 +36,7 @@ Status ParseParamsRoiAlignRotatedV2(const Message* op_src, ge::Operator &op_dest
     float spatial_scale = 0.5;
 
     int required_attr_num = 0;
-    for (const auto& attr: node->attribute()) {
+    for (const auto &attr : node->attribute()) {
         if (attr.name() == "aligned" && attr.type() == ge::onnx::AttributeProto::INT) {
             aligned = attr.i();
             required_attr_num++;
@@ -65,8 +64,8 @@ Status ParseParamsRoiAlignRotatedV2(const Message* op_src, ge::Operator &op_dest
 
     op_dest.SetAttr("spatial_scale", spatial_scale);
     op_dest.SetAttr("sampling_ratio", sampling_ratio);
-    op_dest.SetAttr("pooled_h", pooled_height);
-    op_dest.SetAttr("pooled_w", pooled_width);
+    op_dest.SetAttr("pooled_height", pooled_height);
+    op_dest.SetAttr("pooled_width", pooled_width);
     op_dest.SetAttr("aligned", aligned);
     op_dest.SetAttr("clockwise", clockwise);
 
@@ -75,16 +74,11 @@ Status ParseParamsRoiAlignRotatedV2(const Message* op_src, ge::Operator &op_dest
 
 REGISTER_CUSTOM_OP("RoiAlignRotatedV2")
     .FrameworkType(ONNX)
-    .OriginOpType({
-                    ge::AscendString("mmdeploy::1::RoiAlignRotatedV2"),
-                    ge::AscendString("ai.onnx::11::RoiAlignRotatedV2"),
-                    ge::AscendString("ai.onnx::12::RoiAlignRotatedV2"),
-                    ge::AscendString("ai.onnx::13::RoiAlignRotatedV2"),
-                    ge::AscendString("ai.onnx::14::RoiAlignRotatedV2"),
-                    ge::AscendString("ai.onnx::15::RoiAlignRotatedV2"),
-                    ge::AscendString("ai.onnx::16::RoiAlignRotatedV2"),
-                    ge::AscendString("ai.onnx::17::RoiAlignRotatedV2"),
-                    ge::AscendString("ai.onnx::18::RoiAlignRotatedV2")})
+    .OriginOpType({ge::AscendString("mmdeploy::1::RoiAlignRotatedV2"),
+        ge::AscendString("ai.onnx::11::RoiAlignRotatedV2"), ge::AscendString("ai.onnx::12::RoiAlignRotatedV2"),
+        ge::AscendString("ai.onnx::13::RoiAlignRotatedV2"), ge::AscendString("ai.onnx::14::RoiAlignRotatedV2"),
+        ge::AscendString("ai.onnx::15::RoiAlignRotatedV2"), ge::AscendString("ai.onnx::16::RoiAlignRotatedV2"),
+        ge::AscendString("ai.onnx::17::RoiAlignRotatedV2"), ge::AscendString("ai.onnx::18::RoiAlignRotatedV2")})
     .ParseParamsFn(ParseParamsRoiAlignRotatedV2)
     .ImplyType(ImplyType::TVM);
 }

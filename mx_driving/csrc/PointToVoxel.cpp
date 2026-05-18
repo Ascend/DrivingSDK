@@ -21,16 +21,17 @@ constexpr float DEFAULT_VALUE = -1.0f;
 constexpr size_t VOXEL_SIZES_SIZE = 3;
 constexpr size_t COOR_RANGES_SIZE = 6;
 
-at::Tensor point_to_voxel(const at::Tensor& points, const std::vector<float> voxel_sizes,
-    const std::vector<float> coor_ranges, const char* layout)
-{
+at::Tensor point_to_voxel(const at::Tensor &points, const std::vector<float> voxel_sizes,
+    const std::vector<float> coor_ranges, const char *layout) {
     TORCH_CHECK_NPU(points);
     TORCH_CHECK(points.dim() == 2, "points.dim() must be 2, but got: ", points.dim());
+    TORCH_CHECK(
+        points.size(1) >= 3, "points must have at least 3 coordinate columns (x, y, z), but got: ", points.size(1));
 
     at::Tensor voxels = at::empty({points.size(0)}, points.options().dtype(at::kFloat));
 
-    at::SmallVector<float, VOXEL_SIZES_SIZE> voxel_sizes_vector {DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE};
-    at::SmallVector<float, COOR_RANGES_SIZE> coor_ranges_vector {
+    at::SmallVector<float, VOXEL_SIZES_SIZE> voxel_sizes_vector{DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE};
+    at::SmallVector<float, COOR_RANGES_SIZE> coor_ranges_vector{
         DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE, DEFAULT_VALUE};
     at::ArrayRef<float> voxel_sizes_value;
     at::ArrayRef<float> coor_ranges_value;
