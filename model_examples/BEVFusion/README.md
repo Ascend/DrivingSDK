@@ -52,11 +52,21 @@
 
   - 推荐使用依赖安装一键配置脚本，可使用如下指令安装后续`mmcv`和`mmdetection3d`：
 
-  ```shell
-  bash install_BEVFusion.sh
-  ```
+      若服务器为A2/A3：
+
+      ```shell
+      bash install_BEVFusion.sh
+      ```
+
+      若服务器为A5：
+
+      ```shell
+      bash install_BEVFusion_a5.sh
+      ```
 
   1. 源码编译安装`mmcv`
+
+      若服务器为A2/A3，安装步骤如下：
 
       ```shell
       git clone -b main https://github.com/open-mmlab/mmcv.git
@@ -69,13 +79,42 @@
       cd ../
       ```
 
+      若服务器为A5，安装步骤如下：
+
+      ```shell
+      git clone -b main https://github.com/open-mmlab/mmcv.git
+      cp mmcv_a5.patch mmcv
+      cd mmcv
+      git apply --reject mmcv_a5.patch
+      pip install -r requirements/runtime.txt
+      pip install ninja
+      pip install "setuptools<=78.1.1"
+      MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
+      MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
+      cd ../
+      ```
+
   2. 源码安装`mmdetection3d v1.2.0`版本
+
+      若服务器为A2/A3，安装步骤如下：
 
       ```shell
       git clone -b v1.2.0 https://github.com/open-mmlab/mmdetection3d.git
       cp -f bevfusion.patch mmdetection3d/
       cd mmdetection3d
       git apply bevfusion.patch --reject
+      pip install mmengine==0.10.7 mmdet==3.1.0 numpy==1.23.5 yapf
+      pip install -e . --no-build-isolation
+      cd ../
+      ```
+
+      若服务器为A5，安装步骤如下：
+
+      ```shell
+      git clone -b v1.2.0 https://github.com/open-mmlab/mmdetection3d.git
+      cp -f bevfusion_a5.patch mmdetection3d/
+      cd mmdetection3d
+      git apply bevfusion_a5.patch --reject
       pip install mmengine==0.10.7 mmdet==3.1.0 numpy==1.23.5 yapf
       pip install -e . --no-build-isolation
       cd ../
@@ -206,6 +245,8 @@ cd ../
 
 ## 变更
 
+2026.5.12：更新A5上的模型适配步骤。
+
 2026.1.31：支持混精训练，更新模型性能。
 
 2026.1.4：稀疏卷积类算子优化并加入一键Patch，更新模型性能，简化bevfusion.patch。
@@ -241,5 +282,5 @@ cd ../
 5. 当前训练脚本采用`lidar-only`预训练权重，若需要基于`lidar-cam`预训练权重进行训练，仅需将脚本中的`bevfusion_lidar_voxel0075_second_secfpn_8xb4-cyclic-20e_nus-3d-2628f933.pth`更改为对应权重文件即可。
 
 6. `RuntimeError: ACL stream synchronize failed, error code:507018`
-​
-大概率是有残余进程或者其他程序在模型预处理数据集时占用，全局清理一下进程并重跑即可。
+
+  大概率是有残余进程或者其他程序在模型预处理数据集时占用，全局清理一下进程并重跑即可。
