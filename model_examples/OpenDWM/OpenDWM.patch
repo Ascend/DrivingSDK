@@ -106,26 +106,24 @@ diff --git a/examples/ctsd_generation_example.py b/examples/ctsd_generation_exam
 index 1e74e10..1943187 100644
 --- a/examples/ctsd_generation_example.py
 +++ b/examples/ctsd_generation_example.py
-@@ -6,7 +6,18 @@ import json
+@@ -6,7 +6,16 @@ import json
  import os
  import torch
  import torchvision
 +import time
 +import numpy as np
-+import copy  # 用于深拷贝输入配置
- 
-+if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++import copy  # Used to deep-copy the input config.
+
++if not torch.cuda.is_available() or os.environ.get("DEVICE_TYPE", "npu") == "npu":
 +    USE_NPU = True
-+    os.environ['DEVICE_TYPE'] = "npu"
-+    DEVICE_TYPE = "npu"
 +    print("Enable NPU!")
 +    import torch_npu
 +    from torch_npu.contrib import transfer_to_npu
 +    torch.npu.config.allow_internal_format = False
- 
+
  def create_parser():
      parser = argparse.ArgumentParser(
-@@ -18,6 +29,9 @@ def create_parser():
+@@ -18,6 +27,9 @@ def create_parser():
      parser.add_argument(
          "-o", "--output-path", type=str, required=True,
          help="The path to save checkpoint files.")
@@ -133,19 +131,19 @@ index 1e74e10..1943187 100644
 +        "-r", "--repeat", type=int, default=1,
 +        help="Number of times to repeat inference for each sample.")
      return parser
- 
- 
-@@ -44,10 +58,17 @@ if __name__ == "__main__":
+
+
+@@ -44,10 +56,17 @@ if __name__ == "__main__":
      print("The pipeline is loaded.")
- 
+
      os.makedirs(args.output_path, exist_ok=True)
 -    for i_id, i in enumerate(config["inputs"]):
 -        i["batch"] = {
 +
-+    # 初始化耗时统计变量
++    # Initialize inference timing stats.
 +    inference_stats = []
 +
-+    # 预热模型（可选）
++    # Warm up the model when needed.
 +    if args.repeat > 1:
 +        print("Warming up model...")
 +        warmup_input = copy.deepcopy(config["inputs"][0])
@@ -156,7 +154,7 @@ index 1e74e10..1943187 100644
          }
          with torch.no_grad():
              if (
-@@ -55,49 +76,169 @@ if __name__ == "__main__":
+@@ -55,49 +74,169 @@ if __name__ == "__main__":
                  config["pipeline"]["inference_config"]
              ):
                  latent_shape = tuple(
@@ -214,22 +212,22 @@ index 1e74e10..1943187 100644
 +        print("Model warmed up.")
 +
 +    for i_id, i_orig in enumerate(config["inputs"]):
-+        # 深拷贝输入配置，避免修改原始配置
++        # Deep-copy the input config to avoid mutating the original data.
 +        i = copy.deepcopy(i_orig)
 +        i["batch"] = {
 +            k: torch.tensor(v) if k != "clip_text" else v
 +            for k, v in i["batch"].items()
 +        }
 +
-+        # 记录原始潜在形状（用于后续统计）
++        # Record the original latent shape for later statistics.
 +        original_latent_shape = i["latent_shape"]
 +
-+        # 存储该样本的所有推理时间
++        # Store all inference times for this sample.
 +        sample_times = []
 +
-+        # 重复推理多次
++        # Run inference multiple times.
 +        for repeat_idx in range(args.repeat):
-+            # 记录推理开始前的时间
++            # Record the time before inference starts.
 +            start_time = time.perf_counter()
 +
 +            with torch.no_grad():
@@ -243,23 +241,23 @@ index 1e74e10..1943187 100644
 +                            ["sequence_length_per_iteration"],
 +                        ] + i["latent_shape"][2:]
 +                    )
-+                    # 记录实际使用的潜在形状
++                    # Record the latent shape used in practice.
 +                    actual_latent_shape = latent_shape
 +
-+                    # 核心推理步骤
++                    # Core inference step.
 +                    pipeline_output = pipeline.autoregressive_inference_pipeline(
 +                        **{
 +                            k: latent_shape if k == "latent_shape" else v
 +                            for k, v in i.items()
 +                        })
 +                else:
-+                    # 记录实际使用的潜在形状
++                    # Record the latent shape used in practice.
 +                    actual_latent_shape = i["latent_shape"]
 +
-+                    # 核心推理步骤
++                    # Core inference step.
 +                    pipeline_output = pipeline.inference_pipeline(**i)
 +
-+                # 同步所有进程以确保准确计时
++                # Synchronize all processes for accurate timing.
 +                if ddp:
 +                    torch.distributed.barrier()
 +
@@ -268,16 +266,16 @@ index 1e74e10..1943187 100644
 +                    output_images.cpu().unflatten(0, i["latent_shape"][:3])
 +                ]
 +
-+            # 记录推理结束后的时间
++            # Record the time after inference finishes.
 +            end_time = time.perf_counter()
 +            elapsed_time = end_time - start_time
 +            sample_times.append(elapsed_time)
 +
-+            # 打印每次推理的耗时
++            # Print the runtime of each inference pass.
 +            print(f"Sample {i_id} - Run {repeat_idx+1}/{args.repeat}: "
 +                  f"{elapsed_time:.4f} seconds | Shape: {actual_latent_shape}")
 +
-+            # 只在第一次运行时保存结果
++            # Save outputs only during the first run.
 +            if repeat_idx == 0:
 +                stacked_images = torch.stack(collected_images)
 +                resized_images = torch.nn.functional.interpolate(
@@ -308,7 +306,7 @@ index 1e74e10..1943187 100644
 +
 +                    print(f"Sample {i_id} output saved")
 +
-+        # 计算该样本的统计指标
++        # Compute statistics for this sample.
 +        sample_stats = {
 +            "id": i_id,
 +            "times": sample_times,
@@ -322,23 +320,23 @@ index 1e74e10..1943187 100644
 +        }
 +        inference_stats.append(sample_stats)
 +
-+        # 打印该样本的统计摘要
++        # Print the summary for this sample.
 +        print(f"\nSample {i_id} inference stats:")
 +        print(f"  Runs: {args.repeat}")
 +        print(f"  Mean time: {sample_stats['mean_time']:.4f} seconds")
 +        print(f"  Min time: {sample_stats['min_time']:.4f} seconds")
 +        print(f"  Max time: {sample_stats['max_time']:.4f} seconds")
 +
-+        # 计算并打印每帧处理时间（如果是视频）
++        # Compute and print per-frame latency when the sample is a video.
 +        if sample_stats["fps"] is not None:
 +            frames = original_latent_shape[0] * original_latent_shape[1]
 +            time_per_frame = sample_stats["mean_time"] / frames
 +            print(f"  Time per frame: {time_per_frame:.6f} seconds")
 +            print(f"  Equivalent FPS: {1/time_per_frame:.2f}")
 +
-+    # 保存详细的耗时统计信息
++    # Save detailed timing statistics.
 +    if not ddp or torch.distributed.get_rank() == 0:
-+        # 计算全局统计指标
++        # Compute the global summary metrics.
 +        all_times = [t for stats in inference_stats for t in stats["times"]]
 +        global_stats = {
 +            "total_samples": len(inference_stats),
@@ -351,12 +349,12 @@ index 1e74e10..1943187 100644
 +            "samples": inference_stats
 +        }
 +
-+        # 保存到JSON文件
++        # Save the results to a JSON file.
 +        stats_path = os.path.join(args.output_path, "inference_stats.json")
 +        with open(stats_path, "w") as f:
 +            json.dump(global_stats, f, indent=4)
 +
-+        # 打印全局汇总统计
++        # Print the global summary.
 +        print("\n======= Global Inference Time Summary =======")
 +        print(f"Total samples processed: {global_stats['total_samples']}")
 +        print(f"Total inference runs: {global_stats['total_runs']}")
@@ -388,7 +386,7 @@ diff --git a/src/dwm/train.py b/src/dwm/train.py
 index 4d22e9b..48a0156 100644
 --- a/src/dwm/train.py
 +++ b/src/dwm/train.py
-@@ -2,8 +2,21 @@ import argparse
+@@ -2,8 +2,19 @@ import argparse
  import dwm.common
  import json
  import os
@@ -398,32 +396,30 @@ index 4d22e9b..48a0156 100644
  from dwm.utils.sampler import VariableVideoBatchSampler
 +from dwm.tools.patch import generate_patcher_builder
 +from mindspeed.optimizer.adamw import AdamW
-+if not torch.cuda.is_available() or DEVICE_TYPE == 'npu':
++if not torch.cuda.is_available() or os.environ.get("DEVICE_TYPE", "npu") == "npu":
 +    USE_NPU = True
-+    os.environ['DEVICE_TYPE'] = "npu"
-+    DEVICE_TYPE = "npu"
 +    print("Enable NPU!")
 +    import torch_npu
 +    from torch_npu.contrib import transfer_to_npu
 +    torch.npu.config.allow_internal_format = False
 +    torch.npu.set_compile_mode(jit_compile=False)
- 
- 
+
+
  def create_parser():
-@@ -42,8 +55,7 @@ def create_parser():
+@@ -42,8 +53,7 @@ def create_parser():
          help="The wandb run name.")
      return parser
- 
+
 -
 -if __name__ == "__main__":
 +def main():
      parser = create_parser()
      args = parser.parse_args()
- 
-@@ -88,11 +100,48 @@ if __name__ == "__main__":
+
+@@ -88,11 +98,48 @@ if __name__ == "__main__":
          import wandb
          wandb.init(project=args.wandb_project, name=args.wandb_run_name, config=config)
- 
+
 +
      # load the dataset
 -    training_dataset = dwm.common.create_instance_from_config(
@@ -434,7 +430,7 @@ index 4d22e9b..48a0156 100644
 +    training_cache_path = os.path.join(CACHE_DIR, "train_dataset.pkl")
 +    valid_cache_path = os.path.join(CACHE_DIR, "valid_dataset.pkl")
 +
-+    # 确保缓存目录存在
++    # Ensure the cache directory exists.
 +    os.makedirs(CACHE_DIR, exist_ok=True)
 +
 +    if os.getenv("CACHE_ENV_VAR", "0") == "1":
@@ -447,7 +443,7 @@ index 4d22e9b..48a0156 100644
 +        except FileNotFoundError as e:
 +            print(f"Cache file not found: {e}")
 +            print("Proceeding to create dataset from config and cache it...")
-+            # 如果缓存文件不存在，则从配置创建并保存
++            # If the cache is missing, rebuild the dataset from config and save it.
 +            training_dataset = dwm.common.create_instance_from_config(config["training_dataset"])
 +            validation_dataset = dwm.common.create_instance_from_config(config["validation_dataset"])
 +
@@ -458,7 +454,7 @@ index 4d22e9b..48a0156 100644
 +                pickle.dump(validation_dataset, f)
 +                print("Validation dataset cached to:", valid_cache_path)
 +    else:
-+        # 不使用缓存，直接从配置创建并保存
++        # Skip cache loading and build the dataset directly from config.
 +        training_dataset = dwm.common.create_instance_from_config(config["training_dataset"])
 +        validation_dataset = dwm.common.create_instance_from_config(config["validation_dataset"])
 +
@@ -471,29 +467,29 @@ index 4d22e9b..48a0156 100644
 +
 +
      if ddp:
- 
+
          if "mix_config" in config.keys():
-@@ -162,6 +211,9 @@ if __name__ == "__main__":
- 
+@@ -162,6 +209,9 @@ if __name__ == "__main__":
+
      # train loop
      global_step = 0 if args.resume_from is None else args.resume_from
 +    break_step = 5000
 +    if os.getenv("PERFORMANCE", "0") == "1":
 +        break_step = 500
      for epoch in range(config["train_epochs"]):
- 
+
          if ddp:
-@@ -207,8 +259,23 @@ if __name__ == "__main__":
+@@ -207,8 +257,23 @@ if __name__ == "__main__":
                      global_step, len(validation_dataset),
                      validation_dataloader, validation_datasampler)
- 
+
 +            # break_training
 +            if global_step >= break_step:
 +                sys.exit(0)
 +
          if should_log:
              print("Epoch {} done.".format(epoch))
- 
+
      if torch.distributed.is_initialized():
          torch.distributed.destroy_process_group()
 +
