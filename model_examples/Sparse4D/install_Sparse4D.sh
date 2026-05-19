@@ -1,44 +1,73 @@
+#!/bin/bash
+
+# ---------- 设备检测 ----------
+device_name=$(python -c "import torch_npu; print(torch_npu.npu.get_device_name(0))" 2>/dev/null)
+if echo "$device_name" | grep -q "950"; then
+    IS_A5=1
+else
+    IS_A5=0
+fi
+
 src_path=$(pwd)
 
+# ---------- 操作系统判断 ----------
 SYSTEM=openeular
 grep -q "openEuler" /etc/os-release && SYSTEM=openeular || SYSTEM=ubuntu
 echo "系统类别: $SYSTEM"
 
 cd $src_path
-##安装依赖
-echo "模型依赖开始安装"
-pip install -r requirements.txt
 
-##安装mmcv
+## 安装依赖
+echo "模型依赖开始安装"
+if [ "$IS_A5" -eq 1 ]; then
+    pip install -r requirements_pytorch2.7.1_a5.txt
+else
+    pip install -r requirements.txt
+fi
+
+## 安装 mmcv
 echo "mmcv开始安装"
 git clone -b 1.x https://github.com/open-mmlab/mmcv.git
-cp mmcv.patch mmcv
+if [ "$IS_A5" -eq 1 ]; then
+    cp mmcv_a5.patch mmcv
+else
+    cp mmcv.patch mmcv
+fi
 cd mmcv
-git apply mmcv.patch
+if [ "$IS_A5" -eq 1 ]; then
+    git apply mmcv_a5.patch
+else
+    git apply mmcv.patch
+fi
 MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
 cd ..
 
-##安装mmdet
+## 安装 mmdet
 echo "mmdet开始安装"
 git clone -b v2.28.2 https://github.com/open-mmlab/mmdetection.git
 cp mmdet.patch mmdetection
 cd mmdetection
 git apply mmdet.patch
-pip install -e .
+pip install -e . --no-build-isolation
 cd ..
 
-##模型代码使用Patch
+## 模型代码使用 Patch
 echo "模型代码开始更新"
 git clone https://github.com/HorizonRobotics/Sparse4D.git
 cp Sparse4D.patch Sparse4D
-cp patch.py Sparse4D/tools
+if [ "$IS_A5" -eq 1 ]; then
+    cp patch_a5.py Sparse4D/tools
+    mv Sparse4D/tools/patch_a5.py Sparse4D/tools/patch.py
+else
+    cp patch.py Sparse4D/tools
+fi
 cd Sparse4D
 git checkout c41df4bbf7bc82490f11ff55173abfcb3fb91425
 git apply Sparse4D.patch
 cp -rf ../test .
 cd ..
 
-##安装tcmalloc(openeular或者ubuntu)
+## 安装 tcmalloc（openeular 或 ubuntu）
 echo "tcmalloc开始安装"
 if [ "$SYSTEM" == "openeular" ]; then
     mkdir gperftools
@@ -74,3 +103,5 @@ else
 fi
 
 cd $src_path
+
+echo "全部安装完成"

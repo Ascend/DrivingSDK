@@ -13,7 +13,7 @@
 - [准备数据集](#准备数据集)
   - [获取训练数据](#获取训练数据)
   - [获取预训练权重](#获取预训练权重)
-  - [使用高性能内存库](#使用高性能内存库)
+  - [使用高性能内存库](#使用高性能内存库可选)
 - [快速开始](#快速开始)
   - [训练模型](#训练模型)
   - [训练结果](#训练结果)
@@ -28,7 +28,7 @@
 近年来，基于鸟瞰图的方法在多视角三维检测任务中取得了很大进展。与基于BEV的方法相比，稀疏方法在性能上有所落后，但仍有许多不可忽视的优点。为了进一步推动稀疏3D检测，地平线提出一种名为Sparse4D的新方法，该方法通过稀疏采样和融合时空特征对锚框进行迭代细化。
 
 - 稀疏四维采样:对于每个3D锚点，作者分配多个四维关键点，然后将其投影到多视图/尺度/时间戳图像特征上，以采样相应的特征;
-- 层次特征融合:对不同视角/尺度、不同时间戳、不同关键点的采样特征进行层次融合，生成高质量的实例特征。  
+- 层次特征融合:对不同视角/尺度、不同时间戳、不同关键点的采样特征进行层次融合，生成高质量的实例特征。
 
 这样，Sparse4D可以高效有效地实现3D检测，而不依赖于密集的视图变换和全局关注，并且对边缘设备的部署更加友好。
 
@@ -40,7 +40,7 @@
   url=https://github.com/HorizonRobotics/Sparse4D
   commit_id=c41df4bbf7bc82490f11ff55173abfcb3fb91425
   ```
-  
+
 - 适配昇腾 AI 处理器的实现：
 
   ```shell
@@ -53,7 +53,7 @@
 ## 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   首次支持版本   |
@@ -86,11 +86,13 @@
    ```
 
   一键安装默认使用 Pytorch 2.1.0 版本，如需更换 Pytorch 2.7.1 版本，请自行修改脚本中 requirements.txt 为 requirements_pytorch2.7.1.txt
-  
+
 - 安装基础依赖
 
   在模型根目录下执行命令，根据 Pytorch 版本安装模型需要的依赖
-  
+
+  若服务器为A2/A3，安装步骤如下：
+
   ```shell
   cd DrivingSDK/model_examples/Sparse4D
   # PyTorch 2.1.0
@@ -99,13 +101,33 @@
   pip install -r requirements_pytorch2.7.1.txt
   ```
 
+  若服务器为A5，安装步骤如下：
+
+  ```shell
+  cd DrivingSDK/model_examples/Sparse4D
+  pip install -r requirements_pytorch2.7.1_a5.txt
+  ```
+
 - 源码安装mmcv
+
+  若服务器为A2/A3，安装步骤如下：
 
   ```shell
   git clone -b 1.x https://github.com/open-mmlab/mmcv.git
   cp mmcv.patch mmcv
   cd mmcv
   git apply mmcv.patch
+  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+  cd ..
+  ```
+
+  若服务器为A5，安装步骤如下：
+
+  ```shell
+  git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+  cp mmcv_a5.patch mmcv
+  cd mmcv
+  git apply mmcv_a5.patch
   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
   cd ..
   ```
@@ -123,10 +145,25 @@
 
 - 模型代码使用Patch
 
+  若服务器为A2/A3，步骤如下：
+
   ```shell
   git clone https://github.com/HorizonRobotics/Sparse4D.git
   cp Sparse4D.patch Sparse4D
   cp patch.py Sparse4D/tools
+  cd Sparse4D
+  git checkout c41df4bbf7bc82490f11ff55173abfcb3fb91425
+  git apply Sparse4D.patch
+  cp -rf ../test .
+  ```
+
+  若服务器为A5，步骤如下：
+
+  ```shell
+  git clone https://github.com/HorizonRobotics/Sparse4D.git
+  cp Sparse4D.patch Sparse4D
+  cp patch_a5.py Sparse4D/tools
+  mv Sparse4D/tools/patch_a5.py Sparse4D/tools/patch.py
   cd Sparse4D
   git checkout c41df4bbf7bc82490f11ff55173abfcb3fb91425
   git apply Sparse4D.patch
@@ -170,7 +207,7 @@
   wget https://download.pytorch.org/models/resnet50-19c8e357.pth -O ckpt/resnet50-19c8e357.pth
   ```
 
-## 使用高性能内存库
+## 使用高性能内存库（可选）
 
 安装tcmalloc（适用OS: __openEuler__）
 
@@ -222,53 +259,59 @@ export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
 
 - 单机8卡精度训练
 
-```shell
-bash test/train_full_8p.sh
-(option) bash test/train_full_8p.sh --batch-size=6 --num-npu=8
-```
+  ```shell
+  bash test/train_full_8p.sh
+  (option) bash test/train_full_8p.sh --batch-size=6 --num-npu=8
+  ```
 
 - 单机8卡性能训练
 
-```shell
-bash test/train_performance_8p.sh
-(option) bash test/train_performance_8p.sh --batch-size=12 --num-npu=8
-```
+  ```shell
+  bash test/train_performance_8p.sh
+  (option) bash test/train_performance_8p.sh --batch-size=12 --num-npu=8
+  ```
 
   模型训练脚本参数说明如下：
 
-  ```shell
-  公共参数：
-  --batch-size                             //指定batchsize，默认值如上指定值
-  --num-npu                                //指定卡数，默认值为8
-  ```
+    ```shell
+    公共参数：
+    --batch-size                             //指定batchsize，默认值如上指定值
+    --num-npu                                //指定卡数，默认值为8
+    ```
 
 - 多机多卡训练
 
-```shell
-# 'XX.XX.XX.XX'为主节点的IP地址；端口号可以换成未被占用的可用端口
-bash test/train_multi_server.sh 8 2 0 'XX.XX.XX.XX' '3389' #主节点
-bash test/train_multi_server.sh 8 2 1 'XX.XX.XX.XX' '3389' #副节点
-```
+  ```shell
+  # 'XX.XX.XX.XX'为主节点的IP地址；端口号可以换成未被占用的可用端口
+  bash test/train_multi_server.sh 8 2 0 'XX.XX.XX.XX' '3389' #主节点
+  bash test/train_multi_server.sh 8 2 1 'XX.XX.XX.XX' '3389' #副节点
+  ```
 
 ## 训练结果
 
 **表 3** 训练结果展示表
 
-单机八卡精度：
+A2单机八卡精度：
 
 |      芯片       | 卡数 | global batchsize  | Max epochs  |mAP |
 |:-------------:|:----:|:----:|:----------:|:----------:|
-|      竞品A      | 8p | 48 |100 |0.4534  |   
+|      竞品A      | 8p | 48 |100 |0.4534  |
 | Atlas 800T A2   | 8p | 48 |100 |0.4509  |
 
-单机八卡性能：
+A2单机八卡性能：
 
 |      芯片       | 卡数 | global batchsize  | Max steps |  FPS |
 |:-------------:|:----:|:----:|:----------:|:----------:|
 |      竞品A      | 8p | 96 | 500 |  65.75   |
 | Atlas 800T A2   | 8p | 96 | 500 |   70.59   |
 
-多机多卡线性度：
+A5单机单卡性能：
+
+|      芯片       | 卡数 | global batchsize  | Max steps |  FPS |
+|:-------------:|:----:|:----:|:----------:|:----------:|
+| A5   | 1p | 48 | 500 |   20.48   |
+
+A2多机多卡线性度：
 
 |      芯片       | 卡数 | global batchsize | 平均step耗时(s) | Max epochs  | FPS | 线性度 |
 |:-------------:|:----:|:----:|:----:|:----------:|:----------:|:----------:|
@@ -293,9 +336,11 @@ bash test/train_multi_server.sh 8 2 1 'XX.XX.XX.XX' '3389' #副节点
 
 2025.11.25: 新增 Pytorch 2.7.1 支持。
 
+2026.05.12：新增 A5 模型适配步骤。
+
 ## FAQ
 
-Q: 训练时报错`ImportError: cannot import name 'gcd' from 'fractions'` 
+Q: 训练时报错`ImportError: cannot import name 'gcd' from 'fractions'`
 
 A: 报错原因是networkx版本低，使用`pip install networkx==3.1`升级依赖版本即可。
 

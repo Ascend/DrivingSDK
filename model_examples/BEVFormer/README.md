@@ -23,7 +23,7 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 ## 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   首次支持版本   |
@@ -38,11 +38,11 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
   **表 2**  版本支持表
 
   | Torch_Version      |
-  | :--------: | 
+  | :--------: |
   | PyTorch 2.1.0 |
   | PyTorch 2.6.0 |
-  | PyTorch 2.7.1 | 
-  
+  | PyTorch 2.7.1 |
+
 - 安装 [Driving SDK 加速库](https://gitcode.com/Ascend/DrivingSDK)
 
 - 克隆代码仓到当前目录
@@ -55,6 +55,9 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
   这里需要根据pytorch版本修改脚本，使用对应的requirements文件,一键配置脚本默认使用torch2.1.0的requirements.txt
 - 根据pytorch版本在模型根目录下安装依赖
+
+   若服务器为A2/A3，安装步骤如下：
+
    - torch2.1.0
 
     ```shell
@@ -71,6 +74,14 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
     ```shell
     pip install -r requirements_pytorch2.7.1.txt
+    ```
+
+   若服务器为A5，安装步骤如下：
+
+   - A5 torch2.7.1
+
+   ```shell
+    pip install -r requirements_pytorch2.7.1_a5.txt
     ```
 
 - 安装其他依赖
@@ -95,28 +106,43 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
       cp mmdet3d_config.patch mmdetection3d
       cd mmdetection3d
       git apply --reject mmdet3d_config.patch
-      pip install -e .
+      pip install -e . --no-build-isolation
       cd ..
       ```
 
    3. 源码安装 mmdet 2.24.0
+
+      若服务器为A2/A3，安装步骤如下：
 
       ```shell
       git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
       cp mmdet_config.patch mmdetection
       cd mmdetection
       git apply --reject mmdet_config.patch
-      pip install -e .
+      pip install -e . --no-build-isolation
+      cd ..
+      ```
+
+      若服务器为A5，安装步骤如下：
+
+      ```shell
+      git clone -b v2.24.0 https://github.com/open-mmlab/mmdetection.git
+      cp mmdet_a5.patch mmdetection
+      cd mmdetection
+      git apply --reject mmdet_a5.patch
+      pip install -e . --no-build-isolation
       cd ..
       ```
 
    4. 安装 detectron2
 
       ```shell
-      python -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
+      python -m pip install 'git+https://github.com/facebookresearch/detectron2.git' --no-build-isolation
       ```
 
 - 模型代码更新
+
+   若服务器为A2/A3，步骤如下：
 
      ```shell
      git clone https://github.com/fundamentalvision/BEVFormer.git
@@ -126,6 +152,19 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
      git apply --reject --whitespace=fix bev_former_config.patch
      cd ..
      ```
+
+   若服务器为A5，步骤如下：
+
+   ```shell
+   git clone https://github.com/fundamentalvision/BEVFormer.git
+   cp bevformer_a5.patch BEVFormer
+   cp patch_a5.py BEVFormer/tools
+   mv BEVFormer/tools/patch_a5.py BEVFormer/tools/patch.py
+   cd BEVFormer
+   git checkout 66b65f3a1f58caf0507cb2a971b9c0e7f842376c
+   git apply --reject --whitespace=fix bevformer_a5.patch
+   cd ..
+   ```
 
 ## 准备数据集
 
@@ -155,7 +194,13 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 ## 下载预训练权重
 
-   在BEVFormer模型代码目录下创建 ckpts 文件夹，将预训练权重 r101_dcn_fcos3d_pretrain.pth 放入其中（wget https://github.com/zhiqi-li/storage/releases/download/v1.0/r101_dcn_fcos3d_pretrain.pth）
+   在BEVFormer模型代码目录下创建 ckpts 文件夹，下载预训练权重 r101_dcn_fcos3d_pretrain.pth
+
+   ```shell
+   mkdir ckpts
+   cd ckpts
+   wget https://github.com/zhiqi-li/storage/releases/download/v1.0/r101_dcn_fcos3d_pretrain.pth
+   ```
 
    ```shell
     BEVFormer
@@ -205,14 +250,104 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 # 结果
 
-|  NAME       | Backbone          | Method          |   训练方式     |  Epoch  |   global batch size      |      NDS     |     mAP      |     FPS      |
-|-------------|-------------------|-----------------|---------------|--------------|--------------|--------------|--------------|--------------|
-|  8p-Atlas 800T A2 | R101-DCN    | BEVFormer-base  |       FP32    |        4     |   8   |    44.23   |      35.52   |      3.66    |
-|  8p-竞品A   | R101-DCN          | BEVFormer-base  |       FP32    |        4     |   8   |      43.58   |      34.45   |      3.32    |
-|  8p-Atlas 800T A2 | R101-DCN    | BEVFormer-base  |       FP32    |        4     |   16   |    -   |      -   |      3.89    |
-|  8p-竞品A   | R101-DCN          | BEVFormer-base  |       FP32    |        4     |   16  |      -   |      -   |      3.39   |
-|  8p-Atlas 800T A2 | R101-DCN    | BEVFormer-base  |       混合精度    |       4     |   8   |      46.23   |      37.92   |      3.33    |
-|  8p-竞品A   | R101-DCN          | BEVFormer-base  |       混合精度    |       4     |   8   |      44.50   |      34.05   |      3.75    |
+<table>
+  <thead>
+    <tr>
+      <th>NAME</th>
+      <th>Backbone</th>
+      <th>Method</th>
+      <th>训练方式</th>
+      <th>Epoch</th>
+      <th>global batch size</th>
+      <th>NDS</th>
+      <th>mAP</th>
+      <th>FPS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <!-- FP32, batch 8 组 -->
+    <tr>
+      <td>8p-Atlas 800T A2</td>
+      <td>R101-DCN</td>
+      <td>BEVFormer-base</td>
+      <td>FP32</td>
+      <td>4</td>
+      <td>8</td>
+      <td>44.23</td>
+      <td>35.52</td>
+      <td>3.66</td>
+    </tr>
+    <tr style="border-bottom: 2px solid black;">
+      <td>8p-竞品A</td>
+      <td>R101-DCN</td>
+      <td>BEVFormer-base</td>
+      <td>FP32</td>
+      <td>4</td>
+      <td>8</td>
+      <td>43.58</td>
+      <td>34.45</td>
+      <td>3.32</td>
+    </tr>
+    <!-- FP32, batch 16 组 -->
+    <tr>
+      <td>8p-Atlas 800T A2</td>
+      <td>R101-DCN</td>
+      <td>BEVFormer-base</td>
+      <td>FP32</td>
+      <td>4</td>
+      <td>16</td>
+      <td>-</td>
+      <td>-</td>
+      <td>3.89</td>
+    </tr>
+    <tr style="border-bottom: 2px solid black;">
+      <td>8p-竞品A</td>
+      <td>R101-DCN</td>
+      <td>BEVFormer-base</td>
+      <td>FP32</td>
+      <td>4</td>
+      <td>16</td>
+      <td>-</td>
+      <td>-</td>
+      <td>3.39</td>
+    </tr>
+    <!-- 混合精度, batch 8 组 -->
+    <tr>
+      <td>8p-Atlas 800T A2</td>
+      <td>R101-DCN</td>
+      <td>BEVFormer-base</td>
+      <td>混合精度</td>
+      <td>4</td>
+      <td>8</td>
+      <td>46.23</td>
+      <td>37.92</td>
+      <td>3.33</td>
+    </tr>
+    <tr style="border-bottom: 2px solid black;">
+      <td>8p-竞品A</td>
+      <td>R101-DCN</td>
+      <td>BEVFormer-base</td>
+      <td>混合精度</td>
+      <td>4</td>
+      <td>8</td>
+      <td>44.50</td>
+      <td>34.05</td>
+      <td>3.75</td>
+    </tr>
+    <!-- 单卡数据（不成对） -->
+    <tr>
+      <td>1p-A5</td>
+      <td>R101-DCN</td>
+      <td>BEVFormer-base</td>
+      <td>混合精度</td>
+      <td>4</td>
+      <td>7</td>
+      <td>-</td>
+      <td>-</td>
+      <td>1.35</td>
+    </tr>
+  </tbody>
+</table>
 
 # 版本说明
 
@@ -228,7 +363,9 @@ BEVFormer 通过提取环视相机采集到的图像特征，并将提取的环�
 
 2025.8.7：增加batch_size=2性能，更新性能数据。
 
-2026.1.19: 更新对预处理数据集中出现的问题的处理办法。
+2026.1.19：更新对预处理数据集时出现的问题的处理办法。
+
+2026.5.12：更新A5上的模型适配步骤。
 
 ## FAQ
 
