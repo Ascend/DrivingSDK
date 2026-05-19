@@ -6,7 +6,6 @@
 using namespace AscendC;
 using namespace MicroAPI;
 
-
 namespace {
 constexpr int32_t BYTE_SIZE_PER_BLOCK = 32;
 constexpr int32_t INT32_BYTE_SIZE = 4;
@@ -24,12 +23,10 @@ constexpr int32_t AIC_FLAG_OFFSET = 16;
 constexpr int32_t AIC_AIV_RATIO = 2;
 } // namespace
 
-
-template<typename T>
-__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void getSparseFeatureSIMT(volatile __gm__ T* inputFeaturesGM,
-    __ubuf__ T* sparseFeaturesLocal0, __ubuf__ T* sparseFeaturesLocal1, __ubuf__ int32_t* sparseIndicesLocal0,
-    __ubuf__ int32_t* sparseIndicesLocal1, int32_t sparseNum, int32_t channels)
-{
+template <typename T>
+__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void getSparseFeatureSIMT(volatile __gm__ T *inputFeaturesGM,
+    __ubuf__ T *sparseFeaturesLocal0, __ubuf__ T *sparseFeaturesLocal1, __ubuf__ int32_t *sparseIndicesLocal0,
+    __ubuf__ int32_t *sparseIndicesLocal1, int32_t sparseNum, int32_t channels, int32_t channelsAligned) {
     int32_t xId = threadIdx.x;
     int32_t yId = threadIdx.y;
     int32_t yBlockDim = blockDim.y;
@@ -39,7 +36,7 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void getSparseFeatureSIMT
         int32_t sparseIndices1 = sparseIndicesLocal1[i];
         int32_t featureOffset0 = sparseIndices0 * channels + xId;
         int32_t featureOffset1 = sparseIndices1 * channels + xId;
-        int32_t sparseOffset = i * channels + xId;
+        int32_t sparseOffset = i * channelsAligned + xId;
 
         T inputFeature0 = inputFeaturesGM[featureOffset0];
         T inputFeature1 = inputFeaturesGM[featureOffset1];
@@ -49,13 +46,11 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void getSparseFeatureSIMT
     }
 }
 
-
-template<typename T, int32_t channels>
-__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void getSparseFeatureFastSIMT(volatile __gm__ T* inputFeaturesGM,
-    __ubuf__ T* sparseFeaturesLocal0, // offset
-    __ubuf__ T* sparseFeaturesLocal1, // offset
-    __ubuf__ int32_t* sparseIndicesLocal0, __ubuf__ int32_t* sparseIndicesLocal1, int32_t sparseNum)
-{
+template <typename T, int32_t channels, int32_t channelsAligned>
+__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void getSparseFeatureFastSIMT(volatile __gm__ T *inputFeaturesGM,
+    __ubuf__ T *sparseFeaturesLocal0, // offset
+    __ubuf__ T *sparseFeaturesLocal1, // offset
+    __ubuf__ int32_t *sparseIndicesLocal0, __ubuf__ int32_t *sparseIndicesLocal1, int32_t sparseNum) {
     int32_t xId = threadIdx.x;
     int32_t yId = threadIdx.y;
     int32_t yBlockDim = blockDim.y;
@@ -65,7 +60,7 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void getSparseFeatureFast
         int32_t sparseIndices1 = sparseIndicesLocal1[i];
         int32_t featureOffset0 = sparseIndices0 * channels + xId;
         int32_t featureOffset1 = sparseIndices1 * channels + xId;
-        int32_t sparseOffset = i * channels + xId;
+        int32_t sparseOffset = i * channelsAligned + xId;
 
         T inputFeature0 = inputFeaturesGM[featureOffset0];
         T inputFeature1 = inputFeaturesGM[featureOffset1];
@@ -75,11 +70,10 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void getSparseFeatureFast
     }
 }
 
-
-__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void scatterAddFeatureSIMT(__gm__ float* outputFeaturesGradGM,
-    __ubuf__ int32_t* tmpSparseIndicesLocal0, __ubuf__ int32_t* tmpSparseIndicesLocal1,
-    __ubuf__ float* scatterFeatureLocal0, __ubuf__ float* scatterFeatureLocal1, int32_t sparseNum, int32_t channels)
-{
+__simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void scatterAddFeatureSIMT(__gm__ float *outputFeaturesGradGM,
+    __ubuf__ int32_t *tmpSparseIndicesLocal0, __ubuf__ int32_t *tmpSparseIndicesLocal1,
+    __ubuf__ float *scatterFeatureLocal0, __ubuf__ float *scatterFeatureLocal1, int32_t sparseNum, int32_t channels,
+    int32_t channelsAligned) {
     int32_t xId = threadIdx.x;
     int32_t yId = threadIdx.y;
     int32_t yBlockDim = blockDim.y;
@@ -89,7 +83,7 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void scatterAddFeatureSIM
         int32_t sparseIndices1 = tmpSparseIndicesLocal1[i];
         int32_t outputOffset0 = sparseIndices0 * channels + xId;
         int32_t outputOffset1 = sparseIndices1 * channels + xId;
-        int32_t featureOffset = i * channels + xId;
+        int32_t featureOffset = i * channelsAligned + xId;
 
         float featureGrad0 = scatterFeatureLocal0[featureOffset];
         float featureGrad1 = scatterFeatureLocal1[featureOffset];
@@ -99,13 +93,11 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void scatterAddFeatureSIM
     }
 }
 
-
-template<int32_t channels>
+template <int32_t channels, int32_t channelsAligned>
 __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void scatterAddFeatureFastSIMT(
-    __gm__ float* outputFeaturesGradGM, __ubuf__ int32_t* tmpSparseIndicesLocal0,
-    __ubuf__ int32_t* tmpSparseIndicesLocal1, __ubuf__ float* scatterFeatureLocal0,
-    __ubuf__ float* scatterFeatureLocal1, int32_t sparseNum)
-{
+    __gm__ float *outputFeaturesGradGM, __ubuf__ int32_t *tmpSparseIndicesLocal0,
+    __ubuf__ int32_t *tmpSparseIndicesLocal1, __ubuf__ float *scatterFeatureLocal0,
+    __ubuf__ float *scatterFeatureLocal1, int32_t sparseNum) {
     int32_t xId = threadIdx.x;
     int32_t yId = threadIdx.y;
     int32_t yBlockDim = blockDim.y;
@@ -115,7 +107,7 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void scatterAddFeatureFas
         int32_t sparseIndices1 = tmpSparseIndicesLocal1[i];
         int32_t outputOffset0 = sparseIndices0 * channels + xId;
         int32_t outputOffset1 = sparseIndices1 * channels + xId;
-        int32_t featureOffset = i * channels + xId;
+        int32_t featureOffset = i * channelsAligned + xId;
 
         float featureGrad0 = scatterFeatureLocal0[featureOffset];
         float featureGrad1 = scatterFeatureLocal1[featureOffset];
@@ -125,10 +117,8 @@ __simt_vf__ __aicore__ LAUNCH_BOUND(THREAD_NUM) inline void scatterAddFeatureFas
     }
 }
 
-
-template<typename T>
-class SubmSparseConv3dGradV2 {
-public:
+template <typename T> class SubmSparseConv3dGradV2 {
+  public:
     using weightMatType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, T, true>;
     using featureMatType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, T, true>;
     using gradOutFeaturesMatType = matmul::MatmulType<TPosition::GM, CubeFormat::ND, T>;
@@ -146,12 +136,11 @@ public:
     using FLOAT_DTYPE = float4;
     using HALF_DTYPE = half2;
 
-    __aicore__ inline SubmSparseConv3dGradV2() {};
+    __aicore__ inline SubmSparseConv3dGradV2(){};
 
-    __aicore__ inline void Init(TPipe* pipe, GM_ADDR features, GM_ADDR weight, GM_ADDR grad_out_features,
+    __aicore__ inline void Init(TPipe *pipe, GM_ADDR features, GM_ADDR weight, GM_ADDR grad_out_features,
         GM_ADDR indices_offset, GM_ADDR features_grad, GM_ADDR weight_grad, GM_ADDR usrWorkspace,
-        SubmConv3dGradV2TillingData* tilingData)
-    {
+        SubmConv3dGradV2TillingData *tilingData) {
         pipe_ = pipe;
         aicNum_ = GetBlockNum();
         aivNum_ = AIC_AIV_RATIO * aicNum_;
@@ -167,8 +156,7 @@ public:
     // indices_offset: [S*K*K*K]
     // weight: [K, K, K, C1, C2]
     // grad_out_feature: [S, C2]
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         // feature和weight部分可以提前算中间区域，提高计算效率
         if ASCEND_IS_AIC {
             calCenterFeatureMatmul();
@@ -193,9 +181,8 @@ public:
         }
     }
 
-private:
-    __aicore__ inline void InitTiling(SubmConv3dGradV2TillingData* tilingData)
-    {
+  private:
+    __aicore__ inline void InitTiling(SubmConv3dGradV2TillingData *tilingData) {
         byteSizePerElement_ = sizeof(T);
         k0_ = tilingData->k0;
         k1_ = tilingData->k1;
@@ -210,6 +197,7 @@ private:
         PROCESS_NUM_PER_STEP = tilingData->processNumPerStep;
         innerLoopTask_ = tilingData->innerLoopTask;
         BUFFER_NUM = tilingData->bufferNum;
+        SIMT_CHANNEL_THRES = tilingData->simtChannelThres;
 
         k12_ = k1_ * k2_;
         kernelSize_ = k0_ * k12_;
@@ -239,14 +227,13 @@ private:
     }
 
     __aicore__ inline void InitGM(GM_ADDR features, GM_ADDR weight, GM_ADDR grad_out_features, GM_ADDR indices_offset,
-        GM_ADDR features_grad, GM_ADDR weight_grad, GM_ADDR usrWorkspace)
-    {
-        inputFeaturesGM_.SetGlobalBuffer((__gm__ T*)features);
-        inputWeightGM_.SetGlobalBuffer((__gm__ T*)weight);
-        inputGradOutFeaturesGM_.SetGlobalBuffer((__gm__ T*)grad_out_features);
-        inputIndicesOffsetGM_.SetGlobalBuffer((__gm__ int32_t*)indices_offset);
-        outputFeaturesGradGM_.SetGlobalBuffer((__gm__ float*)features_grad);
-        outputWeightGradGM_.SetGlobalBuffer((__gm__ float*)weight_grad);
+        GM_ADDR features_grad, GM_ADDR weight_grad, GM_ADDR usrWorkspace) {
+        inputFeaturesGM_.SetGlobalBuffer((__gm__ T *)features);
+        inputWeightGM_.SetGlobalBuffer((__gm__ T *)weight);
+        inputGradOutFeaturesGM_.SetGlobalBuffer((__gm__ T *)grad_out_features);
+        inputIndicesOffsetGM_.SetGlobalBuffer((__gm__ int32_t *)indices_offset);
+        outputFeaturesGradGM_.SetGlobalBuffer((__gm__ float *)features_grad);
+        outputWeightGradGM_.SetGlobalBuffer((__gm__ float *)weight_grad);
 
         int64_t upperByteRatio = INT32_BYTE_SIZE / byteSizePerElement_;
         int64_t offset0 = 0;
@@ -259,19 +246,18 @@ private:
         int64_t offset7 = offset6 + totalTaskCount_ * halfK_;
         int64_t offset8 = offset7 + totalTaskCount_ * halfK_;
 
-        tmpSparseFeaturesGM0_.SetGlobalBuffer((__gm__ T*)(usrWorkspace) + offset0);
-        tmpSparseFeaturesGM1_.SetGlobalBuffer((__gm__ T*)(usrWorkspace) + offset1);
-        tmpSparseGradOutFeatGM0_.SetGlobalBuffer((__gm__ T*)(usrWorkspace) + offset2);
-        tmpSparseGradOutFeatGM1_.SetGlobalBuffer((__gm__ T*)(usrWorkspace) + offset3);
-        tmpMatmulResGM0_.SetGlobalBuffer((__gm__ float*)(usrWorkspace) + offset4);
-        tmpMatmulResGM1_.SetGlobalBuffer((__gm__ float*)(usrWorkspace) + offset5);
-        tmpSparseIndicesGM0_.SetGlobalBuffer((__gm__ int32_t*)(usrWorkspace) + offset6);
-        tmpSparseIndicesGM1_.SetGlobalBuffer((__gm__ int32_t*)(usrWorkspace) + offset7);
-        tmpSparseNumGM_.SetGlobalBuffer((__gm__ int32_t*)(usrWorkspace) + offset8);
+        tmpSparseFeaturesGM0_.SetGlobalBuffer((__gm__ T *)(usrWorkspace) + offset0);
+        tmpSparseFeaturesGM1_.SetGlobalBuffer((__gm__ T *)(usrWorkspace) + offset1);
+        tmpSparseGradOutFeatGM0_.SetGlobalBuffer((__gm__ T *)(usrWorkspace) + offset2);
+        tmpSparseGradOutFeatGM1_.SetGlobalBuffer((__gm__ T *)(usrWorkspace) + offset3);
+        tmpMatmulResGM0_.SetGlobalBuffer((__gm__ float *)(usrWorkspace) + offset4);
+        tmpMatmulResGM1_.SetGlobalBuffer((__gm__ float *)(usrWorkspace) + offset5);
+        tmpSparseIndicesGM0_.SetGlobalBuffer((__gm__ int32_t *)(usrWorkspace) + offset6);
+        tmpSparseIndicesGM1_.SetGlobalBuffer((__gm__ int32_t *)(usrWorkspace) + offset7);
+        tmpSparseNumGM_.SetGlobalBuffer((__gm__ int32_t *)(usrWorkspace) + offset8);
     }
 
-    __aicore__ inline void InitUB()
-    {
+    __aicore__ inline void InitUB() {
         pipe_->InitBuffer(indicesBuf_, INT_SPACE_NUM * indicesBufSize_ * INT32_BYTE_SIZE);
         pipe_->InitBuffer(featureLocalBuf_, BUFFER_NUM * PROCESS_NUM_PER_STEP * featureBufSize_ * byteSizePerElement_);
         pipe_->InitBuffer(
@@ -295,8 +281,7 @@ private:
         scatterFeatureLocal1_ = scatterFeatureLocal0_[BUFFER_NUM * featureBufSize_];
     }
 
-    __aicore__ inline void calCenterFeatureMatmul()
-    {
+    __aicore__ inline void calCenterFeatureMatmul() {
         // inputGradOutFeaturesGM_: [S, C2]
         // inputWeightGM_: [C1, C2]
         // outputFeaturesGradGM_: [S, C1]
@@ -316,8 +301,7 @@ private:
         featureMatmul_.End();
     }
 
-    __aicore__ inline void calCenterWeightMatmul()
-    {
+    __aicore__ inline void calCenterWeightMatmul() {
         // calculate center dense weight matmul
         // inputFeaturesGM_: [S, C1].T
         // inputGradOutFeaturesGM_: [S, C2]
@@ -338,8 +322,7 @@ private:
         weightMatmul_.End();
     }
 
-    __aicore__ inline void getSparseData(int32_t k)
-    {
+    __aicore__ inline void getSparseData(int32_t k) {
         uint16_t flagIdx = 0;
 
         for (int32_t idx = aivTaskOffset_; idx < totalTaskCount_; idx += singleLoopTask_ * aivNum_) {
@@ -360,8 +343,7 @@ private:
         }
     }
 
-    __aicore__ inline void copyInSortIndices(int32_t k, int32_t taskOffset, int32_t taskCount)
-    {
+    __aicore__ inline void copyInSortIndices(int32_t k, int32_t taskOffset, int32_t taskCount) {
         if (taskCount <= 0) {
             return;
         }
@@ -379,8 +361,7 @@ private:
         SetFlag<HardEvent::V_MTE3>(0);
     }
 
-    __aicore__ inline int32_t getSparseNum(int32_t taskCount)
-    {
+    __aicore__ inline int32_t getSparseNum(int32_t taskCount) {
         if (taskCount <= 0) {
             return 0;
         }
@@ -406,8 +387,7 @@ private:
         return sparseNum;
     }
 
-    __aicore__ inline void copyOutSparseIndices(int32_t k, int32_t taskOffset, int32_t sparseNum)
-    {
+    __aicore__ inline void copyOutSparseIndices(int32_t k, int32_t taskOffset, int32_t sparseNum) {
         if (taskOffset >= totalTaskCount_) {
             return;
         }
@@ -427,8 +407,7 @@ private:
             {static_cast<uint16_t>(1), static_cast<uint32_t>(sparseNum * INT32_BYTE_SIZE), 0, 0, 0});
     }
 
-    __aicore__ inline void copyOutSparseFeature(int32_t k, int32_t taskOffset, int32_t sparseNum)
-    {
+    __aicore__ inline void copyOutSparseFeature(int32_t k, int32_t taskOffset, int32_t sparseNum) {
         if (taskOffset >= totalTaskCount_) {
             return;
         }
@@ -438,137 +417,148 @@ private:
 
         for (uint8_t i = 0; i < BUFFER_NUM; i++) {
             SetFlag<HardEvent::MTE3_V>(i);
+            SetFlag<HardEvent::MTE3_MTE2>(i);
         }
 
         uint8_t flagIdx = 0;
         for (int32_t innerIdx = 0; innerIdx < sparseNum; innerIdx += innerLoopTask_) {
             int32_t innerTasks = min(innerLoopTask_, sparseNum - innerIdx);
             WaitFlag<HardEvent::MTE3_V>(flagIdx);
+            WaitFlag<HardEvent::MTE3_MTE2>(flagIdx);
 
             getSparseFeature(inputFeaturesGM_, gatherFeatureLocal0_[flagIdx * featureBufSize_],
                 gatherFeatureLocal1_[flagIdx * featureBufSize_], sparseIndicesLocal0_[innerIdx],
-                sparseIndicesLocal1_[innerIdx], innerTasks, inChannels_);
+                sparseIndicesLocal1_[innerIdx], innerTasks, inChannels_, inChannelsAligned_);
 
             getSparseFeature(inputGradOutFeaturesGM_, gatherGradOutFeatLocal0_[flagIdx * gradOutFeatBufSize_],
                 gatherGradOutFeatLocal1_[flagIdx * gradOutFeatBufSize_],
                 sparseIndicesLocal1_[innerIdx], // gradOutFeature的indices和inputFeatures的indices相反
-                sparseIndicesLocal0_[innerIdx], innerTasks, outChannels_);
+                sparseIndicesLocal0_[innerIdx], innerTasks, outChannels_, outChannelsAligned_);
 
             SetFlag<HardEvent::V_MTE3>(flagIdx);
             WaitFlag<HardEvent::V_MTE3>(flagIdx);
 
+            SetFlag<HardEvent::MTE2_MTE3>(flagIdx);
+            WaitFlag<HardEvent::MTE2_MTE3>(flagIdx);
+
             DataCopyPad(tmpSparseFeaturesGM0_[(taskOffset + innerIdx) * inChannels_],
                 gatherFeatureLocal0_[flagIdx * featureBufSize_],
-                {static_cast<uint16_t>(1), static_cast<uint32_t>(innerTasks * inChannels_ * byteSizePerElement_), 0, 0,
-                    0});
+                {static_cast<uint16_t>(innerTasks), static_cast<uint32_t>(inChannels_ * byteSizePerElement_), 0, 0, 0});
             DataCopyPad(tmpSparseFeaturesGM1_[(taskOffset + innerIdx) * inChannels_],
                 gatherFeatureLocal1_[flagIdx * featureBufSize_],
-                {static_cast<uint16_t>(1), static_cast<uint32_t>(innerTasks * inChannels_ * byteSizePerElement_), 0, 0,
-                    0});
+                {static_cast<uint16_t>(innerTasks), static_cast<uint32_t>(inChannels_ * byteSizePerElement_), 0, 0, 0});
 
             DataCopyPad(tmpSparseGradOutFeatGM0_[(taskOffset + innerIdx) * outChannels_],
                 gatherGradOutFeatLocal0_[flagIdx * gradOutFeatBufSize_],
-                {static_cast<uint16_t>(1), static_cast<uint32_t>(innerTasks * outChannels_ * byteSizePerElement_), 0, 0,
+                {static_cast<uint16_t>(innerTasks), static_cast<uint32_t>(outChannels_ * byteSizePerElement_), 0, 0,
                     0});
             DataCopyPad(tmpSparseGradOutFeatGM1_[(taskOffset + innerIdx) * outChannels_],
                 gatherGradOutFeatLocal1_[flagIdx * gradOutFeatBufSize_],
-                {static_cast<uint16_t>(1), static_cast<uint32_t>(innerTasks * outChannels_ * byteSizePerElement_), 0, 0,
+                {static_cast<uint16_t>(innerTasks), static_cast<uint32_t>(outChannels_ * byteSizePerElement_), 0, 0,
                     0});
 
             SetFlag<HardEvent::V_S>(flagIdx);
             WaitFlag<HardEvent::V_S>(flagIdx);
 
             SetFlag<HardEvent::MTE3_V>(flagIdx);
+            SetFlag<HardEvent::MTE3_MTE2>(flagIdx);
 
             flagIdx = (flagIdx + 1) % BUFFER_NUM;
         }
 
         for (uint8_t i = 0; i < BUFFER_NUM; i++) {
             WaitFlag<HardEvent::MTE3_V>(i);
+            WaitFlag<HardEvent::MTE3_MTE2>(i);
         }
     }
 
     __aicore__ inline void getSparseFeature(GlobalTensor<T> inputFeaturesGM, LocalTensor<T> sparseFeaturesLocal0,
         LocalTensor<T> sparseFeaturesLocal1, LocalTensor<int32_t> sparseIndicesLocal0,
-        LocalTensor<int32_t> sparseIndicesLocal1, int32_t sparseNum, int32_t channels)
-    {
+        LocalTensor<int32_t> sparseIndicesLocal1, int32_t sparseNum, int32_t channels, int32_t channelsAligned) {
+        if (channels >= SIMT_CHANNEL_THRES) {
+            for (int32_t idx = sparseNum - 1; idx >= 0; idx--) {
+                int32_t indiceVal0 = sparseIndicesLocal0.GetValue(idx);
+                int32_t indiceVal1 = sparseIndicesLocal1.GetValue(idx);
+
+                DataCopyPad(sparseFeaturesLocal0[idx * channelsAligned], inputFeaturesGM[indiceVal0 * channels],
+                    {1, static_cast<uint32_t>(channels * byteSizePerElement_), 0, 0, 0}, {false, 0, 0, 0});
+                DataCopyPad(sparseFeaturesLocal1[idx * channelsAligned], inputFeaturesGM[indiceVal1 * channels],
+                    {1, static_cast<uint32_t>(channels * byteSizePerElement_), 0, 0, 0}, {false, 0, 0, 0});
+            }
+            return;
+        }
+
         if (byteSizePerElement_ == FLOAT32_BYTE_SIZE && channels % FLOAT4_ELEM == 0) {
             uint32_t inputChannels = channels / FLOAT4_ELEM;
+            uint32_t inputChannelsAligned = channelsAligned / FLOAT4_ELEM;
 
-            callGatherSIMTFunc<FLOAT_DTYPE>((__gm__ FLOAT_DTYPE*)inputFeaturesGM.GetPhyAddr(),
-                (__ubuf__ FLOAT_DTYPE*)sparseFeaturesLocal0.GetPhyAddr(),
-                (__ubuf__ FLOAT_DTYPE*)sparseFeaturesLocal1.GetPhyAddr(),
-                (__ubuf__ int32_t*)sparseIndicesLocal0.GetPhyAddr(),
-                (__ubuf__ int32_t*)sparseIndicesLocal1.GetPhyAddr(), sparseNum, inputChannels);
+            callGatherSIMTFunc<FLOAT_DTYPE>((__gm__ FLOAT_DTYPE *)inputFeaturesGM.GetPhyAddr(),
+                (__ubuf__ FLOAT_DTYPE *)sparseFeaturesLocal0.GetPhyAddr(),
+                (__ubuf__ FLOAT_DTYPE *)sparseFeaturesLocal1.GetPhyAddr(),
+                (__ubuf__ int32_t *)sparseIndicesLocal0.GetPhyAddr(),
+                (__ubuf__ int32_t *)sparseIndicesLocal1.GetPhyAddr(), sparseNum, inputChannels, inputChannelsAligned);
         } else if (byteSizePerElement_ == FLOAT16_BYTE_SIZE && channels % HALF2_ELEM == 0) {
             uint32_t inputChannels = channels / HALF2_ELEM;
+            uint32_t inputChannelsAligned = channelsAligned / HALF2_ELEM;
 
-            callGatherSIMTFunc<HALF_DTYPE>((__gm__ HALF_DTYPE*)inputFeaturesGM.GetPhyAddr(),
-                (__ubuf__ HALF_DTYPE*)sparseFeaturesLocal0.GetPhyAddr(),
-                (__ubuf__ HALF_DTYPE*)sparseFeaturesLocal1.GetPhyAddr(),
-                (__ubuf__ int32_t*)sparseIndicesLocal0.GetPhyAddr(),
-                (__ubuf__ int32_t*)sparseIndicesLocal1.GetPhyAddr(), sparseNum, inputChannels);
+            callGatherSIMTFunc<HALF_DTYPE>((__gm__ HALF_DTYPE *)inputFeaturesGM.GetPhyAddr(),
+                (__ubuf__ HALF_DTYPE *)sparseFeaturesLocal0.GetPhyAddr(),
+                (__ubuf__ HALF_DTYPE *)sparseFeaturesLocal1.GetPhyAddr(),
+                (__ubuf__ int32_t *)sparseIndicesLocal0.GetPhyAddr(),
+                (__ubuf__ int32_t *)sparseIndicesLocal1.GetPhyAddr(), sparseNum, inputChannels, inputChannelsAligned);
         } else {
             AscendC::Simt::VF_CALL<getSparseFeatureSIMT<T>>(
-                AscendC::Simt::Dim3 {
-                    static_cast<uint32_t>(channels), THREAD_NUM / channels
-                },
-                (__gm__ T*)inputFeaturesGM.GetPhyAddr(), (__ubuf__ T*)sparseFeaturesLocal0.GetPhyAddr(),
-                (__ubuf__ T*)sparseFeaturesLocal1.GetPhyAddr(), (__ubuf__ int32_t*)sparseIndicesLocal0.GetPhyAddr(),
-                (__ubuf__ int32_t*)sparseIndicesLocal1.GetPhyAddr(), sparseNum, channels);
+                AscendC::Simt::Dim3{static_cast<uint32_t>(channels), THREAD_NUM / channels},
+                (__gm__ T *)inputFeaturesGM.GetPhyAddr(), (__ubuf__ T *)sparseFeaturesLocal0.GetPhyAddr(),
+                (__ubuf__ T *)sparseFeaturesLocal1.GetPhyAddr(), (__ubuf__ int32_t *)sparseIndicesLocal0.GetPhyAddr(),
+                (__ubuf__ int32_t *)sparseIndicesLocal1.GetPhyAddr(), sparseNum, channels, channelsAligned);
         }
     }
 
-    template<typename D>
-    __aicore__ inline void callGatherSIMTFunc(__gm__ D* inputFeaturesGM, __ubuf__ D* sparseFeaturesLocal0,
-        __ubuf__ D* sparseFeaturesLocal1, __ubuf__ int32_t* sparseIndicesLocal0, __ubuf__ int32_t* sparseIndicesLocal1,
-        int32_t sparseNum, uint32_t inputChannels)
-    {
-        // 2**3 -- 2**10
+    template <typename D>
+    __aicore__ inline void callGatherSIMTFunc(__gm__ D *inputFeaturesGM, __ubuf__ D *sparseFeaturesLocal0,
+        __ubuf__ D *sparseFeaturesLocal1, __ubuf__ int32_t *sparseIndicesLocal0, __ubuf__ int32_t *sparseIndicesLocal1,
+        int32_t sparseNum, uint32_t inputChannels, uint32_t inputChannelsAligned) {
+        // 2**3 -- 2**7
         switch (inputChannels) {
-            case 4:
-                Simt::VF_CALL<getSparseFeatureFastSIMT<D, 4>>(Simt::Dim3 {inputChannels, THREAD_NUM / inputChannels},
+        case 4:
+            if (byteSizePerElement_ == FLOAT16_BYTE_SIZE) {
+                Simt::VF_CALL<getSparseFeatureFastSIMT<D, 4, 8>>(Simt::Dim3{inputChannels, THREAD_NUM / inputChannels},
                     inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0,
                     sparseIndicesLocal1, sparseNum);
-                break;
-            case 8:
-                Simt::VF_CALL<getSparseFeatureFastSIMT<D, 8>>(Simt::Dim3 {inputChannels, THREAD_NUM / inputChannels},
+            } else {
+                Simt::VF_CALL<getSparseFeatureFastSIMT<D, 4, 4>>(Simt::Dim3{inputChannels, THREAD_NUM / inputChannels},
                     inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0,
                     sparseIndicesLocal1, sparseNum);
-                break;
-            case 16:
-                Simt::VF_CALL<getSparseFeatureFastSIMT<D, 16>>(Simt::Dim3 {inputChannels, THREAD_NUM / inputChannels},
-                    inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0,
-                    sparseIndicesLocal1, sparseNum);
-                break;
-            case 32:
-                Simt::VF_CALL<getSparseFeatureFastSIMT<D, 32>>(Simt::Dim3 {inputChannels, THREAD_NUM / inputChannels},
-                    inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0,
-                    sparseIndicesLocal1, sparseNum);
-                break;
-            case 64:
-                Simt::VF_CALL<getSparseFeatureFastSIMT<D, 64>>(Simt::Dim3 {inputChannels, THREAD_NUM / inputChannels},
-                    inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0,
-                    sparseIndicesLocal1, sparseNum);
-                break;
-            case 128:
-                Simt::VF_CALL<getSparseFeatureFastSIMT<D, 128>>(Simt::Dim3 {inputChannels, THREAD_NUM / inputChannels},
-                    inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0,
-                    sparseIndicesLocal1, sparseNum);
-                break;
-            default:
-                Simt::VF_CALL<getSparseFeatureSIMT<D>>(Simt::Dim3 {inputChannels, THREAD_NUM / inputChannels},
-                    inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0,
-                    sparseIndicesLocal1, sparseNum, inputChannels);
-                break;
+            }
+            break;
+        case 8:
+            Simt::VF_CALL<getSparseFeatureFastSIMT<D, 8, 8>>(Simt::Dim3{inputChannels, THREAD_NUM / inputChannels},
+                inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0, sparseIndicesLocal1,
+                sparseNum);
+            break;
+        case 16:
+            Simt::VF_CALL<getSparseFeatureFastSIMT<D, 16, 16>>(Simt::Dim3{inputChannels, THREAD_NUM / inputChannels},
+                inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0, sparseIndicesLocal1,
+                sparseNum);
+            break;
+        case 32:
+            Simt::VF_CALL<getSparseFeatureFastSIMT<D, 32, 32>>(Simt::Dim3{inputChannels, THREAD_NUM / inputChannels},
+                inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0, sparseIndicesLocal1,
+                sparseNum);
+            break;
+        default:
+            Simt::VF_CALL<getSparseFeatureSIMT<D>>(Simt::Dim3{inputChannels, THREAD_NUM / inputChannels},
+                inputFeaturesGM, sparseFeaturesLocal0, sparseFeaturesLocal1, sparseIndicesLocal0, sparseIndicesLocal1,
+                sparseNum, inputChannels, inputChannelsAligned);
+            break;
         }
     }
 
-    __aicore__ inline void processSparseMatmul(int32_t k)
-    {
+    __aicore__ inline void processSparseMatmul(int32_t k) {
         uint16_t flagIdx = 0;
         for (int32_t taskOffset = aicTaskOffset_; taskOffset < totalTaskCount_;
-            taskOffset += AIC_AIV_RATIO * singleLoopTask_ * aicNum_) {
+             taskOffset += AIC_AIV_RATIO * singleLoopTask_ * aicNum_) {
             calSparseMatmul(k, taskOffset, flagIdx);
             calSparseMatmul(k, taskOffset + singleLoopTask_, flagIdx + AIC_FLAG_OFFSET);
 
@@ -576,8 +566,7 @@ private:
         }
     }
 
-    __aicore__ inline void calSparseMatmul(int32_t k, int32_t taskOffset, uint16_t flagIdx)
-    {
+    __aicore__ inline void calSparseMatmul(int32_t k, int32_t taskOffset, uint16_t flagIdx) {
         if (taskOffset >= totalTaskCount_) {
             return;
         }
@@ -594,8 +583,7 @@ private:
         CrossCoreSetFlag<0x4, PIPE_FIX>(flagIdx);
     }
 
-    __aicore__ inline void calSparseFeatureMatmul(int32_t k, int32_t taskOffset, int32_t sparseNum)
-    {
+    __aicore__ inline void calSparseFeatureMatmul(int32_t k, int32_t taskOffset, int32_t sparseNum) {
         // tmpSparseGradOutFeatGM0_: [T, C2]
         // inputWeightGM_: [C1, C2]
         // tmpMatmulResGM0_: [S, C2] x [C1, C2].T = [S, C1]
@@ -626,8 +614,7 @@ private:
         featureMatmul_.End();
     }
 
-    __aicore__ inline void calSpraseWeightMatmul(int32_t k, int32_t taskOffset, int32_t sparseNum)
-    {
+    __aicore__ inline void calSpraseWeightMatmul(int32_t k, int32_t taskOffset, int32_t sparseNum) {
         if (sparseNum == 0) {
             return;
         }
@@ -656,8 +643,7 @@ private:
         weightMatmul_.End();
     }
 
-    __aicore__ inline void scatterAddSparseFeatures(int32_t k)
-    {
+    __aicore__ inline void scatterAddSparseFeatures(int32_t k) {
         uint16_t flagIdx = 0;
 
         for (int32_t idx = aivTaskOffset_; idx < totalTaskCount_; idx += singleLoopTask_ * aivNum_) {
@@ -675,8 +661,7 @@ private:
         PipeBarrier<PIPE_ALL>();
     }
 
-    __aicore__ inline void calScatterAdd(int32_t k, int32_t taskOffset)
-    {
+    __aicore__ inline void calScatterAdd(int32_t k, int32_t taskOffset) {
         if (taskOffset >= totalTaskCount_) {
             return;
         }
@@ -693,8 +678,12 @@ private:
         DataCopyPad(scatterIndicesLocal1_, tmpSparseIndicesGM1_[k * totalTaskCount_ + taskOffset],
             {static_cast<uint16_t>(1), static_cast<uint32_t>(sparseNum * INT32_BYTE_SIZE), 0, 0, 0}, {false, 0, 0, 0});
 
+        SetFlag<HardEvent::MTE2_S>(0);
+        WaitFlag<HardEvent::MTE2_S>(0);
+
         for (uint8_t i = 0; i < BUFFER_NUM; i++) {
             SetFlag<HardEvent::V_MTE2>(i);
+            SetFlag<HardEvent::MTE3_MTE2>(i);
         }
 
         uint8_t flagIdx = 0;
@@ -702,80 +691,108 @@ private:
             int32_t innerTasks = min(innerLoopTask_, sparseNum - innerIdx);
 
             WaitFlag<HardEvent::V_MTE2>(flagIdx);
+            WaitFlag<HardEvent::MTE3_MTE2>(flagIdx);
             DataCopyPad(scatterFeatureLocal0_[flagIdx * featureBufSize_],
                 tmpMatmulResGM0_[(taskOffset + innerIdx) * inChannels_],
-                {static_cast<uint16_t>(1), static_cast<uint32_t>(innerTasks * inChannels_ * FLOAT32_BYTE_SIZE), 0, 0,
-                    0},
+                {static_cast<uint16_t>(innerTasks), static_cast<uint32_t>(inChannels_ * FLOAT32_BYTE_SIZE), 0, 0, 0},
                 {false, 0, 0, 0});
             DataCopyPad(scatterFeatureLocal1_[flagIdx * featureBufSize_],
                 tmpMatmulResGM1_[(taskOffset + innerIdx) * inChannels_],
-                {static_cast<uint16_t>(1), static_cast<uint32_t>(innerTasks * inChannels_ * FLOAT32_BYTE_SIZE), 0, 0,
-                    0},
+                {static_cast<uint16_t>(innerTasks), static_cast<uint32_t>(inChannels_ * FLOAT32_BYTE_SIZE), 0, 0, 0},
                 {false, 0, 0, 0});
 
             SetFlag<HardEvent::MTE2_V>(flagIdx);
             WaitFlag<HardEvent::MTE2_V>(flagIdx);
 
-            callScatterSIMTFunc((__gm__ float*)outputFeaturesGradGM_.GetPhyAddr(),
-                (__ubuf__ int32_t*)scatterIndicesLocal0_[innerIdx].GetPhyAddr(),
-                (__ubuf__ int32_t*)scatterIndicesLocal1_[innerIdx].GetPhyAddr(),
-                (__ubuf__ float*)scatterFeatureLocal0_[flagIdx * featureBufSize_].GetPhyAddr(),
-                (__ubuf__ float*)scatterFeatureLocal1_[flagIdx * featureBufSize_].GetPhyAddr(), innerTasks,
-                inChannels_);
+            SetFlag<HardEvent::MTE2_MTE3>(flagIdx);
+            WaitFlag<HardEvent::MTE2_MTE3>(flagIdx);
 
-            SetFlag<HardEvent::V_S>(flagIdx + BUFFER_NUM);  // BUFFER_NUM <= 8
+            callScatterFunc(outputFeaturesGradGM_, scatterIndicesLocal0_[innerIdx], scatterIndicesLocal1_[innerIdx],
+                scatterFeatureLocal0_[flagIdx * featureBufSize_], scatterFeatureLocal1_[flagIdx * featureBufSize_],
+                innerTasks);
+
+            SetFlag<HardEvent::V_S>(flagIdx + BUFFER_NUM); // BUFFER_NUM <= 8
             WaitFlag<HardEvent::V_S>(flagIdx + BUFFER_NUM); // BUFFER_NUM <= 8
 
             SetFlag<HardEvent::V_MTE2>(flagIdx);
+            SetFlag<HardEvent::MTE3_MTE2>(flagIdx);
 
             flagIdx = (flagIdx + 1) % BUFFER_NUM;
         }
 
         for (uint8_t i = 0; i < BUFFER_NUM; i++) {
             WaitFlag<HardEvent::V_MTE2>(i);
+            WaitFlag<HardEvent::MTE3_MTE2>(i);
         }
     }
 
-    __aicore__ inline void callScatterSIMTFunc(__gm__ float* outputFeaturesGradGM_,
-        __ubuf__ int32_t* scatterIndicesLocal0_, __ubuf__ int32_t* scatterIndicesLocal1_,
-        __ubuf__ float* scatterFeatureLocal0_, __ubuf__ float* scatterFeatureLocal1_, int32_t innerTasks,
-        uint32_t inChannels_)
-    {
+    __aicore__ inline void callScatterFunc(GlobalTensor<float> outputFeaturesGradGM,
+        LocalTensor<int32_t> scatterIndicesLocal0, LocalTensor<int32_t> scatterIndicesLocal1,
+        LocalTensor<float> scatterFeatureLocal0, LocalTensor<float> scatterFeatureLocal1, int32_t innerTasks) {
+        if (inChannels_ >= SIMT_CHANNEL_THRES) {
+            SetAtomicAdd<float>();
+            for (int32_t idx = innerTasks - 1; idx >= 0; idx--) {
+                int32_t indiceVal0 = scatterIndicesLocal0.GetValue(idx);
+                int32_t indiceVal1 = scatterIndicesLocal1.GetValue(idx);
+
+                DataCopyPad(outputFeaturesGradGM[indiceVal0 * inChannels_],
+                    scatterFeatureLocal0[idx * inChannelsAligned_],
+                    {1, static_cast<uint32_t>(inChannels_ * FLOAT32_BYTE_SIZE), 0, 0, 0});
+                DataCopyPad(outputFeaturesGradGM[indiceVal1 * inChannels_],
+                    scatterFeatureLocal1[idx * inChannelsAligned_],
+                    {1, static_cast<uint32_t>(inChannels_ * FLOAT32_BYTE_SIZE), 0, 0, 0});
+            }
+            SetAtomicNone();
+
+            return;
+        }
+
+        callScatterSIMTFunc((__gm__ float *)outputFeaturesGradGM.GetPhyAddr(),
+            (__ubuf__ int32_t *)scatterIndicesLocal0.GetPhyAddr(),
+            (__ubuf__ int32_t *)scatterIndicesLocal1.GetPhyAddr(), (__ubuf__ float *)scatterFeatureLocal0.GetPhyAddr(),
+            (__ubuf__ float *)scatterFeatureLocal1.GetPhyAddr(), innerTasks);
+    }
+
+    __aicore__ inline void callScatterSIMTFunc(__gm__ float *outputFeaturesGradGM,
+        __ubuf__ int32_t *scatterIndicesLocal0, __ubuf__ int32_t *scatterIndicesLocal1,
+        __ubuf__ float *scatterFeatureLocal0, __ubuf__ float *scatterFeatureLocal1, int32_t innerTasks) {
+        // 2**3 -- 2**6
         switch (inChannels_) {
-            case 16:
-                Simt::VF_CALL<scatterAddFeatureFastSIMT<16>>(Simt::Dim3 {inChannels_, THREAD_NUM / inChannels_},
-                    outputFeaturesGradGM_, scatterIndicesLocal0_, scatterIndicesLocal1_, scatterFeatureLocal0_,
-                    scatterFeatureLocal1_, innerTasks);
-                break;
-            case 32:
-                Simt::VF_CALL<scatterAddFeatureFastSIMT<32>>(Simt::Dim3 {inChannels_, THREAD_NUM / inChannels_},
-                    outputFeaturesGradGM_, scatterIndicesLocal0_, scatterIndicesLocal1_, scatterFeatureLocal0_,
-                    scatterFeatureLocal1_, innerTasks);
-                break;
-            case 64:
-                Simt::VF_CALL<scatterAddFeatureFastSIMT<64>>(Simt::Dim3 {inChannels_, THREAD_NUM / inChannels_},
-                    outputFeaturesGradGM_, scatterIndicesLocal0_, scatterIndicesLocal1_, scatterFeatureLocal0_,
-                    scatterFeatureLocal1_, innerTasks);
-                break;
-            case 128:
-                Simt::VF_CALL<scatterAddFeatureFastSIMT<128>>(Simt::Dim3 {inChannels_, THREAD_NUM / inChannels_},
-                    outputFeaturesGradGM_, scatterIndicesLocal0_, scatterIndicesLocal1_, scatterFeatureLocal0_,
-                    scatterFeatureLocal1_, innerTasks);
-                break;
-            case 256:
-                Simt::VF_CALL<scatterAddFeatureFastSIMT<256>>(Simt::Dim3 {inChannels_, THREAD_NUM / inChannels_},
-                    outputFeaturesGradGM_, scatterIndicesLocal0_, scatterIndicesLocal1_, scatterFeatureLocal0_,
-                    scatterFeatureLocal1_, innerTasks);
-                break;
-            default:
-                Simt::VF_CALL<scatterAddFeatureSIMT>(Simt::Dim3 {inChannels_, THREAD_NUM / inChannels_},
-                    outputFeaturesGradGM_, scatterIndicesLocal0_, scatterIndicesLocal1_, scatterFeatureLocal0_,
-                    scatterFeatureLocal1_, innerTasks, inChannels_);
-                break;
+        case 8:
+            if (byteSizePerElement_ == FLOAT16_BYTE_SIZE) {
+                Simt::VF_CALL<scatterAddFeatureFastSIMT<8, 16>>(Simt::Dim3{inChannels_, THREAD_NUM / inChannels_},
+                    outputFeaturesGradGM, scatterIndicesLocal0, scatterIndicesLocal1, scatterFeatureLocal0,
+                    scatterFeatureLocal1, innerTasks);
+            } else {
+                Simt::VF_CALL<scatterAddFeatureFastSIMT<8, 8>>(Simt::Dim3{inChannels_, THREAD_NUM / inChannels_},
+                    outputFeaturesGradGM, scatterIndicesLocal0, scatterIndicesLocal1, scatterFeatureLocal0,
+                    scatterFeatureLocal1, innerTasks);
+            }
+            break;
+        case 16:
+            Simt::VF_CALL<scatterAddFeatureFastSIMT<16, 16>>(Simt::Dim3{inChannels_, THREAD_NUM / inChannels_},
+                outputFeaturesGradGM, scatterIndicesLocal0, scatterIndicesLocal1, scatterFeatureLocal0,
+                scatterFeatureLocal1, innerTasks);
+            break;
+        case 32:
+            Simt::VF_CALL<scatterAddFeatureFastSIMT<32, 32>>(Simt::Dim3{inChannels_, THREAD_NUM / inChannels_},
+                outputFeaturesGradGM, scatterIndicesLocal0, scatterIndicesLocal1, scatterFeatureLocal0,
+                scatterFeatureLocal1, innerTasks);
+            break;
+        case 64:
+            Simt::VF_CALL<scatterAddFeatureFastSIMT<64, 64>>(Simt::Dim3{inChannels_, THREAD_NUM / inChannels_},
+                outputFeaturesGradGM, scatterIndicesLocal0, scatterIndicesLocal1, scatterFeatureLocal0,
+                scatterFeatureLocal1, innerTasks);
+            break;
+        default:
+            Simt::VF_CALL<scatterAddFeatureSIMT>(Simt::Dim3{inChannels_, THREAD_NUM / inChannels_},
+                outputFeaturesGradGM, scatterIndicesLocal0, scatterIndicesLocal1, scatterFeatureLocal0,
+                scatterFeatureLocal1, innerTasks, inChannels_, inChannelsAligned_);
+            break;
         }
     }
 
-protected:
+  protected:
     int32_t aivNum_, aicNum_, k0_, k1_, k2_, k12_, halfK_, kernelSize_, inChannels_, inChannelsAligned_, outChannels_,
         outChannelsAligned_, byteSizePerElement_, coreTaskCount_, bigCoreCount_, singleLoopTask_,
         singleLoopTaskAligned_, blockIdx_, totalTaskCount_, totalTaskAligned_, aicTaskOffset_, aivTaskOffset_,
@@ -797,18 +814,16 @@ protected:
 
     LocalTensor<float> scatterFeatureLocal0_, scatterFeatureLocal1_;
 
-    TPipe* pipe_;
+    TPipe *pipe_;
 
-    int32_t INT_SPACE_NUM, PROCESS_NUM_PER_STEP, BUFFER_NUM;
+    int32_t INT_SPACE_NUM, PROCESS_NUM_PER_STEP, BUFFER_NUM, SIMT_CHANNEL_THRES;
 
     static constexpr SortConfig sortConfig_ = {SortType::RADIX_SORT, true};
 };
 
-
 extern "C" __global__ __aicore__ void subm_sparse_conv3d_grad_v2(GM_ADDR features, GM_ADDR weight,
     GM_ADDR grad_out_features, GM_ADDR indices_offset, GM_ADDR features_grad, GM_ADDR weight_grad, GM_ADDR workspace,
-    GM_ADDR tiling)
-{
+    GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
     GM_ADDR usrWorkspace = GetUserWorkspace(workspace);
     if (usrWorkspace == nullptr) {
