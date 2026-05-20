@@ -110,9 +110,8 @@ def generate_map(coors, spaned_spatial_shape, bs, kernel_size):
             + spaned_spatial_shape[1] * padding
         )
         map1 = torch.full((spatial_shape1 * bs,), -1, dtype=torch.int32, device=coors.device)
-
-        unique_idx = torch.unique(new_coors1)
-        map1_length = len(unique_idx)
+        # pylint: disable=unpacking-non-sequence
+        map1_length, unique_idx, _, _, _ = unique_voxel(new_coors1)
         map1[unique_idx] = torch.arange(map1_length, dtype=torch.int32, device=coors.device)
         map2 = torch.full((map1_length, spaned_spatial_shape[2]), -1, dtype=torch.int32, device=coors.device)
         map2[map1[new_coors1], (coors[:, 3] + padding)] = torch.arange(
