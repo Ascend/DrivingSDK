@@ -5,14 +5,12 @@ from pathlib import Path
 import torch
 import numpy as np
 
-import torch_npu
 from torch_npu.testing.testcase import TestCase, run_tests
 from data_cache import golden_data_cache
 from cv_fused_double_benchmark_compare import CvFusedDoubleBenchmarkAccuracyCompare
 
 
 class TestSparseConv3dGrad(TestCase):
-
     def setUp(self):
         self.stride = [[2, 2, 2], [2, 2, 2], [1, 1, 2]]
         self.padding = [[1, 1, 1], [1, 1, 0], [0, 0, 0]]
@@ -20,7 +18,6 @@ class TestSparseConv3dGrad(TestCase):
         self.batch_size = [1, 2, 3, 4]
 
     def random_input_generator(self, num_points, spatial_shape, in_channels, out_channels, kernel_size, dtype, seed=42):
-
         np.random.seed(seed)
         torch.manual_seed(seed)
         rand_idx = np.random.randint(0, len(self.stride))
@@ -92,7 +89,9 @@ class TestSparseConv3dGrad(TestCase):
         return sorted_idx_to_former_indices.int(), unique_indices_offset.int()
 
     @golden_data_cache(__file__)
-    def sparse_conv3d_grad_cpu(self, sorted_indices, indices_offset, features, weight, grad=None, benchmark="single_benchmark"):
+    def sparse_conv3d_grad_cpu(
+        self, sorted_indices, indices_offset, features, weight, grad=None, benchmark="single_benchmark"
+    ):
         ori_dtype = features.dtype
         if ori_dtype == torch.float16:
             features = features.float().cpu()
@@ -116,29 +115,35 @@ class TestSparseConv3dGrad(TestCase):
             .int()
         )
 
-        k_pos = (sorted_indices[indices_offset[0] : indices_offset[-1]] % k_size).int()
-        input_idx = (sorted_indices[indices_offset[0] : indices_offset[-1]] / k_size).int()
-
-        img2col_mat = torch.zeros(
-            (out_length, k_size, features.shape[-1]), device=features.device, dtype=features.dtype
-        )
-        img2col_mat[arange_idx, k_pos] = features[input_idx]
+        k_pos = (sorted_indices[indices_offset[0] : indices_offset[-1]] % k_size).long()
+        input_idx = (sorted_indices[indices_offset[0] : indices_offset[-1]] // k_size).long()
 
         if grad is None:
             grad = torch.ones((out_length, out_channels), device=features.device, dtype=features.dtype)
         else:
             grad = grad.to(features.dtype)
-        # (out_num, k*k*k*cIn).T @ (out_num, cOut) = (k*k*k*cIn, cOut)
-        weight_grad = img2col_mat.reshape(out_length, -1).T @ grad
-        weight_grad = weight_grad.reshape(k0, k1, k2, in_channels, out_channels)
-        # (out_num, cOut) @ (k*k*k*cIn, cOut).T = (out_num, k*k*k*cIn)
-        img2col_feature_grad = grad @ weight.reshape(-1, out_channels).T
 
-        flat_index = arange_idx * k_size + k_pos
-        selected_grad = img2col_feature_grad.reshape(-1, in_channels)[flat_index]
-        feature_grad = torch.zeros_like(features, device=features.device, dtype=features.dtype)
-        target_indices = input_idx.long()
-        feature_grad.scatter_add_(dim=0, index=target_indices.unsqueeze(1).expand(-1, in_channels), src=selected_grad)
+        # 按 kernel position 分组计算，避免 (out_length, k_size * in_channels) 超大中间张量
+        weight_by_kp = weight.reshape(k_size, in_channels, out_channels)
+        weight_grad = torch.zeros(k_size, in_channels, out_channels, device=features.device, dtype=features.dtype)
+        feature_grad = torch.zeros_like(features)
+        arange_idx_long = arange_idx.long()
+
+        for kp in range(k_size):
+            mask = k_pos == kp
+            if not mask.any():
+                continue
+            ai_kp = arange_idx_long[mask]  # 对应 output voxel 的 index
+            ii_kp = input_idx[mask]  # 对应 input point 的 index
+            feat_kp = features[ii_kp]  # (Mk, in_channels)
+            grad_kp = grad[ai_kp]  # (Mk, out_channels)
+            # weight_grad[kp] += feat_kp.T @ grad_kp  -> (in_channels, out_channels)
+            weight_grad[kp] = feat_kp.T @ grad_kp
+            # feature_grad contribution: grad_kp @ weight[kp].T -> (Mk, in_channels)
+            sg_kp = grad_kp @ weight_by_kp[kp].T
+            feature_grad.scatter_add_(0, ii_kp.unsqueeze(1).expand(-1, in_channels), sg_kp)
+
+        weight_grad = weight_grad.reshape(k0, k1, k2, in_channels, out_channels)
         return feature_grad.to(ori_dtype), weight_grad.to(ori_dtype)
 
     @golden_data_cache(__file__)
@@ -165,7 +170,9 @@ class TestSparseConv3dGrad(TestCase):
         indices = np.concatenate(indices, axis=0)
         return torch.from_numpy(indices).int()
 
-    def get_golden_output(self, sorted_indices, indices_offset, features, weight, grad=None, benchmark="single_benchmark"):
+    def get_golden_output(
+        self, sorted_indices, indices_offset, features, weight, grad=None, benchmark="single_benchmark"
+    ):
         feature_grad, weight_grad = self.sparse_conv3d_grad_cpu(
             sorted_indices, indices_offset, features, weight, grad, benchmark="single_benchmark"
         )
@@ -191,14 +198,15 @@ class TestSparseConv3dGrad(TestCase):
         return gpu_out_data["feature_grad"], gpu_out_data["weight_grad"]
 
     def cpu_single_benchmark_compare(self, input_data):
-
         features, indices, weight, spatial_shape, batch_size, kernel_size, stride, padding, dilation = input_data
         sorted_indices, indices_offset = self.cal_sparse_conv3d_indices(
             indices, spatial_shape, kernel_size, stride, padding
         )
-        
+
         grad = torch.rand(len(indices_offset) - 1, weight.shape[-1], dtype=features.dtype) * 2 - 1
-        feature_grad_npu, weight_grad_npu = self.get_npu_output(sorted_indices, indices_offset, features, weight, grad=grad.npu())
+        feature_grad_npu, weight_grad_npu = self.get_npu_output(
+            sorted_indices, indices_offset, features, weight, grad=grad.npu()
+        )
         feature_grad_golden, weight_grad_golden = self.get_golden_output(
             sorted_indices, indices_offset, features, weight, grad=grad, benchmark="single_benchmark"
         )
@@ -210,7 +218,6 @@ class TestSparseConv3dGrad(TestCase):
         self.assertRtolEqual(weight_grad_npu, weight_grad_golden, 1e-3)
 
     def cv_fused_double_benchmark_compare(self, case_path):
-
         input_data = torch.load(case_path / "input.pt", map_location="cpu")
         features, indices, weight, spatial_shape, batch_size, kernel_size, stride, padding, dilation = (
             input_data.values()
@@ -224,7 +231,7 @@ class TestSparseConv3dGrad(TestCase):
         feature_grad_golden, weight_grad_golden = self.get_golden_output(
             sorted_indices, indices_offset, features, weight, "double_benchmark"
         )
-        
+
         feature_grad_npu = feature_grad_npu.detach().cpu()
         weight_grad_npu = weight_grad_npu.detach().cpu()
         compare = CvFusedDoubleBenchmarkAccuracyCompare(
@@ -236,7 +243,6 @@ class TestSparseConv3dGrad(TestCase):
         assert "False" not in ret, f"Accuracy check failed for case: {case_path}"
 
     def case_test_iterator(self, case_dict):
-
         for i, (case_key, case_value) in enumerate(case_dict.items()):
             num_points, spatial_shape, in_channels, out_channels, kernel_size, dtype = case_value.values()
 
@@ -246,8 +252,8 @@ class TestSparseConv3dGrad(TestCase):
                 f"{num_points}_{kernel_size[0]}_{kernel_size[1]}_{kernel_size[2]}_{dtype}"
             )
             case_path = Path(gpu_out_path) / "sparse_conv3d_grad_gpu" / case_dir_name if gpu_out_path else None
-            
-            double_benchmark_flag = False # (case_path is not None) and os.path.exists(case_path)
+
+            double_benchmark_flag = False  # (case_path is not None) and os.path.exists(case_path)
             if double_benchmark_flag:
                 self.cv_fused_double_benchmark_compare(case_path)
             else:
