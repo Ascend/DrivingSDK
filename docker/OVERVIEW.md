@@ -20,15 +20,16 @@ The image tags follow this naming convention:
 
 | Field | Description | Available Values |
 |-------|-------------|------------------|
-| **DrivingSDK_VERSION** | Driving SDK version | `26.0.0` |
+| **DrivingSDK_VERSION** | Driving SDK version | `26.0.0`, `master` |
 | **CANN_VERSION** | CANN version | `8.5.1`, `9.0.0` |
-| **NPU_TYPE** | NPU type | `A2`, `A3`|
+| **NPU_TYPE** | NPU type | `A2`, `A3`, `950`|
 | **OS_TYPE** | Operating System type | `ubuntu22.04`, `openeuler24.03` |
 
 ### Examples
 
-- `26.0.0-cann8.5.1-910b-ubuntu22.04`: CANN 8.5.1, A2, Ubuntu 22.04
-- `26.0.0-cann9.0.0-a3-openeuler24.03`: CANN 9.0.0, A3, openEuler 24.03
+- `26.0.0-cann8.5.1-910b-ubuntu22.04`: Driving SDK 26.0.0, CANN 8.5.1, A2, Ubuntu 22.04
+- `26.0.0-cann9.0.0-a3-openeuler24.03`: Driving SDK 26.0.0, CANN 9.0.0, A3, openEuler 24.03
+- `master-cann9.0.0-950-ubuntu22.04`: Driving SDK master, CANN 9.0.0, 950, Ubuntu 22.04
 
 ---
 
@@ -53,6 +54,10 @@ docker/
 ├── 9.0.0-a3-openeuler24.03/
 │   └── Dockerfile
 ├── 9.0.0-a3-ubuntu22.04/
+│   └── Dockerfile
+├── 9.0.0-950-ubuntu22.04/
+│   └── Dockerfile
+├── 9.0.0-950-openeuler24.03/
 │   └── Dockerfile
 ├── install_bevformer.sh
 ├── install_bevfusion.sh
@@ -127,6 +132,7 @@ docker run -it --rm \
 |----------|--------------|-------------|--------|
 | **A2** | x86_64, aarch64 | A2 | Production Ready |
 | **A3** | x86_64, aarch64 | A3 | Production Ready |
+| **950** | x86_64, aarch64 | 950 | Preview |
 
 ### Supported Operating Systems
 
@@ -139,17 +145,17 @@ docker run -it --rm \
 
 The Docker images provide multiple Python environments via Miniconda:
 
-| Environment | Python Version | PyTorch Version | Use Case |
-|-------------|----------------|-----------------|----------|
-| `torch2.1` | 3.8 | 2.1.0 | General PyTorch development |
-| `torch2.7.1` | 3.10 | 2.7.1 | Latest PyTorch features |
-| `bevformer` | 3.10 | 2.7.1 | BEVFormer model training |
-| `bevfusion` | 3.10 | 2.7.1 | BEVFusion model training |
-| `sparse4d` | 3.10 | 2.7.1 | Sparse4D model training |
+| Environment | Python Version | PyTorch Version | Use Case | Status |
+|-------------|----------------|-----------------|----------|--------|
+| `torch2.1` | 3.8 | 2.1.0 | General PyTorch development | Production Ready |
+| `torch2.7.1` | 3.10 | 2.7.1 | Latest PyTorch features | Production Ready |
+| `bevformer` | 3.10 | 2.7.1 | BEVFormer model training | Not ready for 950 |
+| `bevfusion` | 3.10 | 2.7.1 | BEVFusion model training | Not ready for 950 |
+| `sparse4d` | 3.10 | 2.7.1 | Sparse4D model training | Not ready for 950 |
 
 ### Hardware Requirements
 
-- **Minimum**: 1 NPU device (A2 or A3)
+- **Minimum**: 1 NPU device (A2 or A3 or 950)
 - **Recommended**: 2+ NPU devices for distributed training
 - **Memory**: Minimum 32GB RAM, recommended 64GB+
 - **Storage**: Minimum 100GB for Docker images and datasets
@@ -160,7 +166,7 @@ The Docker images provide multiple Python environments via Miniconda:
 
 ### Core Components
 
-- **DrivingSDK**: Driving SDK version 26.0.0
+- **DrivingSDK**: Driving SDK version 26.0.0 or master
 - **CANN**: Compute Architecture for Neural Networks (8.5.1 / 9.0.0)
 - **PyTorch**: Deep learning framework (2.1.0 / 2.7.1)
 - **torch-npu**: PyTorch NPU backend
@@ -268,5 +274,5 @@ For production deployments, please consult the official Atlas documentation and 
 
 ---
 
-**Last Updated**: 2026-04-23
+**Last Updated**: 2026-05-19
 **Maintainer**: Driving SDK Team

@@ -20,15 +20,16 @@
 
 | 字段 | 说明 | 可选值 |
 |------|------|--------|
-| **DrivingSDK_VERSION** | Driving SDK 版本 | `26.0.0` |
+| **DrivingSDK_VERSION** | Driving SDK 版本 | `26.0.0`, `master` |
 | **CANN_VERSION** | CANN 版本 | `8.5.1`, `9.0.0` |
-| **NPU_TYPE** | NPU 类型 | `A2`, `a3`|
+| **NPU_TYPE** | NPU 类型 | `A2`, `A3`, `950`|
 | **OS_TYPE** | 操作系统类型 | `ubuntu22.04`, `openeuler24.03` |
 
 ### 示例
 
-- `26.0.0-cann8.5.1-910b-ubuntu22.04`: CANN 8.5.1, A2, Ubuntu 22.04
-- `26.0.0-cann9.0.0-a3-openeuler24.03`: CANN 9.0.0, A3, openEuler 24.03
+- `26.0.0-cann8.5.1-910b-ubuntu22.04`: Driving SDK 26.0.0, CANN 8.5.1, A2, Ubuntu 22.04
+- `26.0.0-cann9.0.0-a3-openeuler24.03`: Driving SDK 26.0.0, CANN 9.0.0, A3, openEuler 24.03
+- `master-cann9.0.0-950-ubuntu22.04`: Driving SDK master, CANN 9.0.0, 950, Ubuntu 22.04
 
 ---
 
@@ -53,6 +54,10 @@ docker/
 ├── 9.0.0-a3-openeuler24.03/
 │   └── Dockerfile
 ├── 9.0.0-a3-ubuntu22.04/
+│   └── Dockerfile
+├── 9.0.0-950-ubuntu22.04/
+│   └── Dockerfile
+├── 9.0.0-950-openeuler24.03/
 │   └── Dockerfile
 ├── install_bevformer.sh
 ├── install_bevfusion.sh
@@ -127,6 +132,7 @@ docker run -it --rm \
 |----------|------|------|------|
 | **A2** | x86_64, aarch64 | A2 | 生产就绪 |
 | **A3** | x86_64, aarch64 | A3 | 生产就绪 |
+| **950** | x86_64, aarch64 | 950 | 预览 |
 
 ### 支持的操作系统
 
@@ -139,17 +145,17 @@ docker run -it --rm \
 
 Docker 镜像通过 Miniconda 提供多种 Python 环境：
 
-| 环境 | Python 版本 | PyTorch 版本 | 用途 |
-|------|-------------|--------------|------|
-| `torch2.1` | 3.8 | 2.1.0 | 通用 PyTorch 开发 |
-| `torch2.7.1` | 3.10 | 2.7.1 | 最新 PyTorch 特性 |
-| `bevformer` | 3.10 | 2.7.1 | BEVFormer 模型训练 |
-| `bevfusion` | 3.10 | 2.7.1 | BEVFusion 模型训练 |
-| `sparse4d` | 3.10 | 2.7.1 | Sparse4D 模型训练 |
+| 环境 | Python 版本 | PyTorch 版本 | 用途 | 状态 |
+|------|-------------|--------------|------|------|
+| `torch2.1` | 3.8 | 2.1.0 | 通用 PyTorch 开发 | 生产就绪 |
+| `torch2.7.1` | 3.10 | 2.7.1 | 最新 PyTorch 特性 | 生产就绪 |
+| `bevformer` | 3.10 | 2.7.1 | BEVFormer 模型训练 | 950 暂不支持 |
+| `bevfusion` | 3.10 | 2.7.1 | BEVFusion 模型训练 | 950 暂不支持 |
+| `sparse4d` | 3.10 | 2.7.1 | Sparse4D 模型训练 | 950 暂不支持 |
 
 ### 硬件要求
 
-- **最低配置**: 1 个 NPU 设备 (A2 或 A3)
+- **最低配置**: 1 个 NPU 设备 (A2 或 A3 或 950)
 - **推荐配置**: 2 个以上 NPU 设备用于分布式训练
 - **内存**: 最低 32GB RAM，推荐 64GB 以上
 - **存储**: 最低 100GB，用于 Docker 镜像和数据集
@@ -160,7 +166,7 @@ Docker 镜像通过 Miniconda 提供多种 Python 环境：
 
 ### 核心组件
 
-- **DrivingSDK**: Driving SDK 版本 26.0.0
+- **DrivingSDK**: Driving SDK 版本 26.0.0 或 master
 - **CANN**: 神经网络计算架构 (8.5.1 / 9.0.0)
 - **PyTorch**: 深度学习框架 (2.1.0 / 2.7.1)
 - **torch-npu**: 昇腾 PyTorch NPU 后端
@@ -268,5 +274,5 @@ pip install your-package
 
 ---
 
-**最后更新**: 2026-04-23
+**最后更新**: 2026-05-19
 **维护者**: Driving SDK 团队

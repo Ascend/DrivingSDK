@@ -6,26 +6,27 @@
 # This script downloads and installs pre-built Driving SDK wheel packages
 #
 # Usage:
-#   bash install_drivingsdk.sh <BUILD_DATE> <TORCH_VERSION> <PYTHON_VERSION> <ARCH>
+#   bash install_drivingsdk.sh <BUILD_DATE> <TORCH_VERSION> <PYTHON_VERSION> <ARCH> <BASE_URL>
 #
 # Arguments:
 #   BUILD_DATE     - Build date in format YYYYMMDD (e.g., 20260421)
 #   TORCH_VERSION  - PyTorch version (e.g., 2.1.0, 2.7.1)
 #   PYTHON_VERSION - Python version (e.g., 38, 3.10, 311)
 #   ARCH           - Architecture (x86_64 or aarch64)
+#   BASE_URL       - Base download URL (e.g., https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0)
 #   BUILD_NUMBER   - Optional: Build number (default: 2)
 #
 # Example:
-#   bash install_drivingsdk.sh 20260421 2.7.1 3.10 x86_64
+#   bash install_drivingsdk.sh 20260421 2.7.1 3.10 x86_64 https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0
 # ============================================================================
 
 set -e
 
 # Parse arguments
-if [ $# -lt 4 ]; then
+if [ $# -lt 5 ]; then
     echo "Error: Insufficient arguments"
-    echo "Usage: bash install_drivingsdk.sh <BUILD_DATE> <TORCH_VERSION> <PYTHON_VERSION> <ARCH> [BUILD_NUMBER]"
-    echo "Example: bash install_drivingsdk.sh 20260421 2.7.1 3.10 x86_64"
+    echo "Usage: bash install_drivingsdk.sh <BUILD_DATE> <TORCH_VERSION> <PYTHON_VERSION> <ARCH> <BASE_URL> [BUILD_NUMBER]"
+    echo "Example: bash install_drivingsdk.sh 20260421 2.7.1 3.10 x86_64 https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0"
     exit 1
 fi
 
@@ -33,7 +34,8 @@ BUILD_DATE=$1
 TORCH_VERSION=$2
 PYTHON_VERSION=$3
 ARCH=$4
-BUILD_NUMBER=${5:-2}  # Default to 2 if not provided
+BASE_URL=$5
+BUILD_NUMBER=${6:-2}
 
 # Convert Python version format (3.10 -> cp310)
 PYTHON_TAG="cp${PYTHON_VERSION//./}"
@@ -49,7 +51,6 @@ else
 fi
 
 # Construct download URL
-BASE_URL="https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0"
 TARBALL_NAME="mx_driving-1.0.${BUILD_DATE}-${PYTHON_TAG}-${PYTHON_TAG}-linux_${ARCH_TAG}.whl"
 DOWNLOAD_URL="${BASE_URL}/torch${TORCH_VERSION}/${BUILD_DATE}.${BUILD_NUMBER}/${TARBALL_NAME}"
 
@@ -60,6 +61,7 @@ echo "Build Date:      ${BUILD_DATE}.${BUILD_NUMBER}"
 echo "PyTorch Version: ${TORCH_VERSION}"
 echo "Python Version:  ${PYTHON_VERSION}"
 echo "Architecture:    ${ARCH} (${ARCH_TAG})"
+echo "Base URL:        ${BASE_URL}"
 echo "Download URL:    ${DOWNLOAD_URL}"
 echo "========================================"
 echo ""

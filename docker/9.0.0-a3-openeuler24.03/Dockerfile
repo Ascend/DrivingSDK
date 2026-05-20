@@ -61,7 +61,7 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     /opt/conda/envs/torch2.1/bin/pip install --no-cache-dir torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cpu && \
     /opt/conda/envs/torch2.1/bin/pip install --no-cache-dir torch-npu==2.1.0.post17 && \
     /opt/conda/envs/torch2.1/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
-    bash /tmp/install_drivingsdk.sh 20260421 2.1.0 3.8 $(uname -m)
+    bash /tmp/install_drivingsdk.sh 20260421 2.1.0 3.8 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0
 
 # ============================================================================
 # Stage 4: Create torch2.7.1 Environments
@@ -88,7 +88,7 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     /opt/conda/envs/torch2.7.1/bin/pip install --no-cache-dir torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu && \
     /opt/conda/envs/torch2.7.1/bin/pip install --no-cache-dir torch-npu==2.7.1.post2 && \
     /opt/conda/envs/torch2.7.1/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
-    bash /tmp/install_drivingsdk.sh 20260421 2.7.1 3.10 $(uname -m)
+    bash /tmp/install_drivingsdk.sh 20260421 2.7.1 3.10 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0
 
 # ============================================================================
 # Stage 5: Create BEVFormer Environments
@@ -119,7 +119,7 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     /opt/conda/envs/bevformer/bin/pip install --no-cache-dir torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu && \
     /opt/conda/envs/bevformer/bin/pip install --no-cache-dir torch-npu==2.7.1.post2 && \
     /opt/conda/envs/bevformer/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
-    bash /tmp/install_drivingsdk.sh 20260421 2.7.1 3.10 $(uname -m)
+    bash /tmp/install_drivingsdk.sh 20260421 2.7.1 3.10 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0
 
 RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /opt/conda/etc/profile.d/conda.sh && \
@@ -155,7 +155,7 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     /opt/conda/envs/bevfusion/bin/pip install --no-cache-dir torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu && \
     /opt/conda/envs/bevfusion/bin/pip install --no-cache-dir torch-npu==2.7.1.post2 && \
     /opt/conda/envs/bevfusion/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
-    bash /tmp/install_drivingsdk.sh 20260421 2.7.1 3.10 $(uname -m)
+    bash /tmp/install_drivingsdk.sh 20260421 2.7.1 3.10 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0
 
 RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /opt/conda/etc/profile.d/conda.sh && \
@@ -191,7 +191,7 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     /opt/conda/envs/sparse4d/bin/pip install --no-cache-dir torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu && \
     /opt/conda/envs/sparse4d/bin/pip install --no-cache-dir torch-npu==2.7.1.post2 && \
     /opt/conda/envs/sparse4d/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
-    bash /tmp/install_drivingsdk.sh 20260421 2.7.1 3.10 $(uname -m)
+    bash /tmp/install_drivingsdk.sh 20260421 2.7.1 3.10 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/Daily/branch_v26.0.0
 
 RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /opt/conda/etc/profile.d/conda.sh && \
