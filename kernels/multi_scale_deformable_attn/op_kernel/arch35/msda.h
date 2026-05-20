@@ -10,18 +10,18 @@
 using namespace AscendC;
 using namespace MicroAPI;
 
-template<typename T, typename U>
+template <typename T, typename U>
 __aicore__ inline void ComputeGmOffsetVF(uint16_t taskRpt_, uint32_t numHeads_, uint32_t embedDims_,
-        uint32_t baseOffset, uint32_t nextOffset, uint32_t baseCount, const LocalTensor<T> locationFloat,
-        const LocalTensor<T> shapeFloat, const LocalTensor<U> offsetInt, const LocalTensor<U> gmOffset,
-        const LocalTensor<U> validMaskTensor)
-{
-    __local_mem__ T* locationFloatPtr = (__local_mem__ T*) locationFloat.GetPhyAddr();
-    __local_mem__ T* locationInputsPtr = (__local_mem__ T*) locationFloat[2 * taskRpt_ * B32_DATA_NUM_PER_REPEAT].GetPhyAddr();
-    __local_mem__ T* shapeFloatPtr = (__local_mem__ T*) shapeFloat.GetPhyAddr();
-    __local_mem__ U* offsetIntPtr = (__local_mem__ U*) offsetInt.GetPhyAddr();
-    __local_mem__ U* gmOffsetPtr = (__local_mem__ U*) gmOffset.GetPhyAddr();
-    __local_mem__ U* validMaskPtr = (__local_mem__ U*) validMaskTensor.GetPhyAddr();
+    uint32_t baseOffset, uint32_t nextOffset, uint32_t baseCount, const LocalTensor<T> locationFloat,
+    const LocalTensor<T> shapeFloat, const LocalTensor<U> offsetInt, const LocalTensor<U> gmOffset,
+    const LocalTensor<U> validMaskTensor) {
+    __local_mem__ T *locationFloatPtr = (__local_mem__ T *)locationFloat.GetPhyAddr();
+    __local_mem__ T *locationInputsPtr =
+        (__local_mem__ T *)locationFloat[2 * taskRpt_ * B32_DATA_NUM_PER_REPEAT].GetPhyAddr();
+    __local_mem__ T *shapeFloatPtr = (__local_mem__ T *)shapeFloat.GetPhyAddr();
+    __local_mem__ U *offsetIntPtr = (__local_mem__ U *)offsetInt.GetPhyAddr();
+    __local_mem__ U *gmOffsetPtr = (__local_mem__ U *)gmOffset.GetPhyAddr();
+    __local_mem__ U *validMaskPtr = (__local_mem__ U *)validMaskTensor.GetPhyAddr();
 
     __VEC_SCOPE__ {
         MicroAPI::RegTensor<T> locationXY1Reg, locationXY2Reg, shapeInput1Reg, shapeInput2Reg;
@@ -34,17 +34,18 @@ __aicore__ inline void ComputeGmOffsetVF(uint16_t taskRpt_, uint32_t numHeads_, 
         MicroAPI::RegTensor<U> baseOffsetReg;
 
         MicroAPI::RegTensor<U> validMaskReg;
-        MicroAPI::RegTensor<U> bilinearValidPoint1Reg, bilinearValidPoint2Reg, bilinearValidPoint3Reg, bilinearValidPoint4Reg;
+        MicroAPI::RegTensor<U> bilinearValidPoint1Reg, bilinearValidPoint2Reg, bilinearValidPoint3Reg,
+            bilinearValidPoint4Reg;
 
         MicroAPI::RegTensor<T> constOffsetReg;
         MicroAPI::RegTensor<U> zeroReg;
 
         MicroAPI::MaskReg mask = MicroAPI::CreateMask<T, AscendC::MicroAPI::MaskPattern::ALL>();
 
-        static constexpr AscendC::MicroAPI::CastTrait castF2ITrait = 
-            {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::SAT, MicroAPI::MaskMergeMode::ZEROING, RoundMode::CAST_FLOOR};
-        static constexpr AscendC::MicroAPI::CastTrait castI2FTrait = 
-            {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::SAT, MicroAPI::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
+        static constexpr AscendC::MicroAPI::CastTrait castF2ITrait = {
+            MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::SAT, MicroAPI::MaskMergeMode::ZEROING, RoundMode::CAST_FLOOR};
+        static constexpr AscendC::MicroAPI::CastTrait castI2FTrait = {
+            MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::SAT, MicroAPI::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
 
         Duplicate(constOffsetReg, -0.5, mask);
         Duplicate(zeroReg, 0, mask);
@@ -62,7 +63,7 @@ __aicore__ inline void ComputeGmOffsetVF(uint16_t taskRpt_, uint32_t numHeads_, 
             MicroAPI::DeInterleave(widthFloatReg, heightFloatReg, shapeInput1Reg, shapeInput2Reg);
             MicroAPI::FusedMulDstAdd(locationXReg, widthFloatReg, constOffsetReg, mask);
             MicroAPI::FusedMulDstAdd(locationYReg, heightFloatReg, constOffsetReg, mask);
-            
+
             MicroAPI::Interleave(locationXY1Reg, locationXY2Reg, locationXReg, locationYReg);
             MicroAPI::DataCopy(locationFloatPtr + 2 * localOffset, locationXY1Reg, mask);
             MicroAPI::DataCopy(locationFloatPtr + 2 * localOffset + B32_DATA_NUM_PER_REPEAT, locationXY2Reg, mask);
@@ -99,8 +100,8 @@ __aicore__ inline void ComputeGmOffsetVF(uint16_t taskRpt_, uint32_t numHeads_, 
             MicroAPI::MaskReg leftMask, rightMask, bottomMask, topMask;
             MicroAPI::Adds(widthFloatReg, widthFloatReg, -1.0f, mask);
             MicroAPI::Adds(heightFloatReg, heightFloatReg, -1.0f, mask);
-            MicroAPI::Compares<T, CMPMODE::GT>(leftMask, locationXReg, 0.0f, mask);
-            MicroAPI::Compares<T, CMPMODE::GT>(bottomMask, locationYReg, 0.0f, mask);
+            MicroAPI::Compares<T, CMPMODE::GE>(leftMask, locationXReg, 0.0f, mask);
+            MicroAPI::Compares<T, CMPMODE::GE>(bottomMask, locationYReg, 0.0f, mask);
             MicroAPI::Compare<T, CMPMODE::LT>(rightMask, locationXReg, widthFloatReg, mask);
             MicroAPI::Compare<T, CMPMODE::LT>(topMask, locationYReg, heightFloatReg, mask);
 
