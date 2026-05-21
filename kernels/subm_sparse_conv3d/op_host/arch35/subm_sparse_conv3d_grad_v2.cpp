@@ -10,7 +10,6 @@ using namespace ge;
 using namespace std;
 using namespace AscendC;
 
-
 namespace {
 const int32_t TOTAL_TASK_DIM_IDX = 0;
 const int32_t INT32_BYTE_SIZE = 4;
@@ -40,11 +39,9 @@ const int32_t REVERSED_USER_WORKSPACE = 16 * 1024 * 1024;
 const int32_t AIC_AIV_RATIO = 2;
 } // namespace
 
-
 // define tiling function
 namespace optiling {
-ge::graphStatus TilingForSubmSparseConv3dGradV2(gert::TilingContext* context)
-{
+ge::graphStatus TilingForSubmSparseConv3dGradV2(gert::TilingContext *context) {
     SubmConv3dGradV2TillingData tilingData;
     CHECK_NULLPTR(context);
     auto ascendPlatformInfo = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
@@ -92,6 +89,7 @@ ge::graphStatus TilingForSubmSparseConv3dGradV2(gert::TilingContext* context)
     int32_t halfK = kernelSize / 2;
     int32_t kernelSizeAligned = CeilAlign(kernelSize, BYTE_ALIGN_SIZE / byteSizePerElement);
     int32_t inChannelsAligned = CeilAlign(inChannels, BYTE_ALIGN_SIZE / byteSizePerElement);
+    int32_t inChannelsFP32Align = CeilAlign(inChannels, BYTE_ALIGN_SIZE / FLOAT32_BYTE_SIZE);
     int32_t outChannelsAlinged = CeilAlign(outChannels, BYTE_ALIGN_SIZE / byteSizePerElement);
     int64_t totalTaskAligned = CeilAlign(totalTaskCount, static_cast<int64_t>(BYTE_ALIGN_SIZE / byteSizePerElement));
     int32_t upperCoreTaskCount = coreTaskCount + (bigCoreCount > 0);
@@ -108,17 +106,16 @@ ge::graphStatus TilingForSubmSparseConv3dGradV2(gert::TilingContext* context)
     int32_t singleLoopTask = (INDICES_MEM - INT_SPACE_NUM * SINGLE_LOOP_COMPARE_UB) / (INT_SPACE_NUM * INT32_BYTE_SIZE);
     singleLoopTask = max(min(singleLoopTask, DivCeil(upperCoreTaskCount, AIC_AIV_RATIO)), 1);
     // innerLoopTask表示处理channels的任务量
-    int32_t innerLoopTask =
-        (ubSize - usedUBSize) /
+    int32_t innerLoopTask = (ubSize - usedUBSize) /
         (BUFFER_NUM * PROCESS_NUM_PER_STEP *
-            (byteSizePerElement * (inChannelsAligned + outChannelsAlinged) + FLOAT32_BYTE_SIZE * inChannelsAligned));
+            (byteSizePerElement * (inChannelsAligned + outChannelsAlinged) + FLOAT32_BYTE_SIZE * inChannelsFP32Align));
     if (innerLoopTask <= 0) {
         return ge::GRAPH_FAILED;
     }
 
     // define matmul tiling
-    auto matmul_dtype = byteSizePerElement == FLOAT16_BYTE_SIZE ? matmul_tiling::DataType::DT_FLOAT16 :
-                                                                  matmul_tiling::DataType::DT_FLOAT;
+    auto matmul_dtype = byteSizePerElement == FLOAT16_BYTE_SIZE ? matmul_tiling::DataType::DT_FLOAT16
+                                                                : matmul_tiling::DataType::DT_FLOAT;
 
     matmul_tiling::MatmulApiTiling featureMatmulTiling(ascendPlatformInfo);
     featureMatmulTiling.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_dtype);
@@ -176,26 +173,24 @@ ge::graphStatus TilingForSubmSparseConv3dGradV2(gert::TilingContext* context)
     size_t tmpSparseIndicesWorkSpaceSize = halfK * totalTaskCount * INT32_BYTE_SIZE * PROCESS_NUM_PER_STEP;
     size_t tmpSparseNumCountWorkSpaceSize = halfK * totalTaskCount * INT32_BYTE_SIZE;
 
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     CHECK_NULLPTR(currentWorkspace);
     currentWorkspace[0] = systemWorkspaceSize + tmpFeatureMatmulResWorkSpaceSize + tmpSparseFeaturesWorkSpaceSize +
-                          tmpSparseGradOutFeaturesWorkSpaceSize + tmpSparseIndicesWorkSpaceSize +
-                          tmpSparseNumCountWorkSpaceSize + REVERSED_USER_WORKSPACE;
+        tmpSparseGradOutFeaturesWorkSpaceSize + tmpSparseIndicesWorkSpaceSize + tmpSparseNumCountWorkSpaceSize +
+        REVERSED_USER_WORKSPACE;
 
     return ge::GRAPH_SUCCESS;
 }
 } // namespace optiling
 
-
 // define infer shape function
 namespace ge {
-static ge::graphStatus InferShapeForSubmSparseConv3dGradV2(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShapeForSubmSparseConv3dGradV2(gert::InferShapeContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* featrueGradShape = context->GetOutputShape(OUTPUT_FEATURES_GRAD_IDX);
-    gert::Shape* weightGradShape = context->GetOutputShape(OUTPUT_WEIGHT_GRAD_IDX);
+    gert::Shape *featrueGradShape = context->GetOutputShape(OUTPUT_FEATURES_GRAD_IDX);
+    gert::Shape *weightGradShape = context->GetOutputShape(OUTPUT_WEIGHT_GRAD_IDX);
     if (featrueGradShape == nullptr || weightGradShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -230,8 +225,7 @@ static ge::graphStatus InferShapeForSubmSparseConv3dGradV2(gert::InferShapeConte
     return GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForSubmSparseConv3dGradV2(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForSubmSparseConv3dGradV2(gert::InferDataTypeContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -245,13 +239,11 @@ static ge::graphStatus InferDataTypeForSubmSparseConv3dGradV2(gert::InferDataTyp
 }
 } // namespace ge
 
-
 // op prototype registry
 namespace ops {
 class SubmSparseConv3dGradV2 : public OpDef {
-public:
-    explicit SubmSparseConv3dGradV2(const char* name) : OpDef(name)
-    {
+  public:
+    explicit SubmSparseConv3dGradV2(const char *name) : OpDef(name) {
         this->Input("features")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})

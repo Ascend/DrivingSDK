@@ -203,6 +203,7 @@ template <typename T> class SubmSparseConv3dGradV2 {
         kernelSize_ = k0_ * k12_;
         halfK_ = kernelSize_ / TWO;
         inChannelsAligned_ = AlignUp(inChannels_, BYTE_SIZE_PER_BLOCK / byteSizePerElement_);
+        inChannelsFP32Align_ = AlignUp(inChannels_, BYTE_SIZE_PER_BLOCK / FLOAT32_BYTE_SIZE);
         outChannelsAligned_ = AlignUp(outChannels_, BYTE_SIZE_PER_BLOCK / byteSizePerElement_);
         singleLoopTaskAligned_ = AlignUp(singleLoopTask_, BYTE_SIZE_PER_BLOCK / INT32_BYTE_SIZE);
         totalTaskAligned_ = AlignUp(totalTaskCount_, BYTE_SIZE_PER_BLOCK / byteSizePerElement_);
@@ -210,6 +211,7 @@ template <typename T> class SubmSparseConv3dGradV2 {
 
         featureBufSize_ = innerLoopTask_ * inChannelsAligned_;
         gradOutFeatBufSize_ = innerLoopTask_ * outChannelsAligned_;
+        scatterFP32BufSize_ = innerLoopTask_ * inChannelsFP32Align_;
 
         if ASCEND_IS_AIC {
             if (blockIdx_ < bigCoreCount_) {
@@ -262,7 +264,8 @@ template <typename T> class SubmSparseConv3dGradV2 {
         pipe_->InitBuffer(featureLocalBuf_, BUFFER_NUM * PROCESS_NUM_PER_STEP * featureBufSize_ * byteSizePerElement_);
         pipe_->InitBuffer(
             gradOutFeatLocalBuf_, BUFFER_NUM * PROCESS_NUM_PER_STEP * gradOutFeatBufSize_ * byteSizePerElement_);
-        pipe_->InitBuffer(scatterLocalBuf_, BUFFER_NUM * PROCESS_NUM_PER_STEP * featureBufSize_ * FLOAT32_BYTE_SIZE);
+        pipe_->InitBuffer(
+            scatterLocalBuf_, BUFFER_NUM * PROCESS_NUM_PER_STEP * scatterFP32BufSize_ * FLOAT32_BYTE_SIZE);
 
         indicesLocal_ = indicesBuf_.Get<int32_t>();
         sparseIndicesLocal0_ = indicesLocal_[indicesBufSize_];
@@ -278,7 +281,7 @@ template <typename T> class SubmSparseConv3dGradV2 {
         gatherGradOutFeatLocal1_ = gatherGradOutFeatLocal0_[BUFFER_NUM * gradOutFeatBufSize_];
 
         scatterFeatureLocal0_ = scatterLocalBuf_.Get<float>();
-        scatterFeatureLocal1_ = scatterFeatureLocal0_[BUFFER_NUM * featureBufSize_];
+        scatterFeatureLocal1_ = scatterFeatureLocal0_[BUFFER_NUM * scatterFP32BufSize_];
     }
 
     __aicore__ inline void calCenterFeatureMatmul() {
@@ -692,11 +695,11 @@ template <typename T> class SubmSparseConv3dGradV2 {
 
             WaitFlag<HardEvent::V_MTE2>(flagIdx);
             WaitFlag<HardEvent::MTE3_MTE2>(flagIdx);
-            DataCopyPad(scatterFeatureLocal0_[flagIdx * featureBufSize_],
+            DataCopyPad(scatterFeatureLocal0_[flagIdx * scatterFP32BufSize_],
                 tmpMatmulResGM0_[(taskOffset + innerIdx) * inChannels_],
                 {static_cast<uint16_t>(innerTasks), static_cast<uint32_t>(inChannels_ * FLOAT32_BYTE_SIZE), 0, 0, 0},
                 {false, 0, 0, 0});
-            DataCopyPad(scatterFeatureLocal1_[flagIdx * featureBufSize_],
+            DataCopyPad(scatterFeatureLocal1_[flagIdx * scatterFP32BufSize_],
                 tmpMatmulResGM1_[(taskOffset + innerIdx) * inChannels_],
                 {static_cast<uint16_t>(innerTasks), static_cast<uint32_t>(inChannels_ * FLOAT32_BYTE_SIZE), 0, 0, 0},
                 {false, 0, 0, 0});
@@ -708,8 +711,8 @@ template <typename T> class SubmSparseConv3dGradV2 {
             WaitFlag<HardEvent::MTE2_MTE3>(flagIdx);
 
             callScatterFunc(outputFeaturesGradGM_, scatterIndicesLocal0_[innerIdx], scatterIndicesLocal1_[innerIdx],
-                scatterFeatureLocal0_[flagIdx * featureBufSize_], scatterFeatureLocal1_[flagIdx * featureBufSize_],
-                innerTasks);
+                scatterFeatureLocal0_[flagIdx * scatterFP32BufSize_],
+                scatterFeatureLocal1_[flagIdx * scatterFP32BufSize_], innerTasks);
 
             SetFlag<HardEvent::V_S>(flagIdx + BUFFER_NUM); // BUFFER_NUM <= 8
             WaitFlag<HardEvent::V_S>(flagIdx + BUFFER_NUM); // BUFFER_NUM <= 8
@@ -736,10 +739,10 @@ template <typename T> class SubmSparseConv3dGradV2 {
                 int32_t indiceVal1 = scatterIndicesLocal1.GetValue(idx);
 
                 DataCopyPad(outputFeaturesGradGM[indiceVal0 * inChannels_],
-                    scatterFeatureLocal0[idx * inChannelsAligned_],
+                    scatterFeatureLocal0[idx * inChannelsFP32Align_],
                     {1, static_cast<uint32_t>(inChannels_ * FLOAT32_BYTE_SIZE), 0, 0, 0});
                 DataCopyPad(outputFeaturesGradGM[indiceVal1 * inChannels_],
-                    scatterFeatureLocal1[idx * inChannelsAligned_],
+                    scatterFeatureLocal1[idx * inChannelsFP32Align_],
                     {1, static_cast<uint32_t>(inChannels_ * FLOAT32_BYTE_SIZE), 0, 0, 0});
             }
             SetAtomicNone();
@@ -787,16 +790,17 @@ template <typename T> class SubmSparseConv3dGradV2 {
         default:
             Simt::VF_CALL<scatterAddFeatureSIMT>(Simt::Dim3{inChannels_, THREAD_NUM / inChannels_},
                 outputFeaturesGradGM, scatterIndicesLocal0, scatterIndicesLocal1, scatterFeatureLocal0,
-                scatterFeatureLocal1, innerTasks, inChannels_, inChannelsAligned_);
+                scatterFeatureLocal1, innerTasks, inChannels_, inChannelsFP32Align_);
             break;
         }
     }
 
   protected:
-    int32_t aivNum_, aicNum_, k0_, k1_, k2_, k12_, halfK_, kernelSize_, inChannels_, inChannelsAligned_, outChannels_,
-        outChannelsAligned_, byteSizePerElement_, coreTaskCount_, bigCoreCount_, singleLoopTask_,
-        singleLoopTaskAligned_, blockIdx_, totalTaskCount_, totalTaskAligned_, aicTaskOffset_, aivTaskOffset_,
-        matmulTaskOffset_, indicesBufSize_, innerLoopTask_, featureBufSize_, gradOutFeatBufSize_;
+    int32_t aivNum_, aicNum_, k0_, k1_, k2_, k12_, halfK_, kernelSize_, inChannels_, inChannelsAligned_,
+        inChannelsFP32Align_, outChannels_, outChannelsAligned_, byteSizePerElement_, coreTaskCount_, bigCoreCount_,
+        singleLoopTask_, singleLoopTaskAligned_, blockIdx_, totalTaskCount_, totalTaskAligned_, aicTaskOffset_,
+        aivTaskOffset_, matmulTaskOffset_, indicesBufSize_, innerLoopTask_, featureBufSize_, gradOutFeatBufSize_,
+        scatterFP32BufSize_;
 
     TBuf<TPosition::VECCALC> indicesBuf_, featureLocalBuf_, scatterLocalBuf_, gradOutFeatLocalBuf_;
 
