@@ -21,6 +21,7 @@ constexpr int32_t UNROLL_NUM = 2;
 constexpr int32_t AIC_FLAG_RANGE = 10;
 constexpr int32_t AIC_FLAG_OFFSET = 16;
 constexpr int32_t AIC_AIV_RATIO = 2;
+constexpr int32_t SIMT_CHANNEL_THRES = 128;
 } // namespace
 
 template <typename T>
@@ -197,7 +198,6 @@ template <typename T> class SubmSparseConv3dGradV2 {
         PROCESS_NUM_PER_STEP = tilingData->processNumPerStep;
         innerLoopTask_ = tilingData->innerLoopTask;
         BUFFER_NUM = tilingData->bufferNum;
-        SIMT_CHANNEL_THRES = tilingData->simtChannelThres;
 
         k12_ = k1_ * k2_;
         kernelSize_ = k0_ * k12_;
@@ -816,7 +816,7 @@ template <typename T> class SubmSparseConv3dGradV2 {
 
     TPipe *pipe_;
 
-    int32_t INT_SPACE_NUM, PROCESS_NUM_PER_STEP, BUFFER_NUM, SIMT_CHANNEL_THRES;
+    int32_t INT_SPACE_NUM, PROCESS_NUM_PER_STEP, BUFFER_NUM;
 
     static constexpr SortConfig sortConfig_ = {SortType::RADIX_SORT, true};
 };
