@@ -280,8 +280,8 @@ index 3e9e30f..ac0e64b 100644
  import numpy as np
 +import numbers
  import torch
--import transformer_engine as te  # codespell:ignore te
-+# import transformer_engine as te  # codespell:ignore te
+-import transformer_engine as te
++# import transformer_engine as te
  from einops import rearrange
  from torch import Tensor, nn
  from torch.utils.checkpoint import checkpoint
@@ -370,7 +370,7 @@ index 3e9e30f..ac0e64b 100644
      if name == "I":
          return nn.Identity()
      elif name == "R":
--        return te.pytorch.RMSNorm(channels, eps=1e-6)  # codespell:ignore te
+-        return te.pytorch.RMSNorm(channels, eps=1e-6)
 +        return RMSNorm(channels, eps=1e-6)
      else:
          raise ValueError(f"Normalization {name} not found")
@@ -600,7 +600,7 @@ index 3e9e30f..ac0e64b 100644
              raise ValueError(f"Backend {backend} not found")
 
 @@ -434,6 +693,9 @@ class Attention(nn.Module):
-             ), "Seqlen must be larger than 1 for Transformer Engine attention starting with version 1.8."
+             ), "Seqlen must be larger than 1 for TE Attention starting with 1.8 TE version."
              out = self.attn_op(q, k, v, core_attention_bias_type="no_bias", core_attention_bias=None)  # [B, Mq, H, V]
              return self.to_out(out)
 +        elif self.backend == "torch":
@@ -710,8 +710,8 @@ index a4febfe..d8bd306 100644
  import numpy as np
  import torch
  import torch.nn.functional as F
--import transformer_engine as te  # codespell:ignore te
-+# import transformer_engine as te  # codespell:ignore te
+-import transformer_engine as te
++# import transformer_engine as te
  from einops import rearrange
  from packaging import version
  from torch import nn
@@ -897,7 +897,7 @@ index a4febfe..d8bd306 100644
          else:
              assert is_gated is False, "is_gated needs to be False to support Tensor Parallelism"
              assert dropout == 0.0, "dropout needs to be 0.0 to support Tensor Parallelism"
--            self.layer1 = te.pytorch.Linear(  # codespell:ignore te
+-            self.layer1 = te.pytorch.Linear(
 -                d_model,
 -                d_ff,
 -                bias=bias,
@@ -909,7 +909,7 @@ index a4febfe..d8bd306 100644
                  sequence_parallel=sequence_parallel,
 +                dtype=torch.float16  # Confirm the dtype requirement.
              )
--            self.layer2 = te.pytorch.Linear(  # codespell:ignore te
+-            self.layer2 = te.pytorch.Linear(
 -                d_ff,
 -                d_model,
 +
@@ -980,7 +980,7 @@ index a4febfe..d8bd306 100644
      if name == "I":
          return nn.Identity()
      elif name == "R":
--        return te.pytorch.RMSNorm(channels, eps=1e-6)  # codespell:ignore te
+-        return te.pytorch.RMSNorm(channels, eps=1e-6)
 +        return RMSNorm(channels, eps=1e-6)
      else:
          raise ValueError(f"Normalization {name} not found")
@@ -994,7 +994,7 @@ index a4febfe..d8bd306 100644
      ) -> torch.Tensor:
 -        """
 -        Computes the scaled dot-product attention over the input tensors using the specified backend.
--        B is the batch size, M the sequence length, H the number of heads, and K the embedding size per head
+-        B is the batch size, M the sequence length, H the number of heads, and K the embeding size per head
 +        """Computes multi-head attention using PyTorch's native implementation.
 
 -        check F.scaled_dot_product_attention
@@ -1081,7 +1081,7 @@ index a4febfe..d8bd306 100644
 +                return torch.nn.init.normal_(tensor, mean=mean, std=std)
 +
              self.to_q = nn.Sequential(
--                te.pytorch.Linear(  # codespell:ignore te
+-                te.pytorch.Linear(
 -                    query_dim,
 -                    inner_dim,
 +                ColumnParallelLinear(
@@ -1103,7 +1103,7 @@ index a4febfe..d8bd306 100644
              )
 +
              self.to_k = nn.Sequential(
--                te.pytorch.Linear(  # codespell:ignore te
+-                te.pytorch.Linear(
 -                    context_dim,
 -                    inner_dim,
 +                ColumnParallelLinear(
@@ -1125,7 +1125,7 @@ index a4febfe..d8bd306 100644
              )
 +
              self.to_v = nn.Sequential(
--                te.pytorch.Linear(  # codespell:ignore te
+-                te.pytorch.Linear(
 -                    context_dim,
 -                    inner_dim,
 +                ColumnParallelLinear(
@@ -1147,7 +1147,7 @@ index a4febfe..d8bd306 100644
              )
 
              self.to_out = nn.Sequential(
--                te.pytorch.Linear(  # codespell:ignore te
+-                te.pytorch.Linear(
 -                    inner_dim,
 -                    query_dim,
 +                RowParallelLinear(

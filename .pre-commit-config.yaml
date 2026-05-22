@@ -41,7 +41,7 @@ repos:
             "-L",
             "CANN,cann,NNAL,nnal,ASCEND,ascend,EnQue,CopyIn,ArchType,AND,ND,tbe,copyin,alog,dout",
             "--skip",
-            "*.toml,*.py,*.cpp,*.hpp,*.c,*.h",
+            "*.toml,*.py,*.cpp,*.hpp,*.c,*.h,*.patch",
           ]
 
   # pylint：指定 pre-commit/pyproject.toml
