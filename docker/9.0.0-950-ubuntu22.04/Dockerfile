@@ -61,7 +61,7 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     /opt/conda/envs/torch2.1/bin/pip install --no-cache-dir torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cpu && \
     /opt/conda/envs/torch2.1/bin/pip install --no-cache-dir torch-npu==2.1.0.post17 && \
     /opt/conda/envs/torch2.1/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
-    bash /tmp/install_drivingsdk.sh 20260519 2.1.0 3.8 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/A5/Daily/master/ 4
+    bash /tmp/install_drivingsdk.sh 20260519 2.1.0 3.8 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/A5/Daily/master 4
 
 # ============================================================================
 # Stage 4: Create torch2.7.1 Environments
@@ -88,6 +88,6 @@ RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     /opt/conda/envs/torch2.7.1/bin/pip install --no-cache-dir torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cpu && \
     /opt/conda/envs/torch2.7.1/bin/pip install --no-cache-dir torch-npu==2.7.1.post2 && \
     /opt/conda/envs/torch2.7.1/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
-    bash /tmp/install_drivingsdk.sh 20260519 2.7.1 3.10 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/A5/Daily/master/ 5
+    bash /tmp/install_drivingsdk.sh 20260519 2.7.1 3.10 $(uname -m) https://pytorch-package.obs.cn-north-4.myhuaweicloud.com/DrivingSDK/A5/Daily/master 5
 
 RUN echo "source /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
