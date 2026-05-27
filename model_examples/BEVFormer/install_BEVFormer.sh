@@ -72,6 +72,7 @@ if [ "$IS_A5" -eq 1 ]; then
     cd BEVFormer
     git checkout 66b65f3a1f58caf0507cb2a971b9c0e7f842376c
     git apply --reject --whitespace=fix bevformer_a5.patch
+    pip install numpy==1.23.5
     cd ..
 else
     git clone https://github.com/fundamentalvision/BEVFormer.git

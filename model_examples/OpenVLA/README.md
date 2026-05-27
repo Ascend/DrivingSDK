@@ -35,7 +35,7 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
   url=https://github.com/openvla/openvla
   commit_id=c8f03f48af692657d3060c19588038c7220e9af9
   ```
-  
+
 - 适配昇腾 AI 处理器的实现：
 
   ```shell
@@ -48,7 +48,7 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
 ## 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   首次支持版本   |
@@ -64,8 +64,8 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
 
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
-  |    Python      | 3.10 |
-  |    PyTorch     |  2.6.0   |
+  |    Python      | 3.11 |
+  |    PyTorch     |  2.7.1   |
 
 - 安装Driving SDK
 
@@ -80,9 +80,9 @@ OpenVLA 是一个 70 亿参数的开源视觉 - 语言 - 动作模型，基于 O
 - 安装基础依赖
 
   在模型根目录下执行命令，安装模型需要的依赖
-  
+
   ```shell
-  conda create -n openvla python=3.10
+  conda create -n openvla python=3.11
   conda activate openvla
   cd DrivingSDK/model_examples/OpenVLA
   export VLA_HOME=`pwd`
@@ -191,7 +191,7 @@ export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
 按照 [Hugging Face user access token](https://huggingface.co/docs/hub/en/security-tokens) 创建 `hf_token` 记作 `hf_...`
 
   ```shell
-  # 用自己的 hf_token 替换  "hf_..." 
+  # 用自己的 hf_token 替换  "hf_..."
   echo hf_... >> .hf_token
   ```
 
