@@ -67,32 +67,63 @@ Isaac GR00T-N1 是 NVIDIA 在2025年初发布的视觉 - 语言 - 动作（VLA�
 
 2. 准备模型源码，安装gr00t
 
-      在 GR00T-N1.5根目录下，克隆原始仓，替换其中部分代码并安装
+    在 GR00T-N1.5根目录下，克隆原始仓，替换其中部分代码并安装
 
-      ```sh
-      git clone https://github.com/NVIDIA/Isaac-GR00T
-      cd Isaac-GR00T
-      git checkout a86e9159a7e6acf771479007a79d4aeaa408c4c0
-      cp -f ../gr00t.patch ./
-      git apply --reject gr00t.patch
-      pip install --upgrade setuptools
-      pip install -e .[base] --no-build-isolation
-      cp -f ../test/train* ./
+    ```sh
+    git clone https://github.com/NVIDIA/Isaac-GR00T
+    cd Isaac-GR00T
+    git checkout a86e9159a7e6acf771479007a79d4aeaa408c4c0
+    cp -f ../gr00t.patch ./
+    git apply --reject gr00t.patch
+    pip install --upgrade setuptools
+    pip install -e .[base] --no-build-isolation
+    cp -f ../test/train* ./
     ```
 
-3. 安装ffmpeg与decord
+3. 安装ffmpeg
+
+    - 推荐基于conda安装
 
     ```sh
     # 安装ffmpeg
     conda install -c conda-forge ffmpeg=4.4.2
+    ```
 
+    - 若采用源码安装，则步骤如下
+
+    ```sh
+    # 下载源码
+    wget https://ffmpeg.org/releases/ffmpeg-4.4.2.tar.bz2
+    tar -xvf ffmpeg-4.4.2.tar.bz2
+    cd ffmpeg-4.4.2
+    # 执行此步时环境中可能需要手动下载部分依赖包
+    ./configure --enable-shared --prefix=/usr/local/ffmpeg
+    make -j 64
+    make install
+    cd ..
+
+    # 编辑全局配置文件
+    vim /etc/profile.d/ffmpeg.sh
+
+    # 添加以下内容
+    export PATH="/usr/local/ffmpeg/bin:$PATH"
+    export LD_LIBRARY_PATH="/usr/local/ffmpeg/lib:$LD_LIBRARY_PATH"
+
+    # 使配置立即生效
+    source /etc/profile
+    # 运行命令后应正常输出相关配置等信息
+    ffmpeg
+    ```
+
+4. 安装decord
+
+    ```sh
     # 安装decord
     git clone --recursive https://github.com/dmlc/decord --depth 1
     cd decord
     mkdir build && cd build
     cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH=$CONDA_PREFIX
     make
-
     # 编译whl包
     cd ../python
     python setup.py sdist bdist_wheel

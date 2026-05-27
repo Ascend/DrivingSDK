@@ -12,7 +12,7 @@
   - [安装模型环境](#安装模型环境)
 - [准备数据集](#准备数据集)
   - [获取预训练权重](#获取预训练权重)
-  - [准备数据集](#准备数据集)
+  - [准备数据集](#准备数据集-1)
 - [快速开始](#快速开始)
   - [单机8卡训练](#单机8卡训练)
   - [单卡推理](#单卡推理)
@@ -77,39 +77,97 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
 
 2. 准备模型源码，安装gr00t
 
-      在 GR00T-N1.6根目录下，克隆原始仓，替换其中部分代码并安装
+    在 GR00T-N1.6根目录下，克隆原始仓，替换其中部分代码并安装
 
-      ```sh
-      git clone https://github.com/NVIDIA/Isaac-GR00T.git
-      cd Isaac-GR00T
-      git checkout e29d8fc50b0e4745120ae3fb72447986fe638aa6
-      cp -f ../gr00t_n1d6.patch ./
-      git apply --reject gr00t_n1d6.patch
-      pip install -e .
-      cp -f ../test/train* ./
+    ```sh
+    git clone https://github.com/NVIDIA/Isaac-GR00T.git
+    cd Isaac-GR00T
+    git checkout e29d8fc50b0e4745120ae3fb72447986fe638aa6
+    cp -f ../gr00t_n1d6.patch ./
+    git apply --reject gr00t_n1d6.patch
+    pip install -e .
+    cp -f ../test/train* ./
     ```
 
-3. 安装ffmpeg, torchcodec和decord
+3. 安装ffmpeg
+
+    - 推荐基于conda安装
 
     ```sh
     # 安装ffmpeg
     conda install -c conda-forge ffmpeg=4.4.2
     export PKG_CONFIG_PATH=$CONDA_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
+    ```
 
-    # 安装torchcodec
+    - 若采用源码安装，则步骤如下
+
+    ```sh
+    # 下载源码
+    wget https://ffmpeg.org/releases/ffmpeg-4.4.2.tar.bz2
+    tar -xvf ffmpeg-4.4.2.tar.bz2
+    cd ffmpeg-4.4.2
+    # 执行此步时环境中可能需要手动下载部分依赖包
+    ./configure --prefix=/usr/local/ffmpeg --disable-doc --disable-openssl --enable-avresample --enable-demuxer=dash --enable-hardcoded-tables --enable-libfreetype --enable-libfontconfig --enable-libopenh264 --enable-gnutls --enable-libmp3lame --enable-libvpx --enable-pthreads --enable-gpl --enable-libx264 --enable-libx265 --enable-libaom --enable-libsvtav1 --enable-libxml2 --enable-pic --enable-shared --disable-static --enable-version3 --enable-zlib
+    make -j 64
+    make install
+    cd ..
+
+    # 编辑全局配置文件
+    vim /etc/profile.d/ffmpeg.sh
+
+    # 添加以下内容
+    export PATH="/usr/local/ffmpeg/bin:$PATH"
+    export LD_LIBRARY_PATH="/usr/local/ffmpeg/lib:$LD_LIBRARY_PATH"
+
+    # 使配置立即生效
+    source /etc/profile
+    # 运行命令后应正常输出相关配置等信息
+    ffmpeg
+    ```
+
+4. 安装torchcodec
+
+    - 推荐基于conda安装
+
+    ```sh
+    # 安装pybind11
     conda install -c conda-forge pybind11
+    # 源码安装torchcodec
     git clone https://github.com/meta-pytorch/torchcodec.git
     cd torchcodec
     git checkout v0.5.0
     pip install -e . --no-build-isolation
+    cd ..
+    ```
 
+    - 若采用源码安装，则步骤如下
+
+    ```sh
+    # 源码安装pybind11
+    git clone https://github.com/pybind/pybind11.git
+    cd pybind11
+    mkdir build && cd build
+    cmake .. -DPYBIND11_TEST=OFF -DCMAKE_INSTALL_PREFIX=/usr/local
+    make -j$(nproc)
+    make install
+    cd ..
+    # 源码安装torchcodec
+    git clone https://github.com/meta-pytorch/torchcodec.git
+    cd torchcodec
+    git checkout v0.5.0
+    pip install -e . --no-build-isolation
+    cd ..
+    ```
+
+5. 安装decord（用于推理阶段）
+
+    ```sh
     # 安装decord
     git clone --recursive https://github.com/dmlc/decord --depth 1
     cd decord
     mkdir build && cd build
     cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH=$CONDA_PREFIX
     make
-
     # 编译whl包
     cd ../python
     python setup.py sdist bdist_wheel
@@ -117,7 +175,7 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
     pip install decord/python/dist/decord-0.6.0-cp310-cp310-linux_aarch64.whl
     ```
 
-4. 安装triton-ascend
+6. 安装triton-ascend（用于推理阶段）
 
     ```sh
     # 通过pip安装Triton-Ascend的最新稳定版本
@@ -126,7 +184,7 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
 
     注意：triton-ascend 3.2.0 及以下 Triton-Ascend和Triton 不能同时存在。需要先卸载社区 Triton，再安装 Triton-Ascend, 详细参考triton-ascend原仓安装介绍: <https://gitcode.com/Ascend/triton-ascend/blob/main/docs/zh/installation_guide.md>
 
-5. 安装git-lfs
+7. 安装git-lfs（用于推理阶段）
 
     ```sh
     # 通过源码安装git-lfs
@@ -228,7 +286,9 @@ taskset -c 0-7 python scripts/deployment/standalone_inference_script.py --model-
 ## 变更
 
 2026.5.14: 适配一键Patcher 2.0。
+
 2026.5.7: 新增推理适配。
+
 2026.4.3: 首次发布。
 
 ## FAQ
@@ -239,7 +299,11 @@ A: 用户可以前往官网或使用 Hugging Face 镜像源在有网络的情况
 
 Q: 若运行过程中出现torchcodec相关报错，如decoder等？
 
-A：可能是受到环境内系统原有ffmpeg的影响，需进入`/usr/local/`目录下，将ffmpeg目录更名（如`mv ffmpeg ffmpeg_bak`）来避免冲突，从而确保只依赖于conda版本，随后可重新编译安装torchcodec
+A：可能是受到环境内系统原有ffmpeg的影响，需将原有的ffmpeg目录更名（如`mv ffmpeg ffmpeg_bak`）来避免冲突，从而确保只依赖于conda版本，随后可重新编译安装torchcodec
+
+Q: 运行过程中性能劣化很明显，特别是日志中的shard dataset部分耗时较高？
+
+A: 可能是ffmpeg的配置问题，建议检查环境内的ffmpeg是否为当前README推荐的方式安装所得。
 
 Q: 若推理过程中出现`/lib/python3.10/site-packages/torch/utils/_triton.py`文件中cuda版本校验失败？
 
