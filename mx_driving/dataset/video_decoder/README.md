@@ -102,6 +102,7 @@ video_decoder/
 ```shell
 conda create -n vdecode python=3.11
 conda activate vdecode
+cd DrivingSDK/mx_driving/dataset/video_decoder
 ```
 
 ### 安装 TorchCodec
@@ -121,6 +122,7 @@ git clone https://github.com/meta-pytorch/torchcodec.git
 cd torchcodec
 git checkout v0.5.0
 pip install -e . --no-build-isolation
+cd ..
 ```
 
 ### 安装 PyAV
@@ -137,22 +139,21 @@ git clone https://gitcode.com/ascend/vision.git vision_npu
 cd vision_npu
 # 安装依赖库
 pip3 install -r requirement.txt
-# 初始化 CANN 环境变量
-# source /usr/local/Ascend/ascend-toolkit/set_env.sh 默认路径，请根据实际路径修改
 # 编包
 python setup.py bdist_wheel
 # 安装 torchvision_npu
 cd dist
 pip install torchvision_npu-*.whl
+cd ../..
 ```
 
 ### 安装 LeRobot
 
 ```shell
 git clone https://github.com/huggingface/lerobot.git
-cp video_utils.py lerobot/src/lerobot/datasets/video_utils.py
 cd lerobot
 git checkout b954337ac7c8db5ea592c0d59dfb435845d9d380
+cp ../video_utils.py src/lerobot/datasets/video_utils.py
 pip install -e .
 cd ..
 ```
