@@ -100,7 +100,7 @@ def generate_map(coors, spaned_spatial_shape, bs, kernel_size):
     padding = kernel_size[0] // 2
     spatial_shape_size = spaned_spatial_shape[0] * spaned_spatial_shape[1] * spaned_spatial_shape[2]
 
-    if spatial_shape_size > 40000000:
+    if spatial_shape_size > 400000000:
         spatial_shape1 = spaned_spatial_shape[1] * spaned_spatial_shape[0]
         new_coors1 = (
             spatial_shape1 * coors[:, 0]
