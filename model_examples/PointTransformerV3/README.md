@@ -154,4 +154,9 @@ code_path=model_examples/PointTransformerV3
 
 # FAQ
 
-无
+**Q: triton-ascend版本兼容性说明**
+
+A: requirements.txt中指定的triton-ascend版本为3.2.0。根据[triton-ascend官方说明](https://github.com/triton-lang/triton-ascend)，CANN版本与triton-ascend版本对应关系如下：
+
+- CANN < 9.0：使用triton-ascend 3.2.0
+- CANN >= 9.0：使用triton-ascend >= 3.2.1
