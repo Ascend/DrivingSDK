@@ -1,8 +1,8 @@
-# SalsaNext for PyTorch
+# SalsaNext for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [SalsaNext for PyTorch](#salsanext-for-pytorch)
+- [SalsaNext for PyTorch](#salsanext-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)

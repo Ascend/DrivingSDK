@@ -1,8 +1,8 @@
-# VAD
+# VAD [终止随版本演进]
 
 ## 目录
 
-- [VAD](#vad)
+- [VAD](#vad-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -90,81 +90,81 @@ VAD是一个向量化端到端的自动驾驶网络，将驾驶场景建模完�
 
 3. 安装mmdet3d
 
-  - 在应用过patch的模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录编译安装
+   - 在应用过patch的模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录编译安装
 
-    ```shell
-    git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
-    cp -r ../mmdetection3d.patch mmdetection3d
-    cd mmdetection3d
-    git apply --reject mmdetection3d.patch
-    pip install -v -e .
-    ```
+     ```shell
+     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
+     cp -r ../mmdetection3d.patch mmdetection3d
+     cd mmdetection3d
+     git apply --reject mmdetection3d.patch
+     pip install -v -e .
+     ```
 
 4. 安装mmcv
 
-  - 在应用过patch的模型根目录下，克隆mmcv仓，并进入mmcv目录安装
+   - 在应用过patch的模型根目录下，克隆mmcv仓，并进入mmcv目录安装
 
-    ```shell
-    git clone -b 1.x https://github.com/open-mmlab/mmcv
-    cd mmcv
-    pip install -r requirements/runtime.txt
-    MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
-    MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-    ```
+     ```shell
+     git clone -b 1.x https://github.com/open-mmlab/mmcv
+     cd mmcv
+     pip install -r requirements/runtime.txt
+     MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
+     MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
+     ```
 
 5. 在应用过patch的模型根目录下，安装相关依赖。
 
-    ```shell
-    pip install -r requirements.txt
-    ```
+     ```shell
+     pip install -r requirements.txt
+     ```
 
 6. 根据操作系统，替换高性能内存库tcmalloc
 
-  - OpenEuler系统
+   - OpenEuler系统
 
-    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+     在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
 
-    ```shell
-    mkdir gperftools
-    cd gperftools
-    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-    tar -zvxf gperftools-2.16.tar.gz
-    cd gperftools-2.16
-    ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-    make
-    make install
-    echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
-    ldconfig
-    export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
-    export PATH=/usr/local/lib/bin:$PATH
-    export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
-    ```
+     ```shell
+     mkdir gperftools
+     cd gperftools
+     wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+     tar -zvxf gperftools-2.16.tar.gz
+     cd gperftools-2.16
+     ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+     make
+     make install
+     echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+     ldconfig
+     export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+     export PATH=/usr/local/lib/bin:$PATH
+     export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+     ```
 
-  - Ubuntu系统
+   - Ubuntu系统
 
-    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+     在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
-    安装libunwind依赖：
+     安装libunwind依赖：
 
-    ```shell
-    git clone https://github.com/libunwind/libunwind.git
-    cd libunwind
-    autoreconf -i
-    ./configure --prefix=/usr/local
-    make -j128
-    make install
-    ```
+     ```shell
+     git clone https://github.com/libunwind/libunwind.git
+     cd libunwind
+     autoreconf -i
+     ./configure --prefix=/usr/local
+     make -j128
+     make install
+     ```
 
-    安装tcmalloc动态库：
+     安装tcmalloc动态库：
 
-    ```shell
-    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-    tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
-    ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-    make -j128
-    make install
-    export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
-    ```
+     ```shell
+     wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+     tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+     ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+     make -j128
+     make install
+     export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+     ```
 
 # 准备训练数据集
 
@@ -189,8 +189,8 @@ VAD
 |   |   ├── vad_nuscenes_infos_temporal_val.pkl
 ```
 
-> **说明：**  
-> 该数据集的训练过程脚本只作为一种参考示例。      
+> **说明：**
+> 该数据集的训练过程脚本只作为一种参考示例。
 
 # 准备预训练权重
 
@@ -198,7 +198,7 @@ VAD
 
 ```shell
 mkdir ckpts
-cd ckpts 
+cd ckpts
 wget https://download.pytorch.org/models/resnet50-19c8e357.pth
 ```
 

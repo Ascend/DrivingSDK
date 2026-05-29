@@ -37,7 +37,7 @@ DriverAgent是一项针对自动驾驶车辆行为交互性与轨迹真实性的
 ## 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   首次支持版本   |
@@ -57,7 +57,7 @@ DriverAgent是一项针对自动驾驶车辆行为交互性与轨迹真实性的
   |    PyTorch     |  2.7.1   |
 
 在模型根目录下执行命令，安装模型需要的依赖
-  
+
   ```shell
   conda create -n driverAgent python=3.10
   conda activate driverAgent
@@ -76,11 +76,13 @@ DriverAgent是一项针对自动驾驶车辆行为交互性与轨迹真实性的
 ## 训练模型
 
 - 精度训练
+
 ```shell
 bash train.sh --precision
 ```
 
 - 性能训练
+
 ```shell
 bash train.sh --performance
 ```

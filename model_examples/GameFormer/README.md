@@ -1,8 +1,8 @@
-# GameFormer for PyTorch
+# GameFormer for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [GameFormer for PyTorch](#gameformer-for-pytorch)
+- [GameFormer for PyTorch](#gameformer-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)

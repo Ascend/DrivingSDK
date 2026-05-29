@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # -------------------------------------------------- #
 GPUS=$1
-EPOCHS=$2                                              #    
+EPOCHS=$2                                              #
 # -------------------------------------------------- #
 GPUS_PER_NODE=$(($GPUS<8?$GPUS:8))
 
@@ -21,4 +21,3 @@ torchrun --nnodes=1 \
         --train_set=nuplan/nuplan_processed/train \
         --valid_set=nuplan/nuplan_processed/val \
         --name="log_8x256" \
-

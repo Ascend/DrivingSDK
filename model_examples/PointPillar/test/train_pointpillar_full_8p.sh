@@ -28,7 +28,7 @@ cfg_file="cfgs/kitti_models/pointpillar.yaml"
 #计算mAP时整除的倍率（检测类别数3，每个类别对应的指标数4）
 num_metric=12
 
-while [[ $# -gt 0 ]]; do 
+while [[ $# -gt 0 ]]; do
   case $1 in
     --NUM-NPU|--num-npu)
       num_npu="$2"

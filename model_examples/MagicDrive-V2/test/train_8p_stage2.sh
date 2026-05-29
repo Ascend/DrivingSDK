@@ -63,7 +63,7 @@ e2e_time=$((end_time - start_time))
 # 结果处理
 echo "------------------ Final result ------------------"
 if [ -f "${output_dir}/train_${ASCEND_DEVICE_ID}.log" ]; then
-    avg_time=$(grep -E "[0-9]+\.[0-9]+s/it.*step=[0-9]+" "${output_dir}/train_${ASCEND_DEVICE_ID}.log" | 
+    avg_time=$(grep -E "[0-9]+\.[0-9]+s/it.*step=[0-9]+" "${output_dir}/train_${ASCEND_DEVICE_ID}.log" |
       awk '
       {
           # 提取时间(s/it前的浮点数)
@@ -83,7 +83,7 @@ if [ -f "${output_dir}/train_${ASCEND_DEVICE_ID}.log" ]; then
       }
       END {
           printf "%.2f", (count > 0 ? sum / count : 0)
-          
+
       }')  # 保留两位小数
 
     echo "Average iteration time (step20-100): ${avg_time:-0}s"

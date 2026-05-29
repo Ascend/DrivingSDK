@@ -38,4 +38,3 @@ export TASK_QUEUE_ENABLE=2
 export COMBINED_ENABLE=1
 #HCCL白名单开关,1-关闭/0-开启
 export HCCL_WHITELIST_DISABLE=1
-

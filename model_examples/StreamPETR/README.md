@@ -1,8 +1,8 @@
-# StreamPETR for PyTorch
+# StreamPETR for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [StreamPETR for PyTorch](#streampetr-for-pytorch)
+- [StreamPETR for PyTorch](#streampetr-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -80,197 +80,198 @@ code_path=model_examples/StreamPETR
 
 2. 创建环境并激活环境
 
-```shell
-conda create -n streampetr python=3.8
-conda activate streampetr
-```
+   ```shell
+   conda create -n streampetr python=3.8
+   conda activate streampetr
+   ```
 
 3. 克隆代码仓并使用patch文件
 
-```shell
-git clone https://github.com/exiawsh/StreamPETR.git
-cp -f streampetr.patch StreamPETR
-cd StreamPETR
-git checkout 95f64702306ccdb7a78889578b2a55b5deb35b2a
-git apply streampetr.patch
-```
+   ```shell
+   git clone https://github.com/exiawsh/StreamPETR.git
+   cp -f streampetr.patch StreamPETR
+   cd StreamPETR
+   git checkout 95f64702306ccdb7a78889578b2a55b5deb35b2a
+   git apply streampetr.patch
+   ```
 
-安装依赖：
-将Driving SDK文件夹所在位置记作 DrivingSDK_root_dir，执行以下命令
+   安装依赖：
+   将Driving SDK文件夹所在位置记作 DrivingSDK_root_dir，执行以下命令
 
-```shell
-cd StreamPETR/patch
-pip install -r requirements.txt
-```
+   ```shell
+   cd StreamPETR/patch
+   pip install -r requirements.txt
+   ```
 
 4. 安装mmcv-full
-源码安装：
+   源码安装：
 
-```shell
-cd {DrivingSDK_root_dir}/model_examples/StreamPETR
-git clone https://github.com/open-mmlab/mmcv.git -b 1.x
-cd mmcv
-cp ../mmcv.patch .
-git apply mmcv.patch
-cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/distributed.py mmcv/parallel/distributed.py
-cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/text.py mmcv/runner/hooks/logger/text.py
-cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/transformer.py mmcv/cnn/bricks/transformer.py
-source {cann_root_dir}/set_env.sh
-MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
-pip show mmcv-full
-```
+   ```shell
+   cd {DrivingSDK_root_dir}/model_examples/StreamPETR
+   git clone https://github.com/open-mmlab/mmcv.git -b 1.x
+   cd mmcv
+   cp ../mmcv.patch .
+   git apply mmcv.patch
+   cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/distributed.py mmcv/parallel/distributed.py
+   cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/text.py mmcv/runner/hooks/logger/text.py
+   cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/transformer.py mmcv/cnn/bricks/transformer.py
+   source {cann_root_dir}/set_env.sh
+   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+   pip show mmcv-full
+   ```
 
 5. 安装mmdet
-源码安装：
+   源码安装：
 
-```shell
-cd {DrivingSDK_root_dir}/model_examples/StreamPETR
-git clone -b v2.28.2 https://github.com/open-mmlab/mmdetection.git
-cd mmdetection
-cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/match_cost.py mmdet/core/bbox/match_costs/match_cost.py
-cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/pseudo_sampler.py mmdet/core/bbox/samplers/pseudo_sampler.py
-pip install -e .
-```
+   ```shell
+   cd {DrivingSDK_root_dir}/model_examples/StreamPETR
+   git clone -b v2.28.2 https://github.com/open-mmlab/mmdetection.git
+   cd mmdetection
+   cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/match_cost.py mmdet/core/bbox/match_costs/match_cost.py
+   cp -f {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR/patch/pseudo_sampler.py mmdet/core/bbox/samplers/pseudo_sampler.py
+   pip install -e .
+   ```
 
 6. 安装mmdet3d
-源码安装：
-在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
+   源码安装：
+   在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录
 
-```shell
-cd {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR
-git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
-cd mmdetection3d
-```
+   ```shell
+   cd {DrivingSDK_root_dir}/model_examples/StreamPETR/StreamPETR
+   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
+   cd mmdetection3d
+   ```
 
-在mmdetection3d目录下，修改代码
+   在mmdetection3d目录下，修改代码
 
-（1）删除requirements/runtime.txt中第3行 numba==0.53.0和第4行numpy
+   （1）删除requirements/runtime.txt中第3行 numba==0.53.0和第4行numpy
 
-（2）修改mmdet3d/init.py中第22行 mmcv_maximum_version = '1.7.0'为mmcv_maximum_version = '1.7.2'
+   （2）修改mmdet3d/init.py中第22行 mmcv_maximum_version = '1.7.0'为mmcv_maximum_version = '1.7.2'
 
-安装包：
-在mmdetection3d根目录下执行：
+   安装包：
+   在mmdetection3d根目录下执行：
 
-```shell
-pip install -v -e .
-```
+   ```shell
+   pip install -v -e .
+   ```
 
-最后在mmdetection3d/configs/_base_/default_runtime.py目录下，修改代码
-（1）第13行: dist_params = dict(backend='nccl') 改为 dist_params = dict(backend='hccl')
+   最后在mmdetection3d/configs/_base_/default_runtime.py目录下，修改代码
+   （1）第13行: dist_params = dict(backend='nccl') 改为 dist_params = dict(backend='hccl')
 
 7. 安装mindspeed
-源码安装：
+   源码安装：
 
-```shell
-cd {DrivingSDK_root_dir}/model_examples/StreamPETR
-git clone https://gitcode.com/Ascend/MindSpeed.git
-pip install -e MindSpeed
-```
+   ```shell
+   cd {DrivingSDK_root_dir}/model_examples/StreamPETR
+   git clone https://gitcode.com/Ascend/MindSpeed.git
+   pip install -e MindSpeed
+   ```
 
 8. 根据操作系统，安装tcmalloc动态库。
 
-  - OpenEuler系统
+   - OpenEuler系统
 
-  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
 
-  ```shell
-  mkdir gperftools
-  cd gperftools
-  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-  tar -zvxf gperftools-2.16.tar.gz
-  cd gperftools-2.16
-  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-  make
-  make install
-  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
-  ldconfig
-  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
-  export PATH=/usr/local/lib/bin:$PATH
-  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
-  ```
+   ```shell
+   mkdir gperftools
+   cd gperftools
+   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+   tar -zvxf gperftools-2.16.tar.gz
+   cd gperftools-2.16
+   ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+   make
+   make install
+   echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+   ldconfig
+   export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+   export PATH=/usr/local/lib/bin:$PATH
+   export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+   ```
 
-  - Ubuntu系统
+   - Ubuntu系统
 
-  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
-  安装libunwind依赖：
+   安装libunwind依赖：
 
-  ```shell
-  git clone https://github.com/libunwind/libunwind.git
-  cd libunwind
-  autoreconf -i
-  ./configure --prefix=/usr/local
-  make -j128
-  make install
-  ```
+   ```shell
+   git clone https://github.com/libunwind/libunwind.git
+   cd libunwind
+   autoreconf -i
+   ./configure --prefix=/usr/local
+   make -j128
+   make install
+   ```
 
-  安装tcmalloc动态库：
+   安装tcmalloc动态库：
 
-  ```shell
-  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
-  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-  make -j128
-  make install
-  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
-  ```
+   ```shell
+   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+   tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+   ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+   make -j128
+   make install
+   export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+   ```
 
 9. 加入test相关文件
 
-```shell
-cd {DrivingSDK_root_dir}/model_examples/StreamPETR
-cp -rf test StreamPETR
-```
+    ```shell
+    cd {DrivingSDK_root_dir}/model_examples/StreamPETR
+    cp -rf test StreamPETR
+    ```
 
 10. 编译优化
-(1)python编译优化
-参考官网下载并安装毕昇编译器4.1.0版本：<https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler>
+     (1)python编译优化
+    参考官网下载并安装毕昇编译器4.1.0版本：<https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler>
 
-```shell
-ulimit -n 4096
-tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
-export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
-export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
-source {cann_root_dir}/set_env.sh
-```
+    ```shell
+    ulimit -n 4096
+    wget https://www.hikunpeng.com/zh/developer/devkit/download/bishengcompiler/BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+    tar -xvf BiShengCompiler-4.1.0-aarch64-linux.tar.gz
+    export PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/bin:$PATH
+    export LD_LIBRARY_PATH=$(pwd)/BiShengCompiler-4.1.0-aarch64-linux/lib:$LD_LIBRARY_PATH
+    source {cann_root_dir}/set_env.sh
+    ```
 
-下载所需依赖：
+    下载所需依赖：
 
-```shell
-wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
-tar -xvf mpdecimal-2.5.1.tar.gz
-cd mpdecimal-2.5.1
-bash ./configure --prefix=/path/to/install/mpdecimal
-make -j
-make install
-```
+    ```shell
+    wget https://www.bytereef.org/software/mpdecimal/releases/mpdecimal-2.5.1.tar.gz
+    tar -xvf mpdecimal-2.5.1.tar.gz
+    cd mpdecimal-2.5.1
+    bash ./configure --prefix=/path/to/install/mpdecimal
+    make -j
+    make install
+    ```
 
-使用python源码进行编译出包：
-源码下载地址：<https://www.python.org/downloads/source/>
+    使用python源码进行编译出包：
+    源码下载地址：<https://www.python.org/downloads/source/>
 
-- 以3.8.17为例
+    - 以3.8.17为例
 
-```shell
-tar -xvf Python-3.8.17.tgz
-cd Python-3.8.17
-export CC=clang
-export CXX=clang++
-```
+    ```shell
+    tar -xvf Python-3.8.17.tgz
+    cd Python-3.8.17
+    export CC=clang
+    export CXX=clang++
+    ```
 
-使用指令which python查看现有python安装路径/path/to/python
+    使用指令which python查看现有python安装路径/path/to/python
 
-- 以3.8.17为例
-python安装路径为/home/miniconda3/envs/petr/bin/python
+    - 以3.8.17为例
+    python安装路径为/home/miniconda3/envs/petr/bin/python
 
-```shell
-./configure --prefix=/home/miniconda3/envs/petr --with-lto --enable-optimizations
-make -j
-make install
-```
+    ```shell
+    ./configure --prefix=/home/miniconda3/envs/petr --with-lto --enable-optimizations
+    make -j
+    make install
+    ```
 
-(2)pytorch、torchnpu编译优化
-参考编译优化官方文档完成pytorch\torch_npu编译优化
-官方文档：<https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0061.html>
+    (2)pytorch、torchnpu编译优化
+    参考编译优化官方文档完成pytorch\torch_npu编译优化
+    官方文档：<https://www.hiascend.com/document/detail/zh/Pytorch/600/ptmoddevg/trainingmigrguide/performance_tuning_0061.html>
 
 ### 准备数据集
 
@@ -298,7 +299,7 @@ StreamPETR
 
 ### 准备预训练权重
 
-进入原仓data_preparation章节(<https://github.com/exiawsh/StreamPETR/blob/main/docs/data_preparation.md)下载权重文件：>
+进入原仓[data_preparation章节](https://github.com/exiawsh/StreamPETR/blob/main/docs/data_preparation.md)下载权重文件：
 
 ```shell
 fcos3d_vovnet_imgbackbone-remapped.pth
@@ -374,7 +375,7 @@ Q2：若不需要得到使用编译优化后的模型性能，是否可以在安
 A2：如果不需要追求编译优化后的更高模型性能，那么可以不完成步骤10. 编译优化，不影响模型其他部分。
 
 Q3：模型训练时，yapf组件报错`EOFError: Ran out of input`。<br>
-A3：该报错的原因是，yapf组件会创建`~/.cache/YAPF`缓存，在多进程环境中，部分进程创建该缓存后，还未向缓存文件写入内容时，其他进程识别到缓存文件存在，并试图读取文件中的内容，从而报出`EOFError: Ran out of input`错误。遇见此报错时，将环境中的yapf更新为最新版本，重新拉起模型训练即可解决。更详细的报错原因及解决方案可参考yapf社区issue[[Bug] [Crash][Reproducible] EOFError: Ran out of input when import yapf with multiprocess](https://github.com/google/yapf/issues/1204)。
+A3：该报错的原因是，yapf组件会创建`~/.cache/YAPF`缓存，在多进程环境中，部分进程创建该缓存后，还未向缓存文件写入内容时，其他进程识别到缓存文件存在，并试图读取文件中的内容，从而报出`EOFError: Ran out of input`错误。遇见此报错时，将环境中的yapf更新为最新版本，重新拉起模型训练即可解决。更详细的报错原因及解决方案可参考yapf社区issue：\[Bug\] \[Crash\]\[Reproducible\] EOFError: Ran out of input when import yapf with multiprocess (<https://github.com/google/yapf/issues/1204>)。
 
 Q4：tcmalloc的动态库文件找不到报错？<br>
 A4：tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：

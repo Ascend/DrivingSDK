@@ -28,7 +28,7 @@ done
 
 #校验是否传入data_path,不需要修改
 if [[ $data_path == "" ]];then
-    echo "[Error] para \"data_path\" must be confing"
+    echo "[Error] para \"data_path\" must be configured"
     exit 1
 fi
 # 校验是否指定了device_id,分动态分配device_id与手动指定device_id,此处不需要修改
@@ -39,7 +39,7 @@ elif [ ${device_id} ];then
     export ASCEND_DEVICE_ID=${device_id}
     echo "device id is ${ASCEND_DEVICE_ID}"
 else
-    "[Error] device id must be config"
+    "[Error] device id must be configured"
     exit 1
 fi
 ###############指定训练脚本执行路径###############

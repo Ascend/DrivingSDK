@@ -1,8 +1,8 @@
-# DETR for PyTorch
+# DETR for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [DETR for PyTorch](#detr-for-pytorch)
+- [DETR for PyTorch](#detr-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)

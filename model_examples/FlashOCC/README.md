@@ -1,4 +1,4 @@
-# FlashOCC for PyTorch
+# FlashOCC for PyTorch [终止随版本演进]
 
 ## 目录
 
@@ -9,7 +9,7 @@
 - [FlashOCC](#flashocc)
     - [准备训练环境](#准备训练环境)
     - [快速开始](#快速开始)
-       - [训练任务](#训练任务) 
+       - [训练任务](#训练任务)
 - [变更说明](#变更说明)
 - [FAQ](#faq)
 
@@ -164,7 +164,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 #### 开始训练
 
   - 在模型源码根目录下，运行训练脚本。
-    
+
     运行脚本支持命令行参数：
     - '--num-npu'：NPU卡数，默认为8；
     - '--batch-size': 每卡batch-size大小，默认为24；
@@ -223,7 +223,7 @@ FlashOCC是一种高效且轻量化的占用预测框架，专为自动驾驶系
 
 # FAQ
 
-## 训练时报错`ImportError: cannot import name 'gcd' from 'fractions'` 
+## 训练时报错`ImportError: cannot import name 'gcd' from 'fractions'`
 
 报错原因为networkx版本低，使用`pip install networkx==3.1`升级依赖版本即可。
 

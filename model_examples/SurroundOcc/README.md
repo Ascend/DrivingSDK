@@ -1,8 +1,8 @@
-# SurroundOcc for PyTorch
+# SurroundOcc for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [SurroundOcc for PyTorch](#surroundocc-for-pytorch)
+- [SurroundOcc for PyTorch](#surroundocc-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -145,8 +145,8 @@ SurroundOcc
 │   ├── nuscenes_infos_val.pkl
 ```
 
-> **说明：**  
-> 该数据集的训练过程脚本只作为一种参考示例。      
+> **说明：**
+> 该数据集的训练过程脚本只作为一种参考示例。
 
 ### 准备预训练权重
 

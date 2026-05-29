@@ -53,7 +53,7 @@ fi
 
 #校验是否传入py_config
 if [[ $py_config == "" ]];then
-    echo "[Error] para \"py_config\" must be config"
+    echo "[Error] para \"py_config\" must be configured"
     exit 1
 fi
 

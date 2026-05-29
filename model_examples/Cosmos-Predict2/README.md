@@ -44,10 +44,10 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
 ## 代码实现
 
 - 参考实现：
-  
+
   ```shell
   url=https://github.com/nvidia-cosmos/cosmos-predict2
-  commit_id=ccb40411471d7e37cad7c8a4b4b9f7f088edbdf1 
+  commit_id=ccb40411471d7e37cad7c8a4b4b9f7f088edbdf1
   ```
 
 - 适配昇腾 AI 处理器的实现：
@@ -114,7 +114,7 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
     ```
 
 3. 安装apex
-    
+
     ```shell
     # 下载适配源码
     git clone https://gitcode.com/Ascend/apex.git
@@ -144,7 +144,7 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
     ```
 
 5. 安装其他依赖项
-    
+
     ```shell
     pip install -r requirements.txt
     pip install opencv-python-headless==4.12.0.88
@@ -158,7 +158,7 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
 1. 生成一个[Hugging Face](https://huggingface.co/settings/tokens)访问令牌，将访问令牌设置为 'Read' 权限
 
 2. 使用该令牌登录Hugging Face
-    
+
     ```shell
     huggingface-cli login
     ```
@@ -175,18 +175,18 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
     ```
 
 2. Cosmos-Predict2系列模型（按需下载对应模型即可，非必要全下载）
-    
+
     ```shell
     # 根据需求下载模型权重
     # Video2World-14B
     hf download nvidia/Cosmos-Predict2-14B-Video2World  --local-dir ./checkpoints/nvidia/Cosmos-Predict2-14B-Video2World
-    
+
     # Video2World-2B
     hf download nvidia/Cosmos-Predict2-2B-Video2World  --local-dir ./checkpoints/nvidia/Cosmos-Predict2-2B-Video2World
-    
+
     # Text2Image-14B
     hf download nvidia/Cosmos-Predict2-14B-Text2Image  --local-dir ./checkpoints/nvidia/Cosmos-Predict2-14B-Text2Image
-    
+
     # Text2Image-2B
     hf download nvidia/Cosmos-Predict2-2B-Text2Image  --local-dir ./checkpoints/nvidia/Cosmos-Predict2-2B-Text2Image
 
@@ -213,7 +213,7 @@ Cosmos-Predict2 是 Cosmos 世界基础模型（WFMs）生态中专注于物理 
     ```shell
     # 一键安装脚本，下载Cosmos-Predict2-14B-Video2World、t5-11b等模型
     python ./scripts/download_checkpoints.py --model_types "video2world" --model_sizes "14B"
-    
+
     # 再补充安全检查模型
     hf download nvidia/Cosmos-1.0-Guardrail --local-dir ./checkpoints/nvidia/Cosmos-1.0-Guardrail
     ```
@@ -323,7 +323,7 @@ mv datasets/cosmos_nemo_assets/nemo_diffusion_example_data datasets/cosmos_nemo_
 * 单机8卡训练
 
     ```shell
-    bash train.sh --EXP=predict2_text2image_training_2b_cosmos_nemo_assets --nproc_per_node=8 
+    bash train.sh --EXP=predict2_text2image_training_2b_cosmos_nemo_assets --nproc_per_node=8
     ```
 
 * 单卡推理
@@ -338,8 +338,8 @@ mv datasets/cosmos_nemo_assets/nemo_diffusion_example_data datasets/cosmos_nemo_
 
 |     芯片      | 卡数 | global batch size | max steps | Final loss |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: |
-|     竞品A     |  16p  |         16       |  500 |  0.0402 |  
-| Atlas 800T A2 |  16p  |         16       |  500 |   0.0409 | 
+|     竞品A     |  16p  |         16       |  500 |  0.0402 |
+| Atlas 800T A2 |  16p  |         16       |  500 |   0.0409 |
 
 # 版本说明
 

@@ -3,7 +3,7 @@
 ## 接口原型
 
 ```python
-mx_driving.geometric_kernel_attention(Tensor value, Tensor spatial_shapes, Tensor level_start_index, 
+mx_driving.geometric_kernel_attention(Tensor value, Tensor spatial_shapes, Tensor level_start_index,
                                       Tensor sampling_locations, Tensor attention_weights) -> Tensor
 ```
 

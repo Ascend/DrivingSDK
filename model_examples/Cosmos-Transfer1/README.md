@@ -59,10 +59,10 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 ## 代码实现
 
 - 参考实现：
-  
+
   ```shell
   url=https://github.com/nvidia-cosmos/cosmos-transfer1
-  commit_id=fc6376b0315e0f915a5349e09c1ad622a974c99f 
+  commit_id=fc6376b0315e0f915a5349e09c1ad622a974c99f
   ```
 
 - 适配昇腾 AI 处理器的实现：
@@ -128,7 +128,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
     pip install python/dist/decord-0.6.0-cp310-cp310-linux_aarch64.whl
     cd ..
     ```
-    
+
 3. 安装apex
 
     ```shell
@@ -239,19 +239,19 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 
   2. 使用该令牌登录Hugging Face
 
-    ```shell
-    huggingface-cli login
-    ```
+     ```shell
+     huggingface-cli login
+     ```
 
   3. 获取[Llama-Guard-3-8B](https://huggingface.co/meta-llama/Llama-Guard-3-8B)的访问权限
 
   4. 从Hugging Face上下载Cosmos模型的权重
 
-    ```shell
-    cd ${model_root_path}
-    PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
-    ```
-  
+     ```shell
+     cd ${model_root_path}
+     PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
+     ```
+
 ### 准备数据集
 
 #### 1. cosmos_transfer_7b模型数据集
@@ -279,25 +279,25 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 
     1. 准备Videos和Captions
 
-    ```shell
-    # Download metadata with video urls and captions
-    mkdir -p datasets/hdvila
-    cd datasets/hdvila
-    wget https://huggingface.co/datasets/TempoFunk/hdvila-100M/resolve/main/hdvila-100M.jsonl
+       ```shell
+       # Download metadata with video urls and captions
+       mkdir -p datasets/hdvila
+       cd datasets/hdvila
+       wget https://huggingface.co/datasets/TempoFunk/hdvila-100M/resolve/main/hdvila-100M.jsonl
 
-    # download the sample videos used for training
-    pip install pytubefix ffmpeg
+       # download the sample videos used for training
+       pip install pytubefix ffmpeg
 
-    # downlaod the original HD-VILA-100M videos, save the corresponding clips, the captions and the metadata.
-    PYTHONPATH=$(pwd) python scripts/download_diffusion_example_data.py --dataset_path datasets/hdvila --N_videos 128 --do_download --do_clip
-    ```
-    
+       # downloda the original HD-VILA-100M videos, save the corresponding clips, the captions and the metadata.
+       PYTHONPATH=$(pwd) python scripts/download_diffusion_example_data.py --dataset_path datasets/hdvila --N_videos 128 --do_download --do_clip
+       ```
+
     2. 计算T5 Text Embedding
 
-    ```shell
-    # The script will read the captions, save the T5-XXL embeddings in pickle format.
-    PYTHONPATH=$(pwd) python scripts/get_t5_embeddings.py --dataset_path datasets/hdvila
-    ```
+       ```shell
+       # The script will read the captions, save the T5-XXL embeddings in pickle format.
+       PYTHONPATH=$(pwd) python scripts/get_t5_embeddings.py --dataset_path datasets/hdvila
+       ```
 
 #### 2. cosmos_transfer_7b_sample_AV和cosmos_transfer1_7b_sample_AV_single2multiview模型数据集
 
@@ -335,7 +335,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
   │   │   └── {clip_id}_1.mp4
   │   │   └── ....mp4
   │   *
-  │   
+  │
   ├── lidar/
   │   ├── pinhole_front/
   │   │   └── {clip_id}_0.mp4
@@ -375,7 +375,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 2. 在模型根目录下，运行训练脚本。
 
    - 单机8卡精度训练
-   
+
    ```shell
    # 单机8卡训练
    bash test/train_cosmos_transfer_7b.sh
@@ -407,7 +407,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 2. 在模型根目录下，运行训练脚本。
 
    - 单机8卡精度训练
-   
+
    ```shell
    # 单机8卡训练
    bash test/train_cosmos_transfer_7b_sample_AV.sh
@@ -439,7 +439,7 @@ Cosmos-Transfer1是一个支持多模态条件控制的视频生成模型，可�
 2. 在模型根目录下，运行训练脚本。
 
    - 单机8卡精度训练
-  
+
    由于多视角数据集包含三个已对齐至512维的文本模态，需禁用对应的数据增强操作。请注释掉文件 `cosmos_transfer1/diffusion/datasets/augmentor_provider.py` 中第 141 至 147 行的代码。
 
    ```shell

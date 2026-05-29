@@ -42,20 +42,22 @@ Cosmos-Reason1 基于 cosmos-rl 框架实现后训练，支持监督微调（SFT
 ## 代码实现
 
 - cosmos-rl框架参考实现：
-  
-  ```
+
+  ```text
   url=https://github.com/nvidia-cosmos/cosmos-rl
-  commit_id=dbbf358b9341141eed98ca92f83dbe194cb0bd96 
+  commit_id=dbbf358b9341141eed98ca92f83dbe194cb0bd96
   ```
 
 - cosmos-reason1模型参考实现：
-  ```
+
+  ```text
   url=https://github.com/nvidia-cosmos/cosmos-reason1
-  commit_id=8743e1bbed09cb5555c74091f6de8048d9551f75 
+  commit_id=8743e1bbed09cb5555c74091f6de8048d9551f75
   ```
 
 - 适配昇腾 AI 处理器的实现：
-    ```
+
+    ```text
     url=https://gitcode.com/Ascend/DrivingSDK.git
     code_path=model_examples/Cosmos-Reason1
     ```
@@ -73,7 +75,6 @@ Cosmos-Reason1 基于 cosmos-rl 框架实现后训练，支持监督微调（SFT
 | FrameworkPTAdapter | 7.3.0  |
 |       CANN        | 8.5  |
 
-
 ## 安装模型环境
 
 当前模型支持的 PyTorch 版本和已知三方库依赖如下表所示。
@@ -85,19 +86,19 @@ Cosmos-Reason1 基于 cosmos-rl 框架实现后训练，支持监督微调（SFT
 |    Python      | 3.10 |
 |    PyTorch     |  2.7.1   |
 
-
 0. 激活 CANN 环境
- 
+
     注：需要安装和toolkit等包版本一致的nnal包
 
 1. 安装Driving SDK
-    
+
     请参考昇腾Driving SDK代码仓说明编译安装Driving SDK
 
 2. 配置redis-server
-    
+
     先用`which redis-server`查看环境中是否存在 redis-server，若无则需要从源码下载：
-    ```
+
+    ```shell
     cd /usr/bin
     wget https://download.redis.io/releases/redis-6.2.14.tar.gz
     tar xzf redis-6.2.14.tar.gz
@@ -110,6 +111,7 @@ Cosmos-Reason1 基于 cosmos-rl 框架实现后训练，支持监督微调（SFT
 3. 准备cosmos-rl框架源码并安装
 
     在 model_examples/Cosmos-Reason1 目录下，克隆原始仓，使用patch文件替换其中部分代码并安装
+
     ```sh
     git clone https://github.com/nvidia-cosmos/cosmos-rl.git
     cd cosmos-rl
@@ -133,6 +135,7 @@ Cosmos-Reason1 基于 cosmos-rl 框架实现后训练，支持监督微调（SFT
     cd ..
     pip install vllm-ascend==0.11.0
     ```
+
     注：安装过程中需要确认下当前torch和torch_npu版本是否被修改，若被修改则需重新安装 2.7.1 版本
 
 5. 准备cosmos-reason1源码并安装cosmos-reason1-utils
@@ -153,7 +156,7 @@ Cosmos-Reason1 基于 cosmos-rl 框架实现后训练，支持监督微调（SFT
 1. 生成一个[Hugging Face](https://huggingface.co/settings/tokens)访问令牌，将访问令牌设置为 'Read' 权限
 
 2. 使用该令牌登录Hugging Face
-    
+
     ```sh
     huggingface-cli login
     ```
@@ -172,12 +175,14 @@ hf download nvidia/Cosmos-Reason1-7B --local-dir ./cosmos-reason1/examples/post_
 根据训练任务类型，准备相应的数据集：
 
 ### SFT训练数据集
+
 ```sh
 # 下载Cosmos-Reason1-SFT-Dataset数据集
 hf download nvidia/Cosmos-Reason1-SFT-Dataset --repo-type=dataset --local-dir ./cosmos-reason1/examples/post_training/datasets/Cosmos-Reason1-SFT-Dataset
 ```
 
 ### RL训练数据集
+
 ```sh
 # 下载Cosmos-Reason1-RL-Dataset数据集
 hf download nvidia/Cosmos-Reason1-RL-Dataset --repo-type=dataset --local-dir ./cosmos-reason1/examples/post_training/datasets/Cosmos-Reason1-RL-Dataset
@@ -190,6 +195,7 @@ hf download nvidia/Cosmos-Reason1-RL-Dataset --repo-type=dataset --local-dir ./c
 训练过程涉及约200GB的模型和数据集文件，请确保 ~/.cache 目录具有足够的存储空间，或通过设置 `HF_HOME` 和 `COSMOS_CACHE` 环境变量指定的目录（例如`export HF_HOME={path_to_dir}`）
 
 在 model_examples/Cosmos-Reason1 目录下
+
 ```sh
 # 监督微调训练 (SFT)
 bash test/train.sh --sft
@@ -213,14 +219,11 @@ bash test/train.sh --rl
 |     竞品A     |  8p  |         512       | 8  |  1.9688  | 25.16 |
 | Atlas 800T A2 |  8p  |         512       | 8  |  1.9219  | 43.58  |
 
-
-
 # 版本说明
 
 ## 变更
 
 2026.02.26：首次发布
-
 
 ## FAQ
 

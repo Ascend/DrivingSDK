@@ -1,4 +1,4 @@
-# Panoptic-PolarNet for PyTorch
+# Panoptic-PolarNet for PyTorch [终止随版本演进]
 
 - [概述](#概述)
 - [准备训练环境](#准备训练环境)

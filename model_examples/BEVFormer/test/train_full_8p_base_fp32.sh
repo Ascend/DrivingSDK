@@ -68,7 +68,7 @@ sed -i "7s/^/#/" ./projects/mmdet3d_plugin/bevformer/detectors/bevformer_fp16.py
 sed -i "202s|samples_per_gpu=1|samples_per_gpu=$batch_size|g" projects/configs/bevformer/bevformer_base.py
 
 # 定义复原config文件的callback
-restore_config() { 
+restore_config() {
     if [ -f ${config}.bak ]; then
         mv -f ${config}.bak ${config}
     fi

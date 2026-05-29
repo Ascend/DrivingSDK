@@ -8,7 +8,7 @@ NUM_NPU=8
 BATCH_SIZE=24
 TOTAL_EPOCHS=1
 
-while [[ $# -gt 0 ]]; do 
+while [[ $# -gt 0 ]]; do
   case $1 in
     --NUM-NPU|--num-npu)
       NUM_NPU="$2"

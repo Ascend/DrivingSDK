@@ -56,7 +56,7 @@ fi
 if [[ "$EXP" == "predict2_video2world_training_2b_cosmos_nemo_assets" ]];then
     echo "start with video2world-2b"
     LOG_FILE="${LOG_DIR}/video2world_2b_${nproc_per_node}p.log"
-    
+
     torchrun --nproc_per_node=${nproc_per_node} --master_port=${master_port} -m scripts.train --config=cosmos_predict2/configs/base/config.py \
     -- experiment=${EXP} 2>&1 | tee "${LOG_FILE}"
 
@@ -66,7 +66,7 @@ elif [[ "$EXP" == "predict2_video2world_training_14b_cosmos_nemo_assets" ]];then
 
     echo "start with video2world-14b"
     LOG_FILE="${LOG_DIR}/video2world_14b_${nproc_per_node}p_${node_rank}.log"
-    
+
     torchrun --nproc_per_node=${nproc_per_node} --nnodes=${nnodes} --node_rank=${node_rank} --master_addr=${master_addr} \
     --master_port=${master_port} -m scripts.train --config=cosmos_predict2/configs/base/config.py  -- experiment=${EXP} 2>&1 | tee "${LOG_FILE}"
 
@@ -74,7 +74,7 @@ elif [[ "$EXP" == "predict2_video2world_training_14b_cosmos_nemo_assets" ]];then
 elif [[ "$EXP" == "predict2_text2image_training_2b_cosmos_nemo_assets" ]];then
     echo "start with text2image-2b"
     LOG_FILE="${LOG_DIR}/text2image_2b_${nproc_per_node}p.log"
-    
+
     torchrun --nproc_per_node=${nproc_per_node} --master_port=${master_port} -m scripts.train --config=cosmos_predict2/configs/base/config.py \
     -- experiment=${EXP} 2>&1 | tee "${LOG_FILE}"
 
@@ -82,7 +82,7 @@ elif [[ "$EXP" == "predict2_text2image_training_2b_cosmos_nemo_assets" ]];then
 elif [[ "$EXP" == "predict2_text2image_training_14b_cosmos_nemo_assets" ]];then
     echo "start with text2image-14b"
     LOG_FILE="${LOG_DIR}/text2image_14b_${nproc_per_node}p.log"
-    
+
     torchrun --nproc_per_node=${nproc_per_node} --master_port=${master_port} -m scripts.train --config=cosmos_predict2/configs/base/config.py \
     -- experiment=${EXP} 2>&1 | tee "${LOG_FILE}"
 fi
@@ -110,11 +110,11 @@ convert_time_to_sec() {
     local parts=($time_str)
     local sec=0
     if [ ${#parts[@]} -eq 3 ]; then
-        sec=$((10#${parts[0]} * 3600 + 10#${parts[1]} * 60 + 10#${parts[2]})) 
+        sec=$((10#${parts[0]} * 3600 + 10#${parts[1]} * 60 + 10#${parts[2]}))
     elif [ ${#parts[@]} -eq 2 ]; then
         sec=$((10#${parts[0]} * 60 + 10#${parts[1]}))
     else
-        echo "0" 
+        echo "0"
     fi
     echo ${sec}
 }

@@ -38,7 +38,7 @@ export CPU_AFFINITY_CONF=1
 # 使能内存池扩展段功能，由PyTorch管理虚拟地址和物理地址的映射关系，降低内存碎片化
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
-while [[ $# -gt 0 ]]; do 
+while [[ $# -gt 0 ]]; do
   case $1 in
     --MAX-EPOCHS|--max-epochs)
       MAX_EPOCHS="$2"

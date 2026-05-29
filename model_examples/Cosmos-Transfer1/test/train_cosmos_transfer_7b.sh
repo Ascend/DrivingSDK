@@ -15,4 +15,3 @@ export CLOSE_MATMUL_K_SHIFT=1
 export OUTPUT_ROOT=checkpoints
 
 torchrun --master_port=29501 --nproc_per_node=8 -m cosmos_transfer1.diffusion.training.train --config=cosmos_transfer1/diffusion/config/config_train.py -- experiment=CTRL_7Bv1pt3_lvg_tp_121frames_control_input_edge_block3_pretrain
-

@@ -1,4 +1,4 @@
-# Yolov8
+# Yolov8 [终止随版本演进]
 
 # 概述
 
@@ -54,16 +54,16 @@ YOLOv8（You Only Look Once version 8）是YOLO系列算法中的第八个版本
 
   1. 设置Yolov8
 
-  ```shell
-  git clone https://github.com/ultralytics/ultralytics
-  git checkout tags/v8.2.103
-  git apply Yolov8.patch
-  ```
+     ```shell
+     git clone https://github.com/ultralytics/ultralytics
+     git checkout tags/v8.2.103
+     git apply Yolov8.patch
+     ```
 
   2. 安装Driving SDK加速库
-  
-  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
-  
+
+     请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+
   3. 对应的环境变量添加至 test/env_npu.sh 文件中。
 
 ## 准备数据集
@@ -75,7 +75,7 @@ YOLOv8（You Only Look Once version 8）是YOLO系列算法中的第八个版本
   |-- annotations
   |-- images
       |-- train2017
-      |-- val2017   
+      |-- val2017
   |-- labels
       |-- train2017
       |-- val2017

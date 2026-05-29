@@ -1,4 +1,4 @@
-# OpenPCDet for Pytorch
+# OpenPCDet for Pytorch [终止随版本演进]
 
 ## 概述
 
@@ -79,7 +79,7 @@ code_path=model_examples/PointPillar
    pip install pccm==0.3.4
    pip install ccimport==0.3.7
    ```
-  
+
   手动编译安装cumm==0.2.9，spconv==2.1.25。需要安装指定版本GCC，版本为GCC 7.5.0
 
   #### 2.2 编译安装cumm
@@ -126,11 +126,14 @@ code_path=model_examples/PointPillar
 
    4. 将spconv/spconv/pytorch/ops.py文件第32行代码进行调整
 
-      将代码 
+      将代码
+
       ```python
       if hasattr(_ext, "cumm"):
       ```
-      调整为 
+
+      调整为
+
       ```python
       if 0:
       ```
@@ -223,7 +226,7 @@ code_path=model_examples/PointPillar
 
 2. 运行训练脚本。
    该模型支持单机8卡训练
-   
+
    运行脚本支持命令行参数：
    - '--num-npu'：NPU卡数，默认为8；
    - '--batch-size': 每卡batch-size大小，默认为4；

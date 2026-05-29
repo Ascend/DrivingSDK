@@ -71,6 +71,6 @@ if [ "$MODE" = "precision" ]; then
       | tail -n 1 \
       | awk -F "Mean=" '{print $2}' \
       | awk '{print $1}')
-    
+
     echo "RMSE Mean: ${RMSE_Mean}"
 fi

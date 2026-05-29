@@ -16,7 +16,7 @@ do
 done
 
 if [[ "$data_path" == "" ]];then
-    echo "[Error] para \"data_path\" must be confing"
+    echo "[Error] para \"data_path\" must be configured"
     exit 1
 fi
 

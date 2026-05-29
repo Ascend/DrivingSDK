@@ -63,7 +63,7 @@ cur_port=`awk 'BEGIN{printf "%d", '${port}'+'${ASCEND_DEVICE_ID}'}'`
 
 #校验是否传入data_path,不需要修改
 if [[ $data_path == "" ]];then
-    echo "[Error] para \"data_path\" must be confing"
+    echo "[Error] para \"data_path\" must be configured"
     exit 1
 fi
 # GE 模式profiling添加环境变量
@@ -78,7 +78,7 @@ elif [ ${device_id} ];then
     export ASCEND_DEVICE_ID=${device_id}
     echo "device id is ${ASCEND_DEVICE_ID}"
 else
-    "[Error] device id must be config"
+    "[Error] device id must be configured"
     exit 1
 fi
 ###############指定训练脚本执行路径###############
@@ -120,9 +120,9 @@ ln -nsf ${data_path} $cur_path/data
 #执行训练脚本，以下传参不需要修改，其他需要模型审视修改
 # cd $cur_path/src
 # {
-# python main_npu_1p.py ctdet --exp_id pascal_resdcn18_384 --arch resdcn_18 --dataset pascal --num_epochs 5 
+# python main_npu_1p.py ctdet --exp_id pascal_resdcn18_384 --arch resdcn_18 --dataset pascal --num_epochs 5
 # } > ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
-    
+
 cd $cur_path/src
 
 RANK_ID_START=0

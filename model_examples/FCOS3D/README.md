@@ -1,4 +1,4 @@
-# FCOS3D for PyTorch
+# FCOS3D for PyTorch [终止随版本演进]
 
 - [概述](#概述)
 - [准备训练环境](#准备训练环境)
@@ -52,62 +52,62 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
 0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
 1. 安装 Driving SDK 加速库
-   
-  安装方法参考原仓：<https://gitcode.com/Ascend/DrivingSDK>
+
+    安装方法参考原仓：<https://gitcode.com/Ascend/DrivingSDK>
 
 2. 安装 mmcv
 
-  在 FCOS3D 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装
+   在 FCOS3D 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装
 
-  ```shell
-  git clone https://github.com/open-mmlab/mmcv
-  cd mmcv
-  pip install -r requirements.txt
-  MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
-  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-  cd ../
-  ```
+   ```shell
+   git clone https://github.com/open-mmlab/mmcv
+   cd mmcv
+   pip install -r requirements.txt
+   MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
+   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
+   cd ../
+   ```
 
 3. 安装 mmdet
-  
-  ```shell
-  git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
-  cd mmdetection
-  cp -f ../mmdet.patch ./
-  git apply --reject --whitespace=fix mmdet.patch
-  pip install -e .
-  ```
+
+   ```shell
+   git clone -b v3.3.0 https://github.com/open-mmlab/mmdetection.git
+   cd mmdetection
+   cp -f ../mmdet.patch ./
+   git apply --reject --whitespace=fix mmdet.patch
+   pip install -e .
+   ```
 
 4. 准备模型源码，安装 mmdetection3d
 
-  克隆 mmdetection3d 仓，替换其中部分代码并安装
+   克隆 mmdetection3d 仓，替换其中部分代码并安装
 
-  ```shell
-  git clone https://github.com/open-mmlab/mmdetection3d.git
-  cd mmdetection3d/
-  git checkout fe25f7a51d36e3702f961e198894580d83c4387b
-  cp -f ../mmdet3d.patch ./
-  git apply --reject mmdet3d.patch
-  pip install -e .
-  cp -r ../test/ ./
-  ```
+   ```shell
+   git clone https://github.com/open-mmlab/mmdetection3d.git
+   cd mmdetection3d/
+   git checkout fe25f7a51d36e3702f961e198894580d83c4387b
+   cp -f ../mmdet3d.patch ./
+   git apply --reject mmdet3d.patch
+   pip install -e .
+   cp -r ../test/ ./
+   ```
 
 5. 安装其他依赖
-  
-  在 mmdet 代码目录下，安装依赖
 
-  ```shell
-  pip install -r requirements.txt
-  pip install torchvision==0.16.0
-  ```
+   在 mmdet 代码目录下，安装依赖
 
-  在 mmdetection3d 代码目录下，安装依赖
+   ```shell
+   pip install -r requirements.txt
+   pip install torchvision==0.16.0
+   ```
 
-  ```shell
-  pip install -r requirements.txt
-  chmod 777 ./test/adjust.sh
-  bash ./test/adjust.sh
-  ```
+   在 mmdetection3d 代码目录下，安装依赖
+
+   ```shell
+   pip install -r requirements.txt
+   chmod 777 ./test/adjust.sh
+   bash ./test/adjust.sh
+   ```
 
 ## 准备数据集
 
@@ -115,31 +115,31 @@ FCOS3D是一个全卷积、单阶段的三维目标检测模型，用于无任�
 2. 上传数据集到data文件夹，以NuScenes为例，数据集在`data/nuscenes`目录下。
 3. 当前提供的训练脚本是以NuScenes数据集为例，该数据集需要预处理成pkl格式数据方可用于训练。 数据集预处理前目录结构参考如下：
 
-  ```shell
-  mmdetection3d
-  ├── mmdet3d
-  ├── tools
-  ├── configs
-  ├── data
-  │ ├── nuscenes
-  │ │ ├── maps
-  │ │ ├── samples
-  │ │ ├── sweeps
-  │ │ ├── v1.0-test
-  │ │ ├── v1.0-trainval
-  ```
+   ```shell
+   mmdetection3d
+   ├── mmdet3d
+   ├── tools
+   ├── configs
+   ├── data
+   │ ├── nuscenes
+   │ │ ├── maps
+   │ │ ├── samples
+   │ │ ├── sweeps
+   │ │ ├── v1.0-test
+   │ │ ├── v1.0-trainval
+   ```
 
-  > **说明：** 
-  >该数据集的训练过程脚本只作为一种参考示例。
+   > **说明：**
+   >该数据集的训练过程脚本只作为一种参考示例。
 
 4. 请在mmdetection3d根目录，使用如下命令预处理NuScenes数据集。
 
-  ```shell
-  # data_root 请替换成nuscenes数据集所在路径
-  data_root=/home/datasets/nuscenes
-  ln -nsf $data_root data/nuscenes
-  python tools/create_data.py nuscenes --root-path ./data/nuscenes --version v1.0 --out-dir ./data/nuscenes --extra-tag nuscenes
-  ```
+   ```shell
+   # data_root 请替换成nuscenes数据集所在路径
+   data_root=/home/datasets/nuscenes
+   ln -nsf $data_root data/nuscenes
+   python tools/create_data.py nuscenes --root-path ./data/nuscenes --version v1.0 --out-dir ./data/nuscenes --extra-tag nuscenes
+   ```
 
   处理后的文件夹应该如下。
 
@@ -184,7 +184,7 @@ mv /path/to/resnet101_msra-6cc46731.pth ~/.cache/torch/hub/checkpoints/resnet101
      ```shell
      bash ./test/train_1p.sh --data_root=/home/datasets/nuscenes --max_epochs=12
      ```
-     
+
    - 单机8卡训练
 
      ```shell
@@ -206,7 +206,7 @@ mv /path/to/resnet101_msra-6cc46731.pth ~/.cache/torch/hub/checkpoints/resnet101
   --batch_size                        //默认2，训练批次大小，提高会降低ap值
   --max_epochs                        //默认1，训练次数
   ```
-   
+
   训练完成后，权重文件保存在当前路径下，并输出模型训练精度和性能信息。
 
 # 训练结果展示

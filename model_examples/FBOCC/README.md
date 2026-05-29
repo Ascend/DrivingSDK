@@ -1,8 +1,8 @@
-# FBOCC
+# FBOCC [终止随版本演进]
 
 ## 目录
 
-- [FBOCC](#fbocc)
+- [FBOCC](#fbocc-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -79,9 +79,9 @@ FBOCC基于FB-BEV，是英伟达和南京大学提出的前沿占用预测模型
 |    Python      | 3.8 |
 |    PyTorch     |  2.1.0   |
 
-0. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
+1. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
 
-1. 下载模型源码，并应用模型patch
+2. 下载模型源码，并应用模型patch
 
     ```shell
     git clone https://github.com/NVlabs/FB-BEV
@@ -93,11 +93,11 @@ FBOCC基于FB-BEV，是英伟达和南京大学提出的前沿占用预测模型
     git apply --reject --whitespace=fix fbocc.patch
     ```
 
-2. 安装Driving SDK加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK.git)。
+3. 安装Driving SDK加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK.git)。
 
-3. 安装mmcv
+4. 安装mmcv
 
-  - 在模型源码目录下，克隆mmcv仓，并进入mmcv目录安装
+    在模型源码目录下，克隆mmcv仓，并进入mmcv目录安装
 
     ```shell
     git clone -b 1.x https://github.com/open-mmlab/mmcv
@@ -109,15 +109,15 @@ FBOCC基于FB-BEV，是英伟达和南京大学提出的前沿占用预测模型
     cd ..
     ```
 
-4. 在模型源码目录下安装mmdet、torchvision等其他必要依赖
+5. 在模型源码目录下安装mmdet、torchvision等其他必要依赖
 
     ```shell
     pip install -r requirements_npu.txt
     ```
 
-5. 安装mmdet3d
+6. 安装mmdet3d
 
-  - 在模型源码目录下，克隆mmdet3d仓，并进入mmdetection3d目录,用原仓的mmdet3d代码进行替换
+   - 在模型源码目录下，克隆mmdet3d仓，并进入mmdetection3d目录,用原仓的mmdet3d代码进行替换
 
     ```shell
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
@@ -126,20 +126,18 @@ FBOCC基于FB-BEV，是英伟达和南京大学提出的前沿占用预测模型
     mv ../mmdet3d mmdet3d
     ```
 
-  - 在mmdetection3d目录下，修改代码
+   - 在mmdetection3d目录下，修改requirements/runtime.txt中第3行 numba==0.58.0
 
-    （1）修改requirements/runtime.txt中第3行 numba==0.58.0
-
-  - 安装包
+   - 安装包
 
     ```shell
     pip install -v -e .
     cd ..
     ```
 
-6. 根据操作系统，安装tcmalloc动态库。
+7. 根据操作系统，安装tcmalloc动态库。
 
-  - OpenEuler系统
+   - OpenEuler系统
 
     在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
 
@@ -159,10 +157,9 @@ FBOCC基于FB-BEV，是英伟达和南京大学提出的前沿占用预测模型
     export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
     ```
 
-  - Ubuntu系统
+   - Ubuntu系统
 
-    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
-
+    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依包。
     安装libunwind依赖：
 
     ```shell
@@ -285,8 +282,8 @@ wget https://download.pytorch.org/models/resnet50-0676ba61.pth
 
 2.tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
 
-```shell
-find /usr -name libtcmalloc.so*
-```
+ ```shell
+ find /usr -name libtcmalloc.so*
+ ```
 
 找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

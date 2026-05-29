@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # -------------------------------------------------- #
 GPUS=$1
-EPOCHS=$2                                              #    
+EPOCHS=$2                                              #
 # -------------------------------------------------- #
 GPUS_PER_NODE=$(($GPUS<8?$GPUS:8))
 
@@ -23,7 +23,7 @@ torchrun --nnodes=1 \
         --train_set=nuplan/nuplan_processed/train \
         --valid_set=nuplan/nuplan_processed/val \
         --name="log_8x512" \
-    
+
 echo "------------------ Final result ------------------"
 # 提取并计算平均训练时间（去除前10个step的不稳定数据）
 avg_time=$(grep 'avg_train_time' training_log/log_8x512/train.log | awk '
@@ -52,4 +52,3 @@ END {
 avg_fps_awk=$(awk "BEGIN {printf \"%.4f\", $GPUS_PER_NODE * $BATCH_SIZE / $avg_time}")
 echo "Model Performance(平均单步耗时): $avg_time"
 echo "Model Performance(平均FPS): $avg_fps_awk"
-

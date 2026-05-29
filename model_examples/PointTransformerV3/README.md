@@ -92,8 +92,8 @@ code_path=model_examples/PointTransformerV3
     ```
 
 3. 使用tcmalloc
-  
-    详情参考`DrivingSDK/docs/zh/migration_tuning/model_optimization.md`里的`高性能内存库替换`章节 
+
+    详情参考`DrivingSDK/docs/zh/migration_tuning/model_optimization.md`里的`高性能内存库替换`章节
 
 ### 准备数据集
 

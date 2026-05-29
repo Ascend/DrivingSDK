@@ -23,4 +23,3 @@ PYTHONPATH=$(pwd)${PYTHONPATH:+:$PYTHONPATH} torchrun --nproc_per_node=$NUM_GPU 
     --offload_text_encoder_model \
     --offload_guardrail_models \
     --num_gpus $NUM_GPU 2>&1 | tee "$LOG_FILE"
-    

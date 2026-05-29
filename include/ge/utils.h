@@ -17,37 +17,31 @@
 #ifndef GE_UTILS_H_
 #define GE_UTILS_H_
 
-#define CHECK_NULLPTR(ptr)       \
-    if (ptr == nullptr) {        \
+#define CHECK_NULLPTR(ptr) \
+    if (ptr == nullptr) { \
         return ge::GRAPH_FAILED; \
     }
 
-#define ADD_TILING_DATA(context, tiling)                                                                     \
-    CHECK_NULLPTR(context->GetRawTilingData())                                                               \
+#define ADD_TILING_DATA(context, tiling) \
+    CHECK_NULLPTR(context->GetRawTilingData()) \
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity()); \
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-template<typename T1, typename T2>
-inline T1 Ceil(const T1& x, const T2& y)
-{
+template <typename T1, typename T2> inline T1 Ceil(const T1 &x, const T2 &y) {
     if (y == 0) {
         return 0;
     }
     return (x + y - 1) / y;
 }
 
-template<typename T1, typename T2>
-inline T1 AlignUp(const T1& x, const T2& y)
-{
+template <typename T1, typename T2> inline T1 AlignUp(const T1 &x, const T2 &y) {
     if (y == 0) {
         return 0;
     }
     return ((x + y - 1) / y) * y;
 }
 
-template<typename T1, typename T2>
-inline T1 Tail(const T1& x, const T2& y)
-{
+template <typename T1, typename T2> inline T1 Tail(const T1 &x, const T2 &y) {
     if (x == 0 || y == 0) {
         return 0;
     }

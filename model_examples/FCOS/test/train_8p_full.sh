@@ -19,7 +19,7 @@ do
 done
 
 if [[ "$data_root" == "" ]];then
-    echo "[Error] para \"data_root\" must be confing"
+    echo "[Error] para \"data_root\" must be configured"
     exit 1
 fi
 if [ ! -d "$data_root" ]; then

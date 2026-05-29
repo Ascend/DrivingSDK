@@ -24,5 +24,5 @@ chmod +x *.run
 ## loop through the packages ending in .run and run them with the --full and --quiet flags
 for install_file in $(ls *.run)
 do
-  ./${install_file} --full --install-path=/usr/local/Ascend --quiet 
+  ./${install_file} --full --install-path=/usr/local/Ascend --quiet
 done

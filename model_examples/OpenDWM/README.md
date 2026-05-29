@@ -1,8 +1,8 @@
-# OpenDWM for PyTorch
+# OpenDWM for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [OpenDWM for PyTorch](#opendwm-for-pytorch)
+- [OpenDWM for PyTorch](#opendwm-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -43,10 +43,10 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 ## 代码实现
 
 - 参考实现：
-  
+
   ```shell
   url=https://github.com/SenseTime-FVG/OpenDWM
-  commit_id=b0ecc3d4020612376ea5a87500f98bc76893428f 
+  commit_id=b0ecc3d4020612376ea5a87500f98bc76893428f
   ```
 
 - 适配昇腾 AI 处理器的实现：
@@ -81,13 +81,13 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 |       Python        | 3.9  |
 
 1. 激活 CANN 环境（例如：`source /usr/local/Ascend/ascend-toolkit/set_env.sh`）
-    
+
 2. 安装Driving SDK
 
     请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 3. 安装MindSpeed
-    
+
     源码安装：
 
     ```shell
@@ -98,7 +98,7 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
 4. 克隆代码仓到当前目录：
 
     ```shell
-    git clone https://github.com/SenseTime-FVG/OpenDWM 
+    git clone https://github.com/SenseTime-FVG/OpenDWM
     cd OpenDWM
     git checkout b0ecc3d4020612376ea5a87500f98bc76893428f
     ```
@@ -120,14 +120,14 @@ OpenDWM是一种统一的多视角驾驶视频生成框架。通过融合单/多
     ```shell
     python -m pip install torchvision==0.21.0
     ```
-    
+
     请确保 torch 与 torchvision 版本兼容。可通过 `python -c "import torch; print(torch.__version__)"` 查看当前 PyTorch 版本。
 
     ```shell
     # 安装其他依赖项
     python -m pip install -r requirements.txt
     ```
-    
+
 ### 准备数据集
 
 - 根据原仓**Train**章节准备数据集
@@ -214,7 +214,7 @@ ${model-root-path}/pretrained/
 1. 在模型根目录下，运行训练脚本。
 
    - 单机8卡精度训练
-   
+
    ```shell
    # 单机8卡训练
    bash test/train.sh
@@ -263,13 +263,13 @@ ${model-root-path}/pretrained/
 
 1. 镜像中可能由于不支持awk的扩展正则表达式导致出现`syntax error at or near`，需要在镜像中安装gawk解决
 
-```shell
-# Debian/Ubuntu
-apt-get update && apt-get install -y gawk
+   ```shell
+   # Debian/Ubuntu
+   apt-get update && apt-get install -y gawk
 
-# CentOS/OpenEuler
-yum install -y gawk
-```
+   # CentOS/OpenEuler
+   yum install -y gawk
+   ```
 
 2. 训练过程会自动下载inception权重，如果遇到网络问题等下载失败，可以本地下载后，手动将该权重文件放到日志指定路径
 

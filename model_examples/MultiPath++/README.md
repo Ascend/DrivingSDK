@@ -1,8 +1,8 @@
-# MultiPath++
+# MultiPath++ [终止随版本演进]
 
 ## 目录
 
-- [MultiPath++](#multipath)
+- [MultiPath++](#multipath-终止随版本演进)
   - [目录](#目录)
   - [模型介绍](#模型介绍)
   - [支持任务列表](#支持任务列表)
@@ -77,7 +77,7 @@ MultiPath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
     ```
 
     将模型根目录记作 `model-root-path`
-    
+
 - 使用 patch 文件：
 
     ```shell
@@ -116,7 +116,7 @@ MultiPath++ 是自动驾驶轨迹预测模型，通过改进多模态概率建�
   prerendered/
   ├── training_sparse/
   ├── validation_sparse/
-  ```   
+  ```
 
 ### 修改config路径
 

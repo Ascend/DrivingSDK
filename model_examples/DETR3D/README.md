@@ -1,8 +1,8 @@
-# DETR3D for PyTorch
+# DETR3D for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [DETR3D for PyTorch](#detr3d-for-pytorch)
+- [DETR3D for PyTorch](#detr3d-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -79,57 +79,57 @@ code_path=model_examples/DETR3D
 
 2. 安装 Driving SDK 加速库
 
-  安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
-  
+    安装方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
+
 3. 安装基础依赖
 
-  ```shell
-  pip install mmsegmentation==0.29.1
-  ```
+   ```shell
+   pip install mmsegmentation==0.29.1
+   ```
 
 4. 安装mmcv
 
-  ```shell
-  git clone -b 1.x https://github.com/open-mmlab/mmcv.git
-  cd mmcv
-  cp -f ../mmcv.patch ./
-  git apply --reject --whitespace=fix mmcv.patch
-  pip install -r requirements/runtime.txt
-  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
-  cd ../
-  ```
+   ```shell
+   git clone -b 1.x https://github.com/open-mmlab/mmcv.git
+   cd mmcv
+   cp -f ../mmcv.patch ./
+   git apply --reject --whitespace=fix mmcv.patch
+   pip install -r requirements/runtime.txt
+   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py install
+   cd ../
+   ```
 
 5. 安装mmdet
 
-  ```shell
-  git clone -b v2.28.0 https://github.com/open-mmlab/mmdetection.git
-  cd mmdetection
-  cp -f ../mmdet.patch ./
-  git apply --reject --whitespace=fix mmdet.patch
-  pip install -e .
-  cd ../
-  ```
+   ```shell
+   git clone -b v2.28.0 https://github.com/open-mmlab/mmdetection.git
+   cd mmdetection
+   cp -f ../mmdet.patch ./
+   git apply --reject --whitespace=fix mmdet.patch
+   pip install -e .
+   cd ../
+   ```
 
 6. 准备模型源码并安装mmdet3d
 
-  ```shell
-  git clone https://github.com/WangYueFt/detr3d
-  cp -f detr3d.patch detr3d
-  cd detr3d
-  git checkout 34a47673011fe13593a3e594a376668acca8bddb
-  git apply --reject --whitespace=fix detr3d.patch
-  cp -fr ../test/ .
-  pip install -r requirements.txt
-  git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
-  cp -f ../mmdet3d.patch mmdetection3d
-  cd mmdetection3d
-  git apply --reject --whitespace=fix mmdet3d.patch
-  pip install -r requirements/runtime.txt
-  pip install -e .
-  ```
+   ```shell
+   git clone https://github.com/WangYueFt/detr3d
+   cp -f detr3d.patch detr3d
+   cd detr3d
+   git checkout 34a47673011fe13593a3e594a376668acca8bddb
+   git apply --reject --whitespace=fix detr3d.patch
+   cp -fr ../test/ .
+   pip install -r requirements.txt
+   git clone -b v1.0.0rc6 https://github.com/open-mmlab/mmdetection3d.git
+   cp -f ../mmdet3d.patch mmdetection3d
+   cd mmdetection3d
+   git apply --reject --whitespace=fix mmdet3d.patch
+   pip install -r requirements/runtime.txt
+   pip install -e .
+   ```
 
 7. 配置tcmalloc
-   
+
    配置方法可以参考[昇腾社区](https://www.hiascend.com/document/detail/zh/Pytorch/710/ptmoddevg/trainingmigrguide/performance_tuning_0068.html)。
 
 ### 模型数据准备
@@ -182,7 +182,6 @@ python3 tools/create_data.py nuscenes --root-path=../data/nuscenes --out-dir=../
 本任务主要提供**单机**的**8卡**训练脚本，以配置文件`detr3d_res101_gridmask.py`为例。
 
 ### 开始训练
-
 
 ```shell
 cd model_examples/DETR3D/detr3d

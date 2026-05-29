@@ -23,10 +23,9 @@
 namespace mx_driving {
 namespace log {
 
-inline bool IsACLGlobalLogOn(aclLogLevel level)
-{
+inline bool IsACLGlobalLogOn(aclLogLevel level) {
     const static int getACLGlobalLogLevel = []() -> int {
-        char* env_val = std::getenv("ASCEND_GLOBAL_LOG_LEVEL");
+        char *env_val = std::getenv("ASCEND_GLOBAL_LOG_LEVEL");
         int64_t envFlag = (env_val != nullptr) ? strtol(env_val, nullptr, 10) : ACL_ERROR;
         return static_cast<int>(envFlag);
     }();
@@ -35,28 +34,28 @@ inline bool IsACLGlobalLogOn(aclLogLevel level)
 } // namespace log
 } // namespace mx_driving
 
-#define MX_DRIVING_LOGE(fmt, ...)                                                       \
-    do {                                                                                \
-        if (mx_driving::log::IsACLGlobalLogOn(ACL_ERROR)) {                             \
+#define MX_DRIVING_LOGE(fmt, ...) \
+    do { \
+        if (mx_driving::log::IsACLGlobalLogOn(ACL_ERROR)) { \
             aclAppLog(ACL_ERROR, __FILE__, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__); \
-        }                                                                               \
+        } \
     } while (0);
-#define MX_DRIVING_LOGW(fmt, ...)                                                         \
-    do {                                                                                  \
-        if (mx_driving::log::IsACLGlobalLogOn(ACL_WARNING)) {                             \
+#define MX_DRIVING_LOGW(fmt, ...) \
+    do { \
+        if (mx_driving::log::IsACLGlobalLogOn(ACL_WARNING)) { \
             aclAppLog(ACL_WARNING, __FILE__, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__); \
-        }                                                                                 \
+        } \
     } while (0);
-#define MX_DRIVING_LOGI(fmt, ...)                                                      \
-    do {                                                                               \
-        if (mx_driving::log::IsACLGlobalLogOn(ACL_INFO)) {                             \
+#define MX_DRIVING_LOGI(fmt, ...) \
+    do { \
+        if (mx_driving::log::IsACLGlobalLogOn(ACL_INFO)) { \
             aclAppLog(ACL_INFO, __FILE__, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__); \
-        }                                                                              \
+        } \
     } while (0);
-#define MX_DRIVING_LOGD(fmt, ...)                                                       \
-    do {                                                                                \
-        if (mx_driving::log::IsACLGlobalLogOn(ACL_DEBUG)) {                             \
+#define MX_DRIVING_LOGD(fmt, ...) \
+    do { \
+        if (mx_driving::log::IsACLGlobalLogOn(ACL_DEBUG)) { \
             aclAppLog(ACL_DEBUG, __FILE__, __FUNCTION__, __LINE__, fmt, ##__VA_ARGS__); \
-        }                                                                               \
+        } \
     } while (0);
 #endif // LOG_LOG_H_

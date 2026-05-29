@@ -104,18 +104,18 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
    make -j 64
    make install
    cd ..
-   
+
    # 源码编译decord
    git clone  --recursive https://github.com/dmlc/decord --depth 1
    cd decord
    mkdir build && cd build
    cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH="/usr/local/ffmpeg/"
    make
-   
+
    # 编译whl包
    cd ../python
    python setup.py sdist bdist_wheel
-   
+
    # 安装对应whl包
    cd ..
    pip install python/dist/decord-0.6.0-cp310-cp310-linux_aarch64.whl
@@ -129,7 +129,7 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
    git clone https://gitee.com/ascend/apex.git
    cd apex/
    bash scripts/build.sh --python=3.10
-   
+
    # 安装apex
    pip install apex/dist/apex-0.1+ascend-{version}.whl # version为python版本和cpu架构
    cd ..
@@ -143,7 +143,7 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
    cd vllm
    git checkout 5bc1ad6
    cd ../
-   
+
    # 下载vllm-ascend
    git clone https://github.com/vllm-project/vllm-ascend.git
    cd vllm-ascend
@@ -156,10 +156,10 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
    cd vllm
    VLLM_TARGET_DEVICE=empty pip install -v -e .
    cd ..
-   
+
    # VLLM安装可能会升级numpy版本，numpy版本要求为1.26.4
    pip install numpy==1.26.4
-   
+
    # 安装VLLM-ASCEND，需导入CANN
    source /usr/local/Ascend/ascend-toolkit/set_env.sh
    cd vllm-ascend
@@ -169,7 +169,7 @@ Cosmos-Drive-Dreams 是一个基于 Cosmos 世界基础模型构建的合成数�
    python setup.py develop
    # vllm-ascend源码安装过程中遇到相关依赖包因网络问题安装不成功，可以先尝试pip install xxx安装对应失败的依赖包，再执行上一句命令
    cd ..
-   
+
    # 在安装完VLLM及VLLM-ASCEND后，需检查torch、torch_npu、torchvision、transformers版本，若版本被覆盖，需再次安装
    pip install torch-2.7.1-xxx.whl
    pip install torch_npu-2.7.1-xxx.whl
@@ -232,14 +232,14 @@ bash test/inference_pipeline.sh
 
 1. 镜像中可能没有装yaml库导致apex安装时报错，需要安装对应的yaml库
 
-```shell
-pip install pyyaml
-```
+   ```shell
+   pip install pyyaml
+   ```
 
 2. 在运行render_from_rds_hq.py脚本时，如果出现报错：`Failed to register worker to Raylet: IOError: Failed to read data from the socket: End of file worker_id=01000000ffffffffffffffffffffffffffffffffffffffffffffffff`是由于asyncio相关依赖库冲突导致，可尝试调整相关依赖库版本解决：
 
-```shell
-pip uninstall aiohttp-cors
-pip install aiofiles==24.1.0 aiohttp==3.12.15
-pip install tornado==6.5.1
-```
+   ```shell
+   pip uninstall aiohttp-cors
+   pip install aiofiles==24.1.0 aiohttp==3.12.15
+   pip install tornado==6.5.1
+   ```

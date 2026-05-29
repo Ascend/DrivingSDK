@@ -48,7 +48,7 @@ sed -i "s/total_batch_size = 48/total_batch_size = ${global_batch_size}/" "$conf
 sed -i "s/num_gpus = 8/num_gpus = ${sum_gpu_num}/" "$config"
 
 # 定义复原config文件的callback
-restore_config() { 
+restore_config() {
     if [ -f ${config}.bak ]; then
         mv -f ${config}.bak ${config}
     fi

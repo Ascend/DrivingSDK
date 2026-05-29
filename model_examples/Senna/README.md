@@ -1,8 +1,8 @@
-# Senna for PyTorch
+# Senna for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [Senna for PyTorch](#senna-for-pytorch)
+- [Senna for PyTorch](#senna-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -80,27 +80,27 @@ code_path=model_examples/Senna
 
 2. 创建环境并激活环境
 
-```shell
-conda create -n senna python=3.10
-conda activate senna
-```
+   ```shell
+   conda create -n senna python=3.10
+   conda activate senna
+   ```
 
 3. 克隆代码仓并使用patch文件
 
-```shell
-git clone https://github.com/hustvl/Senna.git
-cp -f Senna.patch Senna
-cd Senna
-git checkout 5f202ce84dc4fe52949934ab0921e287d733ff8f
-git apply Senna.patch
-```
+   ```shell
+   git clone https://github.com/hustvl/Senna.git
+   cp -f Senna.patch Senna
+   cd Senna
+   git checkout 5f202ce84dc4fe52949934ab0921e287d733ff8f
+   git apply Senna.patch
+   ```
 
-安装依赖：
+   安装依赖：
 
-```shell
-cd Senna
-pip install -r requirements.txt
-```
+   ```shell
+   cd Senna
+   pip install -r requirements.txt
+   ```
 
 安装NPU适配bitsandbytes版本：
 (1)下载源码并创建所需文件
@@ -130,7 +130,7 @@ python setup.py install
 
 ### 准备数据集
 
-参考原仓data_preparation章节(https://github.com/hustvl/Senna/tree/main)使用LLaVA模型推理生成数据集llava_output
+参考原仓[data_preparation章节](https://github.com/hustvl/Senna/tree/main)使用LLaVA模型推理生成数据集llava_output
 
 还需下载：
 LLaVA训练数据集：<https://huggingface.co/datasets/liuhaotian/LLaVA-Pretrain>

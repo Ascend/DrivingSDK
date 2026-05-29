@@ -1,4 +1,4 @@
-# Mask2Former-Swin_for_Pytorch
+# Mask2Former-Swin_for_Pytorch [终止随版本演进]
 
 # 概述
 

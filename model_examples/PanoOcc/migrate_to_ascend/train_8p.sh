@@ -24,7 +24,7 @@ PERFORMANCE_MODE=0
 
 # 获取传入的参数
 for para in $*
-do  
+do
     # 如果设置了--performance，仅验性能（仅需训练1k步），不验精度。
     # 不设置时默认为精度模式，将运行默认的TOTAL_EPOCHS数量的epochs，较为耗时
     if [[ $para == --performance ]]; then
@@ -112,7 +112,7 @@ export ACL_OP_INIT_MODE=0
 
 
 echo "DeviceType = ${DEVICE_TYPE}"
-echo "RankSize = ${RANK_SIZE}" 
+echo "RankSize = ${RANK_SIZE}"
 echo "TotalEpochs = ${TOTAL_EPOCHS}"
 echo "BatchSizePerGPU = ${BATCH_SIZE}"
 echo "WorkersPerGPU = ${WORKERS_PER_GPU}"
@@ -229,5 +229,5 @@ echo "ActualLoss = ${actual_loss}" >> ${OUTPUT_PATH}/train_result.log
 
 # 验精度
 if [[ ${PERFORMANCE_MODE} == 0 ]]; then
-    bash $(dirname "$0")/eval.sh ${OUTPUT_PATH}/work_dir/epoch_${TOTAL_EPOCHS}.pth ${OUTPUT_PATH} ${RANK_SIZE} 
+    bash $(dirname "$0")/eval.sh ${OUTPUT_PATH}/work_dir/epoch_${TOTAL_EPOCHS}.pth ${OUTPUT_PATH} ${RANK_SIZE}
 fi

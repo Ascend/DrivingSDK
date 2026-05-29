@@ -1,8 +1,8 @@
-# MagicDrive-V2 for PyTorch
+# MagicDrive-V2 for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [MagicDrive-V2 for PyTorch](#magicdrive-v2-for-pytorch)
+- [MagicDrive-V2 for PyTorch](#magicdrive-v2-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -38,10 +38,10 @@ MagicDrive-V2是一种面向自动驾驶的高分辨率长视频生成模型，�
 ## 代码实现
 
 - 参考实现：
-  
+
   ```shell
   url=https://github.com/flymin/MagicDrive-V2
-  commit_id=78b65f9db34c52164926815ab6ee51902960ef8a 
+  commit_id=78b65f9db34c52164926815ab6ee51902960ef8a
   ```
 
 - 适配昇腾 AI 处理器的实现：
@@ -87,13 +87,13 @@ MagicDrive-V2是一种面向自动驾驶的高分辨率长视频生成模型，�
 3. 克隆代码仓到当前目录：
 
     ```shell
-    git clone https://github.com/flymin/MagicDrive-V2.git 
+    git clone https://github.com/flymin/MagicDrive-V2.git
     cd MagicDrive-V2
     git checkout 78b65f9db34c52164926815ab6ee51902960ef8a
     ```
 
     将模型根目录记作 `model-root-path`
-    
+
 4. 使用 patch 文件：
 
     ```shell
@@ -102,26 +102,26 @@ MagicDrive-V2是一种面向自动驾驶的高分辨率长视频生成模型，�
     cp -rf ../test .
     ```
 
-4. 安装模型相关的依赖项。
-  
-  ```shell
-  # 安装apex (https://gitcode.com/Ascend/apex)
-  git clone -b master https://gitcode.com/Ascend/apex.git
-  cd apex/
-  bash scripts/build.sh --python=3.9
-  cd apex/dist/
-  pip3 uninstall apex
-  pip3 install --upgrade apex-0.1+ascend-{version}.whl # version为python版本和cpu架构
+5. 安装模型相关的依赖项。
 
-  # 安装ColossalAI
-  git clone https://github.com/flymin/ColossalAI.git
-  cd ColossalAI
-  git checkout ascend && git pull
-  BUILD_EXT=1 pip install .
+    ```shell
+    # 安装apex (https://gitcode.com/Ascend/apex)
+    git clone -b master https://gitcode.com/Ascend/apex.git
+    cd apex/
+    bash scripts/build.sh --python=3.9
+    cd apex/dist/
+    pip3 uninstall apex
+    pip3 install --upgrade apex-0.1+ascend-{version}.whl # version为python版本和cpu架构
 
-  # 安装其他依赖项
-  pip install -r requirements/requirements.txt
-  ```
+    # 安装ColossalAI
+    git clone https://github.com/flymin/ColossalAI.git
+    cd ColossalAI
+    git checkout ascend && git pull
+    BUILD_EXT=1 pip install .
+
+    # 安装其他依赖项
+    pip install -r requirements/requirements.txt
+    ```
 
 ### 准备数据集
 
@@ -165,13 +165,12 @@ ${CODE_ROOT}/pretrained/
 
 ### 训练任务
 
-
 #### 开始训练
 
 1. 在模型根目录下，运行训练脚本。
 
    - 单机8卡精度训练
-   
+
    ```shell
    # stage1训练
    bash test/train_8p_stage1.sh 8

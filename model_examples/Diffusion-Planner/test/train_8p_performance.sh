@@ -74,4 +74,3 @@ echo "ActualLoss = ${ActualLoss}" >>${test_path_dir}/output/${CaseName}.log
 echo "NDS = ${NDS}" >>${test_path_dir}/output/${CaseName}.log
 echo "mAP = ${mAP}" >>${test_path_dir}/output/${CaseName}.log
 echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/${CaseName}.log
-

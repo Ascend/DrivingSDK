@@ -62,4 +62,4 @@ average_loss=$(
     '
 )
 
-echo "Average Loss: $average_loss" 
+echo "Average Loss: $average_loss"

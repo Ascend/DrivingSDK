@@ -69,44 +69,44 @@
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
 
-0. 激活 CANN 环境
+1. 激活 CANN 环境
 
-1. 创建conda环境
+2. 创建conda环境
 
-  ```shell
-  conda create -n diffusion_planner python=3.9
-  conda activate diffusion_planner
-  ```
+   ```shell
+   conda create -n diffusion_planner python=3.9
+   conda activate diffusion_planner
+   ```
 
-2. 安装 nuplan-devkit
+3. 安装 nuplan-devkit
 
-  ```shell
-  git clone https://github.com/motional/nuplan-devkit.git && cd nuplan-devkit
-  pip install -e .
-  ```
+   ```shell
+   git clone https://github.com/motional/nuplan-devkit.git && cd nuplan-devkit
+   pip install -e .
+   ```
 
-  如需对数据集进行预处理，可选：
+   如需对数据集进行预处理，可选：
 
-  ```shell
-  pip install -r requirements.txt
-  ```
+   ```shell
+   pip install -r requirements.txt
+   ```
 
-3. 安装 diffusion_planner
+4. 安装 diffusion_planner
 
-  ```shell
-  cd ..
-  git clone https://github.com/ZhengYinan-AIR/Diffusion-Planner.git && cd Diffusion-Planner
-  cp -f ../diffusionPlanner.patch .
-  cp -rf ../test .
-  git checkout 5659e494250523a603902e1c3dca0651d2e4c6fa
-  git apply --reject --whitespace=fix diffusionPlanner.patch
-  pip install -e .
-  pip install -r requirements_torch.txt
-  ```
+   ```shell
+   cd ..
+   git clone https://github.com/ZhengYinan-AIR/Diffusion-Planner.git && cd Diffusion-Planner
+   cp -f ../diffusionPlanner.patch .
+   cp -rf ../test .
+   git checkout 5659e494250523a603902e1c3dca0651d2e4c6fa
+   git apply --reject --whitespace=fix diffusionPlanner.patch
+   pip install -e .
+   pip install -r requirements_torch.txt
+   ```
 
-4. 安装Driving SDK加速库
+5. 安装Driving SDK加速库
 
-  请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 ## 准备数据集
 
@@ -145,12 +145,12 @@
     ```
 
 2. 数据预处理
-  在 data_process.sh 脚本中替换数据路径后运行
+   在 data_process.sh 脚本中替换数据路径后运行
 
-  ```shell
-  chmod +x data_process.sh
-  ./data_process.sh
-  ```
+   ```shell
+   chmod +x data_process.sh
+   ./data_process.sh
+   ```
 
 # 快速开始
 
@@ -197,7 +197,7 @@ A: 需要手动安装gmp, mpfr, OpenBLAS, sqlite3, curl, PROJ, GDAL等一些C++�
 wget https://ftp.swin.edu.au/gnu/gmp/gmp-6.1.0.tar.bz2
 tar -jxvf gmp-6.1.0.tar.bz2
 cd gmp-6.1.0
-./configure --prefix=/usr/local/gmp 
+./configure --prefix=/usr/local/gmp
 # 如果报错：error: No usable m4 in $PATH or /usr/bin (see config.log for reasons).，说明没有安装m4，使用yum install m4，然后再执行
 make
 make install

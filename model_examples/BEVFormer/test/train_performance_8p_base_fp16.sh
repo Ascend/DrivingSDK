@@ -62,7 +62,7 @@ sed -i "s|total_epochs = 24|total_epochs = 1|g" projects/configs/bevformer_fp16/
 sed -i "7s/^/#/" ./projects/mmdet3d_plugin/bevformer/detectors/bevformer_fp16.py
 
 # 定义复原config文件的callback
-restore_config() { 
+restore_config() {
     if [ -f ${config}.bak ]; then
         mv -f ${config}.bak ${config}
     fi

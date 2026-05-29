@@ -23,7 +23,7 @@ cd ..
 echo -e "\n=== Step 2: Prompt Rewriting ==="
 python scripts/rewrite_caption.py \
     -i assets/example/captions \
-    -o outputs/captions 
+    -o outputs/captions
 if [ $? -ne 0 ]; then
     echo "提示词改写失败，终止流程"
     exit 1

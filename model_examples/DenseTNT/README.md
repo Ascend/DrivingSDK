@@ -1,8 +1,8 @@
-# DenseTNT for PyTorch
+# DenseTNT for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [DenseTNT for PyTorch](#densetnt-for-pytorch)
+- [DenseTNT for PyTorch](#densetnt-for-pytorch-终止随版本演进)
   - [目录](#目录)
   - [简介](#简介)
   - [支持的任务列表](#支持的任务列表)
@@ -99,7 +99,7 @@ export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
 
 ```shell
 apt update
-apt install libgoogle-perftools4 libgoogle-perftools-dev libtcmalloc-minimal4 
+apt install libgoogle-perftools4 libgoogle-perftools-dev libtcmalloc-minimal4
 find /usr -name libtcmalloc.so*
 ```
 

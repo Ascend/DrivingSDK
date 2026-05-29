@@ -51,7 +51,7 @@ awk '
         step_str = substr($0, RSTART, RLENGTH)  # e.g., "Step 200"
         split(step_str, arr_step, " ")
         step_num = arr_step[2] + 0  # 转为数字
-        
+
         # 排除Step 100
         if (step_num != 100) {
             # 提取时间值
@@ -59,7 +59,7 @@ awk '
                 time_str = substr($0, RSTART+1, RLENGTH-2)  # 去掉括号：e.g., "1.1 s/step"
                 split(time_str, arr_time, " ")
                 time_val = arr_time[1] + 0  # 转为数字
-                
+
                 # 累加统计
                 sum += time_val
                 count++

@@ -36,7 +36,7 @@ pts_extend =torch.randn(6, 1220, 13, 4).npu()
 projection_mat_fused = projection_mat[:, :, None, None].contiguous()
 pts_extend2_fused = pts_extend[:, None, ..., None].contiguous()
 projection_mat_fused.requires_grad=True
-pts_extend2_fused.requires_grad=True        
+pts_extend2_fused.requires_grad=True
 result = mx_driving.npu_batch_matmul(projection_mat_fused, pts_extend2_fused)
 grad = torch.ones_like(result)
 result.backward(grad)
@@ -51,7 +51,7 @@ import mx_driving
 projection_mat =torch.randn((6, 1220, 4, 4)).npu()
 pts_extend = torch.randn(6, 1220, 4, 1).npu()
 projection_mat.requires_grad=True
-pts_extend.requires_grad=True        
+pts_extend.requires_grad=True
 result = mx_driving.npu_batch_matmul(projection_mat, pts_extend)
 grad = torch.ones_like(result)
 result.backward(grad)

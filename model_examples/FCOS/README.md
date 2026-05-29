@@ -1,4 +1,4 @@
-# FCOS for PyTorch
+# FCOS for PyTorch [终止随版本演进]
 
 - [概述](#概述)
 - [准备训练环境](#准备训练环境)
@@ -57,58 +57,58 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
 1. 源码安装 mmcv
 
-  在 FCOS 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装（安装完为 2.2.0 版本）
+   在 FCOS 根目录下，克隆 mmcv 仓，并进入 mmcv 目录安装（安装完为 2.2.0 版本）
 
-  ```shell
-  git clone https://github.com/open-mmlab/mmcv
-  cd mmcv/
-  pip install -r requirements/runtime.txt
-  MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
-  MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
-  cd ../
-  ```
+   ```shell
+   git clone https://github.com/open-mmlab/mmcv
+   cd mmcv/
+   pip install -r requirements/runtime.txt
+   MMCV_WITH_OPS=1 MAX_JOBS=8 FORCE_NPU=1 python setup.py build_ext
+   MMCV_WITH_OPS=1 FORCE_NPU=1 python setup.py develop
+   cd ../
+   ```
 
 2. 源码安装 mmengine
 
-  在 FCOS 根目录下，克隆 mmengine 仓，并进入 mmengine 目录应用 patch 后安装
+   在 FCOS 根目录下，克隆 mmengine 仓，并进入 mmengine 目录应用 patch 后安装
 
-  ```shell
-  yes | pip uninstall mmengine
-  git clone -b v0.10.6 https://github.com/open-mmlab/mmengine.git
-  cd mmengine/
-  git checkout a8c74c346d2ef3e5501115529ba588accb5f2a03
-  cp ../mmengine.patch ./
-  git apply --reject mmengine.patch
-  pip install -e .
-  cd ../
-  ```
+   ```shell
+   yes | pip uninstall mmengine
+   git clone -b v0.10.6 https://github.com/open-mmlab/mmengine.git
+   cd mmengine/
+   git checkout a8c74c346d2ef3e5501115529ba588accb5f2a03
+   cp ../mmengine.patch ./
+   git apply --reject mmengine.patch
+   pip install -e .
+   cd ../
+   ```
 
 3. 准备模型源码
 
-  在 FCOS 根目录下，克隆 mmdetection 仓，替换其中部分代码
+   在 FCOS 根目录下，克隆 mmdetection 仓，替换其中部分代码
 
-  ```shell
-  git clone https://github.com/open-mmlab/mmdetection.git --depth=1
-  cd mmdetection/
-  git fetch --unshallow
-  git checkout cfd5d3a985b0249de009b67d04f37263e11cdf3d
-  cp -rf ../test/ ./
-  cp ../mmdet.patch ./
-  git apply --reject mmdet.patch
-  ```
+   ```shell
+   git clone https://github.com/open-mmlab/mmdetection.git --depth=1
+   cd mmdetection/
+   git fetch --unshallow
+   git checkout cfd5d3a985b0249de009b67d04f37263e11cdf3d
+   cp -rf ../test/ ./
+   cp ../mmdet.patch ./
+   git apply --reject mmdet.patch
+   ```
 
 4. 安装其他依赖
 
-  在 mmdetection 代码目录下，安装其他依赖
+   在 mmdetection 代码目录下，安装其他依赖
 
-  ```shell
-  pip install torchvision==0.16.0
-  pip install -r requirements.txt
-  ```
+   ```shell
+   pip install torchvision==0.16.0
+   pip install -r requirements.txt
+   ```
 
 5. 安装 Driving SDK 加速库
 
-  参考：<https://gitcode.com/Ascend/DrivingSDK>
+   参考：<https://gitcode.com/Ascend/DrivingSDK>
 
 6. 根据操作系统，安装tcmalloc动态库。
 
@@ -116,12 +116,12 @@ FCOS是一个全卷积的one-stage目标检测模型，相比其他目标检测�
 
   在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
 
-  ```shell
-  mkdir gperftools
-  cd gperftools
-  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-  tar -zvxf gperftools-2.16.tar.gz
-  cd gperftools-2.16
+   ```shell
+   mkdir gperftools
+   cd gperftools
+   wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+   tar -zvxf gperftools-2.16.tar.gz
+   cd gperftools-2.16
   ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
   make
   make install

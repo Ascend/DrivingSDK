@@ -1,8 +1,8 @@
-# QCNet for PyTorch
+# QCNet for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [QCNet for PyTorch](#qcnet-for-pytorch)
+- [QCNet for PyTorch](#qcnet-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)

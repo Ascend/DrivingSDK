@@ -220,7 +220,7 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
    ```
 
    该模型支持双机多卡训练。
-   
+
    ```shell
    # 'XX.XX.XX.XX'为主节点的IP地址；端口号可以换成未被占用的可用端口
 
@@ -246,9 +246,9 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 
 多机多卡线性度
 
-| 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS | 线性度 |  
+| 阶段     | 芯片          | 卡数 | global batch size | Precision | 性能-单步迭代耗时(ms) | FPS | 线性度 |
 |--------| ------------- | ---- |-------------------| --------- |---------------|--------|------|
-| stage1 | Atlas 800T A2*2 | 16p   | 16               | fp32      | 8333        |  1.920  | 96.30%     | 
+| stage1 | Atlas 800T A2*2 | 16p   | 16               | fp32      | 8333        |  1.920  | 96.30%     |
 | stage2 | Atlas 800T A2*2 | 16p  | 16                | fp32      | 5412         |   2.956  | 95.12%     |
 
 # 变更说明
@@ -266,11 +266,11 @@ load_from = "ckpts/bevformer_r101_dcn_24ep.pth"
 # FAQ
 
 1. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
-    
+
     ```shell
     find /usr -name libtcmalloc.so*
     ```
-    
+
     找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。
 
 2. Shapely 2.0+ 不再支持直接迭代 MultiPolygon，如果遇到报错 'MultiPolygon' object is not iterable，

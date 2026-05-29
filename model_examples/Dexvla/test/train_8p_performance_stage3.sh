@@ -71,4 +71,3 @@ echo "CaseName = ${CaseName}" >>${test_path_dir}/output/${CaseName}.log
 echo "ActualFPS = ${ActualFPS}" >>${test_path_dir}/output/${CaseName}.log
 echo "ActualLoss = ${ActualLoss}" >>${test_path_dir}/output/${CaseName}.log
 echo "E2ETrainingTime = ${e2e_time}" >>${test_path_dir}/output/${CaseName}.log
-

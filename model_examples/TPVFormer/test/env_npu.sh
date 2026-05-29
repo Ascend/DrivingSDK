@@ -43,4 +43,3 @@ msnpureport -g error -d 6
 msnpureport -g error -d 7
 #关闭Device侧Event日志
 msnpureport -e disable
-

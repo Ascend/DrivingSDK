@@ -96,14 +96,14 @@ echo "Iteration time : $Iteration_time"
 
 # 输出训练精度,需要模型审视修改
 Training_loss=`grep -a 'Train stats:'  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "train_loss: " '{print $2}' | awk -F "," '{print $1}' | awk '{last=$0} END {print last}'`
-waypoints_loss=`grep -a 'Train stats:'  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "train_waypoints_loss: " '{print $2}' | awk -F ";" '{print $1}' | awk '{last=$0} END {print last}'` 
+waypoints_loss=`grep -a 'Train stats:'  ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "train_waypoints_loss: " '{print $2}' | awk -F ";" '{print $1}' | awk '{last=$0} END {print last}'`
 
 # 打印，不需要修改
 echo "Training_loss : ${Training_loss}"
 echo "waypoints_loss : ${waypoints_loss}"
 echo "E2E Training Duration sec : $e2e_time"
 
-TrainingTime=`grep -a 'Training time' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "Training time " '{print $2}'| awk '{last=$0} END {print last}'`  
+TrainingTime=`grep -a 'Training time' ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log|awk -F "Training time " '{print $2}'| awk '{last=$0} END {print last}'`
 
 # 关键信息打印到${CaseName}.log中，不需要修改
 echo "Network = ${Network}" >${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log

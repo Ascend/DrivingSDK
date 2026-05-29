@@ -41,7 +41,7 @@ from mx_driving import assign_score_withk
 points = torch.from_numpy(np.random.rand(4, 100, 8, 16).astype(np.float32)).npu()
 centers = torch.from_numpy(np.random.rand(4, 100, 8, 16).astype(np.float32)).npu()
 scores = torch.from_numpy(np.random.rand(4, 64, 10, 8).astype(np.float32)).npu()
-knn_idx = torch.from_numpy(np.array([[np.random.choice(100, size=10, replace=False) 
+knn_idx = torch.from_numpy(np.array([[np.random.choice(100, size=10, replace=False)
                     for _ in range(64)] for _ in range(4)]).astype(np.int64)).npu()
 grad_out = torch.from_numpy(np.random.rand(4, 16, 64, 10).astype(np.float32)).npu()
 points.requires_grad = True

@@ -1,4 +1,4 @@
-# Deformable DETR for PyTorch
+# Deformable DETR for PyTorch [终止随版本演进]
 
 ## 简介
 

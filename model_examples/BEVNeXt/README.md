@@ -1,8 +1,8 @@
-# BEVNeXt for PyTorch
+# BEVNeXt for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [BEVNeXt for PyTorch](#bevnext-for-pytorch)
+- [BEVNeXt for PyTorch](#bevnext-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -58,7 +58,7 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 ### 安装昇腾环境
 
 请参考昇腾社区中《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》文档搭建昇腾环境。本仓已支持表1中软件版本。
-  
+
   **表 1**  昇腾软件版本支持表
 
   |        软件类型        |   首次支持版本   |
@@ -188,9 +188,9 @@ BEVNeXt 是一种用于 3D 对象检测的现代密集 BEV 框架。
 
 | 芯片 | 卡数 | 阶段 | epoch | global batchsize| FPS | mAP |
 | -- | -- | -- | :--: |:--:| -- | -- |
-|     竞品A     | 8p | stage1 | 2 | 64 |36.643 | - | 
-| Atlas 800T A2 | 8p | stage1 | 2 | 64 |16.568 | - | 
-|     竞品A     | 8p | stage2 | 12 | 64 |11.651 | 0.4313 | 
+|     竞品A     | 8p | stage1 | 2 | 64 |36.643 | - |
+| Atlas 800T A2 | 8p | stage1 | 2 | 64 |16.568 | - |
+|     竞品A     | 8p | stage2 | 12 | 64 |11.651 | 0.4313 |
 | Atlas 800T A2 | 8p | stage2 | 12 | 64 |7.572 | 0.4316 |
 
 # 变更说明

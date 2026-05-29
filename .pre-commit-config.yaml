@@ -32,18 +32,6 @@ repos:
         args: ["--config", "pre-commit/pyproject.toml"]
         types: [python]
 
-  # codespell
-  - repo: https://gitcode.com/gh_mirrors/co/codespell
-    rev: v2.4.1
-    hooks:
-      - id: codespell
-        args: [
-            "-L",
-            "CANN,cann,NNAL,nnal,ASCEND,ascend,EnQue,CopyIn,ArchType,AND,ND,tbe,copyin,alog,dout",
-            "--skip",
-            "*.toml,*.py,*.cpp,*.hpp,*.c,*.h,*.patch",
-          ]
-
   # pylint：指定 pre-commit/pyproject.toml
   - repo: https://gitcode.com/gh_mirrors/pyl/pylint
     rev: v4.0.5

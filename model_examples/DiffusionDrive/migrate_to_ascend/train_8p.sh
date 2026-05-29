@@ -16,7 +16,7 @@ CONFIG_FILE=projects/configs/diffusiondrive_configs/diffusiondrive_small_stage2.
 
 GLOBAL_BATCH_SIZE=48
 
-RANK_SIZE=8 # NPU卡数       
+RANK_SIZE=8 # NPU卡数
 
 BATCH_SIZE=6
 
@@ -25,7 +25,7 @@ PERFORMANCE_MODE=0
 
 # 获取传入的命令行参数
 for para in $*
-do    
+do
     # 如果设置了--performance，仅验性能（仅需训练1k步），不验精度。
     # 不设置时默认为精度模式，将训练全量epochs，较为耗时
     if [[ $para == --performance ]]; then
@@ -62,7 +62,7 @@ sed -i "s|total_batch_size[[:space:]]*=[[:space:]]*[0-9]\{1,\}|total_batch_size 
 sed -i "s|num_gpus[[:space:]]*=[[:space:]]*[0-9]\{1,\}|num_gpus = ${RANK_SIZE}|g" ${CONFIG_FILE}
 
 # 定义复原config文件的callback
-restore_config() { 
+restore_config() {
     if [ -f ${CONFIG_FILE}.bak ]; then
         mv -f ${CONFIG_FILE}.bak ${CONFIG_FILE}
     fi
@@ -191,6 +191,3 @@ if [[ ${PERFORMANCE_MODE} == 0 ]]; then
     L2=`grep "val" ${log_file}  | awk -F "L2: " '{print $2}' | awk 'END {print}'`
     echo " - L2 : ${L2}"
 fi
-
-
-

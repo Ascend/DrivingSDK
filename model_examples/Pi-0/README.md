@@ -1,8 +1,8 @@
-# Pi-0
+# Pi-0 [终止随版本演进]
 
 ## 目录
 
-- [Pi-0](#pi-0)
+- [Pi-0](#pi-0-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -75,42 +75,42 @@
 
 1. 创建conda环境
 
-  ```shell
-  conda create -n pi0 python=3.10
-  conda activate pi0
-  ```
+    ```shell
+    conda create -n pi0 python=3.10
+    conda activate pi0
+    ```
 
 2. 安装 Pi-0
 
-  ```shell
-  git clone https://github.com/huggingface/lerobot.git
-  cd lerobot
-  git checkout 0cf864870cf29f4738d3ade893e6fd13fbd7cdb5
-  cp -f ../pi0.patch .
-  cp -rf ../test/ .
-  git apply pi0.patch
-  pip install -e '.[pi0]'
-  ```
+   ```shell
+   git clone https://github.com/huggingface/lerobot.git
+   cd lerobot
+   git checkout 0cf864870cf29f4738d3ade893e6fd13fbd7cdb5
+   cp -f ../pi0.patch .
+   cp -rf ../test/ .
+   git apply pi0.patch
+   pip install -e '.[pi0]'
+   ```
 
 3. 根据[Mindspeed仓](https://gitcode.com/Ascend/MindSpeed)安装Mindspeed组件，如：
 
-  ```shell
-  git clone https://gitcode.com/Ascend/MindSpeed.git
-  pip install -e MindSpeed
-  ```
+   ```shell
+   git clone https://gitcode.com/Ascend/MindSpeed.git
+   pip install -e MindSpeed
+   ```
 
 4. 安装ffmpeg
 
-  ```shell
-  conda install ffmpeg=7.1.1 -c conda-forge
-  ```
+   ```shell
+   conda install ffmpeg=7.1.1 -c conda-forge
+   ```
 
 5. 安装依赖软件
 
-  ```shell
-  cp ../requirements.txt .
-  pip install -r requirements.txt
-  ```
+   ```shell
+   cp ../requirements.txt .
+   pip install -r requirements.txt
+   ```
 
 6. 安装Driving SDK
 

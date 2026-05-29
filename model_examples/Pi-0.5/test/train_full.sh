@@ -26,7 +26,7 @@ mkdir -p ${output_path}
 
 #训练开始时间，不需要修改
 start_time=$(date +%s)
- 
+
 accelerate launch --num_processes=${world_size} $(which lerobot-train) \
   --dataset.repo_id=${dataset_dir} \
   --policy.type=pi05 \

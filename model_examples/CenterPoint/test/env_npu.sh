@@ -42,4 +42,3 @@ export HCCL_WHITELIST_DISABLE=1
 export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
 #模型不提前初始化，默认为1
 export ACL_OP_INIT_MODE=0
-

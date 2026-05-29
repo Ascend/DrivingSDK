@@ -53,7 +53,7 @@ python scripts/gr00t_finetune.py \
    --batch-size ${batch_size} \
    --base-model-path ${base_model_path} \
    --save-steps ${max_steps} \
-   > ${LOG_DIR}/test_${num_npu}p_performance.log 2>&1 
+   > ${LOG_DIR}/test_${num_npu}p_performance.log 2>&1
 
 
 # 检查日志文件是否存在
@@ -79,11 +79,11 @@ convert_time_to_sec() {
     local parts=($time_str)
     local sec=0
     if [ ${#parts[@]} -eq 3 ]; then
-        sec=$((10#${parts[0]} * 3600 + 10#${parts[1]} * 60 + 10#${parts[2]})) 
+        sec=$((10#${parts[0]} * 3600 + 10#${parts[1]} * 60 + 10#${parts[2]}))
     elif [ ${#parts[@]} -eq 2 ]; then
         sec=$((10#${parts[0]} * 60 + 10#${parts[1]}))
     else
-        echo "0" 
+        echo "0"
     fi
     echo ${sec}
 }

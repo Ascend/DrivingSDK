@@ -1,8 +1,8 @@
-# GameFormer-Planner for PyTorch
+# GameFormer-Planner for PyTorch [终止随版本演进]
 
 ## 目录
 
-- [GameFormer-Planner for PyTorch](#gameformer-planner-for-pytorch)
+- [GameFormer-Planner for PyTorch](#gameformer-planner-for-pytorch-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -73,7 +73,7 @@
 | PyTorch |   2.1.0   |
 
 0. 激活 CANN 环境
-    
+
 1. 安装torch2.1、torch_npu2.1 以及其他依赖项
 
     ```shell
@@ -175,8 +175,8 @@
         │       └── 9.17.1937
         │           └── map.gpkg
         └── nuplan-v1.1
-            ├── splits 
-                ├── mini 
+            ├── splits
+                ├── mini
                 │    ├── 2021.05.12.22.00.38_veh-35_01008_01518.db
                 │    ├── 2021.06.09.17.23.18_veh-38_00773_01140.db
                 │    ├── ...
@@ -244,7 +244,7 @@
 ### 训练结果
 
 - 单机8卡
-                             
+
 |    芯片    | 卡数 | global batch size | Precision | epoch | plannerADE | plannerFDE | plannerAHE | plannerFHE | predictorADE | predictorFDE | 性能-单步迭代耗时(ms) | 性能-FPS |
 |:---------:|:----:|:-----------------:|:--------:|:-----:|:---------:|:---------:|:---------:|:---------:|:-----------:|:-----------:|:--------------------:|:--------------------:|
 |   竞品A   |  8p  |       4096        |   fp32   |  30   |   1.17    |   3.11    |   0.10    |   0.07    |    0.70     |    1.30     |         790          |         5185          |
@@ -252,12 +252,12 @@
 |   竞品A   |  8p  |       2048        |   fp32   |  30   |   1.07    |   2.78    |   0.14    |   0.06    |    0.55     |    1.10     |         440          |         4655          |
 | Atlas 800T A2 |  8p  |       2048        |   fp32   |  30   |   1.05    |   2.79    |   0.09    |   0.06    |    0.54     |    1.07     |         421          |         4865          |
 
-- 多机多卡线性度                          
+- 多机多卡线性度
 
 |      芯片      | 卡数 | global batch size | Precision | epoch | 性能-单步迭代耗时(ms) |  性能-FPS |线性度  |
 |:-------------:|:----:|:-----------------:|:--------:|:-----:|:--------------------:|:--------------------:|:------:|
 | Atlas 800T A2*2 |  16p |       8192        |   fp32   |  30   |         971          |         8436          |  99.3% |
-| Atlas 800T A2*2 |  16p |       4096        |   fp32   |  30   |         651          |         6292          |  99.6% |  
+| Atlas 800T A2*2 |  16p |       4096        |   fp32   |  30   |         651          |         6292          |  99.6% |
 
 # 变更说明
 
@@ -277,18 +277,18 @@
 
 1. 镜像中可能由于不支持awk的扩展正则表达式导致出现`syntax error at or near`，需要在镜像中安装gawk解决
 
-```shell
-# Debian/Ubuntu
-apt-get update && apt-get install -y gawk
+   ```shell
+   # Debian/Ubuntu
+   apt-get update && apt-get install -y gawk
 
-# CentOS/OpenEuler
-yum install -y gawk
-```
+   # CentOS/OpenEuler
+   yum install -y gawk
+   ```
 
 2. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
 
-```shell
-find /usr -name libtcmalloc.so*
-```
+   ```shell
+   find /usr -name libtcmalloc.so*
+   ```
 
 找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

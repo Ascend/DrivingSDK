@@ -38,4 +38,3 @@ python -m torch.distributed.run \
     src/dwm/train.py \
     -c $CONFIG_FILE \
     -o $OUTPUT_DIR > "${OUTPUT_DIR}/train.log" 2>&1
-    

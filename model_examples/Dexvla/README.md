@@ -1,8 +1,8 @@
-# Dexvla
+# Dexvla [终止随版本演进]
 
 ## 目录
 
-- [Dexvla](#dexvla)
+- [Dexvla](#dexvla-终止随版本演进)
   - [目录](#目录)
 - [简介](#简介)
   - [模型介绍](#模型介绍)
@@ -73,51 +73,51 @@
 
 1. 创建conda环境
 
-  ```shell
-  conda create -n dexvla python=3.10
-  conda activate dexvla
-  ```
-  
+   ```shell
+   conda create -n dexvla python=3.10
+   conda activate dexvla
+   ```
+
 2. 安装依赖
 
-  ```shell
-  git clone https://github.com/juruobenruo/DexVLA.git
-  cd DexVLA
-  git checkout fc21a822f4c774e242eb6f1ab4a235788de7aba9
-  cp -f ../dexvla.patch .
-  cp -rf ../test/ .
-  git apply dexvla.patch
-  pip install -r requirements.txt
-  cd policy_heads
-  pip install -e .
-  cd ../..
-  ```
-  
+   ```shell
+   git clone https://github.com/juruobenruo/DexVLA.git
+   cd DexVLA
+   git checkout fc21a822f4c774e242eb6f1ab4a235788de7aba9
+   cp -f ../dexvla.patch .
+   cp -rf ../test/ .
+   git apply dexvla.patch
+   pip install -r requirements.txt
+   cd policy_heads
+   pip install -e .
+   cd ../..
+   ```
+
 3. 安装bitsandbytes
 
- ```shell
-  # 源码安装bitsandbytes
-  git clone -b multi-backend-refactor https://github.com/bitsandbytes-foundation/bitsandbytes.git && cd bitsandbytes/
+   ```shell
+   # 源码安装bitsandbytes
+   git clone -b multi-backend-refactor https://github.com/bitsandbytes-foundation/bitsandbytes.git && cd bitsandbytes/
 
-  # Compile & install
-  apt-get install -y build-essential cmake  # ubuntu
-  cmake -DCOMPUTE_BACKEND=npu -S .
-  make
-  pip install -e . 
- ```
+   # Compile & install
+   apt-get install -y build-essential cmake  # ubuntu
+   cmake -DCOMPUTE_BACKEND=npu -S .
+   make
+   pip install -e .
+   ```
 
 4. 根据[DeepSpeed仓](https://github.com/deepspeedai/DeepSpeed)源码安装DeepSpeed，如：
 
-  ```shell
-  git clone https://github.com/deepspeedai/DeepSpeed.git
-  cd DeepSpeed
-  git checkout c2bb53f20fa32d6cbf472c08a42959a287dd9049
-  pip install .
-  ```
+   ```shell
+   git clone https://github.com/deepspeedai/DeepSpeed.git
+   cd DeepSpeed
+   git checkout c2bb53f20fa32d6cbf472c08a42959a287dd9049
+   pip install .
+   ```
 
-4 安装Driving SDK
+5. 安装Driving SDK
 
-请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
+   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK
 
 ## 准备数据集与预训练权重
 
@@ -126,10 +126,10 @@
 
 2. 下载[Qwen2-VL-2B 预训练权重](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)，将权重路径记作 qwen_weights.
 权重下载完毕后，将qwen2下的 config.json 替换为 DexVLA/docs/config.json 。
- 
-  ```shell
-  cp -f DexVLA/docs/config.json {qwen_weights}/config.json
-  ```
+
+   ```shell
+   cp -f DexVLA/docs/config.json {qwen_weights}/config.json
+   ```
 
 3. 下载[dexvla stage1 预训练权重](https://huggingface.co/lesjie/scale_dp_h/tree/main)，将权重路径记做 stage1_weights
 
@@ -144,7 +144,7 @@
   ```shell
   bash test/train_8p_performance_stage2.sh {qwen_weights} {stage1_weights} {stage2_output} #stage2_output为stage2训练后权重的保存路径
   ```
-  
+
 - 单机8卡stage3性能
 
   ```shell
@@ -156,7 +156,7 @@
   ```shell
   bash test/train_8p_full_stage2.sh {qwen_weights} {stage1_weights} {stage2_output} #stage2_output为stage2训练后权重的保存路径
   ```
-  
+
 - 单机8卡stage3精度
 
   ```shell

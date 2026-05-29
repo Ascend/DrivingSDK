@@ -27,7 +27,7 @@ done
 
 #校验是否传入data_path,不需要修改
 if [[ $data_path == "" ]];then
-    echo "[Error] para \"data_path\" must be confing"
+    echo "[Error] para \"data_path\" must be configured"
     exit 1
 fi
 
@@ -60,7 +60,7 @@ check_etp_flag=`env | grep etp_running_flag`
 etp_flag=`echo ${check_etp_flag#*=}`
 if [ x"${etp_flag}" != x"true" ];then
     source ${test_path_dir}/env_npu.sh
-fi  
+fi
 
 #执行训练脚本，以下传参不需要修改，其他需要模型审视修改
 
@@ -79,7 +79,7 @@ PID_START=$((KERNEL_NUM * RANK_ID))
 PID_END=$((PID_START + KERNEL_NUM - 1))
 taskset -c $PID_START-$PID_END python3  main_npu_8p.py ctdet --exp_id pascal_resdcn18_384 --arch resdcn_18 --device_list='0,1,2,3,4,5,6,7' --dataset pascal --num_epochs 90 --lr_step 45,60,75 --port='34578' --world_size 8  --batch_size $batch_size --lr 3.54e-4 --num_workers ${KERNEL_NUM} --local_rank $RANK_ID > ${test_path_dir}/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 done
-    
+
 wait
 
 ##################获取训练数据################

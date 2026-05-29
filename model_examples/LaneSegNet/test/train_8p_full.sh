@@ -21,7 +21,7 @@ source ${test_path_dir}/env_npu.sh
 output_path=${cur_path}/test/output/
 
 mkdir -p ${output_path}
- 
+
 
 cd LaneSegNet
 mkdir -p work_dirs/lanesegnet

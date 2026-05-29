@@ -1,4 +1,4 @@
-# CenterNet for PyTorch
+# CenterNet for PyTorch [终止随版本演进]
 
 # 概述
 
@@ -56,47 +56,49 @@ CenterNet使用关键点检测的方法去预测目标边框的中心点，然�
   请参考《[Pytorch框架训练环境准备](https://www.hiascend.com/document/detail/zh/ModelZoo/pytorchframework/ptes)》。
 
 - 安装依赖。
+
   1. 首先下载Driving SDK仓，进入CenterNet模型代码目录：
-  ```shell
-  git clone https://gitcode.com/Ascend/DrivingSDK.git
-  cd DrivingSDK/model_examples/CenterNet
-  ```
+
+     ```shell
+     git clone https://gitcode.com/Ascend/DrivingSDK.git
+     cd DrivingSDK/model_examples/CenterNet
+     ```
 
   2. 源码安装 CenterNet
 
-  ```shell
-  git clone https://github.com/xingyizhou/CenterNet.git
-  cp -f CenterNet.patch CenterNet/
-  cd CenterNet
-  git apply CenterNet.patch --reject
-  cp -rf ../test ./
-  ```
+     ```shell
+     git clone https://github.com/xingyizhou/CenterNet.git
+     cp -f CenterNet.patch CenterNet/
+     cd CenterNet
+     git apply CenterNet.patch --reject
+     cp -rf ../test ./
+     ```
 
   3. 在模型源码包根目录下执行命令，安装模型对应PyTorch版本需要的依赖。
 
-  ```shell
-  pip install -r 2.1_requirements.txt  # PyTorch2.1版本
+     ```shell
+     pip install -r 2.1_requirements.txt  # PyTorch2.1版本
 
-  pip install -r 2.2_requirements.txt  # PyTorch2.2版本
+     pip install -r 2.2_requirements.txt  # PyTorch2.2版本
 
-  pip install -r 2.3_requirements.txt  # PyTorch2.3版本
+     pip install -r 2.3_requirements.txt  # PyTorch2.3版本
 
-  pip install -r 2.4_requirements.txt  # PyTorch2.4版本
-  ```
+     pip install -r 2.4_requirements.txt  # PyTorch2.4版本
+     ```
 
-  > **说明：**
-  >只需执行一条对应的PyTorch版本依赖安装命令。
+     > **说明：**
+     >只需执行一条对应的PyTorch版本依赖安装命令。
 
   4. 根据 Ascend/Apex 代码仓安装步骤，安装apex (<https://gitcode.com/Ascend/apex>)
-  
-  ```shell
-  git clone -b master https://gitcode.com/Ascend/apex.git
-  cd apex/
-  bash scripts/build.sh --python=3.7
-  cd apex/dist/
-  pip3 uninstall apex
-  pip3 install --upgrade apex-0.1+ascend-{version}.whl  # version为Python版本和CPU架构  
-  ```
+
+     ```shell
+     git clone -b master https://gitcode.com/Ascend/apex.git
+     cd apex/
+     bash scripts/build.sh --python=3.7
+     cd apex/dist/
+     pip3 uninstall apex
+     pip3 install --upgrade apex-0.1+ascend-{version}.whl  # version为Python版本和CPU架构
+     ```
 
 - 安装COCOAPI
 

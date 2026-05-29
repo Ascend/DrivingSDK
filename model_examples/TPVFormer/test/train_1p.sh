@@ -52,7 +52,7 @@ fi
 
 #校验是否传入py_config
 if [[ $py_config == "" ]];then
-    echo "[Error] para \"py_config\" must be config"
+    echo "[Error] para \"py_config\" must be configured"
     exit 1
 fi
 
@@ -68,7 +68,7 @@ elif [ ${device_id} ];then
     export ASCEND_DEVICE_ID=${device_id}
     echo "device id is ${ASCEND_DEVICE_ID}"
 else
-    "[Error] device id must be config"
+    "[Error] device id must be configured"
     exit 1
 fi
 
@@ -160,4 +160,3 @@ if (($performance==0));then
   echo "Final Train Accuracy : ${train_accuracy}"
   echo "miou = ${train_accuracy}" >>  ${test_path_dir}/output/$ASCEND_DEVICE_ID/${CaseName}.log
 fi
-

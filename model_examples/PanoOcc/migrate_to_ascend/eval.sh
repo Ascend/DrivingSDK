@@ -13,10 +13,10 @@ CHECKPOINT_FILE=$1
 
 OUTPUT_PATH=$2
 
-# Number of NPUs/GPUs 
-RANK_SIZE=$3 
+# Number of NPUs/GPUs
+RANK_SIZE=$3
 
-echo "RankSize = ${RANK_SIZE}" 
+echo "RankSize = ${RANK_SIZE}"
 
 
 
