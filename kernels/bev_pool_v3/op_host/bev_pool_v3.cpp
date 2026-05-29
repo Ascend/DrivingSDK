@@ -20,8 +20,6 @@ constexpr size_t INPUT_RANKS_BEV_GRAD = 5;
 constexpr uint64_t RANK_NUM_PER_TASK = 1024;
 constexpr int32_t ONE_BLK_SIZE = 8;
 constexpr int32_t RESERVE_UB = 10 * 1024; // 10 KB
-constexpr int32_t CHANNEL_IDX = 1;
-constexpr int32_t CHANNEL_IDX_WITH_DEPTH = 4;
 constexpr size_t ATTR_B_IDX = 1;
 constexpr size_t ATTR_D_IDX = 2;
 constexpr size_t ATTR_H_IDX = 3;
@@ -30,9 +28,7 @@ constexpr size_t ATTR_C_IDX = 5;
 } // namespace
 
 namespace optiling {
-template<bool is_grad>
-static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
-{
+template <bool is_grad> static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext *context) {
     CHECK_NULLPTR(context);
     BEVPoolV3TilingData tiling;
     CHECK_NULLPTR(context->GetPlatformInfo());
@@ -52,11 +48,11 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
     bool withDepth = *withDepthPtr;
     context->SetTilingKey(withDepth);
 
-    auto channel = featShape->GetOriginShape().GetDim(withDepth ? CHANNEL_IDX_WITH_DEPTH : CHANNEL_IDX);
+    auto channel = featShape->GetOriginShape().GetDim(featShape->GetOriginShape().GetDimNum() - 1);
     uint64_t ranks = ranksBevShape->GetOriginShape().GetDim(0);
-    uint64_t avgRankNum = withDepth ?
-                         RANK_NUM_PER_TASK :
-                         (ubSize - RESERVE_UB) / (sizeof(float) * (channel + 1) * 2) / ONE_BLK_SIZE * ONE_BLK_SIZE;
+    uint64_t avgRankNum = withDepth
+        ? RANK_NUM_PER_TASK
+        : (ubSize - RESERVE_UB) / (sizeof(float) * (channel + 1) * 2) / ONE_BLK_SIZE * ONE_BLK_SIZE;
     avgRankNum = std::min(avgRankNum, ranks);
     if (avgRankNum == 0) {
         return ge::GRAPH_FAILED;
@@ -86,7 +82,7 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
     ADD_TILING_DATA(context, tiling);
 
     uint32_t sysWorkspaceSize = platform.GetLibApiWorkSpaceSize();
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     CHECK_NULLPTR(currentWorkspace);
     currentWorkspace[0] = sysWorkspaceSize;
     return ge::GRAPH_SUCCESS;
@@ -94,8 +90,7 @@ static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext* context)
 } // namespace optiling
 
 namespace ops {
-static ge::graphStatus InferShapeForBEVPoolV3(gert::InferShapeContext* context)
-{
+static ge::graphStatus InferShapeForBEVPoolV3(gert::InferShapeContext *context) {
     CHECK_NULLPTR(context);
     auto attrs = context->GetAttrs();
     auto getAttr = [attrs](size_t idx) -> int64_t {
@@ -113,13 +108,12 @@ static ge::graphStatus InferShapeForBEVPoolV3(gert::InferShapeContext* context)
     if (b <= 0 || d <= 0 || h <= 0 || w <= 0 || c <= 0) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* outShape = context->GetOutputShape(0);
+    gert::Shape *outShape = context->GetOutputShape(0);
     *outShape = {b, d, h, w, c};
     return ge::GRAPH_SUCCESS;
 }
 
-static ge::graphStatus InferDataTypeForBEVPoolV3(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForBEVPoolV3(gert::InferDataTypeContext *context) {
     CHECK_NULLPTR(context);
     const auto outputDataType = context->GetRequiredInputDataType(1);
     context->SetOutputDataType(0, outputDataType);
@@ -129,9 +123,8 @@ static ge::graphStatus InferDataTypeForBEVPoolV3(gert::InferDataTypeContext* con
 
 namespace ops {
 class BEVPoolV3 : public OpDef {
-public:
-    explicit BEVPoolV3(const char* name) : OpDef(name)
-    {
+  public:
+    explicit BEVPoolV3(const char *name) : OpDef(name) {
         this->Input("depth")
             .ParamType(OPTIONAL)
             .DataType({ge::DT_FLOAT})
@@ -198,9 +191,8 @@ public:
  * @par Attributes:
  **/
 class BEVPoolV3Grad : public OpDef {
-public:
-    explicit BEVPoolV3Grad(const char* name) : OpDef(name)
-    {
+  public:
+    explicit BEVPoolV3Grad(const char *name) : OpDef(name) {
         this->Input("grad_out")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})

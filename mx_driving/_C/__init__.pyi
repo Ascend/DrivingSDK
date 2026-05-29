@@ -377,10 +377,6 @@ def npu_bev_pool_v3_backward(
     ranks_depth: Optional[torch.Tensor],
     ranks_feat: Optional[torch.Tensor],
     ranks_bev: torch.Tensor,
-    B: int,
-    D: int,
-    H: int,
-    W: int,
 ) -> Tuple[Optional[torch.Tensor], torch.Tensor]: ...
 def cal_anchors_heading(
     anchors: torch.Tensor,

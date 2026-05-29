@@ -20,21 +20,15 @@
 namespace {
 // bev_pool (v1) constants
 constexpr int64_t N_IDX = 0;
-constexpr int64_t C_IDX = 1;
-constexpr int64_t C_IDX_BWD = 4;
+constexpr int64_t C_IDX = -1;
 constexpr int64_t N_INTERVAL_IDX = 0;
 
-// bev_pool_v2 constants
-constexpr int64_t C_IDX_V2 = 4;
-
 // bev_pool_v3 constants
-constexpr int64_t C_IDX_WITH_DEPTH = 4;
 constexpr int64_t MINI_CHANNEL = 8;
 
 // check_npu for bev_pool (v1)
-void check_npu(const at::Tensor& feat, const at::Tensor& geom_feat, const at::Tensor& interval_lengths,
-    const at::Tensor& interval_starts)
-{
+void check_npu(const at::Tensor &feat, const at::Tensor &geom_feat, const at::Tensor &interval_lengths,
+    const at::Tensor &interval_starts) {
     TORCH_CHECK_NPU(feat);
     TORCH_CHECK_NPU(geom_feat);
     TORCH_CHECK_NPU(interval_lengths);
@@ -42,10 +36,9 @@ void check_npu(const at::Tensor& feat, const at::Tensor& geom_feat, const at::Te
 }
 
 // check_npu for bev_pool_v2
-void check_npu(const at::Tensor& depth, const at::Tensor& feat, const at::Tensor& ranks_depth,
-    const at::Tensor& ranks_feat, const at::Tensor& ranks_bev, const at::Tensor& interval_lengths,
-    const at::Tensor& interval_starts)
-{
+void check_npu(const at::Tensor &depth, const at::Tensor &feat, const at::Tensor &ranks_depth,
+    const at::Tensor &ranks_feat, const at::Tensor &ranks_bev, const at::Tensor &interval_lengths,
+    const at::Tensor &interval_starts) {
     TORCH_CHECK_NPU(depth);
     TORCH_CHECK_NPU(feat);
     TORCH_CHECK_NPU(ranks_depth);
@@ -68,9 +61,8 @@ void check_npu(const at::Tensor& depth, const at::Tensor& feat, const at::Tensor
  * @param w: width, int64
  * @return out: output feature, 5D tensor(b, d, h, w, c)
  */
-at::Tensor npu_bev_pool(const at::Tensor& feat, const at::Tensor& geom_feat, const at::Tensor& interval_lengths,
-    const at::Tensor& interval_starts, int64_t b, int64_t d, int64_t h, int64_t w)
-{
+at::Tensor npu_bev_pool(const at::Tensor &feat, const at::Tensor &geom_feat, const at::Tensor &interval_lengths,
+    const at::Tensor &interval_starts, int64_t b, int64_t d, int64_t h, int64_t w) {
     TORCH_CHECK(feat.dim() == 2, "feat must be 2D tensor(n, c)");
     TORCH_CHECK(geom_feat.dim() == 2, "coords must be 2D tensor(n, 4)");
     check_npu(feat, geom_feat, interval_lengths, interval_starts);
@@ -98,14 +90,13 @@ at::Tensor npu_bev_pool(const at::Tensor& feat, const at::Tensor& geom_feat, con
  * @param w: width, int64
  * @return grad_feat: output grad, 2D tensor(n, c)
  */
-at::Tensor npu_bev_pool_backward(const at::Tensor& grad_out, const at::Tensor& geom_feat,
-    const at::Tensor& interval_lengths, const at::Tensor& interval_starts, int64_t b, int64_t d, int64_t h, int64_t w)
-{
+at::Tensor npu_bev_pool_backward(const at::Tensor &grad_out, const at::Tensor &geom_feat,
+    const at::Tensor &interval_lengths, const at::Tensor &interval_starts, int64_t b, int64_t d, int64_t h, int64_t w) {
     TORCH_CHECK(grad_out.dim() == 5, "grad_out must be 5D tensor(b, d, h, w, c)");
     TORCH_CHECK(geom_feat.dim() == 2, "coords must be 2D tensor(n, 4)");
     check_npu(grad_out, geom_feat, interval_lengths, interval_starts);
     auto n = geom_feat.size(N_IDX);
-    auto c = grad_out.size(C_IDX_BWD);
+    auto c = grad_out.size(C_IDX);
     auto n_interval = interval_lengths.size(N_INTERVAL_IDX);
     TORCH_CHECK(
         interval_starts.size(N_INTERVAL_IDX) == n_interval, "interval_starts and interval_lengths must have same size");
@@ -130,12 +121,11 @@ at::Tensor npu_bev_pool_backward(const at::Tensor& grad_out, const at::Tensor& g
  * @param w: width, int64
  * @return out: output feature, 5D tensor(b, d, h, w, c)
  */
-at::Tensor npu_bev_pool_v2(const at::Tensor& depth, const at::Tensor& feat, const at::Tensor& ranks_depth,
-    const at::Tensor& ranks_feat, const at::Tensor& ranks_bev, const at::Tensor& interval_lengths,
-    const at::Tensor& interval_starts, int64_t b, int64_t d, int64_t h, int64_t w)
-{
+at::Tensor npu_bev_pool_v2(const at::Tensor &depth, const at::Tensor &feat, const at::Tensor &ranks_depth,
+    const at::Tensor &ranks_feat, const at::Tensor &ranks_bev, const at::Tensor &interval_lengths,
+    const at::Tensor &interval_starts, int64_t b, int64_t d, int64_t h, int64_t w) {
     check_npu(depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_lengths, interval_starts);
-    auto c = feat.size(C_IDX_V2);
+    auto c = feat.size(C_IDX);
     auto out = at::zeros({b, d, h, w, c}, feat.options());
     EXEC_NPU_CMD(aclnnBEVPoolV2, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_lengths, interval_starts, b,
         d, h, w, c, out);
@@ -159,26 +149,24 @@ at::Tensor npu_bev_pool_v2(const at::Tensor& depth, const at::Tensor& feat, cons
  * @return grad_depth: output grad, 5D tensor(b, n, d, h, w)
  * @return grad_feat: output grad, 5D tensor(b, n, h, w, c)
  */
-std::tuple<at::Tensor, at::Tensor> npu_bev_pool_v2_backward(const at::Tensor& grad_out, const at::Tensor& depth,
-    const at::Tensor& feat, const at::Tensor& ranks_depth, const at::Tensor& ranks_feat, const at::Tensor& ranks_bev,
-    const at::Tensor& interval_lengths, const at::Tensor& interval_starts, int64_t b, int64_t d, int64_t h, int64_t w)
-{
+std::tuple<at::Tensor, at::Tensor> npu_bev_pool_v2_backward(const at::Tensor &grad_out, const at::Tensor &depth,
+    const at::Tensor &feat, const at::Tensor &ranks_depth, const at::Tensor &ranks_feat, const at::Tensor &ranks_bev,
+    const at::Tensor &interval_lengths, const at::Tensor &interval_starts, int64_t b, int64_t d, int64_t h, int64_t w) {
     check_npu(depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_lengths, interval_starts);
     auto depth_sizes = depth.sizes();
     auto feat_sizes = feat.sizes();
     auto grad_depth = at::zeros(depth_sizes, depth.options());
     auto grad_feat = at::zeros(feat_sizes, depth.options());
-    auto c = feat.size(C_IDX_V2);
+    auto c = feat.size(C_IDX);
 
     EXEC_NPU_CMD(aclnnBEVPoolV2Grad, grad_out, depth, feat, ranks_depth, ranks_feat, ranks_bev, interval_lengths,
         interval_starts, b, d, h, w, c, grad_depth, grad_feat);
     return std::make_tuple(grad_depth, grad_feat);
 }
 
-at::Tensor npu_bev_pool_v3(const c10::optional<at::Tensor>& depth, const at::Tensor& feat,
-    const c10::optional<at::Tensor>& ranks_depth, const c10::optional<at::Tensor>& ranks_feat,
-    const at::Tensor& ranks_bev, int64_t b, int64_t d, int64_t h, int64_t w)
-{
+at::Tensor npu_bev_pool_v3(const c10::optional<at::Tensor> &depth, const at::Tensor &feat,
+    const c10::optional<at::Tensor> &ranks_depth, const c10::optional<at::Tensor> &ranks_feat,
+    const at::Tensor &ranks_bev, int64_t b, int64_t d, int64_t h, int64_t w) {
     TORCH_CHECK_NPU(feat);
     TORCH_CHECK_NPU(ranks_bev);
     bool with_depth = depth.has_value();
@@ -187,17 +175,16 @@ at::Tensor npu_bev_pool_v3(const c10::optional<at::Tensor>& depth, const at::Ten
         TORCH_CHECK_NPU(ranks_depth.value());
         TORCH_CHECK_NPU(ranks_feat.value());
     }
-    auto c = feat.size(with_depth ? C_IDX_WITH_DEPTH : C_IDX);
+    auto c = feat.size(C_IDX);
     TORCH_CHECK(c % MINI_CHANNEL == 0, "The channel of feature must be multiple of 8.");
     auto out = at::zeros({b, d, h, w, c}, feat.options());
     EXEC_NPU_CMD(aclnnBEVPoolV3, depth, feat, ranks_depth, ranks_feat, ranks_bev, with_depth, b, d, h, w, c, out);
     return out;
 }
 
-std::tuple<c10::optional<at::Tensor>, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor& grad_out,
-    const c10::optional<at::Tensor>& depth, const at::Tensor& feat, const c10::optional<at::Tensor>& ranks_depth,
-    const c10::optional<at::Tensor>& ranks_feat, const at::Tensor& ranks_bev)
-{
+std::tuple<c10::optional<at::Tensor>, at::Tensor> npu_bev_pool_v3_backward(const at::Tensor &grad_out,
+    const c10::optional<at::Tensor> &depth, const at::Tensor &feat, const c10::optional<at::Tensor> &ranks_depth,
+    const c10::optional<at::Tensor> &ranks_feat, const at::Tensor &ranks_bev) {
     TORCH_CHECK_NPU(grad_out);
     TORCH_CHECK_NPU(feat);
     TORCH_CHECK_NPU(ranks_bev);

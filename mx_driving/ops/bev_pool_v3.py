@@ -25,7 +25,6 @@ class BEVPoolV3(torch.autograd.Function):
     """
 
     @staticmethod
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments
     def forward(
         ctx,
         depth: Union[torch.Tensor, None],
@@ -36,21 +35,20 @@ class BEVPoolV3(torch.autograd.Function):
         bev_feat_shape: List[int],
     ) -> torch.Tensor:
         (B, D, H, W, C) = bev_feat_shape
-        feat = feat.contiguous()
         if depth is None:
             if ranks_bev.dim() != 2:
                 raise ValueError("ranks_bev must be 2D when running without depth")
             ranks_bev = ranks_bev[:, 3] * D * H * W + ranks_bev[:, 2] * H * W + ranks_bev[:, 0] * W + ranks_bev[:, 1]
         out = mx_driving._C.npu_bev_pool_v3(depth, feat, ranks_depth, ranks_feat, ranks_bev, B, D, H, W)
+        out = out.permute(0, 4, 1, 2, 3).contiguous()
         ctx.save_for_backward(depth, feat, ranks_feat, ranks_depth, ranks_bev)
         return out
 
     @staticmethod
-    # pylint: disable=too-many-return-values
     def backward(ctx, grad_out: torch.Tensor):
         depth, feat, ranks_feat, ranks_depth, ranks_bev = ctx.saved_tensors
-        grad_out = grad_out.contiguous()
-        grad_depth, grad_feat = mx_driving._C.npu_bev_pool_v3_backward(
+        grad_out = grad_out.permute(0, 2, 3, 4, 1).contiguous()
+        grad_depth, grad_feat = mx_driving._C.npu_bev_pool_v3_backward(  # pylint: disable=unpacking-non-sequence
             grad_out,
             depth,
             feat,
@@ -61,7 +59,6 @@ class BEVPoolV3(torch.autograd.Function):
         return grad_depth, grad_feat, None, None, None, None
 
 
-# pylint: disable=too-many-arguments,huawei-too-many-arguments
 def bev_pool_v3(
     depth: Union[torch.Tensor, None],
     feat: torch.Tensor,
@@ -78,5 +75,4 @@ def bev_pool_v3(
         ranks_bev,
         bev_feat_shape,
     )
-    x = x.permute(0, 4, 1, 2, 3).contiguous()
     return x
