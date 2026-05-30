@@ -417,6 +417,13 @@ Driving SDK已支持下列开源模型，覆盖自动驾驶感知、规控、端
         <td align="left">N</td>
         <td align="left">Y</td>
     </tr>
+        <tr>
+        <td align="left"><a href="../../../model_examples/StarVLA/README.md">StarVLA</a></td>
+        <td align="left">123.08</td>
+        <td align="left">49.61</td>
+        <td align="left">N</td>
+        <td align="left">Y</td>
+    </tr>
     <tr>
         <td align="left"><a href="../../../model_examples/Lingbot-vla/README.md">Lingbot-vla</a></td>
         <td align="left">301.76(A3)</td>
