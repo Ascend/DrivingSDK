@@ -371,7 +371,7 @@ Driving SDK已支持下列开源模型，覆盖自动驾驶感知、规控、端
         <td align="left">N</td>
     </tr>
     <tr>
-        <td rowspan="7">VLA</td>
+        <td rowspan="8">VLA</td>
         <td align="left"><a href="../../../model_examples/OpenVLA/README.md">OpenVLA</a></td>
         <td align="left">56.14</td>
         <td align="left">73.12</td>
@@ -415,6 +415,12 @@ Driving SDK已支持下列开源模型，覆盖自动驾驶感知、规控、端
         <td align="left">449</td>
         <td align="left">457</td>
         <td align="left">N</td>
+        <td align="left">Y</td>
+    </tr>
+    <tr>
+        <td align="left"><a href="../../../model_examples/Lingbot-vla/README.md">Lingbot-vla</a></td>
+        <td align="left">301.76(A3)</td>
+        <td align="left">114.74(竞品H)</td>
         <td align="left">Y</td>
     </tr>
     <tr>

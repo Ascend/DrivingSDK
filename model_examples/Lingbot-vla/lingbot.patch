@@ -1,0 +1,261 @@
+diff --git a/configs/vla/robotwin_load20000h.yaml b/configs/vla/robotwin_load20000h.yaml
+index d0f1c7d..46e1891 100644
+--- a/configs/vla/robotwin_load20000h.yaml
++++ b/configs/vla/robotwin_load20000h.yaml
+@@ -24,7 +24,7 @@ train:
+   rmpad: false
+   rmpad_with_pos_ids: false
+   ulysses_parallel_size: 1
+-  freeze_vision_encoder: false
++  freeze_vision_encoder: true
+   tokenizer_max_length: 24
+   action_dim: 14
+   max_action_dim: 75
+diff --git a/lingbotvla/distributed/torch_parallelize.py b/lingbotvla/distributed/torch_parallelize.py
+index ecbf9f2..cff1ee9 100644
+--- a/lingbotvla/distributed/torch_parallelize.py
++++ b/lingbotvla/distributed/torch_parallelize.py
+@@ -193,14 +193,30 @@ def build_parallelize_model(
+                     output_dtype=torch.bfloat16,
+                 )
+             ignore_modules_in_mixed_precision = tuple()
++            mp_fsdp_wrap_module_classes = tuple()
++            mp_fsdp_wrap_module_ids = set()
+             if hasattr(model, "get_ignore_modules_in_mixed_precision"):
+                 ignore_modules_in_mixed_precision = model.get_ignore_modules_in_mixed_precision()
++            if hasattr(model, "get_mp_fsdp_wrap_module_classes"):
++                mp_fsdp_wrap_module_classes = model.get_mp_fsdp_wrap_module_classes()
++            if hasattr(model, "get_mp_fsdp_wrap_module_instance"):
++                mp_fsdp_wrap_module_ids = {id(m) for m in model.get_mp_fsdp_wrap_module_instance()}
+
+             def apply_fsdp_to_decoder_blocks(module: "nn.Module") -> None:
+-                if module.__class__.__name__ in basic_modules or module.__class__ in ignore_modules_in_mixed_precision:
++                use_mp_fsdp_wrap = (
++                    module.__class__ in mp_fsdp_wrap_module_classes
++                    or id(module) in mp_fsdp_wrap_module_ids
++                )
++                if (
++                    module.__class__.__name__ in basic_modules
++                    or module.__class__ in ignore_modules_in_mixed_precision
++                    or use_mp_fsdp_wrap
++                ):
+                     logger.debug(f"Apply FSDP2 to {module.__class__.__name__}.")
+                     if module.__class__ in ignore_modules_in_mixed_precision:
+                         fully_shard(module, **{k: v for k, v in fsdp_kwargs.items() if k != "mp_policy"})
++                    elif use_mp_fsdp_wrap:
++                        fully_shard(module, **mp_fsdp_kwargs)
+                     else:
+                         fully_shard(module, **fsdp_kwargs)
+
+diff --git a/lingbotvla/models/auto.py b/lingbotvla/models/auto.py
+index d2e2a67..c5b6520 100644
+--- a/lingbotvla/models/auto.py
++++ b/lingbotvla/models/auto.py
+@@ -89,7 +89,7 @@ def build_foundation_model(
+     config.final_norm_adanorm = config_kwargs['final_norm_adanorm']
+     config.freeze_vision_encoder = freeze_vision_encoder
+     config.tokenizer_max_length = tokenizer_max_length
+-    config.attention_implementation = 'flex' # TODO
++    config.attention_implementation = 'eager' # TODO
+     config.enable_expert_vision = config_kwargs['enable_expert_vision']
+     config.expert_vision_type = config_kwargs['expert_vision_type']
+     config.action_dim = config_kwargs['action_dim']
+diff --git a/lingbotvla/models/vla/pi0/modeling_lingbot_vla.py b/lingbotvla/models/vla/pi0/modeling_lingbot_vla.py
+index 8838d5a..33e8809 100644
+--- a/lingbotvla/models/vla/pi0/modeling_lingbot_vla.py
++++ b/lingbotvla/models/vla/pi0/modeling_lingbot_vla.py
+@@ -41,7 +41,16 @@ from transformers.modeling_flash_attention_utils import FlashAttentionKwargs, is
+ from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_update
+ from transformers.processing_utils import Unpack
+ import torch.distributed._tensor as dt
+-from .qwenvl_in_vla import Qwen2_5_VLForConditionalGeneration, Qwen2_5_VLModel, Qwen2_5_VLPreTrainedModel
++from .qwenvl_in_vla import (
++    Qwen2_5_VLForConditionalGeneration,
++    Qwen2_5_VLModel,
++    Qwen2_5_VLPreTrainedModel,
++    Qwen2_5_VisionPatchEmbed,
++    Qwen2_5_VisionRotaryEmbedding,
++    Qwen2_5_VLVisionBlock,
++    Qwen2_5_VLPatchMerger,
++    Qwen2_5_VLDecoderLayer,
++)
+
+ try:
+     from dinov3.hub.backbones import (
+@@ -1533,6 +1542,17 @@ class LingbotVlaPolicy(PreTrainedPolicy):
+     def get_optim_params(self) -> dict:
+         return self.parameters()
+
++    def get_mp_fsdp_wrap_module_classes(self) -> tuple:
++        return (
++            Qwen2_5_VisionPatchEmbed, Qwen2_5_VisionRotaryEmbedding, Qwen2_5_VLVisionBlock,
++            Qwen2_5_VLPatchMerger, Qwen2_5_VLDecoderLayer
++        )
++
++    def get_mp_fsdp_wrap_module_instance(self) -> tuple:
++        return (
++            self.model.qwenvl_with_expert.qwenvl.get_input_embeddings(),
++        )
++
+     @torch.no_grad
+     def select_action(
+         self, observation: dict[str, Tensor], noise: Tensor | None = None
+diff --git a/lingbotvla/models/vla/pi0/qwenvl_in_vla.py b/lingbotvla/models/vla/pi0/qwenvl_in_vla.py
+index f067573..951bf60 100644
+--- a/lingbotvla/models/vla/pi0/qwenvl_in_vla.py
++++ b/lingbotvla/models/vla/pi0/qwenvl_in_vla.py
+@@ -1,4 +1,5 @@
+ import torch
++import torch_npu
+ from torch import nn
+ import torch.nn.functional as F
+ from torch.nn import CrossEntropyLoss
+@@ -102,11 +103,13 @@ class Qwen2RMSNorm(nn.Module):
+         self.variance_epsilon = eps
+
+     def forward(self, hidden_states):
+-        input_dtype = hidden_states.dtype
+-        hidden_states = hidden_states.to(torch.float32)
+-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
+-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+-        return self.weight * hidden_states.to(input_dtype)
++        if (
++            self.weight is not None and self.weight.dtype != hidden_states.dtype
++            and self.weight.dtype in [torch.float16, torch.bfloat16]
++        ):
++            hidden_states = hidden_states.to(self.weight.dtype)
++        out = torch_npu.npu_rms_norm(hidden_states, self.weight, epsilon=self.variance_epsilon)[0]
++        return out
+
+     def extra_repr(self):
+         return f"{tuple(self.weight.shape)}, eps={self.variance_epsilon}"
+@@ -130,10 +133,10 @@ class Qwen2_5_VLPatchMerger(nn.Module):
+ def apply_rotary_pos_emb_flashatt(
+     q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
+ ) -> Tuple[torch.Tensor, torch.Tensor]:
+-    cos = cos.chunk(2, dim=-1)[0].contiguous()
+-    sin = sin.chunk(2, dim=-1)[0].contiguous()
+-    q_embed = apply_rotary_emb(q.float(), cos.float(), sin.float()).type_as(q)
+-    k_embed = apply_rotary_emb(k.float(), cos.float(), sin.float()).type_as(k)
++    cos = cos.unsqueeze(0).unsqueeze(2).contiguous()
++    sin = sin.unsqueeze(0).unsqueeze(2).contiguous()
++    q_embed = torch_npu.npu_rotary_mul(q.float(), cos.float(), sin.float()).type_as(q)
++    k_embed = torch_npu.npu_rotary_mul(k.float(), cos.float(), sin.float()).type_as(k)
+     return q_embed, k_embed
+
+
+@@ -223,7 +226,17 @@ class Qwen2_5_VLVisionFlashAttention2(nn.Module):
+         if k.dtype == torch.float32:
+             out_fp32_atten = True
+             q, k, v = q.to(torch.bfloat16), k.to(torch.bfloat16), v.to(torch.bfloat16)
+-        attn_output = flash_attn_varlen_func(q, k, v, cu_seqlens, cu_seqlens, max_seqlen, max_seqlen).reshape(
++        softmax_scale = 1.0 / math.sqrt(q.shape[-1])
++        attn_output = flash_attn_varlen_func(
++            q,
++            k,
++            v,
++            cu_seqlens,
++            cu_seqlens,
++            dropout_p=0.0,
++            softmax_scale=softmax_scale,
++            causal=False,
++        ).reshape(
+             seq_length, -1
+         )
+         if out_fp32_atten:
+diff --git a/lingbotvla/models/vla/pi0/utils.py b/lingbotvla/models/vla/pi0/utils.py
+index 892ff8f..f9cf99c 100644
+--- a/lingbotvla/models/vla/pi0/utils.py
++++ b/lingbotvla/models/vla/pi0/utils.py
+@@ -3,6 +3,7 @@ import math
+ import einops
+ import numpy as np
+ import torch
++import torch_npu
+ import torch.nn as nn
+ import torch.nn.functional as F
+ from torch import Tensor
+@@ -137,37 +138,16 @@ def our_eager_attention_forward(
+     """
+     # ipdb.set_trace()
+     bsize, seq_len, num_att_heads, head_dim = query_states.shape
+-    num_key_value_heads = key_states.shape[2]
+-    num_key_value_groups = num_att_heads // num_key_value_heads
+-
+-    key_states = einops.repeat(
+-        key_states, "b l h d -> b l (h g) d", g=num_key_value_groups
+-    )
+-    value_states = einops.repeat(
+-        value_states, "b l h d -> b l (h g) d", g=num_key_value_groups
+-    )
+-
+-    query_states_permuted = torch.einsum("blhd->bhld", query_states)
+-    key_states_permuted = torch.einsum("blhd->bhld", key_states)
+-
+-    att_weights = torch.einsum(
+-        "bhqd,bhkd->bhqk", query_states_permuted, key_states_permuted
+-    )
+-    att_weights *= head_dim**-0.5
+-
+-    big_neg = -2.3819763e38
+-    masked_att_weights = torch.where(
+-        attention_mask[:, None, :, :], att_weights, big_neg
+-    )
+-
+-    probs = nn.functional.softmax(masked_att_weights, dim=-1)
+-    probs = probs.to(dtype=value_states.dtype)
+-
+-    value_states_permuted = torch.einsum("blhd->bhld", value_states)  # [B, H, L_v, D]
+-    att_output = torch.einsum(
+-        "bhqk,bhkv->bhqv", probs, value_states_permuted
+-    )  # [B, H, L_q, D]
+-    att_output = torch.einsum("bhld->blhd", att_output)  # [B, L, H, D]
++    assert num_att_heads % key_states.shape[2] == 0, "num_heads (Nq) must be divisible by num_kv_heads (Nkv)"
++    att_output = torch_npu.npu_fusion_attention(
++        query = query_states,
++        key = key_states,
++        value = value_states,
++        head_num = num_att_heads,
++        input_layout = "BSND",
++        atten_mask = (~attention_mask).unsqueeze(1),
++        scale = head_dim**-0.5,
++    )[0]
+     att_output = att_output.reshape(bsize, seq_len, num_att_heads * head_dim)
+
+     return att_output
+diff --git a/lingbotvla/optim/optimizer.py b/lingbotvla/optim/optimizer.py
+index 8f8ec47..9a19e0b 100644
+--- a/lingbotvla/optim/optimizer.py
++++ b/lingbotvla/optim/optimizer.py
+@@ -171,7 +171,7 @@ def build_optimizer(
+             param_groups = filter(lambda p: p.requires_grad, model.parameters())
+
+     if optimizer_type == "adamw":
+-        foreach = False if is_torch_npu_available() else (not fused)
++        foreach =  not fused
+         fused = False if is_torch_npu_available() else fused
+         optim = AdamW(param_groups, lr, betas, eps, weight_decay, fused=fused, foreach=foreach)
+     elif optimizer_type == "anyprecision_adamw":
+diff --git a/requirements.txt b/requirements.txt
+index 1c25770..78de47d 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,5 +1,4 @@
+ ipdb
+-torchcodec==0.6.0
+ pytest
+ datasets==3.6.0
+ transformers==4.51.3
+diff --git a/tasks/vla/train_lingbotvla.py b/tasks/vla/train_lingbotvla.py
+index 425030e..6614649 100644
+--- a/tasks/vla/train_lingbotvla.py
++++ b/tasks/vla/train_lingbotvla.py
+@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Literal
+ from collections import defaultdict
+ import numpy as np
+ import torch
++import torch_npu
++from torch_npu.contrib import transfer_to_npu
+ import torch.distributed as dist
+ import wandb
+ from PIL import Image
