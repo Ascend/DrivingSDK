@@ -1,12 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from typing import Optional
 import torch
+import torch_npu
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 
 import mx_driving._C
 
-device_name = torch.npu.get_device_name()
+device_name = torch_npu.npu.get_device_name(0)
 
 
 class SigmoidFocalLossFunction(Function):
