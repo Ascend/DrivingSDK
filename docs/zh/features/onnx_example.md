@@ -177,7 +177,7 @@ print(output)
 
 ### No parser is register for Op
 
-可能原因1：在docker中编译的mx_driving包可能不附带onnx插件，需要编译protoc，按照[Driving SDK 编译指南](https://gitcode.com/Ascend/DrivingSDK/blob/master/docs/get_started/compile.md)中FAQ方式进行编译即可
+可能原因1：在docker中编译的mx_driving包可能不附带onnx插件，需要编译protoc，参照[Driving SDK 安装指导](https://gitcode.com/Ascend/DrivingSDK/blob/master/docs/zh/installation/installation.md#%E5%89%8D%E7%BD%AE%E4%BE%9D%E8%B5%96-1)进行编译安装即可。
 
 可能原因2：未引入onnx转换om环节中的mx_driving环境变量，导致转换过程中未检索到对应算子而报错
 

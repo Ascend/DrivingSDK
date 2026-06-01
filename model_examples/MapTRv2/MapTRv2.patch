@@ -1,9 +1,6 @@
-diff --git a/0 b/0
-new file mode 100644
-index 0000000..e69de29
 diff --git a/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py b/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py
 new file mode 100644
-index 0000000..d5fe327
+index 0000000..f97974b
 --- /dev/null
 +++ b/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py
 @@ -0,0 +1,343 @@
@@ -497,19 +494,37 @@ index e57bd22..03c3589 100644
 
 
 diff --git a/projects/mmdet3d_plugin/bevformer/modules/decoder.py b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
-index 33024f8..3dc3dd7 100644
+index 33024f8..ea3c9da 100644
 --- a/projects/mmdet3d_plugin/bevformer/modules/decoder.py
 +++ b/projects/mmdet3d_plugin/bevformer/modules/decoder.py
-@@ -11,12 +11,17 @@ import copy
- import warnings
- from matplotlib import pyplot as plt
- import numpy as np
+@@ -5,24 +5,29 @@
+ # ---------------------------------------------
+
+ from mmcv.ops.multi_scale_deform_attn import multi_scale_deformable_attn_pytorch
+-import mmcv
+-import cv2 as cv
+-import copy
+-import warnings
+-from matplotlib import pyplot as plt
+-import numpy as np
 -import torch
 -import torch.nn as nn
 -import torch.nn.functional as F
 -from mmcv.cnn import xavier_init, constant_init
 -from mmcv.cnn.bricks.registry import (ATTENTION,
 -                                      TRANSFORMER_LAYER_SEQUENCE)
+-from mmcv.cnn.bricks.transformer import TransformerLayerSequence
+-import math
+-from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
+-from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
+-                        to_2tuple)
+-
++import mmcv
++import cv2 as cv
++import copy
++import warnings
++from matplotlib import pyplot as plt
++import numpy as np
 +import torch
 +import torch.nn as nn
 +import torch.nn.functional as F
@@ -521,13 +536,25 @@ index 33024f8..3dc3dd7 100644
 +from mmcv.cnn import xavier_init, constant_init
 +from mmcv.cnn.bricks.registry import (ATTENTION,
 +                                      TRANSFORMER_LAYER_SEQUENCE)
- from mmcv.cnn.bricks.transformer import TransformerLayerSequence
- import math
- from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
-@@ -321,23 +326,13 @@ class CustomMSDeformableAttention(BaseModule):
-         else:
-             raise ValueError(
-                 f'Last dim of reference_points must be'
++from mmcv.cnn.bricks.transformer import TransformerLayerSequence
++import math
++from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
++from mmcv.utils import (ConfigDict, build_from_cfg, deprecated_api_warning,
++                        to_2tuple)
++
+ from mmcv.utils import ext_loader
+ from .multi_scale_deformable_attn_function import MultiScaleDeformableAttnFunction_fp32, \
+     MultiScaleDeformableAttnFunction_fp16
+@@ -315,31 +320,21 @@ class CustomMSDeformableAttention(BaseModule):
+                 / offset_normalizer[None, None, None, :, None, :]
+         elif reference_points.shape[-1] == 4:
+             sampling_locations = reference_points[:, :, None, :, None, :2] \
+-                + sampling_offsets / self.num_points \
+-                * reference_points[:, :, None, :, None, 2:] \
+-                * 0.5
+-        else:
+-            raise ValueError(
+-                f'Last dim of reference_points must be'
 -                f' 2 or 4, but get {reference_points.shape[-1]} instead.')
 -        if torch.cuda.is_available() and value.is_cuda:
 -
@@ -545,6 +572,17 @@ index 33024f8..3dc3dd7 100644
 -
 -        output = self.output_proj(output)
 -
+-        if not self.batch_first:
+-            # (num_query, bs ,embed_dims)
+-            output = output.permute(1, 0, 2)
+-
+-        return self.dropout(output) + identity
++                + sampling_offsets / self.num_points \
++                * reference_points[:, :, None, :, None, 2:] \
++                * 0.5
++        else:
++            raise ValueError(
++                f'Last dim of reference_points must be'
 +                f' 2 or 4, but get {reference_points.shape[-1]} instead.')
 +        if torch.cuda.is_available() and value.is_cuda:
 +
@@ -552,9 +590,11 @@ index 33024f8..3dc3dd7 100644
 +
 +        output = self.output_proj(output)
 +
-         if not self.batch_first:
-             # (num_query, bs ,embed_dims)
-             output = output.permute(1, 0, 2)
++        if not self.batch_first:
++            # (num_query, bs ,embed_dims)
++            output = output.permute(1, 0, 2)
++
++        return self.dropout(output) + identity
 diff --git a/projects/mmdet3d_plugin/datasets/builder.py b/projects/mmdet3d_plugin/datasets/builder.py
 index 0ad7a92..02f942f 100644
 --- a/projects/mmdet3d_plugin/datasets/builder.py
@@ -747,7 +787,7 @@ index d531c3a..2c4939f 100644
          return queue
 
 diff --git a/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py b/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
-index 47cea8c..55a42ae 100644
+index 47cea8c..5104477 100644
 --- a/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
 +++ b/projects/mmdet3d_plugin/maptr/dense_heads/maptrv2_head.py
 @@ -73,6 +73,127 @@ def denormalize_2d_pts(pts, pc_range):
@@ -878,8 +918,12 @@ index 47cea8c..55a42ae 100644
 
  @HEADS.register_module()
  class MapTRv2Head(DETRHead):
-@@ -194,6 +315,8 @@ class MapTRv2Head(DETRHead):
+@@ -191,9 +312,11 @@ class MapTRv2Head(DETRHead):
 
+         self.loss_seg = build_loss(loss_seg)
+         self.loss_pv_seg = build_loss(loss_pv_seg)
+-
++
          self._init_layers()
 
 +        self.pool = mp.Pool(processes=4)
@@ -941,7 +985,7 @@ index 47cea8c..55a42ae 100644
          all_gt_labels_list = [gt_labels_list for _ in range(num_dec_layers)]
          all_gt_pts_list = [gt_pts_list for _ in range(num_dec_layers)]
 diff --git a/projects/mmdet3d_plugin/maptr/detectors/maptrv2.py b/projects/mmdet3d_plugin/maptr/detectors/maptrv2.py
-index 027f0c7..71851aa 100644
+index 027f0c7..2b49972 100644
 --- a/projects/mmdet3d_plugin/maptr/detectors/maptrv2.py
 +++ b/projects/mmdet3d_plugin/maptr/detectors/maptrv2.py
 @@ -119,8 +119,14 @@ class MapTRv2(MVXTwoStageDetector):
@@ -1021,7 +1065,7 @@ index f2c624f..61511d9 100644
  from .encoder import LSSTransform
 \ No newline at end of file
 diff --git a/projects/mmdet3d_plugin/maptr/modules/encoder.py b/projects/mmdet3d_plugin/maptr/modules/encoder.py
-index fc34528..e68c98e 100644
+index fc34528..9ee7944 100644
 --- a/projects/mmdet3d_plugin/maptr/modules/encoder.py
 +++ b/projects/mmdet3d_plugin/maptr/modules/encoder.py
 @@ -5,8 +5,8 @@ import torch.nn as nn
@@ -1031,7 +1075,7 @@ index fc34528..e68c98e 100644
 -from mmdet3d.ops import bev_pool
 -from mmdet3d.ops.bev_pool_v2.bev_pool import bev_pool_v2
 +import torch_npu
-+from mx_driving.point import bev_pool, bev_pool_v2
++from mx_driving import bev_pool, bev_pool_v2,bev_pool_v3
  from mmcv.runner import force_fp32, auto_fp16
  from torch.cuda.amp.autocast_mode import autocast
  from mmcv.cnn import build_conv_layer
@@ -1090,6 +1134,17 @@ index fc34528..e68c98e 100644
 
          if "extra_rots" in kwargs:
              extra_rots = kwargs["extra_rots"]
+@@ -220,7 +218,9 @@ class BaseTransform(BaseModule):
+         x = x[kept]
+         geom_feats = geom_feats[kept]
+
+-        x = bev_pool(x, geom_feats, B, self.nx[2], self.nx[0], self.nx[1])
++        # x = bev_pool(x, geom_feats, B, self.nx[2], self.nx[0], self.nx[1])
++
++        x = bev_pool_v3(None, x, None, None, geom_feats.to(torch.int32), [B, int(self.nx[2]), int(self.nx[0]), int(self.nx[1]), C])
+
+         # collapse Z
+         final = torch.cat(x.unbind(dim=2), 1)
 diff --git a/projects/mmdet3d_plugin/models/backbones/efficientnet.py b/projects/mmdet3d_plugin/models/backbones/efficientnet.py
 index 82556ec..d0d70b5 100644
 --- a/projects/mmdet3d_plugin/models/backbones/efficientnet.py
@@ -1127,22 +1182,42 @@ index fd2cf45..fe1d79f 100644
      if 'LOCAL_RANK' not in os.environ:
          os.environ['LOCAL_RANK'] = str(args.local_rank)
 diff --git a/tools/train.py b/tools/train.py
-index da1f761..376f848 100644
+index da1f761..99602da 100644
 --- a/tools/train.py
 +++ b/tools/train.py
-@@ -29,6 +29,11 @@ from mmseg import __version__ as mmseg_version
+@@ -3,8 +3,20 @@
+ # ---------------------------------------------
+ #  Modified by Zhiqi Li
+ # ---------------------------------------------
+-
+ from __future__ import division
++import multiprocessing
++multiprocessing.set_start_method('fork', force=True)
++
++import torch,torch_npu
++import mx_driving
++from mx_driving.get_chip_info import detect_use_arch35
++from torch_npu.contrib import transfer_to_npu
++if detect_use_arch35():
++    torch_npu.npu.matmul.allow_hf32 = True
++
++from mx_driving.patcher import Patcher
++patcher=Patcher()
++patcher.apply()
+
+ import argparse
+ import copy
+@@ -29,6 +41,9 @@ from mmseg import __version__ as mmseg_version
 
  from mmcv.utils import TORCH_VERSION, digit_version
 
-+import torch_npu
-+from torch_npu.contrib import transfer_to_npu
 +from mindspeed.optimizer.adamw import AdamW
 +torch.optim.AdamW = AdamW
 +
 
  def parse_args():
      parser = argparse.ArgumentParser(description='Train a detector')
-@@ -79,7 +84,7 @@ def parse_args():
+@@ -79,7 +94,7 @@ def parse_args():
          choices=['none', 'pytorch', 'slurm', 'mpi'],
          default='none',
          help='job launcher')

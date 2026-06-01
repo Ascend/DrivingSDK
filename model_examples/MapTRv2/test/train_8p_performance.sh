@@ -5,6 +5,7 @@ Network="MapTRv2"
 WORLD_SIZE=8
 WORK_DIR=""
 LOAD_FROM=""
+BatchSize=4
 
 NNODES=${NNODES:-1}
 NODE_RANK=${NODE_RANK:-0}
@@ -40,7 +41,7 @@ if [ x"${etp_flag}" != x"true" ]; then
   source ${test_path_dir}/env_npu.sh
 fi
 
-bash ./MapTRv2/tools/dist_train.sh ./MapTRv2/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py 8 \
+bash ./MapTRv2/tools/dist_train.sh ./MapTRv2/projects/configs/maptrv2/maptrv2_nusc_r50_1ep.py ${WORLD_SIZE} \
     >$cur_path/test/output/${ASCEND_DEVICE_ID}/train_${ASCEND_DEVICE_ID}.log 2>&1 &
 wait
 
@@ -50,7 +51,6 @@ end_time=$(date +%s)
 e2e_time=$(( $end_time - $start_time ))
 
 # 训练用例信息，不需要修改
-BatchSize=4
 DeviceType=$(uname -m)
 CaseName=${Network}_bs${BatchSize}_${WORLD_SIZE}'p'_'acc'
 

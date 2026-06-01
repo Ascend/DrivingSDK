@@ -23,6 +23,8 @@ export COMBINED_ENABLE=1
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 #配置初始化模式
 export ACL_OP_INIT_MODE=0
+#避免torch2.7权重加载报错，设置weights_only=False
+export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1
 
 #设置device侧日志登记为error
 msnpureport -g error -d 0

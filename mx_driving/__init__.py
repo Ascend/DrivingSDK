@@ -19,8 +19,9 @@ __all__ = [
     "npu_boxes_overlap_bev",
     "boxes_iou_bev",
     "deform_conv2d",
+    "DeformConv2dFunction",
     "dynamic_scatter",
-    "furthest_point_sample_with_dist",
+    "furthest_point_sampling",
     "furthest_point_sample_with_dist",
     "npu_fused_bias_leaky_relu",
     "geometric_kernel_attention",
@@ -30,17 +31,18 @@ __all__ = [
     "hypot",
     "knn",
     "modulated_deform_conv2d",
+    "ModulatedDeformConv2dFunction",
     "multi_scale_deformable_attn",
     "npu_index_select",
     "npu_multi_scale_deformable_attn_function",
-    "npu_nms3d_normal",
+    "nms3d_normal",
     "npu_add_relu",
     "npu_deformable_aggregation",
     "npu_batch_matmul",
     "deformable_aggregation",
     "npu_dynamic_scatter",
     "npu_max_pool2d",
-    "npu_nms3d",
+    "nms3d",
     "MultiScaleDeformableAttnFunction",
     "npu_points_in_box",
     "npu_points_in_box_all",
@@ -49,14 +51,17 @@ __all__ = [
     "pixel_group",
     "roi_align_rotated",
     "roiaware_pool3d",
+    "roipoint_pool3d",
     "npu_rotated_iou",
     "npu_rotated_overlaps",
     "scatter_max",
     "scatter_mean",
+    "scatter_add",
     "three_interpolate",
     "three_nn",
     "npu_voxel_pooling_train",
     "voxelization",
+    "unique_voxel",
     "cal_anchors_heading",
     "npu_gaussian",
     "npu_draw_gaussian_to_heatmap",
@@ -72,7 +77,19 @@ __all__ = [
     "npu_fake_tensor_quant",
     "npu_fake_tensor_quant_inplace",
     "npu_fake_tensor_quant_with_axis",
+    "default_patcher_builder",
+    "patch_mmcv_version",
 ]
+
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║                         Built-in Dependencies                              ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+# Pre-import torch and torch_npu to ensure they are available for mx_driving.
+# This prevents errors when users forget to import these modules before using mx_driving.
+import torch  # noqa: F401
+import torch_npu  # noqa: F401
+from torch_npu.contrib import transfer_to_npu  # noqa: F401
+
 
 import os
 import warnings
@@ -139,12 +156,12 @@ from .ops.diff_iou_rotated import diff_iou_rotated_2d
 from .ops.npu_batch_matmul import npu_batch_matmul
 from .ops.nms3d_on_sight import nms3d_on_sight
 from .ops.cartesian_to_frenet import cartesian_to_frenet
-from .patcher import default_patcher_builder, patch_mmcv_version
 from .ops.radius import radius
 from .ops.npu_unique import npu_unique
 from .ops.graph_softmax import graph_softmax
 from .ops.cylinder_query import cylinder_query
 from .ops.sigmoid_focal_loss import sigmoid_focal_loss
+from .patcher import default_patcher_builder, patch_mmcv_version
 from .ops.npu_fake_tensor_quant import npu_fake_tensor_quant
 from .ops.npu_fake_tensor_quant import npu_fake_tensor_quant_inplace
 from .ops.npu_fake_tensor_quant import npu_fake_tensor_quant_with_axis
@@ -179,5 +196,6 @@ def _set_env():
 
     mx_driving_op_api_so_path = os.path.join(mx_driving_opp_path, "op_api", "lib", opapi_name)
     mx_driving._C._init_op_api_so_path(mx_driving_op_api_so_path)
+
 
 _set_env()

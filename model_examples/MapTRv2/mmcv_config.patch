@@ -1,3 +1,52 @@
+diff --git a/mmcv/ops/focal_loss.py b/mmcv/ops/focal_loss.py
+index 5a941c86..a616cf03 100644
+--- a/mmcv/ops/focal_loss.py
++++ b/mmcv/ops/focal_loss.py
+@@ -13,6 +13,7 @@ ext_module = ext_loader.load_ext('_ext', [
+     'softmax_focal_loss_forward', 'softmax_focal_loss_backward'
+ ])
+
++import mx_driving._C
+
+ class SigmoidFocalLossFunction(Function):
+
+@@ -56,8 +57,10 @@ class SigmoidFocalLossFunction(Function):
+
+         output = input.new_zeros(input.size())
+
+-        ext_module.sigmoid_focal_loss_forward(
+-            input, target, weight, output, gamma=ctx.gamma, alpha=ctx.alpha)
++        # ext_module.sigmoid_focal_loss_forward(
++        #     input, target, weight, output, gamma=ctx.gamma, alpha=ctx.alpha)
++        mx_driving._C.sigmoid_focal_loss(
++            input, target, weight, output, ctx.gamma, ctx.alpha)
+         if ctx.reduction == ctx.reduction_dict['mean']:
+             output = output.sum() / input.size(0)
+         elif ctx.reduction == ctx.reduction_dict['sum']:
+@@ -72,13 +75,20 @@ class SigmoidFocalLossFunction(Function):
+
+         grad_input = input.new_zeros(input.size())
+
+-        ext_module.sigmoid_focal_loss_backward(
++        # ext_module.sigmoid_focal_loss_backward(
++        #     input,
++        #     target,
++        #     weight,
++        #     grad_input,
++        #     gamma=ctx.gamma,
++        #     alpha=ctx.alpha)
++        mx_driving._C.sigmoid_focal_loss_backward(
+             input,
+             target,
+             weight,
+             grad_input,
+-            gamma=ctx.gamma,
+-            alpha=ctx.alpha)
++            ctx.gamma,
++            ctx.alpha)
+
+         grad_input *= grad_output
+         if ctx.reduction == ctx.reduction_dict['mean']:
 diff --git a/mmcv/parallel/_functions.py b/mmcv/parallel/_functions.py
 index 43580b46..9e276efb 100644
 --- a/mmcv/parallel/_functions.py
@@ -38,16 +87,3 @@ index bf34cb59..f0dfecc9 100644
 
          if self.device_ids:
              inputs, kwargs = self.to_kwargs(  # type: ignore
-diff --git a/mmcv/runner/checkpoint.py b/mmcv/runner/checkpoint.py
-index 9dd2d311..230b7c1e 100644
---- a/mmcv/runner/checkpoint.py
-+++ b/mmcv/runner/checkpoint.py
-@@ -331,7 +331,7 @@ def load_from_local(
-     filename = osp.expanduser(filename)
-     if not osp.isfile(filename):
-         raise FileNotFoundError(f'{filename} can not be found.')
--    checkpoint = torch.load(filename, map_location=map_location)
-+    checkpoint = torch.load(filename, map_location=map_location,weights_only=False)
-     return checkpoint
-
-

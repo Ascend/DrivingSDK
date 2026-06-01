@@ -63,30 +63,30 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
 
 **表 2**  昇腾软件版本支持表
 
-|     软件类型      | 首次支持版本 |
+|     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 7.1.0  |
-|       CANN        | 8.2.RC1  |
+| FrameworkPTAdapter | 26.0.0  |
+|       CANN        | 9.0.0  |
 
 1. 安装Driving SDK加速库，具体方法参考[原仓](https://gitcode.com/Ascend/DrivingSDK)。
 
-- 推荐使用依赖安装一键配置脚本，可使用如下指令完成后续步骤2，3，4，5，6，7，8的安装：
+   推荐使用依赖安装一键配置脚本，可使用如下指令完成后续步骤2，3，4，5，6，7，8的安装：
 
-   ```shell
-   bash install_MapTRv2.sh
-   ```
+    ```shell
+    bash install_MapTRv2.sh
+    ```
 
-  这里需要根据pytorch版本修改脚本，使用对应的requirements文件,一键配置脚本默认使用torch2.1.0
+   这里需要根据pytorch版本修改脚本，使用对应的requirements文件,一键配置脚本默认使用torch2.1.0
 
 2. 根据pytorch版本在模型根目录下安装依赖
 
-  - torch2.1.0
+   - torch2.1.0
 
     ```shell
     pip install -r requirements.txt
     ```
 
-  - torch2.7.1
+   - torch2.7.1
 
     ```shell
     pip install -r requirements_pytorch2.7.1.txt
@@ -94,7 +94,7 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
 
 3. 安装mmcv
 
-  - 在模型根目录下，克隆mmcv仓，并进入mmcv目录安装
+   在模型根目录下，克隆mmcv仓，并进入mmcv目录安装
 
     ```shell
     git clone -b 1.x https://github.com/open-mmlab/mmcv
@@ -113,7 +113,7 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
 
 5. 安装mmdet3d
 
-  - 在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录安装
+   - 在模型根目录下，克隆mmdet3d仓，并进入mmdetection3d目录安装
 
     ```shell
     git clone -b v1.0.0rc4 https://github.com/open-mmlab/mmdetection3d.git
@@ -133,105 +133,105 @@ MapTRv2是一种高效的端到端Transformer模型，用于在线构建矢量�
 
 7. 模型代码更新
 
-  ```shell
-  git clone -b maptrv2 https://github.com/hustvl/MapTR.git MapTRv2
-  cp MapTRv2.patch MapTRv2/
-  cd MapTRv2
-  git checkout e03f097abef19e1ba3fed5f471a8d80fbfa0a064
-  git apply --reject --whitespace=fix MapTRv2.patch
-  cd ../
-  ```
+    ```shell
+    git clone -b maptrv2 https://github.com/hustvl/MapTR.git MapTRv2
+    cp MapTRv2.patch MapTRv2/
+    cd MapTRv2
+    git checkout e03f097abef19e1ba3fed5f471a8d80fbfa0a064
+    git apply --reject --whitespace=fix MapTRv2.patch
+    cd ../
+    ```
 
 8. 根据操作系统，替换高性能内存库tcmalloc
 
-  - OpenEuler系统
+   - OpenEuler系统
 
-  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
+    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。
 
-  ```shell
-  mkdir gperftools
-  cd gperftools
-  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-  tar -zvxf gperftools-2.16.tar.gz
-  cd gperftools-2.16
-  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-  make
-  make install
-  echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
-  ldconfig
-  export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
-  export PATH=/usr/local/lib/bin:$PATH
-  export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
-  ```
+    ```shell
+    mkdir gperftools
+    cd gperftools
+    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+    tar -zvxf gperftools-2.16.tar.gz
+    cd gperftools-2.16
+    ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+    make
+    make install
+    echo '/usr/local/lib/lib/' >> /etc/ld.so.conf
+    ldconfig
+    export LD_LIBRARY_PATH=/usr/local/lib/lib/:$LD_LIBRARY_PATH
+    export PATH=/usr/local/lib/bin:$PATH
+    export LD_PRELOAD=/usr/local/lib/lib/libtcmalloc.so.4
+    ```
 
-  - Ubuntu系统
+   - Ubuntu系统
 
-  在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
+    在当前python环境和路径下执行以下命令，安装并使用tcmalloc动态库。在安装tcmalloc前，需确保环境中含有autoconf和libtool依赖包。
 
-  安装libunwind依赖：
+    安装libunwind依赖：
 
-  ```shell
-  git clone https://github.com/libunwind/libunwind.git
-  cd libunwind
-  autoreconf -i
-  ./configure --prefix=/usr/local
-  make -j128
-  make install
-  ```
+    ```shell
+    git clone https://github.com/libunwind/libunwind.git
+    cd libunwind
+    autoreconf -i
+    ./configure --prefix=/usr/local
+    make -j128
+    make install
+    ```
 
-  安装tcmalloc动态库：
+    安装tcmalloc动态库：
 
-  ```shell
-  wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
-  tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
-  ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
-  make -j128
-  make install
-  export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
-  ```
+    ```shell
+    wget https://github.com/gperftools/gperftools/releases/download/gperftools-2.16/gperftools-2.16.tar.gz
+    tar -xf gperftools-2.16.tar.gz && cd gperftools-2.16
+    ./configure --prefix=/usr/local/lib --with-tcmalloc-pagesize=64
+    make -j128
+    make install
+    export LD_PRELOAD="$LD_PRELOAD:/usr/local/lib/lib/libtcmalloc.so"
+    ```
 
 ### 准备数据集
 
-- 根据原仓**Prepare Dataset**章节准备数据集，数据集目录及结构如下：
+  - 根据原仓**Prepare Dataset**章节准备数据集，数据集目录及结构如下：
 
-```shell
-MapTRv2
-├── ckpts/
-│   ├── resnet50-19c8e357.pth
-├── data/
-│   ├── can_bus/
-│   ├── nuscenes/
-│   │   ├── lidarseg/
-│   │   ├── maps/
-│   │   ├── panoptic/
-│   │   ├── samples/
-│   │   ├── v1.0-test/
-|   |   ├── v1.0-trainval/
-|   |   ├── nuscenes_map_infos_temporal_test.pkl
-|   |   ├── nuscenes_map_infos_temporal_train.pkl
-|   |   ├── nuscenes_map_infos_temporal_val.pkl
-├── patch/
-├── test/
-├── MapTRv2/
-```
+  ```shell
+  MapTRv2
+  ├── ckpts/
+  │   ├── resnet50-19c8e357.pth
+  ├── data/
+  │   ├── can_bus/
+  │   ├── nuscenes/
+  │   │   ├── lidarseg/
+  │   │   ├── maps/
+  │   │   ├── panoptic/
+  │   │   ├── samples/
+  │   │   ├── v1.0-test/
+  |   |   ├── v1.0-trainval/
+  |   |   ├── nuscenes_map_infos_temporal_test.pkl
+  |   |   ├── nuscenes_map_infos_temporal_train.pkl
+  |   |   ├── nuscenes_map_infos_temporal_val.pkl
+  ├── patch/
+  ├── test/
+  ├── MapTRv2/
+  ```
 
-> **说明：**
-> nuscenes数据集下的文件，通过运行以下指令生成：
+  > **说明：**
+  > nuscenes数据集下的文件，通过运行以下指令生成：
 
-```shell
-python MapTRv2/tools/maptrv2/custom_nusc_map_converter.py --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data
-```
+    ```shell
+    python MapTRv2/tools/maptrv2/custom_nusc_map_converter.py --root-path ./data/nuscenes --out-dir ./data/nuscenes --extra-tag nuscenes --version v1.0 --canbus ./data
+    ```
 
 ### 准备预训练权重
 
 - 在模型根目录下，执行以下指令下载预训练权重：
 
-```shell
-mkdir ckpts
-cd ckpts
-wget https://download.pytorch.org/models/resnet50-19c8e357.pth
-wget https://download.pytorch.org/models/resnet18-f37072fd.pth
-```
+    ```shell
+    mkdir ckpts
+    cd ckpts
+    wget https://download.pytorch.org/models/resnet50-19c8e357.pth
+    wget https://download.pytorch.org/models/resnet18-f37072fd.pth
+    ```
 
 ## 快速开始
 
@@ -278,12 +278,14 @@ wget https://download.pytorch.org/models/resnet18-f37072fd.pth
 
 2025.11.25: 支持torch2.7.1
 
+2026.5.29: 模型支持950
+
 # FAQ
 
 1. tcmalloc的动态库文件位置可能因环境配置会有所不同，找不到文件时可以进行搜索，一般安装在`/usr/lib64`或者`/usr/local`目录下：
 
-```shell
-find /usr -name libtcmalloc.so*
-```
+    ```shell
+    find /usr -name libtcmalloc.so*
+    ```
 
-找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。
+    找到对应路径下的动态库文件，`libtcmalloc.so`或者`libtcmalloc.so.版本号`都可以使用。

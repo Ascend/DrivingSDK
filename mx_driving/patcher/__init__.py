@@ -33,31 +33,6 @@ from typing import Dict, List, Type
 import importlib
 
 # ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║                         Built-in Dependencies                              ║
-# ╚═══════════════════════════════════════════════════════════════════════════╝
-# Pre-import torch and torch_npu to ensure they are available for patches.
-# This prevents errors when users forget to import these modules before using patcher.
-try:
-    import torch  # noqa: F401
-except ImportError:
-    pass
-
-try:
-    import torch_npu  # noqa: F401
-except ImportError:
-    pass
-else:
-    # Pre-import transfer_to_npu to enable CUDA→NPU compatibility monkey-patching
-    # (matches common NPU migration practice where importing it is sufficient).
-    #
-    # NOTE: This import may have global side effects (e.g. patching torch.cuda/.cuda()).
-    # Keep it best-effort and avoid hard dependency.
-    try:
-        from torch_npu.contrib import transfer_to_npu  # noqa: F401
-    except ImportError:
-        pass
-
-# ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║                              Core Imports                                  ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
