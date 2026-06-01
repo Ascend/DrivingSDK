@@ -23,13 +23,11 @@
 std::string g_opApiSoPath;
 std::once_flag init_flag; // Flag for one-time initialization
 
-void init_op_api_so_path(const std::string& path)
-{
+void init_op_api_so_path(const std::string &path) {
     std::call_once(init_flag, [&]() { g_opApiSoPath = path; });
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
-{
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("_init_op_api_so_path", &init_op_api_so_path);
     // knn
     m.def("knn", &knn);
@@ -255,6 +253,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     // sigmoid_focal_loss
     m.def("sigmoid_focal_loss", &sigmoid_focal_loss);
     m.def("sigmoid_focal_loss_backward", &sigmoid_focal_loss_backward);
+    m.def("sigmoid_focal_loss_cann", &sigmoid_focal_loss_cann);
+    m.def("sigmoid_focal_loss_backward_cann", &sigmoid_focal_loss_backward_cann);
 
     // npu_subm_sparse_conv3d_grad_arch35
     m.def("npu_subm_sparse_conv3d_grad_arch35", &npu_subm_sparse_conv3d_grad_arch35);

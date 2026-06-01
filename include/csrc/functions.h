@@ -300,6 +300,12 @@ void sigmoid_focal_loss(const at::Tensor &input, const at::Tensor &target, const
 void sigmoid_focal_loss_backward(const at::Tensor &input, const at::Tensor &target, const at::Tensor &weight,
     const at::Tensor &grad_input, double gamma, double alpha);
 
+void sigmoid_focal_loss_cann(const at::Tensor &input, const at::Tensor &target, const at::Tensor &weight,
+    at::Tensor &output, float gamma, float alpha);
+
+void sigmoid_focal_loss_backward_cann(const at::Tensor &input, const at::Tensor &target, const at::Tensor &weight,
+    at::Tensor &grad_input, float gamma, float alpha);
+
 std::tuple<at::Tensor, at::Tensor> npu_subm_sparse_conv3d_grad_arch35(const at::Tensor &features,
     const at::Tensor &weight, const at::Tensor &grad_out_features, const at::Tensor &indices_offset);
 

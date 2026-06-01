@@ -16,14 +16,11 @@ MMCV补丁模块测试
 - 验证补丁目标路径正确
 - 验证与Patcher的集成
 """
+
 import importlib.util
 import os
 import sys
-import types
 import unittest
-from typing import List
-from types import ModuleType
-from unittest.mock import MagicMock, patch
 
 # Get project root
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -41,28 +38,14 @@ def _load_module_from_file(module_name: str, file_path: str):
 
 # Load patcher modules directly to avoid torch dependency
 _patcher_logger = _load_module_from_file(
-    "mx_driving.patcher.patcher_logger",
-    os.path.join(_patcher_dir, "patcher_logger.py")
+    "mx_driving.patcher.patcher_logger", os.path.join(_patcher_dir, "patcher_logger.py")
 )
-_reporting = _load_module_from_file(
-    "mx_driving.patcher.reporting",
-    os.path.join(_patcher_dir, "reporting.py")
-)
-_version_module = _load_module_from_file(
-    "mx_driving.patcher.version",
-    os.path.join(_patcher_dir, "version.py")
-)
-_patch_module = _load_module_from_file(
-    "mx_driving.patcher.patch",
-    os.path.join(_patcher_dir, "patch.py")
-)
-_patcher_module = _load_module_from_file(
-    "mx_driving.patcher.patcher",
-    os.path.join(_patcher_dir, "patcher.py")
-)
+_reporting = _load_module_from_file("mx_driving.patcher.reporting", os.path.join(_patcher_dir, "reporting.py"))
+_version_module = _load_module_from_file("mx_driving.patcher.version", os.path.join(_patcher_dir, "version.py"))
+_patch_module = _load_module_from_file("mx_driving.patcher.patch", os.path.join(_patcher_dir, "patch.py"))
+_patcher_module = _load_module_from_file("mx_driving.patcher.patcher", os.path.join(_patcher_dir, "patcher.py"))
 _mmcv_patch_module = _load_module_from_file(
-    "mx_driving.patcher.mmcv_patch",
-    os.path.join(_patcher_dir, "mmcv_patch.py")
+    "mx_driving.patcher.mmcv_patch", os.path.join(_patcher_dir, "mmcv_patch.py")
 )
 
 # Import classes from loaded modules
@@ -78,6 +61,8 @@ MultiScaleDeformableAttention = _mmcv_patch_module.MultiScaleDeformableAttention
 DeformConv = _mmcv_patch_module.DeformConv
 ModulatedDeformConv = _mmcv_patch_module.ModulatedDeformConv
 SparseConv3D = _mmcv_patch_module.SparseConv3D
+Voxelization = _mmcv_patch_module.Voxelization
+SigmoidFocalLoss = _mmcv_patch_module.SigmoidFocalLoss
 Stream = _mmcv_patch_module.Stream
 DDP = _mmcv_patch_module.DDP
 
@@ -283,6 +268,61 @@ class TestDDPPatch(unittest.TestCase):
         """Test that ddp_forward method exists."""
         self.assertTrue(hasattr(DDP, 'ddp_forward'))
         self.assertTrue(callable(DDP.ddp_forward))
+
+
+class TestVoxelizationPatch(unittest.TestCase):
+    """Tests for Voxelization patch class."""
+
+    def test_patch_class_attributes(self):
+        """Test that patch class has required attributes."""
+        self.assertEqual(Voxelization.name, "voxelization")
+        self.assertTrue(hasattr(Voxelization, 'patches'))
+
+    def test_patches_returns_list(self):
+        """Test that patches() returns a list of AtomicPatch."""
+        patches = Voxelization.patches()
+        self.assertIsInstance(patches, list)
+        self.assertEqual(len(patches), 1)
+        for p in patches:
+            self.assertIsInstance(p, AtomicPatch)
+
+    def test_patches_target_path(self):
+        """Test that patches target correct path."""
+        patches = Voxelization.patches()
+        self.assertEqual(patches[0].target, "mmcv.ops.voxelize._Voxelization.forward")
+
+    def test_voxelization_method_exists(self):
+        """Test that _voxelization method exists."""
+        self.assertTrue(hasattr(Voxelization, '_voxelization'))
+        self.assertTrue(callable(Voxelization._voxelization))
+
+
+class TestSigmoidFocalLossPatch(unittest.TestCase):
+    """Tests for SigmoidFocalLoss patch class."""
+
+    def test_patch_class_attributes(self):
+        """Test that patch class has required attributes."""
+        self.assertEqual(SigmoidFocalLoss.name, "sigmoid_focal_loss")
+        self.assertTrue(hasattr(SigmoidFocalLoss, 'patches'))
+
+    def test_patches_returns_list(self):
+        """Test that patches() returns a list of AtomicPatch."""
+        patches = SigmoidFocalLoss.patches()
+        self.assertIsInstance(patches, list)
+        self.assertEqual(len(patches), 1)
+        for p in patches:
+            self.assertIsInstance(p, AtomicPatch)
+
+    def test_patches_target_path(self):
+        """Test that patches target correct path."""
+        patches = SigmoidFocalLoss.patches()
+        self.assertEqual(patches[0].target, "mmcv.ops.focal_loss.sigmoid_focal_loss")
+
+    def test_patches_use_string_replacement(self):
+        """Test that patches use string replacement for lazy resolution."""
+        patches = SigmoidFocalLoss.patches()
+        self.assertIsInstance(patches[0]._replacement, str)
+        self.assertEqual(patches[0]._replacement, "mx_driving.sigmoid_focal_loss")
 
 
 class TestPatcherIntegration(unittest.TestCase):

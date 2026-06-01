@@ -13,6 +13,7 @@ Provides NPU-compatible replacements for mmcv operators including:
 - Optimizer Hooks (mmcv 1.x)
 - Training loop patches (mmcv 1.x)
 """
+
 import importlib
 import re
 import warnings
@@ -33,6 +34,7 @@ from mx_driving.patcher.patch import (
 # MultiScaleDeformableAttention
 # =============================================================================
 
+
 class MultiScaleDeformableAttention(Patch):
     """Multi-Scale Deformable Attention patch for mmcv."""
 
@@ -47,29 +49,30 @@ class MultiScaleDeformableAttention(Patch):
 
         # forward wrapper: ignore im2col_step parameter
         def forward_wrapper(npu_forward):
-            def forward(ctx, value, spatial_shapes, level_start_index,
-                        sampling_locations, attention_weights, im2col_step=None):
-                return npu_forward(ctx, value, spatial_shapes, level_start_index,
-                                   sampling_locations, attention_weights)
+            def forward(
+                ctx, value, spatial_shapes, level_start_index, sampling_locations, attention_weights, im2col_step=None
+            ):
+                return npu_forward(ctx, value, spatial_shapes, level_start_index, sampling_locations, attention_weights)
+
             return forward
 
         # backward wrapper: append None to return value (for im2col_step gradient)
         def backward_wrapper(npu_backward):
             def backward(ctx, grad_output):
                 return (*npu_backward(ctx, grad_output), None)
+
             return backward
 
         return [
-            AtomicPatch(f"{base}.forward", f"{npu_base}.forward",
-                        replacement_wrapper=forward_wrapper),
-            AtomicPatch(f"{base}.backward", f"{npu_base}.backward",
-                        replacement_wrapper=backward_wrapper),
+            AtomicPatch(f"{base}.forward", f"{npu_base}.forward", replacement_wrapper=forward_wrapper),
+            AtomicPatch(f"{base}.backward", f"{npu_base}.backward", replacement_wrapper=backward_wrapper),
         ]
 
 
 # =============================================================================
 # DeformConv
 # =============================================================================
+
 
 class DeformConv(Patch):
     """Deformable Convolution patch for mmcv."""
@@ -96,6 +99,7 @@ class DeformConv(Patch):
 # ModulatedDeformConv
 # =============================================================================
 
+
 class ModulatedDeformConv(Patch):
     """Modulated Deformable Convolution patch for mmcv."""
 
@@ -120,6 +124,7 @@ class ModulatedDeformConv(Patch):
 # =============================================================================
 # SparseConv3D
 # =============================================================================
+
 
 class SparseConv3D(Patch):
     """Sparse Convolution 3D patch for mmcv."""
@@ -150,37 +155,41 @@ class SparseConv3D(Patch):
 
         # mmcv 1.x cnn.CONV_LAYERS registry
         if mmcv_version.is_v1x:
-            patches.extend([
-                AtomicPatch(
-                    "mmcv.cnn.CONV_LAYERS._module_dict.SubMConv3d",
-                    "mx_driving.SubMConv3d",
-                ),
-                AtomicPatch(
-                    "mmcv.cnn.CONV_LAYERS._module_dict.SparseConv3d",
-                    "mx_driving.SparseConv3d",
-                ),
-                AtomicPatch(
-                    "mmcv.cnn.CONV_LAYERS._module_dict.SparseInverseConv3d",
-                    "mx_driving.SparseInverseConv3d",
-                ),
-            ])
+            patches.extend(
+                [
+                    AtomicPatch(
+                        "mmcv.cnn.CONV_LAYERS._module_dict.SubMConv3d",
+                        "mx_driving.SubMConv3d",
+                    ),
+                    AtomicPatch(
+                        "mmcv.cnn.CONV_LAYERS._module_dict.SparseConv3d",
+                        "mx_driving.SparseConv3d",
+                    ),
+                    AtomicPatch(
+                        "mmcv.cnn.CONV_LAYERS._module_dict.SparseInverseConv3d",
+                        "mx_driving.SparseInverseConv3d",
+                    ),
+                ]
+            )
 
         # mmcv 2.x mmengine.registry.MODELS
         if mmcv_version.is_v2x:
-            patches.extend([
-                AtomicPatch(
-                    "mmengine.registry.MODELS._module_dict.SubMConv3d",
-                    "mx_driving.SubMConv3d",
-                ),
-                AtomicPatch(
-                    "mmengine.registry.MODELS._module_dict.SparseConv3d",
-                    "mx_driving.SparseConv3d",
-                ),
-                AtomicPatch(
-                    "mmengine.registry.MODELS._module_dict.SparseInverseConv3d",
-                    "mx_driving.SparseInverseConv3d",
-                ),
-            ])
+            patches.extend(
+                [
+                    AtomicPatch(
+                        "mmengine.registry.MODELS._module_dict.SubMConv3d",
+                        "mx_driving.SubMConv3d",
+                    ),
+                    AtomicPatch(
+                        "mmengine.registry.MODELS._module_dict.SparseConv3d",
+                        "mx_driving.SparseConv3d",
+                    ),
+                    AtomicPatch(
+                        "mmengine.registry.MODELS._module_dict.SparseInverseConv3d",
+                        "mx_driving.SparseInverseConv3d",
+                    ),
+                ]
+            )
 
         return patches
 
@@ -189,11 +198,12 @@ class SparseConv3D(Patch):
 # Voxelization
 # =============================================================================
 
+
 class Voxelization(Patch):
     name = "voxelization"
     legacy_name = "voxelization"
     target_module = "mmcv"
-    
+
     @classmethod
     def patches(cls, options: Optional[Dict] = None) -> List[AtomicPatch]:
         patches_list = [
@@ -202,20 +212,21 @@ class Voxelization(Patch):
                 replacement=cls._voxelization,
             ),
         ]
-        
+
         return patches_list
-    
+
     @staticmethod
     def _voxelization(ctx, points, voxel_size, coors_range, max_points=35, max_voxels=20000, deterministic=True):
         from mx_driving._C import hard_voxelize, dynamic_voxelization
         import torch
+
         empty_tensor = (
             len(points) == 0,
             len(voxel_size) == 0,
             len(coors_range) == 0,
         )
         if any(empty_tensor):
-            raise Exception("Error! Input Tensor can not be a empty Tensor.\n")
+            raise Exception("Error! Input Tensor can not be a empty Tensor.\n")  # pylint: disable=broad-exception-raised
         if max_points != -1 and max_voxels != -1:
             return hard_voxelize(points, voxel_size, coors_range, max_points, max_voxels, "ZYX")[1:]
 
@@ -247,8 +258,31 @@ class Voxelization(Patch):
 
 
 # =============================================================================
+# SigmoidFocalLoss
+# =============================================================================
+
+
+class SigmoidFocalLoss(Patch):
+    """Sigmoid Focal Loss patch for mmcv."""
+
+    name = "sigmoid_focal_loss"
+    legacy_name = "sigmoid_focal_loss"
+    target_module = "mmcv"
+
+    @classmethod
+    def patches(cls, options=None) -> List[BasePatch]:
+        return [
+            AtomicPatch(
+                "mmcv.ops.focal_loss.sigmoid_focal_loss",
+                "mx_driving.sigmoid_focal_loss",
+            ),
+        ]
+
+
+# =============================================================================
 # Stream
 # =============================================================================
+
 
 class Stream(Patch):
     """Scatter stream patch for mmcv 1.x."""
@@ -269,6 +303,7 @@ class Stream(Patch):
         streams = None
         if input_device == -1 and target_gpus != [-1]:
             import torch
+
             streams = [F._get_stream(torch.device("cuda", d)) for d in target_gpus]
 
         outputs = F.scatter(input_, target_gpus, streams)
@@ -292,6 +327,7 @@ class Stream(Patch):
 # DDP
 # =============================================================================
 
+
 class DDP(Patch):
     """Distributed Data Parallel (DDP) patch for mmcv 1.x."""
 
@@ -304,7 +340,7 @@ class DDP(Patch):
         return mmcv_version.is_v1x
 
     @staticmethod
-    def ddp_forward(self, *inputs, **kwargs):
+    def ddp_forward(self, *inputs, **kwargs):  # pylint: disable=bad-staticmethod-argument
         module_to_run = self.module
         if self.device_ids:
             inputs, kwargs = self.to_kwargs(inputs, kwargs, self.device_ids[0])
@@ -331,6 +367,7 @@ class DDP(Patch):
 # Optimizer Hooks (mmcv 1.x)
 # =============================================================================
 
+
 class OptimizerHooks(Patch):
     """
     Optimizer hooks patch for mmcv 1.x with gradient clipping support.
@@ -346,6 +383,7 @@ class OptimizerHooks(Patch):
     def _create_optimizer_hook():
         """Factory for OptimizerHook class."""
         import mmcv
+
         importlib.import_module("mmcv.runner.hooks")
 
         logging = mmcv.runner.hooks.optimizer.logging
@@ -396,7 +434,9 @@ class OptimizerHooks(Patch):
                 traverse(loss.grad_fn)
                 for n, p in runner.model.named_parameters():
                     if p not in parameters_in_graph and p.requires_grad:
-                        logger.log(level=logging.ERROR, msg=f"{n} with shape {p.size()} is not in the computational graph\n")
+                        logger.log(
+                            level=logging.ERROR, msg=f"{n} with shape {p.size()} is not in the computational graph\n"
+                        )
 
         return OptimizerHook
 
@@ -404,6 +444,7 @@ class OptimizerHooks(Patch):
     def _create_gradient_cumulative_optimizer_hook():
         """Factory for GradientCumulativeOptimizerHook class."""
         import mmcv
+
         importlib.import_module("mmcv.runner.hooks")
 
         _BatchNorm = mmcv.runner.hooks.optimizer._BatchNorm
@@ -417,7 +458,9 @@ class OptimizerHooks(Patch):
             def __init__(self, cumulative_iters: int = 1, **kwargs):
                 super().__init__(**kwargs)
                 if not isinstance(cumulative_iters, int) or cumulative_iters <= 0:
-                    raise ValueError(f"cumulative_iters only accepts positive int, but got {type(cumulative_iters)} instead.")
+                    raise ValueError(
+                        f"cumulative_iters only accepts positive int, but got {type(cumulative_iters)} instead."
+                    )
                 self.cumulative_iters = cumulative_iters
                 self.divisible_iters = 0
                 self.remainder_iters = 0
@@ -435,7 +478,9 @@ class OptimizerHooks(Patch):
                 if runner.iter % self.cumulative_iters != 0:
                     runner.logger.warning("Resume iter number is not divisible by cumulative_iters")
                 if self.has_batch_norm(runner.model) and self.cumulative_iters > 1:
-                    runner.logger.warning("GradientCumulativeOptimizerHook may slightly decrease performance with BatchNorm layers")
+                    runner.logger.warning(
+                        "GradientCumulativeOptimizerHook may slightly decrease performance with BatchNorm layers"
+                    )
                 self.divisible_iters = runner.max_iters // self.cumulative_iters * self.cumulative_iters
                 self.remainder_iters = runner.max_iters - self.divisible_iters
                 self.initialized = True
@@ -444,7 +489,9 @@ class OptimizerHooks(Patch):
                 if runner.iter < runner.max_iters - self.remainder_iters:
                     return self.cumulative_iters
                 loss_factor = self.remainder_iters
-                runner.logger.warning(f"Loss will be divided by {loss_factor} in the last {self.remainder_iters} iterations")
+                runner.logger.warning(
+                    f"Loss will be divided by {loss_factor} in the last {self.remainder_iters} iterations"
+                )
                 if loss_factor <= 0:
                     raise ValueError("loss_factor should be larger than 0.")
                 return loss_factor
@@ -468,6 +515,7 @@ class OptimizerHooks(Patch):
     def _create_fp16_optimizer_hook():
         """Factory for Fp16OptimizerHook class."""
         import mmcv
+
         importlib.import_module("mmcv.runner.hooks")
 
         GradScaler = mmcv.runner.hooks.optimizer.GradScaler
@@ -479,8 +527,14 @@ class OptimizerHooks(Patch):
             raise RuntimeError("OptimizerHook must be registered before Fp16OptimizerHook")
 
         class Fp16OptimizerHook(OptimizerHook):
-            def __init__(self, grad_clip: Optional[dict] = None, coalesce: bool = True, bucket_size_mb: int = -1,
-                         loss_scale: Union[float, str, dict] = 512.0, distributed: bool = True):
+            def __init__(
+                self,
+                grad_clip: Optional[dict] = None,
+                coalesce: bool = True,
+                bucket_size_mb: int = -1,
+                loss_scale: Union[float, str, dict] = 512.0,
+                distributed: bool = True,
+            ):
                 self.grad_clip = grad_clip
                 self.coalesce = coalesce
                 self.bucket_size_mb = bucket_size_mb
@@ -520,6 +574,7 @@ class OptimizerHooks(Patch):
     def _create_gradient_cumulative_fp16_optimizer_hook():
         """Factory for GradientCumulativeFp16OptimizerHook class."""
         import mmcv
+
         importlib.import_module("mmcv.runner.hooks")
 
         HOOKS = mmcv.runner.hooks.optimizer.HOOKS
@@ -527,12 +582,14 @@ class OptimizerHooks(Patch):
         Fp16OptimizerHook = HOOKS.module_dict.get("Fp16OptimizerHook")
 
         if GradientCumulativeOptimizerHook is None:
-            raise RuntimeError("GradientCumulativeOptimizerHook must be registered before GradientCumulativeFp16OptimizerHook")
+            raise RuntimeError(
+                "GradientCumulativeOptimizerHook must be registered before GradientCumulativeFp16OptimizerHook"
+            )
         if Fp16OptimizerHook is None:
             raise RuntimeError("Fp16OptimizerHook must be registered before GradientCumulativeFp16OptimizerHook")
 
         class GradientCumulativeFp16OptimizerHook(GradientCumulativeOptimizerHook, Fp16OptimizerHook):
-            def __init__(self, *args, **kwargs):
+            def __init__(self, *args, **kwargs):  # pylint: disable=useless-parent-delegation
                 super().__init__(*args, **kwargs)
 
             def after_train_iter(self, runner) -> None:
@@ -556,7 +613,8 @@ class OptimizerHooks(Patch):
 
     @classmethod
     def patches(cls, options=None) -> List[BasePatch]:
-        precheck = lambda: mmcv_version.is_v1x
+        # pylint: disable=unnecessary-lambda-assignment
+        precheck = lambda: mmcv_version.is_v1x  # noqa: E731
         return [
             # Note: Order matters! Later hooks depend on earlier ones being registered.
             RegistryPatch(
@@ -589,6 +647,7 @@ class OptimizerHooks(Patch):
 # =============================================================================
 # Training loop patches (mmcv 1.x, for profiling/brake)
 # =============================================================================
+
 
 def _parse_profiler_options(options: Dict):
     import torch_npu
@@ -654,6 +713,7 @@ def build_mmcv_epoch_runner_patch(options: Dict) -> LegacyPatch:
                         del self.data_batch
                         self._iter += 1
                         prof.step()
+                        # pylint: disable=possibly-used-before-assignment
                         if enable_brake and self._iter == brake_step:
                             sys.exit(0)
             else:
@@ -731,6 +791,7 @@ def build_mmcv_iter_runner_patch(options: Dict) -> LegacyPatch:
                                     break
                                 iter_runner(iter_loaders[i], **kwargs)
                                 prof.step()
+                                # pylint: disable=possibly-used-before-assignment
                                 if enable_brake and self._iter == brake_step:
                                     sys.exit(0)
             else:

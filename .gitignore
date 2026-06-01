@@ -6,3 +6,5 @@ build
 *.egg-info/
 .vscode/
 CMakeFiles
+dist
+tests/torch/data_cache
