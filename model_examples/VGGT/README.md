@@ -58,7 +58,8 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
 
 | 三方库  | 支持版本 |
 | :-----: | :------: |
-| PyTorch |   2.1   |
+| PyTorch |   2.1.0  |
+| PyTorch |   2.7.1  |
 
 ## 安装昇腾环境
 
@@ -66,10 +67,10 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
 
   **表 2**  昇腾软件版本支持表
 
-|     软件类型      | 首次支持版本 |
+|     软件类型      | 支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 7.2.0  |
-|       CANN        | 8.3.RC1 |
+| FrameworkPTAdapter | 26.0.0  |
+|       CANN        | 9.0.0 |
 
 - 克隆代码仓到当前目录并使用patch文件
 
@@ -86,9 +87,18 @@ VGGT是一个大型前馈Transformer，具有最小的3D感应偏差，在大量
 
   - 在应用过patch的模型根目录下，安装需要的依赖
 
-    ```shell
-    pip install -r requirements.txt
-    ```
+    - 如果使用PyTorch 2.1.0，执行以下命令：
+
+      ```shell
+      pip install -r requirements.txt
+      ```
+
+    - **注意**：如果使用PyTorch 2.7.1，需要将requirements.txt中的`torchvision==0.18.0`修改为`torchvision==0.22.1`，可使用以下命令：
+
+      ```shell
+      sed -i 's/torchvision==[0-9.]+/torchvision==0.22.1/' requirements.txt
+      pip install -r requirements.txt
+      ```
 
   - 在应用过patch的模型根目录下，安装vggt
 
@@ -145,7 +155,7 @@ vggt
 
 ### 单机八卡训练性能和loss，以tv场景，固定随机性，random_aspect_ratio为1，random_image_num为2，batch_size为15
 
-| 芯片          | 卡数 | gloabl batchsize | Loss | iteration time | FPS |
+| 芯片          | 卡数 | global batchsize | Loss | iteration time | FPS |
 | ------------- | :--: | :--: | :-------: | :------------: |:---------: |
 | 竞品A         |  8p | 120 |    0.0164  |     7.841     |  15.30 |
 | Atlas 800T A2 |  8p | 120 |  0.0165    |      4.792      | 25.04 |
