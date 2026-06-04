@@ -31,8 +31,7 @@ const uint32_t WORKSAPCE_16MBYTE_SIZE = 16 * 1024 * 1024;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingFuncForRoiawarePool3d(gert::TilingContext* context)
-{
+static ge::graphStatus TilingFuncForRoiawarePool3d(gert::TilingContext *context) {
     RoiawarePool3dTilingData tiling;
 
     if (context == nullptr) {
@@ -95,11 +94,11 @@ static ge::graphStatus TilingFuncForRoiawarePool3d(gert::TilingContext* context)
     if (context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    
+
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -109,10 +108,9 @@ static ge::graphStatus TilingFuncForRoiawarePool3d(gert::TilingContext* context)
 }
 
 namespace ge {
-static ge::graphStatus InferShapeForRoiawarePool3d(gert::InferShapeContext* context)
-{
-    const gert::Shape* box_shape = context->GetInputShape(INPUT_ROIS);
-    const gert::Shape* feature_shape = context->GetInputShape(INPUT_PTS_FEATRUE);
+static ge::graphStatus InferShapeForRoiawarePool3d(gert::InferShapeContext *context) {
+    const gert::Shape *box_shape = context->GetInputShape(INPUT_ROIS);
+    const gert::Shape *feature_shape = context->GetInputShape(INPUT_PTS_FEATRUE);
     if (box_shape == nullptr || feature_shape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -128,18 +126,17 @@ static ge::graphStatus InferShapeForRoiawarePool3d(gert::InferShapeContext* cont
     uint32_t outy = *(attrsPtr->GetAttrPointer<uint32_t>(OUT_Y));
     uint32_t outz = *(attrsPtr->GetAttrPointer<uint32_t>(OUT_Z));
 
-    gert::Shape* argmax_shape = context->GetOutputShape(OUPUT_ARGMAX);
-    gert::Shape* pts_idx_of_voxel_shape = context->GetOutputShape(PTS_IDX_OF_VOXEL);
-    gert::Shape* pooled_features_shape = context->GetOutputShape(POOL_FEATURES);
+    gert::Shape *argmax_shape = context->GetOutputShape(OUPUT_ARGMAX);
+    gert::Shape *pts_idx_of_voxel_shape = context->GetOutputShape(PTS_IDX_OF_VOXEL);
+    gert::Shape *pooled_features_shape = context->GetOutputShape(POOL_FEATURES);
 
     *argmax_shape = {box_num, outx, outy, outz, channel_num};
     *pts_idx_of_voxel_shape = {box_num, outx, outy, outz, maxPtsPerVoxel};
     *pooled_features_shape = {box_num, outx, outy, outz, channel_num};
-    
+
     return GRAPH_SUCCESS;
 }
-static ge::graphStatus InferDataTypeForRoiawarePool3d(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForRoiawarePool3d(gert::InferDataTypeContext *context) {
     auto input_dtype = context->GetInputDataType(INPUT_ROIS);
     context->SetOutputDataType(OUPUT_ARGMAX, ge::DT_INT32);
     context->SetOutputDataType(PTS_IDX_OF_VOXEL, ge::DT_INT32);
@@ -150,9 +147,8 @@ static ge::graphStatus InferDataTypeForRoiawarePool3d(gert::InferDataTypeContext
 
 namespace ops {
 class RoiawarePool3d : public OpDef {
-public:
-    explicit RoiawarePool3d(const char* name) : OpDef(name)
-    {
+  public:
+    explicit RoiawarePool3d(const char *name) : OpDef(name) {
         this->Input("rois")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -191,12 +187,14 @@ public:
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
-        
-        this->SetInferShape(ge::InferShapeForRoiawarePool3d)
-            .SetInferDataType(ge::InferDataTypeForRoiawarePool3d);
+
+        this->SetInferShape(ge::InferShapeForRoiawarePool3d).SetInferDataType(ge::InferDataTypeForRoiawarePool3d);
         this->AICore().SetTiling(optiling::TilingFuncForRoiawarePool3d);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

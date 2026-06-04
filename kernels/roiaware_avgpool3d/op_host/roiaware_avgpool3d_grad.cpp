@@ -99,7 +99,13 @@ static ge::graphStatus InferShapeForRoiawareAvgpool3dGrad(gert::InferShapeContex
 
     int64_t channels = gradOut->GetDim(4);
     auto runtimeAttrs = context->GetAttrs();
+    if (runtimeAttrs == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     const int32_t *npoints = (int32_t *)runtimeAttrs->GetInt(5);
+    if (npoints == nullptr) {
+        return ge::GRAPH_FAILED;
+    }
     *gradIn = {*npoints, channels};
     return GRAPH_SUCCESS;
 }
