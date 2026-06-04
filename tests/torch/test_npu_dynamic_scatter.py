@@ -1,26 +1,19 @@
-import unittest
-
-import numpy as np
 import torch
-import torch_npu
-from data_cache import golden_data_cache
 from torch_npu.testing.common_utils import create_common_tensor
 from torch_npu.testing.testcase import TestCase, run_tests
 
-import mx_driving.point, mx_driving._C
+import mx_driving.point
+import mx_driving._C
 from mx_driving.ops.npu_dynamic_scatter import DynamicScatterFunction
 
 
 class TestDynamicScatter(TestCase):
     def cpu_op_exec(self, feats, coors, reduce_type):
         clean_coors = coors.masked_fill(coors.lt(0).any(-1, True), -1)
-        out_coors, coors_map, reduce_count = clean_coors.unique(dim=0, sorted=True, return_inverse=True,
-                                                                return_counts=True)
+        out_coors, coors_map, reduce_count = clean_coors.unique(
+            dim=0, sorted=True, return_inverse=True, return_counts=True
+        )
         out_coors = out_coors[out_coors.min(dim=-1).values >= 0]
-        if out_coors[0][0].lt(0):
-            out_coors = out_coors.slice(0, 1)
-            reduce_count = reduce_count.slice(0, 1)
-            coors_map = coors_map - 1
         output_feats = []
         if reduce_type == "mean":
             for ref_voxel_coors in out_coors:
@@ -40,7 +33,10 @@ class TestDynamicScatter(TestCase):
     def npu_op_exec(self, feats, coors, reduce_type):
         output_feats, output_coors = mx_driving.point.npu_dynamic_scatter(feats, coors, reduce_type)
         output_feats2, output_coors2 = mx_driving.dynamic_scatter(feats, coors, reduce_type)
-        return (output_feats.cpu().numpy(), output_coors.cpu().numpy()), (output_feats2.cpu().numpy(), output_coors2.cpu().numpy())
+        return (output_feats.cpu().numpy(), output_coors.cpu().numpy()), (
+            output_feats2.cpu().numpy(),
+            output_coors2.cpu().numpy(),
+        )
 
     def grad_npu_op_exec(self, feats, coors, reduce_type):
         class _mockCtx:
@@ -57,7 +53,9 @@ class TestDynamicScatter(TestCase):
         ctx = _mockCtx(feats, coors, reduce_type)
         feats.requires_grad_()
         output_feats, output_coors = mx_driving.dynamic_scatter(feats, coors, reduce_type)
-        output_feats, _, _ = DynamicScatterFunction.backward(ctx, torch.ones_like(output_feats), torch.ones_like(output_coors))
+        output_feats, _, _ = DynamicScatterFunction.backward(
+            ctx, torch.ones_like(output_feats), torch.ones_like(output_coors)
+        )
         return output_feats.detach().cpu().numpy(), output_coors.detach().cpu().numpy()
 
     def test_dynamic_scatter_max_fp32(self):
@@ -85,7 +83,7 @@ class TestDynamicScatter(TestCase):
         self.assertRtolEqual(cpu_output[1], npu_output[1])
         self.assertRtolEqual(cpu_output[0], npu_output2[0])
         self.assertRtolEqual(cpu_output[1], npu_output2[1])
-    
+
     def test_dynamic_scatter_sum_fp32(self):
         shape_feats = (2000, 3)
         shape_coors = (2000, 3)
