@@ -214,14 +214,14 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/grid_sampler3d_v1.md">grid_sampler3d_v1</a></td>
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/npu_index_select[beta].md">npu_index_select[beta]</a></td>
@@ -386,7 +386,7 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center">✓</td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/geometric_kernel_attention.md">geometric_kernel_attention</a></td>
