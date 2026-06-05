@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2023. All rights reserved.
  */
 #include <graph/types.h>
 #include <log/log.h>
@@ -7,8 +7,9 @@
 
 #include <cstdint>
 
-#include "bev_pool_v3_tiling.h"
+#include "bev_pool_v3_grad_tiling.h"
 #include "ge/utils.h"
+#include "common/op_host/common.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
@@ -25,12 +26,18 @@ constexpr size_t ATTR_D_IDX = 2;
 constexpr size_t ATTR_H_IDX = 3;
 constexpr size_t ATTR_W_IDX = 4;
 constexpr size_t ATTR_C_IDX = 5;
+constexpr size_t DOUBLE_BUFFER = 2;
+constexpr size_t BLOCK_BYTE_SIZE = 32;
+constexpr size_t RANK_KIND = 3;
+constexpr size_t PRESET_RANK_NUM = 512;
+constexpr int32_t MAX_RANK_STEP = 32;
+constexpr int32_t MAX_LOOP_RANK_NUM = 1024;
 } // namespace
 
 namespace optiling {
-template <bool is_grad> static ge::graphStatus TilingForBEVPoolV3(gert::TilingContext *context) {
+template <bool is_grad> static ge::graphStatus TilingForBEVPoolGradV3(gert::TilingContext *context) {
     CHECK_NULLPTR(context);
-    BEVPoolV3TilingData tiling;
+    BEVPoolGradV3TilingData tiling;
     CHECK_NULLPTR(context->GetPlatformInfo());
     auto platform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     uint64_t ubSize;
@@ -48,10 +55,37 @@ template <bool is_grad> static ge::graphStatus TilingForBEVPoolV3(gert::TilingCo
     bool withDepth = *withDepthPtr;
     context->SetTilingKey(withDepth);
 
-    auto channel = featShape->GetOriginShape().GetDim(featShape->GetOriginShape().GetDimNum() - 1);
+    auto channel =
+        featShape->GetOriginShape().GetDim(featShape->GetOriginShape().GetDimNum() - 1); // channel要求32B对齐
     uint64_t ranks = ranksBevShape->GetOriginShape().GetDim(0);
+
+    int32_t fp32ByteSize = sizeof(float); // 当前bevpool只支持fp32类型
+    int32_t fp32AlignNum = BLOCK_BYTE_SIZE / fp32ByteSize; // 8
+
+    ubSize = ubSize - RESERVE_UB;
+    int32_t channelUBSize =
+        (DOUBLE_BUFFER * channel * 3 + DOUBLE_BUFFER * BLOCK_BYTE_SIZE * 3 + channel * 2 + BLOCK_BYTE_SIZE + 1) *
+        fp32ByteSize;
+
+    int32_t rankStep = (ubSize - DOUBLE_BUFFER * RANK_KIND * PRESET_RANK_NUM * fp32ByteSize) / channelUBSize;
+    rankStep = FloorAlign(rankStep, fp32AlignNum);
+    rankStep = std::max(rankStep, fp32AlignNum);
+
+    int32_t eachLoopRankNum = (ubSize - channelUBSize * rankStep) / (DOUBLE_BUFFER * RANK_KIND * fp32ByteSize);
+    eachLoopRankNum = FloorAlign(eachLoopRankNum, fp32AlignNum);
+    eachLoopRankNum = std::max(eachLoopRankNum, fp32AlignNum);
+
+    int32_t eachCoreRankNum = DivCeil(ranks, static_cast<uint64_t>(coreNum));
+    eachCoreRankNum = CeilAlign(eachCoreRankNum, fp32AlignNum);
+    eachLoopRankNum = std::min(eachLoopRankNum, eachCoreRankNum); // 每个iterLoop处理的数量不能超过每个core处理的数量
+    rankStep = std::min(rankStep, eachLoopRankNum); // 每个innerLoop处理的数量不能超过iterLoop
+
+    // 32 RankStep性能较优
+    rankStep = std::min(rankStep, MAX_RANK_STEP);
+    eachLoopRankNum = std::min(eachLoopRankNum, MAX_LOOP_RANK_NUM);
+
     uint64_t avgRankNum = withDepth
-        ? RANK_NUM_PER_TASK
+        ? eachLoopRankNum
         : (ubSize - RESERVE_UB) / (sizeof(float) * (channel + 1) * 2) / ONE_BLK_SIZE * ONE_BLK_SIZE;
     avgRankNum = std::min(avgRankNum, ranks);
     if (avgRankNum == 0) {
@@ -72,12 +106,14 @@ template <bool is_grad> static ge::graphStatus TilingForBEVPoolV3(gert::TilingCo
     tiling.set_totalTaskNum(totalTaskNum);
     tiling.set_avgTaskNum(avgTaskNum);
     tiling.set_tailTaskNum(tailTaskNum);
-    tiling.set_avgRankNum(avgRankNum);
+    tiling.set_avgRankNum(avgRankNum); // avgRankNum表示每个iterLoop处理的rank数量
     tiling.set_tailRankNum(tailRankNum);
     tiling.set_channel(channel);
-    MX_DRIVING_LOGI("BEVPoolV3 tiling: usedCoreNum=%d, totalTaskNum=%d, avgTaskNum=%d, tailTaskNum=%d, avgRankNum=%d, "
-                    "tailRankNum=%d, channel=%d",
-        usedCoreNum, totalTaskNum, avgTaskNum, tailTaskNum, avgRankNum, tailRankNum, channel);
+    tiling.set_rankStep(rankStep);
+    MX_DRIVING_LOGI(
+        "BEVPoolGradV3 tiling: usedCoreNum=%d, totalTaskNum=%d, avgTaskNum=%d, tailTaskNum=%d, avgRankNum=%d, "
+        "tailRankNum=%d, channel=%d, rankStep=%d",
+        usedCoreNum, totalTaskNum, avgTaskNum, tailTaskNum, avgRankNum, tailRankNum, channel, rankStep);
 
     ADD_TILING_DATA(context, tiling);
 
@@ -90,41 +126,27 @@ template <bool is_grad> static ge::graphStatus TilingForBEVPoolV3(gert::TilingCo
 } // namespace optiling
 
 namespace ops {
-static ge::graphStatus InferShapeForBEVPoolV3(gert::InferShapeContext *context) {
-    CHECK_NULLPTR(context);
-    auto attrs = context->GetAttrs();
-    auto getAttr = [attrs](size_t idx) -> int64_t {
-        auto ptr = attrs->GetInt(idx);
-        if (!ptr) {
-            return ge::GRAPH_FAILED;
-        }
-        return static_cast<int64_t>(*ptr);
-    };
-    auto b = getAttr(ATTR_B_IDX);
-    auto d = getAttr(ATTR_D_IDX);
-    auto h = getAttr(ATTR_H_IDX);
-    auto w = getAttr(ATTR_W_IDX);
-    auto c = getAttr(ATTR_C_IDX);
-    if (b <= 0 || d <= 0 || h <= 0 || w <= 0 || c <= 0) {
-        return ge::GRAPH_FAILED;
-    }
-    gert::Shape *outShape = context->GetOutputShape(0);
-    *outShape = {b, d, h, w, c};
-    return ge::GRAPH_SUCCESS;
-}
-
-static ge::graphStatus InferDataTypeForBEVPoolV3(gert::InferDataTypeContext *context) {
-    CHECK_NULLPTR(context);
-    const auto outputDataType = context->GetRequiredInputDataType(1);
-    context->SetOutputDataType(0, outputDataType);
-    return ge::GRAPH_SUCCESS;
-}
-} // namespace ops
-
-namespace ops {
-class BEVPoolV3 : public OpDef {
+/**
+ * @brief: BEVPoolGrad, the backward of bev_pool
+ * @par Inputs:
+ * grad_out: input grad, 5D tensor(b, d, h, w, c), dtype: float32, format:
+ * NDHWC, ND geom_feat: input coords, 2D tensor(n, 4), dtype: int32, format: ND
+ * interval_starts: starting position for pooled point, 1D tensor(n_interval),
+ * dtype: int32, format: ND interval_lengths: the number of points in each
+ * interval, 1D tensor(n_interval), dtype: int32, format: ND
+ * @par Outputs:
+ * grad_feat: output grad, 2D tensor(n, c), dtype: float32, format: ND
+ * @par Attributes:
+ **/
+class BEVPoolV3Grad : public OpDef {
   public:
-    explicit BEVPoolV3(const char *name) : OpDef(name) {
+    explicit BEVPoolV3Grad(const char *name) : OpDef(name) {
+        this->Input("grad_out")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .AutoContiguous()
+            .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("depth")
             .ParamType(OPTIONAL)
             .DataType({ge::DT_FLOAT})
@@ -157,19 +179,19 @@ class BEVPoolV3 : public OpDef {
             .UnknownShapeFormat({ge::FORMAT_ND});
 
         this->Attr("with_depth").Bool();
-        this->Attr("b").AttrType(REQUIRED).Int();
-        this->Attr("d").AttrType(REQUIRED).Int();
-        this->Attr("h").AttrType(REQUIRED).Int();
-        this->Attr("w").AttrType(REQUIRED).Int();
-        this->Attr("c").AttrType(REQUIRED).Int();
 
-        this->Output("out")
+        this->Output("grad_depth")
+            .ParamType(OPTIONAL)
+            .DataType({ge::DT_FLOAT})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
+        this->Output("grad_feat")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
 
-        this->AICore().SetTiling(optiling::TilingForBEVPoolV3<false>);
+        this->AICore().SetTiling(optiling::TilingForBEVPoolGradV3<true>);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
 #if __DRIVING_HOST_AICORE__ == 310
@@ -178,7 +200,5 @@ class BEVPoolV3 : public OpDef {
     }
 };
 
-IMPL_OP_INFERSHAPE(BEVPoolV3).InferShape(InferShapeForBEVPoolV3).InferDataType(InferDataTypeForBEVPoolV3);
-
-OP_ADD(BEVPoolV3);
+OP_ADD(BEVPoolV3Grad);
 } // namespace ops
