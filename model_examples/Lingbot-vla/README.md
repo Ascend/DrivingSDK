@@ -12,8 +12,8 @@
   - [安装昇腾环境](#安装昇腾环境)
   - [安装模型环境](#安装模型环境)
 - [准备模型权重与数据集](#准备模型权重与数据集)
-  - [模型权重：](#模型权重)
-  - [数据集：](#数据集)
+  - [模型权重](#模型权重)
+  - [数据集](#数据集)
 - [快速开始](#快速开始)
   - [训练任务](#训练任务)
     - [执行训练](#执行训练)
@@ -76,6 +76,13 @@ conda install -c conda-forge pybind11 cmake ninja
 conda install -c conda-forge ffmpeg=6.1.2
 ```
 
+- 拉取Drivingsdk仓，进入Linbot-vla目录
+
+```shell
+git clone https://gitcode.com/Ascend/DrivingSDK.git
+cd DrivingSDK/model_examples/Lingbot-vla
+```
+
 - 安装依赖。
 
 ```shell
@@ -98,22 +105,15 @@ git clone https://github.com/robbyant/lingbot-vla.git
 cd lingbot-vla
 git checkout a57f084
 git apply --reject --whitespace=fix ../lingbot.patch
-git submodule update --remote --recursive
 pip install -e .
 pip install -r requirements.txt
-
-# Install LingBot-Depth dependency
-cd ./lingbotvla/models/vla/vision_models/lingbot-depth/
-pip install -e . --no-deps
-cd ../MoGe
-pip install -e .
 ```
 
 > 说明：安装过程中如果 PyTorch 版本被依赖覆盖，需要重新安装 PyTorch 与 torch_npu 版本。
 
 # 准备模型权重与数据集
 
-## 模型权重：
+## 模型权重
 
 | 模型 | 用途 |
 | :-- | :-- |
@@ -130,10 +130,28 @@ python3 scripts/download_hf_model.py --repo_id robbyant/lingbot-vla-4b --local_d
 python3 scripts/download_hf_model.py --repo_id Qwen/Qwen2.5-VL-3B-Instruct --local_dir Qwen2.5-VL-3B-Instruct
 ```
 
-## 数据集：
+## 数据集
 
 请参考lingbot-vla仓库中的**RoboTwin 数据准备文档**，将处理后的 lerobot 格式数据路径传给训练脚本的 `--dataset_path` 参数。脚本中的默认参数以click_bell_aloha_repo任务为例。
 (由于RoboTwin数据集生成需要渲染管线，A3暂不支持生成此数据集)
+
+处理后的数据集格式如下：
+
+```shell
+├── <dataset_name>
+│   ├── <data>
+│   │   ├── <chunk-N>
+│   │   │   ├── episode_000001.parquet
+│   │   │   ├── ...
+│   │   │   └── episode_N.parquet
+│   ├── <meta>
+│   │   ├── info.json
+│   │   ├── episodes_stats.jsonl
+│   │   ├── episodes.json
+│   │   └── tasks.jsonl
+└── └──
+
+```
 
 # 快速开始
 
@@ -179,11 +197,18 @@ bash test/train_16p_perf.sh
 
 |     芯片      | 卡数 | per device batch size | epoch | FPS |
 | :-----------: | :--: | :---------------: | :---: | :--------------------: |
-|     竞品H     |  8p  |         32       |  69 |  114.74  |
+|     竞品 H    |  8P  |         48       |  69 |  120.11  |
+|     竞品 H    |  8p  |         32       |  69 |  114.74  |
 | Atlas 800T A3 |  8p  |         32       |  69 |  301.76 |
+
+> 竞品 H 单卡最大 Batch Size 为 48，Atlas 800T A3 单卡最大 Batch Size 为 32。
 
 # 变更说明
 
 2026.05.26：新增 LingBot-VLA NPU 适配说明。
 
 # FAQ
+
+Q: 竞品 H 在Batch size设置为48时，单步step time有波动？
+
+A: 前 7 个训练 Epoch 单步 Step 耗时波动较大，后续 Step 耗时逐步收敛并稳定在 3.1s。结合 Profiling 采集数据分析，前期波动大概率由训练过程中的内存重整行为引发。
