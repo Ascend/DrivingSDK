@@ -51,8 +51,8 @@ BEVDet4D 是一种将 BEVDet 从仅空间的 3D 扩展到时空 4D 工作空间�
 
   |        软件类型        |   首次支持版本   |
   |:------------------:|:--------:|
-  | FrameworkPTAdapter | 7.1.0  |
-  |       CANN         | 8.2.RC1  |
+  | FrameworkPTAdapter | 26.0.0  |
+  |       CANN         | 9.0.0  |
 
 ## 安装模型环境
 
@@ -62,7 +62,8 @@ BEVDet4D 是一种将 BEVDet 从仅空间的 3D 扩展到时空 4D 工作空间�
 
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
-  |    PyTorch     |  2.1   |
+  |    PyTorch     |  2.1.0 |
+  |    PyTorch     |  2.7.1 |
   |      mmcv      |  1.x   |
   |     mmdet      | 2.28.2 |
   | mmsegmentation | 0.30.0 |
@@ -74,9 +75,18 @@ BEVDet4D 是一种将 BEVDet 从仅空间的 3D 扩展到时空 4D 工作空间�
 
 - 安装基础依赖
 
-  在模型源码包根目录下执行命令，安装模型需要的依赖。
+  在模型源码包根目录下执行命令，安装模型需要的依赖。\
+  Pytorch版本2.1：
 
   ```shell
+  pip install -r requirements.txt
+  ```
+
+  Pytorch版本2.7.1:
+
+  ```shell
+  sed -i 's/torchvision==0.16.0/torchvision==0.22.1/' requirements.txt
+  echo "addict==2.4.0" >> requirements.txt
   pip install -r requirements.txt
   ```
 
@@ -189,6 +199,7 @@ BEVDet/data
 # 变更说明
 
 - 2025.8.8：首次发布。
+- 2026.5.28：更新适配torch2.7.1。
 
 ## FAQ
 

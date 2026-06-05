@@ -58,8 +58,8 @@
 
 |     软件类型      | 首次支持版本 |
 | :---------------: | :------: |
-| FrameworkPTAdapter | 7.1.0 |
-|       CANN        | 8.2.RC1  |
+| FrameworkPTAdapter | 26.0.0 |
+|       CANN        | 9.0.0 |
 
 ## 安装模型环境
 
@@ -68,6 +68,7 @@
 | 三方库  | 支持版本 |
 | :-----: | :------: |
 | PyTorch |   2.1.0   |
+| PyTorch |   2.7.1   |
 
 1. 激活 CANN 环境
 
@@ -87,11 +88,24 @@
 
    如需对数据集进行预处理，可选：
 
+   Pytorch2.1.0版本：
+
    ```shell
    pip install -r requirements.txt
    ```
 
+   Pytorch2.7.1版本：
+
+   ```shell
+   sed -i 's/numpy==1.23.4/numpy==1.24.4/' requirements.txt
+   sed -i 's/^rasterio # Used in GpkgMapsDB.py/rasterio==1.4.3 # Used in GpkgMapsDB.py/' requirements.txt
+   sed -i 's/setuptools==59.5.0 # Used in setup.py, pinned to not break pytorch/setuptools>=65.0 # Used in setup.py, pinned to not break pytorch/' requirements.txt
+   pip install -r requirements.txt
+   ```
+
 4. 安装 diffusion_planner
+
+   Pytorch2.1.0版本：
 
    ```shell
    cd ..
@@ -101,6 +115,22 @@
    git checkout 5659e494250523a603902e1c3dca0651d2e4c6fa
    git apply --reject --whitespace=fix diffusionPlanner.patch
    pip install -e .
+   pip install -r requirements_torch.txt
+   ```
+
+   Pytorch2.7.1版本：
+
+   ```shell
+   cd ..
+   git clone https://github.com/ZhengYinan-AIR/Diffusion-Planner.git && cd Diffusion-Planner
+   cp -f ../diffusionPlanner.patch .
+   cp -rf ../test .
+   git checkout 5659e494250523a603902e1c3dca0651d2e4c6fa
+   git apply --reject --whitespace=fix diffusionPlanner.patch
+   pip install -e .
+   sed -i 's/torchvision==0.16.0/torchvision==0.22.1/' requirements_torch.txt
+   sed -i 's/^wandb$/wandb==0.16.6/' requirements_torch.txt
+   echo "huggingface_hub>=0.23.0" >> requirements_torch.txt
    pip install -r requirements_torch.txt
    ```
 
@@ -183,8 +213,9 @@
 
 # 变更说明
 
-2025.06.12: 首次发布。
-2025.12.05: 更新性能计算脚本。
+2025.06.12: 首次发布。\
+2025.12.05: 更新性能计算脚本。\
+2026.05.28：更新适配torch2.7.1.
 
 # FAQ
 
