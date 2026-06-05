@@ -8,11 +8,10 @@ import torch
 import torch_npu
 import mmcv
 import mmcv.runner
-import mx_driving
 from mx_driving.patcher import PatcherBuilder, Patch
-from mx_driving.patcher import index, batch_matmul, numpy_type, ddp, stream
-from mx_driving.patcher import resnet_add_relu, resnet_maxpool
-
+from mx_driving.patcher import index, batch_matmul, numpy_type, ddp, stream, CollectionsCompat
+from mx_driving.patcher import resnet_add_relu, resnet_maxpool, SigmoidFocalLoss
+from mx_driving.patcher import _create_legacy_patch_func
 
 
 def flash_attn(attention: ModuleType, options: Dict):
@@ -20,14 +19,14 @@ def flash_attn(attention: ModuleType, options: Dict):
     auto_fp16 = attention.auto_fp16
     rearrange = attention.rearrange
 
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    # pylint: disable=too-many-arguments
     @auto_fp16(apply_to=('q', 'k', 'v'), out_fp32=True)
     def FlashAttention_forward(self, q, k, v, causal=False, key_padding_mask=None):
         """Implements the multihead softmax attention.
         Arguments
         ---------
-            q: The tensor containing the query. (B, T, H, D) 
-            kv: The tensor containing the key, and value. (B, S, 2, H, D) 
+            q: The tensor containing the query. (B, T, H, D)
+            kv: The tensor containing the key, and value. (B, S, 2, H, D)
             key_padding_mask: a bool tensor of shape (B, S)
         """
         if key_padding_mask is None:
@@ -38,19 +37,24 @@ def flash_attn(attention: ModuleType, options: Dict):
 
             dropout_p = self.dropout_p if self.training else 0.0
             h = q.shape[-2]
-            # change code 
+            # change code
             # change flash attention to use npu version
-            output = torch_npu.npu_fusion_attention(q, k, v, h,
-                        input_layout="BSND",
-                        pre_tockens=65536,
-                        next_tockens=65536,
-                        atten_mask=None,
-                        scale=scale,
-                        keep_prob=1. - dropout_p,
-                        sync=False,
-                        inner_precise=0)[0]
+            output = torch_npu.npu_fusion_attention(
+                q,
+                k,
+                v,
+                h,
+                input_layout="BSND",
+                pre_tockens=65536,
+                next_tockens=65536,
+                atten_mask=None,
+                scale=scale,
+                keep_prob=1.0 - dropout_p,
+                sync=False,
+                inner_precise=0,
+            )[0]
         else:
-            pass
+            output = None
         return output, None
 
     def FlashMHA_forward(self, q, k, v, key_padding_mask=None):
@@ -61,7 +65,7 @@ def flash_attn(attention: ModuleType, options: Dict):
         q = rearrange(q, 'b s (h d) -> b s h d', h=self.num_heads)
         k = rearrange(k, 'b s (h d) -> b s h d', h=self.num_heads)
         v = rearrange(v, 'b s (h d) -> b s h d', h=self.num_heads)
-        
+
         # change code
         # remove the concat ops to concat [k, v]
         context, attn_weights = self.inner_attn(q, k, v, key_padding_mask=key_padding_mask, causal=self.causal)
@@ -79,11 +83,7 @@ def models_blocks(models: ModuleType, options: Dict):
         bs, num_anchor = instance_feature.shape[:2]
         feature = instance_feature + anchor_embed
         if self.camera_encoder is not None:
-            camera_embed = self.camera_encoder(
-                metas["projection_mat"][:, :, :3].reshape(
-                    bs, self.num_cams, -1
-                )
-            )
+            camera_embed = self.camera_encoder(metas["projection_mat"][:, :, :3].reshape(bs, self.num_cams, -1))
             feature = feature[:, :, None] + camera_embed[:, None]
 
         weights = (
@@ -102,13 +102,12 @@ def models_blocks(models: ModuleType, options: Dict):
         if self.training and self.attn_drop > 0:
             # change code
             # change the rand ops to generate on npu
-            mask = torch.rand((bs, num_anchor, self.num_cams, 1, self.num_pts, 1),
-                               device=weights.device, dtype=weights.dtype)
-            weights = ((mask > self.attn_drop) * weights) / (
-                1 - self.attn_drop
+            mask = torch.rand(
+                (bs, num_anchor, self.num_cams, 1, self.num_pts, 1), device=weights.device, dtype=weights.dtype
             )
+            weights = ((mask > self.attn_drop) * weights) / (1 - self.attn_drop)
         return weights
-    
+
     if hasattr(models, "DeformableFeatureAggregation"):
         models.DeformableFeatureAggregation._get_weights = _get_weights
 
@@ -118,7 +117,7 @@ def detection_losses(losses: ModuleType, options: Dict):
     CNS, YNS = losses.CNS, losses.YNS
     X, Y, Z = losses.X, losses.Y, losses.Z
 
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments
+    # pylint: disable=too-many-arguments
     def losses_forward(
         self,
         box,
@@ -142,12 +141,7 @@ def detection_losses(losses: ModuleType, options: Dict):
                 )
                 < 0
             )
-            if_reverse = (
-                torch.isin(
-                    cls_target, cls_target.new_tensor(self.cls_allow_reverse)
-                )
-                & if_reverse
-            )
+            if_reverse = torch.isin(cls_target, cls_target.new_tensor(self.cls_allow_reverse)) & if_reverse
             box_target[..., [SIN_YAW, COS_YAW]] = torch.where(
                 if_reverse[..., None],
                 -box_target[..., [SIN_YAW, COS_YAW]],
@@ -155,17 +149,13 @@ def detection_losses(losses: ModuleType, options: Dict):
             )
 
         output = {}
-        box_loss = self.loss_box(
-            box, box_target, weight=weight, avg_factor=avg_factor
-        )
+        box_loss = self.loss_box(box, box_target, weight=weight, avg_factor=avg_factor)
         output[f"{prefix}loss_box{suffix}"] = box_loss
 
         if quality is not None:
             cns = quality[..., CNS]
             yns = quality[..., YNS].sigmoid()
-            cns_target = torch.norm(
-                box_target[..., [X, Y, Z]] - box[..., [X, Y, Z]], p=2, dim=-1
-            )
+            cns_target = torch.norm(box_target[..., [X, Y, Z]] - box[..., [X, Y, Z]], p=2, dim=-1)
             cns_target = torch.exp(-cns_target)
             # change code
             # add detach to cns_target to avoid the training error
@@ -205,7 +195,7 @@ def detection_target(target: ModuleType, options: Dict):
                 boxes[..., [W, L, H]].log(),
                 torch.sin(boxes[..., YAW]).unsqueeze(-1),
                 torch.cos(boxes[..., YAW]).unsqueeze(-1),
-                boxes[..., YAW + 1:],
+                boxes[..., YAW + 1 :],
             ],
             dim=-1,
         )
@@ -219,27 +209,17 @@ def detection_target(target: ModuleType, options: Dict):
         cls_pred = cls_pred.sigmoid()
         # change code
         # extract the common parts to reduce the free time
-        neg_cost = (
-            -(1 - cls_pred + self.eps).log()
-            * (1 - self.alpha)
-            * cls_pred.pow(self.gamma)
-        )
-        pos_cost = (
-            -(cls_pred + self.eps).log()
-            * self.alpha
-            * (1 - cls_pred).pow(self.gamma)
-        )
+        neg_cost = -(1 - cls_pred + self.eps).log() * (1 - self.alpha) * cls_pred.pow(self.gamma)
+        pos_cost = -(cls_pred + self.eps).log() * self.alpha * (1 - cls_pred).pow(self.gamma)
         cost = (pos_cost - neg_cost) * self.cls_weight
         costs = []
         for i in range(bs):
             if len(cls_target[i]) > 0:
-                costs.append(
-                    cost[i, :, cls_target[i]]
-                )
+                costs.append(cost[i, :, cls_target[i]])
             else:
                 costs.append(None)
         return costs
-    
+
     def _box_cost(self, box_pred, box_target, instance_reg_weights):
         bs = box_pred.shape[0]
         cost = []
@@ -250,9 +230,7 @@ def detection_target(target: ModuleType, options: Dict):
             if len(box_target[i]) > 0:
                 cost.append(
                     torch.sum(
-                        torch.abs(box_pred[i, :, None] - box_target[i][None])
-                        * instance_reg_weights[i][None]
-                        * weights,
+                        torch.abs(box_pred[i, :, None] - box_target[i][None]) * instance_reg_weights[i][None] * weights,
                         dim=-1,
                     )
                     * self.box_weight
@@ -263,10 +241,10 @@ def detection_target(target: ModuleType, options: Dict):
 
     if hasattr(target, "SparseBox3DTarget"):
         target.SparseBox3DTarget._cls_cost = _cls_cost
-    
+
     if hasattr(target, "SparseBox3DTarget"):
         target.SparseBox3DTarget._box_cost = _box_cost
-    
+
     if hasattr(target, "SparseBox3DTarget"):
         target.SparseBox3DTarget.encode_reg_target = encode_reg_target
 
@@ -287,9 +265,7 @@ def map_target(target: ModuleType, options: Dict):
         num_sample=20,
         roi_size=(30, 60),
     ):
-        super(SparsePoint3DTarget, self).__init__(
-            num_dn_groups, num_temp_dn_groups
-        )
+        super(SparsePoint3DTarget, self).__init__(num_dn_groups, num_temp_dn_groups)
         self.assigner = build_assigner(assigner)
         self.dn_noise_scale = dn_noise_scale
         self.max_dn_gt = max_dn_gt
@@ -298,7 +274,7 @@ def map_target(target: ModuleType, options: Dict):
         self.num_cls = num_cls
         self.num_sample = num_sample
         self.roi_size = roi_size
-        # change code 
+        # change code
         # generate the data on init to reduce the training time
         self.origin = -torch.tensor([self.roi_size[0] / 2, self.roi_size[1] / 2]).npu()
         self.norm = torch.tensor([self.roi_size[0], self.roi_size[1]]).npu() + 1e-5
@@ -306,7 +282,7 @@ def map_target(target: ModuleType, options: Dict):
     def normalize_line(self, line):
         if line.shape[0] == 0:
             return line
-        
+
         line = line.view(line.shape[:-1] + (self.num_sample, -1))
         line = line - self.origin
         # transform from range [0, 1] to (0, 1)
@@ -317,7 +293,7 @@ def map_target(target: ModuleType, options: Dict):
 
     if hasattr(target, "SparsePoint3DTarget"):
         target.SparsePoint3DTarget.__init__ = __init__
-    
+
     if hasattr(target, "SparsePoint3DTarget"):
         target.SparsePoint3DTarget.normalize_line = normalize_line
 
@@ -325,7 +301,7 @@ def map_target(target: ModuleType, options: Dict):
 def motion_planning_target(target: ModuleType, options: Dict):
     get_cls_target = target.get_cls_target
 
-    # pylint: disable=too-many-return-values
+    # pylint: disable=too-many-return-statements
     def motion_sample(
         self,
         reg_pred,
@@ -344,7 +320,7 @@ def motion_planning_target(target: ModuleType, options: Dict):
             reg_target[i, pred_idx] = gt_reg_target[i][target_idx]
             reg_weight[i, pred_idx] = gt_reg_mask[i][target_idx]
             num_pos += len(pred_idx)
-        
+
         cls_target = get_cls_target(reg_pred, reg_target, reg_weight)
         cls_weight = reg_weight.any(dim=-1)
         # change code
@@ -353,7 +329,7 @@ def motion_planning_target(target: ModuleType, options: Dict):
 
         return cls_target, cls_weight, best_reg, reg_target, reg_weight, num_pos
 
-    # pylint: disable=too-many-arguments,huawei-too-many-arguments,too-many-return-values
+    # pylint: disable=too-many-arguments,too-many-return-statements
     def planning_sample(
         self,
         cls_pred,
@@ -377,13 +353,15 @@ def motion_planning_target(target: ModuleType, options: Dict):
         cls_weight = gt_reg_mask.any(dim=-1)
         # change code
         # extract the reg unique part of get_reg_target to the sample
-        best_reg = torch.gather(reg_pred, 2, cls_target[..., None, None, None].repeat(1, 1, 1, self.ego_fut_ts, 2)).squeeze(2)
+        best_reg = torch.gather(
+            reg_pred, 2, cls_target[..., None, None, None].repeat(1, 1, 1, self.ego_fut_ts, 2)
+        ).squeeze(2)
 
         return cls_pred, cls_target, cls_weight, best_reg, gt_reg_target, gt_reg_mask
-    
+
     if hasattr(target, "MotionTarget"):
         target.MotionTarget.sample = motion_sample
-    
+
     if hasattr(target, "PlanningTarget"):
         target.PlanningTarget.sample = planning_sample
 
@@ -421,9 +399,7 @@ def instance_queue(queue: ModuleType, options: Dict):
                 temp_anchor = torch.matmul(match.type_as(temp_anchor), temp_anchor)
                 self.anchor_queue[i] = temp_anchor
 
-            self.period = (
-                match * self.period[:, None]
-            ).sum(dim=2)
+            self.period = (match * self.period[:, None]).sum(dim=2)
 
         self.instance_feature_queue.append(instance_feature.detach())
         self.anchor_queue.append(det_anchors.detach())
@@ -440,8 +416,7 @@ def instance_queue(queue: ModuleType, options: Dict):
 
 def mmcv_optimizer(hooks: ModuleType, options: Dict):
     def clip_grads(self, params, runner):
-        params = list(
-            filter(lambda p: p.requires_grad and p.grad is not None, params))
+        params = list(filter(lambda p: p.requires_grad and p.grad is not None, params))
         if len(params) > 0:
             # change code
             # used fused grad_clip
@@ -462,19 +437,17 @@ def mmcv_optimizer(hooks: ModuleType, options: Dict):
             grad_norm = self.clip_grads(runner.model.parameters(), runner)
             if grad_norm is not None:
                 # Add grad norm to the logger
-                runner.log_buffer.update({'grad_norm': float(grad_norm)},
-                                            runner.outputs['num_samples'])
+                runner.log_buffer.update({'grad_norm': float(grad_norm)}, runner.outputs['num_samples'])
         # backward and update scaler
         self.loss_scaler.step(runner.optimizer)
         self.loss_scaler.update(self._scale_update_param)
 
         # save state_dict of loss_scaler
-        runner.meta.setdefault(
-            'fp16', {})['loss_scaler'] = self.loss_scaler.state_dict()
+        runner.meta.setdefault('fp16', {})['loss_scaler'] = self.loss_scaler.state_dict()
 
     if hasattr(hooks, "OptimizerHook"):
         hooks.OptimizerHook.clip_grads = clip_grads
-    
+
     if hasattr(hooks, "Fp16OptimizerHook"):
         hooks.Fp16OptimizerHook.after_train_iter = after_train_iter
 
@@ -509,20 +482,17 @@ def get_fused_optimizer(optimizer: ModuleType):
     module = importlib.import_module(optimizer)
     copy = module.optimizer.builder.copy
     build_optimizer_constructor = module.optimizer.builder.build_optimizer_constructor
-    
+
     def build_optimizer(model, cfg: Dict):
         optimizer_cfg = copy.deepcopy(cfg)
         # change code
         # use NpuFused optimizer
         optimizer_cfg['type'] = 'NpuFused' + optimizer_cfg['type']
-        constructor_type = optimizer_cfg.pop('constructor',
-                                            'DefaultOptimizerConstructor')
+        constructor_type = optimizer_cfg.pop('constructor', 'DefaultOptimizerConstructor')
         paramwise_cfg = optimizer_cfg.pop('paramwise_cfg', None)
         optim_constructor = build_optimizer_constructor(
-            dict(
-                type=constructor_type,
-                optimizer_cfg=optimizer_cfg,
-                paramwise_cfg=paramwise_cfg))
+            dict(type=constructor_type, optimizer_cfg=optimizer_cfg, paramwise_cfg=paramwise_cfg)
+        )
         optimizer = optim_constructor(model)
         return optimizer
 
@@ -531,11 +501,14 @@ def get_fused_optimizer(optimizer: ModuleType):
 
 # get the patch for SparseDrive, and determine whether to brake advance
 def generate_patcher_builder():
+    collection_compat = _create_legacy_patch_func(CollectionsCompat)
+    loss = _create_legacy_patch_func(SigmoidFocalLoss)
     sparse_drive_patcher_builder = (
         PatcherBuilder()
         .add_module_patch("torch", Patch(index), Patch(batch_matmul))
         .add_module_patch("numpy", Patch(numpy_type))
-        .add_module_patch("mmcv", Patch(ddp), Patch(stream))
+        .add_module_patch("collections", Patch(collection_compat))
+        .add_module_patch("mmcv", Patch(ddp), Patch(stream), Patch(loss))
         .add_module_patch("mmdet", Patch(resnet_add_relu), Patch(resnet_maxpool))
         .add_module_patch("projects.mmdet3d_plugin.models.attention", Patch(flash_attn))
         .add_module_patch("projects.mmdet3d_plugin.models.detection3d.losses", Patch(detection_losses))

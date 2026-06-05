@@ -80,6 +80,7 @@ from mx_driving.patcher.mmdet_patch import (
 )
 from mx_driving.patcher.mmdet3d_patch import NuScenesDataset, NuScenesMetric, NuScenes
 from mx_driving.patcher.numpy_patch import NumpyCompat
+from mx_driving.patcher.python_patch import CollectionsCompat
 from mx_driving.patcher.torch_patch import TensorIndex, BatchMatmul
 from mx_driving.patcher.torch_scatter_patch import TorchScatter
 from mx_driving.patcher.transformers_patch import (
@@ -137,6 +138,7 @@ _ALL_PATCH_CLASSES: List[Type[Patch]] = [
     # diffusers (optional, for models using diffusers library)
     AttnProcessor2_0,
     DiffusersNPU,
+    CollectionsCompat,
 ]
 
 _DEFAULT_PATCH_CLASSES: List[Type[Patch]] = [

@@ -38,6 +38,8 @@ export TASK_QUEUE_ENABLE=2
 export CPU_AFFINITY_CONF=1
 #减少显存占用
 export PYTORCH_NPU_ALLOC_CONF="expandable_segments:True"
+#避免torch2.7权重加载报错，设置weights_only=False
+export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1
 
 #网络名称，同目录名称，需要模型审视修改
 Network='SparseDrive'

@@ -273,8 +273,12 @@ class SigmoidFocalLoss(Patch):
     def patches(cls, options=None) -> List[BasePatch]:
         return [
             AtomicPatch(
-                "mmcv.ops.focal_loss.sigmoid_focal_loss",
-                "mx_driving.sigmoid_focal_loss",
+                "mmcv.ops.focal_loss.SigmoidFocalLossFunction.forward",
+                "mx_driving.ops.sigmoid_focal_loss.SigmoidFocalLossFunction.forward",
+            ),
+            AtomicPatch(
+                "mmcv.ops.focal_loss.SigmoidFocalLossFunction.backward",
+                "mx_driving.ops.sigmoid_focal_loss.SigmoidFocalLossFunction.backward",
             ),
         ]
 

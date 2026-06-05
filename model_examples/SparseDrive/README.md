@@ -72,8 +72,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
   |      三方库       |  支持版本  |
   |:--------------:|:------:|
-  |    PyTorch     |  2.1   |
-  |    Driving SDK   | 7.1.0 |
+  |    PyTorch     |  2.1.0, 2.7.1   |
   |      mmcv      |  1.x   |
   |     mmdet      | 2.28.2 |
 
@@ -81,7 +80,7 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
   请参考昇腾[Driving SDK](https://gitcode.com/Ascend/DrivingSDK)代码仓说明编译安装Driving SDK。
 
-- 建议使用依赖安装一键配置脚本，可使用如下指令完成后续基础依赖、`geos`、`mmcv`、模型代码patch的安装和更新：
+- 建议使用依赖安装一键配置脚本，可使用如下指令完成后续基础依赖、`mmcv`、模型代码patch的安装和更新：
 
    ```shell
    bash install_SparseDrive.sh
@@ -109,10 +108,13 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 
 - 安装基础依赖
 
-  在模型源码包根目录下执行命令，安装模型需要的依赖。
+  在本目录下执行命令，安装模型需要的依赖。
 
   ```shell
-  pip install -r requirements.txt
+  # torch 2.1.0 依赖安装
+  pip install -r requirements_torch2.1.0.txt
+  # torch 2.7.1 依赖安装
+  pip install -r requirements_torch2.7.1.txt
   ```
 
 # 准备数据集
@@ -183,8 +185,12 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 |:---------:|:---------------:|------|:------------------:|:----:|:----:|:--------------:|:---:|:---:|
 |   stage1   |      竞品A      | 8p | 64 | fp16 | 41.0 | 1.561 | 0.3764 | - |
 |   stage1   | Atlas 800T A2   | 8p | 64 | fp16 | 46.3 | 1.382 | 0.3864 | - |
+|   stage1   | Atlas 800T A3   | 16p | 128 | fp16 | 108.6 | 1.179 | - | - |
+|   stage1   | Atlas 950 SuperPoD  | 8p | 64 | fp16 | 101.3 | 0.632 | 0.3846 | - |
 |   stage2   |      竞品A      | 8p | 48 | fp16 | 35.2 | 1.363 | - | 0.6280 |
 |   stage2   | Atlas 800T A2   | 8p | 48 | fp16 | 37.9 | 1.265 | - | 0.6069 |
+|   stage2   | Atlas 800T A3   | 16p | 96 | fp16 | 88.4 | 1.086 | - | - |
+|   stage2   | Atlas 950 SuperPoD  | 8p | 48 | fp16 | 81.8 | 0.587 | - | 0.6169 |
 
 # 版本说明
 
@@ -195,6 +201,8 @@ SparseDrive是一种基于稀疏化表征的端到端自动驾驶模型，基于
 2025.07.07：瓶颈算子优化，刷新性能数据
 
 2025.08.25：训练脚本优化
+
+2026.06.04：新增 A5 模型适配与 Pytorch 2.7.1 支持
 
 ## FAQ
 
