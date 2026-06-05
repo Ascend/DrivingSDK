@@ -166,7 +166,7 @@ Isaac GR00T-N1.6 为 GR00T-N1.5升级版
     git clone --recursive https://github.com/dmlc/decord --depth 1
     cd decord
     mkdir build && cd build
-    cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH=$CONDA_PREFIX
+    cmake ..  -DCMAKE_BUILD_TYPE=Release -DFFMPEG_DIR:PATH=$CONDA_PREFIX  # 源码安装ffmpeg时PATH需为"/usr/local/ffmpeg/"
     make
     # 编译whl包
     cd ../python
