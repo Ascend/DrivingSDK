@@ -34,13 +34,11 @@ mx_driving.modulated_deform_conv2d(Tensor x, Tensor offset, Tensor mask, Tensor 
 ## 约束说明
 
 1. `deformable_groups`当前只支持1。
-2. `h_in`,`w_in`,`h_out`,`w_out`需满足
-
-$$
-w_{out}=(w_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1 \\
-h_{out}=(h_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1
-$$
-
+2. `h_in`,`w_in`,`h_out`,`w_out`需满足以下条件：
+    $$
+    w_{out}=(w_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1     \\
+    h_{out}=(h_{in}+ 2 * padding - (dilation * (k - 1) + 1)) / stride + 1
+    $$
 3. `c_in`需要为64的倍数。
 
 ## 调用示例

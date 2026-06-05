@@ -131,4 +131,4 @@ pre-commit 会在每次 `git commit` 前自动运行配置的检查项，检查�
 
 ## 成员列表
 
-[SIG成员列表](https://gitcode.com/Ascend/community/blob/master/MindSeriesSDK/sigs/DrivingSDK/sig-info.yaml)。
+[SIG成员列表](https://gitcode.com/Ascend/community/blob/master/MindSDK/sigs/DrivingSDK/sig-info.yaml)。

@@ -183,8 +183,7 @@ print(output)
 
 ### Can not find Node xxx custom infer_datatype func
 
-原因：目前仓库内仅部分算子包含inferShape与inferDtype过程，添加如<https://gitcode.com/Ascend/DrivingSDK/blob/master/kernels/op_host/multi_scale_deformable_attn.cpp文件中类似105行代码：>
-IMPL_OP_INFERSHAPE(MultiScaleDeformableAttn).InferShape(InferShapeForMultiScaleDeformableAttn).InferDataType(InferDataTypeForMultiScaleDeformableAttn); 即可解决该问题
+原因：目前仓库内仅部分算子包含inferShape与inferDtype过程，参考 `kernels/multi_scale_deformable_attn/op_host/` 目录下 MSDA 算子的 cpp 文件中 `IMPL_OP_INFERSHAPE` 相关代码行，添加类似逻辑即可解决该问题。
 
 ### Optype xxx of ops kernel is unsupported
 
