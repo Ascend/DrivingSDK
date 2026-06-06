@@ -6,12 +6,11 @@
 using namespace AscendC;
 
 class KernelRoiAlignRotatedGradV2 {
-public:
+  public:
     __aicore__ inline KernelRoiAlignRotatedGradV2() {}
 
     __aicore__ inline void Init(GM_ADDR input, GM_ADDR rois, GM_ADDR grad_output, GM_ADDR grad_input,
-                                const RoiAlignRotatedGradV2TilingData *__restrict tiling_data)
-    {
+        const RoiAlignRotatedGradV2TilingData *__restrict tiling_data) {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
         coreRoisNums = tiling_data->coreRoisNums;
@@ -47,21 +46,20 @@ public:
         eventIdMte3ToMte2 = static_cast<event_t>(pipe.AllocEventID<HardEvent::MTE3_MTE2>());
 
         copyParams = {2, static_cast<uint16_t>(channelNum * 2 / dataSize), 0,
-                      static_cast<uint16_t>((width - 2) * channelNum / dataSize)};
+            static_cast<uint16_t>((width - 2) * channelNum / dataSize)};
 
-        inputGM.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(input),
-                                static_cast<uint64_t>(batchSize) * channelNum * height * width);
-        roisGM.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(rois),
-                               static_cast<uint64_t>(boxLength) * boxSize);
-        gradOutputsGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(grad_output),
-                                      static_cast<uint64_t>(boxLength) * channelNum * pooledHeight * pooledWidth);
-        gradInputGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT*>(grad_input),
-                                    static_cast<uint64_t>(batchSize) * channelNum * height * width);
+        inputGM.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT *>(input),
+            static_cast<uint64_t>(batchSize) * channelNum * height * width);
+        roisGM.SetGlobalBuffer(
+            reinterpret_cast<__gm__ DTYPE_INPUT *>(rois), static_cast<uint64_t>(boxLength) * boxSize);
+        gradOutputsGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT *>(grad_output),
+            static_cast<uint64_t>(boxLength) * channelNum * pooledHeight * pooledWidth);
+        gradInputGm.SetGlobalBuffer(reinterpret_cast<__gm__ DTYPE_INPUT *>(grad_input),
+            static_cast<uint64_t>(batchSize) * channelNum * height * width);
         InitBuffer();
     }
 
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         GetLocalTensor();
         uint32_t computeBatchSize = constComputeBatchSize;
         uint32_t computeBatchNum = (coreRoisNums + constComputeBatchSize - 1) / constComputeBatchSize;
@@ -79,8 +77,7 @@ public:
         }
     }
 
-    __aicore__ inline void InitBuffer()
-    {
+    __aicore__ inline void InitBuffer() {
         pipe.InitBuffer(idxUb, constComputeBatchSize * sizeof(int32_t));
         pipe.InitBuffer(xUb, constComputeBatchSize * sizeof(DTYPE_INPUT));
         pipe.InitBuffer(yUb, constComputeBatchSize * sizeof(DTYPE_INPUT));
@@ -118,8 +115,7 @@ public:
         pipe.InitBuffer(tmpChannelUb, alignChannelNum * sizeof(DTYPE_INPUT));
     }
 
-    __aicore__ inline void GetLocalTensor()
-    {
+    __aicore__ inline void GetLocalTensor() {
         idxLocal = idxUb.Get<int32_t>();
         xLocal = xUb.Get<DTYPE_INPUT>();
         yLocal = yUb.Get<DTYPE_INPUT>();
@@ -158,9 +154,9 @@ public:
         Duplicate(tmpChannelLocal, (DTYPE_INPUT)0.0, alignChannelNum);
         Duplicate(tmpChannelLocal, (DTYPE_INPUT)1.0, channelNum);
     }
-private:
-    __aicore__ inline void CopyIn(uint64_t offset, uint32_t computeBatchSize)
-    {
+
+  private:
+    __aicore__ inline void CopyIn(uint64_t offset, uint32_t computeBatchSize) {
         DataCopy(tmpLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 0], computeBatchSize);
         DataCopy(xLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 1], computeBatchSize);
         DataCopy(yLocal, roisGM[offset + static_cast<uint64_t>(boxSize) * 2], computeBatchSize);
@@ -219,8 +215,9 @@ private:
         Maxs(countLocal, countLocal, (DTYPE_INPUT)1.0, computeBatchSize);
     }
 
-    __aicore__ inline void Compute(uint32_t taskIdx, uint64_t offset)
-    {
+    __aicore__ inline void Compute(uint32_t taskIdx, uint64_t offset) {
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
         pIdx = idxLocal.GetValue(taskIdx);
         pX = xLocal.GetValue(taskIdx);
         pY = yLocal.GetValue(taskIdx);
@@ -280,14 +277,17 @@ private:
         }
     }
 
-    __aicore__ inline void bilinearInterpolate()
-    {
+    __aicore__ inline void bilinearInterpolate() {
         if (y < -1 || y > height || x < -1 || x > width) {
             xl = -1;
-            return ;
+            return;
         }
-        if (y <= 0) y = 0;
-        if (x <= 0) x = 0;
+        if (y <= 0) {
+            y = 0;
+        }
+        if (x <= 0) {
+            x = 0;
+        }
 
         yl = static_cast<int32_t>(y);
         xl = static_cast<int32_t>(x);
@@ -315,12 +315,11 @@ private:
         w3 = ly - w4;
     }
 
-    __aicore__ inline void CopyOut()
-    {
-        w1Offset = ((static_cast<uint64_t>(pIdx) * height+ yl)* width + xl) * channelNum;
-        w2Offset = ((static_cast<uint64_t>(pIdx) * height+ yl)* width + xh) * channelNum;
-        w3Offset = ((static_cast<uint64_t>(pIdx) * height+ yh)* width + xl) * channelNum;
-        w4Offset = ((static_cast<uint64_t>(pIdx) * height+ yh)* width + xh) * channelNum;
+    __aicore__ inline void CopyOut() {
+        w1Offset = ((static_cast<uint64_t>(pIdx) * height + yl) * width + xl) * channelNum;
+        w2Offset = ((static_cast<uint64_t>(pIdx) * height + yl) * width + xh) * channelNum;
+        w3Offset = ((static_cast<uint64_t>(pIdx) * height + yh) * width + xl) * channelNum;
+        w4Offset = ((static_cast<uint64_t>(pIdx) * height + yh) * width + xh) * channelNum;
 
         SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
         WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
@@ -341,9 +340,8 @@ private:
         SetAtomicNone();
     }
 
-    __aicore__ inline void CopyOutTogether()
-    {
-        w1Offset = ((pIdx * height+ yl)* width + xl) * channelNum;
+    __aicore__ inline void CopyOutTogether() {
+        w1Offset = ((pIdx * height + yl) * width + xl) * channelNum;
 
         SetFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
         WaitFlag<HardEvent::MTE3_V>(eventIdMte3ToV);
@@ -360,23 +358,24 @@ private:
 
         SetAtomicNone();
     }
-private:
+
+  private:
     TPipe pipe;
     GlobalTensor<DTYPE_INPUT> inputGM, roisGM, gradOutputsGm, gradInputGm;
 
-    TBuf <TPosition::VECCALC> idxUb, xUb, yUb, hUb, wUb, angleUb;
-    TBuf <TPosition::VECCALC> cosUb, sinUb;
-    TBuf <TPosition::VECCALC> binSizeHUb, binSizeWUb;
-    TBuf <TPosition::VECCALC> binGridWUb, binGridHUb;
-    TBuf <TPosition::VECCALC> binGridSizeWUb, binGridSizeHUb;
-    TBuf <TPosition::VECCALC> deltaStartWUb, deltaStartHUb;
-    TBuf <TPosition::VECCALC> countTmpUb, countUb;
-    TBuf <TPosition::VECCALC> tmpUb;
+    TBuf<TPosition::VECCALC> idxUb, xUb, yUb, hUb, wUb, angleUb;
+    TBuf<TPosition::VECCALC> cosUb, sinUb;
+    TBuf<TPosition::VECCALC> binSizeHUb, binSizeWUb;
+    TBuf<TPosition::VECCALC> binGridWUb, binGridHUb;
+    TBuf<TPosition::VECCALC> binGridSizeWUb, binGridSizeHUb;
+    TBuf<TPosition::VECCALC> deltaStartWUb, deltaStartHUb;
+    TBuf<TPosition::VECCALC> countTmpUb, countUb;
+    TBuf<TPosition::VECCALC> tmpUb;
 
-    TBuf <TPosition::VECCALC> gradBinUb;
-    TBuf <TPosition::VECCALC> gradW1Ub, gradW2Ub, gradW3Ub, gradW4Ub;
-    TBuf <TPosition::VECCALC> tmpChannelUb;
-    TBuf <TPosition::VECCALC> gradOutUb;
+    TBuf<TPosition::VECCALC> gradBinUb;
+    TBuf<TPosition::VECCALC> gradW1Ub, gradW2Ub, gradW3Ub, gradW4Ub;
+    TBuf<TPosition::VECCALC> tmpChannelUb;
+    TBuf<TPosition::VECCALC> gradOutUb;
 
     LocalTensor<int32_t> idxLocal;
     LocalTensor<DTYPE_INPUT> xLocal, yLocal, hLocal, wLocal, angleLocal;
@@ -446,8 +445,8 @@ private:
     AscendC::DataCopyParams copyParams;
 };
 
-extern "C" __global__ __aicore__ void roi_align_rotated_grad_v2(GM_ADDR input, GM_ADDR rois, GM_ADDR grad_output, GM_ADDR grad_input, GM_ADDR workspace, GM_ADDR tiling)
-{
+extern "C" __global__ __aicore__ void roi_align_rotated_grad_v2(
+    GM_ADDR input, GM_ADDR rois, GM_ADDR grad_output, GM_ADDR grad_input, GM_ADDR workspace, GM_ADDR tiling) {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
     SetSysWorkspace(workspace);
     GET_TILING_DATA(tilingData, tiling);

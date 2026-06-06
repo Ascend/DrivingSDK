@@ -14,11 +14,10 @@ const int32_t aligned_byte_num = 8;
 const int32_t rois_info_num = 6;
 
 class RoiAlignRotatedV2 {
-public:
-    __aicore__ inline RoiAlignRotatedV2()
-    {}
-    __aicore__ inline void Init(GM_ADDR input, GM_ADDR rois, GM_ADDR output, const RoiAlignRotatedV2TilingData *tiling_data)
-    {
+  public:
+    __aicore__ inline RoiAlignRotatedV2() {}
+    __aicore__ inline void Init(
+        GM_ADDR input, GM_ADDR rois, GM_ADDR output, const RoiAlignRotatedV2TilingData *tiling_data) {
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
 
         tileNum = tiling_data->tileNum;
@@ -77,9 +76,11 @@ public:
 
         ASSERT(tileNum != 0 && "tile num can not be zero!");
 
-        inputGM.SetGlobalBuffer((__gm__ DTYPE_INPUT *)input, static_cast<uint64_t>(batch_size) * channels * input_h * input_w);
+        inputGM.SetGlobalBuffer(
+            (__gm__ DTYPE_INPUT *)input, static_cast<uint64_t>(batch_size) * channels * input_h * input_w);
         roisGM.SetGlobalBuffer((__gm__ DTYPE_ROIS *)rois, static_cast<uint64_t>(rois_num_aligned) * rois_info_num);
-        outputGM.SetGlobalBuffer((__gm__ DTYPE_OUTPUT *)output, static_cast<uint64_t>(total_rois_num) * channels * pooled_height * pooled_width);
+        outputGM.SetGlobalBuffer((__gm__ DTYPE_OUTPUT *)output,
+            static_cast<uint64_t>(total_rois_num) * channels * pooled_height * pooled_width);
 
         pipe.InitBuffer(RoisQueueBatchIdx, BUFFER_NUM, rois_buffer_size);
         pipe.InitBuffer(RoisQueueCenterX, BUFFER_NUM, rois_buffer_size);
@@ -114,8 +115,7 @@ public:
         }
     }
 
-    __aicore__ inline void Process()
-    {
+    __aicore__ inline void Process() {
         if (rois_num_per_core > 0) {
             OutputValue = OutputValueBuffer.AllocTensor<float>();
             CountChannel = CountChannelBuffer.AllocTensor<float>();
@@ -135,7 +135,7 @@ public:
             RoiStartW = RoiStartWBuffer.AllocTensor<float>();
             CountTensor = CountTensorBuffer.AllocTensor<float>();
             GridMulTensor = GridMulBuffer.AllocTensor<float>();
-            
+
             Pw = PwBuffer.AllocTensor<float>();
             Ph = PhBuffer.AllocTensor<float>();
             AtomicAddTensor = AtomicAddBuffer.AllocTensor<float>();
@@ -180,9 +180,8 @@ public:
         }
     }
 
-private:
-    __aicore__ inline void RoisCopyIn(uint32_t progress, int32_t rois_num)
-    {
+  private:
+    __aicore__ inline void RoisCopyIn(uint32_t progress, int32_t rois_num) {
         LocalTensor<DTYPE_ROIS> RoisBatchIdx = RoisQueueBatchIdx.AllocTensor<DTYPE_ROIS>();
         LocalTensor<DTYPE_ROIS> RoisCenterX = RoisQueueCenterX.AllocTensor<DTYPE_ROIS>();
         LocalTensor<DTYPE_ROIS> RoisCenterY = RoisQueueCenterY.AllocTensor<DTYPE_ROIS>();
@@ -202,7 +201,8 @@ private:
             DataCopy(RoisTheta, roisGM[pre_idx + cast_total_rois_num * 5], rois_num);
             PipeBarrier<PIPE_ALL>();
         } else {
-            uint64_t pre_idx = static_cast<uint64_t>(Lcore_num) * rois_num_per_Lcore + (blockIndex - Lcore_num) * rois_num_per_core + progress * rois_num_per_loop;
+            uint64_t pre_idx = static_cast<uint64_t>(Lcore_num) * rois_num_per_Lcore +
+                (blockIndex - Lcore_num) * rois_num_per_core + progress * rois_num_per_loop;
             uint64_t cast_total_rois_num = static_cast<uint64_t>(total_rois_num);
             DataCopy(RoisBatchIdx, roisGM[pre_idx], rois_num);
             DataCopy(RoisCenterX, roisGM[pre_idx + cast_total_rois_num], rois_num);
@@ -212,7 +212,7 @@ private:
             DataCopy(RoisTheta, roisGM[pre_idx + cast_total_rois_num * 5], rois_num);
             PipeBarrier<PIPE_ALL>();
         }
-        
+
         RoisQueueBatchIdx.EnQue<DTYPE_ROIS>(RoisBatchIdx);
         RoisQueueCenterX.EnQue<DTYPE_ROIS>(RoisCenterX);
         RoisQueueCenterY.EnQue<DTYPE_ROIS>(RoisCenterY);
@@ -222,8 +222,7 @@ private:
         PipeBarrier<PIPE_ALL>();
     }
 
-    __aicore__ inline void Compute(uint32_t progress, int32_t rois_num)
-    {
+    __aicore__ inline void Compute(uint32_t progress, int32_t rois_num) {
         LocalTensor<DTYPE_ROIS> RoisBatchIdx = RoisQueueBatchIdx.DeQue<DTYPE_ROIS>();
         LocalTensor<DTYPE_ROIS> RoisCenterX = RoisQueueCenterX.DeQue<DTYPE_ROIS>();
         LocalTensor<DTYPE_ROIS> RoisCenterY = RoisQueueCenterY.DeQue<DTYPE_ROIS>();
@@ -239,12 +238,12 @@ private:
 
         Adds(RoisCenterX, RoisCenterX, offset_scalar, rois_num);
         Adds(RoisCenterY, RoisCenterY, offset_scalar, rois_num);
-        
+
         if (!aligned) {
             Maxs(RoisWidth, RoisWidth, (float)1.0, rois_num);
             Maxs(RoisHeight, RoisHeight, (float)1.0, rois_num);
         }
-        
+
         if (clockwise) {
             Muls(RoisTheta, RoisTheta, (float)(-1.0), rois_num);
         }
@@ -268,7 +267,7 @@ private:
             Ceil(RoiBinGridW, BinSizeW, rois_num);
             PipeBarrier<PIPE_V>();
         }
-        
+
         Div(GridHTensor, BinSizeH, RoiBinGridH, rois_num);
         Div(GridWTensor, BinSizeW, RoiBinGridW, rois_num);
         Mul(GridMulTensor, RoiBinGridW, RoiBinGridH, rois_num);
@@ -286,7 +285,7 @@ private:
             }
             output_index += output_shape;
         }
-        
+
         RoisQueueBatchIdx.FreeTensor<float>(RoisBatchIdx);
         RoisQueueCenterX.FreeTensor<float>(RoisCenterX);
         RoisQueueCenterY.FreeTensor<float>(RoisCenterY);
@@ -296,19 +295,23 @@ private:
         PipeBarrier<PIPE_ALL>();
     }
 
-    __aicore__ inline int32_t ComputeOutputIndex(uint32_t progress)
-    {
+    __aicore__ inline int32_t ComputeOutputIndex(uint32_t progress) {
         int32_t output_index;
         if (blockIndex < Lcore_num) {
-            output_index = pooled_height * pooled_width * (blockIndex * rois_num_per_core + progress * rois_num_per_loop);
+            output_index =
+                pooled_height * pooled_width * (blockIndex * rois_num_per_core + progress * rois_num_per_loop);
         } else {
-            output_index = pooled_height * pooled_width * (Lcore_num * rois_num_per_Lcore + (blockIndex - Lcore_num) * rois_num_per_core + progress * rois_num_per_loop);
+            output_index = pooled_height * pooled_width *
+                (Lcore_num * rois_num_per_Lcore + (blockIndex - Lcore_num) * rois_num_per_core +
+                    progress * rois_num_per_loop);
         }
         return output_index;
     }
 
-    __aicore__ inline void ComputeItem(int32_t output_index, uint32_t roi_idx, int32_t batch_idx, float roi_center_w, float roi_center_h)
-    {
+    __aicore__ inline void ComputeItem(
+        int32_t output_index, uint32_t roi_idx, int32_t batch_idx, float roi_center_w, float roi_center_h) {
+        SetFlag<HardEvent::V_S>(0);
+        WaitFlag<HardEvent::V_S>(0);
         int32_t roi_bin_grid_h = RoiBinGridH.GetValue(roi_idx);
         int32_t roi_bin_grid_w = RoiBinGridW.GetValue(roi_idx);
         float bin_size_h = BinSizeH.GetValue(roi_idx);
@@ -321,7 +324,7 @@ private:
         float cos_theta = RoiCosTheta.GetValue(roi_idx);
         float count = CountTensor.GetValue(roi_idx);
         Duplicate(CountChannel, count, channels_aligned);
-        
+
         for (int32_t index = output_index; index < (output_index + pooled_height * pooled_width); index++) {
             Duplicate(OutputValue, (float)0., channels_aligned);
 
@@ -329,7 +332,7 @@ private:
             int32_t ph = index / pooled_width / pooled_height;
             pw = index - pw * pooled_width;
             ph = (index / pooled_width) - ph * pooled_height;
-        
+
             for (uint32_t iy = 0; iy < roi_bin_grid_h; iy++) {
                 const float yy = roi_start_h + ph * bin_size_h + (iy + .5f) * grid_h;
                 for (int ix = 0; ix < roi_bin_grid_w; ix++) {
@@ -341,7 +344,7 @@ private:
                     bilinear_interpolate(batch_idx, x, y, index);
                     ValueTensor = ValueBuffer.DeQue<float>();
                     PipeBarrier<PIPE_ALL>();
-                    
+
                     Add(OutputValue, OutputValue, ValueTensor, channels);
                     PipeBarrier<PIPE_V>();
                 }
@@ -356,7 +359,7 @@ private:
 
                 OutputValueBuffer.EnQue<float>(OutputValue);
                 PipeBarrier<PIPE_ALL>();
-                
+
                 SetAtomicAdd<float>();
                 SingleRoiCopyOut(index);
                 SetAtomicNone();
@@ -373,9 +376,8 @@ private:
         }
     }
 
-    __aicore__ inline void bilinear_interpolate(int32_t batch_idx, float x, float y, int32_t index)
-    {
-        if (y <  (float)-1.0 or y > input_h or x < (float)-1.0 or x > input_w) {
+    __aicore__ inline void bilinear_interpolate(int32_t batch_idx, float x, float y, int32_t index) {
+        if (y < (float)-1.0 or y > input_h or x < (float)-1.0 or x > input_w) {
             Duplicate(ValueTensor, (float)0., channels_aligned);
             PipeBarrier<PIPE_ALL>();
         } else {
@@ -389,7 +391,7 @@ private:
             int32_t y_floor = static_cast<int32_t>(y);
             int32_t x_ceil = x_floor + 1;
             int32_t y_ceil = y_floor + 1;
-            
+
             if (x_floor >= (input_w - 1)) {
                 x_ceil = input_w - 1;
                 x_floor = x_ceil;
@@ -416,8 +418,8 @@ private:
         PipeBarrier<PIPE_ALL>();
     }
 
-    __aicore__ void AlignedBilinearInterpolate(int32_t batch_idx, float hx, float hy, float lx, float ly, int32_t x_floor, int32_t y_floor, int32_t x_ceil, int32_t y_ceil)
-    {
+    __aicore__ void AlignedBilinearInterpolate(int32_t batch_idx, float hx, float hy, float lx, float ly,
+        int32_t x_floor, int32_t y_floor, int32_t x_ceil, int32_t y_ceil) {
         LocalTensor<float> FeatureMap = inQueueInput.AllocTensor<float>();
         int32_t pre_idx = channels * (batch_idx * input_h * input_w);
         int32_t datacopy_idx = channels * (input_w * y_floor + x_floor) + pre_idx;
@@ -434,13 +436,13 @@ private:
         Muls(TmpValueTensor, FeatureMap, weight_p1, channels);
         Muls(ValueTensor, FeatureMap[channels], weight_p2, channels);
         PipeBarrier<PIPE_V>();
-        
+
         Add(ValueTensor, ValueTensor, TmpValueTensor, channels);
         PipeBarrier<PIPE_V>();
 
         Muls(TmpValueTensor, FeatureMap[channels * 2], weight_p3, channels);
         PipeBarrier<PIPE_V>();
-        
+
         Add(ValueTensor, ValueTensor, TmpValueTensor, channels);
         PipeBarrier<PIPE_V>();
 
@@ -452,8 +454,8 @@ private:
         inQueueInput.FreeTensor<float>(FeatureMap);
     }
 
-    __aicore__ void NonAlignedBilinearInterpolate(int32_t batch_idx, float hx, float hy, float lx, float ly, int32_t x_floor, int32_t y_floor, int32_t x_ceil, int32_t y_ceil)
-    {
+    __aicore__ void NonAlignedBilinearInterpolate(int32_t batch_idx, float hx, float hy, float lx, float ly,
+        int32_t x_floor, int32_t y_floor, int32_t x_ceil, int32_t y_ceil) {
         LocalTensor<float> FeatureMap = inQueueInput.AllocTensor<float>();
         int32_t pre_idx = channels * (batch_idx * input_h * input_w);
         float weight = hy * hx;
@@ -463,14 +465,14 @@ private:
         FeatureMap = inQueueInput.DeQue<float>();
         Muls(TmpValueTensor, FeatureMap, weight, channels);
         PipeBarrier<PIPE_ALL>();
-        
+
         weight = hy * lx;
         datacopy_idx = channels * (input_w * y_floor + x_ceil) + pre_idx;
         NonAlignedSingleFeatureCopyIn(datacopy_idx, channels_aligned, FeatureMap);
         FeatureMap = inQueueInput.DeQue<float>();
         Muls(ValueTensor, FeatureMap, weight, channels);
         PipeBarrier<PIPE_ALL>();
-        
+
         weight = ly * hx;
         datacopy_idx = channels * (input_w * y_ceil + x_floor) + pre_idx;
         NonAlignedSingleFeatureCopyIn(datacopy_idx, channels_aligned, FeatureMap);
@@ -479,7 +481,7 @@ private:
         PipeBarrier<PIPE_ALL>();
         Muls(TmpValueTensor, FeatureMap, weight, channels);
         PipeBarrier<PIPE_ALL>();
-        
+
         weight = ly * lx;
         datacopy_idx = channels * (input_w * y_ceil + x_ceil) + pre_idx;
         NonAlignedSingleFeatureCopyIn(datacopy_idx, channels_aligned, FeatureMap);
@@ -493,55 +495,55 @@ private:
         inQueueInput.FreeTensor<float>(FeatureMap);
     }
 
-    __aicore__ void AlignedSingleFeatureCopyIn(int32_t datacopy_idx, LocalTensor<float> FeatureMap)
-    {
-        DataCopyParams DataCopyParam = {
-            (uint16_t)2,
-            (uint16_t)(static_cast<uint16_t>(channels) * 2 / aligned_byte_num),
+    __aicore__ void AlignedSingleFeatureCopyIn(int32_t datacopy_idx, LocalTensor<float> FeatureMap) {
+        DataCopyParams DataCopyParam = {(uint16_t)2, (uint16_t)(static_cast<uint16_t>(channels) * 2 / aligned_byte_num),
             (uint16_t)((static_cast<uint16_t>(channels) * (static_cast<uint16_t>(input_w) - 2)) / aligned_byte_num),
-            (uint16_t)0
-        };
-        
+            (uint16_t)0};
+
         DataCopy(FeatureMap, inputGM[static_cast<uint64_t>(datacopy_idx)], DataCopyParam);
         PipeBarrier<PIPE_ALL>();
         inQueueInput.EnQue<float>(FeatureMap);
         PipeBarrier<PIPE_ALL>();
     }
 
-    __aicore__ void NonAlignedSingleFeatureCopyIn(int32_t datacopy_idx, int32_t datacopy_len, LocalTensor<float> FeatureMap)
-    {
+    __aicore__ void NonAlignedSingleFeatureCopyIn(
+        int32_t datacopy_idx, int32_t datacopy_len, LocalTensor<float> FeatureMap) {
         DataCopy(FeatureMap, inputGM[static_cast<uint64_t>(datacopy_idx)], datacopy_len);
         PipeBarrier<PIPE_ALL>();
         inQueueInput.EnQue<float>(FeatureMap);
         PipeBarrier<PIPE_ALL>();
     }
 
-    __aicore__ inline void SingleRoiCopyOut(int32_t index)
-    {
+    __aicore__ inline void SingleRoiCopyOut(int32_t index) {
         OutputValue = OutputValueBuffer.DeQue<float>();
         PipeBarrier<PIPE_ALL>();
         DataCopy(outputGM[static_cast<uint64_t>(index) * channels], OutputValue, channels_aligned);
         PipeBarrier<PIPE_ALL>();
     }
 
-private:
+  private:
     TPipe pipe;
-    TQue<QuePosition::VECIN, BUFFER_NUM> RoisQueueBatchIdx, RoisQueueCenterX, RoisQueueCenterY, RoisQueueHeight, RoisQueueWidth, RoisQueueTheta;
+    TQue<QuePosition::VECIN, BUFFER_NUM> RoisQueueBatchIdx, RoisQueueCenterX, RoisQueueCenterY, RoisQueueHeight,
+        RoisQueueWidth, RoisQueueTheta;
     TQue<QuePosition::VECIN, BUFFER_NUM> inQueueInput;
     TQue<QuePosition::VECOUT, BUFFER_NUM> CountChannelBuffer, ValueBuffer, OutputValueBuffer;
     TQue<QuePosition::VECCALC, BUFFER_NUM> PwBuffer, PhBuffer, WeightBuffer, TmpValueBuffer, AtomicAddBuffer;
-    TQue<QuePosition::VECCALC, BUFFER_NUM> BinSizeHBuffer, BinSizeWBuffer, BinGridSizeHBuffer, BinGridSizeWBuffer, GridHBuffer, GridWBuffer, GridSizeHBuffer, SinThetaBuffer, CosThetaBuffer, RoiStartHBuffer, RoiStartWBuffer, CountTensorBuffer, GridMulBuffer;
+    TQue<QuePosition::VECCALC, BUFFER_NUM> BinSizeHBuffer, BinSizeWBuffer, BinGridSizeHBuffer, BinGridSizeWBuffer,
+        GridHBuffer, GridWBuffer, GridSizeHBuffer, SinThetaBuffer, CosThetaBuffer, RoiStartHBuffer, RoiStartWBuffer,
+        CountTensorBuffer, GridMulBuffer;
 
     GlobalTensor<DTYPE_INPUT> inputGM;
     GlobalTensor<DTYPE_ROIS> roisGM;
     GlobalTensor<DTYPE_OUTPUT> outputGM;
 
-    LocalTensor<float> Ph, Pw, BinSizeH, BinSizeW, RoiBinGridH, RoiBinGridW, GridHTensor, GridWTensor, RoiSinTheta, RoiCosTheta, RoiStartH, RoiStartW, CountTensor, GridMulTensor;
+    LocalTensor<float> Ph, Pw, BinSizeH, BinSizeW, RoiBinGridH, RoiBinGridW, GridHTensor, GridWTensor, RoiSinTheta,
+        RoiCosTheta, RoiStartH, RoiStartW, CountTensor, GridMulTensor;
     LocalTensor<float> RoiOutput, OutputValue, CountChannel;
     LocalTensor<float> WeightTensor, ValueTensor, TmpValueTensor, AtomicAddTensor;
 
     bool aligned, clockwise;
-    uint32_t blockDim, tileNum, batch_size, channels, channels_aligned, input_h, input_w, rois_num_aligned, tail_num, total_rois_num;
+    uint32_t blockDim, tileNum, batch_size, channels, channels_aligned, input_h, input_w, rois_num_aligned, tail_num,
+        total_rois_num;
     uint32_t rois_num_per_core, rois_num_per_loop, rois_num_per_loop_limit, loopCount;
     uint32_t rois_num_per_Lcore, rois_num_per_Score, Lcore_num, Score_num, input_buffer_size;
     int32_t sampling_ratio, pooled_height, pooled_width, output_shape;
@@ -549,7 +551,8 @@ private:
     uint64_t ub_total_size, blockIndex;
 };
 
-extern "C" __global__ __aicore__ void roi_align_rotated_v2(GM_ADDR input, GM_ADDR rois, GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling) {
+extern "C" __global__ __aicore__ void roi_align_rotated_v2(
+    GM_ADDR input, GM_ADDR rois, GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
     RoiAlignRotatedV2 op;
     op.Init(input, rois, output, &tiling_data);

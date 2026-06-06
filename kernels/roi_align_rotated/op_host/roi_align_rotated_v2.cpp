@@ -34,8 +34,7 @@ const uint32_t TILING_KEY = 1;
 
 namespace optiling {
 const uint32_t TILE_NUM = 8;
-static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
-{
+static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext *context) {
     RoiAlignRotatedV2TilingData tiling;
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
@@ -50,7 +49,8 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
     auto input_shape = context->GetInputShape(INPUT_INDEX); // [N, C, H, W]
     auto rois_shape = context->GetInputShape(ROIS_INDEX); // [n, 6]
     auto output_shape = context->GetOutputShape(OUTPUT_INDEX); // [n, C, pooled_height, pooled_width]
-    if (input_shape == nullptr || rois_shape == nullptr || output_shape == nullptr || context->GetRawTilingData() == nullptr) {
+    if (input_shape == nullptr || rois_shape == nullptr || output_shape == nullptr ||
+        context->GetRawTilingData() == nullptr) {
         return ge::GRAPH_FAILED;
     }
 
@@ -107,7 +107,7 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
     uint32_t rois_num_per_Lcore = rois_num_per_Score + ALIGN_VALUE;
     uint32_t Score_num = (BLOCK_DIM * (ALIGN_VALUE + rois_num_per_Score) - rois_num_aligned) / ALIGN_VALUE;
     uint32_t Lcore_num = BLOCK_DIM - Score_num;
-    
+
     if (rois_num_per_Score == 0) {
         BLOCK_DIM = BLOCK_DIM - Score_num;
     }
@@ -155,11 +155,10 @@ static ge::graphStatus TilingForRoiAlignRotatedV2(gert::TilingContext* context)
 }
 
 namespace ge {
-static ge::graphStatus InferShape(gert::InferShapeContext* context)
-{
-    const gert::Shape* input_shape = context->GetInputShape(INPUT_INDEX);
-    const gert::Shape* rois_shape = context->GetInputShape(ROIS_INDEX);
-    gert::Shape* output_shape = context->GetOutputShape(OUTPUT_INDEX);
+static ge::graphStatus InferShape(gert::InferShapeContext *context) {
+    const gert::Shape *input_shape = context->GetInputShape(INPUT_INDEX);
+    const gert::Shape *rois_shape = context->GetInputShape(ROIS_INDEX);
+    gert::Shape *output_shape = context->GetOutputShape(OUTPUT_INDEX);
 
     if (input_shape == nullptr || rois_shape == nullptr || output_shape == nullptr) {
         return ge::GRAPH_FAILED;
@@ -175,13 +174,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 
     uint32_t pooled_height = *(attrsPtr->GetAttrPointer<uint32_t>(PH_INDEX));
     uint32_t pooled_width = *(attrsPtr->GetAttrPointer<uint32_t>(PW_INDEX));
-    
+
     *output_shape = {rois_num, pooled_height, pooled_width, channels};
 
     return GRAPH_SUCCESS;
 }
-static ge::graphStatus InferDataTypeRoiAlignRotatedV2(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeRoiAlignRotatedV2(gert::InferDataTypeContext *context) {
     const ge::DataType value_dtype = context->GetInputDataType(INPUT_INDEX);
     context->SetOutputDataType(OUTPUT_INDEX, value_dtype);
     return GRAPH_SUCCESS;
@@ -190,9 +188,8 @@ static ge::graphStatus InferDataTypeRoiAlignRotatedV2(gert::InferDataTypeContext
 
 namespace ops {
 class RoiAlignRotatedV2 : public OpDef {
-public:
-    explicit RoiAlignRotatedV2(const char* name) : OpDef(name)
-    {
+  public:
+    explicit RoiAlignRotatedV2(const char *name) : OpDef(name) {
         this->Input("input")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -215,13 +212,14 @@ public:
         this->Attr("aligned").AttrType(REQUIRED).Bool();
         this->Attr("clockwise").AttrType(REQUIRED).Bool();
 
-        this->SetInferShape(ge::InferShape)
-            .SetInferDataType(ge::InferDataTypeRoiAlignRotatedV2);
+        this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDataTypeRoiAlignRotatedV2);
 
-        this->AICore()
-            .SetTiling(optiling::TilingForRoiAlignRotatedV2);
+        this->AICore().SetTiling(optiling::TilingForRoiAlignRotatedV2);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 

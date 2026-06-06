@@ -193,7 +193,7 @@ Driving SDK提供下列高性能算子，列表中Released标注为N代表使用
         <td align="center"></td>
         <td align="center">✓</td>
         <td align="center">✓</td>
-        <td align="center"></td>
+        <td align="center">✓</td>
     </tr>
     <tr>
         <td align="center"><a href="./context/border_align.md">border_align</a></td>

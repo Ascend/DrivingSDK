@@ -32,8 +32,7 @@ const uint32_t WORKSAPCE_16MBYTE_SIZE = 16 * 1024 * 1024;
 } // namespace
 
 namespace optiling {
-static ge::graphStatus TilingFuncForRoiAlignRotatedGradV2(gert::TilingContext* context)
-{
+static ge::graphStatus TilingFuncForRoiAlignRotatedGradV2(gert::TilingContext *context) {
     if (context == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -100,7 +99,7 @@ static ge::graphStatus TilingFuncForRoiAlignRotatedGradV2(gert::TilingContext* c
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     if (currentWorkspace == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -110,13 +109,12 @@ static ge::graphStatus TilingFuncForRoiAlignRotatedGradV2(gert::TilingContext* c
 }
 
 namespace ge {
-static ge::graphStatus InferShapeForRoiAlignRotatedGradV2(gert::InferShapeContext* context)
-{
-    const gert::Shape* inputShape = context->GetInputShape(INPUT_INPUT);
+static ge::graphStatus InferShapeForRoiAlignRotatedGradV2(gert::InferShapeContext *context) {
+    const gert::Shape *inputShape = context->GetInputShape(INPUT_INPUT);
     if (inputShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
-    gert::Shape* gradInputShape = context->GetOutputShape(OUTPUT_GRAD_INPUT);
+    gert::Shape *gradInputShape = context->GetOutputShape(OUTPUT_GRAD_INPUT);
     if (gradInputShape == nullptr) {
         return ge::GRAPH_FAILED;
     }
@@ -126,8 +124,7 @@ static ge::graphStatus InferShapeForRoiAlignRotatedGradV2(gert::InferShapeContex
     gradInputShape->AppendDim(inputShape->GetDim(CHANNEL_DIM));
     return GRAPH_SUCCESS;
 }
-static ge::graphStatus InferDataTypeForRoiAlignRotatedGradV2(gert::InferDataTypeContext* context)
-{
+static ge::graphStatus InferDataTypeForRoiAlignRotatedGradV2(gert::InferDataTypeContext *context) {
     auto inputDtype = context->GetInputDataType(INPUT_INPUT);
     context->SetOutputDataType(OUTPUT_GRAD_INPUT, inputDtype);
     return GRAPH_SUCCESS;
@@ -136,9 +133,8 @@ static ge::graphStatus InferDataTypeForRoiAlignRotatedGradV2(gert::InferDataType
 
 namespace ops {
 class RoiAlignRotatedGradV2 : public OpDef {
-public:
-    explicit RoiAlignRotatedGradV2(const char* name) : OpDef(name)
-    {
+  public:
+    explicit RoiAlignRotatedGradV2(const char *name) : OpDef(name) {
         this->Input("input")
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT})
@@ -174,6 +170,9 @@ public:
         this->AICore().SetTiling(optiling::TilingFuncForRoiAlignRotatedGradV2);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910_93");
+#if __DRIVING_HOST_AICORE__ == 310
+        this->AICore().AddConfig("ascend950");
+#endif
     }
 };
 
